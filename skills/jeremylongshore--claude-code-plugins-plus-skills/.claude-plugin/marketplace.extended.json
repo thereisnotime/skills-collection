@@ -2606,7 +2606,7 @@
       "name": "gas-fee-optimizer",
       "source": "./plugins/crypto/gas-fee-optimizer",
       "description": "Optimize transaction gas fees with timing and routing recommendations",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "crypto",
       "keywords": ["gas", "fees", "ethereum", "optimization", "transaction", "l2"],
       "author": {
@@ -5652,7 +5652,7 @@
       "name": "supabase-pack",
       "source": "./plugins/saas-packs/supabase-pack",
       "description": "Complete Supabase integration skill pack with 30 skills covering authentication, database, storage, realtime, edge functions, and production operations. Flagship+ tier vendor pack.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "saas-packs",
       "keywords": [
         "supabase",
@@ -5870,7 +5870,7 @@
       "name": "openrouter-pack",
       "source": "./plugins/saas-packs/openrouter-pack",
       "description": "Complete OpenRouter integration skill pack with 30 skills covering LLM routing, model selection, cost optimization, and multi-provider orchestration. Flagship+ tier vendor pack.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "saas-packs",
       "keywords": [
         "openrouter",
@@ -8571,8 +8571,8 @@
     {
       "name": "coreweave-pack",
       "source": "./plugins/saas-packs/coreweave-pack",
-      "description": "Claude Code skill pack for CoreWeave (24 skills)",
-      "version": "1.0.0",
+      "description": "Claude Code skill pack for CoreWeave (23 skills)",
+      "version": "1.4.0",
       "category": "saas-packs",
       "keywords": ["coreweave", "saas", "sdk", "integration"],
       "author": {
@@ -8581,7 +8581,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "components": {
-        "skills": 24
+        "skills": 23
       },
       "verification": {
         "score": 79,
@@ -8638,7 +8638,7 @@
       "name": "figma-pack",
       "source": "./plugins/saas-packs/figma-pack",
       "description": "Claude Code skill pack for Figma (30 skills)",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "saas-packs",
       "keywords": ["figma", "saas", "sdk", "integration"],
       "author": {
@@ -8857,8 +8857,8 @@
     {
       "name": "hubspot-pack",
       "source": "./plugins/saas-packs/hubspot-pack",
-      "description": "Claude Code skill pack for HubSpot (30 skills)",
-      "version": "1.0.0",
+      "description": "Claude Code skill pack for HubSpot (10 production-engineer skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": ["hubspot", "saas", "sdk", "integration"],
       "author": {
@@ -8867,13 +8867,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "components": {
-        "skills": 30
-      },
-      "verification": {
-        "score": 79,
-        "grade": "C",
-        "badge": "silver",
-        "lastValidated": "2026-03-21T00:00:00.000Z"
+        "skills": 10
       }
     },
     {
@@ -9034,7 +9028,7 @@
       "name": "notion-pack",
       "source": "./plugins/saas-packs/notion-pack",
       "description": "Claude Code skill pack for Notion (30 skills)",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "saas-packs",
       "keywords": ["notion", "saas", "sdk", "integration"],
       "author": {

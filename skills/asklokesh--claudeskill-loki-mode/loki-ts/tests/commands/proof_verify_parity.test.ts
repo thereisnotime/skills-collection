@@ -101,7 +101,14 @@ proof = {
             "diff_sha256": diff_sha256,
         },
     },
-    "honesty": {"headline": "VERIFIED", "degraded": []},
+    # Headline must match what the facts re-derive to. This fixture records an
+    # EMPTY diff (base == head) and NO tests facts, so the honest headline is
+    # NOT VERIFIED (an empty-diff, test-less run cannot be VERIFIED). v7.111.0
+    # added headline-consistency re-derivation to proof-verify, so a fixture that
+    # hand-claimed VERIFIED over test-less facts is now correctly flagged as an
+    # inconsistent edit. This test proves the INTEGRITY + no-drift path exits 0
+    # on an untampered proof; that holds for a consistent NOT VERIFIED headline.
+    "honesty": {"headline": "NOT VERIFIED", "degraded": []},
     "cost": {"usd": "0.10"},
 }
 

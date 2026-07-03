@@ -581,7 +581,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `clickup-pack`      | Claude Code skill pack for ClickUp (24 skills)                                                                                              |
 | `coderabbit-pack`   | Complete CodeRabbit integration skill pack with 24 skills covering AI code review, PR automation, and code quality analysis. Flagship tier… |
 | `cohere-pack`       | Claude Code skill pack for Cohere (24 skills)                                                                                               |
-| `coreweave-pack`    | Claude Code skill pack for CoreWeave (24 skills)                                                                                            |
+| `coreweave-pack`    | Claude Code skill pack for CoreWeave (23 skills)                                                                                            |
 | `cursor-pack`       | Complete Cursor integration skill pack with 30 skills covering AI code editing, composer workflows, codebase indexing, and productivity…    |
 | `customerio-pack`   | Complete Customer.io integration skill pack with 24 skills covering marketing automation, email campaigns, SMS, push notifications, and…    |
 | `databricks-pack`   | DEPRECATED (v1) — these 24 documentation skills are removed in v2.0.0, which rebuilds the pack as 5 live-detection skills + a shared…       |
@@ -608,7 +608,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `guidewire-pack`    | Complete Guidewire integration skill pack with 24 skills covering InsuranceSuite, PolicyCenter, ClaimCenter, and insurance platform…        |
 | `hex-pack`          | Claude Code skill pack for Hex (18 skills)                                                                                                  |
 | `hootsuite-pack`    | Claude Code skill pack for Hootsuite (18 skills)                                                                                            |
-| `hubspot-pack`      | Claude Code skill pack for HubSpot (30 skills)                                                                                              |
+| `hubspot-pack`      | Claude Code skill pack for HubSpot (10 production-engineer skills)                                                                          |
 | `ideogram-pack`     | Complete Ideogram integration skill pack with 24 skills covering AI image generation, text rendering, and creative design workflows.…       |
 | `instantly-pack`    | Complete Instantly integration skill pack with 24 skills covering cold email, outreach automation, and lead generation. Flagship tier…      |
 | `intercom-pack`     | Claude Code skill pack for Intercom (24 skills)                                                                                             |

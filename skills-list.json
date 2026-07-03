@@ -527,7 +527,7 @@
       "description": "\"Golang package and module documentation and exploration via `godig`, a pkg.go.dev API client (CLI + MCP server) \u2014 package docs, API references, symbols, code examples, available versions, importers (",
       "path": "samber--cc-skills-golang/skills/golang-pkg-go-dev/SKILL.md",
       "remote_path": "skills/golang-pkg-go-dev/SKILL.md",
-      "lines": 197,
+      "lines": 196,
       "words": 1607,
       "code_blocks": 6,
       "languages": [
@@ -10510,6 +10510,18 @@
     }
   ],
   "EveryInc--compound-engineering-plugin": [
+    {
+      "name": "ce-explain",
+      "description": "\"Turn a concept, a diff, an idea, or a window of your own recent work into a dense, visual explainer written for you personally \u2014 with an optional check-in (predict-then-reveal for diffs, corrected ex",
+      "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
+      "remote_path": "skills/ce-explain/SKILL.md",
+      "lines": 104,
+      "words": 1790,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
     {
       "name": "ce-setup",
       "description": "\"Check Compound Engineering health and repo-local config.\"",
@@ -21259,7 +21271,7 @@
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
       "lines": 377,
-      "words": 2161,
+      "words": 2167,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -21529,7 +21541,7 @@
       "path": "netlify--context-and-tools/skills/netlify-deploy/SKILL.md",
       "remote_path": "skills/netlify-deploy/SKILL.md",
       "lines": 236,
-      "words": 932,
+      "words": 1068,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -21579,8 +21591,8 @@
       "description": "Guide for using Netlify Blobs for file and asset storage \u2014 images, documents, uploads, exports, cached binary artifacts. Covers getStore(), CRUD operations, metadata, listing, deploy-scoped vs site-sc",
       "path": "netlify--context-and-tools/skills/netlify-blobs/SKILL.md",
       "remote_path": "skills/netlify-blobs/SKILL.md",
-      "lines": 113,
-      "words": 694,
+      "lines": 119,
+      "words": 846,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -21725,7 +21737,7 @@
       "path": "netlify--context-and-tools/codex/skills/netlify-deploy/SKILL.md",
       "remote_path": "codex/skills/netlify-deploy/SKILL.md",
       "lines": 236,
-      "words": 932,
+      "words": 1068,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -21775,8 +21787,8 @@
       "description": "Guide for using Netlify Blobs for file and asset storage \u2014 images, documents, uploads, exports, cached binary artifacts. Covers getStore(), CRUD operations, metadata, listing, deploy-scoped vs site-sc",
       "path": "netlify--context-and-tools/codex/skills/netlify-blobs/SKILL.md",
       "remote_path": "codex/skills/netlify-blobs/SKILL.md",
-      "lines": 113,
-      "words": 694,
+      "lines": 119,
+      "words": 846,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23952,9 +23964,9 @@
       "description": "Audit websites for SEO, performance, security, technical, content, and 17 other issue categories with 240+ rules using the squirrelscan CLI. Returns LLM-optimized reports with health scores, broken li",
       "path": "squirrelscan--skills/audit-website/SKILL.md",
       "remote_path": "audit-website/SKILL.md",
-      "lines": 471,
-      "words": 2597,
-      "code_blocks": 17,
+      "lines": 492,
+      "words": 2785,
+      "code_blocks": 18,
       "languages": [
         "bash"
       ],
@@ -23996,9 +24008,9 @@
       "description": ">",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 133,
-      "words": 778,
-      "code_blocks": 7,
+      "lines": 139,
+      "words": 850,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
@@ -24054,9 +24066,9 @@
       "description": ">",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 133,
-      "words": 778,
-      "code_blocks": 7,
+      "lines": 139,
+      "words": 850,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
@@ -24112,9 +24124,9 @@
       "description": ">",
       "path": "stripe--ai/skills/stripe-projects/SKILL.md",
       "remote_path": "skills/stripe-projects/SKILL.md",
-      "lines": 133,
-      "words": 778,
-      "code_blocks": 7,
+      "lines": 139,
+      "words": 850,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
@@ -74169,8 +74181,8 @@
       "description": "'Implement Supabase database webhooks, pg_net async HTTP, LISTEN/NOTIFY,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-webhooks-events/SKILL.md",
-      "lines": 474,
-      "words": 1747,
+      "lines": 476,
+      "words": 1749,
       "code_blocks": 11,
       "languages": [
         "sql",
@@ -74184,8 +74196,8 @@
       "description": "'Implement Supabase across different app architectures: Next.js SSR with",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-architecture-variants/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-architecture-variants/SKILL.md",
-      "lines": 464,
-      "words": 1636,
+      "lines": 466,
+      "words": 1638,
       "code_blocks": 12,
       "languages": [
         "json",
@@ -74200,8 +74212,8 @@
       "description": "'Enforce organizational governance for Supabase projects: shared RLS",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-policy-guardrails/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-policy-guardrails/SKILL.md",
-      "lines": 285,
-      "words": 1352,
+      "lines": 287,
+      "words": 1354,
       "code_blocks": 2,
       "languages": [
         "sql"
@@ -74278,8 +74290,8 @@
       "description": "'Scale Supabase projects for production load: read replicas, connection",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-load-scale/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-load-scale/SKILL.md",
-      "lines": 404,
-      "words": 1772,
+      "lines": 406,
+      "words": 1774,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -74376,8 +74388,8 @@
       "description": "'Avoid and fix the most common Supabase mistakes: exposing service_role",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-known-pitfalls/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-known-pitfalls/SKILL.md",
-      "lines": 505,
-      "words": 2447,
+      "lines": 507,
+      "words": 2449,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -74393,8 +74405,8 @@
       "description": "'Collect Supabase diagnostic info for troubleshooting and support tickets.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-debug-bundle/SKILL.md",
-      "lines": 306,
-      "words": 1606,
+      "lines": 308,
+      "words": 1608,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -74423,9 +74435,9 @@
       "description": "'Build resilient Supabase integrations: circuit breakers wrapping createClient",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-reliability-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-reliability-patterns/SKILL.md",
-      "lines": 286,
-      "words": 1199,
-      "code_blocks": 3,
+      "lines": 314,
+      "words": 1329,
+      "code_blocks": 5,
       "languages": [
         "typescript"
       ],
@@ -74601,7 +74613,7 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/supabase-pack/skills/supabase-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/supabase-pack/skills/supabase-rate-limits/SKILL.md",
       "lines": 363,
-      "words": 1610,
+      "words": 1612,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -76762,9 +76774,9 @@
       "description": "'Implement caching for OpenRouter API responses to reduce cost and latency.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-caching-strategy/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-caching-strategy/SKILL.md",
-      "lines": 189,
-      "words": 778,
-      "code_blocks": 4,
+      "lines": 224,
+      "words": 1138,
+      "code_blocks": 5,
       "languages": [
         "python"
       ],
@@ -76776,12 +76788,13 @@
       "description": "'Optimize context window usage for OpenRouter models to reduce cost and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-context-optimization/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-context-optimization/SKILL.md",
-      "lines": 198,
-      "words": 801,
-      "code_blocks": 5,
+      "lines": 233,
+      "words": 1173,
+      "code_blocks": 6,
       "languages": [
         "bash",
-        "python"
+        "python",
+        "text"
       ],
       "version": "2.0.0",
       "license": "MIT"
@@ -76791,12 +76804,13 @@
       "description": "'Review OpenRouter integration for regulatory compliance (SOC2, GDPR,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-compliance-review/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-compliance-review/SKILL.md",
-      "lines": 162,
-      "words": 807,
-      "code_blocks": 4,
+      "lines": 201,
+      "words": 1182,
+      "code_blocks": 5,
       "languages": [
         "bash",
-        "python"
+        "python",
+        "text"
       ],
       "version": "2.0.0",
       "license": "MIT"
@@ -76806,9 +76820,9 @@
       "description": "'Distribute OpenRouter requests across multiple keys and models for high",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-load-balancing/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-load-balancing/SKILL.md",
-      "lines": 201,
-      "words": 727,
-      "code_blocks": 4,
+      "lines": 236,
+      "words": 1071,
+      "code_blocks": 5,
       "languages": [
         "python"
       ],
@@ -76820,11 +76834,12 @@
       "description": "'Implement cost controls for OpenRouter API usage. Use when setting budgets,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-cost-controls/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-cost-controls/SKILL.md",
-      "lines": 199,
-      "words": 755,
-      "code_blocks": 5,
+      "lines": 240,
+      "words": 1127,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "json",
         "python"
       ],
       "version": "2.0.0",
@@ -76835,9 +76850,9 @@
       "description": "'Query, filter, and select from OpenRouter''s 400+ model catalog. Use",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-model-catalog/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-model-catalog/SKILL.md",
-      "lines": 177,
-      "words": 755,
-      "code_blocks": 5,
+      "lines": 213,
+      "words": 1110,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "json",
@@ -76851,11 +76866,12 @@
       "description": "'Configure automatic model fallbacks for high availability on OpenRouter.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-fallback-config/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-fallback-config/SKILL.md",
-      "lines": 191,
-      "words": 686,
-      "code_blocks": 5,
+      "lines": 234,
+      "words": 1072,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "json",
         "python"
       ],
       "version": "2.0.0",
@@ -76866,9 +76882,9 @@
       "description": "'Understand OpenRouter pricing, calculate costs, and optimize spend.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-pricing-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-pricing-basics/SKILL.md",
-      "lines": 158,
-      "words": 721,
-      "code_blocks": 5,
+      "lines": 195,
+      "words": 1039,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "python"
@@ -76881,12 +76897,13 @@
       "description": "'Set up OpenRouter API authentication and configure API keys. Use when",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-install-auth/SKILL.md",
-      "lines": 176,
-      "words": 649,
-      "code_blocks": 6,
+      "lines": 199,
+      "words": 784,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "python",
+        "text",
         "typescript"
       ],
       "version": "2.0.0",
@@ -76897,9 +76914,9 @@
       "description": "'Design production architectures using OpenRouter as the LLM gateway.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-reference-architecture/SKILL.md",
-      "lines": 226,
-      "words": 842,
-      "code_blocks": 6,
+      "lines": 261,
+      "words": 1199,
+      "code_blocks": 7,
       "languages": [
         "python"
       ],
@@ -76911,12 +76928,13 @@
       "description": "'Use multiple AI providers (OpenAI, Anthropic, Google, Meta) through",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-multi-provider/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-multi-provider/SKILL.md",
-      "lines": 189,
-      "words": 818,
-      "code_blocks": 5,
+      "lines": 224,
+      "words": 1209,
+      "code_blocks": 6,
       "languages": [
         "bash",
-        "python"
+        "python",
+        "text"
       ],
       "version": "2.0.0",
       "license": "MIT"
@@ -76926,9 +76944,9 @@
       "description": "'Migrate from OpenAI to OpenRouter with minimal code changes. Use when",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-openai-compat/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-openai-compat/SKILL.md",
-      "lines": 207,
-      "words": 787,
-      "code_blocks": 6,
+      "lines": 246,
+      "words": 1131,
+      "code_blocks": 7,
       "languages": [
         "python",
         "typescript"
@@ -76941,9 +76959,9 @@
       "description": "'Optimize OpenRouter request latency and throughput. Use when building",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-performance-tuning/SKILL.md",
-      "lines": 196,
-      "words": 777,
-      "code_blocks": 4,
+      "lines": 233,
+      "words": 1118,
+      "code_blocks": 5,
       "languages": [
         "python",
         "text"
@@ -76956,9 +76974,9 @@
       "description": "'Understand and handle OpenRouter rate limits. Use when hitting 429 errors,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-rate-limits/SKILL.md",
-      "lines": 208,
-      "words": 800,
-      "code_blocks": 5,
+      "lines": 243,
+      "words": 1123,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "python"
@@ -76971,9 +76989,9 @@
       "description": "'Avoid common OpenRouter integration mistakes and gotchas. Use proactively",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-known-pitfalls/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-known-pitfalls/SKILL.md",
-      "lines": 241,
-      "words": 953,
-      "code_blocks": 11,
+      "lines": 281,
+      "words": 1345,
+      "code_blocks": 12,
       "languages": [
         "python"
       ],
@@ -76985,9 +77003,9 @@
       "description": "'Migrate to OpenRouter from direct provider APIs or upgrade between SDK/model",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-upgrade-migration/SKILL.md",
-      "lines": 243,
-      "words": 819,
-      "code_blocks": 6,
+      "lines": 286,
+      "words": 1195,
+      "code_blocks": 7,
       "languages": [
         "python",
         "typescript"
@@ -77000,9 +77018,9 @@
       "description": "'Configure OpenRouter for multi-user teams with per-user keys, budget",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-team-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-team-setup/SKILL.md",
-      "lines": 249,
-      "words": 932,
-      "code_blocks": 6,
+      "lines": 288,
+      "words": 1305,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "python"
@@ -77015,12 +77033,13 @@
       "description": "'Validate production readiness of your OpenRouter integration. Use before",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-prod-checklist/SKILL.md",
-      "lines": 179,
-      "words": 865,
-      "code_blocks": 4,
+      "lines": 219,
+      "words": 1238,
+      "code_blocks": 5,
       "languages": [
         "bash",
-        "python"
+        "python",
+        "text"
       ],
       "version": "2.0.0",
       "license": "MIT"
@@ -77030,9 +77049,9 @@
       "description": "'Track and analyze OpenRouter API usage patterns, costs, and performance.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-usage-analytics/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-usage-analytics/SKILL.md",
-      "lines": 236,
-      "words": 867,
-      "code_blocks": 5,
+      "lines": 274,
+      "words": 1216,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "python",
@@ -77046,9 +77065,9 @@
       "description": "'Monitor OpenRouter model availability and implement health checks. Use",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-model-availability/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-model-availability/SKILL.md",
-      "lines": 183,
-      "words": 717,
-      "code_blocks": 4,
+      "lines": 217,
+      "words": 1067,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "python"
@@ -77061,9 +77080,9 @@
       "description": "'Implement intelligent model routing to optimize cost, quality, and latency",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-model-routing/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-model-routing/SKILL.md",
-      "lines": 197,
-      "words": 764,
-      "code_blocks": 4,
+      "lines": 232,
+      "words": 1127,
+      "code_blocks": 5,
       "languages": [
         "python"
       ],
@@ -77075,11 +77094,12 @@
       "description": "'Create debug bundles for troubleshooting OpenRouter API issues. Use",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-debug-bundle/SKILL.md",
-      "lines": 219,
-      "words": 764,
-      "code_blocks": 3,
+      "lines": 264,
+      "words": 1128,
+      "code_blocks": 5,
       "languages": [
         "bash",
+        "json",
         "python"
       ],
       "version": "2.0.0",
@@ -77090,9 +77110,9 @@
       "description": "'Define custom routing rules for OpenRouter requests based on user tier,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-routing-rules/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-routing-rules/SKILL.md",
-      "lines": 266,
-      "words": 846,
-      "code_blocks": 4,
+      "lines": 302,
+      "words": 1167,
+      "code_blocks": 5,
       "languages": [
         "python"
       ],
@@ -77104,9 +77124,9 @@
       "description": "'Build reusable OpenRouter client wrappers with retries, typing, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-sdk-patterns/SKILL.md",
-      "lines": 275,
-      "words": 863,
-      "code_blocks": 5,
+      "lines": 311,
+      "words": 1208,
+      "code_blocks": 6,
       "languages": [
         "python",
         "typescript"
@@ -77119,10 +77139,11 @@
       "description": "'Implement audit logging for OpenRouter API calls. Use when building",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-audit-logging/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-audit-logging/SKILL.md",
-      "lines": 227,
-      "words": 818,
-      "code_blocks": 4,
+      "lines": 270,
+      "words": 1206,
+      "code_blocks": 6,
       "languages": [
+        "json",
         "python",
         "sql"
       ],
@@ -77134,13 +77155,14 @@
       "description": "'Diagnose and fix common OpenRouter API errors. Use when encountering",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-common-errors/SKILL.md",
-      "lines": 198,
-      "words": 1110,
-      "code_blocks": 4,
+      "lines": 234,
+      "words": 1453,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "json",
-        "python"
+        "python",
+        "text"
       ],
       "version": "2.0.0",
       "license": "MIT"
@@ -77150,9 +77172,9 @@
       "description": "'Implement streaming responses with OpenRouter for real-time UIs. Use",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-streaming-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-streaming-setup/SKILL.md",
-      "lines": 242,
-      "words": 798,
-      "code_blocks": 6,
+      "lines": 283,
+      "words": 1168,
+      "code_blocks": 7,
       "languages": [
         "javascript",
         "python",
@@ -77166,13 +77188,14 @@
       "description": "'Send your first OpenRouter API request and understand the response.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-hello-world/SKILL.md",
-      "lines": 175,
-      "words": 576,
-      "code_blocks": 6,
+      "lines": 217,
+      "words": 860,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "python",
+        "text",
         "typescript"
       ],
       "version": "2.0.0",
@@ -77183,9 +77206,9 @@
       "description": "'Implement function/tool calling with OpenRouter models. Use when building",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-function-calling/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-function-calling/SKILL.md",
-      "lines": 229,
-      "words": 893,
-      "code_blocks": 4,
+      "lines": 267,
+      "words": 1251,
+      "code_blocks": 5,
       "languages": [
         "python",
         "typescript"
@@ -77198,9 +77221,9 @@
       "description": "'Implement data privacy controls for OpenRouter API usage. Use when handling",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/openrouter-pack/skills/openrouter-data-privacy/SKILL.md",
       "remote_path": "plugins/saas-packs/openrouter-pack/skills/openrouter-data-privacy/SKILL.md",
-      "lines": 210,
-      "words": 781,
-      "code_blocks": 4,
+      "lines": 247,
+      "words": 1136,
+      "code_blocks": 5,
       "languages": [
         "python"
       ],
@@ -91394,8 +91417,8 @@
       "description": "'Integrate CoreWeave deployments into CI/CD pipelines with GitHub Actions.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-ci-integration/SKILL.md",
-      "lines": 142,
-      "words": 548,
+      "lines": 144,
+      "words": 568,
       "code_blocks": 3,
       "languages": [
         "typescript",
@@ -91409,8 +91432,8 @@
       "description": "'Production-ready patterns for CoreWeave GPU workload management with",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-sdk-patterns/SKILL.md",
-      "lines": 176,
-      "words": 468,
+      "lines": 178,
+      "words": 488,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -91423,8 +91446,8 @@
       "description": "'Set up local development workflow for CoreWeave GPU deployments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-local-dev-loop/SKILL.md",
-      "lines": 109,
-      "words": 362,
+      "lines": 111,
+      "words": 382,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -91433,12 +91456,27 @@
       "license": "MIT"
     },
     {
+      "name": "coreweave-gpu-node-forensics",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-gpu-node-forensics/SKILL.md",
+      "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-gpu-node-forensics/SKILL.md",
+      "lines": 251,
+      "words": 1936,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "text"
+      ],
+      "version": "0.1.0",
+      "license": "MIT"
+    },
+    {
       "name": "coreweave-prod-checklist",
       "description": "'Production readiness checklist for CoreWeave GPU workloads.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-prod-checklist/SKILL.md",
-      "lines": 70,
-      "words": 245,
+      "lines": 72,
+      "words": 265,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -91451,8 +91489,8 @@
       "description": "'Incident response runbook for CoreWeave GPU workload failures.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-incident-runbook/SKILL.md",
-      "lines": 80,
-      "words": 249,
+      "lines": 82,
+      "words": 269,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -91461,15 +91499,18 @@
       "license": "MIT"
     },
     {
-      "name": "coreweave-reference-architecture",
-      "description": "'Reference architecture for CoreWeave GPU cloud deployments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-reference-architecture/SKILL.md",
-      "lines": 93,
-      "words": 311,
-      "code_blocks": 2,
-      "languages": [],
-      "version": "1.0.0",
+      "name": "coreweave-gpu-cost-leak-hunter",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-gpu-cost-leak-hunter/SKILL.md",
+      "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-gpu-cost-leak-hunter/SKILL.md",
+      "lines": 261,
+      "words": 1905,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "text"
+      ],
+      "version": "0.1.0",
       "license": "MIT"
     },
     {
@@ -91477,23 +91518,9 @@
       "description": "'Configure RBAC and namespace isolation for CoreWeave multi-team GPU",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-enterprise-rbac/SKILL.md",
-      "lines": 115,
-      "words": 556,
+      "lines": 117,
+      "words": 576,
       "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-webhooks-events",
-      "description": "'Monitor CoreWeave cluster events and GPU workload status.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-webhooks-events/SKILL.md",
-      "lines": 133,
-      "words": 469,
-      "code_blocks": 4,
       "languages": [
         "typescript"
       ],
@@ -91505,8 +91532,8 @@
       "description": "'Optimize CoreWeave GPU cloud costs with right-sizing and scheduling.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-cost-tuning/SKILL.md",
-      "lines": 78,
-      "words": 256,
+      "lines": 80,
+      "words": 276,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -91521,26 +91548,11 @@
       "description": "'Optimize CoreWeave GPU inference latency and throughput.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-performance-tuning/SKILL.md",
-      "lines": 94,
-      "words": 269,
+      "lines": 96,
+      "words": 289,
       "code_blocks": 2,
       "languages": [
         "yaml"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-rate-limits",
-      "description": "'Handle CoreWeave API and GPU quota limits.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-rate-limits/SKILL.md",
-      "lines": 66,
-      "words": 177,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "python"
       ],
       "version": "1.0.0",
       "license": "MIT"
@@ -91550,8 +91562,8 @@
       "description": "'Deploy KServe InferenceService on CoreWeave with autoscaling and GPU",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-core-workflow-a/SKILL.md",
-      "lines": 140,
-      "words": 388,
+      "lines": 142,
+      "words": 408,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -91565,8 +91577,8 @@
       "description": "'Collect CoreWeave cluster diagnostics for support tickets.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-debug-bundle/SKILL.md",
-      "lines": 119,
-      "words": 572,
+      "lines": 121,
+      "words": 592,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -91580,25 +91592,11 @@
       "description": "'Upgrade CoreWeave deployments and migrate between GPU types.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-upgrade-migration/SKILL.md",
-      "lines": 153,
-      "words": 706,
+      "lines": 155,
+      "words": 726,
       "code_blocks": 3,
       "languages": [
         "typescript"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "coreweave-migration-deep-dive",
-      "description": "'Migrate ML workloads from AWS/GCP/Azure to CoreWeave GPU cloud.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-migration-deep-dive/SKILL.md",
-      "lines": 79,
-      "words": 305,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
       ],
       "version": "1.0.0",
       "license": "MIT"
@@ -91608,8 +91606,8 @@
       "description": "'Configure CoreWeave across development, staging, and production environments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-multi-env-setup/SKILL.md",
-      "lines": 118,
-      "words": 505,
+      "lines": 120,
+      "words": 525,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -91624,8 +91622,8 @@
       "description": "'Deploy inference services on CoreWeave with Helm charts and Kustomize.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-deploy-integration/SKILL.md",
-      "lines": 145,
-      "words": 519,
+      "lines": 147,
+      "words": 539,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -91637,12 +91635,27 @@
       "license": "MIT"
     },
     {
+      "name": "coreweave-fabric-diagnostics",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-fabric-diagnostics/SKILL.md",
+      "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-fabric-diagnostics/SKILL.md",
+      "lines": 231,
+      "words": 1951,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "text"
+      ],
+      "version": "0.1.0",
+      "license": "MIT"
+    },
+    {
       "name": "coreweave-common-errors",
       "description": "'Diagnose and fix CoreWeave GPU scheduling, pod, and networking errors.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-common-errors/SKILL.md",
-      "lines": 94,
-      "words": 282,
+      "lines": 96,
+      "words": 302,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -91656,8 +91669,8 @@
       "description": "'Deploy a GPU workload on CoreWeave with kubectl.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-hello-world/SKILL.md",
-      "lines": 181,
-      "words": 464,
+      "lines": 183,
+      "words": 484,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -91671,8 +91684,8 @@
       "description": "'Set up GPU monitoring and observability for CoreWeave workloads.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-observability/SKILL.md",
-      "lines": 116,
-      "words": 523,
+      "lines": 118,
+      "words": 543,
       "code_blocks": 4,
       "languages": [
         "typescript"
@@ -91685,8 +91698,8 @@
       "description": "'Secure CoreWeave deployments with RBAC, network policies, and secrets",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-security-basics/SKILL.md",
-      "lines": 131,
-      "words": 506,
+      "lines": 133,
+      "words": 526,
       "code_blocks": 4,
       "languages": [
         "typescript"
@@ -91699,8 +91712,8 @@
       "description": "'Run distributed GPU training jobs on CoreWeave with multi-node PyTorch.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-core-workflow-b/SKILL.md",
-      "lines": 147,
-      "words": 401,
+      "lines": 149,
+      "words": 421,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -91714,8 +91727,8 @@
       "description": "'Handle training data and model artifacts on CoreWeave persistent storage.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-data-handling/SKILL.md",
-      "lines": 133,
-      "words": 685,
+      "lines": 135,
+      "words": 705,
       "code_blocks": 3,
       "languages": [
         "typescript"
@@ -91728,8 +91741,8 @@
       "description": "'Configure CoreWeave Kubernetes Service (CKS) access with kubeconfig",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/coreweave-pack/skills/coreweave-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/coreweave-pack/skills/coreweave-install-auth/SKILL.md",
-      "lines": 134,
-      "words": 403,
+      "lines": 136,
+      "words": 423,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -98614,9 +98627,9 @@
       "description": "'Build change detection and event handling for Notion workspaces using",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-webhooks-events/SKILL.md",
-      "lines": 456,
-      "words": 1754,
-      "code_blocks": 6,
+      "lines": 506,
+      "words": 1941,
+      "code_blocks": 8,
       "languages": [
         "typescript"
       ],
@@ -98722,8 +98735,8 @@
       "description": "'Design and implement a production-ready Notion integration architecture",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-reference-architecture/SKILL.md",
-      "lines": 427,
-      "words": 1860,
+      "lines": 435,
+      "words": 1976,
       "code_blocks": 5,
       "languages": [
         "typescript"
@@ -98810,8 +98823,8 @@
       "description": "'Create, update, archive, and compose Notion pages and block content.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-content-management/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-content-management/SKILL.md",
-      "lines": 527,
-      "words": 1801,
+      "lines": 392,
+      "words": 1455,
       "code_blocks": 8,
       "languages": [
         "python",
@@ -98949,9 +98962,9 @@
       "description": "'Deploy Node.js applications that use the Notion API to production",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/notion-pack/skills/notion-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/notion-pack/skills/notion-deploy-integration/SKILL.md",
-      "lines": 528,
-      "words": 1992,
-      "code_blocks": 15,
+      "lines": 452,
+      "words": 1802,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "json",
@@ -99184,8 +99197,8 @@
       "description": "'Scale Sentry for high-traffic applications handling millions of events",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/sentry-pack/skills/sentry-load-scale/SKILL.md",
       "remote_path": "plugins/saas-packs/sentry-pack/skills/sentry-load-scale/SKILL.md",
-      "lines": 510,
-      "words": 2222,
+      "lines": 512,
+      "words": 2224,
       "code_blocks": 11,
       "languages": [
         "javascript",
@@ -99526,8 +99539,8 @@
       "description": "'Optimize Sentry costs, reduce event volume, and manage quota spend.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/sentry-pack/skills/sentry-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/sentry-pack/skills/sentry-cost-tuning/SKILL.md",
-      "lines": 454,
-      "words": 2177,
+      "lines": 456,
+      "words": 2179,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -105438,13 +105451,14 @@
       "description": "'Load test Figma API integrations and plan for scale.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-load-scale/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-load-scale/SKILL.md",
-      "lines": 250,
-      "words": 886,
-      "code_blocks": 5,
+      "lines": 268,
+      "words": 977,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "javascript",
         "markdown",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105455,10 +105469,12 @@
       "description": "'Handle Figma REST API rate limits with exponential backoff and request",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-rate-limits/SKILL.md",
-      "lines": 219,
-      "words": 819,
-      "code_blocks": 4,
+      "lines": 245,
+      "words": 915,
+      "code_blocks": 7,
       "languages": [
+        "bash",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105485,10 +105501,11 @@
       "description": "'Handle Figma API data correctly: comments, versions, user data, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-data-handling/SKILL.md",
-      "lines": 255,
-      "words": 874,
-      "code_blocks": 5,
+      "lines": 276,
+      "words": 963,
+      "code_blocks": 7,
       "languages": [
+        "bash",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105499,12 +105516,13 @@
       "description": "'Deploy Figma-powered applications to Vercel, Cloud Run, and Fly.io.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-deploy-integration/SKILL.md",
-      "lines": 203,
-      "words": 612,
-      "code_blocks": 7,
+      "lines": 233,
+      "words": 717,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "dockerfile",
+        "text",
         "toml",
         "typescript"
       ],
@@ -105516,11 +105534,13 @@
       "description": "'Automate Figma design token sync and asset export in CI/CD pipelines.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-ci-integration/SKILL.md",
-      "lines": 187,
-      "words": 639,
-      "code_blocks": 4,
+      "lines": 209,
+      "words": 722,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "diff",
+        "text",
         "yaml"
       ],
       "version": "1.0.0",
@@ -105531,10 +105551,13 @@
       "description": "'Extract design tokens, colors, typography, and spacing from Figma files",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-core-workflow-a/SKILL.md",
-      "lines": 201,
-      "words": 749,
-      "code_blocks": 5,
+      "lines": 230,
+      "words": 836,
+      "code_blocks": 8,
       "languages": [
+        "bash",
+        "css",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105545,9 +105568,9 @@
       "description": "'Configure Figma API access across dev, staging, and production environments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-multi-env-setup/SKILL.md",
-      "lines": 184,
-      "words": 600,
-      "code_blocks": 4,
+      "lines": 208,
+      "words": 684,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
@@ -105560,10 +105583,11 @@
       "description": "'Build resilient Figma integrations with circuit breakers, fallbacks,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-reliability-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-reliability-patterns/SKILL.md",
-      "lines": 276,
-      "words": 932,
-      "code_blocks": 5,
+      "lines": 297,
+      "words": 1038,
+      "code_blocks": 7,
       "languages": [
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105574,10 +105598,11 @@
       "description": "'Avoid the most common Figma API integration mistakes and anti-patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-known-pitfalls/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-known-pitfalls/SKILL.md",
-      "lines": 216,
-      "words": 964,
-      "code_blocks": 10,
+      "lines": 260,
+      "words": 1266,
+      "code_blocks": 12,
       "languages": [
+        "bash",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105588,8 +105613,8 @@
       "description": "'Diagnose and fix common Figma REST API and Plugin API errors.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-common-errors/SKILL.md",
-      "lines": 192,
-      "words": 893,
+      "lines": 205,
+      "words": 1032,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -105618,10 +105643,11 @@
       "description": "'Reference architecture for production Figma API integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-reference-architecture/SKILL.md",
-      "lines": 208,
-      "words": 849,
-      "code_blocks": 7,
+      "lines": 232,
+      "words": 955,
+      "code_blocks": 9,
       "languages": [
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105632,10 +105658,12 @@
       "description": "'Optimize Figma REST API performance with caching, partial fetches, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-performance-tuning/SKILL.md",
-      "lines": 208,
-      "words": 770,
-      "code_blocks": 5,
+      "lines": 234,
+      "words": 871,
+      "code_blocks": 8,
       "languages": [
+        "bash",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105661,12 +105689,13 @@
       "description": "'Deep debugging for Figma API issues: network analysis, response inspection,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-advanced-troubleshooting/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-advanced-troubleshooting/SKILL.md",
-      "lines": 240,
-      "words": 877,
-      "code_blocks": 6,
+      "lines": 267,
+      "words": 990,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "markdown",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105677,11 +105706,12 @@
       "description": "'Production readiness checklist for Figma REST API integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-prod-checklist/SKILL.md",
-      "lines": 161,
-      "words": 737,
-      "code_blocks": 2,
+      "lines": 181,
+      "words": 844,
+      "code_blocks": 4,
       "languages": [
         "bash",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105692,10 +105722,12 @@
       "description": "'Set up monitoring, metrics, and alerting for Figma API integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-observability/SKILL.md",
-      "lines": 258,
-      "words": 777,
-      "code_blocks": 4,
+      "lines": 282,
+      "words": 845,
+      "code_blocks": 7,
       "languages": [
+        "bash",
+        "text",
         "typescript",
         "yaml"
       ],
@@ -105707,9 +105739,9 @@
       "description": "'Secure Figma API tokens, configure scopes, and validate webhook signatures.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-security-basics/SKILL.md",
-      "lines": 182,
-      "words": 687,
-      "code_blocks": 5,
+      "lines": 202,
+      "words": 770,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "markdown",
@@ -105723,10 +105755,12 @@
       "description": "'Migrate design systems between Figma files, or from other tools to Figma",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-migration-deep-dive/SKILL.md",
-      "lines": 283,
-      "words": 891,
-      "code_blocks": 5,
+      "lines": 302,
+      "words": 986,
+      "code_blocks": 7,
       "languages": [
+        "bash",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105753,12 +105787,13 @@
       "description": "'Enforce security policies and coding standards for Figma API integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-policy-guardrails/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-policy-guardrails/SKILL.md",
-      "lines": 271,
-      "words": 867,
-      "code_blocks": 6,
+      "lines": 291,
+      "words": 952,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "javascript",
+        "text",
         "typescript",
         "yaml"
       ],
@@ -105784,9 +105819,9 @@
       "description": "'Production-ready patterns for the Figma REST API and Plugin API.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-sdk-patterns/SKILL.md",
-      "lines": 280,
-      "words": 946,
-      "code_blocks": 5,
+      "lines": 307,
+      "words": 1051,
+      "code_blocks": 7,
       "languages": [
         "typescript"
       ],
@@ -105798,10 +105833,12 @@
       "description": "'Optimize Figma API usage to minimize costs and stay within plan limits.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-cost-tuning/SKILL.md",
-      "lines": 210,
-      "words": 861,
-      "code_blocks": 4,
+      "lines": 231,
+      "words": 963,
+      "code_blocks": 6,
       "languages": [
+        "bash",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105827,11 +105864,12 @@
       "description": "'Handle Figma REST API scope changes, deprecations, and migration tasks.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-upgrade-migration/SKILL.md",
-      "lines": 180,
-      "words": 743,
-      "code_blocks": 4,
+      "lines": 204,
+      "words": 837,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "text",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105842,10 +105880,11 @@
       "description": "'Configure Figma Enterprise features: OAuth 2.0, team management, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-enterprise-rbac/SKILL.md",
-      "lines": 279,
-      "words": 965,
-      "code_blocks": 5,
+      "lines": 299,
+      "words": 1071,
+      "code_blocks": 7,
       "languages": [
+        "bash",
         "typescript"
       ],
       "version": "1.0.0",
@@ -105856,9 +105895,9 @@
       "description": "'Respond to Figma API outages, auth failures, and rate limit incidents.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-incident-runbook/SKILL.md",
-      "lines": 221,
-      "words": 885,
-      "code_blocks": 7,
+      "lines": 241,
+      "words": 1015,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "markdown",
@@ -105872,10 +105911,11 @@
       "description": "'Choose between Figma integration architectures: CLI script, webhook",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/figma-pack/skills/figma-architecture-variants/SKILL.md",
       "remote_path": "plugins/saas-packs/figma-pack/skills/figma-architecture-variants/SKILL.md",
-      "lines": 241,
-      "words": 921,
-      "code_blocks": 8,
+      "lines": 259,
+      "words": 1024,
+      "code_blocks": 9,
       "languages": [
+        "bash",
         "json",
         "typescript"
       ],
@@ -111993,7 +112033,7 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/crypto/gas-fee-optimizer/commands/optimize-gas.md",
       "remote_path": "plugins/crypto/gas-fee-optimizer/commands/optimize-gas.md",
       "lines": 187,
-      "words": 814,
+      "words": 828,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -136442,6 +136482,18 @@
       ]
     },
     {
+      "name": "i18n-studio",
+      "description": "This skill should be used when editing, translating, or reviewing an Astro-style i18n string corpus (files of the form export default { en: {...}, ru: {...} } under src/i18n/strings), or when the user",
+      "path": "glebis--claude-skills/i18n-studio/SKILL.md",
+      "remote_path": "i18n-studio/SKILL.md",
+      "lines": 127,
+      "words": 1016,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "context-builder",
       "description": "Generate interactive AI transformation context-builder prompts for consulting clients. Use when creating structured discovery session prompts that guide a company through context gathering about their",
       "path": "glebis--claude-skills/context-builder/SKILL.md",
@@ -138289,31 +138341,6 @@
       ]
     }
   ],
-  "hesreallyhim--awesome-claude-code": [
-    {
-      "name": "todo",
-      "description": "Manage project todos in todos.md file",
-      "path": "hesreallyhim--awesome-claude-code/resources/slash-commands/todo/todo.md",
-      "remote_path": "resources/slash-commands/todo/todo.md",
-      "lines": 61,
-      "words": 494,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "design-review",
-      "description": "Use this agent when you need to conduct a comprehensive design review on front-end pull requests or general UI changes. This agent should be triggered when a PR modifying UI components, styles, or use",
-      "path": "hesreallyhim--awesome-claude-code/resources/workflows-knowledge-guides/Design-Review-Workflow/design-review-agent.md",
-      "remote_path": "resources/workflows-knowledge-guides/Design-Review-Workflow/design-review-agent.md",
-      "lines": 108,
-      "words": 724,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
-    }
-  ],
+  "hesreallyhim--awesome-claude-code": [],
   "jqueryscript--awesome-claude-code": []
 }

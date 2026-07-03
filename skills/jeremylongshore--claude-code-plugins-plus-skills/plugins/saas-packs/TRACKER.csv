@@ -51,7 +51,7 @@ mistral,Mistral AI,pro,18,@intentsolutionsio/mistral-skill-md-pack,reserved,ccpi
 wispr,Wispr,pro,18,@intentsolutionsio/wispr-skill-md-pack,reserved,ccpi-wispr,18,0,not_started,not_added,Brex #50
 anthropic,Anthropic,flagship+,30,@intentsolutionsio/anthropic-skill-md-pack,reserved,ccpi-anthropic,30,0,not_started,not_added,Extended #51 - Claude maker
 databricks,Databricks,flagship+,30,@intentsolutionsio/databricks-skill-md-pack,reserved,ccpi-databricks,30,0,not_started,not_added,Extended #52
-coreweave,CoreWeave,flagship,24,@intentsolutionsio/coreweave-skill-md-pack,reserved,ccpi-coreweave,24,0,not_started,not_added,Extended #53
+coreweave,CoreWeave,flagship,23,@intentsolutionsio/coreweave-skill-md-pack,reserved,ccpi-coreweave,23,0,not_started,not_added,Extended #53; pruned 4 filler skills + added CoreWeave non-affiliation notice (v1.1.0); added coreweave-gpu-cost-leak-hunter heavy-hitter v2 pilot (v1.2.0); added coreweave-gpu-node-forensics heavy-hitter #2 (v1.3.0); added coreweave-fabric-diagnostics GPUDirect-RDMA fallback detector (v1.4.0)
 glean,Glean,flagship,24,@intentsolutionsio/glean-skill-md-pack,reserved,ccpi-glean,24,0,not_started,not_added,Extended #54
 cohere,Cohere,flagship,24,@intentsolutionsio/cohere-skill-md-pack,reserved,ccpi-cohere,24,0,not_started,not_added,Extended #55
 abridge,Abridge,pro,18,@intentsolutionsio/abridge-skill-md-pack,reserved,ccpi-abridge,18,0,not_started,not_added,Extended #56
@@ -69,7 +69,7 @@ grammarly,Grammarly,flagship,24,@intentsolutionsio/grammarly-skill-md-pack,reser
 shopify,Shopify,flagship+,30,@intentsolutionsio/shopify-skill-md-pack,reserved,ccpi-shopify,30,0,not_started,not_added,Extended #68
 canva,Canva,flagship+,30,@intentsolutionsio/canva-skill-md-pack,reserved,ccpi-canva,30,0,not_started,not_added,Extended #69
 clickup,ClickUp,flagship,24,@intentsolutionsio/clickup-skill-md-pack,reserved,ccpi-clickup,24,0,not_started,not_added,Extended #70
-hubspot,HubSpot,flagship+,30,@intentsolutionsio/hubspot-skill-md-pack,reserved,ccpi-hubspot,30,0,not_started,not_added,Extended #71
+hubspot,HubSpot,flagship+,10,@intentsolutionsio/hubspot-skill-md-pack,reserved,ccpi-hubspot,10,0,not_started,added,v2.0.0 rebuild: 10 production-engineer skills (a04d1a23e); catalog synced 2026-07-02
 salesforce,Salesforce,flagship+,30,@intentsolutionsio/salesforce-skill-md-pack,reserved,ccpi-salesforce,30,0,not_started,not_added,Extended #72
 adobe,Adobe,flagship+,30,@intentsolutionsio/adobe-skill-md-pack,reserved,ccpi-adobe,30,0,not_started,not_added,Extended #73
 palantir,Palantir,flagship,24,@intentsolutionsio/palantir-skill-md-pack,reserved,ccpi-palantir,24,0,not_started,not_added,Extended #74

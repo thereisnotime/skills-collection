@@ -78,8 +78,23 @@ export class LokiOverview extends LokiElement {
       // URL and leak the new project's data to other components). Detach our
       // listeners from the old instance, adopt the new one, re-subscribe, and
       // open its WebSocket so live push follows the switched project.
+      //
+      // Capture the previous client before _setupApi reassigns this._api, then
+      // disconnect it so its WebSocket + reconnect timer + global listeners are
+      // released. Without this, every project switch adopts a different per-URL
+      // singleton and leaves the old one's socket open with its reconnect timer
+      // firing forever. Guard on identity: if the new URL resolves to the same
+      // singleton (e.g. both fall back to window.location.origin), do not
+      // disconnect the client we just adopted. Note: these clients are per-URL
+      // singletons shared across components; disconnecting assumes the api-url
+      // switch is whole-app (no refcounting exists), which holds for the
+      // dashboard's single-project-at-a-time navigation.
+      const oldApi = this._api;
       this._teardownApiListeners();
       this._setupApi();
+      if (oldApi && oldApi !== this._api) {
+        oldApi.disconnect();
+      }
       this._api.connect().catch(() => {});
       this._loadStatus();
     }

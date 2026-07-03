@@ -120,24 +120,43 @@ checklist_init() {
 # .loki/checklist/oracle-findings.json and surfaced to the completion council via
 # checklist_as_evidence(), and a best-effort trust event is recorded.
 #
-# Honest scope (v7.x, P2-3 first slice):
-#   IMPLEMENTED: the spec-vs-reality CONFLICT dimension for the database/datastore
-#   choice, which is the highest-signal, lowest-false-positive triangulation
-#   (the choices are mutually exclusive and have unambiguous dependency markers).
+# Honest scope (source-grounded triangulation, rank-2 backlog):
+#   IMPLEMENTED, four legs, each an independent oracle against source reality:
+#     (1) DATASTORE conflict -- spec names DB X but the codebase wires a
+#         DIFFERENT mutually-exclusive DB Y and NOT X. Highest-signal, zero-FP:
+#         choices are mutually exclusive with unambiguous dependency markers.
+#     (2) HTTP ROUTE grounding -- every endpoint the spec NAMES must map to a
+#         real route/handler discovered in source. Fires High ONLY when source
+#         yields a recognizable route set AND a specific spec endpoint is
+#         provably absent from it. If ZERO routes parse out of source we
+#         fail-open (no finding): un-parsed framework syntax must never read as
+#         "route missing". Path params are normalized across frameworks
+#         (/orders/:id ~ /orders/{id} ~ /orders/<id>).
+#     (3) PUBLIC API SYMBOL existence -- symbols the spec names as public API are
+#         verified to EXIST via the LSP proxy (mcp.lsp_proxy --check-symbols,
+#         the same one-shot contract as the LSP-diagnostics gate), NOT via an
+#         LLM-authored grep. When no language server is reachable this leg is
+#         INCONCLUSIVE (fail-open, never a fabricated pass or false High).
+#     (4) DOMAIN INVARIANT -- >=1 high-value invariant enforced deterministically.
+#         First invariant: plaintext-password-store detection (a password column
+#         / field persisted without a hash function anywhere near it). Fires High
+#         only on positive evidence of storage-without-hashing.
 #
-#   DEFERRED (documented follow-up, NOT faked): the third leg of full
-#   triangulation -- DOMAIN INVARIANTS (auth must hash, money must not be float,
-#   PII must be encrypted) -- and additional stack axes (web framework, language
-#   runtime). These need an invariant catalog plus per-language AST-aware
-#   detection to avoid false positives; a regex grep would be noisy. They are
-#   intentionally left out of this slice. Backlog: P2-3 follow-up "domain-
-#   invariant oracle". See the conflict-detection design here as the template.
+#   DEFERRED (documented follow-up, NOT faked): additional stack axes (web
+#   framework, language runtime) and further domain invariants (money-not-float,
+#   PII-encryption). These need a broader catalog plus per-language AST-aware
+#   detection to stay zero-FP; left out of this slice.
 #
 # Non-conflict cases that must NOT fire (guarded + tested):
 #   - spec asserts DB X, codebase has nothing wired yet (greenfield): ABSENT is
 #     not a contradiction -> no finding.
 #   - spec asserts DB X, codebase wires DB X: agreement -> no finding.
 #   - spec asserts nothing about a datastore: no spec oracle -> no finding.
+#   - spec names an endpoint that DOES exist in source -> no finding.
+#   - source has NO parseable routes at all (greenfield / unknown framework) ->
+#     route leg fails open, no finding.
+#   - no language server on PATH -> symbol leg inconclusive, no finding.
+#   - passwords stored WITH a hash near them -> invariant leg does not fire.
 #
 # Opt-out: LOKI_CHECKLIST_ORACLE=0 (default on). When off, this is a no-op.
 
@@ -158,6 +177,15 @@ checklist_oracle_triangulate() {
     local project_dir
     project_dir="$(pwd)"
 
+    # Loki install dir (where the `mcp` package lives) so the symbol leg can shell
+    # out to `python3 -m mcp.lsp_proxy` with the correct import path. This file is
+    # autonomy/prd-checklist.sh, so the install root is its parent's parent. When
+    # sourced by run.sh, LOKI_ORIGINAL_PROJECT_DIR already points there; prefer it.
+    local oracle_install_dir="${LOKI_ORIGINAL_PROJECT_DIR:-}"
+    if [ -z "$oracle_install_dir" ]; then
+        oracle_install_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
+    fi
+
     # Feed the detector to python3 via a quoted heredoc (delimiter in quotes) so
     # bash performs NO interpolation: no dollar-digit footgun, no quote-escaping
     # hazards. All inputs arrive through _ORACLE_* env vars.
@@ -165,6 +193,7 @@ checklist_oracle_triangulate() {
     status_token=$(_ORACLE_SPEC="$CHECKLIST_PRD_PATH" \
                    _ORACLE_OUT="$findings_file" \
                    _ORACLE_PROJECT="$project_dir" \
+                   _ORACLE_INSTALL_DIR="$oracle_install_dir" \
                    python3 - <<'ORACLE_PY' 2>/dev/null || echo "NOOP"
 import json, os, re, sys, tempfile, glob
 
@@ -234,12 +263,11 @@ for name, cfg in DATASTORES.items():
 # If the spec names exactly one PRIMARY datastore, we can triangulate it. If it
 # names several primaries, the spec itself is ambiguous about the datastore;
 # triangulation of "the" choice is unsound, so skip (spec-interrogation owns
-# spec-internal ambiguity, not this oracle).
+# spec-internal ambiguity, not this oracle). spec_db is None when there is no
+# single primary datastore to triangulate -- the datastore leg then contributes
+# nothing, but the route/symbol/invariant legs below still run.
 spec_primary = sorted(spec_asserts - SECONDARY)
-if len(spec_primary) != 1:
-    print("NO_SPEC_DB")
-    sys.exit(0)
-spec_db = spec_primary[0]
+spec_db = spec_primary[0] if len(spec_primary) == 1 else None
 
 # --- Reality oracle: scan a bounded set of dependency/lock/source manifests for
 # datastore markers. We scan manifests first (highest signal, lowest noise). ---
@@ -299,11 +327,13 @@ for name in DATASTORES:
 
 findings = []
 
+# --- Leg 1: DATASTORE conflict ---
 # Conflict iff: spec asserts spec_db, AND reality shows a DIFFERENT primary db,
 # AND reality does NOT also show the spec db. Absent reality (greenfield) and
-# agreement both yield no finding.
-contradicting = sorted(d for d in reality_dbs if d != spec_db)
-if contradicting and spec_db not in reality_dbs:
+# agreement both yield no finding. Skipped entirely when the spec names no single
+# primary datastore (spec_db is None).
+contradicting = sorted(d for d in reality_dbs if d != spec_db) if spec_db else []
+if spec_db and contradicting and spec_db not in reality_dbs:
     findings.append({
         "id": "oracle-datastore-conflict",
         "dimension": "spec_vs_reality",
@@ -321,14 +351,292 @@ if contradicting and spec_db not in reality_dbs:
                    % (spec_db, ", ".join(contradicting), spec_db)),
     })
 
+# ===========================================================================
+# Leg 2: HTTP ROUTE grounding -- spec endpoints must map to real handlers.
+# ===========================================================================
+# Same finding shape as oracle-datastore-conflict (dimension=spec_vs_reality,
+# severity=high). FP-avoidance: this leg fires on ABSENCE, which is more FP-prone
+# than the datastore contradiction. Two hard guards keep it zero-FP:
+#   (a) only run when source yields a RECOGNIZABLE route set (>=1 real route);
+#       zero parsed routes -> greenfield / unknown framework -> fail-open.
+#   (b) normalize path params across frameworks so /orders/:id, /orders/{id} and
+#       /orders/<id> all compare equal; only a genuinely absent path fires.
+
+# Normalize an HTTP path for cross-framework comparison: lowercase, strip a
+# trailing slash, collapse any param segment (:id, {id}, <id>, <int:id>) to "*".
+# Trailing sentence punctuation is stripped per-segment so a spec path written
+# mid-prose ("GET /healthz.") normalizes identically to the source "/healthz".
+_param_seg = re.compile(r"^(:[^/]+|\{[^/}]+\}|<[^/>]+>)$")
+# Strip ONLY sentence punctuation prose glues onto a path. Deliberately EXCLUDES
+# the param close characters } > ) ] so that "{id}." -> "{id}" (still a param),
+# never "{id" (broken). Quotes/backticks are stripped (markdown code spans).
+_trailing_punct = ".,;:!?'\"`"
+def norm_path(p):
+    p = p.strip().strip('"').strip("'").strip("`")
+    # keep only the path portion (drop querystring / trailing text)
+    p = p.split("?")[0].split("#")[0]
+    if not p.startswith("/"):
+        return None
+    segs = [s for s in p.split("/") if s != ""]
+    out = []
+    for s in segs:
+        # strip trailing sentence punctuation ("/healthz." -> "healthz",
+        # "{id}." -> "{id}") without touching a param's close brace.
+        s = s.rstrip(_trailing_punct)
+        if not s:
+            continue
+        out.append("*" if _param_seg.match(s) else s.lower())
+    return "/" + "/".join(out)
+
+# Spec endpoints: match METHOD + PATH pairs the spec explicitly names, e.g.
+# "GET /orders", "POST /users/{id}". Requiring a leading HTTP verb keeps this
+# from grabbing arbitrary slashes in prose (file paths, URLs).
+SPEC_ENDPOINT_RE = re.compile(
+    r"(?i)\b(GET|POST|PUT|PATCH|DELETE)\s+(/[A-Za-z0-9_\-/:{}<>*.]*)")
+spec_endpoints = set()
+for m in SPEC_ENDPOINT_RE.finditer(spec_text):
+    np = norm_path(m.group(2))
+    if np:
+        spec_endpoints.add(np)
+
+# Discover real routes in source across common web frameworks. Each pattern
+# captures the path string literal. We scan the same bounded source set as the
+# datastore leg (SKIP_DIRS, cap files) to stay fast.
+ROUTE_PATTERNS = [
+    # express / fastify / koa-router / node: app.get("/x"), router.post('/x')
+    re.compile(r"""(?i)\b(?:app|router|route|api|server|fastify)\s*\.\s*(?:get|post|put|patch|delete|all|route)\s*\(\s*['"`]([^'"`]+)['"`]"""),
+    # flask: @app.route("/x"), @bp.route('/x')
+    re.compile(r"""(?i)@\s*\w+\.route\s*\(\s*['"]([^'"]+)['"]"""),
+    # fastapi / starlette: @app.get("/x"), @router.post('/x')
+    re.compile(r"""(?i)@\s*\w+\.(?:get|post|put|patch|delete)\s*\(\s*['"]([^'"]+)['"]"""),
+    # django path()/re_path()/url(): path("orders/", ...)  (may be relative)
+    re.compile(r"""(?i)\b(?:re_)?path\s*\(\s*r?['"]([^'"]*)['"]"""),
+    re.compile(r"""(?i)\burl\s*\(\s*r?['"]\^?([^'"$]*)['"]"""),
+    # spring / jax-rs annotations: @GetMapping("/x") @RequestMapping("/x") @Path("/x")
+    re.compile(r"""(?i)@(?:Get|Post|Put|Patch|Delete|Request)Mapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]+)['"]"""),
+    re.compile(r"""(?i)@Path\s*\(\s*['"]([^'"]+)['"]"""),
+    # go: mux.HandleFunc("/x", ...), r.Get("/x", ...), e.GET("/x", ...)
+    re.compile(r"""(?i)\.\s*(?:HandleFunc|Handle|Get|Post|Put|Patch|Delete|GET|POST|PUT|PATCH|DELETE)\s*\(\s*['"]([^'"]+)['"]"""),
+    # ruby on rails routes.rb: get "/x", post 'x'
+    re.compile(r"""(?i)^\s*(?:get|post|put|patch|delete)\s+['"]([^'"]+)['"]"""),
+]
+SOURCE_EXTS = (".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".cjs", ".go",
+               ".rb", ".java", ".kt", ".php", ".rs")
+
+def discover_routes(cap_files=800):
+    found = set()
+    seen = 0
+    for root, dirs, files in os.walk(project):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for fn in files:
+            if not (fn.endswith(SOURCE_EXTS) or fn == "routes.rb" or fn == "urls.py"):
+                continue
+            seen += 1
+            if seen > cap_files:
+                break
+            txt = read_text(os.path.join(root, fn), 120000)
+            for pat in ROUTE_PATTERNS:
+                for mm in pat.finditer(txt):
+                    raw = mm.group(1)
+                    if not raw:
+                        continue
+                    # django paths are often relative ("orders/"); normalize by
+                    # prefixing a slash so they compare on the same axis.
+                    cand = raw if raw.startswith("/") else "/" + raw
+                    np = norm_path(cand)
+                    if np:
+                        found.add(np)
+        else:
+            continue
+        break
+    return found
+
+if spec_endpoints:
+    real_routes = discover_routes()
+    # Guard (a): only fire when source yields a recognizable route set. Zero
+    # discovered routes means we could not parse this framework -> fail-open.
+    if real_routes:
+        missing = sorted(e for e in spec_endpoints if e not in real_routes)
+        if missing:
+            findings.append({
+                "id": "oracle-route-missing",
+                "dimension": "spec_vs_reality",
+                "axis": "http_route",
+                "severity": "high",
+                "spec_asserts": missing,
+                "codebase_reality": sorted(real_routes)[:20],
+                "title": "Spec names endpoint(s) with no handler in source: %s" % (
+                    ", ".join(missing)),
+                "detail": ("The spec/PRD names the HTTP endpoint(s) %s, but no "
+                           "matching route/handler was discovered in the codebase "
+                           "(source declares %d route(s), none matching after path-"
+                           "param normalization). Acceptance criteria derived from "
+                           "the spec alone would pass while the endpoint is not "
+                           "actually served. Wire the handler or correct the spec "
+                           "before completion."
+                           % (", ".join(missing), len(real_routes))),
+            })
+
+# ===========================================================================
+# Leg 4: DOMAIN INVARIANT -- plaintext password storage detection.
+# ===========================================================================
+# Deterministic, positive-evidence-only: fire High only when source shows a
+# password value being PERSISTED (assigned into a stored record / column / insert)
+# with NO hashing function anywhere nearby. Presence of a known hash primitive in
+# the same file suppresses the finding (the app hashes -> not plaintext).
+HASH_MARKERS = re.compile(
+    r"(?i)\b(bcrypt|scrypt|argon2|argon2id|pbkdf2|"
+    r"passlib|hashpw|generate_password_hash|password_hash|"
+    r"crypto\.(?:pbkdf2|scrypt)|sha256_crypt|make_password)\b")
+# A password being written into a persisted structure. Kept tight to avoid FPs:
+# require the word "password" (NOT password_hash / hashed_password / passwordHash)
+# as an assigned key/column/value, near a persistence verb or a column decl.
+# The negative lookahead/behind on _hash / hashed_ is what keeps hashed-password
+# code (the correct case) from tripping the leg.
+PW_STORE_RE = re.compile(
+    r"(?i)("
+    r"(?<!_)(?<!hashed_)password(?!_hash)(?!_digest)\s*[:=]\s*[^\n,;)]+|"   # password = value
+    r"['\"](?<!_)password(?!_hash)['\"]\s*:\s*[^\n,}]+|"                    # "password": value
+    r"(?<!_)password(?!_hash)\s+(?:VARCHAR|TEXT|CHAR|STRING)\b|"           # SQL column decl
+    r"\.\s*(?<!_)password(?!_hash)\s*=\s*[^\n;]+|"                          # obj.password = value
+    r"INSERT\s+INTO[^;]*?\(\s*[^)]*\bpassword\b[^)]*\)|"                   # INSERT (... password ...)
+    r"CREATE\s+TABLE[^;]*?\bpassword\b"                                     # CREATE TABLE ... password
+    r")")
+PERSIST_VERB = re.compile(
+    r"(?i)\b(INSERT\s+INTO|\.save\(|\.create\(|\.insert\(|"
+    r"session\.add\(|db\.|repository\.|\.execute\(|CREATE\s+TABLE|"
+    r"VALUES\s*\()")
+
+def detect_plaintext_password(cap_files=800):
+    seen = 0
+    for root, dirs, files in os.walk(project):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for fn in files:
+            if not (fn.endswith(SOURCE_EXTS) or fn.endswith(".sql")):
+                continue
+            seen += 1
+            if seen > cap_files:
+                return None
+            path = os.path.join(root, fn)
+            txt = read_text(path, 120000)
+            if not PW_STORE_RE.search(txt):
+                continue
+            # Suppress when the same file hashes passwords (positive evidence the
+            # app is not storing plaintext).
+            if HASH_MARKERS.search(txt):
+                continue
+            # Require a persistence signal in the same file so we only flag
+            # STORED passwords, not e.g. a login form field or a request parse.
+            if PERSIST_VERB.search(txt):
+                rel = os.path.relpath(path, project)
+                return rel
+    return None
+
+# Only run the invariant when the spec is about something that stores passwords
+# (auth / users / login / register / credential). This keeps the leg from
+# scanning unrelated projects and firing on incidental matches.
+if re.search(r"(?i)\b(password|auth|login|register|credential|sign[\s-]?up|user account)\b", spec_text):
+    pw_file = detect_plaintext_password()
+    if pw_file:
+        findings.append({
+            "id": "oracle-invariant-plaintext-password",
+            "dimension": "domain_invariant",
+            "axis": "auth_password_hashing",
+            "severity": "high",
+            "spec_asserts": "passwords stored securely (hashed)",
+            "codebase_reality": [pw_file],
+            "title": "Password appears stored without hashing in %s" % pw_file,
+            "detail": ("Source in %s persists a password value with no hashing "
+                       "primitive (bcrypt/scrypt/argon2/pbkdf2/passlib/...) present "
+                       "in that file. Storing plaintext (or reversibly-encrypted) "
+                       "passwords is a domain-invariant violation the spec's prose "
+                       "acceptance checks would not catch. Hash passwords before "
+                       "persistence."
+                       % pw_file),
+        })
+
+# ===========================================================================
+# Leg 3: PUBLIC API SYMBOL existence via the LSP proxy (NOT LLM grep).
+# ===========================================================================
+# The spec may name public API symbols ("exports parseConfig", "public function
+# createOrder"). We verify each EXISTS in the workspace via the LSP proxy's
+# one-shot --check-symbols subcommand (same cwd/--root contract as the LSP-
+# diagnostics quality gate). This is deterministic ground truth, not an LLM
+# guessing from the same prose. HONEST DEGRADATION: when no language server is
+# reachable, the probe returns available=false and every verdict is null; we
+# record the leg as INCONCLUSIVE and emit NO finding (never a fabricated pass,
+# never a false High). Symbols with a definite exists=false verdict -> High.
+symbol_leg = {"ran": False, "available": None, "checked": [], "missing": []}
+
+# Extract candidate public-API symbol names the spec explicitly calls out. We
+# require an anchoring keyword so we only probe names the spec asserts as public
+# API, not every identifier in prose.
+SPEC_SYMBOL_RE = re.compile(
+    r"(?i)\b(?:public|export(?:s|ed)?|expose[sd]?|api|function|method|class|endpoint symbol)\b"
+    r"[^\n`]*?`?\b([A-Za-z_][A-Za-z0-9_]{2,})`?\s*\(")
+spec_symbols = []
+for m in SPEC_SYMBOL_RE.finditer(spec_text):
+    nm = m.group(1)
+    if nm and nm.lower() not in ("the", "this", "that", "public", "export", "function", "method", "class") and nm not in spec_symbols:
+        spec_symbols.append(nm)
+spec_symbols = spec_symbols[:25]  # bound the probe
+
+if spec_symbols:
+    install_dir = os.environ.get("_ORACLE_INSTALL_DIR", "")
+    # Only attempt the probe when we know the loki install dir (so `-m
+    # mcp.lsp_proxy` imports). Without it we cannot reach the proxy -> honest
+    # inconclusive, no finding.
+    if install_dir and os.path.isdir(os.path.join(install_dir, "mcp")):
+        import subprocess
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-m", "mcp.lsp_proxy",
+                 "--check-symbols", "--root", project],
+                input="\n".join(spec_symbols),
+                cwd=install_dir,
+                capture_output=True, text=True, timeout=90,
+            )
+            probe = json.loads((proc.stdout or "").strip().splitlines()[-1]) if proc.stdout.strip() else {}
+        except Exception:
+            probe = {}
+        symbol_leg["available"] = bool(probe.get("available"))
+        symbol_leg["ran"] = True
+        res = probe.get("results", {}) or {}
+        symbol_leg["checked"] = sorted(res.keys())
+        if symbol_leg["available"]:
+            # Only a DEFINITE exists=false (not null) is a miss.
+            miss = sorted(k for k, v in res.items() if v is False)
+            symbol_leg["missing"] = miss
+            if miss:
+                findings.append({
+                    "id": "oracle-symbol-missing",
+                    "dimension": "spec_vs_reality",
+                    "axis": "public_api_symbol",
+                    "severity": "high",
+                    "spec_asserts": miss,
+                    "codebase_reality": "symbol(s) not found by LSP workspace search",
+                    "title": "Spec names public API symbol(s) the LSP cannot find: %s" % (
+                        ", ".join(miss)),
+                    "detail": ("The spec/PRD names %s as public API, but the LSP "
+                               "workspace symbol search (ground truth, not an LLM "
+                               "grep) reports they do not exist. Acceptance criteria "
+                               "derived from the spec alone would pass against a "
+                               "missing symbol. Implement the symbol or correct the "
+                               "spec before completion."
+                               % ", ".join(miss)),
+                })
+
 result = {
-    "version": 1,
+    "version": 2,
     "spec_path": spec_path,
     "spec_datastore": spec_db,
     "reality_datastores": sorted(reality_dbs),
+    "spec_endpoints": sorted(spec_endpoints),
+    "spec_symbols": spec_symbols,
+    "symbol_leg": symbol_leg,
     "findings": findings,
     "deferred": [
-        "domain-invariant oracle (auth-hashing, money-not-float, PII-encryption)",
+        "additional domain invariants (money-not-float, PII-encryption)",
         "additional stack axes (web framework, language runtime)",
     ],
 }

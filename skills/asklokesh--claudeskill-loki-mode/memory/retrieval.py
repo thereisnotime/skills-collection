@@ -1360,6 +1360,33 @@ class MemoryRetrieval:
             optimized = optimize_context(full_details, budget_remaining)
             selected_memories.extend(optimized)
 
+        # Cross-layer dedup by id. A Layer-2 summary and a Layer-3 full record
+        # can carry the SAME memory id (the summary is built from the same
+        # episode/pattern/skill that retrieve_task_aware later surfaces), so
+        # without this pass the same id appears twice. Every other merge path
+        # dedups by id (see _merge_results seen_ids); this one must too. Prefer
+        # the fuller record when both exist: keep the highest _layer for an id
+        # (Layer 3 full > Layer 2 summary > Layer 1 topic). Records without an
+        # id are never collapsed (each keeps its own slot), mirroring
+        # _merge_results. Insertion order of first-seen ids is preserved.
+        deduped: List[Dict[str, Any]] = []
+        best_index_for_id: Dict[Any, int] = {}
+        for item in selected_memories:
+            item_id = item.get("id")
+            if item_id is None:
+                deduped.append(item)
+                continue
+            if item_id in best_index_for_id:
+                existing = deduped[best_index_for_id[item_id]]
+                # Higher layer = fuller record; replace the summary in place so
+                # the first-seen slot keeps the richest entry for this id.
+                if item.get("_layer", 0) > existing.get("_layer", 0):
+                    deduped[best_index_for_id[item_id]] = item
+                continue
+            best_index_for_id[item_id] = len(deduped)
+            deduped.append(item)
+        selected_memories = deduped
+
         # Calculate final metrics
         total_available = self._estimate_total_available_tokens()
         metrics = get_context_efficiency(selected_memories, token_budget, total_available)

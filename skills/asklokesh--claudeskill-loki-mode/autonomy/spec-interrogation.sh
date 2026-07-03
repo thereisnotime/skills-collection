@@ -784,6 +784,44 @@ print(n)
 ' 2>/dev/null || printf '0'
 }
 
+# #87: the count of UNRESOLVED spec-INTERNAL CONTRADICTIONS (class=contradictory,
+# not confirmed, not acknowledged). This is the SUBSET of high-unresolved that can
+# NEVER clear in an autonomous run: contradictions are the only high entries that
+# spec_ledger_acknowledge_all deliberately refuses to auto-ack (P2-4), and only a
+# human sets confirmed=true. So >0 here means the completion gate will block every
+# iteration -> the run is ALREADY doomed to grind to max-iterations. run.sh uses
+# this at DISCOVERY to fail fast+honest (inconclusive_spec_contradiction) instead
+# of the opaque grind. Distinct from spec_ledger_high_unresolved_count (which
+# includes non-contradiction highs that CAN auto-ack and must NOT trigger fast-fail).
+# Also prints the contradicting assumption titles (one per line after the count)
+# so the terminal can NAME the cause (Option C).
+spec_ledger_contradiction_unresolved_count() {
+    local dir
+    dir="$(_spec_ledger_dir)"
+    if [ ! -d "$dir" ]; then printf '0'; return 0; fi
+    _SL_DIR="$dir" python3 -c '
+import glob, json, os
+d = os.environ["_SL_DIR"]
+n = 0
+titles = []
+for p in sorted(glob.glob(os.path.join(d, "a-*.json"))):
+    try:
+        with open(p) as f:
+            r = json.load(f)
+    except Exception:
+        continue
+    if (r.get("class") == "contradictory"
+            and not r.get("confirmed")
+            and not r.get("acknowledged")):
+        n += 1
+        t = r.get("title") or r.get("assumption") or r.get("finding") or "(unnamed contradiction)"
+        titles.append(str(t).replace("\n", " ")[:200])
+print(n)
+for t in titles:
+    print(t)
+' 2>/dev/null || printf '0'
+}
+
 # Total ledger entries + high count, "total high" on one line. For summaries.
 spec_ledger_counts() {
     local dir

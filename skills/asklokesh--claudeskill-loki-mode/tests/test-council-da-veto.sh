@@ -51,8 +51,14 @@ fi
 # Extract the two real functions under test.
 PARSE_FN="$(awk '/^_council_parse_vote\(\) \{/{f=1} f{print} f&&/^}$/{exit}' "$SRC" 2>/dev/null || true)"
 VOTE_FN="$(awk '/^council_vote\(\) \{/{f=1} f{print} f&&/^}$/{exit}' "$SRC" 2>/dev/null || true)"
-if [ -z "$PARSE_FN" ] || [ -z "$VOTE_FN" ]; then
-    echo "SKIP: could not extract _council_parse_vote/council_vote from source. (Not a fail.)"; exit 0
+# council_vote() calls _council_effective_threshold() (before the state.json write) to
+# derive the completion threshold the DA-veto drives approve_count below. It must be
+# extracted too, or the undefined helper aborts the function before any verdict is
+# recorded (state.json MISSING). This is the extract-helper-deps discipline: a function
+# under test drags in its real callees, so extract every non-stubbed one it invokes.
+THRESH_FN="$(awk '/^_council_effective_threshold\(\) \{/{f=1} f{print} f&&/^}$/{exit}' "$SRC" 2>/dev/null || true)"
+if [ -z "$PARSE_FN" ] || [ -z "$VOTE_FN" ] || [ -z "$THRESH_FN" ]; then
+    echo "SKIP: could not extract _council_parse_vote/council_vote/_council_effective_threshold from source. (Not a fail.)"; exit 0
 fi
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/loki-council-da-XXXXXX")"
@@ -93,6 +99,7 @@ run_round() {
         export DA_VERDICT="$da_verdict"
 
         eval "$PARSE_FN"
+        eval "$THRESH_FN"
         eval "$VOTE_FN"
 
         council_vote >/dev/null 2>&1

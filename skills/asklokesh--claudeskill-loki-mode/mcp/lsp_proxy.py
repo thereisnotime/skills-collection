@@ -1595,7 +1595,48 @@ def main() -> None:
              'install dir -- the install dir is only the import path for '
              '`-m mcp.lsp_proxy`.',
     )
+    parser.add_argument(
+        '--check-symbols', action='store_true',
+        help='One-shot: read a newline-delimited list of symbol names on stdin '
+             'and, for each, run lsp_check_exists against the workspace at '
+             '--root. Emits JSON {"available": bool, "results": {sym: '
+             'true|false|null}} on stdout. available=false / null verdicts mean '
+             'no language server was reachable (honest inconclusive, never a '
+             'fabricated exists). Same cwd/--root contract as --write-diagnostics: '
+             'cwd is the install dir so `-m mcp.lsp_proxy` imports; --root is the '
+             'TARGET project the symbols must exist in.',
+    )
     args = parser.parse_args()
+
+    if args.check_symbols:
+        # One-shot symbol-existence probe for the acceptance-oracle (source-
+        # grounded checklist). Chdir into --root so the in-process LSP client's
+        # _resolve_workspace_root()/_pick_language_for_workspace() see the TARGET
+        # project (the process cwd is the install dir for the import). Always
+        # cleans up spawned language-server subprocesses via the finally arm.
+        target = os.path.abspath(args.root or os.getcwd())
+        symbols = [ln.strip() for ln in sys.stdin.read().splitlines() if ln.strip()]
+        results: Dict[str, Any] = {}
+        available = False
+        try:
+            if os.path.isdir(target):
+                os.chdir(target)
+            for sym in symbols:
+                try:
+                    raw = _lsp_check_exists_blocking(sym)
+                    parsed = json.loads(raw)
+                except (OSError, ValueError):
+                    results[sym] = None
+                    continue
+                exists = parsed.get('exists', None)
+                results[sym] = exists
+                # A non-null verdict on ANY symbol means the server answered.
+                if exists is not None:
+                    available = True
+        finally:
+            _cleanup_all_clients()
+        print(json.dumps({'available': available, 'results': results}))
+        return
 
     if args.write_diagnostics:
         # One-shot writer mode -- no MCP server, no event loop. Always cleans

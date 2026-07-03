@@ -295,6 +295,49 @@ if [ "$GATE_RC" -eq 1 ]; then ok "case7b rc=1 (genuine red suite still blocks)";
 v="$(jget "$GATE_DETAILS_FILE" tests ok)"
 [ "$v" = "false" ] && ok "case7b tests.ok=false (red suite is a fail, distinct from no-tests)" || bad "case7b red is fail" "got [$v]"
 
+# ===========================================================================
+# Case 8 (#82): a REAL runner that executed ZERO tests -- node --test on a
+# *.test.js with no test() calls; jest --passWithNoTests -- records
+# {runner:"node-test", pass:"inconclusive", status:"no_tests_run"}. This is a
+# mini fake-green: `runner != none` so the runner=="none" pass-through does NOT
+# fire, and `pass` is the STRING "inconclusive" (not the bool false), so the old
+# gate's `else -> PASS` would have counted it as affirmative green. The fix must
+# reclassify it as INCONCLUSIVE (pass-through, NOT affirmative, NOT a block) with
+# reason=no_tests_executed. This exercises the REAL council bash (the
+# _verdict==INCONCLUSIVE -> test_inconclusive=true block), NOT a replica.
+# ===========================================================================
+echo "Case 8 (#82): real runner, ZERO tests executed -> INCONCLUSIVE pass-through (not affirmative, not block)"
+repo="$(new_repo case8)"
+base="$(grepo "$repo" rev-parse HEAD)"
+add_real_diff "$repo" feature.txt
+mkdir -p "$repo/.loki/quality"
+cat > "$repo/.loki/quality/test-results.json" <<'EOF'
+{
+    "timestamp": "2026-06-16T00:00:00Z",
+    "runner": "node-test",
+    "pass": "inconclusive",
+    "min_coverage": 80,
+    "summary": "runner ran but executed zero tests",
+    "command": "node --test",
+    "exit_code": 0,
+    "status": "no_tests_run",
+    "passed_count": null,
+    "failed_count": null,
+    "verification_gap": "source_without_runnable_tests"
+}
+EOF
+run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 0 ]; then ok "case8 rc=0 (zero-test does NOT block/deadlock)"; else bad "case8 rc=0" "got rc=$GATE_RC"; fi
+[ ! -f "$GATE_BLOCK_FILE" ] && ok "case8 no evidence-block.json (pass-through)" || bad "case8 no block file" "block file written"
+v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+[ "$v" = "true" ] && ok "case8 tests.inconclusive=true (zero-test run is NOT affirmative evidence)" || bad "case8 tests.inconclusive=true" "got [$v]"
+r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
+[ "$r" = "no_tests_executed" ] && ok "case8 tests.inconclusive_reason=no_tests_executed" || bad "case8 reason=no_tests_executed" "got [$r]"
+v="$(jget "$GATE_DETAILS_FILE" tests ok)"
+[ "$v" = "true" ] && ok "case8 tests.ok=true (inconclusive != fail; the run is not red)" || bad "case8 tests.ok=true" "got [$v]"
+v="$(jget "$GATE_DETAILS_FILE" tests runner)"
+[ "$v" = "node-test" ] && ok "case8 tests.runner=node-test (real runner label preserved)" || bad "case8 tests.runner=node-test" "got [$v]"
+
 # ---------------------------------------------------------------------------
 echo
 echo "Total: $((PASS + FAIL))  Passed: $PASS  Failed: $FAIL"

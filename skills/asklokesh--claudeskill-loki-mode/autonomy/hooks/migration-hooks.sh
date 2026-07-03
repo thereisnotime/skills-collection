@@ -405,9 +405,19 @@ for friction in data.get('frictions', []):
     loc = friction.get('location', '')
     if matches(file_path, loc):
         cls = friction.get('classification', 'unknown')
-        safe = friction.get('safe_to_remove', False)
-        if cls in ('business_rule', 'unknown') and not safe:
-            print(f'BLOCKED: Friction {friction.get(\"id\", \"?\")} in {loc} classified as {cls}')
+        # Fail-safe clearance: a friction is removable ONLY when it is EXPLICITLY
+        # marked safe with a real boolean True. A JSON string \"false\"/\"true\", an
+        # int 1, or None are all NOT safe -- 'is True' rejects them (a string is
+        # truthy, so 'not \"false\"' would have wrongly cleared it). This is a
+        # whitelist: removal is blocked unless explicitly cleared, rather than a
+        # blacklist of two hardcoded labels. The archaeology prompt defines no
+        # closed classification taxonomy, so the LLM invents labels freely
+        # (workaround, performance_hack, magic_value, ...); no label may serve as
+        # a clearance signal (including 'true_bug'), or a mislabel would bypass
+        # the gate. safe_to_remove is True is the sole clearance.
+        safe = (friction.get('safe_to_remove') is True)
+        if not safe:
+            print(f'BLOCKED: Friction {friction.get(\"id\", \"?\")} in {loc} ({cls}) not marked safe_to_remove=true')
             sys.exit(0)
         if strict and cls != 'true_bug':
             print(f'BLOCKED (strict): Friction {friction.get(\"id\", \"?\")} in {loc} - strict mode requires explicit approval')
@@ -417,7 +427,7 @@ print('OK')
 
         if [[ "$blocked" == BLOCKED* ]]; then
             echo "HOOK_BLOCKED: $blocked"
-            echo "To proceed: Update friction-map.json to classify this friction or set safe_to_remove=true"
+            echo "To proceed: Update friction-map.json to set safe_to_remove=true (must be a JSON boolean true, not the string \"true\") for this friction once it is characterized and cleared for removal."
             return 1
         fi
     fi
@@ -642,6 +652,288 @@ with open(sys.argv[1], 'w') as f:
     return 0
 }
 
+#===============================================================================
+# RANK 4: Golden-master boundary-equivalence for heal/migrate
+#
+# The whole-suite exit-code check in hook_healing_phase_gate is necessary but not
+# sufficient: a transform can keep unit tests green while ALTERING an observable
+# boundary (CLI stdout, HTTP response, file/DB delta). Golden-master capture
+# records the OBSERVED output of each detected boundary during archaeology; the
+# modernize->validate gate re-runs each boundary and compares to that baseline
+# PER-BOUNDARY. A changed boundary is BLOCKED unless a documented-intentional-
+# change record exists for exactly that boundary.
+#
+# These are deterministic shell/python functions (NOT LLM calls), consistent with
+# the file contract at the top: they run whether the agent cooperates or not.
+#===============================================================================
+
+# Enumerate the boundaries to golden-master. Sources of truth (all merged, first
+# occurrence of a boundary id wins):
+#   1. .loki/healing/boundaries.json    -- canonical heal boundary manifest that
+#      archaeology is instructed to write (see the heal prompt). Array of
+#      {id, boundary_type, command} (or `characterization_test`).
+#   2. .loki/healing/features.json      -- the migrate-flow feature list; each
+#      entry's `characterization_test` is a reproducible boundary invocation.
+#   3. .loki/healing/characterization-tests/*.json -- per-boundary characterization
+#      files (heal archaeology's tool output); any object carrying a runnable
+#      `command`/`characterization_test`/`cmd` field is a boundary.
+# heal writes (1) and/or (3); migrate writes (2). Reading all three keeps the
+# golden-master populated in BOTH real flows, not just the synthetic fixture.
+# Emits one TSV line per boundary: <boundary_id>\t<invocation_command>
+# Prints nothing (returns 0) when no boundaries are detectable -- callers must
+# treat "no boundaries" as an honest degrade, never a green verdict.
+_heal_enumerate_boundaries() {
+    local heal_dir="$1"
+    HEAL_DIR="$heal_dir" python3 -c "
+import json, os, sys, glob
+
+heal_dir = os.environ['HEAL_DIR']
+seen = set()
+out = []
+
+def emit(bid, cmd):
+    if not cmd or not str(cmd).strip():
+        return
+    bid = str(bid).replace('\t', ' ').replace('\n', ' ').strip()
+    if not bid or bid in seen:
+        return
+    seen.add(bid)
+    out.append((bid, str(cmd).replace('\n', ' ').replace('\r', ' ')))
+
+def cmd_of(it):
+    for k in ('command', 'characterization_test', 'cmd'):
+        v = it.get(k)
+        if v and str(v).strip():
+            return v
+    return None
+
+def id_of(it, default='boundary'):
+    fid = it.get('id') or it.get('name') or it.get('description') or default
+    btype = it.get('boundary_type') or it.get('category') or it.get('type') or 'cli'
+    return '%s:%s' % (btype, fid)
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+# (1) canonical heal boundary manifest
+data = load(os.path.join(heal_dir, 'boundaries.json'))
+if data is not None:
+    items = data if isinstance(data, list) else data.get('boundaries', data.get('features', []))
+    for it in items if isinstance(items, list) else []:
+        if isinstance(it, dict):
+            emit(id_of(it), cmd_of(it))
+
+# (2) migrate feature list
+data = load(os.path.join(heal_dir, 'features.json'))
+if data is not None:
+    items = data if isinstance(data, list) else data.get('features', [])
+    for it in items if isinstance(items, list) else []:
+        if isinstance(it, dict):
+            emit(id_of(it), cmd_of(it))
+
+# (3) per-boundary characterization files
+for path in sorted(glob.glob(os.path.join(heal_dir, 'characterization-tests', '*.json'))):
+    data = load(path)
+    if data is None:
+        continue
+    items = data if isinstance(data, list) else [data]
+    for it in items:
+        if isinstance(it, dict) and cmd_of(it):
+            base = os.path.splitext(os.path.basename(path))[0]
+            emit(id_of(it, default=base), cmd_of(it))
+
+for bid, cmd in out:
+    print('%s\t%s' % (bid, cmd))
+" 2>/dev/null || true
+}
+
+# Stable, filesystem-safe filename for a boundary id's golden-master artifact.
+_heal_boundary_artifact_name() {
+    local bid="$1"
+    # sha of the id keeps names stable + collision-free across weird chars.
+    local h
+    h=$(printf '%s' "$bid" | shasum 2>/dev/null | awk '{print $1}')
+    [[ -z "$h" ]] && h=$(printf '%s' "$bid" | cksum | awk '{print $1}')
+    printf 'boundary-%s.json' "$h"
+}
+
+# Run a single boundary invocation and capture OBSERVED output as a golden-master
+# artifact. Captures stdout (the compared channel) + exit code + the reproduction
+# command (so validate can re-run it). stderr is captured into a separate field and
+# is NOT compared: on a real Py2->Py3 boundary stderr carries DeprecationWarnings
+# and tracebacks that vary run-to-run and would false-block equivalence.
+# Deterministic-by-contract: the boundary command's STDOUT must not emit
+# nondeterministic tokens (timestamps/pids); normalization of such is a documented
+# limitation for the real integration, out of scope for the deterministic core.
+# Returns 0 on capture, 1 on failure to write.
+hook_capture_behavioral_baseline() {
+    local codebase_path="${1:-${LOKI_CODEBASE_PATH:-.}}"
+    local heal_dir="${codebase_path}/.loki/healing"
+    local baseline_dir="${heal_dir}/behavioral-baseline"
+
+    [[ "${LOKI_HEAL_MODE:-false}" != "true" ]] && return 0
+
+    mkdir -p "$baseline_dir" 2>/dev/null || return 1
+
+    local captured=0
+    local any=0
+    while IFS=$'\t' read -r bid cmd; do
+        [[ -z "$bid" || -z "$cmd" ]] && continue
+        any=1
+        local out rc art errf
+        errf=$(mktemp)
+        # stdout is the compared channel; stderr is diverted to $errf (recorded
+        # separately, never compared).
+        out=$(cd "$codebase_path" && eval "$cmd" 2>"$errf")
+        rc=$?
+        local err
+        err=$(cat "$errf" 2>/dev/null); rm -f "$errf"
+        art="$baseline_dir/$(_heal_boundary_artifact_name "$bid")"
+        # Write a self-describing artifact: id + reproduction command + observed
+        # stdout (compared) + stderr (recorded, not compared) + observed exit.
+        # validate re-runs `command` and compares stdout+exit only.
+        if BID="$bid" CMD="$cmd" OUT="$out" ERR="$err" RC="$rc" ART="$art" python3 -c "
+import json, os
+art = {
+    'boundary': os.environ['BID'],
+    'boundary_type': os.environ['BID'].split(':', 1)[0],
+    'command': os.environ['CMD'],
+    'stdout': os.environ['OUT'],
+    'stderr': os.environ.get('ERR', ''),
+    'exit_code': int(os.environ['RC']),
+    'captured_by': 'hook_capture_behavioral_baseline',
+    'note': 'stdout+exit_code are the compared channels; stderr is informational only.',
+}
+with open(os.environ['ART'], 'w') as f:
+    json.dump(art, f, indent=2, sort_keys=True)
+" 2>/dev/null; then
+            captured=$((captured + 1))
+        fi
+    done < <(_heal_enumerate_boundaries "$heal_dir")
+
+    if [[ "$any" -eq 0 ]]; then
+        # Honest degrade: no boundaries detected. Do NOT fabricate artifacts.
+        echo "BASELINE: no boundaries detected (no runnable boundary command in boundaries.json / features.json / characterization-tests/); nothing to golden-master."
+        return 0
+    fi
+    echo "BASELINE: captured ${captured} golden-master artifact(s) into behavioral-baseline/"
+    return 0
+}
+
+# Compare current boundary outputs to the golden-master baseline PER-BOUNDARY.
+# Emits a diff report enumerating EVERY changed boundary. A boundary is "changed"
+# when its current stdout OR exit code differs from the baseline artifact, UNLESS
+# a documented-intentional-change record exists for exactly that boundary id in
+# behavioral-baseline/intentional-changes.json.
+# Echoes a human-readable report on stdout.
+# Returns:
+#   0  - no baseline / no boundaries (honest degrade; caller falls through), OR
+#        all boundaries equivalent (or every change documented-intentional).
+#   1  - at least one undocumented boundary change -> caller must BLOCK.
+hook_compare_behavioral_baseline() {
+    local codebase_path="${1:-${LOKI_CODEBASE_PATH:-.}}"
+    local heal_dir="${codebase_path}/.loki/healing"
+    local baseline_dir="${heal_dir}/behavioral-baseline"
+    local intentional="${baseline_dir}/intentional-changes.json"
+
+    # Honest degrade: off/greenfield/no-baseline -> byte-identical no-op. The
+    # caller falls through to its existing whole-suite check unchanged.
+    [[ "${LOKI_HEAL_MODE:-false}" != "true" ]] && return 0
+    [[ -d "$baseline_dir" ]] || return 0
+    # Any golden-master artifacts at all?
+    local art_count
+    art_count=$(find "$baseline_dir" -type f -name 'boundary-*.json' 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "${art_count:-0}" -eq 0 ]]; then
+        echo "BOUNDARY-CHECK: no golden-master baseline present; skipping per-boundary comparison (honest degrade)."
+        return 0
+    fi
+
+    local changed=0
+    local report=""
+    local art
+    while IFS= read -r art; do
+        [[ -z "$art" ]] && continue
+        # Read stored boundary id + reproduction command in one python call. A
+        # trailing sentinel is appended to each so command-substitution's trailing
+        # -newline strip does not corrupt a value (bid/cmd are single-line by
+        # construction, but this keeps the read exact and robust).
+        local bid cmd base_rc
+        bid=$(ART="$art" python3 -c "import json,os;print(json.load(open(os.environ['ART']))['boundary'])" 2>/dev/null) || continue
+        cmd=$(ART="$art" python3 -c "import json,os;print(json.load(open(os.environ['ART']))['command'])" 2>/dev/null) || continue
+        base_rc=$(ART="$art" python3 -c "import json,os;print(json.load(open(os.environ['ART']))['exit_code'])" 2>/dev/null)
+
+        # Re-run the boundary NOW. stderr diverted (not compared), matching the
+        # capture channel; only stdout + exit are compared.
+        local cur_out cur_rc
+        cur_out=$(cd "$codebase_path" && eval "$cmd" 2>/dev/null)
+        cur_rc=$?
+
+        # Byte-exact stdout comparison via python (handles trailing newlines /
+        # binary-ish content that shell string compare would mangle).
+        if ART="$art" CUR="$cur_out" python3 -c "
+import json, os, sys
+base = json.load(open(os.environ['ART']))['stdout']
+sys.exit(0 if base == os.environ['CUR'] else 1)
+" 2>/dev/null && [[ "$cur_rc" == "$base_rc" ]]; then
+            continue
+        fi
+        # Recover baseline stdout for the report (may be multi-line).
+        local base_out
+        base_out=$(ART="$art" python3 -c "import json,os,sys;sys.stdout.write(json.load(open(os.environ['ART']))['stdout'])" 2>/dev/null)
+
+        # Boundary changed. Is it documented-intentional for THIS boundary id?
+        local is_doc="false"
+        if [[ -f "$intentional" ]]; then
+            is_doc=$(INT="$intentional" BID="$bid" python3 -c "
+import json, os
+try:
+    data = json.load(open(os.environ['INT']))
+except Exception:
+    print('false'); raise SystemExit
+changes = data.get('changes', []) if isinstance(data, dict) else []
+bid = os.environ['BID']
+for c in changes:
+    if isinstance(c, dict) and c.get('boundary') == bid and c.get('is_intentional') is True:
+        print('true'); break
+else:
+    print('false')
+" 2>/dev/null || echo false)
+        fi
+
+        if [[ "$is_doc" == "true" ]]; then
+            report+="  [documented-intentional] ${bid}: change accepted (intentional-changes.json)"$'\n'
+            continue
+        fi
+
+        changed=$((changed + 1))
+        report+="  [CHANGED] ${bid}"$'\n'
+        report+="    command:  ${cmd}"$'\n'
+        report+="    baseline: exit=${base_rc} stdout=$(printf '%q' "$base_out")"$'\n'
+        report+="    current:  exit=${cur_rc} stdout=$(printf '%q' "$cur_out")"$'\n'
+    done < <(find "$baseline_dir" -type f -name 'boundary-*.json' 2>/dev/null)
+
+    if [[ "$changed" -gt 0 ]]; then
+        echo "BOUNDARY-DIFF REPORT (${changed} undocumented boundary change(s)):"
+        printf '%s' "$report"
+        echo "  To accept a change intentionally, add a record to:"
+        echo "    ${intentional}"
+        echo "    {\"changes\":[{\"boundary\":\"<id>\",\"is_intentional\":true,\"reason\":\"...\"}]}"
+        return 1
+    fi
+
+    if [[ -n "$report" ]]; then
+        echo "BOUNDARY-CHECK: all changed boundaries are documented-intentional:"
+        printf '%s' "$report"
+    else
+        echo "BOUNDARY-CHECK: all ${art_count} boundary(ies) equivalent to golden-master baseline."
+    fi
+    return 0
+}
+
 # Hook: healing_phase_gate - mechanical verification before healing phase transition
 hook_healing_phase_gate() {
     local from_phase="${1:-}"
@@ -738,6 +1030,20 @@ except: print(0)
                 echo "GATE_BLOCKED: Tests do not pass after modernization"
                 return 1
             fi
+            # RANK 4: whole-suite exit code is necessary but NOT sufficient. A
+            # transform can keep unit tests green while altering an observable
+            # boundary. Compare each boundary to its golden-master baseline; block
+            # any undocumented boundary change. Honest degrade (no baseline / no
+            # boundaries) falls through as a no-op -- never a false-green.
+            local boundary_report boundary_rc
+            boundary_report=$(hook_compare_behavioral_baseline "$codebase_path")
+            boundary_rc=$?
+            if [[ "$boundary_rc" -ne 0 ]]; then
+                echo "GATE_BLOCKED: boundary equivalence violated after modernization (unit tests green but an observable boundary changed)."
+                echo "$boundary_report"
+                return 1
+            fi
+            [[ -n "$boundary_report" ]] && echo "$boundary_report"
             ;;
     esac
 

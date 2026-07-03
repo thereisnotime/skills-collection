@@ -36,8 +36,20 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from memory.retrieval import MemoryRetrieval
-from memory.token_economics import estimate_memory_tokens
+# Self-skip if the memory package (or an optional dep it pulls in) is absent,
+# so the suite degrades to a clean skip rather than a hard error on a stripped
+# environment. The retrieval path used here is pure-stdlib today; the guard is
+# defense-in-depth for environments that vendor a lighter memory package.
+try:
+    from memory.retrieval import MemoryRetrieval
+    from memory.token_economics import estimate_memory_tokens
+    _DEPS_OK = True
+    _DEPS_ERR = None
+except Exception as _exc:  # noqa: BLE001 - report the reason on skip
+    MemoryRetrieval = None  # type: ignore[assignment]
+    estimate_memory_tokens = None  # type: ignore[assignment]
+    _DEPS_OK = False
+    _DEPS_ERR = _exc
 
 
 class _FakeStorage:
@@ -277,6 +289,133 @@ def test_filter_relevant_topics_ranks_on_real_writer_keys():
     )
 
 
+def test_progressive_retrieve_dedups_ids_across_layers():
+    """(wave-4) The same memory id must not appear in both Layer 2 and Layer 3.
+
+    A Layer-2 summary is built from the same episode/pattern/skill that the
+    Layer-3 retrieve_task_aware later surfaces, so both carry the SAME "id".
+    Every other merge path dedups by id (_merge_results seen_ids); this one
+    did not, so the same id leaked into selected_memories twice (once as a
+    thin summary, once as the full record).
+
+    Non-vacuity: against the OLD code (no cross-layer dedup), ids "ep-1" and
+    "ep-2" each appear twice -- once at _layer==2 and once at _layer==3 --
+    so len(result["memories"]) == 5 (topic + 2 summaries + 2 full) and each
+    id's count is 2. The fix collapses each id to a single entry and keeps the
+    fuller Layer-3 record, so each id appears at most once and the surviving
+    record is the Layer-3 (richer) one.
+
+    Setup: index.json with one topic so Layer 1 admits it (a distinct id,
+    "impl", that must survive unchanged). _get_topic_summaries returns thin
+    Layer-2 summaries; retrieve_task_aware returns richer Layer-3 records that
+    reuse the same ids. Both layers get a generous budget so no trimming
+    interferes with the dedup assertion.
+    """
+    from collections import Counter
+
+    storage = _FakeStorage({
+        "index.json": {"topics": [{"id": "impl", "summary": "auth work"}]}
+    })
+    retriever = MemoryRetrieval(storage=storage)
+
+    # Layer 2: thin summaries keyed by episode id.
+    summaries = [
+        {"id": "ep-1", "topic": "auth", "goal": "add login",
+         "outcome": "success", "_source": "episodic"},
+        {"id": "ep-2", "topic": "auth", "goal": "add logout",
+         "outcome": "success", "_source": "episodic"},
+    ]
+    # Layer 3: SAME ids, richer records (extra fields present only here).
+    full = [
+        {"id": "ep-1", "topic": "auth", "goal": "add login",
+         "outcome": "success", "context": {"goal": "add login"},
+         "learnings": ["use bcrypt"], "_source": "episodic"},
+        {"id": "ep-2", "topic": "auth", "goal": "add logout",
+         "outcome": "success", "context": {"goal": "add logout"},
+         "_source": "episodic"},
+    ]
+
+    retriever._get_topic_summaries = lambda topics, query, weights: [
+        dict(s) for s in summaries
+    ]
+    retriever.retrieve_task_aware = lambda context, top_k=10, **kw: [
+        dict(f) for f in full
+    ]
+    retriever._estimate_total_available_tokens = lambda: 100_000
+
+    # Generous budget so neither layer is trimmed; the only thing under test is
+    # cross-layer dedup.
+    result = retriever._progressive_retrieve(
+        {"goal": "auth"}, 5000, "implementation"
+    )
+    memories = result["memories"]
+
+    ids = [m.get("id") for m in memories if m.get("id") is not None]
+    counts = Counter(ids)
+    duped = {k: v for k, v in counts.items() if v > 1}
+    assert not duped, (
+        "no memory id may appear more than once across layers; the old code "
+        "leaked Layer-2 summary + Layer-3 full for the same id. Duplicates: %r"
+        % duped
+    )
+
+    # The Layer-1 topic id must survive unchanged (distinct id, no collision).
+    assert "impl" in counts, "the Layer-1 topic id must be preserved"
+
+    # For each reused id, the surviving record must be the fuller Layer-3 one.
+    for reused in ("ep-1", "ep-2"):
+        recs = [m for m in memories if m.get("id") == reused]
+        assert len(recs) == 1, (
+            "id %r must appear exactly once after dedup, got %d"
+            % (reused, len(recs))
+        )
+        assert recs[0].get("_layer") == 3, (
+            "the fuller Layer-3 record must win over the Layer-2 summary for "
+            "id %r; got _layer=%r" % (reused, recs[0].get("_layer"))
+        )
+
+    # The richest fields survive: ep-1's Layer-3 record carries "learnings"
+    # that the Layer-2 summary never had.
+    ep1 = next(m for m in memories if m.get("id") == "ep-1")
+    assert "learnings" in ep1, (
+        "keeping the Layer-3 record must preserve its richer fields "
+        "(learnings); the summary lacked them"
+    )
+
+
+def test_progressive_retrieve_keeps_records_without_id():
+    """(wave-4 guard) Records lacking an id are never collapsed together.
+
+    Mirrors _merge_results: only id-bearing records dedup; id-less records
+    each keep their own slot. Two distinct id-less summaries must both survive.
+
+    Non-vacuity: a naive dedup keyed on `m.get("id")` (which returns None for
+    both) would collapse the two id-less records into one. The correct guard
+    (skip dedup when id is None) keeps both.
+    """
+    storage = _FakeStorage({"index.json": {"topics": []}})
+    retriever = MemoryRetrieval(storage=storage)
+
+    summaries = [
+        {"topic": "auth", "goal": "one", "_source": "episodic"},
+        {"topic": "auth", "goal": "two", "_source": "episodic"},
+    ]
+    retriever._get_topic_summaries = lambda topics, query, weights: [
+        dict(s) for s in summaries
+    ]
+    retriever.retrieve_task_aware = lambda context, top_k=10, **kw: []
+    retriever._estimate_total_available_tokens = lambda: 100_000
+
+    result = retriever._progressive_retrieve(
+        {"goal": "auth"}, 5000, "implementation"
+    )
+    idless = [m for m in result["memories"] if m.get("id") is None]
+    assert len(idless) == 2, (
+        "both id-less records must survive (never collapsed together); got %d"
+        % len(idless)
+    )
+
+
 def _run_all():
     tests = [
         test_anti_patterns_handles_none_element_and_null_field,
@@ -285,7 +424,14 @@ def _run_all():
         test_score_result_preserves_legitimate_zero_importance,
         test_layer2_admits_trimmed_summary_set_not_all_or_nothing,
         test_filter_relevant_topics_ranks_on_real_writer_keys,
+        test_progressive_retrieve_dedups_ids_across_layers,
+        test_progressive_retrieve_keeps_records_without_id,
     ]
+    if not _DEPS_OK:
+        print("SKIP: memory deps unavailable (%s: %s)"
+              % (type(_DEPS_ERR).__name__, _DEPS_ERR))
+        return 0
+
     failures = 0
     for fn in tests:
         try:

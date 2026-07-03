@@ -993,7 +993,9 @@ export async function runInvariants(ctx?: RunnerContext): Promise<GateResult> {
   return { passed: true, detail: `invariants: no blocking violations (rc ${exitCode})` };
 }
 
-// --- Code review: 3-reviewer parallel council ----------------------------
+// --- Code review: parallel reviewer council ------------------------------
+// (v7.114.0 rank 9: 4 reviewers -- architecture-strategist + maintainer-
+//  mergeability always on, plus up to 2 keyword-scored specialists.)
 //
 // Bash source: autonomy/run.sh:6234-6646 (run_code_review, ~413 LOC).
 //
@@ -1006,8 +1008,8 @@ export async function runInvariants(ctx?: RunnerContext): Promise<GateResult> {
 //   1. git diff HEAD~1 (fall back to git diff --cached, then "")
 //   2. If diff is empty, skip (return passed=true)
 //   3. Score 5 specialist reviewers by keyword presence in diff+filenames
-//   4. Always select architecture-strategist + top 2 specialists
-//   5. Dispatch all 3 reviewers in parallel via Promise.all
+//   4. Always select architecture-strategist + maintainer-mergeability + top 2 specialists
+//   5. Dispatch all 4 reviewers in parallel via Promise.all
 //   6. Write per-reviewer .txt outputs under .loki/quality/reviews/<id>/
 //   7. Aggregate verdicts; any [Critical] or [High] -> BLOCK
 //   8. Write aggregate.json + selection.json
@@ -1083,6 +1085,15 @@ const ARCHITECTURE_STRATEGIST: Reviewer = {
   name: "architecture-strategist",
   focus: "SOLID, coupling, cohesion, patterns, abstraction, dependency direction",
   checks: "SOLID violations, excessive coupling, wrong patterns, missing abstractions, dependency direction issues, god classes/functions",
+};
+
+// 7.114.0 (rank 9): always-included "would a maintainer merge this" reviewer.
+// Parity-locked byte-identical with the maintainer-mergeability entry in the
+// SPECIALIST_SELECT result at autonomy/run.sh.
+const MAINTAINER_MERGEABILITY: Reviewer = {
+  name: "maintainer-mergeability",
+  focus: "Would a maintainer merge this PR as-is: scope discipline, dead/duplicated code, convention conformance",
+  checks: "scope creep (changes unrelated to the stated task, drive-by edits, unrequested refactors), dead code (unreachable, unused, commented-out, leftover debug), duplicated logic that should reuse an existing helper, non-conformance to the surrounding code's conventions (naming, error handling, structure, formatting), and anything a careful human reviewer would ask to be changed before merging",
 };
 
 // Port of the Python keyword scorer at autonomy/run.sh:6396-6409. Returns
@@ -1170,6 +1181,7 @@ export function selectReviewers(
 
   const reviewers: Reviewer[] = [
     ARCHITECTURE_STRATEGIST,
+    MAINTAINER_MERGEABILITY,
     ...selected.map((name) => {
       const spec = pool[name]!;
       return { name, focus: spec.focus, checks: spec.checks };
@@ -1354,6 +1366,36 @@ export function parseVerdict(reviewer: string, output: string): ReviewerVerdict 
   };
 }
 
+// 7.114.0 (rank 9): count non-blocking (Medium/Low) findings in a reviewer's
+// output, tolerant of bracketed, bold, 'Severity:' and bullet-form severity
+// tokens. Parity-locked with _count_nonblocking_findings() in autonomy/run.sh
+// (the bash side greps with -icE; here we count regex matches line by line).
+export function countNonBlockingFindings(output: string): { medium: number; low: number } {
+  const countSev = (sev: string): number => {
+    const re = new RegExp(
+      `(\\[${sev}\\])|(\\*\\*\\s*${sev}\\s*\\*\\*)|(severity:?\\s*${sev})|(^\\s*[-*]\\s+${sev}([\\s:.,*]|$))`,
+      "i",
+    );
+    let n = 0;
+    for (const line of output.split(/\r?\n/)) if (re.test(line)) n += 1;
+    return n;
+  };
+  return { medium: countSev("medium"), low: countSev("low") };
+}
+
+// 7.114.0 (rank 9): weighted mergeability quality score. 0 if any blocker,
+// else 100 - 5*medium - 2*low, floored at 0. Parity-locked with the inline
+// bash computation in run_code_review (autonomy/run.sh).
+export function computeMergeabilityScore(
+  hasBlocking: boolean,
+  medium: number,
+  low: number,
+): number {
+  if (hasBlocking) return 0;
+  const score = 100 - medium * 5 - low * 2;
+  return score < 0 ? 0 : score;
+}
+
 // Port of the diff-fetching block at autonomy/run.sh:6243. Tries `git diff
 // HEAD~1` first; falls back to `git diff --cached`; returns "" on both
 // failures (matches the bash `2>/dev/null || ... || echo ""` chain).
@@ -1388,6 +1430,10 @@ export type AggregateArtifact = {
   fail_count: number;
   has_blocking: boolean;
   verdicts: string;
+  // 7.114.0 (rank 9): weighted mergeability quality score + its inputs.
+  quality_score: number;
+  nonblocking_medium: number;
+  nonblocking_low: number;
 };
 
 export async function runCodeReview(
@@ -1463,14 +1509,25 @@ export async function runCodeReview(
   let passCount = 0;
   let failCount = 0;
   let hasBlocking = false;
+  // 7.114.0 (rank 9): accumulate non-blocking findings for the quality score.
+  // Counted for BOTH PASS and FAIL reviewers with real output (a PASS reviewer
+  // can still list Low nits). UNKNOWN/unavailable verdicts contribute nothing.
+  let nonblockingMedium = 0;
+  let nonblockingLow = 0;
   const verdictTokens: string[] = [];
   for (const v of results) {
     if (v.verdict === "PASS") passCount += 1;
     else if (v.verdict === "FAIL") failCount += 1;
     if (v.blocking) hasBlocking = true;
+    if (v.verdict === "PASS" || v.verdict === "FAIL") {
+      const nb = countNonBlockingFindings(v.output);
+      nonblockingMedium += nb.medium;
+      nonblockingLow += nb.low;
+    }
     verdictTokens.push(`${v.reviewer}:${v.verdict}`);
   }
   const verdictsSummary = verdictTokens.join(" ");
+  const qualityScore = computeMergeabilityScore(hasBlocking, nonblockingMedium, nonblockingLow);
 
   const aggregate: AggregateArtifact = {
     review_id: reviewId,
@@ -1479,6 +1536,9 @@ export async function runCodeReview(
     fail_count: failCount,
     has_blocking: hasBlocking,
     verdicts: verdictsSummary,
+    quality_score: qualityScore,
+    nonblocking_medium: nonblockingMedium,
+    nonblocking_low: nonblockingLow,
   };
   atomicWriteText(join(reviewDir, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
 
@@ -1600,6 +1660,22 @@ export async function runCodeReview(
       passed: false,
       detail: `code_review: ${passCount}/${selection.reviewers.length} pass, ${failCount} fail, blocking severity present (${reviewId})`,
     };
+  }
+
+  // 7.114.0 (rank 9): OPT-IN mergeability-score gate (parity with run_code_review
+  // in autonomy/run.sh). Default OFF -- the quality_score is in aggregate.json
+  // regardless, but it only BLOCKS when LOKI_REVIEW_MERGEABILITY_MIN is set and
+  // the score is below it. Keeps the existing Critical/High=block, Medium/Low=
+  // non-blocking contract unchanged by default.
+  const mergeMinRaw = process.env["LOKI_REVIEW_MERGEABILITY_MIN"];
+  if (mergeMinRaw !== undefined && mergeMinRaw !== "") {
+    const mergeMin = Number.parseInt(mergeMinRaw, 10);
+    if (Number.isFinite(mergeMin) && qualityScore < mergeMin) {
+      return {
+        passed: false,
+        detail: `code_review: BLOCKED mergeability quality score ${qualityScore} < floor ${mergeMin} (LOKI_REVIEW_MERGEABILITY_MIN); unset to disable (${reviewId})`,
+      };
+    }
   }
 
   // bun-F1 (Finding #596 / bash FIX A2 parity): an inconclusive review -- every

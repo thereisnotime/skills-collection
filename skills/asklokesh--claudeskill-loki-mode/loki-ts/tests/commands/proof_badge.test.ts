@@ -1,0 +1,191 @@
+// HLW-5: shareable "Verified by Loki" Evidence Receipt badge.
+//
+// These tests pin the anti-fake-green discipline of renderProofBadge: the badge
+// color/text derive ONLY from the honest headline, green is reachable ONLY from
+// the exact string "VERIFIED", and an absent/empty/unknown headline yields NO
+// badge (null) rather than a fabricated verdict.
+//
+// renderProofBadge is a pure, exported function, so these are fast in-process
+// unit checks (no gh, no gist, no spawn). The `badge` subcommand is covered via
+// runProof against a seeded proof dir.
+//
+// RED/GREEN: this feature is net-new, so the pre-fix "red" is a trivial missing
+// export. The discriminating teeth are the amber/red/absent assertions: a naive
+// implementation that always returns a green badge FAILS them. That is what the
+// requirement is really protecting, so those cases are the meaningful test.
+
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { renderProofBadge, runProof } from "../../src/commands/proof.ts";
+
+describe("renderProofBadge: headline -> badge mapping (anti-fake-green)", () => {
+  it("VERIFIED -> green 'Verified by Loki'", () => {
+    const md = renderProofBadge("VERIFIED");
+    expect(md).not.toBeNull();
+    expect(md).toContain("brightgreen");
+    expect(md).toContain("Verified%20by%20Loki");
+    // The message segment is the load-bearing signal.
+    expect(md).toContain("img.shields.io/badge/");
+    // No other color leaks in.
+    expect(md).not.toContain("yellow");
+    expect(md).not.toContain("-red");
+  });
+
+  it("VERIFIED WITH GAPS -> amber 'Verified with gaps' (NEVER green)", () => {
+    const md = renderProofBadge("VERIFIED WITH GAPS");
+    expect(md).not.toBeNull();
+    expect(md).toContain("yellow");
+    expect(md).toContain("Verified%20with%20gaps");
+    expect(md).not.toContain("brightgreen");
+  });
+
+  it("NOT VERIFIED -> red 'Not verified' (NEVER green)", () => {
+    const md = renderProofBadge("NOT VERIFIED");
+    expect(md).not.toBeNull();
+    expect(md).toContain("-red");
+    expect(md).toContain("Not%20verified");
+    expect(md).not.toContain("brightgreen");
+  });
+
+  it("absent/empty headline -> NO badge (null), never a fabricated green", () => {
+    expect(renderProofBadge("")).toBeNull();
+    expect(renderProofBadge("   ")).toBeNull();
+    expect(renderProofBadge(undefined)).toBeNull();
+    expect(renderProofBadge(null)).toBeNull();
+  });
+
+  it("unknown non-empty headline -> NO badge (null), never defaults to green", () => {
+    // A value that is not one of the three exact strings must not render green
+    // (or any) badge. This guards a naive default-to-green implementation.
+    expect(renderProofBadge("PASSED")).toBeNull();
+    expect(renderProofBadge("verified")).toBeNull(); // wrong case is not VERIFIED
+    expect(renderProofBadge("VERIFIED-ISH")).toBeNull();
+  });
+
+  it("only the EXACT string 'VERIFIED' produces green", () => {
+    // Case/spacing variants must not be green -- exact match only.
+    expect(renderProofBadge("VERIFIED")).toContain("brightgreen");
+    expect(renderProofBadge(" VERIFIED ")).toContain("brightgreen"); // trimmed
+    expect(renderProofBadge("Verified")).toBeNull();
+    expect(renderProofBadge("VERIFIED WITH GAPS")).not.toContain("brightgreen");
+  });
+
+  it("links the badge image to the shared URL when supplied", () => {
+    const md = renderProofBadge("VERIFIED", "https://gist.github.com/x/abc");
+    expect(md).toBe(
+      "[![Verified by Loki](https://img.shields.io/badge/Loki-Verified%20by%20Loki-brightgreen)](https://gist.github.com/x/abc)",
+    );
+  });
+
+  it("renders an image-only badge when no link is supplied", () => {
+    const md = renderProofBadge("NOT VERIFIED");
+    expect(md).toBe(
+      "![Verified by Loki](https://img.shields.io/badge/Loki-Not%20verified-red)",
+    );
+  });
+});
+
+describe("loki proof badge: subcommand output", () => {
+  let scratch = "";
+  let originalLokiDir: string | undefined;
+  let captured = { stdout: "", stderr: "" };
+  let restore: () => void = () => {};
+
+  function captureOutput(): void {
+    captured = { stdout: "", stderr: "" };
+    const oOut = process.stdout.write.bind(process.stdout);
+    const oErr = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((c: unknown): boolean => {
+      captured.stdout += String(c);
+      return true;
+    }) as typeof process.stdout.write;
+    process.stderr.write = ((c: unknown): boolean => {
+      captured.stderr += String(c);
+      return true;
+    }) as typeof process.stderr.write;
+    restore = () => {
+      process.stdout.write = oOut;
+      process.stderr.write = oErr;
+    };
+  }
+
+  function seedProof(id: string, proof: Record<string, unknown>): void {
+    const dir = join(scratch, "proofs", id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "proof.json"), JSON.stringify(proof, null, 2));
+  }
+
+  beforeEach(() => {
+    originalLokiDir = process.env["LOKI_DIR"];
+    scratch = mkdtempSync(join(tmpdir(), "loki-badge-"));
+    process.env["LOKI_DIR"] = scratch;
+  });
+
+  afterEach(() => {
+    if (originalLokiDir === undefined) delete process.env["LOKI_DIR"];
+    else process.env["LOKI_DIR"] = originalLokiDir;
+    if (scratch && existsSync(scratch)) rmSync(scratch, { recursive: true, force: true });
+  });
+
+  it("VERIFIED proof: prints green markdown badge, exit 0", async () => {
+    seedProof("run-green", {
+      run_id: "run-green",
+      honesty: { headline: "VERIFIED" },
+    });
+    captureOutput();
+    const code = await runProof(["badge", "run-green"]);
+    restore();
+    expect(code).toBe(0);
+    expect(captured.stdout).toContain("brightgreen");
+    expect(captured.stdout).toContain("Verified%20by%20Loki");
+  });
+
+  it("VERIFIED WITH GAPS proof: prints amber badge, exit 0", async () => {
+    seedProof("run-amber", {
+      run_id: "run-amber",
+      honesty: { headline: "VERIFIED WITH GAPS" },
+    });
+    captureOutput();
+    const code = await runProof(["badge", "run-amber"]);
+    restore();
+    expect(code).toBe(0);
+    expect(captured.stdout).toContain("yellow");
+    expect(captured.stdout).not.toContain("brightgreen");
+  });
+
+  it("proof with no headline: prints honest 'No badge' note, exit 0 (no fake-green)", async () => {
+    seedProof("run-nohead", { run_id: "run-nohead" });
+    captureOutput();
+    const code = await runProof(["badge", "run-nohead"]);
+    restore();
+    expect(code).toBe(0);
+    expect(captured.stdout).not.toContain("brightgreen");
+    expect(captured.stdout).toContain("No badge");
+  });
+
+  it("missing proof id: exit 2", async () => {
+    captureOutput();
+    const code = await runProof(["badge"]);
+    restore();
+    expect(code).toBe(2);
+  });
+
+  it("unknown proof id: exit 1 with not-found (not 'Unknown subcommand')", async () => {
+    captureOutput();
+    const code = await runProof(["badge", "does-not-exist"]);
+    restore();
+    expect(code).toBe(1);
+    expect(captured.stderr).toContain("not found");
+  });
+
+  it("badge appears in proof --help", async () => {
+    captureOutput();
+    const code = await runProof(["--help"]);
+    restore();
+    expect(code).toBe(0);
+    expect(captured.stdout).toContain("badge");
+  });
+});

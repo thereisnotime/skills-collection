@@ -1708,6 +1708,7 @@ loki proof <subcommand> [args]
 | `show <id>` | Pretty-print `.loki/proofs/<id>/proof.json` |
 | `open <id>` | Open `.loki/proofs/<id>/index.html` in a browser |
 | `share <id>` | Publish the proof page as a GitHub Gist (opt-in) |
+| `badge <id>` | Print a copy-paste "Verified by Loki" markdown badge |
 
 **Options for `share`:**
 
@@ -1734,7 +1735,42 @@ loki proof share <run_id>
 
 # Publish as a secret gist without the confirmation prompt
 loki proof share --private --yes <run_id>
+
+# Print a copy-paste "Verified by Loki" markdown badge
+loki proof badge <run_id>
 ```
+
+### Shareable "Verified by Loki" badge
+
+`loki proof share <id>` prints a copy-paste markdown badge after publishing,
+and `loki proof badge <id>` prints the same badge without publishing (paste it
+into a README, PR, or post). The badge is DISPLAY-ONLY: its color and text
+derive ONLY from the receipt's honest `honesty.headline`, read from the same
+redacted `proof.json` the share path uses:
+
+| `honesty.headline` | Badge |
+|--------------------|-------|
+| `VERIFIED` | green "Verified by Loki" |
+| `VERIFIED WITH GAPS` | amber "Verified with gaps" |
+| `NOT VERIFIED` | red "Not verified" |
+| absent / empty / unrecognized | no badge (an honest note is printed; never a fabricated green) |
+
+Green is produced ONLY when the headline is exactly `VERIFIED` -- there is no
+path that renders a green badge from anything else (the anti-fake-green
+discipline). When the receipt was shared, the badge image links to the shared
+gist/hosted URL so a click shows the full receipt.
+
+Note: the badge uses a shields.io static-badge image URL
+(`https://img.shields.io/badge/...`). shields.io is an external image host, so
+rendering the badge fetches the image from `img.shields.io`. This mirrors the
+npm/Docker/license badges already in the project README.
+
+Both routes print a share badge on `loki proof share`: the Bun route
+(`loki-ts`, live whenever bun is installed) and the `LOKI_LEGACY_BASH=1` bash
+route. They differ only in badge format (bash: shields static-v1 URL, lowercase
+message; Bun: shields badge-path, "Verified by Loki", trimmed). Both render a
+VERIFIED headline as green. Only the standalone `loki proof badge <id>`
+subcommand and the image-only rendering are Bun-only.
 
 ### Sharing a proof (v7.19.3)
 

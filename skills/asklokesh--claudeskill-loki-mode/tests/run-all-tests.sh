@@ -72,6 +72,8 @@ run_test "MCP Server Tests" "$SCRIPT_DIR/test-mcp-server.sh"
 # Healing Hooks (legacy-system healing safety gates)
 run_test "Healing Hooks Safety Tests" "$SCRIPT_DIR/test-healing-hooks-safety.sh"
 run_test "Healing Snapshot Revert Tests" "$SCRIPT_DIR/test-healing-snapshot-revert.sh"
+run_test "Healing Boundary-Equivalence Gate Tests" "$SCRIPT_DIR/test-healing-boundary-equivalence.sh"
+run_test "Healing Friction Gate Tests" "$SCRIPT_DIR/test-healing-friction-gate.sh"
 
 # Parallel worktree Claude auto-flags (effort/budget/fallback/mcp parity)
 run_test "Worktree Auto-Flags Tests" "$SCRIPT_DIR/test-worktree-auto-flags.sh"
@@ -80,8 +82,31 @@ run_test "Worktree Auto-Flags Tests" "$SCRIPT_DIR/test-worktree-auto-flags.sh"
 run_test "Council Threshold Tests" "$SCRIPT_DIR/test-council-threshold.sh"
 run_test "Healing Test Gate Tests" "$SCRIPT_DIR/test-healing-test-gate.sh"
 
+# v7.114.0 accuracy/speed moat batch (ranks 2, 8, 9, 15)
+run_test "RARV mode-aware + PARALLEL_TOOL_CALLS build_prompt (rank 16+8)" "$SCRIPT_DIR/test-rarv-parallel-build-prompt.sh"
+run_test "Mergeability reviewer + quality score (rank 9 run_code_review)" "$SCRIPT_DIR/test-mergeability-review.sh"
+run_test "Council Convergence Floor (rank 15 no-claim early check)" "$SCRIPT_DIR/test-council-convergence-floor.sh"
+run_test "Acceptance-oracle source-grounded (rank 2 routes/LSP-symbols/invariant)" "$SCRIPT_DIR/test-oracle-source-grounded.sh"
+
+# Batch-3 verify.sh: rank 10 code-scope/locality record (advisory-first) + rank 7
+# setup-recipe writer (env NAMES only, never secret values).
+run_test "Verify scope record (rank 10 locality, advisory-first)" "$SCRIPT_DIR/test-verify-scope-record.sh"
+run_test "Verify setup-recipe writer (rank 7, env NAMES not values)" "$SCRIPT_DIR/test-verify-setup-recipe.sh"
+
+# Task #79 trust defect: node --test (built-in Node runner, no package.json)
+# detection in BOTH enforce_test_coverage (run.sh) and verify_gate_tests
+# (verify.sh). A passing slug.js+slug.test.js was recorded as
+# source_without_tests -> NOT VERIFIED (false-negative, symmetric to fake-green).
+run_test "node --test detection (run.sh + verify.sh, task #79 false-negative)" "$SCRIPT_DIR/test-node-test-detection.sh"
+run_test "LOKI_DIR double-.loki path guard (#80 COMPLETED marker)" "$SCRIPT_DIR/test-loki-dir-double-path.sh"
+run_test "zero-test-file inconclusive (run.sh + verify.sh + council, #82 fake-green)" "$SCRIPT_DIR/test-zero-test-inconclusive.sh"
+run_test "Heal Assess Readiness Triage Tests (rank 13)" "$SCRIPT_DIR/test-heal-assess-readiness.sh"
+
 # Process Supervisor Tests
 run_test "Process Supervisor Tests" "$SCRIPT_DIR/test-process-supervisor.sh"
+
+# Orphan wrapper reaper (loki-mode #92: liveness-gated self-reaping, nohup-safe)
+run_test "Orphan Wrapper Reaper (#92 liveness predicate)" "$SCRIPT_DIR/test-orphan-wrapper-reaper.sh"
 
 # Quality Gates
 run_test "Mock Detector (Gate #8)" "$SCRIPT_DIR/detect-mock-problems.sh"
@@ -122,6 +147,13 @@ if command -v python3 >/dev/null 2>&1; then
         "$SCRIPT_DIR/crash/run_crash_redact_tests.sh"
 fi
 
+# Batch-3 rank 6: work-based engineering-hours estimator emitted into proof.json.
+# Python; wrapped so the bash runner (one executable per entry) can include it.
+if command -v python3 >/dev/null 2>&1; then
+    run_test "Effort Estimator (Rank 6 proof.json hours)" \
+        "$SCRIPT_DIR/run_effort_estimate_tests.sh"
+fi
+
 # Verified completion / evidence hard gate (v7.19.1) -- council_evidence_gate
 # truth table. Skips gracefully when git/python3 are unavailable or the gate
 # is not yet defined.
@@ -154,6 +186,12 @@ run_test "Council Live-Vote Quorum (WAVE13 fail-closed)" "$SCRIPT_DIR/test-counc
 # (.loki/quality/test-results.json), not a log path nothing writes, so a real
 # unanimous COMPLETE is not always vetoed. Includes a mutation guard.
 run_test "Council Devil's Advocate (structured test-evidence)" "$SCRIPT_DIR/test-council-devils-advocate.sh"
+
+# Anti-sycophancy DA veto: on a UNANIMOUS approve, a non-confirming devil's-advocate
+# verdict MUST drive approve_count below the effective completion threshold so
+# council_vote returns CONTINUE (recorded REJECTED), for a council of size >= 3.
+# Guards the silent-no-op regression where a bare approve_count-1 still cleared 2/3.
+run_test "Council DA Veto (anti-sycophancy forces CONTINUE)" "$SCRIPT_DIR/test-council-da-veto.sh"
 
 # check_human_intervention signal dispatch + security: STOP -> rc 2; HUMAN_INPUT
 # symlink rejected; prompt injection disabled-by-default quarantines input.
@@ -188,6 +226,12 @@ run_test "AGENTS.md Instruction Parity (bash vs Bun)" "$SCRIPT_DIR/test-parity-a
 # F52: DOC_SCOPE instruction scales documentation to detected project complexity
 # (simple -> minimal docs; standard/complex -> full architecture suite).
 run_test "DOC_SCOPE build_prompt Instruction (tier-conditional)" "$SCRIPT_DIR/test-doc-scope-build-prompt.sh"
+
+# F52 doc-scope generator + gate halves: a simple project must NOT trigger
+# 'loki docs generate' (the agentic architecture-suite writer, ~270s of burn),
+# and the doc-coverage gate must accept README+USAGE for simple tier so the
+# skip does not force wasted iterations. standard/complex keep the full suite.
+run_test "DOC_SCOPE generator + gate (tier-conditional)" "$SCRIPT_DIR/test-doc-scope-generator.sh"
 
 # caveman output-token compressor gates: ACTIVATE on free-form generation,
 # HARD-SUPPRESS (CAVEMAN_DEFAULT_MODE=off) on every parsed trust-gate subcall.

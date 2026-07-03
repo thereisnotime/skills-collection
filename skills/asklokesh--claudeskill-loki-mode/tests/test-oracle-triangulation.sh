@@ -271,9 +271,13 @@ recorded=$(
     || bad "case12 init records spec" "got [$recorded]"
 
 # ===========================================================================
-# Case 13: deferral is recorded honestly (domain invariants NOT faked).
+# Case 13: remaining deferrals are recorded honestly. The plaintext-password
+# domain invariant is now IMPLEMENTED (rank-2, see test-oracle-source-grounded.sh);
+# what stays deferred is the WIDER invariant catalog (money-not-float, PII) and
+# additional stack axes. Assert those remaining deferrals are recorded, not that
+# domain-invariants as a whole are still deferred (they are not).
 # ===========================================================================
-echo "Case 13: domain-invariant triangulation deferral is recorded in the result"
+echo "Case 13: remaining deferrals (additional invariants + stack axes) recorded honestly"
 d="$TMP_ROOT/case13"; mkdir -p "$d/.loki/checklist"
 printf '# Spec\nUse PostgreSQL.\n' > "$d/spec.md"
 printf '{"name":"app","dependencies":{"pg":"^8.11.0"}}\n' > "$d/package.json"
@@ -284,10 +288,10 @@ if [ -f "$HO13" ]; then
 import json
 d = json.load(open('$HO13'))
 defs = d.get('deferred', [])
-print('yes' if any('domain-invariant' in x for x in defs) else 'no')
+print('yes' if any(('stack axes' in x) or ('domain invariant' in x) or ('money' in x) or ('PII' in x) for x in defs) else 'no')
 " 2>/dev/null)
-    [ "$has_defer" = "yes" ] && ok "case13 domain-invariant deferral recorded (honest, not faked)" \
-        || bad "case13 deferral" "deferred list missing domain-invariant entry"
+    [ "$has_defer" = "yes" ] && ok "case13 remaining deferrals (stack axes / wider invariants) recorded (honest)" \
+        || bad "case13 deferral" "deferred list missing remaining-deferral entries"
 else
     bad "case13 deferral" "oracle-findings.json not written for a clean run"
 fi

@@ -1009,5 +1009,75 @@ class LokiVersionResolutionTests(unittest.TestCase):
         self.assertEqual(d["loki_version"], "7.0.0")
 
 
+class GateAndCouncilReportingTests(unittest.TestCase):
+    """#125: run.sh writes gate outcomes to .loki/quality/*.pass and council
+    votes to .loki/council/votes/round-N.json (nested {verdict, votes:[...]}).
+    The proof must report those, not {passed:0,total:0} + blank reviewers, when
+    the aggregate state/quality-gates.json is absent (a real build's layout)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="loki-proof-gen-125-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_real_disk_layout_populates_gates_and_council(self):
+        loki_dir = os.path.join(self.tmp, "app", ".loki")
+        out_dir = os.path.join(self.tmp, "out")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        os.makedirs(os.path.join(loki_dir, "council", "votes"))
+        # NO state/quality-gates.json -- exactly the real-build case (#125).
+        # Gate markers as run.sh writes them:
+        open(os.path.join(loki_dir, "quality", "static-analysis.pass"), "w").close()
+        open(os.path.join(loki_dir, "quality", "unit-tests.pass"), "w").close()
+        # Council round-summary (nested votes), NOT a flat per-reviewer file:
+        with open(os.path.join(loki_dir, "council", "votes",
+                               "round-1.json"), "w") as f:
+            json.dump({
+                "round": 1, "verdict": "COMPLETE", "threshold": 2,
+                "total_members": 3, "complete_votes": 3, "continue_votes": 0,
+                "votes": [
+                    {"member": 1, "role": "requirements_verifier",
+                     "vote": "COMPLETE", "reason": "evidence present"},
+                    {"member": 2, "role": "test_auditor",
+                     "vote": "COMPLETE", "reason": "tests pass"},
+                    {"member": 3, "role": "devils_advocate",
+                     "vote": "COMPLETE", "reason": "no gaps"},
+                ],
+            }, f)
+
+        d = _run_generator(loki_dir, out_dir)
+
+        qg = d["quality_gates"]
+        self.assertEqual(qg["total"], 2, "both gate markers must be reported")
+        self.assertEqual(qg["passed"], 2, "both gates passed on disk")
+        names = {g["name"] for g in qg["gates"]}
+        self.assertIn("static_analysis", names)
+        self.assertIn("unit_tests", names)
+
+        co = d["council"]
+        self.assertEqual(co["final_verdict"], "COMPLETE")
+        roles = {r["role"] for r in co["reviewers"]}
+        self.assertIn("requirements_verifier", roles)
+        self.assertIn("test_auditor", roles)
+        self.assertEqual(len(co["reviewers"]), 3,
+                         "nested round votes expand to 3 reviewers, no blanks")
+        for r in co["reviewers"]:
+            self.assertTrue(r["role"] and r["vote"],
+                            "no phantom blank reviewer row")
+
+    def test_test_results_status_verified_counts_as_pass(self):
+        # test-results.json {status:'verified'} (no .pass marker) -> unit_tests passed.
+        loki_dir = os.path.join(self.tmp, "app2", ".loki")
+        out_dir = os.path.join(self.tmp, "out2")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        with open(os.path.join(loki_dir, "quality",
+                               "test-results.json"), "w") as f:
+            json.dump({"status": "verified"}, f)
+        d = _run_generator(loki_dir, out_dir)
+        names = {g["name"]: g["status"] for g in d["quality_gates"]["gates"]}
+        self.assertEqual(names.get("unit_tests"), "passed")
+
+
 if __name__ == "__main__":
     unittest.main()

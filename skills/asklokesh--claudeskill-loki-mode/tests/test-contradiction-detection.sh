@@ -472,6 +472,63 @@ else
 fi
 
 # ===========================================================================
+# Case F (#87): the no-HITL fast-fail count + its NEVER-green verdict mapping.
+#   (f1) spec_ledger_contradiction_unresolved_count counts ONLY unresolved
+#        contradictions -- an auto-ackable non-contradiction high must NOT count,
+#        so the fast-fail never fires on something that could clear.
+#   (f2) it NAMES the contradiction (Option C: printed after the count).
+#   (f3) the inconclusive_spec_contradiction terminal maps to a FAILURE exit
+#        (result=20), NEVER a success/green result=0 (the no-fake-green guarantee).
+# ---------------------------------------------------------------------------
+t_f="$(mktemp -d)"; mkdir -p "$t_f/.loki/assumptions"
+cat > "$t_f/.loki/assumptions/a-001.json" <<'J1'
+{"id":"a-001","class":"contradictory","severity":"high","confirmed":false,"acknowledged":false,"title":"immutable records vs an edit endpoint","assumption":"UNRESOLVED CONTRADICTION: the spec is internally inconsistent here."}
+J1
+cat > "$t_f/.loki/assumptions/a-002.json" <<'J2'
+{"id":"a-002","class":"underspecified","severity":"high","confirmed":false,"acknowledged":true,"title":"pagination page size default","assumption":"implementer default: chose 25."}
+J2
+(
+    export TARGET_DIR="$t_f"
+    _cf_out="$(spec_ledger_contradiction_unresolved_count 2>/dev/null)"
+    printf 'F-COUNT:%s\n' "$(printf '%s' "$_cf_out" | head -1)"
+    printf 'F-TITLE:%s\n' "$(printf '%s' "$_cf_out" | sed -n '2p')"
+) > "$t_f/f.out" 2>/dev/null
+f_count="$(grep '^F-COUNT:' "$t_f/f.out" | cut -d: -f2)"
+f_title="$(grep '^F-TITLE:' "$t_f/f.out" | cut -d: -f2-)"
+if [ "$f_count" = "1" ]; then
+    ok "(f1) contradiction-unresolved-count = 1 (the auto-acked non-contradiction high is NOT counted)"
+else
+    bad "(f1) contradiction count" "expected 1 (only the unresolved contradiction), got '$f_count'"
+fi
+if printf '%s' "$f_title" | grep -q "immutable records"; then
+    ok "(f2) the contradiction is NAMED (Option C)"
+else
+    bad "(f2) name the contradiction" "expected the contradiction title, got '$f_title'"
+fi
+# (f3) the terminal must map to a FAILURE exit (20), never success (0). Run the
+# SAME case block run.sh uses, and guard against test drift by asserting run.sh
+# still lists inconclusive_spec_contradiction in the failure case.
+map_result="$(
+    _final_status="inconclusive_spec_contradiction"; result=0
+    case "$_final_status" in
+        council_approved|council_force_approved|completion_promise_fulfilled|force_stopped|paused|interrupted|budget_exceeded|stopped) result=0 ;;
+        failed|max_iterations_reached|max_retries_exceeded|policy_blocked|inconclusive_spec_contradiction) result=20 ;;
+        *) [ "$result" = "0" ] && result=1 ;;
+    esac
+    printf '%s' "$result"
+)"
+if grep -q 'policy_blocked|inconclusive_spec_contradiction)' "$REPO_ROOT/autonomy/run.sh" 2>/dev/null; then
+    :
+else
+    bad "(f3) mapping drift" "run.sh no longer lists inconclusive_spec_contradiction in the failure verdict case"
+fi
+if [ "$map_result" = "20" ]; then
+    ok "(f3) inconclusive_spec_contradiction -> exit 20 (terminal failure), NEVER 0/green (no fake-green)"
+else
+    bad "(f3) never-green mapping" "expected result=20 (failure), got '$map_result'"
+fi
+rm -rf "$t_f" 2>/dev/null
+
 echo ""
 echo "==================================================="
 echo "contradiction-detection tests: $PASS passed, $FAIL failed"

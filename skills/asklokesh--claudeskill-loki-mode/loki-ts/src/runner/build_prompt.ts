@@ -171,9 +171,17 @@ function buildPhases(env: Readonly<Record<string, string | undefined>>): string 
 // These literals MUST match autonomy/run.sh:8933-8962 exactly.
 // ---------------------------------------------------------------------------
 
-function rarvInstruction(maxParallel: number): string {
-  // run.sh:8933
-  return `RALPH WIGGUM MODE ACTIVE. Use Reason-Act-Reflect-VERIFY cycle: 1) REASON - READ .loki/CONTINUITY.md including 'Mistakes & Learnings' section to avoid past errors. CHECK .loki/state/relevant-learnings.json for cross-project learnings from previous projects (mistakes to avoid, patterns to apply). Check .loki/state/ and .loki/queue/, identify next task. CHECK .loki/state/resources.json for system resource warnings - if CPU or memory is high, reduce parallel agent spawning or pause non-critical tasks. Limit to MAX_PARALLEL_AGENTS=${maxParallel}. If queue empty, find new improvements. 2) ACT - Execute task, write code, commit changes atomically (git checkpoint). 3) REFLECT - Update .loki/CONTINUITY.md with progress, update state, identify NEXT improvement. Save valuable learnings for future projects. 4) VERIFY - Run automated tests (unit, integration, E2E), check compilation/build, verify against spec. IF VERIFICATION FAILS: a) Capture error details (stack trace, logs), b) Analyze root cause, c) UPDATE 'Mistakes & Learnings' in CONTINUITY.md with what failed, why, and how to prevent, d) Rollback to last good git checkpoint if needed, e) Apply learning and RETRY from REASON. If verification passes, mark task complete and continue. This self-verification loop achieves 2-3x quality improvement. CRITICAL: There is NEVER a 'finished' state - always find the next improvement, optimization, test, or feature.`;
+function rarvInstruction(maxParallel: number, perpetual: boolean): string {
+  // run.sh:13959 -- 7.114.0 (rank 8): mode-aware. The never-finished tail is
+  // gated on `perpetual` (which the caller resolves as AUTONOMY_MODE=perpetual ||
+  // PERPETUAL_MODE || no COMPLETION_PROMISE, matching the bash split). Finite
+  // runs get a "stop when verified-done, gates are the authority" directive.
+  // The "2-3x quality improvement" clause is removed from ALL modes.
+  const base = `RALPH WIGGUM MODE ACTIVE. Use Reason-Act-Reflect-VERIFY cycle: 1) REASON - READ .loki/CONTINUITY.md including 'Mistakes & Learnings' section to avoid past errors. CHECK .loki/state/relevant-learnings.json for cross-project learnings from previous projects (mistakes to avoid, patterns to apply). Check .loki/state/ and .loki/queue/, identify next task. CHECK .loki/state/resources.json for system resource warnings - if CPU or memory is high, reduce parallel agent spawning or pause non-critical tasks. Limit to MAX_PARALLEL_AGENTS=${maxParallel}. If queue empty, find new improvements. 2) ACT - Execute task, write code, commit changes atomically (git checkpoint). 3) REFLECT - Update .loki/CONTINUITY.md with progress, update state, identify NEXT improvement. Save valuable learnings for future projects. 4) VERIFY - Run automated tests (unit, integration, E2E), check compilation/build, verify against spec. IF VERIFICATION FAILS: a) Capture error details (stack trace, logs), b) Analyze root cause, c) UPDATE 'Mistakes & Learnings' in CONTINUITY.md with what failed, why, and how to prevent, d) Rollback to last good git checkpoint if needed, e) Apply learning and RETRY from REASON. If verification passes, mark task complete and continue.`;
+  if (perpetual) {
+    return `${base} CRITICAL: There is NEVER a 'finished' state - always find the next improvement, optimization, test, or feature.`;
+  }
+  return `${base} When the PRD requirements are implemented and completion gates pass, claim done via loki_complete_task and STOP; do not add unrequested improvements. Verify once -- the completion gates (tests, checklist, evidence) are the authority on done; do not re-verify redundantly.`;
 }
 
 function completionInstruction(
@@ -349,7 +357,7 @@ const COMPOSE_INSTRUCTION =
 // v7.7.8: LSP grounding instruction. Parity with bash:
 // run.sh build_prompt() $lsp_grounding_instruction.
 const LSP_GROUNDING_INSTRUCTION =
-  `LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship.`;
+  `LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship. PARALLEL_TOOL_CALLS: When issuing independent read-only operations (reads, greps, file lookups, LSP checks) that do not depend on each other, issue them in a single message so they run in parallel; do not serialize independent lookups.`;
 
 // AGENTS.md instruction (agents.md standard: plain Markdown at repo root,
 // nearest-file-wins, read natively by Claude Code/Codex/etc.). Loki prefers
@@ -1285,7 +1293,11 @@ export async function buildPrompt(opts: BuildPromptOpts): Promise<string> {
   const providerDegraded = envBool(env, "PROVIDER_DEGRADED");
 
   // Resolve all variables BEFORE assembling the string (parity hazard).
-  const rarvText = rarvInstruction(maxParallel);
+  // 7.114.0 (rank 8): rarvInstruction is mode-aware. `perpetual` here already
+  // folds AUTONOMY_MODE=perpetual || PERPETUAL_MODE; the rarv gate additionally
+  // treats an empty COMPLETION_PROMISE as perpetual (parity with the bash split).
+  const rarvPerpetual = perpetual || completionPromise.length === 0;
+  const rarvText = rarvInstruction(maxParallel, rarvPerpetual);
   const completionText = completionInstruction(completionPromise, iteration, maxIterations);
   const autonomyText = autonomousSuffix(perpetual, completionPromise);
   const sdlcText = sdlcInstruction(phases);

@@ -25,6 +25,12 @@
 #   LOKI_COUNCIL_THRESHOLD        - Votes needed for completion (default: 2)
 #   LOKI_COUNCIL_CHECK_INTERVAL   - Check every N iterations (default: 5)
 #   LOKI_COUNCIL_MIN_ITERATIONS   - Minimum iterations before council runs (default: 3)
+#   LOKI_COUNCIL_CONVERGENCE_EARLY - No-claim early-check bypass: when evidence is
+#                                    affirmatively green (real suite passed +
+#                                    checklist not failing) the convergence path
+#                                    may evaluate off the CHECK_INTERVAL boundary
+#                                    (>= MIN_ITERATIONS). Default 1; set 0 to
+#                                    restore interval-only behavior (RANK 15).
 #   LOKI_COUNCIL_CONVERGENCE_WINDOW - Iterations to track for convergence (default: 3)
 #   LOKI_COUNCIL_STAGNATION_LIMIT - Max iterations with no git changes (default: 5)
 #   LOKI_COUNCIL_DONE_SIGNAL_LIMIT - Max total done signals before force stop (default: 10)
@@ -86,6 +92,42 @@ COUNCIL_MIN_ITERATIONS=${LOKI_COUNCIL_MIN_ITERATIONS:-3}
 if [ "$COUNCIL_MIN_ITERATIONS" -lt 1 ] 2>/dev/null; then
     COUNCIL_MIN_ITERATIONS=1
 fi
+
+# _council_effective_min_iter (SaaS #122): resolve the effective MIN_ITERATIONS
+# floor as a function of DETECTED_COMPLEXITY, computed at council-run time (NOT at
+# source time -- DETECTED_COMPLEXITY is populated by run.sh:detect_complexity
+# before the loop, but AFTER this file is sourced). The floor is a HARD gate in
+# council_should_stop: while ITERATION_COUNT < floor the council is not allowed to
+# even evaluate, so a genuinely-complete SIMPLE app (e.g. a small invoice app) that
+# claims done at iteration 1 was still FORCED through ~2 extra idle iterations
+# (~15min) before the council could approve. Lowering the floor to 1 for the
+# `simple` tier removes only those FORCED idle iterations; it does NOT skip any
+# verification. At floor=1, `ITERATION_COUNT=1` makes `1 -lt 1` false, so the
+# council is ALLOWED to convene -- the evidence gate, checklist gate, aggregate
+# vote, provenance, boot smoke and devil's advocate all still run and can still
+# reject. Standard/complex keep floor 3.
+#
+# Precedence (the explicit-override case must win so a user who sets
+# LOKI_COUNCIL_MIN_ITERATIONS=3 on a simple app is honored, not silently lowered):
+#   1. explicit LOKI_COUNCIL_MIN_ITERATIONS env set (non-empty) -> that value
+#      (already clamped into COUNCIL_MIN_ITERATIONS above), verbatim.
+#   2. DETECTED_COMPLEXITY == simple (default floor, no override) -> 1.
+#   3. otherwise -> COUNCIL_MIN_ITERATIONS (the standard/complex default of 3).
+# When DETECTED_COMPLEXITY is empty (unset) this returns COUNCIL_MIN_ITERATIONS --
+# a no-op that preserves the historical standard-path behavior.
+_council_effective_min_iter() {
+    # Explicit user override wins: read the RAW env var (COUNCIL_MIN_ITERATIONS
+    # collapses "user set 3" and "default 3" into one value and can't distinguish).
+    if [ -n "${LOKI_COUNCIL_MIN_ITERATIONS:-}" ]; then
+        printf '%s' "${COUNCIL_MIN_ITERATIONS}"
+        return 0
+    fi
+    if [ "${DETECTED_COMPLEXITY:-}" = "simple" ]; then
+        printf '%s' 1
+        return 0
+    fi
+    printf '%s' "${COUNCIL_MIN_ITERATIONS}"
+}
 COUNCIL_CONVERGENCE_WINDOW=${LOKI_COUNCIL_CONVERGENCE_WINDOW:-3}
 COUNCIL_STAGNATION_LIMIT=${LOKI_COUNCIL_STAGNATION_LIMIT:-5}
 COUNCIL_DONE_SIGNAL_LIMIT=${LOKI_COUNCIL_DONE_SIGNAL_LIMIT:-10}
@@ -1747,7 +1789,7 @@ council_evidence_gate() {
     local test_inconclusive_reason=""
     if [ -f "$tr_file" ]; then
         local test_status
-        test_status=$(_TR_FILE="$tr_file" python3 -c "
+        test_status=$(_TR_FILE="$tr_file" python3 <<'PYEOF' 2>/dev/null || echo "INCONCLUSIVE:none:true"
 import json, os, sys
 tr_file = os.environ['_TR_FILE']
 try:
@@ -1758,13 +1800,25 @@ except (json.JSONDecodeError, IOError, KeyError, ValueError):
     sys.exit(0)
 runner = d.get('runner', 'none')
 passed = d.get('pass', True)
+status = d.get('status', '')
+#82 (zero-test-file hardening): a runner that ran but executed ZERO real tests
+# (node --test on a *.test.js with no test() calls; jest --passWithNoTests with
+# no suites) records pass:"inconclusive" + status:"no_tests_run" -- a mini
+# fake-green when read as affirmative. The pass value is then the STRING
+# "inconclusive" (not the bool True/False), so the old else-branch (PASS) would
+# have counted it as green. Route it to INCONCLUSIVE (pass-through, never a
+# block): a real runner ran but proved nothing, exactly like runner=="none".
+# Only the boolean True passes as affirmative; only the boolean False blocks.
 if runner == 'none':
     print('PASS:none:true')
 elif passed is False:
     print('FAIL:%s:false' % runner)
+elif status == 'no_tests_run' or passed is not True:
+    print('INCONCLUSIVE:%s:true' % runner)
 else:
     print('PASS:%s:true' % runner)
-" 2>/dev/null || echo "INCONCLUSIVE:none:true")
+PYEOF
+)
         local _verdict="${test_status%%:*}"
         local _rest="${test_status#*:}"
         test_runner="${_rest%%:*}"
@@ -1780,6 +1834,16 @@ else:
         if [ "$test_runner" = "none" ] && [ "${LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE:-0}" != "1" ]; then
             test_inconclusive="true"
             test_inconclusive_reason="no_test_runner"
+        fi
+        # #82: a real runner that executed ZERO tests (pass:"inconclusive" +
+        # status:"no_tests_run") is INCONCLUSIVE, not affirmative. Mirror the
+        # runner=="none" pass-through so it routes to the council instead of
+        # reading as green. Honest (not a block): test_fails stays "false".
+        # Not gated by LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE -- a zero-test run is
+        # never affirmative evidence regardless of that opt-out.
+        if [ "$_verdict" = "INCONCLUSIVE" ] && [ "$test_runner" != "none" ]; then
+            test_inconclusive="true"
+            test_inconclusive_reason="no_tests_executed"
         fi
     else
         # Missing test-results.json: no suite was recorded at all. Like the
@@ -3351,6 +3415,125 @@ PYEOF
 # Main Entry Point - Should the loop stop?
 #===============================================================================
 
+#===============================================================================
+# Convergence-floor early-check helpers (RANK 15)
+#
+# Lower the effective convergence floor for the NO-explicit-claim path ONLY.
+# By default the council convergence path only evaluates on the CHECK_INTERVAL
+# boundary (every 5th iteration), so a no-promise/analysis run that is verifiably
+# finished at iteration 2 still grinds to iteration 5 before the council is even
+# allowed to look. These helpers let that path evaluate as soon as there is
+# AFFIRMATIVE evidence of done, without weakening any gate: they only flip WHEN
+# the council evaluates, never WHETHER it approves (council_evaluate still runs
+# the full checklist / held-out / evidence / assumption gates + the vote + the
+# devil's advocate on every trigger).
+#
+# Two knobs preserve full opt-out to the historical behavior:
+#   LOKI_COUNCIL_CONVERGENCE_EARLY=0  -> disable the early-check bypass entirely
+#                                        (byte-identical to prior interval-only).
+#   LOKI_COUNCIL_MIN_ITERATIONS       -> existing floor (already clamps to >=1);
+#                                        the early check never fires below it.
+#===============================================================================
+
+# _council_convergence_evidence_green: read-only, side-effect-free probe that
+# returns 0 ONLY when there is AFFIRMATIVE positive evidence a no-promise run is
+# done -- i.e. a real test suite ran and passed, AND (if a checklist exists) it
+# has no failing items. Deliberately does NOT reuse council_evidence_gate: that
+# gate PASSES on inconclusive inputs (no git repo / no baseline / runner=="none"
+# / missing test-results.json all pass-through). Inconclusive is "not red", not
+# "green" -- fast-pathing on it would be an unverified early stop. Affirmative
+# green means tests ACTUALLY ran and passed. Does NOT call
+# council_reverify_checklist (that has side effects; council_evaluate runs it).
+_council_convergence_evidence_green() {
+    local tr_file="${TARGET_DIR:-.}/.loki/quality/test-results.json"
+    # Affirmative test-green is REQUIRED: a real runner that passed. A missing
+    # file or runner=="none" (no suite) is NOT affirmative evidence -> not green.
+    [ -f "$tr_file" ] || return 1
+    local tr_state
+    tr_state=$(_TR_FILE="$tr_file" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_TR_FILE']) as f:
+        d = json.load(f)
+except (json.JSONDecodeError, IOError, KeyError, ValueError):
+    print('no'); sys.exit(0)
+runner = d.get('runner', 'none')
+passed = d.get('pass', True)
+# Affirmative green requires a REAL suite (runner != none) that did not fail.
+print('yes' if (runner != 'none' and passed is not False) else 'no')
+" 2>/dev/null || echo "no")
+    [ "$tr_state" = "yes" ] || return 1
+
+    # If a checklist exists, it must have NO failing items to be affirmatively
+    # green. Absence of a checklist is fine (test-green alone carries the signal);
+    # the council's own hard checklist gate still runs inside council_evaluate.
+    local results_file="${TARGET_DIR:-.}/.loki/checklist/verification-results.json"
+    if [ -f "$results_file" ]; then
+        local cl_state
+        cl_state=$(_RESULTS_FILE="$results_file" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_RESULTS_FILE']) as f:
+        r = json.load(f)
+except (json.JSONDecodeError, IOError, KeyError, ValueError):
+    print('no'); sys.exit(0)
+items = [it for cat in r.get('categories', []) for it in cat.get('items', [])]
+if not items:
+    # A present-but-empty checklist is not affirmative done-evidence.
+    print('no'); sys.exit(0)
+failing = any(it.get('status') == 'failing' for it in items)
+print('no' if failing else 'yes')
+" 2>/dev/null || echo "no")
+        [ "$cl_state" = "yes" ] || return 1
+    fi
+    return 0
+}
+
+# _council_should_check_now: pure decision function -- given the current gate
+# inputs (via env/args) returns 0 if the council should evaluate this iteration,
+# 1 otherwise. Extracted so the convergence-floor bypass is unit-testable without
+# driving a real 3-member vote. Inputs (all read from the shell, mirroring
+# council_should_stop's locals):
+#   $1 = circuit_triggered ("true"/other)
+#   $2 = completion_claimed ("true"/other)
+#   ITERATION_COUNT, COUNCIL_CHECK_INTERVAL, COUNCIL_MIN_ITERATIONS (globals)
+#   LOKI_COUNCIL_CONVERGENCE_EARLY (knob; default on)
+# Precedence matches council_should_stop: circuit breaker, then explicit claim,
+# then interval boundary, then the NEW evidence-green early check (last, so it
+# never changes the explicit-claim or circuit paths).
+_council_should_check_now() {
+    local circuit_triggered="${1:-false}"
+    local completion_claimed="${2:-false}"
+    local iter="${ITERATION_COUNT:-0}"
+    local interval="${COUNCIL_CHECK_INTERVAL:-5}"
+    # SaaS #122: tier-aware effective floor (simple->1) so the no-claim early
+    # check can also fire at iteration 1 on a genuinely-done simple app.
+    local min_iter
+    min_iter="$(_council_effective_min_iter)"
+
+    # Circuit breaker and explicit-claim paths are UNCHANGED (they already bypass
+    # the interval); return check-now for them without touching the early logic.
+    if [ "$circuit_triggered" = "true" ]; then
+        return 0
+    fi
+    if [ "$completion_claimed" = "true" ]; then
+        return 0
+    fi
+    # Standard interval boundary.
+    if [ $((iter % interval)) -eq 0 ]; then
+        return 0
+    fi
+    # NEW convergence-floor early check (no explicit claim): once we are at/above
+    # the MIN_ITERATIONS floor AND there is affirmative evidence of done, evaluate
+    # now instead of waiting for the next interval boundary. Opt-out preserved.
+    if [ "${LOKI_COUNCIL_CONVERGENCE_EARLY:-1}" != "0" ] \
+       && [ "$iter" -ge "$min_iter" ] 2>/dev/null \
+       && _council_convergence_evidence_green; then
+        return 0
+    fi
+    return 1
+}
+
 council_should_stop() {
     # bash-F1: reset the force-stop sentinel at entry. A return-0 from the
     # genuine approval path leaves this 0; only the safety-valve paths below
@@ -3361,8 +3544,16 @@ council_should_stop() {
         return 1  # Council disabled, don't stop
     fi
 
-    # Don't check before minimum iterations
-    if [ "$ITERATION_COUNT" -lt "$COUNCIL_MIN_ITERATIONS" ]; then
+    # Don't check before minimum iterations. SaaS #122: the floor is tier-aware
+    # (simple->1) via _council_effective_min_iter so a genuinely-complete simple
+    # app that claims done at iteration 1 is not FORCED through ~2 extra idle
+    # iterations before the council may evaluate. This only changes WHETHER the
+    # council is allowed to convene early; every verification gate inside
+    # council_evaluate still runs and can still reject. Standard/complex keep 3,
+    # and an explicit LOKI_COUNCIL_MIN_ITERATIONS override is always honored.
+    local _min_iter
+    _min_iter="$(_council_effective_min_iter)"
+    if [ "$ITERATION_COUNT" -lt "$_min_iter" ]; then
         return 1
     fi
 
@@ -3413,13 +3604,17 @@ council_should_stop() {
         completion_claimed=true
     fi
 
+    # Decide WHETHER to convene the council this iteration. Precedence (unchanged
+    # for the circuit-breaker and explicit-claim paths): circuit breaker, explicit
+    # completion claim, interval boundary, then the RANK-15 convergence-floor early
+    # check (no explicit claim + affirmative evidence-green -> evaluate now instead
+    # of waiting for the next interval boundary). _council_should_check_now is a
+    # pure decision helper (unit-tested) so this stays a single call.
     local should_check=false
-    if [ "$circuit_triggered" = "true" ]; then
-        should_check=true
-    elif [ "$completion_claimed" = "true" ]; then
-        should_check=true
+    if [ "$completion_claimed" = "true" ] && [ "$circuit_triggered" != "true" ]; then
         log_info "[Council] Completion claimed this iteration -- evaluating now (not deferring to the ${COUNCIL_CHECK_INTERVAL}-iteration interval)"
-    elif [ $((ITERATION_COUNT % COUNCIL_CHECK_INTERVAL)) -eq 0 ]; then
+    fi
+    if _council_should_check_now "$circuit_triggered" "$completion_claimed"; then
         should_check=true
     fi
 

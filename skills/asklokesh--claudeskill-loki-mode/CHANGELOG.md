@@ -5,9 +5,341 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v7.118.0
+
+### Build speed (measured before/after on a real SaaS build)
+- **fix(council): tier-aware MIN_ITERATIONS floor -- simple builds converge at iteration 1,
+  not a forced 3 (#122).** A small invoice app was FORCED through ~2 idle iterations (~15min)
+  before the council could approve, a top cause of 28-minute timeouts. `_council_effective_min_iter()`
+  resolves the floor from DETECTED_COMPLEXITY (explicit env override wins; simple->1; else 3).
+  Accuracy-preserving: the floor only stops FORCING more iterations after done-is-claimed -- every
+  gate (evidence, council, provenance, boot smoke, devil's advocate) still runs. MEASURED on a real
+  build through the deployed stack: 28m52s+timed_out -> 8m25s+passed (3.4x), gates+council still ran,
+  app 15/15 tests pass. test-council-convergence-floor.sh 24/24.
+
+### Trust / Evidence Receipt honesty
+- **fix(proof): report real quality gates + council from on-disk artifacts (#125).** A real build's
+  proof recorded quality_gates:{0,0} and blank council reviewers EVEN THOUGH the gates ran+passed and
+  the council voted 3-0 -- a receipt understatement reading as "no verification ran." The generator
+  now reads `.loki/quality/*.pass` + test-results.json (gates) and expands the nested
+  `council/votes/round-N.json` {verdict, votes:[...]} shape into per-reviewer rows. NOT a verification
+  change; fixes the PROOF's reporting only. Regression tests fail-on-old/pass-on-new; proof-generator
+  38/38, redaction 28/28 intact.
+
+### Accuracy instruments (Rank 12 / Rank 4)
+- **feat(bench): scored mergeability benchmark instrument (held-out grader, instrument-only).**
+- **feat(heal): golden-master boundary-equivalence gate for healing (per-boundary stdout+exit
+  characterization; blocks undocumented boundary changes after modernization).**
+- **fix(test): boundary-equivalence gate test uses stdlib unittest (portable to CI without pytest).**
+
+## v7.117.2
+
+### Build speed + trust (measured; RED/GREEN gated)
+- **fix(engine): skip the architecture-doc suite for simple-tier builds (F52 generator+gate).**
+  A trivial CLI was generating a 9-file architecture suite (~270s of agentic `loki docs
+  generate` burn). `auto_generate_docs_if_needed` and the doc-coverage gate now honor
+  DETECTED_COMPLEXITY: simple -> README + USAGE only; standard/complex keep the full suite.
+  MEASURED on a real build: docs 9 -> 3, ~450s -> 250s (~45% faster), verdict UNCHANGED
+  (VERIFIED WITH GAPS both, zero accuracy cost). test-doc-scope-generator.sh 6/6; parity
+  test still 12/12 (DOC_SCOPE prompt strings unchanged).
+- **chore(hooks): pre-push identity guard.** Aborts a github.com push unless the repo identity
+  is asklokesh <lokeshmure@live.com> (github.disney.com/murel002 exempt). Prevents the Disney
+  identity leaking onto github.com. Skippable with PRE_PUSH_SKIP=1.
+
 ## [Unreleased]
 
 (none)
+
+## [7.117.1] - 2026-07-02
+
+### Fixed
+
+- **CI: fix ShellCheck RED on completion-council.sh and test-heal-assess-readiness.sh.**
+  `autonomy/completion-council.sh` lines 1768-1774: a `python3 -c "..."` invocation
+  had Python comment lines containing literal double-quotes (`pass:"inconclusive"`,
+  `status:"no_tests_run"`, `runner=="none"`). Those unescaped `"` prematurely closed
+  the shell double-quoted string, causing SC2140 + SC1078 warnings that failed the
+  CI ShellCheck gate. Fixed by converting the invocation to a quoted heredoc
+  (`python3 <<'PYEOF' ... PYEOF`) which makes ALL inner quotes safe. Behavior is
+  identical: zero-test INCONCLUSIVE routing (anti-fake-green, #82) is preserved.
+  `tests/test-heal-assess-readiness.sh` lines 100 and 240: `cd "$FIX"` inside
+  subshells lacked `|| exit 1`, triggering SC2164. Fixed inline.
+  Non-regression verified: 5 test cases (pass:true/PASS, pass:false/FAIL,
+  pass:"inconclusive"+status:"no_tests_run"/INCONCLUSIVE, runner=="none"/PASS,
+  malformed-JSON/INCONCLUSIVE) all produce outputs identical to pre-fix baseline.
+
+## [7.117.0] - 2026-07-02
+
+### Trust + adoption batch (zero-test hardening + rank 13; RED/GREEN, council-gated)
+
+- **Anti-fake-green: a runner that executed ZERO tests now records INCONCLUSIVE,
+  not pass.** Completing the v7.116 node --test arc: a `*.test.js` with no `test()`
+  calls (node --test exits 0, "# tests 0") and `jest --passWithNoTests` with no
+  suites previously recorded pass:true / passed_count:0 -- a mini fake-green.
+  Fixed across ALL runners in BOTH the recording paths (autonomy/run.sh in-loop
+  test gate + autonomy/verify.sh) AND the READING path (autonomy/completion-council.sh
+  evidence gate): a real runner that ran zero tests records
+  {pass:"inconclusive", status:"no_tests_run"}, and the completion gate routes
+  that to INCONCLUSIVE (pass-through, NOT affirmative green, NOT a block) rather
+  than counting the string as pass. A real test file with >=1 passing test still
+  records pass (unchanged); a failing suite still blocks (unchanged). This is a
+  shipping-contract change (a repo with jest --passWithNoTests and no tests goes
+  from VERIFIED to inconclusive -- intended, honest, source_without_runnable_tests).
+  Tests: tests/test-zero-test-inconclusive.sh (13/13) + Case 8 in
+  test-evidence-gate-no-tests.sh (29/29; a targeted revert of only the gate proves
+  the gate fix is load-bearing).
+- **rank 13 -- `loki heal --assess` read-only modernization readiness triage.** A
+  new read-only subcommand that scans a codebase and emits a readiness report:
+  LOC / language mix, technical-debt signals, maintenance-risk indicators, a
+  modernization maturity-level placement, and ranked candidate targets with
+  rationale -- all from real deterministic scans (never fabricated numbers).
+  Proven READ-ONLY: `git status` stays clean and no .loki dir is created in the
+  target after --assess. Test: tests/test-heal-assess-readiness.sh (9/9, incl. the
+  read-only assertion).
+
+Both tests wired into run-all-tests.sh + local-ci.sh. The zero-test verdict-path
+change was confirmed by a live calibration of the shipped artifact: a real repo
+with a `*.test.js` containing zero `test()` calls recorded runner:node-test,
+status:inconclusive ("runner ran but executed zero tests"), verdict CONCERNS -- no
+fake-green. Reviewed by a 3-reviewer council; a third item (grill-report wiring)
+was deferred because it widened the surface of a separate, pre-existing no-HITL
+hang on spec-internal contradictions.
+
+## [7.116.0] - 2026-07-02
+
+### Trust-core fixes surfaced by a live calibration build (RED/GREEN, council-gated)
+
+A real bounded engine build (the shipped v7.115 artifact against a 3-item PRD)
+produced a genuinely-working, fully-tested deliverable, and surfaced two real
+defects that no fixture caught. Both are fixed here with RED/GREEN tests.
+
+- **TRUST DEFECT: passing tests were recorded as `tests: not_run`, so
+  genuinely-correct, fully-tested work got a NOT VERIFIED headline (false
+  negative).** The test-runner detection did not recognize Node's built-in
+  `node --test` runner (stable since Node 18, runs `*.test.{js,mjs,cjs}` with
+  zero config and NO package.json). A deliverable of slug.js + slug.test.js
+  (9/9 passing) fell through to `runner:none / status:not_run /
+  verification_gap:source_without_tests`, so the proof honestly derived NOT
+  VERIFIED -- a false negative that is as corrosive to a trust-as-product engine
+  as fake-green. The detection lives in BOTH paths (the in-loop test gate in
+  autonomy/run.sh AND the `loki verify` gate in autonomy/verify.sh); both are
+  now fixed. A `node --test` branch was added as a FALLBACK below every explicit
+  path (a package.json declaring vitest/jest/mocha still selects that runner):
+  it fires only when `node` is on PATH and matching test files exist, records
+  the REAL result (runner="node-test", pass from exit code, parsed counts), and
+  a FAILING suite records pass:false (never swallowed). Source without test
+  files still records source_without_tests (no over-fire); no node still falls
+  through to the honest inconclusive path (never fabricates a pass). Test:
+  tests/test-node-test-detection.sh (9/9 incl. both-paths + failing-honesty +
+  jest-no-regression cases).
+- **BUG: double-`.loki` path when writing the COMPLETED / orchestrator state
+  markers.** `autonomy/loki` sets `LOKI_DIR="${LOKI_DIR:-.loki}"`, and two sites
+  in autonomy/run.sh defined `loki_dir` with the `/.loki` OUTSIDE the `:-`
+  default (`"${LOKI_DIR:-${TARGET_DIR:-.}}/.loki"`), so a set LOKI_DIR of `.loki`
+  became `.loki/.loki` -- the build failed with
+  `.loki/.loki/COMPLETED: No such file or directory`. Both sites
+  (`_advance_current_phase` + `main`) are corrected to the sibling form
+  `"${LOKI_DIR:-${TARGET_DIR:-.}/.loki}"` (the `/.loki` inside the default), so a
+  set LOKI_DIR is used as-is. Behavior when LOKI_DIR is unset is unchanged. An
+  exhaustive repo-wide audit confirms these were the only two buggy sites. Test:
+  tests/test-loki-dir-double-path.sh (11/11).
+
+Both tests are wired into run-all-tests.sh + local-ci.sh. No behavior change to
+any shipping command surface beyond correctly recording a Node test run and
+writing the marker to the right path.
+
+## [7.115.0] - 2026-07-02
+
+### Adoption-friction + accuracy batch (ranks 6, 7, 10; RED/GREEN measured)
+
+Driven from docs/research-2026-07/gap-analysis-backlog.json. Built in isolated
+worktrees, each proven with a fixture RED/GREEN test, wired into run-all-tests.sh
+AND local-ci.sh. All three are bash/python-only (no loki-ts mirror exists for
+`loki verify` or the proof generator), so no Bun-parity surface is touched.
+
+- **rank 10 -- code-scope / locality record (accuracy, ADVISORY-first).**
+  `loki verify` now emits a structured scope record in evidence.json:
+  {files_changed, net_lines, verdict, advisory:true, thresholds}. Verdict is
+  "ok" under soft thresholds, "warn" over them, and "block" ONLY when an operator
+  explicitly sets a hard cap (`LOKI_SCOPE_MAX_FILES` / `LOKI_SCOPE_MAX_NET_LINES`)
+  and it is exceeded. Critically, the record NEVER feeds verify_compute_verdict and
+  never emits a gate, so by default it CANNOT change the exit code or block a build
+  (zero friction regression, verified). Greenfield builds are byte-identical by
+  construction (the helper is reachable only via `loki verify`, never `loki start`).
+  Test: tests/test-verify-scope-record.sh (4/4).
+- **rank 7 -- deterministic setup-recipe writer (adoption-friction).** After a
+  verified runtime boot, `loki verify` now writes .loki/setup-recipe.json
+  {install, seed, env_keys, start, port, health_path} so later verify/e2e runs
+  replay the exact steps instead of re-detecting heuristically (Devin's saved-setup
+  pattern; the CONSUMER already existed). SECURITY: env_keys are variable NAMES
+  ONLY -- the writer never reads the value side of any env line, proven by a test
+  that plants a secret value and asserts it is absent from the recipe. A failed
+  boot writes no recipe. Test: tests/test-verify-setup-recipe.sh (3/3, incl. the
+  secret-leak assertion).
+- **rank 6 -- work-based engineering-hours estimate in proof.json
+  (adoption-friction).** proof.json gains a top-level `effort_estimate`
+  {hours, low, high, method, model, inputs_hash, calibrated, label,
+  estimator_version}. It is a work-based estimate (diff insertions/deletions +
+  files + tests + brief size), so two builds of different scope get materially
+  different hours (a 1-line tweak vs a full-stack feature differ by >3x -- the old
+  flat "iterations x 15min" gave both the same 30min). HONESTY: it FAILS OPEN to
+  the deterministic heuristic when no model is available (method="heuristic",
+  model=""), and method="llm" ONLY when an opt-in `LOKI_EFFORT_LLM=1` model call
+  actually returned a parseable number -- it never fabricates an LLM figure. Every
+  estimate is labeled `calibrated:false` ("uncalibrated") until a real
+  ground-truth calibration dataset exists (tracked follow-up). effort_estimate is
+  a TOP-LEVEL key, kept out of the facts block, so the LLM opinion can never leak
+  into the deterministic proof headline. inputs_hash is a sha256 over the canonical
+  inputs (recomputable from the written receipt) for auditability. The existing
+  `loki metrics` iterations-based report is unchanged. Test:
+  tests/test_effort_estimate.py (7/7); no proof-verify change needed (re-hashes the
+  whole dict; 50 proof pytests still pass).
+
+## [7.114.0] - 2026-07-02
+
+### Accuracy + speed moat batch (4 research-grounded items, RED/GREEN measured)
+
+Driven from docs/research-2026-07/gap-analysis-backlog.json (ranks 2, 8, 9, 15).
+Each built in an isolated worktree, proven with a fixture RED/GREEN test, parity-locked
+with the loki-ts runner where a mirror exists, and gated by a full 3-reviewer council.
+No trust-core gate weakened; the deterministic evidence gate and anti-sycophancy
+devil's-advocate remain authoritative.
+
+- **rank 15 -- council convergence floor (speed).** For the convergence-detection
+  path ONLY (a run with NO explicit completion claim), the council may now evaluate
+  as early as `LOKI_COUNCIL_MIN_ITERATIONS` when affirmative evidence is already green
+  (tests present + passing; checklist has items and none failing), instead of waiting
+  for the next `LOKI_COUNCIL_CHECK_INTERVAL` boundary. MEASURABLE: on the fixture a
+  genuinely-complete no-promise run stops at iteration 2 instead of grinding to
+  iteration 5. This changes only WHEN the council evaluates, never WHETHER it approves:
+  an early evaluation flows into the SAME council_evaluate (hard checklist gate +
+  evidence gate + aggregate vote + devil's-advocate-on-unanimous); there is no
+  green-evidence shortcut that returns DONE bypassing the vote. Stagnation and evidence
+  gates still block premature/unverified stops; the explicit-claim and circuit-breaker
+  paths are byte-unchanged. New knob `LOKI_COUNCIL_CONVERGENCE_EARLY` (default ON --
+  this IS a live default behavior change to the no-claim stop path); set 0 to restore
+  interval-only checking. Bash-only (the loki-ts council shouldStop is a stub). Test:
+  tests/test-council-convergence-floor.sh (14/14; the early branch reverted makes 3
+  positive cases fail = non-vacuous).
+- **rank 8 -- mode-aware RARV instruction (speed).** The build_prompt "RALPH WIGGUM"
+  instruction emitted "There is NEVER a 'finished' state - always find the next
+  improvement" in EVERY mode, including finite PRD/checkpoint runs that carry a
+  completion promise -- a self-contradiction that drove unrequested extra iterations.
+  Now gated: perpetual / no-completion-promise runs keep the never-finished directive;
+  finite runs instead get "when the PRD requirements are implemented and completion
+  gates pass, claim done and STOP; the completion gates are the authority on done." The
+  unverifiable "2-3x quality improvement" clause is removed from ALL modes.
+  Parity-locked with rarvInstruction() in loki-ts.
+- **rank 16 -- parallel independent tool calls (speed).** build_prompt now instructs
+  the inner agent to issue independent read-only lookups (reads, greps, file lookups,
+  LSP checks) in a single message so they run in parallel. No new env knob.
+  Parity-locked in loki-ts. (Applies to every prompt-carrying mode; the deliberately
+  minimal legacy-degraded escape-hatch prompt is unchanged.) Ranks 8+16 test:
+  tests/test-rarv-parallel-build-prompt.sh (18/18); loki-ts build_prompt parity 60/60.
+- **rank 9 -- maintainer-mergeability reviewer + weighted quality score (accuracy).**
+  run_code_review gains an always-on "would a maintainer merge this" reviewer (rubric:
+  scope creep, dead/duplicated code, convention-conformance) alongside
+  architecture-strategist. NOTE: this makes the review council spawn 4 reviewers
+  instead of 3 (roughly +33% review LLM cost; the unanimous-approve + devil's-advocate
+  path now keys on 4/4). The aggregator emits a numeric `quality_score` in aggregate.json:
+  0 if any blocker, else 100 - 5*medium - 2*low (floored at 0). MEASURABLE: a tight fix
+  with no non-blockers scores 100; one Medium non-blocker scores 95; any blocker scores
+  0. Existing Critical/High = block, Medium/Low = non-blocking is UNCHANGED -- the score
+  is reported, and only ADVISORY unless the opt-in `LOKI_REVIEW_MERGEABILITY_MIN` floor
+  is set (default OFF, so no new blocking behavior). Parity-locked in loki-ts
+  quality_gates.ts. Tests: tests/test-mergeability-review.sh (10/10) + loki-ts
+  quality_gates (105/105).
+- **rank 2 -- source-grounded acceptance checklist (accuracy, critical).**
+  checklist_oracle_triangulate now triangulates the acceptance checklist against actual
+  codebase source, not spec prose alone: (1) each spec'd HTTP endpoint must map to a
+  real route/handler in source across express/fastify/flask/fastapi/django/spring/
+  jax-rs/go/rails, path-params normalized (unmatched -> High `oracle-route-missing`,
+  mirroring the existing oracle-datastore-conflict shape); (2) spec'd public API symbols
+  are verified to EXIST via the LSP proxy (new additive `mcp/lsp_proxy.py --check-symbols`
+  one-shot probe that mirrors the existing --write-diagnostics contract), NOT via LLM
+  grep -- and fail-open to inconclusive (never a fabricated exists) when no language
+  server is reachable; (3) a plaintext-password domain-invariant check (positive-evidence
+  only; suppressed when a hash primitive is present). MEASURABLE: on 3 clean fixtures the
+  false-positive count is 0; a spec naming an absent /orders endpoint yields a High
+  finding; a plaintext password store yields an invariant finding. Bash-only (no loki-ts
+  oracle mirror exists). Test: tests/test-oracle-source-grounded.sh (16/16, FP rate 0).
+  HONEST LIMITATION: the LSP symbol-miss High path needs a live fast language server; in
+  environments without one (or a cold server past the timeout) the LSP leg fail-opens to
+  inconclusive, which the test covers explicitly.
+
+All four tests are wired into tests/run-all-tests.sh AND scripts/local-ci.sh. No
+behavior change to any shipping `loki` command surface.
+
+## [7.113.0] - 2026-07-02
+
+### Wave-4 bug-hunt fixes (4 real, reproduced, RED/GREEN-tested)
+
+- **Healing friction gate: two HIGH fail-open bugs closed** (trust-adjacent).
+  The friction safety gate in `hook_pre_healing_modify` (`autonomy/hooks/migration-hooks.sh`)
+  decides whether an autonomous healing edit may remove catalogued friction.
+  Two independent fail-open holes let a removal through that should have been
+  blocked: (A) type-coercion -- `safe_to_remove` was read with Python truthiness,
+  so the JSON string `"false"` (truthy) wrongly cleared the block; (B)
+  blacklist-only -- the gate blocked only the two labels `business_rule`/`unknown`,
+  so any LLM-invented classification with `safe_to_remove:false` slipped past.
+  Fix: strict-boolean whitelist -- `safe = (friction.get('safe_to_remove') is True)`
+  then block unless explicitly cleared, regardless of classification label. Only
+  a real JSON boolean `true` clears; strings, ints, null, and missing keys all
+  block. Not over-blocking: the healing protocol's prescribed clearance path
+  (`safe_to_remove:true`) is preserved, and heal-mode-off / non-matching frictions
+  stay byte-identical no-ops. RED/GREEN test: `tests/test-healing-friction-gate.sh`
+  (8/8; old gate allowed cases A and B, proven by reconstruction).
+- **Dashboard task-detail modal no longer crashes on a non-array field.** In
+  `loki-task-board.js` `_renderTaskDetailModal`, `acceptance_criteria` and
+  `context_files` used `|| []` with no type guard, so a string value (truthy)
+  reached `.map()` and threw "not a function", blanking the modal. Fix:
+  `Array.isArray(...)` guards, matching the existing `notes`/`logs` pattern.
+  Test: `dashboard-ui/tests/loki-task-board-modal-guard.node.test.mjs` (6/6;
+  3/6 fail against pre-fix).
+- **Memory retrieval no longer returns the same record twice.**
+  `memory/retrieval.py` `_progressive_retrieve` emitted the same memory id in both
+  the Layer-2 summary and Layer-3 detail passes. Fix: dedup by id, preferring the
+  fuller record; records without an id are preserved. Test:
+  `tests/test-memory-retrieval-wave6-bugs.py` (8/8).
+- **Dashboard WebSocket leak on project switch fixed** (+ disconnect no longer
+  defeated by async onclose). `loki-overview.js` / `loki-api-client.js`: adopting
+  a new client on project switch left the old socket open; `disconnect()` fired
+  `onclose` asynchronously which then re-opened via `_scheduleReconnect`. Fix:
+  close the old client before adopting the new one; add an `_intentionalClose`
+  flag so a deliberate disconnect is not reconnected. Test:
+  `dashboard-ui/tests/loki-ws-leak-reconnect.node.test.mjs` (3/3).
+
+All four independently reproduced and RED/GREEN-verified; council 3-of-3 APPROVE
+(2 Opus + 1 Sonnet, reviewers ran the tests). No behavior change to any shipping
+`loki` command; no trust core / evidence gate touched.
+
+## [7.112.0] - 2026-07-02
+
+### HLW-5: shareable "Verified by Loki" Evidence Receipt badge (now honest)
+
+- **`loki proof share <id>` now actually prints the badge** it was documented
+  to print in v7.100.0 (the CHANGELOG described it, but only the gist URL ever
+  printed -- the badge was never implemented). After publishing, the share path
+  now also prints a copy-paste markdown badge linked to the shared gist/hosted
+  URL. New `loki proof badge <id>` subcommand prints the same badge without
+  publishing (for pasting into a README/PR/post).
+- **DISPLAY-ONLY, anti-fake-green.** The badge's color and text derive ONLY from
+  the receipt's `honesty.headline`, read from the SAME redacted `proof.json` the
+  share path uses: `VERIFIED` -> green "Verified by Loki", `VERIFIED WITH GAPS`
+  -> amber "Verified with gaps", `NOT VERIFIED` -> red "Not verified". An absent,
+  empty, or unrecognized headline prints an honest "no badge" note -- never a
+  fabricated green. Green is reachable ONLY from the exact string `VERIFIED`.
+  This is additive and does not touch the trust core or any evidence gate.
+- Implemented on the Bun route (`loki-ts/src/commands/proof.ts`), the live route
+  when bun is installed. The `LOKI_LEGACY_BASH=1` bash route ALSO prints a
+  "Verified by Loki" share badge (autonomy/loki), so both routes carry the badge
+  on `loki proof share`. Both render a VERIFIED headline GREEN; the routes differ
+  only on the VERIFIED-WITH-GAPS color (bash orange, Bun yellow) and on message
+  style (bash: lowercase message + shields static-v1 URL; Bun: "Verified by Loki"
+  + shields badge-path, trimmed). What is Bun-only is the standalone
+  `loki proof badge <id>` subcommand and the image-only rendering. The badge uses
+  a shields.io static-badge image URL (external image host; no infra, no new
+  dependency). RED/GREEN test: `loki-ts/tests/commands/proof_badge.test.ts`.
 
 ## [7.111.0] - 2026-07-02
 

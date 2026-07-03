@@ -14069,6 +14069,9 @@ cmd_heal_help() {
     echo "  validate       Verify behavioral equivalence with baseline"
     echo ""
     echo "Options:"
+    echo "  --assess             Read-only modernization readiness triage (maturity"
+    echo "                       level + ranked where-to-start targets); no changes"
+    echo "  --json               With --assess: emit the readiness report as JSON"
     echo "  --phase PHASE        Start from specific phase (default: archaeology)"
     echo "  --resume             Resume healing from last checkpoint"
     echo "  --status             Show healing progress"
@@ -14089,6 +14092,8 @@ cmd_heal_help() {
     echo "  LOKI_HEAL_STRICT            Block all behavioral changes (default: false)"
     echo ""
     echo "Examples:"
+    echo "  loki heal ./legacy-app --assess               # Readiness triage (read-only)"
+    echo "  loki heal ./legacy-app --assess --json         # Same, structured for dashboard"
     echo "  loki heal ./legacy-app                        # Full healing pipeline"
     echo "  loki heal ./legacy-app --phase archaeology     # Knowledge extraction only"
     echo "  loki heal ./legacy-app --archaeology-only      # Extract without modifying"
@@ -14136,6 +14141,8 @@ cmd_heal() {
     local do_status="false"
     local do_report="false"
     local do_friction_map="false"
+    local do_assess="false"
+    local assess_json="false"
     local archaeology_only="false"
     local strict="${LOKI_HEAL_STRICT:-false}"
     local compliance=""
@@ -14165,6 +14172,14 @@ cmd_heal() {
                 ;;
             --friction-map)
                 do_friction_map="true"
+                shift
+                ;;
+            --assess)
+                do_assess="true"
+                shift
+                ;;
+            --json)
+                assess_json="true"
                 shift
                 ;;
             --phase)
@@ -14300,6 +14315,311 @@ for f in data.get('frictions', []):
     print()
 " "$friction_file" 2>/dev/null || echo "  Error reading friction map."
         return 0
+    fi
+
+    # Modernization readiness triage (rank 13). READ-ONLY: scans the target with
+    # cheap deterministic heuristics (find/wc/grep counts via python's os.walk and
+    # in-python line counts) and prints a readiness report to STDOUT. It writes
+    # NOTHING into the target (no .loki dir, no state files) so it cannot mutate
+    # the codebase and needs zero flags beyond a path. Emitted before the
+    # path-init/mkdir block below, so no healing session is created.
+    if [ "$do_assess" = "true" ]; then
+        local assess_path="${codebase_path:-.}"
+        if [[ ! -d "$assess_path" ]]; then
+            echo -e "${RED}Error: Directory not found: $assess_path${NC}"
+            return 1
+        fi
+        if ! command -v python3 >/dev/null 2>&1; then
+            echo -e "${RED}Error: python3 is required for readiness assessment.${NC}"
+            return 1
+        fi
+        LOKI_ASSESS_PATH="$assess_path" \
+        LOKI_ASSESS_JSON="$assess_json" \
+        python3 - <<'PYASSESS'
+import json, os, re, sys
+
+root = os.environ.get('LOKI_ASSESS_PATH', '.')
+as_json = os.environ.get('LOKI_ASSESS_JSON', 'false') == 'true'
+
+# Directories we never descend into (VCS/deps/build noise). Keeps counts honest:
+# a vendored node_modules would otherwise dominate LOC and target ranking.
+SKIP_DIRS = {
+    '.git', '.hg', '.svn', 'node_modules', '.loki', 'vendor', 'dist', 'build',
+    '.next', '.venv', 'venv', '__pycache__', '.mypy_cache', '.pytest_cache',
+    'target', '.idea', '.vscode', 'coverage', '.gradle', 'bin', 'obj',
+}
+
+# Extension -> language label. Only source-ish extensions are counted for LOC;
+# unknown extensions are ignored (reported as 'other' only when they carry text).
+LANG_BY_EXT = {
+    '.py': 'Python', '.js': 'JavaScript', '.jsx': 'JavaScript', '.mjs': 'JavaScript',
+    '.cjs': 'JavaScript', '.ts': 'TypeScript', '.tsx': 'TypeScript', '.go': 'Go',
+    '.rb': 'Ruby', '.java': 'Java', '.kt': 'Kotlin', '.c': 'C', '.h': 'C',
+    '.cpp': 'C++', '.cc': 'C++', '.hpp': 'C++', '.cs': 'C#', '.php': 'PHP',
+    '.rs': 'Rust', '.swift': 'Swift', '.scala': 'Scala', '.sh': 'Shell',
+    '.bash': 'Shell', '.pl': 'Perl', '.pm': 'Perl', '.r': 'R', '.m': 'Objective-C',
+    '.lua': 'Lua', '.ex': 'Elixir', '.exs': 'Elixir', '.clj': 'Clojure',
+    '.vue': 'Vue', '.dart': 'Dart',
+}
+
+TEST_HINT = re.compile(r'(^|[/_.-])(test|tests|spec|specs|__tests__)([/_.-]|s?$|\.)', re.I)
+TODO_RE = re.compile(r'\b(TODO|FIXME|HACK|XXX)\b')
+
+# import/require line -> the referenced module basename(s). Deliberately cheap:
+# we only need a proxy for how many OTHER files reference a given file, to rank
+# isolated (low blast-radius) modules ABOVE coupled ones (playbook weeks 1-2).
+IMPORT_PATTERNS = [
+    re.compile(r'^\s*import\s+(?:[\w.]+\s+)?["\']?([\w./-]+)'),          # py/js/ts/go
+    re.compile(r'^\s*from\s+([\w./-]+)\s+import'),                        # python
+    re.compile(r'require\(\s*["\']([\w./-]+)["\']\s*\)'),                # node
+    re.compile(r'^\s*#include\s+[<"]([\w./-]+)[>"]'),                    # c/c++
+    re.compile(r'^\s*use\s+([\w:./-]+)'),                                # rust
+]
+
+files = []          # per-file records
+lang_loc = {}       # language -> total LOC
+lang_files = {}     # language -> file count
+total_loc = 0
+total_files = 0
+todo_count = 0
+has_tests = False
+big_files = []      # (loc, relpath)
+# module reference tallies: how many files import a given basename (no-ext)
+ref_counts = {}
+file_records = {}   # relpath -> record
+
+def stem(name):
+    b = os.path.basename(name)
+    for e in sorted(LANG_BY_EXT, key=len, reverse=True):
+        if b.endswith(e):
+            return b[:-len(e)]
+    return os.path.splitext(b)[0]
+
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith('.git')]
+    for fn in filenames:
+        ext = os.path.splitext(fn)[1].lower()
+        lang = LANG_BY_EXT.get(ext)
+        if lang is None:
+            continue
+        full = os.path.join(dirpath, fn)
+        try:
+            with open(full, 'r', encoding='utf-8', errors='replace') as fh:
+                lines = fh.readlines()
+        except (OSError, IOError):
+            continue
+        loc = len(lines)
+        rel = os.path.relpath(full, root)
+        total_loc += loc
+        total_files += 1
+        lang_loc[lang] = lang_loc.get(lang, 0) + loc
+        lang_files[lang] = lang_files.get(lang, 0) + 1
+        is_test = bool(TEST_HINT.search(rel))
+        if is_test:
+            has_tests = True
+        ftodo = 0
+        refs = set()
+        for ln in lines:
+            if TODO_RE.search(ln):
+                ftodo += 1
+            for pat in IMPORT_PATTERNS:
+                m = pat.search(ln)
+                if m:
+                    refs.add(stem(m.group(1)))
+        todo_count += ftodo
+        rec = {
+            'path': rel, 'loc': loc, 'language': lang,
+            'todos': ftodo, 'is_test': is_test,
+        }
+        files.append(rec)
+        file_records[rel] = rec
+        if loc >= 500:
+            big_files.append((loc, rel))
+        # tally inbound references toward the imported basenames
+        for r in refs:
+            ref_counts[r] = ref_counts.get(r, 0) + 1
+
+# Attach inbound-reference (blast-radius proxy) to each non-test source file.
+for rec in files:
+    rec['inbound_refs'] = ref_counts.get(stem(rec['path']), 0)
+
+# --- Technical-debt / maintenance-risk signals (all deterministic) ---
+big_files.sort(reverse=True)
+largest_loc = big_files[0][0] if big_files else 0
+# dependency-manifest presence (a real, cheap signal; NOT a staleness figure).
+manifest_names = {
+    'package.json', 'requirements.txt', 'Pipfile', 'pyproject.toml', 'go.mod',
+    'Cargo.toml', 'pom.xml', 'build.gradle', 'Gemfile', 'composer.json',
+}
+lockfile_names = {
+    'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'poetry.lock',
+    'Pipfile.lock', 'go.sum', 'Cargo.lock', 'Gemfile.lock', 'composer.lock',
+}
+found_manifests, found_lockfiles = [], []
+for fn in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+    if fn in manifest_names:
+        found_manifests.append(fn)
+    if fn in lockfile_names:
+        found_lockfiles.append(fn)
+# dependency staleness is NOT computed offline -> reported as 'unknown', never guessed.
+dep_lock_present = len(found_lockfiles) > 0 if found_manifests else None
+
+todo_density = round((todo_count / total_loc) * 1000, 2) if total_loc else 0.0
+
+# --- 4-level maturity model (Ad hoc -> Planned -> Systematic -> Optimized) ---
+# Deterministic rubric from cheap signals. Higher = more modern/ready.
+# Ad hoc: no tests. Planned: tests exist but sparse / large files / high TODO.
+# Systematic: tests + locked deps + no oversized files + low TODO density.
+# Optimized: Systematic AND a strong test footprint (>=20% of source files test).
+test_files = sum(1 for f in files if f['is_test'])
+test_ratio = round(test_files / total_files, 3) if total_files else 0.0
+if not has_tests:
+    maturity = 'Ad hoc'
+    maturity_level = 1
+    maturity_reason = 'No test/spec files detected: changes are unguarded.'
+elif (test_ratio < 0.10) or (largest_loc >= 1000) or (todo_density >= 5.0):
+    maturity = 'Planned'
+    maturity_level = 2
+    maturity_reason = ('Tests exist but coverage footprint is thin or debt signals are high '
+                       '(sparse tests / oversized files / dense TODOs).')
+elif dep_lock_present and test_ratio >= 0.20:
+    maturity = 'Optimized'
+    maturity_level = 4
+    maturity_reason = ('Strong test footprint, pinned dependencies, and no oversized files: '
+                       'ready for continuous background modernization.')
+else:
+    maturity = 'Systematic'
+    maturity_level = 3
+    maturity_reason = ('Tests present with a healthy footprint and contained file sizes; '
+                       'dependency pinning or test depth can still improve.')
+
+# --- Ranked candidate targets (playbook weeks 1-2: low blast-radius FIRST) ---
+# AC#2 requires isolated / low-blast-radius modules to rank ABOVE coupled ones,
+# so isolation is the PRIMARY key -- it must never be traded away for size. We
+# bucket by inbound-reference tier (0 refs = isolated, 1-2 = low, 3-5 = moderate,
+# 6+ = highly coupled); within a tier, higher "visibility" (LOC + TODO weight)
+# breaks the tie so a bigger isolated file surfaces first. A large-but-coupled
+# file can therefore never outrank a small isolated one. Tests are excluded.
+candidates = [f for f in files if not f['is_test']]
+def blast_tier(refs):
+    if refs == 0:
+        return 0  # isolated
+    if refs <= 2:
+        return 1  # low blast radius
+    if refs <= 5:
+        return 2  # moderate
+    return 3      # highly coupled
+def visibility(f):
+    # tie-break WITHIN a blast tier only; bigger / more-flagged = more worth it.
+    return f['loc'] + f['todos'] * 50
+for f in candidates:
+    f['_tier'] = blast_tier(f['inbound_refs'])
+    f['_score'] = visibility(f)
+# primary: lower tier first (isolation dominates); secondary: higher visibility.
+candidates.sort(key=lambda f: (f['_tier'], -f['_score'], f['path']))
+top = candidates[:10]
+
+def target_rationale(f):
+    bits = []
+    if f['inbound_refs'] == 0:
+        bits.append('isolated (no inbound imports -> low blast radius)')
+    else:
+        bits.append(f"{f['inbound_refs']} inbound reference(s)")
+    bits.append(f"{f['loc']} LOC")
+    if f['todos']:
+        bits.append(f"{f['todos']} TODO/FIXME")
+    return ', '.join(bits)
+
+lang_mix = sorted(
+    ({'language': k, 'loc': v, 'files': lang_files.get(k, 0),
+      'pct': round((v / total_loc) * 100, 1) if total_loc else 0.0}
+     for k, v in lang_loc.items()),
+    key=lambda x: -x['loc'],
+)
+
+report = {
+    'codebase': os.path.abspath(root),
+    'scan': {
+        'total_files': total_files,
+        'total_loc': total_loc,
+        'language_mix': lang_mix,
+    },
+    'debt_signals': {
+        'has_tests': has_tests,
+        'test_files': test_files,
+        'test_ratio': test_ratio,
+        'todo_fixme_count': todo_count,
+        'todo_density_per_kloc': todo_density,
+        'large_files_ge_500_loc': len(big_files),
+        'largest_file_loc': largest_loc,
+    },
+    'maintenance_risk': {
+        'dependency_manifests': found_manifests,
+        'lockfiles': found_lockfiles,
+        'dependency_lock_present': dep_lock_present,
+        'dependency_staleness': 'unknown',  # not computable offline; never guessed
+    },
+    'maturity': {
+        'level': maturity_level,
+        'label': maturity,
+        'scale': ['Ad hoc', 'Planned', 'Systematic', 'Optimized'],
+        'rationale': maturity_reason,
+    },
+    'ranked_targets': [
+        {'path': f['path'], 'loc': f['loc'], 'language': f['language'],
+         'inbound_refs': f['inbound_refs'], 'todos': f['todos'],
+         'blast_tier': f['_tier'],  # 0 isolated, 1 low, 2 moderate, 3 highly coupled (primary sort key)
+         'visibility_score': f['_score'], 'rationale': target_rationale(f)}
+        for f in top
+    ],
+}
+
+if as_json:
+    print(json.dumps(report, indent=2))
+    sys.exit(0)
+
+BOLD = '\033[1m'; NC = '\033[0m'; CYAN = '\033[36m'
+print(f"{BOLD}Modernization Readiness Assessment{NC}")
+print()
+print(f"  Codebase:  {report['codebase']}")
+print(f"  Files:     {total_files} source file(s)")
+print(f"  LOC:       {total_loc}")
+if total_files == 0:
+    print()
+    print("  No recognized source files found; nothing to assess.")
+    sys.exit(0)
+print()
+print(f"{BOLD}Language mix{NC}")
+for lm in lang_mix:
+    print(f"  {lm['language']:<12} {lm['loc']:>8} LOC  ({lm['pct']}%, {lm['files']} files)")
+print()
+print(f"{BOLD}Technical-debt signals{NC}")
+d = report['debt_signals']
+print(f"  Tests present:       {'yes' if d['has_tests'] else 'NO'} "
+      f"({d['test_files']} test file(s), {d['test_ratio']:.0%} of files)")
+print(f"  TODO/FIXME/HACK:     {d['todo_fixme_count']} "
+      f"({d['todo_density_per_kloc']} per KLOC)")
+print(f"  Large files (>=500): {d['large_files_ge_500_loc']} "
+      f"(largest {d['largest_file_loc']} LOC)")
+mr = report['maintenance_risk']
+lock_str = ('yes' if mr['dependency_lock_present'] else 'NO') if mr['dependency_lock_present'] is not None else 'no manifest'
+print(f"  Dependency lockfile: {lock_str}")
+print(f"  Dependency staleness: {mr['dependency_staleness']} (not computed offline)")
+print()
+print(f"{BOLD}Maturity{NC} (Ad hoc -> Planned -> Systematic -> Optimized)")
+print(f"  Level {maturity_level}/4: {CYAN}{maturity}{NC}")
+print(f"  {maturity_reason}")
+print()
+print(f"{BOLD}Where to start{NC} (ranked low-blast-radius, high-visibility targets)")
+if not top:
+    print("  No non-test candidate modules found.")
+else:
+    for i, f in enumerate(top, 1):
+        print(f"  {i}. {f['path']}")
+        print(f"     {target_rationale(f)}")
+print()
+PYASSESS
+        return $?
     fi
 
     if [ "$do_report" = "true" ]; then
@@ -14464,7 +14784,7 @@ HEALING RULES:
 5. INCREMENTAL ONLY: Change ONE component at a time. Verify ALL characterization tests pass after each change.
 
 Phase-specific instructions:
-- archaeology: Map dependencies, catalog friction, extract knowledge, write characterization tests. Do NOT modify source code.
+- archaeology: Map dependencies, catalog friction, extract knowledge, write characterization tests. Do NOT modify source code. ALSO write .loki/healing/boundaries.json: a JSON array of the OBSERVABLE system boundaries (CLI commands, HTTP endpoints, file/DB-producing entrypoints). Each element: {\"id\": string, \"boundary_type\": \"cli\"|\"http\"|\"file\"|\"db\", \"command\": string}. The \"command\" MUST be a deterministic shell invocation that exercises that boundary and prints its observable output to stdout (avoid timestamps/PIDs). These commands are golden-mastered into .loki/healing/behavioral-baseline/ and re-run at the modernize->validate gate to block any undocumented boundary change. If no observable boundary exists, write an empty array [] (do NOT invent one).
 - stabilize: Add logging and observability. Extract config. Add type hints. Do NOT change behavior.
 - isolate: Create adapter interfaces at component boundaries. Add integration tests.
 - modernize: Replace components behind adapters. Verify characterization tests pass.
@@ -14524,6 +14844,16 @@ except Exception: pass
     esac
 
     emit_event healing cli complete "phase=$phase" "exit=$heal_exit" 2>/dev/null || true
+
+    # RANK 4: populate .loki/healing/behavioral-baseline/ during archaeology.
+    # The dir is mkdir'd above but was never populated; the modernize->validate
+    # gate needs a golden-master per detected boundary to compare against.
+    # Deterministic capture (NOT an LLM call): re-runs each boundary's
+    # characterization_test and records observed stdout+exit. Honest degrade when
+    # no boundaries are detected. Byte-identical no-op when the hook is absent.
+    if [ "$phase" = "archaeology" ] && type hook_capture_behavioral_baseline &>/dev/null; then
+        hook_capture_behavioral_baseline "$codebase_path" 2>/dev/null || true
+    fi
 
     if [ "$heal_exit" -eq 0 ]; then
         echo ""

@@ -411,9 +411,27 @@ When `loki heal` is active, the code review specialist pool includes:
   failure-modes.json             # Cataloged failure modes
   institutional-knowledge.md     # Extracted tribal knowledge
   healing-progress.json          # Component-by-component healing status
-  behavioral-baseline/           # Pre-healing system-boundary outputs
+  boundaries.json                # Observable system boundaries (archaeology writes)
+  behavioral-baseline/           # Golden-master per-boundary outputs (archaeology captures)
   characterization-tests/        # Tests that capture current behavior
 ```
+
+### Golden-master boundary equivalence (modernize -> validate gate)
+
+Whole-suite exit code is necessary but NOT sufficient: a transform can keep unit
+tests green while altering an observable boundary (CLI stdout/exit, HTTP, file/DB
+delta). Archaeology writes `.loki/healing/boundaries.json` -- a JSON array of
+`{"id","boundary_type":"cli"|"http"|"file"|"db","command"}` -- where `command` is a
+deterministic invocation that prints the boundary's observable output. During
+archaeology each boundary is golden-mastered into `behavioral-baseline/`
+(stdout + exit are the compared channels; stderr is recorded but never compared,
+so Py2->Py3 warnings do not false-block). At the `modernize -> validate` gate every
+boundary is re-run and compared PER-BOUNDARY; any change is BLOCKED with a diff
+report unless a per-boundary record exists in
+`behavioral-baseline/intentional-changes.json`
+(`{"changes":[{"boundary":"<id>","is_intentional":true,"reason":"..."}]}`).
+Honest degrade: no boundaries / no baseline / heal mode off is a byte-identical
+no-op, never a false-green. (Deterministic shell hooks, not LLM calls.)
 
 **Progress Tracking:**
 ```json

@@ -78,10 +78,26 @@ describe("buildPhases (PHASE_X flag matrix)", () => {
 
 describe("rarvInstruction", () => {
   it("interpolates MAX_PARALLEL_AGENTS", () => {
-    const s = _internals.rarvInstruction(7);
+    const s = _internals.rarvInstruction(7, true);
     expect(s).toContain("MAX_PARALLEL_AGENTS=7");
     expect(s).toMatch(/^RALPH WIGGUM MODE ACTIVE\./);
+  });
+  it("emits never-finished tail in perpetual mode (rank 8)", () => {
+    const s = _internals.rarvInstruction(7, true);
+    expect(s).toContain("There is NEVER a 'finished' state");
+    expect(s).toContain("always find the next improvement");
     expect(s.endsWith("test, or feature.")).toBe(true);
+  });
+  it("emits stop-when-verified directive in finite mode (rank 8)", () => {
+    const s = _internals.rarvInstruction(7, false);
+    expect(s).not.toContain("There is NEVER a 'finished' state");
+    expect(s).not.toContain("always find the next improvement");
+    expect(s).toContain("claim done via loki_complete_task and STOP");
+    expect(s).toContain("the completion gates (tests, checklist, evidence) are the authority");
+  });
+  it("removes the 2-3x quality-improvement clause in all modes (rank 8)", () => {
+    expect(_internals.rarvInstruction(7, true)).not.toContain("2-3x quality improvement");
+    expect(_internals.rarvInstruction(7, false)).not.toContain("2-3x quality improvement");
   });
 });
 

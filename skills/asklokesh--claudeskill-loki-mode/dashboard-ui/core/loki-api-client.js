@@ -88,6 +88,7 @@ export class LokiApiClient extends EventTarget {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this._ws = null;
     this._connected = false;
+    this._intentionalClose = false;
     this._pollInterval = null;
     this._reconnectTimeout = null;
     this._reconnectAttempts = 0;
@@ -324,6 +325,10 @@ export class LokiApiClient extends EventTarget {
    * Connect to WebSocket for real-time updates
    */
   async connect() {
+    // Clear the intentional-close flag first: any connect (including the
+    // auto-reconnect path that calls connect() from _scheduleReconnect) means
+    // we want reconnects to resume if this socket later drops unexpectedly.
+    this._intentionalClose = false;
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
       return;
     }
@@ -342,7 +347,12 @@ export class LokiApiClient extends EventTarget {
         this._ws.onclose = () => {
           this._connected = false;
           this._emit(ApiEvents.DISCONNECTED);
-          this._scheduleReconnect();
+          // onclose fires asynchronously after close(). If disconnect() closed
+          // the socket on purpose, do NOT reconnect -- otherwise the async
+          // onclose defeats disconnect() by immediately reopening the socket.
+          if (!this._intentionalClose) {
+            this._scheduleReconnect();
+          }
         };
 
         this._ws.onerror = (error) => {
@@ -368,6 +378,9 @@ export class LokiApiClient extends EventTarget {
    * Disconnect WebSocket
    */
   disconnect() {
+    // Mark this as an intentional close so the async onclose handler does not
+    // schedule a reconnect and silently reopen the socket we are tearing down.
+    this._intentionalClose = true;
     if (this._ws) {
       this._ws.close();
       this._ws = null;

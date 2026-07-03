@@ -171,6 +171,71 @@ verify_diff_base() {
 }
 
 # ---------------------------------------------------------------------------
+# Code-scope / locality record (rank 10, ADVISORY-FIRST).
+#
+# Turns the already-computed VERIFY_DIFF_FILES / VERIFY_DIFF_INS / VERIFY_DIFF_DEL
+# into a structured scope record: {files_changed, net_lines, verdict, thresholds}.
+# net_lines is line GROWTH (insertions - deletions), matching "net line growth" --
+# it goes negative on deletion-heavy diffs (only growth trips a threshold).
+#
+# ADVISORY BY DEFAULT. The verdict is a LABEL in the record only; this helper does
+# NOT emit a gate row and does NOT feed verify_compute_verdict, so it can never
+# change the exit code or block a build (the friction-regression guard, and the
+# greenfield byte-identity guarantee -- loki start never reaches verify_main).
+#
+# Thresholds:
+#   - Soft thresholds (LOKI_SCOPE_SOFT_FILES / LOKI_SCOPE_SOFT_NET_LINES) have sane
+#     defaults; exceeding a soft threshold with NO hard cap set -> verdict "warn".
+#   - Hard caps (LOKI_SCOPE_MAX_FILES / LOKI_SCOPE_MAX_NET_LINES) are OPT-IN: only
+#     when such an env var is EXPLICITLY SET and exceeded does the verdict become
+#     "block". Even then this record does not by itself block the build; it is the
+#     opt-in signal a consumer/enforcer can act on.
+#   - Under all applicable thresholds -> "ok".
+#
+# Sets globals: VERIFY_SCOPE_FILES VERIFY_SCOPE_NET_LINES VERIFY_SCOPE_VERDICT
+#               VERIFY_SCOPE_SOFT_FILES VERIFY_SCOPE_SOFT_NET_LINES
+#               VERIFY_SCOPE_MAX_FILES VERIFY_SCOPE_MAX_NET_LINES (empty when unset)
+# ---------------------------------------------------------------------------
+verify_scope_record() {
+    local files="${VERIFY_DIFF_FILES:-0}"
+    local ins="${VERIFY_DIFF_INS:-0}"
+    local del="${VERIFY_DIFF_DEL:-0}"
+    local net=$(( ins - del ))
+
+    # Soft advisory thresholds (defaults; overridable).
+    local soft_files="${LOKI_SCOPE_SOFT_FILES:-25}"
+    local soft_net="${LOKI_SCOPE_SOFT_NET_LINES:-500}"
+    # Hard caps are opt-in: unset means "never block".
+    local max_files="${LOKI_SCOPE_MAX_FILES:-}"
+    local max_net="${LOKI_SCOPE_MAX_NET_LINES:-}"
+
+    local verdict="ok"
+
+    # Hard-cap check first (only when explicitly set) -> "block".
+    if [ -n "$max_files" ] && [ "$files" -gt "$max_files" ] 2>/dev/null; then
+        verdict="block"
+    elif [ -n "$max_net" ] && [ "$net" -gt "$max_net" ] 2>/dev/null; then
+        verdict="block"
+    # Soft threshold (advisory, no hard cap tripped) -> "warn".
+    elif [ "$files" -gt "$soft_files" ] 2>/dev/null; then
+        verdict="warn"
+    elif [ "$net" -gt "$soft_net" ] 2>/dev/null; then
+        verdict="warn"
+    fi
+
+    VERIFY_SCOPE_FILES="$files"
+    VERIFY_SCOPE_NET_LINES="$net"
+    VERIFY_SCOPE_VERDICT="$verdict"
+    VERIFY_SCOPE_SOFT_FILES="$soft_files"
+    VERIFY_SCOPE_SOFT_NET_LINES="$soft_net"
+    VERIFY_SCOPE_MAX_FILES="$max_files"
+    VERIFY_SCOPE_MAX_NET_LINES="$max_net"
+
+    _verify_log "scope: $files files, net $net lines -> $verdict (soft $soft_files/$soft_net, hard ${max_files:-unset}/${max_net:-unset})"
+    return 0
+}
+
+# ---------------------------------------------------------------------------
 # Gate: build (faithful extension of run.sh language detection).
 #
 # A build is run only when a build command is DETECTABLE. If none is
@@ -227,6 +292,70 @@ verify_gate_build() {
     return 0
 }
 
+# _verify_zero_tests_executed -- "no real tests ran" detector (#82), mirrors
+# _loki_zero_tests_executed in run.sh. Returns 0 (true) ONLY on positive
+# detection of a runner that exited 0 yet executed ZERO actual tests; any
+# unrecognized shape returns 1 (false) so a legitimate suite is never
+# false-downgraded.  $1=runner  $2=raw output  $3..=node --test file paths.
+#
+# node --test: a *.test.js with no test() calls still emits `# tests 1 # pass 1`
+#   (node counts the FILE as one passing pseudo-test: `ok N - <file-basename>`),
+#   so the true executed count = ok/not-ok lines whose label is NOT a passed
+#   file basename. Zero such = no real tests.
+# jest --passWithNoTests: prints "No tests found" and no "Tests:" summary.
+_verify_zero_tests_executed() {
+    local _zt_runner="$1"; shift
+    local _zt_out="$1"; shift
+    case "$_zt_runner" in
+        node-test)
+            # node's file-wrapper label is the argument verbatim (full path) and,
+            # on older node, its basename. Register BOTH (newline-delimited so a
+            # spaced path still matches exactly).
+            local _zt_f _zt_bases=$'\n'
+            for _zt_f in "$@"; do
+                [ -n "$_zt_f" ] || continue
+                _zt_bases="${_zt_bases}${_zt_f}"$'\n'"$(basename "$_zt_f")"$'\n'
+            done
+            local _zt_real=0 _zt_line _zt_label
+            while IFS= read -r _zt_line; do
+                _zt_label="${_zt_line#* - }"
+                case "$_zt_bases" in
+                    *$'\n'"$_zt_label"$'\n'*) continue ;;
+                esac
+                _zt_real=$((_zt_real + 1))
+            done < <(printf '%s\n' "$_zt_out" | grep -E '^(ok|not ok) [0-9]+ - ' 2>/dev/null)
+            [ "$_zt_real" -eq 0 ] && return 0
+            return 1
+            ;;
+        jest)
+            if printf '%s' "$_zt_out" | grep -qiE 'no tests found' 2>/dev/null \
+               && ! printf '%s' "$_zt_out" | grep -qE '^Tests:' 2>/dev/null; then
+                return 0
+            fi
+            return 1
+            ;;
+        go-test)
+            # #89: `go test ./...` on a package with NO *_test.go files prints
+            # `?   <pkg>  [no test files]` and EXITS 0 (unlike vitest/pytest/mocha,
+            # which exit non-zero on zero tests and are already caught as not-pass).
+            # So a Go project with source but no tests would score `pass` -- a mini
+            # fake-green. Detect it POSITIVELY: at least one `[no test files]` line
+            # AND ZERO package results that actually ran (`ok `/`FAIL`). A mixed
+            # run (some pkgs tested -> `ok`, others not -> `[no test files]`) has
+            # `ok` present, so it is NOT downgraded (verified: real passing prints
+            # `ok  <pkg>  0.2s`, a bare pkg prints `[no test files]`).
+            if printf '%s' "$_zt_out" | grep -qE '\[no test files\]' 2>/dev/null \
+               && ! printf '%s' "$_zt_out" | grep -qE '^(ok|FAIL|--- FAIL)' 2>/dev/null; then
+                return 0
+            fi
+            return 1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 # ---------------------------------------------------------------------------
 # Gate: tests (faithful port of enforce_test_coverage detection, run.sh:6624).
 #
@@ -236,7 +365,9 @@ verify_gate_build() {
 # skipped  = no test framework detected at all (not-applicable).
 # inconclusive = a project is present but no runnable framework
 #                (e.g. package.json with no test runner, or a python project
-#                 with no pytest on PATH). Forces at-least-CONCERNS.
+#                 with no pytest on PATH), OR a runner that ran but executed
+#                 ZERO tests (#82: node --test empty file, jest --passWithNoTests).
+#                Forces at-least-CONCERNS.
 # fail     = tests ran and failed -> High finding.
 # pass     = tests ran green.
 # ---------------------------------------------------------------------------
@@ -318,6 +449,41 @@ verify_gate_tests() {
         fi
     fi
 
+    # node --test (built-in Node runner) -- config-less fallback (task #79).
+    # Node's built-in test runner (stable since Node 18) runs
+    # *.test.{js,mjs,cjs} with ZERO config and NO package.json, so a real
+    # passing suite (slug.js + slug.test.js, no package.json) previously fell
+    # through to runner="none" -> tests "skipped" -- a FALSE-NEGATIVE on the
+    # verdict surface (symmetric to fake-green). This branch fires ONLY below
+    # the explicit-framework paths (vitest/jest/mocha via package.json all set
+    # runner above), so package.json-with-jest still selects jest. Runs only
+    # when node is on PATH AND *.test.{js,mjs,cjs} exist at root or under
+    # test/ or tests/. A FAILING run records fail (never swallowed); absence of
+    # node or test files falls through to the honest "skipped" path below.
+    if [ "$runner" = "none" ] && command -v node >/dev/null 2>&1; then
+        local _nt_files=()
+        local _nt_f _nt_dir
+        while IFS= read -r _nt_f; do
+            [ -n "$_nt_f" ] && _nt_files+=("$_nt_f")
+        done < <(find "$tree" -maxdepth 1 -type f \
+                    \( -name '*.test.js' -o -name '*.test.mjs' -o -name '*.test.cjs' \) \
+                    2>/dev/null)
+        for _nt_dir in test tests; do
+            [ -d "$tree/$_nt_dir" ] || continue
+            while IFS= read -r _nt_f; do
+                [ -n "$_nt_f" ] && _nt_files+=("$_nt_f")
+            done < <(find "$tree/$_nt_dir" -maxdepth 3 -type f \
+                        \( -name '*.test.js' -o -name '*.test.mjs' -o -name '*.test.cjs' \) \
+                        -not -path '*/node_modules/*' 2>/dev/null)
+        done
+        if [ "${#_nt_files[@]}" -gt 0 ]; then
+            runner="node-test"
+            # Pass matched files explicitly (node --test globbing is
+            # Node-version-sensitive); quote each so paths with spaces survive.
+            out="$(cd "$tree" && timeout "$timeout_s" node --test "${_nt_files[@]}" 2>&1)" || rc=$?
+        fi
+    fi
+
     if [ "$runner" = "none" ]; then
         _verify_add_gate "tests" "skipped" "" "no test framework detected" "true"
         return 0
@@ -329,7 +495,15 @@ verify_gate_tests() {
     fi
 
     if [ "$rc" -eq 0 ]; then
-        _verify_add_gate "tests" "pass" "$runner" "tests passed" "true"
+        # #82: a green run that executed ZERO real tests is a mini fake-green.
+        # Record it as HONEST inconclusive (forces at-least-CONCERNS), NOT pass
+        # and NOT fail. Positive-detection only; an unparseable runner stays pass.
+        if _verify_zero_tests_executed "$runner" "$out" "${_nt_files[@]:-}"; then
+            _verify_add_gate "tests" "inconclusive" "$runner" \
+                "runner ran but executed zero tests (source_without_runnable_tests)" "true"
+        else
+            _verify_add_gate "tests" "pass" "$runner" "tests passed" "true"
+        fi
     else
         _verify_add_gate "tests" "fail" "$runner" "tests failed (rc=$rc)" "true"
         _verify_add_finding "High" "tests" "deterministic:$runner" "" "null" \
@@ -916,6 +1090,100 @@ PYEOF
     return 0
 }
 
+# ---------------------------------------------------------------------------
+# Setup-recipe WRITER (rank 7). Writes .loki/setup-recipe.json after a VERIFIED
+# runtime boot, capturing the deterministic steps to reach a runnable state so
+# later verify/e2e runs replay the recipe instead of re-detecting heuristically
+# (the CONSUMER already exists in _verify_runtime_detect: it reads "start"/"port").
+#
+# Keys: {install, seed, env_keys, start, health_path, port}.
+#   - env_keys are env var NAMES ONLY, harvested from .env.example / .env in the
+#     tree (left side of `NAME=value`). SECRET VALUES ARE NEVER PERSISTED.
+#   - install/seed are best-effort deterministic detections (npm ci / pip install
+#     / go mod download; a seed script when present). Empty string when unknown.
+#
+# Best effort and fail-open: any failure leaves no recipe and never changes the
+# gate outcome. Called ONLY from the boot-pass branch, so a failed boot writes
+# nothing.
+#
+# Args: $1 tree  $2 start_command  $3 port  $4 health_path
+# ---------------------------------------------------------------------------
+_verify_write_setup_recipe() {
+    local tree="$1" start="$2" port="$3" health_path="$4"
+    command -v python3 >/dev/null 2>&1 || return 0
+    [ -d "$tree" ] || return 0
+
+    # Detect a deterministic install command from the tree (best effort).
+    local install=""
+    if [ -f "$tree/package-lock.json" ]; then
+        install="npm ci"
+    elif [ -f "$tree/package.json" ]; then
+        install="npm install"
+    elif [ -f "$tree/requirements.txt" ]; then
+        install="pip install -r requirements.txt"
+    elif [ -f "$tree/go.mod" ]; then
+        install="go mod download"
+    elif [ -f "$tree/Cargo.toml" ]; then
+        install="cargo fetch"
+    fi
+
+    # Detect a seed step (best effort): package.json "seed" script, else empty.
+    local seed=""
+    if [ -f "$tree/package.json" ] && grep -q '"seed"[[:space:]]*:' "$tree/package.json" 2>/dev/null; then
+        seed="npm run seed"
+    fi
+
+    # Harvest env var NAMES only from .env.example / .env (never the values).
+    # The python writer parses these; we hand it the file paths that exist.
+    local env_src=""
+    [ -f "$tree/.env.example" ] && env_src="$tree/.env.example"
+    [ -z "$env_src" ] && [ -f "$tree/.env" ] && env_src="$tree/.env"
+
+    _SR_DIR="$tree/.loki" _SR_INSTALL="$install" _SR_SEED="$seed" \
+    _SR_START="$start" _SR_HEALTH="$health_path" _SR_PORT="$port" \
+    _SR_ENVSRC="$env_src" \
+    python3 - <<'PYEOF' 2>/dev/null || return 0
+import json, os, re
+
+out_dir = os.environ["_SR_DIR"]
+
+# env_keys: NAMES ONLY. Parse KEY=VALUE / export KEY=VALUE lines, keep the KEY.
+# The value side is never read into the recipe (security AC).
+env_keys = []
+src = os.environ.get("_SR_ENVSRC") or ""
+if src and os.path.exists(src):
+    seen = set()
+    try:
+        with open(src) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                name = line.split("=", 1)[0].strip()
+                name = re.sub(r"^export\s+", "", name)
+                if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name) and name not in seen:
+                    seen.add(name)
+                    env_keys.append(name)
+    except Exception:
+        env_keys = []
+
+recipe = {
+    "install": os.environ.get("_SR_INSTALL", ""),
+    "seed": os.environ.get("_SR_SEED", ""),
+    "env_keys": env_keys,
+    "start": os.environ.get("_SR_START", ""),
+    "health_path": os.environ.get("_SR_HEALTH", "") or "/",
+    "port": os.environ.get("_SR_PORT", ""),
+}
+
+os.makedirs(out_dir, exist_ok=True)
+with open(os.path.join(out_dir, "setup-recipe.json"), "w") as f:
+    json.dump(recipe, f, indent=2)
+    f.write("\n")
+PYEOF
+    return 0
+}
+
 verify_gate_runtime() {
     local tree="$1"
     # Opt-out (default on). Disabled -> emit no row -> byte-identical.
@@ -1055,6 +1323,11 @@ verify_gate_runtime() {
             "Runtime boot smoke failed: '$method' booted but returned HTTP $http_status on $url (server error)."
     else
         _verify_add_gate "runtime" "pass" "boot" "$summary" "true"
+        # Setup-recipe WRITER (rank 7). Only on a VERIFIED boot (2xx/3xx/4xx):
+        # persist a deterministic .loki/setup-recipe.json that the runtime
+        # detector (_verify_runtime_detect) consumes first on later runs. Env var
+        # NAMES only, never secret VALUES. Best effort; never changes the verdict.
+        _verify_write_setup_recipe "$tree" "$method" "$probe_port" "$health_path" || true
     fi
 
     # Record a structured runtime artifact alongside the gate row so the boot is
@@ -1339,6 +1612,13 @@ verify_emit_evidence() {
     _V_BLOCKON="$block_on" \
     _V_LEDGER_SHA="${_VERIFY_EXPECT_LEDGER_SHA:-}" \
     _V_LEDGER_HASHOK="${_VERIFY_EXPECT_LEDGER_HASH_OK:-}" \
+    _V_SCOPE_FILES="${VERIFY_SCOPE_FILES:-}" \
+    _V_SCOPE_NET="${VERIFY_SCOPE_NET_LINES:-}" \
+    _V_SCOPE_VERDICT="${VERIFY_SCOPE_VERDICT:-}" \
+    _V_SCOPE_SOFT_FILES="${VERIFY_SCOPE_SOFT_FILES:-}" \
+    _V_SCOPE_SOFT_NET="${VERIFY_SCOPE_SOFT_NET_LINES:-}" \
+    _V_SCOPE_MAX_FILES="${VERIFY_SCOPE_MAX_FILES:-}" \
+    _V_SCOPE_MAX_NET="${VERIFY_SCOPE_MAX_NET_LINES:-}" \
     python3 - <<'PYEOF'
 import json, os, hashlib
 
@@ -1430,6 +1710,33 @@ if _ledger_sha:
     doc["expectation_ledger"] = {
         "ledger_sha256": _ledger_sha,
         "hash_ok": (os.environ.get("_V_LEDGER_HASHOK") == "true"),
+    }
+
+# Code-scope / locality record (rank 10, advisory-first). Additive top-level
+# "scope" object; the verdict here is a LABEL only and never affects the
+# document's authoritative verdict/exit_code. Emitted only when the scope helper
+# ran (env set), so evidence.json stays byte-identical on paths that skip it.
+_scope_verdict = os.environ.get("_V_SCOPE_VERDICT") or ""
+if _scope_verdict:
+    def _to_int(name, default=0):
+        v = os.environ.get(name) or ""
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return default
+    _thresholds = {
+        "soft_files": _to_int("_V_SCOPE_SOFT_FILES"),
+        "soft_net_lines": _to_int("_V_SCOPE_SOFT_NET"),
+        # Hard caps are opt-in; None when not explicitly set.
+        "max_files": (_to_int("_V_SCOPE_MAX_FILES") if (os.environ.get("_V_SCOPE_MAX_FILES") or "") != "" else None),
+        "max_net_lines": (_to_int("_V_SCOPE_MAX_NET") if (os.environ.get("_V_SCOPE_MAX_NET") or "") != "" else None),
+    }
+    doc["scope"] = {
+        "files_changed": _to_int("_V_SCOPE_FILES"),
+        "net_lines": _to_int("_V_SCOPE_NET"),
+        "verdict": _scope_verdict,
+        "advisory": True,
+        "thresholds": _thresholds,
     }
 
 os.makedirs(out_dir, exist_ok=True)
@@ -2068,6 +2375,11 @@ verify_main() {
     _verify_log "loki verify (deterministic-only MVP) starting; base=$base_ref out=$out_dir"
 
     verify_diff_base "$base_ref"
+
+    # Code-scope / locality record (rank 10, advisory-first). Reads the diff
+    # stats verify_diff_base just computed; never emits a gate row or feeds the
+    # verdict, so it can never block or change the exit code.
+    verify_scope_record
 
     # Short-circuit on an empty or unresolvable change set. A verifier verifies
     # a CHANGE; with nothing to verify there is no basis for a VERIFIED verdict.

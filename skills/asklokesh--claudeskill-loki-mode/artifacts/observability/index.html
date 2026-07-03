@@ -1,30 +1,42 @@
 <!DOCTYPE html>
-<html lang="en" data-loki-theme="dark">
+<html lang="en" data-loki-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Autonomi Founder Observability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" media="all">
 <style>
-  /* Autonomi design language - dark palette from trust.html */
+  /* Autonomi design language - light palette (DESIGN_SYSTEM.md, Loki Mode product accent) */
   :root {
-    --bg: #0F0B1A;
-    --panel: rgba(30,21,51,0.80);
-    --panel-2: #1E1533;
-    --border: rgba(255,255,255,0.08);
-    --text: #F0ECF8;
-    --muted: #B8B0C8;
-    --faint: #7B6FA0;
-    --accent: #7B6BF0;
-    --accent-bright: #553DE9;
-    --verified: #2ED8B6;
-    --verified-bg: rgba(46,216,182,0.10);
-    --red: #C04848;
-    --red-bg: rgba(192,72,72,0.10);
-    --amber: #C4922E;
-    --amber-bg: rgba(196,146,46,0.10);
-    --line: rgba(255,255,255,0.06);
+    /* Page + surfaces */
+    --bg: #EDE8F5;                       /* Off White page background */
+    --panel: rgba(255,255,255,0.6);      /* Glass card background */
+    --panel-2: #ADBBDA;                  /* Cool Gray solid surface / hover */
+    --border: rgba(61,82,160,0.12);      /* Subtle indigo-tinted border */
+    /* Text */
+    --text: #2D3142;                     /* Charcoal (primary) */
+    --muted: #4F5D75;                    /* Slate (secondary) - AA on light bg */
+    --faint: #4F5D75;                    /* Slate for small captions (pale lavender fails AA as text) */
+    --faint-fill: #8697C4;               /* Pale Lavender - decorative fills only, never small text */
+    /* Accent = Electric Violet (Loki Mode product accent) */
+    --accent: #6C63FF;
+    --accent-bright: #3D52A0;            /* Deep Indigo for solid fills needing white text */
+    /* Status */
+    --verified: #7FB069;                 /* Sage Green - fills/borders/dots */
+    --verified-text: #456E34;            /* Darkened sage - AA-safe (4.9:1) for small verified text */
+    --verified-bg: rgba(127,176,105,0.14);
+    --red: #C45B5B;                      /* Muted Rose */
+    --red-text: #A83A3A;                 /* Darkened rose - AA-safe for small danger text */
+    --red-bg: rgba(196,91,91,0.12);
+    --amber: #D4A03C;                    /* Warm Amber - fills/borders */
+    --amber-text: #836016;               /* Darkened amber - AA-safe (4.8:1) for small warning text */
+    --amber-bg: rgba(212,160,60,0.14);
+    --line: rgba(61,82,160,0.10);
+    --glass-shadow: 0 8px 32px rgba(61,82,160,0.08);
     --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
@@ -46,6 +58,7 @@
     height: 100vh; overflow-y: auto; width: 240px; flex-shrink: 0;
     padding: 28px 16px; border-right: 1px solid var(--border);
     background: var(--panel);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   }
   nav.sidebar .brand { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 2px; }
   nav.sidebar .brand .a { color: var(--accent); }
@@ -82,7 +95,8 @@
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
   .stat-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px 18px;
+    padding: 16px 18px; box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   }
   .stat-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
   .stat-card .val { font-family: var(--mono); font-size: 28px; font-weight: 700; margin-top: 6px; color: var(--text); }
@@ -95,7 +109,8 @@
   .speed-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
   .speed-card {
     flex: 1 1 200px; background: var(--panel); border: 1px solid var(--border);
-    border-radius: 12px; padding: 18px 20px;
+    border-radius: 12px; padding: 18px 20px; box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   }
   .speed-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
   .speed-card .val { font-family: var(--mono); font-size: 32px; font-weight: 700; margin: 8px 0 2px; }
@@ -104,20 +119,21 @@
   .speed-card.after .val { color: var(--verified); }
   .arrow-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .arrow-val { font-family: var(--mono); font-size: 15px; font-weight: 600; }
-  .arrow-val.before { color: var(--amber); }
-  .arrow-val.after { color: var(--verified); }
+  .arrow-val.before { color: var(--amber-text); }
+  .arrow-val.after { color: var(--verified-text); }
   .arrow { color: var(--faint); font-size: 18px; }
   .delta-badge {
-    background: var(--verified-bg); color: var(--verified);
-    border: 1px solid rgba(46,216,182,0.20); border-radius: 20px;
+    background: var(--verified-bg); color: var(--verified-text);
+    border: 1px solid rgba(127,176,105,0.30); border-radius: 20px;
     font-family: var(--mono); font-size: 12px; padding: 2px 10px; font-weight: 600;
   }
-  .caveat { font-size: 12px; color: var(--amber); background: var(--amber-bg); border: 1px solid rgba(196,146,46,0.20); border-radius: 6px; padding: 6px 10px; margin-top: 10px; }
+  .caveat { font-size: 12px; color: var(--amber-text); background: var(--amber-bg); border: 1px solid rgba(212,160,60,0.30); border-radius: 6px; padding: 6px 10px; margin-top: 10px; }
 
   /* SVG chart wrapper */
   .chart-wrap {
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px 20px; margin-bottom: 16px;
+    padding: 16px 20px; margin-bottom: 16px; box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   }
   .chart-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
   svg.chart { width: 100%; overflow: visible; }
@@ -129,10 +145,10 @@
     color: var(--faint); padding: 6px 10px; border-bottom: 1px solid var(--border);
   }
   .release-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  .release-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .release-table tr:hover td { background: rgba(61,82,160,0.05); }
   .tag-badge {
-    font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent);
-    background: rgba(123,107,240,0.12); border-radius: 4px; padding: 2px 7px;
+    font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent-bright);
+    background: rgba(108,99,255,0.12); border-radius: 4px; padding: 2px 7px;
     white-space: nowrap;
   }
   .date-col { color: var(--faint); white-space: nowrap; font-size: 12px; }
@@ -141,7 +157,8 @@
   .item-list { display: flex; flex-direction: column; gap: 10px; }
   .item-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 16px;
+    padding: 14px 16px; box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   }
   .item-card.worked { border-left: 3px solid var(--verified); }
   .item-card.failed { border-left: 3px solid var(--red); }
@@ -151,23 +168,81 @@
   .item-card .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
   .item-card .body { font-size: 13px; color: var(--muted); line-height: 1.5; }
   .item-card .body strong { color: var(--text); }
-  .item-card .version-tag { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  .item-card .version-tag { font-family: var(--mono); font-size: 11px; color: var(--accent-bright); }
   .item-card .source-tag { font-size: 11px; color: var(--faint); margin-top: 6px; }
 
   /* Decision row */
   .decision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   @media (max-width: 900px) { .decision-grid { grid-template-columns: 1fr; } }
   .decision-card {
-    background: var(--panel); border: 1px solid rgba(123,107,240,0.25); border-radius: 10px;
-    padding: 14px 16px;
+    background: var(--panel); border: 1px solid rgba(108,99,255,0.30); border-radius: 10px;
+    padding: 14px 16px; box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   }
-  .decision-card .id { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 4px; }
+  .decision-card .id { font-family: var(--mono); font-size: 11px; color: var(--accent-bright); margin-bottom: 4px; }
   .decision-card .q { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
   .decision-card .opts { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  .decision-card .blocks { font-size: 11px; color: var(--amber); }
+  .decision-card .blocks { font-size: 11px; color: var(--amber-text); }
 
   /* Spinner / loading */
   .loading { color: var(--faint); font-size: 13px; padding: 12px 0; }
+
+  /* Interactive chart affordances */
+  svg.chart .hit { cursor: crosshair; }
+  svg.chart .hit:focus { outline: none; }
+  svg.chart .hit:focus + * , svg.chart .hit:focus { }
+  .chart-hint { font-size: 11px; color: var(--faint); margin-top: 6px; font-style: italic; }
+
+  /* Floating tooltip - body-level, fixed, never clipped by card overflow/backdrop-filter */
+  .chart-tooltip {
+    position: fixed; z-index: 9999; pointer-events: none;
+    background: var(--text); color: #F5F3FB;
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
+    padding: 8px 11px; font-size: 12px; line-height: 1.4;
+    box-shadow: 0 8px 24px rgba(45,49,66,0.28);
+    max-width: 260px; opacity: 0; transform: translateY(2px);
+    transition: opacity 0.09s ease, transform 0.09s ease;
+    font-family: var(--sans);
+  }
+  .chart-tooltip.show { opacity: 1; transform: translateY(0); }
+  .chart-tooltip .tt-label { color: var(--faint-fill); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .chart-tooltip .tt-val { font-family: var(--mono); font-weight: 700; font-size: 15px; margin-top: 2px; color: #FFFFFF; }
+  .chart-tooltip .tt-sub { color: #C9CEE6; font-size: 11px; margin-top: 2px; }
+
+  /* Clickable stat card that maps to a chart */
+  .stat-card.clickable { cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease; }
+  .stat-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(61,82,160,0.16); border-color: rgba(108,99,255,0.35); }
+  .stat-card.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .stat-card.clickable .go { font-size: 10px; color: var(--accent); margin-top: 6px; font-weight: 600; letter-spacing: 0.3px; }
+
+  /* Scrollable release timeline so all history is reachable */
+  .release-scroll {
+    max-height: 460px; overflow-y: auto; border: 1px solid var(--border);
+    border-radius: 12px; background: var(--panel); box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  }
+  .release-scroll::-webkit-scrollbar { width: 10px; }
+  .release-scroll::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+  .release-scroll::-webkit-scrollbar-track { background: transparent; }
+  .release-scroll .release-table { border-collapse: separate; border-spacing: 0; }
+  .release-scroll thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--panel-2);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  /* Navigable release rows: honest cursor - a click always scrolls to the downloads chart */
+  .release-table tbody tr { cursor: pointer; transition: background 0.1s ease; }
+  .release-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .release-table tbody tr.pulse td { animation: rowPulse 1.4s ease; }
+  @keyframes rowPulse {
+    0% { background: rgba(108,99,255,0.24); }
+    100% { background: transparent; }
+  }
+  /* Pulse a chart bar when its release is activated */
+  @keyframes barPulse {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; }
+  }
+  svg.chart rect.bar-pulse { animation: barPulse 0.5s ease 3; stroke: var(--accent-bright); stroke-width: 1.5; }
 </style>
 </head>
 <body>
@@ -212,10 +287,12 @@
           <div class="val" id="gh-forks">--</div>
           <div class="note">Organic interest signal</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" id="npm-total-card" role="button" tabindex="0"
+             aria-label="npm downloads last 30 days. Activate to view the daily downloads chart.">
           <div class="label">npm Downloads (30d)</div>
           <div class="val" id="npm-total">--</div>
           <div class="note">Last calendar month</div>
+          <div class="go">View daily chart -&gt;</div>
         </div>
         <div class="stat-card verified">
           <div class="label">Docker Pulls</div>
@@ -272,21 +349,42 @@
       </div>
     </section>
 
+    <!-- ACCURACY / COST / SPEED (per-release measurable deltas, provenance-labeled) -->
+    <section id="acs">
+      <h2>Accuracy / Cost / Speed - measurable deltas</h2>
+      <div class="caveat" id="acs-caveat">
+        Each row states its provenance. Only <b>measured</b> rows come from a real build
+        artifact; <b>designed</b> rows are test-fixture thresholds and <b>projected</b>
+        rows are arithmetic, not measured. Nothing here is plotted as a trend unless it
+        is measured.
+      </div>
+      <div class="speed-row" id="acs-cards">
+        <div class="loading">Loading accuracy/cost/speed data...</div>
+      </div>
+      <div class="chart-wrap" style="margin-top:12px;">
+        <div class="chart-title">Convergence speed - measured (before vs after, real builds)</div>
+        <div id="acs-live-note" style="font-size:11px;color:var(--faint);margin-top:4px;"></div>
+      </div>
+    </section>
+
     <!-- RELEASES -->
     <section id="releases">
       <h2>Release Timeline</h2>
-      <table class="release-table">
-        <thead>
-          <tr>
-            <th>Version</th>
-            <th>Date</th>
-            <th>Summary</th>
-          </tr>
-        </thead>
-        <tbody id="release-tbody">
-          <tr><td colspan="3" class="loading">Loading...</td></tr>
-        </tbody>
-      </table>
+      <p class="chart-hint" style="margin-bottom:10px;">Scroll to reach all releases. Click any row to jump to its download bar above.</p>
+      <div class="release-scroll">
+        <table class="release-table">
+          <thead>
+            <tr>
+              <th>Version</th>
+              <th>Date</th>
+              <th>Summary</th>
+            </tr>
+          </thead>
+          <tbody id="release-tbody">
+            <tr><td colspan="3" class="loading">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <!-- WHAT WORKED -->
@@ -346,6 +444,59 @@ function makeSVGEl(tag, attrs) {
   return el;
 }
 
+// Shared floating tooltip (single body-level node, positioned via clientX/clientY).
+// Kept out of the .chart-wrap cards so backdrop-filter / overflow never clip it.
+let _tooltipEl = null;
+function getTooltip() {
+  if (!_tooltipEl) {
+    _tooltipEl = document.createElement('div');
+    _tooltipEl.className = 'chart-tooltip';
+    _tooltipEl.setAttribute('role', 'status');
+    _tooltipEl.setAttribute('aria-live', 'polite');
+    document.body.appendChild(_tooltipEl);
+  }
+  return _tooltipEl;
+}
+function showTooltip(html, clientX, clientY) {
+  const tt = getTooltip();
+  tt.innerHTML = html;
+  tt.classList.add('show');
+  // Position with a small offset, flipping near the right/top viewport edges.
+  const pad = 14;
+  const rect = tt.getBoundingClientRect();
+  let x = clientX + pad;
+  let y = clientY + pad;
+  if (x + rect.width + 4 > window.innerWidth) x = clientX - rect.width - pad;
+  if (y + rect.height + 4 > window.innerHeight) y = clientY - rect.height - pad;
+  if (x < 4) x = 4;
+  if (y < 4) y = 4;
+  tt.style.left = x + 'px';
+  tt.style.top = y + 'px';
+}
+function hideTooltip() {
+  if (_tooltipEl) _tooltipEl.classList.remove('show');
+}
+// Position a tooltip at an SVG element's center (for keyboard focus, where there is no cursor).
+function tooltipAtEl(el, html) {
+  const r = el.getBoundingClientRect();
+  showTooltip(html, r.left + r.width / 2, r.top + r.height / 2 - 8);
+}
+// Wire an SVG hit element for hover + keyboard focus. moveWith=true tracks the cursor.
+function wireHit(hit, html, moveWith, onEnter, onLeave) {
+  hit.setAttribute('tabindex', '0');
+  hit.setAttribute('role', 'img');
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  hit.setAttribute('aria-label', plain);
+  const enter = (e) => { if (onEnter) onEnter(); showTooltip(html, e.clientX, e.clientY); };
+  const move = (e) => { if (moveWith) showTooltip(html, e.clientX, e.clientY); };
+  const leave = () => { if (onLeave) onLeave(); hideTooltip(); };
+  hit.addEventListener('mouseenter', enter);
+  hit.addEventListener('mousemove', move);
+  hit.addEventListener('mouseleave', leave);
+  hit.addEventListener('focus', () => { if (onEnter) onEnter(); tooltipAtEl(hit, html); });
+  hit.addEventListener('blur', leave);
+}
+
 function renderNpmChart(daily, svgId) {
   const svg = document.getElementById(svgId);
   if (!daily || daily.length === 0) {
@@ -360,10 +511,10 @@ function renderNpmChart(daily, svgId) {
   // Grid lines
   [0, 0.25, 0.5, 0.75, 1].forEach(frac => {
     const y = PT + cH - frac * cH;
-    const line = makeSVGEl('line', {x1: PL, y1: y, x2: W - PR, y2: y, stroke: 'rgba(255,255,255,0.05)', 'stroke-width': 1});
+    const line = makeSVGEl('line', {x1: PL, y1: y, x2: W - PR, y2: y, stroke: 'rgba(61,82,160,0.10)', 'stroke-width': 1});
     svg.appendChild(line);
     if (frac > 0) {
-      const label = makeSVGEl('text', {x: PL - 4, y: y + 4, 'text-anchor': 'end', fill: '#7B6FA0', 'font-size': 10, 'font-family': 'monospace'});
+      const label = makeSVGEl('text', {x: PL - 4, y: y + 4, 'text-anchor': 'end', fill: '#4F5D75', 'font-size': 10, 'font-family': 'monospace'});
       label.textContent = Math.round(frac * maxVal).toLocaleString();
       svg.appendChild(label);
     }
@@ -378,14 +529,14 @@ function renderNpmChart(daily, svgId) {
   const firstX = PL, lastX = PL + (daily.length - 1) * step;
   const area = makeSVGEl('polygon', {
     points: `${firstX},${PT + cH} ${pts.join(' ')} ${lastX},${PT + cH}`,
-    fill: 'rgba(123,107,240,0.12)', stroke: 'none'
+    fill: 'rgba(108,99,255,0.14)', stroke: 'none'
   });
   svg.appendChild(area);
 
   // Line
   const polyline = makeSVGEl('polyline', {
     points: pts.join(' '),
-    fill: 'none', stroke: '#7B6BF0', 'stroke-width': 2, 'stroke-linejoin': 'round'
+    fill: 'none', stroke: '#6C63FF', 'stroke-width': 2, 'stroke-linejoin': 'round'
   });
   svg.appendChild(polyline);
 
@@ -393,22 +544,51 @@ function renderNpmChart(daily, svgId) {
   const peakIdx = daily.indexOf(daily.reduce((a, b) => a.downloads > b.downloads ? a : b));
   const peakX = PL + peakIdx * step;
   const peakY = PT + cH - (daily[peakIdx].downloads / maxVal) * cH;
-  const dot = makeSVGEl('circle', {cx: peakX, cy: peakY, r: 4, fill: '#2ED8B6'});
+  const dot = makeSVGEl('circle', {cx: peakX, cy: peakY, r: 4, fill: '#7FB069'});
   svg.appendChild(dot);
-  const peakLabel = makeSVGEl('text', {x: peakX, y: peakY - 8, 'text-anchor': 'middle', fill: '#2ED8B6', 'font-size': 10, 'font-family': 'monospace'});
+  const peakLabel = makeSVGEl('text', {x: peakX, y: peakY - 8, 'text-anchor': 'middle', fill: '#456E34', 'font-size': 10, 'font-weight': 600, 'font-family': 'monospace'});
   peakLabel.textContent = daily[peakIdx].downloads.toLocaleString();
   svg.appendChild(peakLabel);
 
   // X axis labels (first, middle, last)
   [[0, daily[0].day], [Math.floor(daily.length/2), daily[Math.floor(daily.length/2)].day], [daily.length - 1, daily[daily.length - 1].day]].forEach(([i, dayStr]) => {
     const x = PL + i * step;
-    const lbl = makeSVGEl('text', {x: x, y: H - 4, 'text-anchor': 'middle', fill: '#7B6FA0', 'font-size': 10, 'font-family': 'monospace'});
+    const lbl = makeSVGEl('text', {x: x, y: H - 4, 'text-anchor': 'middle', fill: '#4F5D75', 'font-size': 10, 'font-family': 'monospace'});
     lbl.textContent = dayStr;
     svg.appendChild(lbl);
   });
 
+  // Hidden crosshair + highlight dot, shown on hover/focus of a point.
+  const crosshair = makeSVGEl('line', {x1: 0, y1: PT, x2: 0, y2: PT + cH, stroke: 'rgba(108,99,255,0.45)', 'stroke-width': 1, 'stroke-dasharray': '3 3', visibility: 'hidden'});
+  svg.appendChild(crosshair);
+  const hl = makeSVGEl('circle', {cx: 0, cy: 0, r: 4.5, fill: '#6C63FF', stroke: '#FFFFFF', 'stroke-width': 1.5, visibility: 'hidden'});
+  svg.appendChild(hl);
+
+  // Transparent hit circles per point (appended last = on top). fill:transparent
+  // receives pointer events; fill:none would not.
+  daily.forEach((d, i) => {
+    const x = PL + i * step;
+    const y = PT + cH - (d.downloads / maxVal) * cH;
+    const hit = makeSVGEl('circle', {cx: x, cy: y, r: 9, fill: 'transparent', class: 'hit'});
+    const html = `<div class="tt-label">${d.day}</div><div class="tt-val">${d.downloads.toLocaleString()}</div><div class="tt-sub">npm downloads that day</div>`;
+    wireHit(hit, html, true,
+      () => {
+        crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x);
+        crosshair.setAttribute('visibility', 'visible');
+        hl.setAttribute('cx', x); hl.setAttribute('cy', y);
+        hl.setAttribute('visibility', 'visible');
+      },
+      () => { crosshair.setAttribute('visibility', 'hidden'); hl.setAttribute('visibility', 'hidden'); }
+    );
+    svg.appendChild(hit);
+  });
+
   document.getElementById('npm-chart-note').textContent =
     `Source: api.npmjs.org/downloads/range/last-month/loki-mode | Peak: ${daily[peakIdx].downloads.toLocaleString()} on ${daily[peakIdx].day}`;
+  const hint = document.createElement('div');
+  hint.className = 'chart-hint';
+  hint.textContent = 'Hover or tab through the line to read each day. All 30 days are individually inspectable.';
+  document.getElementById('npm-chart-note').after(hint);
 }
 
 function renderDlChart(releases, svgId) {
@@ -427,36 +607,68 @@ function renderDlChart(releases, svgId) {
 
   [0, 0.5, 1].forEach(frac => {
     const y = PT + cH - frac * cH;
-    const line = makeSVGEl('line', {x1: PL, y1: y, x2: W - PR, y2: y, stroke: 'rgba(255,255,255,0.05)', 'stroke-width': 1});
+    const line = makeSVGEl('line', {x1: PL, y1: y, x2: W - PR, y2: y, stroke: 'rgba(61,82,160,0.10)', 'stroke-width': 1});
     svg.appendChild(line);
     if (frac > 0) {
-      const label = makeSVGEl('text', {x: PL - 4, y: y + 4, 'text-anchor': 'end', fill: '#7B6FA0', 'font-size': 10, 'font-family': 'monospace'});
+      const label = makeSVGEl('text', {x: PL - 4, y: y + 4, 'text-anchor': 'end', fill: '#4F5D75', 'font-size': 10, 'font-family': 'monospace'});
       label.textContent = Math.round(frac * maxVal);
       svg.appendChild(label);
     }
   });
 
+  // Track bars by normalized tag so release-timeline rows can pulse the matching bar.
+  window._dlBars = {};
+
   rel.forEach((r, i) => {
     const barH = Math.max(2, (r.downloads / maxVal) * cH);
     const x = PL + i * gap + (gap - barW) / 2;
     const y = PT + cH - barH;
-    const rect = makeSVGEl('rect', {x, y, width: barW, height: barH, fill: '#553DE9', rx: 2, opacity: 0.8});
+    const rect = makeSVGEl('rect', {x, y, width: barW, height: barH, fill: '#6C63FF', rx: 2, opacity: 0.85});
     svg.appendChild(rect);
+    window._dlBars[r.tag] = rect;
 
     // Label every 5th bar or first/last
     if (i === 0 || i === rel.length - 1 || i % Math.ceil(rel.length / 8) === 0) {
       const lbl = makeSVGEl('text', {
         x: x + barW / 2, y: H - 2, 'text-anchor': 'end',
-        fill: '#7B6FA0', 'font-size': 9, 'font-family': 'monospace',
+        fill: '#4F5D75', 'font-size': 9, 'font-family': 'monospace',
         transform: `rotate(-45, ${x + barW/2}, ${H - 2})`
       });
       lbl.textContent = r.tag;
       svg.appendChild(lbl);
     }
+
+    // Full-column-height transparent hit rect (short bars are near-impossible to
+    // hover otherwise). Appended after the visible bar so it captures on top.
+    const hit = makeSVGEl('rect', {x: PL + i * gap, y: PT, width: gap, height: cH, fill: 'transparent', class: 'hit'});
+    const html = `<div class="tt-label">${r.tag} - ${r.date}</div><div class="tt-val">${r.downloads.toLocaleString()}</div><div class="tt-sub">release asset downloads</div>`;
+    wireHit(hit, html, false,
+      () => { rect.setAttribute('opacity', '1'); rect.setAttribute('stroke', '#3D52A0'); rect.setAttribute('stroke-width', '1.5'); },
+      () => { rect.setAttribute('opacity', '0.85'); rect.removeAttribute('stroke'); rect.removeAttribute('stroke-width'); }
+    );
+    svg.appendChild(hit);
   });
 
   document.getElementById('dl-chart-note').textContent =
     `Source: gh api repos/asklokesh/loki-mode/releases | Showing last ${rel.length} releases, ordered oldest to newest`;
+  const hint = document.createElement('div');
+  hint.className = 'chart-hint';
+  hint.textContent = 'Hover any column for that release exact download count. Clicking a row in the Release Timeline below jumps here and highlights its bar.';
+  document.getElementById('dl-chart-note').after(hint);
+}
+
+// Scroll to the downloads chart and pulse the bar for a given release version.
+function focusReleaseBar(version) {
+  const wrap = document.getElementById('dl-chart');
+  if (wrap) wrap.closest('.chart-wrap').scrollIntoView({behavior: 'smooth', block: 'center'});
+  const tag = version.startsWith('v') ? version : 'v' + version;
+  const bar = window._dlBars && window._dlBars[tag];
+  if (bar) {
+    bar.classList.remove('bar-pulse');
+    void bar.getBoundingClientRect(); // reflow so re-adding restarts the animation
+    bar.classList.add('bar-pulse');
+    setTimeout(() => bar.classList.remove('bar-pulse'), 1600);
+  }
 }
 
 function renderIterChart(perIter, svgId) {
@@ -472,17 +684,29 @@ function renderIterChart(perIter, svgId) {
     const barH = Math.max(2, (p.work_s / maxVal) * cH);
     const x = PL + i * gap + (gap - barW) / 2;
     const y = PT + cH - barH;
-    const color = p.work_s > 200 ? '#C04848' : '#553DE9';
+    const color = p.work_s > 200 ? '#C45B5B' : '#6C63FF';
     const rect = makeSVGEl('rect', {x, y, width: barW, height: barH, fill: color, rx: 2, opacity: 0.85});
     svg.appendChild(rect);
-    const lbl = makeSVGEl('text', {x: x + barW/2, y: H - 2, 'text-anchor': 'middle', fill: '#7B6FA0', 'font-size': 9, 'font-family': 'monospace'});
+    const lbl = makeSVGEl('text', {x: x + barW/2, y: H - 2, 'text-anchor': 'middle', fill: '#4F5D75', 'font-size': 9, 'font-family': 'monospace'});
     lbl.textContent = p.iteration;
     svg.appendChild(lbl);
     if (p.work_s > 200) {
-      const valLbl = makeSVGEl('text', {x: x + barW/2, y: y - 3, 'text-anchor': 'middle', fill: '#C04848', 'font-size': 9, 'font-family': 'monospace'});
+      const valLbl = makeSVGEl('text', {x: x + barW/2, y: y - 3, 'text-anchor': 'middle', fill: '#A83A3A', 'font-size': 9, 'font-weight': 600, 'font-family': 'monospace'});
       valLbl.textContent = Math.round(p.work_s / 60) + 'm';
       svg.appendChild(valLbl);
     }
+
+    // Full-height transparent hit rect for hover/focus tooltip.
+    const mins = (p.work_s / 60);
+    const timeStr = mins >= 1 ? mins.toFixed(1) + ' min' : Math.round(p.work_s) + ' s';
+    const flag = p.work_s > 200 ? '<div class="tt-sub">disproportionately long iteration</div>' : '';
+    const hit = makeSVGEl('rect', {x: PL + i * gap, y: PT, width: gap, height: cH, fill: 'transparent', class: 'hit'});
+    const html = `<div class="tt-label">Iteration ${p.iteration}</div><div class="tt-val">${timeStr}</div><div class="tt-sub">${Math.round(p.work_s)}s of work</div>${flag}`;
+    wireHit(hit, html, false,
+      () => { rect.setAttribute('opacity', '1'); rect.setAttribute('stroke', color === '#C45B5B' ? '#A83A3A' : '#3D52A0'); rect.setAttribute('stroke-width', '1.5'); },
+      () => { rect.setAttribute('opacity', '0.85'); rect.removeAttribute('stroke'); rect.removeAttribute('stroke-width'); }
+    );
+    svg.appendChild(hit);
   });
 }
 
@@ -533,7 +757,7 @@ function renderBenchmarks(benchmarks) {
           <span class="arrow">&#x2192;</span>
           <span class="arrow-val after">${after.wall_clock_min} min</span>
           <span class="delta-badge">-${wallDelta}% wall-clock</span>
-          <span class="delta-badge" style="background:var(--verified-bg);color:var(--verified);">${before.act_iterations} iters &#x2192; ${after.act_iterations} iter</span>
+          <span class="delta-badge" style="background:var(--verified-bg);color:var(--verified-text);">${before.act_iterations} iters &#x2192; ${after.act_iterations} iter</span>
         </div>
         <div class="note">Both runs: same greet.js acceptance spec, same engine, exit code 0, engine_completed true</div>
       </div>
@@ -546,8 +770,8 @@ function renderBenchmarks(benchmarks) {
   if (after) {
     caveat.className = 'caveat';
     caveat.style.background = 'var(--verified-bg)';
-    caveat.style.color = 'var(--verified)';
-    caveat.style.borderColor = 'rgba(46,216,182,0.20)';
+    caveat.style.color = 'var(--verified-text)';
+    caveat.style.borderColor = 'rgba(127,176,105,0.30)';
     caveat.textContent = `Current: v${document.getElementById('current-version').textContent} | Speed benchmark: before 28.6 min / 13 iters -> after 7.4 min / 1 iter (n=1 after-run on a small spec; repeat needed for statistical confidence)`;
   } else {
     caveat.textContent = `Current: v${document.getElementById('current-version').textContent} | Speed benchmark: before-run available (28.6 min, 13 iters); after pending`;
@@ -568,12 +792,29 @@ function renderReleases(timeline) {
     return;
   }
   tbody.innerHTML = timeline.map(r => `
-    <tr>
+    <tr tabindex="0" role="button" data-version="${r.version}"
+        aria-label="Release ${r.version}, ${r.date}. Activate to view its download bar.">
       <td><span class="tag-badge">${r.version}</span></td>
       <td class="date-col">${r.date}</td>
       <td>${r.summary || ''}</td>
     </tr>
   `).join('');
+
+  // Navigable rows: click or Enter/Space scrolls to the downloads chart, pulses
+  // the matching bar, and pulses the row so the interaction is visible.
+  tbody.querySelectorAll('tr[data-version]').forEach(tr => {
+    const activate = () => {
+      tbody.querySelectorAll('tr.pulse').forEach(t => t.classList.remove('pulse'));
+      void tr.getBoundingClientRect();
+      tr.classList.add('pulse');
+      setTimeout(() => tr.classList.remove('pulse'), 1600);
+      focusReleaseBar(tr.getAttribute('data-version'));
+    };
+    tr.addEventListener('click', activate);
+    tr.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+    });
+  });
 }
 
 function renderWorked(list) {
@@ -626,6 +867,37 @@ function renderDecisions(list) {
   `).join('');
 }
 
+// Accuracy / Cost / Speed - each row carries explicit provenance so nothing
+// reads as a measured trend unless it truly is. Data comes from data.json.acs
+// (built by fetch-data.sh from real artifacts + honestly-labeled non-measurements).
+function renderACS(acs) {
+  const el = document.getElementById('acs-cards');
+  const liveNote = document.getElementById('acs-live-note');
+  if (!acs || !acs.rows || !acs.rows.length) {
+    el.innerHTML = '<div class="loading">No accuracy/cost/speed rows yet.</div>';
+    if (liveNote) liveNote.textContent = '';
+    return;
+  }
+  const badge = (p) => {
+    // Tinted-bg + darkened-text badge (design system pattern), AA-safe on light.
+    const styles = p === 'measured'
+      ? 'color:#456E34;background:rgba(127,176,105,0.16);'
+      : (p === 'designed'
+        ? 'color:#836016;background:rgba(212,160,60,0.16);'
+        : 'color:#4F5D75;background:rgba(134,151,196,0.20);');
+    return `<span style="font-size:10px;font-weight:700;${styles}padding:1px 6px;border-radius:8px;text-transform:uppercase;">${p}</span>`;
+  };
+  el.innerHTML = acs.rows.map(r => `
+    <div class="speed-card ${r.provenance === 'measured' ? 'after' : 'before'}">
+      <div class="label">${r.metric} ${badge(r.provenance)}</div>
+      <div class="val">${r.value}</div>
+      <div class="note">${r.detail || ''}</div>
+      ${r.source ? `<div class="note" style="margin-top:4px;">Source: ${r.source}</div>` : ''}
+    </div>
+  `).join('');
+  if (liveNote) liveNote.textContent = acs.live_note || '';
+}
+
 // Load data and render
 fetch('data.json')
   .then(r => r.json())
@@ -650,8 +922,24 @@ fetch('data.json')
     renderNpmChart(npm.daily || [], 'npm-chart');
     renderDlChart(data.releases_downloads || [], 'dl-chart');
 
+    // Clickable npm stat card -> scroll to its daily chart (only card with a chart).
+    const npmCard = document.getElementById('npm-total-card');
+    if (npmCard) {
+      const goToNpmChart = () => {
+        const chart = document.getElementById('npm-chart');
+        if (chart) chart.closest('.chart-wrap').scrollIntoView({behavior: 'smooth', block: 'center'});
+      };
+      npmCard.addEventListener('click', goToNpmChart);
+      npmCard.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToNpmChart(); }
+      });
+    }
+
     // Benchmarks
     renderBenchmarks(data.benchmarks || []);
+
+    // Accuracy / Cost / Speed (provenance-labeled)
+    renderACS(data.acs || null);
 
     // Releases
     renderReleases(data.releases_timeline || []);
@@ -666,7 +954,7 @@ fetch('data.json')
   })
   .catch(err => {
     document.querySelector('main').innerHTML = `
-      <div style="padding:40px;color:var(--red);">
+      <div style="padding:40px;color:var(--red-text);">
         Failed to load data.json: ${err.message}<br>
         Run fetch-data.sh first to generate data.json.
       </div>

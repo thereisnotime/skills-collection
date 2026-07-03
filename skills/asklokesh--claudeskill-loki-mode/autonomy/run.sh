@@ -1382,8 +1382,14 @@ _parse_json_field() {
     if command -v python3 >/dev/null 2>&1; then
         python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],''))" "$file" "$field" 2>/dev/null
     else
-        # Shell fallback: extract value for simple flat JSON
-        sed 's/.*"'"$field"'":\s*//' "$file" 2>/dev/null | sed 's/[",}].*//' | head -1
+        # Shell fallback (no python3): extract value for simple flat JSON. Handles
+        # BOTH quoted string values ("kind":"wrapper") and bare numeric values
+        # ("ppid":206). The prior impl stripped the leading quote's content to empty
+        # for string fields -- broke "kind" parsing on python3-less hosts, which
+        # would drop wrapper entries into the legacy child path (loki-mode #92).
+        sed 's/.*"'"$field"'":[[:space:]]*//' "$file" 2>/dev/null \
+            | sed 's/^"//' \
+            | sed 's/[",}].*//' | head -1
     fi
 }
 
@@ -1435,6 +1441,93 @@ kill_registered_pid() {
     unregister_pid "$pid"
 }
 
+# Register the CURRENTLY-RUNNING loki-run wrapper itself in the registry.
+# The wrapper registers its children but historically never itself, so a wrapper
+# whose launching session dies is never reaped (loki-mode #92). We record the
+# LAUNCHER's mortal pid (NOT $$ -- $$ is the wrapper's own pid, which would make
+# the parent-death check always succeed and the reaper INERT; NOT $PPID either --
+# in the detached setsid/nohup path bash caches getppid()==1 at exec, and kill -0 1
+# is always true -> also inert). The launcher exports LOKI_LAUNCHER_PID=$$ at each
+# backgrounding site; that launcher shell exits immediately after backgrounding, so
+# the recorded ppid genuinely dies and the parent-death precondition CAN fire. For
+# the foreground path LOKI_LAUNCHER_PID is unset -> $PPID (the user's shell) is the
+# correct mortal fallback. Reap-vs-spare is then decided by the LIVENESS predicate,
+# not by parentage alone. Uses a "kind":"wrapper" tag so cleanup_orphan_pids routes
+# only wrapper entries through the predicate and keeps child entries byte-identical.
+register_self_wrapper() {
+    [ -z "$PID_REGISTRY_DIR" ] && init_pid_registry
+    local launcher_ppid="${LOKI_LAUNCHER_PID:-$PPID}"
+    case "$launcher_ppid" in ''|*[!0-9]*) launcher_ppid="$PPID" ;; esac
+    local entry_file="$PID_REGISTRY_DIR/$$.json"
+    cat > "$entry_file" << EOF
+{"pid":$$,"label":"loki-wrapper","started":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","ppid":$launcher_ppid,"kind":"wrapper","extra":""}
+EOF
+}
+
+# Pure, side-effect-free reap predicate (loki-mode #92). ALL inputs are
+# pre-computed scalars (0/1 booleans or integer ms); NO stat/kill/pgrep inside so
+# it is hermetically unit-testable. Prints "1" (reap) or "0" (spare); returns 0.
+# Reap ONLY when: parent dead AND no live engine child AND idle past the budget.
+# Mirrors the SaaS BFF sweepStuckBuilds and the #91 worker "no-activity != dead"
+# symmetry: a genuinely-detached run that keeps writing .loki activity is spared.
+#   parent_alive:     1 if recorded ppid is still alive, else 0
+#   last_activity_ms: epoch-ms of most recent .loki activity (0 if none found)
+#   now_ms:           current epoch-ms
+#   idle_budget_ms:   generous idle budget (default 900000 = 15 min)
+#   has_live_child:   1 if wrapper has a live ENGINE child (claude/node), else 0
+shouldReapOrphan() {
+    local parent_alive="$1" last_activity_ms="$2" now_ms="$3" idle_budget_ms="$4" has_live_child="$5"
+    if [ "$parent_alive" = "0" ] && [ "$has_live_child" = "0" ] \
+       && [ $(( now_ms - last_activity_ms )) -ge "$idle_budget_ms" ]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+# Most-recent .loki activity as epoch-ms across events.jsonl, signals/*,
+# autonomy-state.json. Cross-platform stat (macOS -f %m / Linux -c %Y). On a stat
+# PARSE FAILURE we default to now_ms (SPARE), never 0 -- a wrong flag must not make a
+# live run look maximally idle and get reaped. "No activity files exist" legitimately
+# yields 0 (reap-eligible); that is distinct from a stat error.
+_loki_last_activity_ms() {
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local newest=0 f mt stat_ok=0
+    local candidates=()
+    [ -f "$loki_dir/events.jsonl" ] && candidates+=("$loki_dir/events.jsonl")
+    [ -f "$loki_dir/autonomy-state.json" ] && candidates+=("$loki_dir/autonomy-state.json")
+    if [ -d "$loki_dir/signals" ]; then
+        for f in "$loki_dir/signals"/*; do [ -e "$f" ] && candidates+=("$f"); done
+    fi
+    for f in "${candidates[@]:-}"; do
+        [ -e "$f" ] || continue
+        mt=$(stat -f %m "$f" 2>/dev/null) || mt=""
+        [ -z "$mt" ] && { mt=$(stat -c %Y "$f" 2>/dev/null) || mt=""; }
+        case "$mt" in ''|*[!0-9]*) continue ;; esac
+        stat_ok=1
+        [ "$mt" -gt "$newest" ] && newest="$mt"
+    done
+    # candidates present but every stat failed -> parse failure -> spare (now_ms)
+    if [ "${#candidates[@]}" -gt 0 ] && [ "$stat_ok" = "0" ]; then
+        echo "$(( $(date +%s) * 1000 ))"
+        return 0
+    fi
+    echo "$(( newest * 1000 ))"
+}
+
+# Count LIVE ENGINE children of a wrapper (claude/node), EXCLUDING sleep and the
+# status/resource monitors. The observed 3h orphan had only sleep children, so a
+# naive `pgrep -P` (any child) would falsely spare it; the comm filter is what makes
+# the reaper actually fire on the real orphan shape. Prints 1 (has engine child) or 0.
+_loki_has_live_engine_child() {
+    local wrapper_pid="$1" c cc
+    for c in $(pgrep -P "$wrapper_pid" 2>/dev/null); do
+        cc=$(ps -o comm= -p "$c" 2>/dev/null)
+        case "$cc" in *claude*|*node*) echo 1; return 0 ;; esac
+    done
+    echo 0
+}
+
 # Scan registry for orphaned processes and kill them
 # Called on startup and by `loki cleanup`
 # Returns: number of orphans killed
@@ -1457,6 +1550,9 @@ cleanup_orphan_pids() {
             ''|*[!0-9]*) continue ;;
         esac
 
+        # Never reap the currently-running wrapper itself (loki-mode #92 self-skip).
+        [ "$pid" = "$$" ] && continue
+
         if kill -0 "$pid" 2>/dev/null; then
             # Process is alive -- check if its parent session is dead
             local ppid_val=""
@@ -1464,7 +1560,30 @@ cleanup_orphan_pids() {
 
             # Validate ppid_val is numeric before using with kill
             case "$ppid_val" in ''|*[!0-9]*) ppid_val="" ;; esac
-            if [ -n "$ppid_val" ] && [ "$ppid_val" != "$$" ]; then
+
+            # Route WRAPPER entries through the liveness predicate; CHILD entries
+            # (no "kind" field) keep the exact parent-death-only behavior (#92).
+            local kind=""
+            kind=$(_parse_json_field "$entry_file" "kind") || true
+
+            if [ "$kind" = "wrapper" ]; then
+                # Wrapper: reap only if orphaned AND idle-past-budget AND no live
+                # engine child. Compute the impure inputs here (predicate stays pure).
+                if [ -n "$ppid_val" ]; then
+                    local parent_alive=0
+                    kill -0 "$ppid_val" 2>/dev/null && parent_alive=1
+                    local last_activity_ms now_ms has_live_child idle_budget_ms
+                    last_activity_ms=$(_loki_last_activity_ms)
+                    now_ms=$(( $(date +%s) * 1000 ))
+                    has_live_child=$(_loki_has_live_engine_child "$pid")
+                    idle_budget_ms="${LOKI_WRAPPER_IDLE_BUDGET_MS:-900000}"
+                    if [ "$(shouldReapOrphan "$parent_alive" "$last_activity_ms" "$now_ms" "$idle_budget_ms" "$has_live_child")" = "1" ]; then
+                        log_warn "Reaping idle orphaned loki wrapper PID=$pid (parent $ppid_val dead, idle >=$((idle_budget_ms/60000))m, no engine child)" >&2
+                        kill_registered_pid "$pid"
+                        orphan_count=$((orphan_count + 1))
+                    fi
+                fi
+            elif [ -n "$ppid_val" ] && [ "$ppid_val" != "$$" ]; then
                 if ! kill -0 "$ppid_val" 2>/dev/null; then
                     # Parent is dead -- this is an orphan
                     local label=""
@@ -1498,6 +1617,9 @@ kill_all_registered() {
         case "$pid" in
             ''|*[!0-9]*) continue ;;
         esac
+        # Never SIGKILL the running wrapper itself mid-shutdown (loki-mode #92):
+        # it now self-registers, so it would otherwise appear in this sweep.
+        [ "$pid" = "$$" ] && continue
         kill_registered_pid "$pid"
     done
 }
@@ -1668,7 +1790,7 @@ _loki_trust_run_id() {
 # Args: $1 = the new phase value (REASONING, BUILDING, VERIFYING, COMPLETED, etc.)
 _advance_current_phase() {
     local new_phase="${1:?phase required}"
-    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}}/.loki"
+    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}/.loki}"
     local orch="$loki_dir/state/orchestrator.json"
     [ -f "$orch" ] || return 0
     # Values are passed via argv (not interpolated into the source) so a phase or
@@ -8965,6 +9087,86 @@ except Exception:
     return 0
 }
 
+# _loki_zero_tests_executed -- shared "no real tests ran" detector (#82).
+# A runner that exits 0 but executed ZERO actual tests is a mini fake-green: it
+# records pass while proving nothing. This inspects a runner's raw output and
+# returns 0 (true, "zero tests executed") ONLY on positive detection; any
+# unrecognized/unparseable shape returns 1 (false) so a legitimate suite this
+# helper cannot parse is NEVER false-downgraded (bounded blast radius).
+#
+#   $1 = runner label (node-test|jest|vitest|...)
+#   $2 = raw runner output
+#   $3.. = (optional) test-file paths that were passed to node --test; their
+#          basenames are node's file-wrapper subtest labels and must be excluded
+#          from the "real test" count.
+#
+# node --test: even a *.test.js with NO test() calls emits `# tests 1 # pass 1`
+#   because node counts the FILE ITSELF as one passing pseudo-test, printed as
+#   `ok N - <file-basename>`. So `# tests 0` NEVER fires (verified on Node 22).
+#   The true executed count = ok/not-ok lines whose label is NOT a passed file
+#   basename. Zero such lines + exit 0 = no real tests ran.
+# jest --passWithNoTests: prints "No tests found" and NO "Tests:" summary line.
+_loki_zero_tests_executed() {
+    local _zt_runner="$1"; shift
+    local _zt_out="$1"; shift
+    case "$_zt_runner" in
+        node-test)
+            # node's file-wrapper subtest label is the ARGUMENT VERBATIM (the
+            # full path we passed), and separately its basename for older node.
+            # Register BOTH forms so the wrapper line is excluded either way.
+            # Delimited with newlines so a path containing spaces still matches
+            # exactly (space-delimited would split it).
+            local _zt_f _zt_bases=$'\n'
+            for _zt_f in "$@"; do
+                [ -n "$_zt_f" ] || continue
+                _zt_bases="${_zt_bases}${_zt_f}"$'\n'"$(basename "$_zt_f")"$'\n'
+            done
+            # Count ok/not-ok lines whose label is a REAL test (label not a
+            # file-wrapper). node prints "ok N - <label>" / "not ok N - <label>".
+            local _zt_real=0 _zt_line _zt_label
+            while IFS= read -r _zt_line; do
+                # Strip "ok N - " / "not ok N - " prefix to get the label.
+                _zt_label="${_zt_line#* - }"
+                # A file-wrapper label equals a passed file path or basename -> skip.
+                case "$_zt_bases" in
+                    *$'\n'"$_zt_label"$'\n'*) continue ;;
+                esac
+                _zt_real=$((_zt_real + 1))
+            done < <(printf '%s\n' "$_zt_out" | grep -E '^(ok|not ok) [0-9]+ - ' 2>/dev/null)
+            [ "$_zt_real" -eq 0 ] && return 0
+            return 1
+            ;;
+        jest|monorepo-jest)
+            # jest --passWithNoTests: "No tests found, exiting with code 0" and no
+            # "Tests:" summary. A real run prints "Tests: N passed, ...".
+            if printf '%s' "$_zt_out" | grep -qiE 'no tests found' 2>/dev/null \
+               && ! printf '%s' "$_zt_out" | grep -qE '^Tests:' 2>/dev/null; then
+                return 0
+            fi
+            return 1
+            ;;
+        go-test)
+            # #89: `go test ./...` on a package with NO *_test.go EXITS 0 and prints
+            # `?   <pkg>  [no test files]` -- so a Go project with source but no
+            # tests would score `pass` (a mini fake-green; unlike vitest/pytest/
+            # mocha which exit NON-zero on zero tests and are already not-pass, so
+            # go-test is the only runner in this class that needs detection).
+            # POSITIVE detection: a `[no test files]` line AND no ran-package result
+            # (`ok `/`FAIL`). A mixed run (some pkgs tested) has `ok`, so it is NOT
+            # downgraded. Verified: real passing prints `ok  <pkg>  0.2s`.
+            if printf '%s' "$_zt_out" | grep -qE '\[no test files\]' 2>/dev/null \
+               && ! printf '%s' "$_zt_out" | grep -qE '^(ok|FAIL|--- FAIL)' 2>/dev/null; then
+                return 0
+            fi
+            return 1
+            ;;
+        *)
+            # Unknown/unparseable runner -> never claim zero-tests (safe default).
+            return 1
+            ;;
+    esac
+}
+
 enforce_test_coverage() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local quality_dir="$loki_dir/quality"
@@ -9159,6 +9361,51 @@ sys.stdout.write(t.strip())
         details="cargo test: $(echo "$output" | tail -3 | tr '\n' ' ')"
     fi
 
+    # node --test (built-in Node test runner) -- config-less fallback (task #79).
+    # Node's built-in runner (stable since Node 18) runs *.test.{js,mjs,cjs}
+    # with ZERO config and NO package.json. A deliverable of slug.js +
+    # slug.test.js (a real, passing suite) previously fell straight through to
+    # runner="none" and recorded verification_gap="source_without_tests" -- a
+    # FALSE-NEGATIVE trust defect (symmetric to fake-green): genuinely-correct,
+    # fully-tested work read as NOT VERIFIED. This branch fires ONLY as a
+    # fallback below every explicit-framework path (vitest/jest/mocha/scripts.test
+    # via package.json, monorepo, pytest, go, cargo all gate on
+    # test_runner=="none"), so package.json-with-jest still selects jest. It runs
+    # only when node is on PATH AND *.test.{js,mjs,cjs} files exist at root or
+    # under test/ or tests/. A failing suite records test_passed=false (never
+    # swallowed); absence of node or test files falls through to the honest
+    # "none"/inconclusive path below (never fabricates a pass).
+    if [ "$test_runner" = "none" ] && command -v node &>/dev/null; then
+        local _nt_files=()
+        local _nt_f
+        # Root-level test files (maxdepth 1) plus test/ and tests/ dirs, skipping
+        # vendored trees so we never walk node_modules.
+        while IFS= read -r _nt_f; do
+            [ -n "$_nt_f" ] && _nt_files+=("$_nt_f")
+        done < <(find "${TARGET_DIR:-.}" -maxdepth 1 -type f \
+                    \( -name '*.test.js' -o -name '*.test.mjs' -o -name '*.test.cjs' \) \
+                    2>/dev/null)
+        for _nt_dir in test tests; do
+            [ -d "${TARGET_DIR:-.}/$_nt_dir" ] || continue
+            while IFS= read -r _nt_f; do
+                [ -n "$_nt_f" ] && _nt_files+=("$_nt_f")
+            done < <(find "${TARGET_DIR:-.}/$_nt_dir" -maxdepth 3 -type f \
+                        \( -name '*.test.js' -o -name '*.test.mjs' -o -name '*.test.cjs' \) \
+                        -not -path '*/node_modules/*' 2>/dev/null)
+        done
+        if [ "${#_nt_files[@]}" -gt 0 ]; then
+            test_runner="node-test"
+            local output
+            # Pass matched files explicitly (node --test globbing is
+            # Node-version-sensitive); quote each so paths with spaces survive.
+            output=$(cd "${TARGET_DIR:-.}" && timeout "${LOKI_GATE_TIMEOUT:-300}" \
+                         node --test "${_nt_files[@]}" 2>&1) || test_passed=false
+            # tail -14 so node's TAP summary block (# tests / # pass N / # fail N,
+            # ~10 lines) survives truncation for the best-effort count parse below.
+            details="node --test: $(echo "$output" | tail -14 | tr '\n' ' ')"
+        fi
+    fi
+
     if [ "$test_runner" = "none" ]; then
         log_info "Test coverage: no test runner detected, recording inconclusive (not pass)"
         # v7.41.x fail-open fix: previously this wrote pass:true, so a project
@@ -9254,18 +9501,51 @@ TREOF
         *)           _tr_cmd="$test_runner" ;;
     esac
     if [ "$test_passed" = "true" ]; then _tr_exit=0; _tr_status="verified"; else _tr_exit=1; _tr_status="failed"; fi
+
+    # #82 (zero-test-file hardening): a runner that EXITED 0 but executed ZERO
+    # real tests is a mini fake-green -- it records "verified" while proving
+    # nothing. node --test on a *.test.js with no test() calls exits 0 (node
+    # counts the FILE ITSELF as one passing pseudo-test, so `# tests 0` never
+    # fires); jest --passWithNoTests exits 0 on an empty suite. Detect the
+    # zero-real-test case ONLY on a green run (a red run already records fail
+    # and must stay fail), and downgrade the record from affirmative to an
+    # HONEST inconclusive (status=no_tests_run, gap=source_without_runnable_tests,
+    # pass:"inconclusive"). This is NOT a failure: the completion-council
+    # evidence gate treats it as pass-through, exactly like runner=="none".
+    # Positive-detection only -- an unparseable runner is left UNCHANGED
+    # (pass:true) so a legitimate suite is never false-downgraded.
+    local _tr_zero_tests=false
+    if [ "$test_passed" = "true" ] \
+       && _loki_zero_tests_executed "$test_runner" "${output:-}" "${_nt_files[@]:-}"; then
+        _tr_zero_tests=true
+        _tr_status="no_tests_run"
+        log_warn "Verification gap: $test_runner exited 0 but ran ZERO tests -- recording inconclusive (no_tests_run), not verified"
+    fi
+
     # Best-effort pass/fail counts from the summary text (null when not found).
     local _tr_passed_n _tr_failed_n
     _tr_passed_n=$(printf '%s' "$details" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
     _tr_failed_n=$(printf '%s' "$details" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' | head -1)
+    # node --test emits TAP-ish "# pass N" / "# fail N" summary lines, which the
+    # "N passed"/"N failed" pattern above does not match. Fall back to those.
+    [ -n "$_tr_passed_n" ] || _tr_passed_n=$(printf '%s' "$details" | grep -oE '# pass [0-9]+' | grep -oE '[0-9]+' | head -1)
+    [ -n "$_tr_failed_n" ] || _tr_failed_n=$(printf '%s' "$details" | grep -oE '# fail [0-9]+' | grep -oE '[0-9]+' | head -1)
     [ -n "$_tr_passed_n" ] || _tr_passed_n=null
     [ -n "$_tr_failed_n" ] || _tr_failed_n=null
 
-    # verification_gap is "none" whenever a real runner executed: the suite ran,
-    # so there is no docs-without-execution / source-without-tests gap. Keeping
-    # the key on BOTH writers gives consumers a single stable schema shape.
+    # verification_gap is "none" whenever a real runner executed AND ran tests:
+    # the suite ran, so there is no docs-without-execution / source-without-tests
+    # gap. The #82 zero-test case is the exception -- a runner ran but executed
+    # NO tests -- so it records pass:"inconclusive" (the string, distinct from the
+    # bool true/false) + gap:source_without_runnable_tests. Keeping the key on
+    # BOTH writers gives consumers a single stable schema shape.
+    local _tr_pass_json="$test_passed" _tr_gap_json="none"
+    if [ "$_tr_zero_tests" = "true" ]; then
+        _tr_pass_json='"inconclusive"'
+        _tr_gap_json="source_without_runnable_tests"
+    fi
     cat > "$quality_dir/test-results.json" << TREOF
-{"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","runner":"$test_runner","pass":$test_passed,"min_coverage":$min_coverage,"summary":"$details","command":"$_tr_cmd","exit_code":$_tr_exit,"status":"$_tr_status","passed_count":$_tr_passed_n,"failed_count":$_tr_failed_n,"verification_gap":"none"}
+{"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","runner":"$test_runner","pass":$_tr_pass_json,"min_coverage":$min_coverage,"summary":"$details","command":"$_tr_cmd","exit_code":$_tr_exit,"status":"$_tr_status","passed_count":$_tr_passed_n,"failed_count":$_tr_failed_n,"verification_gap":"$_tr_gap_json"}
 TREOF
     # Finding #598: stamp the per-iteration freshness marker (see above).
     printf '%s\n' "${ITERATION_COUNT:-0}" > "$quality_dir/.test-results.iter" 2>/dev/null || true
@@ -9610,10 +9890,39 @@ run_doc_quality_gate() {
     local score=100
     local issues=()
 
+    # F52 (doc-scope, gate half): for a "simple"-tier project the accepted
+    # documentation standard is README.md + USAGE.md, NOT the .loki/docs/
+    # architecture suite. auto_generate_docs_if_needed deliberately skips the
+    # suite for simple tier, so the manifest / API.md checks below MUST NOT
+    # penalize it (else the gate would nag for docs we intentionally did not
+    # generate, forcing extra iterations -- the exact waste F52 removes). Score
+    # simple tier on README + USAGE only. Mirrors DOC_SCOPE_INSTRUCTION_SIMPLE.
+    local doc_tier="${DETECTED_COMPLEXITY:-standard}"
+
     # Check 1: README.md exists
     if [ ! -f "$project_dir/README.md" ] || [ ! -s "$project_dir/README.md" ]; then
         score=$((score - 20))
         issues+=("README.md missing or empty")
+    fi
+
+    if [ "$doc_tier" = "simple" ]; then
+        # USAGE.md is the always-on end-user handoff doc (usage_doc_instruction);
+        # for a simple project it plus README is sufficient. Penalize only if the
+        # always-on USAGE.md is absent/empty.
+        if [ ! -f "$project_dir/USAGE.md" ] || [ ! -s "$project_dir/USAGE.md" ]; then
+            score=$((score - 20))
+            issues+=("USAGE.md missing or empty")
+        fi
+        if [ ${#issues[@]} -gt 0 ]; then
+            log_warn "Documentation Gate: Score $score/100 (simple tier: README + USAGE)"
+            for issue in "${issues[@]}"; do
+                log_warn "  - $issue"
+            done
+        else
+            log_info "Documentation Gate: PASS (Score $score/100, simple tier: README + USAGE)"
+        fi
+        [ "$score" -ge 70 ]
+        return $?
     fi
 
     # Check 2: Documentation freshness
@@ -9675,6 +9984,22 @@ run_doc_quality_gate() {
 
 auto_generate_docs_if_needed() {
     [ "${LOKI_AUTO_DOCS:-true}" = "true" ] || return 0
+
+    # F52 (doc-scope, generator half): a trivial "simple"-tier project does not
+    # warrant the eight-file architecture suite. 'loki docs generate' runs the
+    # provider agentically (claude -p), which writes ARCHITECTURE/API/COMPONENTS/
+    # DECISIONS/SETUP/TESTING/README/CLAUDE to the project -- ~270s of pure token
+    # + wall-clock burn with no reader for a 5-line CLI. The agent already wrote
+    # README.md + USAGE.md under DOC_SCOPE_INSTRUCTION_SIMPLE, so skip the suite.
+    # Parity: this is the generator-side mirror of DOC_SCOPE_INSTRUCTION_SIMPLE
+    # (build_prompt.ts / run.sh:14421); the gate half (run_doc_quality_gate)
+    # accepts README+USAGE for simple so skipping here does not fail Gate 7.
+    # DETECTED_COMPLEXITY is set once by run_autonomous before the first
+    # build_prompt, so it is populated by the time this runs (post code-review).
+    if [ "${DETECTED_COMPLEXITY:-standard}" = "simple" ]; then
+        log_info "Auto-documentation: simple project -- README + USAGE only, skipping architecture suite (F52 doc-scope)"
+        return 0
+    fi
 
     local project_dir="${TARGET_DIR:-.}"
     local manifest="$project_dir/.loki/docs/docs-manifest.json"
@@ -10490,6 +10815,23 @@ _severity_is_blocking() {
     grep -qiE '(\[(critical|high)\])|(\*\*[[:space:]]*(critical|high)[[:space:]]*\*\*)|(severity:?[[:space:]]*(critical|high))|(^[[:space:]]*[-*][[:space:]]+(critical|high)([[:space:]:.,*]|$))' "$file"
 }
 
+# 7.114.0 (rank 9): count non-blocking (Medium/Low) findings in a reviewer file.
+# Feeds the weighted mergeability quality score. Mirrors the severity-token
+# tolerance of _severity_is_blocking (bracketed, bold, 'Severity:', or bullet).
+# Echoes "<medium_count> <low_count>" so the caller can weight them differently.
+# Parity-locked with countNonBlockingFindings() in loki-ts/src/runner/quality_gates.ts.
+_count_nonblocking_findings() {
+    local file="$1"
+    if [ ! -f "$file" ]; then
+        echo "0 0"
+        return 0
+    fi
+    local med low
+    med=$(grep -icE '(\[medium\])|(\*\*[[:space:]]*medium[[:space:]]*\*\*)|(severity:?[[:space:]]*medium)|(^[[:space:]]*[-*][[:space:]]+medium([[:space:]:.,*]|$))' "$file")
+    low=$(grep -icE '(\[low\])|(\*\*[[:space:]]*low[[:space:]]*\*\*)|(severity:?[[:space:]]*low)|(^[[:space:]]*[-*][[:space:]]+low([[:space:]:.,*]|$))' "$file")
+    echo "${med:-0} ${low:-0}"
+}
+
 run_code_review() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local review_dir="$loki_dir/quality/reviews"
@@ -10638,7 +10980,7 @@ MANAGED_SELECTION
         log_warn "Managed review council unavailable; falling back to CLI fan-out"
     fi
 
-    log_info "Selecting 3 specialist reviewers from pool..."
+    log_info "Selecting reviewers (architecture-strategist + maintainer-mergeability always on, plus keyword-scored specialists)..."
 
     # Write diff/files to temp files for python to read (avoid env var size limits)
     # Use printf to prevent shell variable expansion in diff content (#78)
@@ -10770,13 +11112,25 @@ if all(s == 0 for s in scores.values()):
 else:
     selected = ranked[:2]
 
-# Output JSON: architecture-strategist always first, then the 2 selected
+# Output JSON: architecture-strategist + maintainer-mergeability always first
+# (both carry a mandate no keyword-selected specialist does), then the 2 selected.
+# 7.114.0 (rank 9): maintainer-mergeability is the "would a real maintainer merge
+# this PR" reviewer. It covers scope creep, dead/duplicated code, and conformance
+# to the surrounding code's conventions -- the tech-lead axes the security/test/
+# perf/dependency/architecture pool misses. Its findings feed the SAME
+# Critical/High=block, Medium/Low=non-blocking mechanism and additionally the
+# weighted quality score in aggregate.json (rank 9).
 result = {
     "reviewers": [
         {
             "name": "architecture-strategist",
             "focus": "SOLID, coupling, cohesion, patterns, abstraction, dependency direction",
             "checks": "SOLID violations, excessive coupling, wrong patterns, missing abstractions, dependency direction issues, god classes/functions"
+        },
+        {
+            "name": "maintainer-mergeability",
+            "focus": "Would a maintainer merge this PR as-is: scope discipline, dead/duplicated code, convention conformance",
+            "checks": "scope creep (changes unrelated to the stated task, drive-by edits, unrequested refactors), dead code (unreachable, unused, commented-out, leftover debug), duplicated logic that should reuse an existing helper, non-conformance to the surrounding code's conventions (naming, error handling, structure, formatting), and anything a careful human reviewer would ask to be changed before merging"
         }
     ] + [
         {
@@ -10812,7 +11166,9 @@ SPECIALIST_SELECT
         "reviewers=$reviewer_names" \
         "iteration=$ITERATION_COUNT"
 
-    # Dispatch 3 parallel blind reviews using provider-specific invocation
+    # Dispatch all selected reviewers as parallel blind reviews (provider-specific
+    # invocation). Count is dynamic: 2 always-on (architecture-strategist,
+    # maintainer-mergeability) + up to 2 keyword-scored specialists.
     local pids=()
     local reviewer_count
     reviewer_count=$(echo "$selected_specialists" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['reviewers']))")
@@ -10906,6 +11262,10 @@ BUILD_PROMPT
     # Such a review proves nothing, so we treat it as INCONCLUSIVE -> blocking.
     local real_verdict_count=0
     local no_output_count=0
+    # 7.114.0 (rank 9): accumulate non-blocking (Medium/Low) findings across all
+    # reviewers to compute the weighted mergeability quality score below.
+    local nonblocking_medium=0
+    local nonblocking_low=0
 
     for i in $(seq 0 $((reviewer_count - 1))); do
         local reviewer_name
@@ -10945,6 +11305,16 @@ BUILD_PROMPT
             continue
         fi
         ((real_verdict_count++))
+        # 7.114.0 (rank 9): tally this reviewer's non-blocking (Medium/Low)
+        # findings for the weighted quality score. Counted for BOTH PASS and FAIL
+        # reviewers -- a PASS verdict can still list Low-severity nits that should
+        # lower the mergeability score without blocking the gate.
+        local _nb_counts _nb_med _nb_low
+        _nb_counts=$(_count_nonblocking_findings "$review_output")
+        _nb_med=${_nb_counts%% *}
+        _nb_low=${_nb_counts##* }
+        nonblocking_medium=$((nonblocking_medium + _nb_med))
+        nonblocking_low=$((nonblocking_low + _nb_low))
         if [ "$verdict" = "FAIL" ]; then
             ((fail_count++))
             # Check for Critical/High severity findings (bracketed OR unbracketed
@@ -10988,6 +11358,23 @@ BUILD_PROMPT
         fi
     fi
 
+    # 7.114.0 (rank 9): weighted mergeability quality score (FrontierCode-style).
+    # A SCORE reported alongside the binary block verdict, NOT a new hard gate
+    # (surfaced only; opt-in enforcement via LOKI_REVIEW_MERGEABILITY_MIN below).
+    # Deterministic rubric: start at 100; any blocker (Critical/High) => 0; else
+    # subtract 5 per Medium finding and 2 per Low finding, floored at 0. This
+    # separates a tight, mergeable change (high score, no blocker) from a
+    # sprawling one whose scope/dead-code/convention findings pile up.
+    # Parity-locked with computeMergeabilityScore() in loki-ts/src/runner/quality_gates.ts.
+    local quality_score
+    if [ "$has_blocking" = "true" ]; then
+        quality_score=0
+    else
+        quality_score=$((100 - (nonblocking_medium * 5) - (nonblocking_low * 2)))
+        [ "$quality_score" -lt 0 ] && quality_score=0
+    fi
+    log_info "Mergeability quality score: ${quality_score}/100 (medium=${nonblocking_medium}, low=${nonblocking_low}, blocker=${has_blocking})"
+
     # Save aggregate results via python3 + env vars (no shell interpolation in JSON)
     export LOKI_REVIEW_AGG_FILE="$review_dir/$review_id/aggregate.json"
     export LOKI_REVIEW_AGG_ID="$review_id"
@@ -10998,6 +11385,9 @@ BUILD_PROMPT
     export LOKI_REVIEW_AGG_VERDICTS="$verdicts_summary"
     export LOKI_REVIEW_AGG_REAL="$real_verdict_count"
     export LOKI_REVIEW_AGG_INCONCLUSIVE="$review_inconclusive"
+    export LOKI_REVIEW_AGG_QSCORE="$quality_score"
+    export LOKI_REVIEW_AGG_QMED="$nonblocking_medium"
+    export LOKI_REVIEW_AGG_QLOW="$nonblocking_low"
     python3 << 'AGG_SCRIPT'
 import json, os
 result = {
@@ -11008,7 +11398,12 @@ result = {
     "has_blocking": os.environ["LOKI_REVIEW_AGG_BLOCKING"] == "true",
     "real_verdict_count": int(os.environ["LOKI_REVIEW_AGG_REAL"]),
     "inconclusive": os.environ["LOKI_REVIEW_AGG_INCONCLUSIVE"] == "true",
-    "verdicts": os.environ["LOKI_REVIEW_AGG_VERDICTS"].strip()
+    "verdicts": os.environ["LOKI_REVIEW_AGG_VERDICTS"].strip(),
+    # rank 9: weighted mergeability quality score (0 if any blocker, else
+    # 100 - 5*medium - 2*low, floored at 0). Reported metric, not a hard gate.
+    "quality_score": int(os.environ["LOKI_REVIEW_AGG_QSCORE"]),
+    "nonblocking_medium": int(os.environ["LOKI_REVIEW_AGG_QMED"]),
+    "nonblocking_low": int(os.environ["LOKI_REVIEW_AGG_QLOW"])
 }
 with open(os.environ["LOKI_REVIEW_AGG_FILE"], "w") as f:
     json.dump(result, f, indent=2)
@@ -11016,6 +11411,7 @@ AGG_SCRIPT
     unset LOKI_REVIEW_AGG_FILE LOKI_REVIEW_AGG_ID LOKI_REVIEW_AGG_ITER
     unset LOKI_REVIEW_AGG_PASS LOKI_REVIEW_AGG_FAIL LOKI_REVIEW_AGG_BLOCKING LOKI_REVIEW_AGG_VERDICTS
     unset LOKI_REVIEW_AGG_REAL LOKI_REVIEW_AGG_INCONCLUSIVE
+    unset LOKI_REVIEW_AGG_QSCORE LOKI_REVIEW_AGG_QMED LOKI_REVIEW_AGG_QLOW
 
     emit_event_json "code_review_complete" \
         "review_id=$review_id" \
@@ -11138,6 +11534,18 @@ DA_AGG_PATCH
     if [ "$has_blocking" = "true" ]; then
         log_error "CODE REVIEW BLOCKED: Critical/High findings detected"
         log_error "Review details: $review_dir/$review_id/"
+        return 1
+    fi
+
+    # 7.114.0 (rank 9): OPT-IN mergeability-score gate. Default OFF -- the score
+    # is reported in aggregate.json regardless, but it only BLOCKS when the
+    # operator explicitly sets a floor via LOKI_REVIEW_MERGEABILITY_MIN. This
+    # keeps the existing Critical/High=block, Medium/Low=non-blocking contract
+    # unchanged by default while giving teams a knob to demand a minimum
+    # mergeability score. Never fabricates a pass; a low score only ever blocks.
+    if [ -n "${LOKI_REVIEW_MERGEABILITY_MIN:-}" ] && [ "$quality_score" -lt "${LOKI_REVIEW_MERGEABILITY_MIN}" ]; then
+        log_error "CODE REVIEW BLOCKED: mergeability quality score ${quality_score} < floor ${LOKI_REVIEW_MERGEABILITY_MIN} (LOKI_REVIEW_MERGEABILITY_MIN)"
+        log_error "  Review details: $review_dir/$review_id/ ; unset LOKI_REVIEW_MERGEABILITY_MIN to disable this gate"
         return 1
     fi
 
@@ -13956,7 +14364,24 @@ build_prompt() {
     phases="${phases%,}"  # Remove trailing comma
 
     # Ralph Wiggum Mode - Reason-Act-Reflect-VERIFY cycle with self-verification loop (Boris Cherny pattern)
-    local rarv_instruction="RALPH WIGGUM MODE ACTIVE. Use Reason-Act-Reflect-VERIFY cycle: 1) REASON - READ .loki/CONTINUITY.md including 'Mistakes & Learnings' section to avoid past errors. CHECK .loki/state/relevant-learnings.json for cross-project learnings from previous projects (mistakes to avoid, patterns to apply). Check .loki/state/ and .loki/queue/, identify next task. CHECK .loki/state/resources.json for system resource warnings - if CPU or memory is high, reduce parallel agent spawning or pause non-critical tasks. Limit to MAX_PARALLEL_AGENTS=${MAX_PARALLEL_AGENTS}. If queue empty, find new improvements. 2) ACT - Execute task, write code, commit changes atomically (git checkpoint). 3) REFLECT - Update .loki/CONTINUITY.md with progress, update state, identify NEXT improvement. Save valuable learnings for future projects. 4) VERIFY - Run automated tests (unit, integration, E2E), check compilation/build, verify against spec. IF VERIFICATION FAILS: a) Capture error details (stack trace, logs), b) Analyze root cause, c) UPDATE 'Mistakes & Learnings' in CONTINUITY.md with what failed, why, and how to prevent, d) Rollback to last good git checkpoint if needed, e) Apply learning and RETRY from REASON. If verification passes, mark task complete and continue. This self-verification loop achieves 2-3x quality improvement. CRITICAL: There is NEVER a 'finished' state - always find the next improvement, optimization, test, or feature."
+    # 7.114.0 (rank 8): rarv_instruction is now mode-aware. The never-finished
+    # tail is a self-contradiction in a finite PRD/checkpoint run (which has an
+    # auto-derived COMPLETION_PROMISE and was switched out of perpetual). Gate the
+    # never-finished tail on the SAME split that completion_instruction uses
+    # (perpetual OR no completion promise). Finite runs instead get a concise
+    # "stop when verified-done, the completion gates are the authority" directive.
+    # The unverifiable "2-3x quality improvement" clause is removed from ALL modes.
+    # Parity-locked with rarvInstruction() in loki-ts/src/runner/build_prompt.ts.
+    local _rarv_perpetual="false"
+    if [ "$AUTONOMY_MODE" = "perpetual" ] || [ "$PERPETUAL_MODE" = "true" ] || [ -z "$COMPLETION_PROMISE" ]; then
+        _rarv_perpetual="true"
+    fi
+    local rarv_instruction="RALPH WIGGUM MODE ACTIVE. Use Reason-Act-Reflect-VERIFY cycle: 1) REASON - READ .loki/CONTINUITY.md including 'Mistakes & Learnings' section to avoid past errors. CHECK .loki/state/relevant-learnings.json for cross-project learnings from previous projects (mistakes to avoid, patterns to apply). Check .loki/state/ and .loki/queue/, identify next task. CHECK .loki/state/resources.json for system resource warnings - if CPU or memory is high, reduce parallel agent spawning or pause non-critical tasks. Limit to MAX_PARALLEL_AGENTS=${MAX_PARALLEL_AGENTS}. If queue empty, find new improvements. 2) ACT - Execute task, write code, commit changes atomically (git checkpoint). 3) REFLECT - Update .loki/CONTINUITY.md with progress, update state, identify NEXT improvement. Save valuable learnings for future projects. 4) VERIFY - Run automated tests (unit, integration, E2E), check compilation/build, verify against spec. IF VERIFICATION FAILS: a) Capture error details (stack trace, logs), b) Analyze root cause, c) UPDATE 'Mistakes & Learnings' in CONTINUITY.md with what failed, why, and how to prevent, d) Rollback to last good git checkpoint if needed, e) Apply learning and RETRY from REASON. If verification passes, mark task complete and continue."
+    if [ "$_rarv_perpetual" = "true" ]; then
+        rarv_instruction="${rarv_instruction} CRITICAL: There is NEVER a 'finished' state - always find the next improvement, optimization, test, or feature."
+    else
+        rarv_instruction="${rarv_instruction} When the PRD requirements are implemented and completion gates pass, claim done via loki_complete_task and STOP; do not add unrequested improvements. Verify once -- the completion gates (tests, checklist, evidence) are the authority on done; do not re-verify redundantly."
+    fi
 
     # Completion instruction (S0.2 -- structured tool call).
     # When PRD requirements are implemented, tests pass, and the checklist is
@@ -14049,7 +14474,7 @@ build_prompt() {
     # writing any reference to a symbol the agent has not already read with
     # the Read tool, prefer mcp__loki-mode-lsp-proxy__lsp_check_exists. This
     # is the single most leveraged grounding primitive per OpenCode research.
-    local lsp_grounding_instruction="LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship."
+    local lsp_grounding_instruction="LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship. PARALLEL_TOOL_CALLS: When issuing independent read-only operations (reads, greps, file lookups, LSP checks) that do not depend on each other, issue them in a single message so they run in parallel; do not serialize independent lookups."
 
     # AGENTS.md instruction (agents.md standard: plain Markdown at repo root,
     # nearest-file-wins, read natively by Claude Code/Codex/etc.). Loki prefers
@@ -15927,6 +16352,47 @@ except Exception:
         . "${SCRIPT_DIR}/spec-interrogation.sh" 2>/dev/null || true
         if type spec_interrogation_run &>/dev/null; then
             spec_interrogation_run "$prd_path" || true
+        fi
+        # #87: no-HITL fast-fail on an unresolved spec-INTERNAL contradiction.
+        # A contradiction (class=contradictory) is NEVER auto-acked (P2-4) and only
+        # a human sets confirmed=true, so in an AUTONOMOUS run it can never clear ->
+        # the completion gate blocks EVERY iteration -> the loop grinds to
+        # max-iterations (~20min, opaque). This run is already doomed; here we fail
+        # FAST + HONEST + NAMED instead. Honesty: this is the no-HITL rule verbatim
+        # ("when unsafe to decide, inconclusive-and-proceed, never fake-green") --
+        # it NEVER declares done/green (inconclusive_spec_contradiction maps to a
+        # terminal-failure exit, tested), it just replaces the opaque grind.
+        # SCOPE (deliberately narrow, no regression): fires ONLY when
+        #   (a) non-interactive/no-HITL (a TTY human COULD resolve it -> let them), AND
+        #   (b) LOKI_ASSUMPTIONS_REQUIRE_CONFIRM != 1 (that knob means a human WILL
+        #       confirm -> do not pre-empt), AND
+        #   (c) there is >=1 UNRESOLVED class=contradictory entry (the contradiction-
+        #       specific count, NOT the broader high-unresolved which includes
+        #       auto-ackable non-contradictions).
+        # Opt-out: LOKI_SPEC_CONTRADICTION_FASTFAIL=0.
+        if [ "${LOKI_SPEC_CONTRADICTION_FASTFAIL:-1}" = "1" ] \
+           && [ ! -t 0 ] \
+           && [ "${LOKI_ASSUMPTIONS_REQUIRE_CONFIRM:-0}" != "1" ] \
+           && type spec_ledger_contradiction_unresolved_count &>/dev/null; then
+            _sc_out="$(spec_ledger_contradiction_unresolved_count 2>/dev/null)"
+            _sc_n="$(printf '%s' "$_sc_out" | head -1)"
+            case "$_sc_n" in ''|*[!0-9]*) _sc_n=0 ;; esac
+            if [ "$_sc_n" -ge 1 ]; then
+                # Option C: name the contradicting clauses so `loki why` is actionable.
+                local _sc_titles
+                _sc_titles="$(printf '%s' "$_sc_out" | tail -n +2 | sed 's/^/  - /' | head -5)"
+                log_error "Spec has ${_sc_n} unresolved internal contradiction(s); an autonomous run cannot resolve them (only a human can). Failing fast instead of grinding to max-iterations."
+                [ -n "$_sc_titles" ] && printf '%s\n' "$_sc_titles" >&2
+                if type _loki_write_last_error &>/dev/null; then
+                    _loki_write_last_error 0 "spec_contradiction" \
+                        "Spec is internally inconsistent (${_sc_n} unresolved contradiction(s)); resolve the conflicting requirements, then re-run."
+                fi
+                save_state "$retry" "inconclusive_spec_contradiction" 0
+                if type emit_completion_summary &>/dev/null; then
+                    emit_completion_summary inconclusive_spec_contradiction 2>/dev/null || true
+                fi
+                return 20
+            fi
         fi
     fi
 
@@ -18796,13 +19262,13 @@ main() {
         # pgid.
         case "$_sess_launcher" in
             setsid)
-                LOKI_RUNNING_FROM_TEMP='' LOKI_OWN_SESSION=1 nohup setsid "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
+                LOKI_RUNNING_FROM_TEMP='' LOKI_OWN_SESSION=1 LOKI_LAUNCHER_PID=$$ nohup setsid "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
             perl-setsid)
-                LOKI_RUNNING_FROM_TEMP='' LOKI_OWN_SESSION=1 nohup perl -e 'use POSIX qw(setsid); setsid(); exec @ARGV or exit 127;' "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
+                LOKI_RUNNING_FROM_TEMP='' LOKI_OWN_SESSION=1 LOKI_LAUNCHER_PID=$$ nohup perl -e 'use POSIX qw(setsid); setsid(); exec @ARGV or exit 127;' "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
             python-setsid)
-                LOKI_RUNNING_FROM_TEMP='' LOKI_OWN_SESSION=1 nohup python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
+                LOKI_RUNNING_FROM_TEMP='' LOKI_OWN_SESSION=1 LOKI_LAUNCHER_PID=$$ nohup python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
             *)
-                LOKI_RUNNING_FROM_TEMP='' nohup "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
+                LOKI_RUNNING_FROM_TEMP='' LOKI_LAUNCHER_PID=$$ nohup "$original_script" "${cmd_args[@]}" > "$log_file" 2>&1 & ;;
         esac
         local bg_pid=$!
         echo "$bg_pid" > "$pid_file"
@@ -18981,8 +19447,11 @@ main() {
         echo "${LOKI_SESSION_ID}" > ".loki/sessions/${LOKI_SESSION_ID}/session_id"
     fi
 
-    # Initialize PID registry and clean up orphans from previous sessions
+    # Initialize PID registry, self-register this wrapper (loki-mode #92 -- so a
+    # future session can reap it if this run is orphaned+idle), then clean up
+    # orphans from previous sessions.
     init_pid_registry
+    register_self_wrapper
     local orphan_count
     orphan_count=$(cleanup_orphan_pids)
     if [ "$orphan_count" -gt 0 ]; then
@@ -19216,7 +19685,7 @@ main() {
     # engine's own is_completed() recognise this session as terminal. Write the
     # file-system COMPLETED marker (checked by is_completed() in the main loop).
     _advance_current_phase "COMPLETED"
-    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}}/.loki"
+    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}/.loki}"
     echo "Session completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$loki_dir/COMPLETED" 2>/dev/null || true
 
     # Finish-and-own (v7.88.0): write a plain-English ownership handoff
@@ -19309,7 +19778,7 @@ main() {
         case "$_final_status" in
             council_approved|council_force_approved|completion_promise_fulfilled|force_stopped|paused|interrupted|budget_exceeded|stopped)
                 result=0 ;;
-            failed|max_iterations_reached|max_retries_exceeded|policy_blocked)
+            failed|max_iterations_reached|max_retries_exceeded|policy_blocked|inconclusive_spec_contradiction)
                 result=20 ;;
             *)
                 # Unknown/running/exited terminal: leave $result as-is (nonzero on a

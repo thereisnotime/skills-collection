@@ -299,6 +299,45 @@ founder_decisions = [
      "blocks": "Discovery surface; posts need your nod per action rules", "rank": 8}
 ]
 
+# --- Accuracy / Cost / Speed rows, provenance-labeled. Only "measured" rows come
+# from a real build artifact; "designed" = test-fixture threshold; "projected" =
+# arithmetic. This honesty is deliberate (never plot a non-measurement as a trend).
+acs_rows = []
+_before = next((b for b in benchmarks if b.get("label") == "before"), None)
+_after = next((b for b in benchmarks if b.get("label") == "after"), None)
+if _before and _after and _before.get("wall_clock_min"):
+    _spd = round((_before["wall_clock_min"] - _after["wall_clock_min"]) / _before["wall_clock_min"] * 100)
+    acs_rows.append({
+        "metric": "Convergence speed (v7.105 fix)", "provenance": "measured",
+        "value": f"{_before['wall_clock_min']}min -> {_after['wall_clock_min']}min ({_spd}% faster)",
+        "detail": f"{_before['act_iterations']} iters/{_before['completion_claims']} claims -> {_after['act_iterations']} iter/{_after['completion_claims']} claim, real builds",
+        "source": f"benchmarks/results/{_before['file']} vs {_after['file']}"})
+# Static rows for the v7.114 accuracy/speed batch, each honestly labeled.
+acs_rows += [
+    {"metric": "Convergence floor (v7.114 rank15)", "provenance": "measured",
+     "value": "stops iter 2 not iter 5",
+     "detail": "no-promise run w/ green evidence evaluates at MIN_ITERATIONS; same full council_evaluate (no fake-green). RED/GREEN verified.",
+     "source": "tests/test-council-convergence-floor.sh (14/14)"},
+    {"metric": "Mergeability quality_score (v7.114 rank9)", "provenance": "designed",
+     "value": "100 clean / 95 one-medium / 0 blocker",
+     "detail": "test-fixture threshold values (100 - 5*medium - 2*low), NOT measured on production builds yet",
+     "source": "tests/test-mergeability-review.sh (designed thresholds)"},
+    {"metric": "Review cost (v7.114 rank9)", "provenance": "projected",
+     "value": "+33% (3 -> 4 reviewers)",
+     "detail": "arithmetic projection from reviewer count, NOT a measured dollar figure; advisory-only score, opt-in enforcement",
+     "source": "arithmetic (4/3), not metered"},
+    {"metric": "Acceptance-oracle false positives (v7.114 rank2)", "provenance": "measured",
+     "value": "0 on 3 clean fixtures",
+     "detail": "source-grounded checklist; zero false High findings on 3 clean real-framework fixtures",
+     "source": "tests/test-oracle-source-grounded.sh (FP=0)"},
+    {"metric": "Trust false-negative fix (v7.116 #79)", "provenance": "measured",
+     "value": "NOT VERIFIED -> VERIFIED on identical work",
+     "detail": "live calibration builds of the SHIPPED artifact: same correct+tested Node deliverable recorded runner:none/not_run (headline NOT VERIFIED) on v7.115, and runner:node-test/pass:true/status:verified on v7.116. node --test detection added to both the in-loop gate and loki verify.",
+     "source": "live calibration v7.115 vs v7.116 (.loki/quality/test-results.json)"},
+]
+acs = {"rows": acs_rows,
+       "live_note": "Convergence deltas are measured on real builds; quality_score is a designed threshold and review cost is an arithmetic projection (labeled). A live v7.114 calibration confirms the composed behavior end-to-end."}
+
 out = {
     "generated_at": FETCHED_AT,
     "current_version": current_version,
@@ -309,6 +348,7 @@ out = {
     "releases_downloads": releases_downloads,
     "releases_timeline": releases_timeline,
     "benchmarks": benchmarks,
+    "acs": acs,
     "what_worked": what_worked,
     "didnt_work": didnt_work,
     "mistakes": mistakes,

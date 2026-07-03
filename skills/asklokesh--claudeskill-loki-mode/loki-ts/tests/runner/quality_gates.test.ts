@@ -35,6 +35,8 @@ import {
   claudeReviewer,
   stubReviewer,
   REVIEWER_UNAVAILABLE_MARKER,
+  computeMergeabilityScore,
+  countNonBlockingFindings,
 } from "../../src/runner/quality_gates.ts";
 import type { ReviewerFn } from "../../src/runner/quality_gates.ts";
 import type { RunnerContext } from "../../src/runner/types.ts";
@@ -1273,21 +1275,25 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
       "+ const password = req.body.password;\n+ if (auth(token)) {\n+   db.query(`SELECT * FROM u WHERE id=${id}`);\n+ }\n";
     const files = "src/auth/login.ts\n";
     const sel = selectReviewers(diff, files);
-    // First reviewer is always architecture-strategist.
+    // First two reviewers are always architecture-strategist + maintainer-mergeability.
     expect(sel.reviewers[0]?.name).toBe("architecture-strategist");
+    expect(sel.reviewers[1]?.name).toBe("maintainer-mergeability");
     // Security must outrank others on this diff.
     const names = sel.reviewers.map((r) => r.name);
     expect(names).toContain("security-sentinel");
-    expect(names.length).toBe(3);
+    // 7.114.0 (rank 9): 4 reviewers now (2 always-on + 2 specialists).
+    expect(names.length).toBe(4);
   });
 
-  it("always selects exactly 3 reviewers (architecture + 2 specialists)", () => {
-    // Empty-keyword case still selects 3 (default fallback path).
+  it("always selects exactly 4 reviewers (architecture + mergeability + 2 specialists)", () => {
+    // Empty-keyword case still selects 4 (default fallback path).
     const sel = selectReviewers("only whitespace diff", "README.md\n");
-    expect(sel.reviewers.length).toBe(3);
+    expect(sel.reviewers.length).toBe(4);
     expect(sel.reviewers[0]?.name).toBe("architecture-strategist");
+    // 7.114.0 (rank 9): maintainer-mergeability is always second.
+    expect(sel.reviewers[1]?.name).toBe("maintainer-mergeability");
     // Default fallback: security-sentinel + test-coverage-auditor.
-    expect(sel.reviewers.slice(1).map((r) => r.name)).toEqual([
+    expect(sel.reviewers.slice(2).map((r) => r.name)).toEqual([
       "security-sentinel",
       "test-coverage-auditor",
     ]);
@@ -1367,11 +1373,17 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
     const agg = JSON.parse(readFileSync(aggPath, "utf-8")) as Record<string, unknown>;
     expect(agg["review_id"]).toBe(reviewId);
     expect(agg["iteration"]).toBe(1);
-    expect(agg["pass_count"]).toBe(3);
+    // 7.114.0 (rank 9): 4 reviewers now (architecture + mergeability + 2 specialists).
+    expect(agg["pass_count"]).toBe(4);
     expect(agg["fail_count"]).toBe(0);
     expect(agg["has_blocking"]).toBe(false);
     expect(typeof agg["verdicts"]).toBe("string");
     expect(agg["verdicts"] as string).toContain("architecture-strategist:PASS");
+    expect(agg["verdicts"] as string).toContain("maintainer-mergeability:PASS");
+    // rank 9: clean review with no non-blocking findings scores a perfect 100.
+    expect(agg["quality_score"]).toBe(100);
+    expect(agg["nonblocking_medium"]).toBe(0);
+    expect(agg["nonblocking_low"]).toBe(0);
   });
 
   it("writes per-reviewer .txt outputs alongside the prompt and selection", async () => {
@@ -1392,9 +1404,12 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
       scores: Record<string, number>;
       pool_size: number;
     };
-    expect(selection.reviewers.length).toBe(3);
+    // 7.114.0 (rank 9): 4 reviewers (architecture + mergeability + 2 specialists).
+    expect(selection.reviewers.length).toBe(4);
     // v7.4.20: default pool excludes legacy-healing-auditor.
     expect(selection.pool_size).toBe(4);
+    // maintainer-mergeability reviewer file is always written.
+    expect(existsSync(join(dir, "maintainer-mergeability.txt"))).toBe(true);
     // Anti-sycophancy file written on unanimous pass.
     expect(existsSync(join(dir, "anti-sycophancy.txt"))).toBe(true);
   });
@@ -1434,7 +1449,10 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
     ) as Record<string, unknown>;
     expect(agg["has_blocking"]).toBe(true);
     expect(agg["fail_count"]).toBe(1);
-    expect(agg["pass_count"]).toBe(2);
+    // 7.114.0 (rank 9): 4 reviewers, one FAIL -> 3 PASS.
+    expect(agg["pass_count"]).toBe(3);
+    // rank 9: any blocker forces quality_score to 0.
+    expect(agg["quality_score"]).toBe(0);
   });
 
   it("does not block on FAIL with only Medium/Low severity findings", async () => {
@@ -1455,7 +1473,104 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
     ) as Record<string, unknown>;
     expect(agg["has_blocking"]).toBe(false);
     expect(agg["fail_count"]).toBe(1);
-    expect(agg["pass_count"]).toBe(2);
+    // 7.114.0 (rank 9): 4 reviewers, one FAIL(Medium) -> 3 PASS.
+    expect(agg["pass_count"]).toBe(3);
+    // rank 9: one Medium non-blocking finding => score 100 - 5 = 95.
+    expect(agg["nonblocking_medium"]).toBe(1);
+    expect(agg["quality_score"]).toBe(95);
+  });
+
+  // -------------------------------------------------------------------------
+  // rank 9 (mergeability score) fixture-PR discrimination (validation_plan):
+  //   (A) tight fix       -> high score, no scope blocker, gate passes
+  //   (B) sprawling diff  -> mergeability reviewer emits scope blocker -> score 0, gate blocks
+  //   (C) known-Critical  -> block behavior unchanged (score 0, gate blocks)
+  // -------------------------------------------------------------------------
+  it("rank 9 fixture A: tight PR scores high with no scope blocker (gate passes)", async () => {
+    // Every reviewer approves a small, focused change with zero nits.
+    const cleanReviewer: ReviewerFn = async () => "VERDICT: PASS\nFINDINGS:\n- None";
+    const r = await runCodeReview(makeCtx(), {
+      diffOverride: { diff: "+ return a + b;\n", files: "src/math.ts\n" },
+      reviewer: cleanReviewer,
+    });
+    expect(r.passed).toBe(true);
+    const agg = JSON.parse(
+      readFileSync(join(scratch, "quality", "reviews", reviewDirs()[0]!, "aggregate.json"), "utf-8"),
+    ) as Record<string, unknown>;
+    expect(agg["has_blocking"]).toBe(false);
+    expect(agg["quality_score"]).toBe(100);
+  });
+
+  it("rank 9 fixture B: sprawling PR trips the mergeability scope blocker -> score 0, gate blocks", async () => {
+    // The maintainer-mergeability reviewer flags scope creep as a High blocker on
+    // a diff touching many unrelated files; the specialists still PASS. The score
+    // collapses to 0 (any blocker) and the gate blocks -- proving the new axis
+    // catches an unmergeable-but-non-buggy change the old pool would have missed.
+    const sprawlReviewer: ReviewerFn = async ({ reviewer }) => {
+      if (reviewer.name === "maintainer-mergeability") {
+        return "VERDICT: FAIL\nFINDINGS:\n- [High] scope creep: 40 unrelated files touched, multiple drive-by refactors (many files)";
+      }
+      return "VERDICT: PASS\nFINDINGS:\n- None";
+    };
+    const files = Array.from({ length: 40 }, (_, i) => `src/mod${i}.ts`).join("\n") + "\n";
+    const r = await runCodeReview(makeCtx(), {
+      diffOverride: { diff: "+ // sweeping unrelated edits across the tree\n", files },
+      reviewer: sprawlReviewer,
+    });
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("blocking severity");
+    const agg = JSON.parse(
+      readFileSync(join(scratch, "quality", "reviews", reviewDirs()[0]!, "aggregate.json"), "utf-8"),
+    ) as Record<string, unknown>;
+    expect(agg["has_blocking"]).toBe(true);
+    expect(agg["quality_score"]).toBe(0);
+    expect(agg["verdicts"] as string).toContain("maintainer-mergeability:FAIL");
+  });
+
+  it("rank 9 fixture C: known-Critical still blocks and scores 0 (existing behavior preserved)", async () => {
+    const criticalReviewer: ReviewerFn = async ({ reviewer }) => {
+      if (reviewer.name === "security-sentinel") {
+        return "VERDICT: FAIL\nFINDINGS:\n- [Critical] SQL injection in src/db.ts:12";
+      }
+      return "VERDICT: PASS\nFINDINGS:\n- None";
+    };
+    const r = await runCodeReview(makeCtx(), {
+      diffOverride: { diff: "+ db.query(`SELECT * FROM u WHERE id=${id}`);\n", files: "src/db.ts\n" },
+      reviewer: criticalReviewer,
+    });
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("blocking severity");
+    const agg = JSON.parse(
+      readFileSync(join(scratch, "quality", "reviews", reviewDirs()[0]!, "aggregate.json"), "utf-8"),
+    ) as Record<string, unknown>;
+    expect(agg["has_blocking"]).toBe(true);
+    expect(agg["quality_score"]).toBe(0);
+  });
+
+  it("rank 9: score is discriminating (mergeable 100 > 95 nit > 0 sprawl)", () => {
+    // Pure unit assertion on the weighting so the ordering is locked.
+    expect(computeMergeabilityScore(false, 0, 0)).toBe(100);
+    expect(computeMergeabilityScore(false, 1, 0)).toBe(95);
+    expect(computeMergeabilityScore(false, 0, 1)).toBe(98);
+    expect(computeMergeabilityScore(true, 0, 0)).toBe(0); // any blocker => 0
+    expect(computeMergeabilityScore(false, 100, 100)).toBe(0); // floored at 0
+    // Mergeable clearly separates from unmergeable.
+    expect(computeMergeabilityScore(false, 0, 0)).toBeGreaterThan(
+      computeMergeabilityScore(true, 0, 0),
+    );
+  });
+
+  it("rank 9: countNonBlockingFindings tolerates bracket/bold/bullet severity forms", () => {
+    const out = [
+      "- [Medium] a",
+      "- **Low** b",
+      "Severity: medium c",
+      "- low d",
+      "- [Critical] not counted",
+    ].join("\n");
+    const { medium, low } = countNonBlockingFindings(out);
+    expect(medium).toBe(2); // "[Medium]" + "Severity: medium"
+    expect(low).toBe(2); // "**Low**" + "- low"
   });
 
   it("captures reviewer exceptions as a Critical FAIL (gate blocks)", async () => {

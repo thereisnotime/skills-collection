@@ -73,7 +73,9 @@ _parse_json_field() {
     if command -v python3 >/dev/null 2>&1; then
         python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],''))" "$file" "$field" 2>/dev/null
     else
-        sed 's/.*"'"$field"'":\s*//' "$file" 2>/dev/null | sed 's/[",}].*//' | head -1
+        sed 's/.*"'"$field"'":[[:space:]]*//' "$file" 2>/dev/null \
+            | sed 's/^"//' \
+            | sed 's/[",}].*//' | head -1
     fi
 }
 
@@ -115,6 +117,10 @@ kill_registered_pid() {
     unregister_pid "$pid"
 }
 
+# NOTE: these copies mirror run.sh. The WRAPPER-reap liveness path (loki-mode #92)
+# is exercised against the REAL sed-extracted run.sh block in
+# tests/test-orphan-wrapper-reaper.sh; these copies keep the CHILD-entry behavior
+# that Tests 6/9 below assert (kind-less entries => parent-death-only, unchanged).
 cleanup_orphan_pids() {
     [ -z "$PID_REGISTRY_DIR" ] && init_pid_registry
     local orphan_count=0
@@ -127,11 +133,16 @@ cleanup_orphan_pids() {
         local pid
         pid=$(basename "$entry_file" .json)
         case "$pid" in ''|*[!0-9]*) continue ;; esac
+        [ "$pid" = "$$" ] && continue
         if kill -0 "$pid" 2>/dev/null; then
             local ppid_val=""
             ppid_val=$(_parse_json_field "$entry_file" "ppid") || true
             case "$ppid_val" in ''|*[!0-9]*) ppid_val="" ;; esac
-            if [ -n "$ppid_val" ] && [ "$ppid_val" != "$$" ]; then
+            local kind=""
+            kind=$(_parse_json_field "$entry_file" "kind") || true
+            if [ "$kind" = "wrapper" ]; then
+                : # wrapper-reap path lives in run.sh; tested in test-orphan-wrapper-reaper.sh
+            elif [ -n "$ppid_val" ] && [ "$ppid_val" != "$$" ]; then
                 if ! kill -0 "$ppid_val" 2>/dev/null; then
                     local label=""
                     label=$(_parse_json_field "$entry_file" "label") || label="unknown"
@@ -157,6 +168,7 @@ kill_all_registered() {
         local pid
         pid=$(basename "$entry_file" .json)
         case "$pid" in ''|*[!0-9]*) continue ;; esac
+        [ "$pid" = "$$" ] && continue
         kill_registered_pid "$pid"
     done
 }

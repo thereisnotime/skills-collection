@@ -276,6 +276,9 @@ if [ -n "$PROOF_PY" ]; then
   run_check "tests/test_proof_redaction.py (R1 redaction gate)" "$PROOF_PY -m pytest -q tests/test_proof_redaction.py 2>&1 | tail -5"
   # Schema + integrity hash + include-diffs + graceful degradation.
   run_check "tests/test_proof_generator.py (R1 generator schema/hash)" "$PROOF_PY -m pytest -q tests/test_proof_generator.py 2>&1 | tail -5"
+  # Rank 6: per-build effort_estimate (work-based hours, fail-open heuristic,
+  # honest LLM gate, deterministic inputs_hash). Two-scope separation gate.
+  run_check "tests/test_effort_estimate.py (Rank 6 effort estimator)" "$PROOF_PY -m pytest -q tests/test_effort_estimate.py 2>&1 | tail -5"
   # Evidence Receipt verifier: tamper + drift re-check (loki proof verify).
   run_check "tests/test_proof_verify.py (Evidence Receipt verify: tamper/drift)" "$PROOF_PY -m pytest -q tests/test_proof_verify.py 2>&1 | tail -5"
   run_check "tests/test_own_render.py (finish-and-own honesty: never green unless verified)" "$PROOF_PY -m pytest -q tests/test_own_render.py 2>&1 | tail -5"
@@ -292,6 +295,7 @@ if [ -n "$PROOF_PY" ]; then
   run_check "tests/test_bench_report.py (R2 report non-rigged)" "$PROOF_PY -m pytest -q tests/test_bench_report.py 2>&1 | tail -5"
   # bench CLI list/verify on the bash route.
   run_check "tests/test_bench_cli.py (R2 bench CLI)" "$PROOF_PY -m pytest -q tests/test_bench_cli.py 2>&1 | tail -5"
+  run_check "tests/test_bench_mergeability.py (Rank 12 mergeability score)" "$PROOF_PY -m pytest -q tests/test_bench_mergeability.py 2>&1 | tail -5"
 else
   skip_check "proof-of-run python gates" "no python3 on PATH"
 fi
@@ -507,6 +511,7 @@ run_check "tests/test-codex-model-trusted.sh (LOKI_CODEX_MODEL verbatim, generic
 # genuine unanimous COMPLETE is not always vetoed to CONTINUE. Mutation guard
 # included.
 run_check "tests/test-council-devils-advocate.sh (structured test-evidence, no spurious veto)" "bash tests/test-council-devils-advocate.sh 2>&1 | tail -3"
+run_check "tests/test-council-da-veto.sh (anti-sycophancy DA veto forces CONTINUE)" "bash tests/test-council-da-veto.sh 2>&1 | tail -3"
 
 # v7.7.31: STOP-aware countdown + dead-pid authoritative + autonomy override
 # (--append-system-prompt) parity. Verifies the dashboard Stop button responds
@@ -680,6 +685,12 @@ run_check "tests/test-spec.sh (living spec lock/status/sync + drift finding)" "b
 run_check "tests/test-evidence-gate.sh (evidence gate + inconclusive lifecycle)" "bash tests/test-evidence-gate.sh 2>&1 | tail -3"
 run_check "tests/test-evidence-gate-no-tests.sh (P1-1 no-tests not affirmative)" "bash tests/test-evidence-gate-no-tests.sh 2>&1 | tail -3"
 run_check "tests/test-verify.sh (loki verify deterministic gates)" "bash tests/test-verify.sh 2>&1 | tail -3"
+run_check "tests/test-verify-scope-record.sh (rank 10 locality scope record, advisory-first)" "bash tests/test-verify-scope-record.sh 2>&1 | tail -3"
+run_check "tests/test-verify-setup-recipe.sh (rank 7 setup-recipe writer, env NAMES not values)" "bash tests/test-verify-setup-recipe.sh 2>&1 | tail -3"
+run_check "tests/test-node-test-detection.sh (task #79: node --test detection, run.sh + verify.sh false-negative)" "bash tests/test-node-test-detection.sh 2>&1 | tail -3"
+run_check "tests/test-loki-dir-double-path.sh (#80 double-.loki COMPLETED guard)" "bash tests/test-loki-dir-double-path.sh 2>&1 | tail -3"
+run_check "tests/test-zero-test-inconclusive.sh (#82: zero-test-file -> inconclusive, run.sh + verify.sh + council)" "bash tests/test-zero-test-inconclusive.sh 2>&1 | tail -3"
+run_check "tests/test-heal-assess-readiness.sh (rank 13 loki heal --assess read-only triage)" "bash tests/test-heal-assess-readiness.sh 2>&1 | tail -3"
 run_check "tests/dashboard/test_tenant_isolation.py (P3-7 tenant boundary enforcement)" "python3 -m unittest tests.dashboard.test_tenant_isolation 2>&1 | tail -3"
 
 # P0 verification-credibility sweep (docs/P0-SWEEP-PLAN.md): the static
@@ -697,6 +708,10 @@ run_check "tests/test-approval-phase-gate.sh (v7.51 P3-3 check_policy approval w
 run_check "tests/test-semantic-gate-bash-route.sh (v7.53 P1-3 bash route default-off guard + blocking semantics)" "bash tests/test-semantic-gate-bash-route.sh 2>&1 | tail -3"
 run_check "tests/test-no-deprecated-codex-flag.sh (v7.52 guard: no live codex --full-auto reintroduced)" "bash tests/test-no-deprecated-codex-flag.sh 2>&1 | tail -3"
 run_check "tests/test-oracle-triangulation.sh (P2-3 spec-vs-reality oracle)" "bash tests/test-oracle-triangulation.sh 2>&1 | tail -3"
+run_check "tests/test-oracle-source-grounded.sh (rank 2: routes/LSP-symbols/invariant)" "bash tests/test-oracle-source-grounded.sh 2>&1 | tail -3"
+run_check "tests/test-rarv-parallel-build-prompt.sh (rank 16+8: mode-aware rarv + PARALLEL_TOOL_CALLS)" "bash tests/test-rarv-parallel-build-prompt.sh 2>&1 | tail -3"
+run_check "tests/test-mergeability-review.sh (rank 9: mergeability reviewer + weighted quality score)" "bash tests/test-mergeability-review.sh 2>&1 | tail -3"
+run_check "tests/test-council-convergence-floor.sh (rank 15: no-claim early-check convergence floor)" "bash tests/test-council-convergence-floor.sh 2>&1 | tail -3"
 run_check "tests/test-spec-structure-validation.sh (P2-5 spec-structure validation)" "bash tests/test-spec-structure-validation.sh 2>&1 | tail -3"
 run_check "tests/test-spec-drift-severity.sh (P2-6 spec-drift blocking)" "bash tests/test-spec-drift-severity.sh 2>&1 | tail -3"
 run_check "tests/test-contradiction-detection.sh (P2-4 contradiction detection)" "bash tests/test-contradiction-detection.sh 2>&1 | tail -3"

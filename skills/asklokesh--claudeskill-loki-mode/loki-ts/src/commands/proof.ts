@@ -42,6 +42,7 @@ Subcommands:
   verify <id>          Re-check a receipt against your code (tamper + drift)
   open <id>            Open .loki/proofs/<id>/index.html in a browser
   share <id>           Publish the proof page as a GitHub Gist (opt-in)
+  badge <id>           Print a copy-paste "Verified by Loki" markdown badge
 
 Options for 'share':
   --yes                Skip the redaction-preview confirmation prompt
@@ -307,6 +308,99 @@ async function hostedPublishProof(
       "The endpoint did not return a 'url' field; check your endpoint's response.\n",
     );
   }
+  // HLW-5: also print the shareable badge, linked to the published URL when the
+  // endpoint returned one (else image-only -- never fabricate a hosted URL).
+  printProofBadge(id, publishedUrl || undefined);
+  return 0;
+}
+
+// renderProofBadge - HLW-5 shareable "Verified by Loki" Evidence Receipt badge.
+//
+// PURE + DISPLAY-ONLY. Given a proof's honesty.headline (read from the SAME
+// redacted proof.json the share path uses), returns a copy-paste markdown badge
+// whose color/text derive ONLY from the headline. This is NOT a trust-core or
+// evidence-gate change: it renders what the honest headline already decided.
+//
+// ANTI-FAKE-GREEN (mirrors the R-HON-1 discipline in proof-pr.sh:13): green is
+// produced ONLY when headline === "VERIFIED" exactly. Any other value -- amber,
+// red, absent/empty, or an UNKNOWN non-empty string -- never renders green. An
+// absent/empty or unrecognized headline returns null (no badge) rather than
+// fabricating a verdict.
+//
+// The badge uses a shields.io static-badge image URL (no infra, no dependency).
+// Note: shields.io is an EXTERNAL image host; rendering the badge fetches from
+// img.shields.io. The badge image links to linkUrl (the shared gist/hosted URL)
+// when one is supplied, so a click shows the receipt; with no link the badge is
+// image-only.
+export function renderProofBadge(
+  headline: string | undefined | null,
+  linkUrl?: string,
+): string | null {
+  const h = (headline ?? "").trim();
+  // Exact-match table. Green ("brightgreen") is reachable ONLY from "VERIFIED".
+  let message = "";
+  let color = "";
+  if (h === "VERIFIED") {
+    message = "Verified by Loki";
+    color = "brightgreen";
+  } else if (h === "VERIFIED WITH GAPS") {
+    message = "Verified with gaps";
+    color = "yellow";
+  } else if (h === "NOT VERIFIED") {
+    message = "Not verified";
+    color = "red";
+  } else {
+    // Absent, empty, or an unknown non-empty headline: emit NO badge. Never
+    // default an unrecognized value to green (or any color) -- honesty over a
+    // pretty artifact.
+    return null;
+  }
+  // shields.io static badge: /badge/<label>-<message>-<color>. The color segment
+  // is the load-bearing honesty signal and is derived solely from the headline
+  // above. URL-encode the label/message so spaces render (%20); encode literal
+  // dashes as `--` per the shields path grammar (none of our three messages
+  // contain a dash, but keep the encoder correct if the strings ever change).
+  const enc = (s: string): string => encodeURIComponent(s.replace(/-/g, "--"));
+  const label = "Loki";
+  const badgeUrl = `https://img.shields.io/badge/${enc(label)}-${enc(message)}-${color}`;
+  const alt = "Verified by Loki";
+  const img = `![${alt}](${badgeUrl})`;
+  return linkUrl ? `[${img}](${linkUrl})` : img;
+}
+
+// printProofBadge - shared output helper. Prints the badge (with an honest note
+// when there is no verifiable headline) so the gist/hosted/badge paths render
+// identically. Reads honesty.headline from the redacted proof.json (readProof).
+function printProofBadge(id: string, linkUrl?: string): void {
+  const d = readProof(id);
+  const headline = d ? str(obj(d["honesty"])["headline"]) : "";
+  // str() maps absent to "-"; treat that as no headline for the badge.
+  const md = renderProofBadge(headline === "-" ? "" : headline, linkUrl);
+  if (md) {
+    process.stdout.write(`\n${BOLD}Shareable badge${NC} (copy-paste markdown):\n`);
+    process.stdout.write(`${md}\n`);
+  } else {
+    process.stdout.write(
+      `\n${YELLOW}No badge:${NC} this proof has no verifiable headline, so no badge is shown (no fake-green).\n`,
+    );
+  }
+}
+
+// badgeProof - `loki proof badge <id>`: print the shareable badge markdown only,
+// nothing published. Useful for pasting a badge that links to an already-shared
+// receipt (or an image-only badge with no link).
+function badgeProof(id: string | undefined): number {
+  if (!id) {
+    process.stderr.write(`${RED}Missing proof id.${NC} Use 'loki proof list'.\n`);
+    return 2;
+  }
+  const d = readProof(id);
+  if (d === null) {
+    process.stderr.write(`${RED}Proof not found: ${id}${NC}\n`);
+    process.stderr.write("Use 'loki proof list' to see available proofs.\n");
+    return 1;
+  }
+  printProofBadge(id);
   return 0;
 }
 
@@ -414,7 +508,10 @@ async function shareProof(argv: readonly string[]): Promise<number> {
     process.stderr.write(`${res.stdout}${res.stderr}\n`);
     return 1;
   }
-  process.stdout.write(`${GREEN}Shared: ${res.stdout.trim()}${NC}\n`);
+  const sharedUrl = res.stdout.trim();
+  process.stdout.write(`${GREEN}Shared: ${sharedUrl}${NC}\n`);
+  // HLW-5: also print the shareable "Verified by Loki" badge, linked to the gist.
+  printProofBadge(id, sharedUrl);
   return 0;
 }
 
@@ -475,6 +572,8 @@ export async function runProof(argv: readonly string[]): Promise<number> {
       return openProof(rest[0]);
     case "share":
       return shareProof(rest);
+    case "badge":
+      return badgeProof(rest[0]);
     default:
       process.stderr.write(`${RED}Unknown subcommand: ${sub}${NC}\n`);
       process.stderr.write("Run 'loki proof --help' for usage.\n");

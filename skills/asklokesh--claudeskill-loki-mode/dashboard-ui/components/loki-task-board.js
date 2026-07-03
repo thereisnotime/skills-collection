@@ -437,8 +437,8 @@ export class LokiTaskBoard extends LokiElement {
     const status = task.status || 'pending';
     const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const meta = task.metadata || {};
-    const criteria = task.acceptance_criteria || [];
-    const contextFiles = task.context_files || [];
+    const criteria = Array.isArray(task.acceptance_criteria) ? task.acceptance_criteria : [];
+    const contextFiles = Array.isArray(task.context_files) ? task.context_files : [];
     const spec = task.specification || '';
     const description = task.description || '';
     const notes = Array.isArray(task.notes) ? task.notes : [];
