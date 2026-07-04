@@ -341,7 +341,20 @@ def _collect_build(loki_dir):
     out["exit_code"] = _to_int(ec, None) if ec is not None else None
     dur = raw.get("duration_sec")
     out["duration_sec"] = _to_float(dur, None) if dur is not None else None
-    if not ran:
+    # HONEST APPLICABILITY (build has no writer historically -> facts.build was
+    # permanently "not_run" for every project, counting a CLI with no build step
+    # as a gap and dragging the headline to WITH GAPS). The writer now records a
+    # POSITIVE applicability signal: applicable:false means "this stack genuinely
+    # has no build phase" (a CLI, a plain script). That is N/A, not a skipped
+    # gap, so it must NOT be a degraded item. CRITICAL anti-fake-green rule:
+    # not_applicable ONLY from an EXPLICIT applicable:false in the file. An absent
+    # file or a missing/true applicable flag stays not_run (an honest gap) -- an
+    # un-built project must never flip green just because nobody wrote the file.
+    applicable = raw.get("applicable", True)
+    out["applicable"] = bool(applicable)
+    if applicable is False:
+        out["status"] = "not_applicable"
+    elif not ran:
         out["status"] = "not_run"
     elif out["exit_code"] == 0:
         out["status"] = "verified"
@@ -416,6 +429,38 @@ def _norm_tests_status(raw):
     if s in ("not_run", "notrun", "skip", "skipped", "n/a", "na", "", "none"):
         return "not_run"
     return s
+
+
+def _collect_functional(loki_dir):
+    """Read .loki/quality/functional-results.json (the FV-1 functional harness).
+
+    Deterministic FACT: did the built app actually DO what the spec asked (run the
+    app + exercise spec-derived behaviors -- POST persists, GET reflects, ...), as
+    opposed to just compiling and passing unit tests. Tolerates an absent file ->
+    status not_run. Shape mirrors the FV-1 harness output:
+    {ran, functional_status, passed, failed, inconclusive}.
+
+    DESCRIPTIVE ONLY (FV-2, record half): this fact is RECORDED on the receipt but
+    is deliberately NOT read by _compute_headline / _compute_degraded, so it does
+    NOT change what "Verified" means. Making functional-satisfaction gate the green
+    headline is a trust-semantics product decision (council + founder), the second
+    half of FV-2. Recording it first lets the signal be seen and validated safely.
+    """
+    out = {"ran": False, "functional_status": "not_run",
+           "passed": 0, "failed": 0, "inconclusive": 0}
+    raw = _read_json(
+        os.path.join(loki_dir, "quality", "functional-results.json"), default=None
+    )
+    if not isinstance(raw, dict):
+        return out
+    out["ran"] = True
+    out["functional_status"] = str(raw.get("functional_status") or "inconclusive")
+    summary = raw.get("summary") if isinstance(raw.get("summary"), dict) else raw
+    for k in ("passed", "failed", "inconclusive"):
+        v = summary.get(k)
+        if isinstance(v, int):
+            out[k] = v
+    return out
 
 
 def _collect_tests(loki_dir):
@@ -750,6 +795,7 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     build = _collect_build(loki_dir)
     tests = _collect_tests(loki_dir)
     security = _collect_security(loki_dir)
+    functional = _collect_functional(loki_dir)  # FV-2 record-half: descriptive only
     evidence_gate = _collect_evidence_gate(loki_dir)
 
     deployed_url = os.environ.get("LOKI_DEPLOYED_URL") or None
@@ -787,6 +833,11 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
             for g in (quality_gates.get("gates") or [])
         ],
         "security": security,
+        # FV-2 (record half): did the app actually DO what the spec asked? Present
+        # for transparency; DELIBERATELY NOT read by _compute_headline /
+        # _compute_degraded, so it does not (yet) change the verdict. Wiring it into
+        # the green headline is the founder-gated trust-semantics decision.
+        "functional": functional,
         "cost": cost,
         "meta": {
             "run_id": run_id,

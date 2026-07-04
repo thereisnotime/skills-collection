@@ -9,7 +9,7 @@ Guide for contributing to Loki Mode.
 ### Prerequisites
 
 - **Bash 4+** (macOS ships with 3.x; install via `brew install bash`)
-- **Node.js 16+** (for dashboard frontend)
+- **Node.js 22 LTS** (supported runtime; for the dashboard frontend and Bun-route tooling)
 - **Python 3.10+** (for dashboard backend and memory system)
 - **jq** (`brew install jq` or `apt-get install jq`)
 - **Git**

@@ -2,7 +2,7 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Loki Mode is a spec-driven autonomous builder with a built-in trust layer that takes any spec to a deployed product and verifies completion with evidence (quality gates plus a completion council), not just a "done" claim. Complete installation instructions for all platforms and use cases.
 
-**Version:** v7.118.0
+**Version:** v7.121.3
 
 ---
 
@@ -107,8 +107,9 @@ shim auto-routes read-only commands to the Bun runtime when `bun` is on `PATH`
 and falls back to the bash CLI otherwise (the core autonomous engine is the
 same on both routes).
 
-**Prerequisites:** Node.js 18+. Bun 1.3+ optional but recommended for the
-faster routed commands and forward-compat with v8.0.0.
+**Prerequisites:** Node.js 20+ (Node 22 LTS recommended; it is the primary
+tested/CI target). Bun 1.3+ optional but recommended for the faster routed
+commands and forward-compat with v8.0.0.
 
 **What it does:**
 - Installs the `loki` CLI binary to your PATH (`bin/loki` shim)
@@ -395,7 +396,7 @@ provider works inside the container. Provide auth with your Anthropic API key:
 # Run Loki Mode in Docker (Claude provider, API-key auth)
 docker run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
   -v $(pwd):/workspace -w /workspace \
-  asklokesh/loki-mode:7.93.0 start ./my-spec.md
+  asklokesh/loki-mode:7.121.3 start ./my-spec.md
 ```
 
 ##### docker compose + .env (no host install)
@@ -1008,7 +1009,8 @@ After installation:
 
 ## Release Operations
 
-### Token Rotation Runbook
+<details>
+<summary>Token Rotation Runbook (maintainers only)</summary>
 
 Follow this runbook when a release workflow fails to publish to npm.
 
@@ -1035,6 +1037,8 @@ A 404 on PUT means the registry rejected the credential, not that the package is
 - Confirm publish: `npm view loki-mode version` returns the new version.
 
 **Note on `publish-ts-sdk`:** This job publishes `sdk/typescript` to npm and uses the same `secrets.NPM_TOKEN` as `publish-npm` (see `.github/workflows/release.yml`). Rotating `NPM_TOKEN` fixes both jobs. The new Automation token must have publish access to both the `loki-mode` package and the TypeScript SDK package.
+
+</details>
 
 ---
 

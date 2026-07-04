@@ -43,6 +43,17 @@ When all council members agree unanimously, Loki Mode triggers a devil's advocat
 - This guards against all members being overly optimistic
 - The devil's advocate can override the unanimous vote if issues are found
 
+### Checklist hard gate
+
+Separate from the vote, the council enforces a `critical_checklist_failures`
+hard gate: if a critical checklist item reads `failing`, completion is blocked
+regardless of how the members voted. Those items are verified by the checklist
+verifier (a deterministic grep, not the voting logic). As of v7.121.0 that grep
+runs in extended-regex mode and only ever reports a real match as green; an
+unparseable or unestablished check becomes `pending`, never a fake `failing`
+that would block a correct build. See [[Quality Gates]] for the full pass /
+fail / pending semantics.
+
 ---
 
 ## Configuration

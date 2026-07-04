@@ -23,7 +23,7 @@ jobs:
         if: always()
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup Python 3.12
         if: always()

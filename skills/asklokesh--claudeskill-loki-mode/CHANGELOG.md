@@ -5,6 +5,148 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v7.121.3
+
+### Fix (app-runner: static sites get a live preview + health check)
+- **fix(app-runner): serve static sites (index.html) instead of falling to "no live server".** A static site (a web root with index.html and no server-app signal -- no dev/start script, no Flask/Django/etc) fell through the detection cascade to "none" -> no app-runner -> no live preview, no health check, no screenshot. Founder testing: a "hero, three-feature, pricing, waitlist" landing page showed "This app has no live server" and "Live health check: Could not reach the app" even though it built fine. Fix: after the package.json/framework handlers and before the "none" fallback, detect a static web root (index.html at root, or public/dist/build) and serve it with python3 -m http.server (always present, zero deps) on port 8000. Guarded on a REAL index.html so genuine CLIs/libraries (no index.html) still honestly read "none" -- never green-washes a non-web artifact, and a real server (npm start) still wins over static (detection order preserved). New test tests/test-app-runner-static-site.sh: 5 cases pass; all existing app-runner suites remain green. NOTE: future-builds-only -- an already-finished build classified "none" needs a re-run to preview.
+
+## v7.121.2
+
+### Docs (non-functional)
+- **docs: refresh all user-facing markdown to v7.121.x and collapse advanced sections.** README now states the current release, describes the honest checklist verifier (ERE grep, runner-agnostic tests_pass, inconclusive-never-false, "rc==0 alone is not a pass"), and folds deep material (runtime + internal architecture, receipt-verification) behind <details> collapsibles so everyday developers see a crisp top and advanced readers can expand. Install/upgrade guides (INSTALLATION, SETUP, DOCKER_README, alternative-installations) updated to v7.121.x with Node 22 LTS noted; wiki (Quality-Gates, Completion-Council, Changelog, Contributing) refreshed. 8 stale "current version" strings fixed; all <details> balanced; no code changed; no fabricated claims (every trust-layer statement is grep-confirmable in autonomy/checklist-verify.py). Verified by a docs review pass.
+
+## v7.121.1
+
+### Trust / accuracy (patch on v7.121.0 -- close a tests_pass fake-green)
+- **fix(engine): `tests_pass` requires POSITIVE "N passed" proof to read green;
+  rc==0 alone is no longer a pass.** The v7.121.0 runner-agnostic change passed a
+  check on `rc==0`, but a no-op `scripts.test` (`echo done`, `exit 0`, `true`, `:`)
+  exits 0 having run ZERO tests -> a required verification went green with nothing
+  tested (a FAKE-GREEN, and the v7.121.0 change had introduced it: the old hardcoded
+  `npx jest` printed "No tests found" -> blocked). Fix: True requires a runner's
+  "N passed" signal (jest/vitest `N passed`, pytest `N passed`, mocha `N passing`,
+  node:test `# pass N`, tap `pass N`) with the count `[1-9]\d*` (>=1, so a zero-count
+  line like mocha's "0 passing" over an empty suite does NOT count); rc==0 without
+  that proof -> INCONCLUSIVE (None -> pending), never green and never a fake-RED
+  False; rc!=0 real failure -> honest False; no-test signals -> False. Found by the
+  release council (two rounds: no-op scripts, then the zero-count regex hole), closed
+  empirically against real jest/vitest/pytest/mocha runs; council APPROVE, 1648 tests
+  passed. npm 7.121.0 was immutable once published, so this ships as 7.121.1.
+
+## v7.121.0
+
+### Trust / accuracy (#142 -- the real #124 non-convergence driver)
+- **fix(engine): checklist `grep_codebase` now speaks ERE (`grep -E`), so
+  LLM-emitted patterns stop erroring and blocking correct builds.** The checklist
+  verifier ran grep in its BRE default. LLM-emitted patterns are ERE/PCRE-flavored
+  (`app\.get\('/api/tasks'`, `router.get\('/tasks'|router.get\("/tasks"`,
+  `base62|BASE62`), where an escaped `\(` is a BRE group-open and `|` is a literal:
+  grep ERRORED (rc>=2, e.g. macOS ugrep/BSD grep "parentheses not balanced") and the
+  code collapsed BOTH not-found (rc=1) AND error (rc>=2) to `passed=False`. Result:
+  genuinely-present, tested, curl-verified endpoints read checklist `failing` -> the
+  completion-council hard gate `critical_checklist_failures` blocked a CORRECT build
+  for iterations until it TIMED OUT. Observed live on the `web-app-e2e` build
+  (cdbbb5af): 3 endpoints present at src/app.js:38/42/59, gate blocked at iteration 9.
+  A FAKE-RED (validated work reads failing) -- the founder's "no progress" class.
+- **Fix:** primary grep runs `-E` (ERE) so `\(` is a literal paren and `.` `*` `+`
+  `|` keep regex meaning; rc==0 -> True, rc==1 -> honest False (a genuinely-absent
+  endpoint still blocks -- moat intact). If a pattern still errors even under `-E`, a
+  fixed-string (`grep -F`) retry recovers a real match to True; anything else
+  (literal-absent or double-error) is INCONCLUSIVE (`None` -> checklist `pending`,
+  never a hard False), because once `-E` fails to parse, an escape-stripped literal
+  cannot distinguish "present via a quantifier" from "absent". No fake-green: `None`
+  is `pending`, never counted `verified`.
+- **Measured before/after (function-extraction on the real cdbbb5af workspace):**
+  the 3 critical checklist items go grep `Found in 0 file(s)`/failing ->
+  `Found in 1 file(s)`; replaying the exact council gate logic flips BLOCK (3 critical
+  failing) -> PASS (0 failing). The build that timed out clears the gate. Full suite
+  1642 passed; council APPROVE (chain-to-green verified, no fake-green/fake-RED, ERE
+  dialect audit clean).
+- **fix(engine): `tests_pass` is runner-agnostic -- runs the project's OWN declared
+  test command instead of hardcoding `npx jest`.** The verifier ran `npx jest` for any
+  package.json project. cdbbb5af declares `"test":"vitest run"` (vitest installed, jest
+  NOT): `npx jest` either errored on jest's drifted `--testPathPattern` flag or tried to
+  FETCH jest and timed out -> a genuinely-passing 26/26 vitest suite read False/None
+  ("tests not run") -> the item never reached `verified`. Fix: read `package.json`
+  `scripts.test` and run it via `npm test` (the runner the build actually chose --
+  vitest/jest/mocha/node:test/ava), same list-form + shell=False + cwd posture (the
+  engine already ran this exact command to build the workspace). Model-/complexity-
+  agnostic by construction. Anti-fake-green gate preserved and widened: a required
+  `tests_pass` still FAILS on a no-test run (jest "No tests found", vitest "No test files
+  found", pytest exit 5) so a suite that runs zero tests never reads green; couldn't-run
+  (timeout/not-found/no-scripts.test) -> inconclusive None, ran-and-failed -> False,
+  ran-and-passed-with-tests -> True (same None-vs-False moat as grep).
+- **fix(engine): `file_exists`/`file_contains` accept the LLM-emitted path under `path`,
+  `target`, OR `file`.** The checklist is LLM-authored (generated_from a PRD), so the
+  field name is not pinnable. A valid `file_exists` carrying `target:"package.json"` (no
+  `path`) raised "Invalid path characters: ''" -> None -> the item stuck `pending`. Alias
+  the variants so a real check on a present file verifies. (This is the REAL instance of
+  the target-vs-path class; the earlier #141 self-report of it was a hallucination against
+  a checklist that used `path` -- verified here against the actual on-disk `target` schema.)
+- **Measured (function-extraction on real cdbbb5af, all 3 fixes):** the build goes from
+  TIMED OUT (grep-error hard-block, 9 iterations) to CONVERGING -- checklist gate BLOCK
+  (3 critical failing) -> PASS (0 failing), verified items 1/11 -> 4/11. Full suite 1645
+  passed. HONEST scope: this makes the build converge to "Working, with gaps"; it does NOT
+  yet yield a green "Verified" card -- the deterministic headline (proof-generator.py
+  `_compute_headline`) requires the Evidence Receipt axes (tests+build+security captured,
+  no degraded), which remain the separate Evidence Receipt phases 2/3/4 work. The 7
+  still-pending items are prose-only `tests_pass` (no runner signal) and a `manual_curl`
+  check the verifier does not implement -- both correctly stay inconclusive (None), never
+  faked green; implementing behavioral `manual_curl` (run the app, hit the endpoint) is
+  the next rock.
+
+## v7.120.0
+
+### Trust / accuracy (#139)
+- **fix(engine): detect + run root-level Python `test_*.py` so validated work reads
+  verified.** A Python CLI with a ROOT-LEVEL `test_invoice_cli.py` (no `tests/` dir, no
+  config) had its genuinely-passing 16-test suite read as "tests not run" ->
+  "VERIFIED WITH GAPS" -- the founder's exact false-negative class (validated work reads
+  unvalidated), hitting every Python build of that shape. Fixed in BOTH mirrors (run.sh
+  `enforce_test_coverage` + verify.sh `verify_gate_tests`):
+  - Detection now sees a shallow root-level `test_*.py`/`*_test.py` (was config-or-tests/
+    -dir only).
+  - When pytest is absent, falls back to `python3 -m unittest discover` (stdlib, zero
+    deps) so a real unittest suite is VERIFIED, mirroring pytest's exact recording path.
+  - ANTI-FAKE-GREEN: a zero-discovery unittest run ("Ran 0 tests"/"NO TESTS RAN") is
+    inconclusive, never a pass (new `unittest` case in both zero-test guards). A failing
+    suite -> failed.
+  - Pinned by `test-python-test-detection.sh` (7/7, non-vacuous), 44/44 proof-generator
+    unchanged, receipt-flip proven end-to-end. Known bounded edge (documented): the
+    fallback's `-p test_*.py` does not match a `*_test.py` naming with pytest absent.
+
+## v7.119.0
+
+### Trust / Evidence Receipt honesty (#47)
+- **feat(engine): honest build applicability -- N/A is not a gap.** The Evidence Receipt
+  showed "Build: not run" on EVERY build, dragging the headline to "Working, with gaps" even
+  when tests and security genuinely passed. A sophisticated user read that and concluded
+  nothing was validated. Root cause (systemic, every build, every customer): `build-results.json`
+  had NO writer, so `facts.build` was permanently `not_run` and counted as a gap by
+  `_compute_degraded`.
+  - New `run.sh enforce_build_check()` -- the missing writer, a sibling to
+    enforce_static_analysis/run_secure_scan. Detects the stack's build command (npm/go/cargo);
+    if one exists it RUNS the build (verified/failed -- a real gap stays a gap); if the stack
+    genuinely has no build step it records `applicable:false` (status `not_applicable`), an
+    honest N/A that is NOT a gap.
+  - ANTI-FAKE-GREEN (INVERTED, after 3 council rounds each caught a fake-green hole in a
+    leaky allowlist): `not_run` (honest gap) is the SAFE CATCH-ALL; `not_applicable` (N/A)
+    fires ONLY on a POSITIVE proof-of-no-build -- a package.json present with NO build-ish
+    script and no build-tool devDep (the founder's CLI). ANY project without that positive
+    signal -- a foreign build manifest (Make/Maven/Gradle/.NET/autotools/meson/bazel), a
+    build-ish npm script, OR no package.json at all (Zig, bare C, anything unenumerated) --
+    stays `not_run`. This fixes the whole CLASS: a forgotten stack fails in the HONEST
+    direction (under-claim), never fake-green. Pinned by test-build-check-applicability.sh
+    (23/23, incl. the exact stacks 3 council rounds found). A build that FAILED stays
+    NOT VERIFIED (the mirror-image guard). Known bounded edge (documented, non-blocking): a
+    polyglot repo with a no-build package.json co-present with an unlisted foreign manifest.
+  - COST-SAFE: detection is always cheap; build EXECUTION runs AT MOST ONCE per build run
+    (freshness marker), never every iteration. `LOKI_BUILD_CHECK=0` opts out.
+  - Companion (autonomi-saas SPA): renders `not_applicable` as "N/A - no build step" (neutral
+    tier), not the alarming "not run".
+  - Tests: 4 new proof-generator cases, non-vacuous (the N/A case fails on old code); existing
+    40 stay green (44/44). Writer proven by function-extraction on 3 real scratch repos.
+
 ## v7.118.0
 
 ### Build speed (measured before/after on a real SaaS build)

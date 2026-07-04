@@ -8354,6 +8354,163 @@ COMPOUND_SCRIPT
 # Results stored in .loki/quality/static-analysis.json
 # ============================================================================
 
+# ---------------------------------------------------------------------------
+# enforce_build_check -- run the stack's build (if it has one) and record an
+# HONEST build fact for the Evidence Receipt (#47). Historically nothing wrote
+# .loki/quality/build-results.json, so facts.build was PERMANENTLY "not_run" for
+# every project -- a CLI with no build step read identically to a skipped real
+# build, and both dragged the receipt to "WITH GAPS". This is the missing writer.
+#
+# The distinction the receipt needs (and the founder demanded, no fabrication) is
+# THREE-WAY, not two (a council review caught the two-way version laundering
+# "unrecognized build system" into a fake N/A):
+#   - a build command WE RUN exists (npm "build" / go / cargo) -> RUN it, record
+#     ran/exit_code (verified on 0, failed otherwise -- a real gap kept honest).
+#   - a build system EXISTS but we do not auto-run it (Make/Maven/Gradle/.NET, a
+#     non-"build" npm script, a pyproject build-system) -> not_run (an HONEST GAP,
+#     matching verify.sh:291's "skipped"). NEVER N/A -- a real, un-run build must
+#     never read VERIFIED.
+#   - genuinely NO build phase at all (a plain CLI/script) -> applicable:false
+#     (status not_applicable). A POSITIVE "no build phase" determination, NOT an
+#     absent file -- proof-generator maps applicable:false -> N/A (not a gap) but a
+#     MISSING file or an unrecognized-real build stays not_run. One vocabulary, no
+#     fake-green. Pinned by tests/test-build-check-applicability.sh.
+# ---------------------------------------------------------------------------
+enforce_build_check() {
+    local tree="${TARGET_DIR:-.}"
+    local loki_dir="$tree/.loki"
+    local quality_dir="$loki_dir/quality"
+    mkdir -p "$quality_dir"
+    local out_file="$quality_dir/build-results.json"
+    local timeout_s="${LOKI_GATE_TIMEOUT:-300}"
+    local ts; ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    # THREE-WAY classification (detection is always cheap). The anti-fake-green line
+    # (council-caught): N/A is ONLY for a POSITIVE "this stack has no build phase"
+    # determination. An unrecognized-but-real build system (Make, Maven, Gradle,
+    # .NET, a non-"build" npm build script) must stay an HONEST GAP (not_run), NOT
+    # be laundered into N/A -- otherwise a real, un-run build reads VERIFIED. This
+    # mirrors verify.sh:291, which records the same fall-through as a "skipped" gap.
+    #   runnable   -> a build command WE run (npm build / go / cargo) -> verified/failed
+    #   present    -> a build system EXISTS but we don't auto-run it   -> not_run (GAP)
+    #   none       -> positively no build phase at all                 -> not_applicable (N/A)
+    local cmd="" ran="false" applicable="false" exit_code="null" status="not_run"
+    local build_class="present"
+
+    # INVERTED classification (three council rounds each found a fake-green hole in
+    # an allowlist of build systems -> the allowlist is structurally leaky). The
+    # two error directions are NOT equal: a REAL build read as N/A -> VERIFIED is
+    # DISHONEST over-claim (the cardinal fake-green sin); a no-build CLI read as a
+    # not_run gap is an HONEST under-claim (merely the founder's original UX nit).
+    # So not_run is the SAFE CATCH-ALL and N/A requires a POSITIVE proof-of-no-build.
+    # A forgotten stack (Bazel, meson, autotools, Zig, Nix...) now falls to not_run
+    # (honest), never to fake N/A -- fixing the whole CLASS, not each instance.
+    #   1. runnable: a build command WE run -> verified/failed
+    #   2. none:     POSITIVE proof of no build phase -> not_applicable (N/A)
+    #   3. else:     not_run (honest gap) -- the default, covers every unknown stack
+
+    if [ -f "$tree/package.json" ] && grep -q '"build"[[:space:]]*:' "$tree/package.json" 2>/dev/null; then
+        cmd="npm run build"; applicable="true"; build_class="runnable"
+    elif [ -f "$tree/go.mod" ] && command -v go >/dev/null 2>&1; then
+        cmd="go build ./..."; applicable="true"; build_class="runnable"
+    elif [ -f "$tree/Cargo.toml" ] && command -v cargo >/dev/null 2>&1; then
+        cmd="cargo build"; applicable="true"; build_class="runnable"
+    else
+        # POSITIVE proof-of-no-build (the ONLY path to N/A). Two narrow cases, and
+        # anything short of a clear determination stays not_run:
+        #   (a) a package.json whose scripts exist but include NO build-ish script
+        #       AND there is no foreign build manifest -> a JS CLI/lib with no build.
+        #   (b) NO build manifest of ANY known kind at all -> a plain script dir.
+        # The build-ish regex is used as an EXCLUSION so a build hidden under a
+        # non-"build" script name (compile/dist/...) does NOT misfire N/A.
+        local has_foreign_manifest="false"
+        if [ -f "$tree/go.mod" ] || [ -f "$tree/Cargo.toml" ] \
+           || [ -f "$tree/Makefile" ] || [ -f "$tree/makefile" ] || [ -f "$tree/GNUmakefile" ] \
+           || [ -f "$tree/Makefile.in" ] || [ -f "$tree/configure" ] || [ -f "$tree/configure.ac" ] || [ -f "$tree/configure.in" ] \
+           || [ -f "$tree/CMakeLists.txt" ] || [ -f "$tree/meson.build" ] \
+           || [ -f "$tree/pom.xml" ] || [ -f "$tree/build.xml" ] \
+           || [ -f "$tree/build.gradle" ] || [ -f "$tree/build.gradle.kts" ] \
+           || [ -f "$tree/settings.gradle" ] || [ -f "$tree/settings.gradle.kts" ] || [ -f "$tree/gradlew" ] \
+           || [ -f "$tree/build.sbt" ] \
+           || [ -f "$tree/WORKSPACE" ] || [ -f "$tree/WORKSPACE.bazel" ] || [ -f "$tree/MODULE.bazel" ] \
+           || [ -f "$tree/setup.py" ] || [ -f "$tree/pyproject.toml" ] \
+           || compgen -G "$tree/*.csproj" >/dev/null 2>&1 \
+           || compgen -G "$tree/*.sln" >/dev/null 2>&1 \
+           || compgen -G "$tree/*.fsproj" >/dev/null 2>&1; then
+            has_foreign_manifest="true"
+        fi
+        # N/A fires on POSITIVE proof-of-no-build, which we can only assert for a
+        # package.json project: it EXISTS and its scripts are build-ish-free and no
+        # foreign manifest / build-tool devDep is present -> a JS CLI/lib that
+        # genuinely has no build step (the founder's invoice case). CRITICAL (the
+        # council's convergence line): a project with NO package.json is "I don't
+        # recognize a build here" = IGNORANCE, not proof-of-no-build. Ignorance must
+        # map to not_run (honest gap), NEVER N/A -- else Zig/autotools/bare-C/meson/
+        # bazel/anything-unborn silently reads VERIFIED. This makes the ENTIRE
+        # no-package.json universe honest by CONSTRUCTION (list-free), which is why
+        # this converges where four rounds of adding-to-a-list could not.
+        if [ "$has_foreign_manifest" = "false" ] && [ -f "$tree/package.json" ]; then
+            local has_build_devdep="false"
+            # A build TOOL as a (dev)dependency means a build exists even if it runs
+            # under a non-"build" script name -> stay not_run, do not claim N/A.
+            if grep -qE '"(vite|webpack|rollup|esbuild|parcel|typescript|tsc|@swc/core|turbopack|rspack|tsup|microbundle)"[[:space:]]*:' "$tree/package.json" 2>/dev/null; then
+                has_build_devdep="true"
+            fi
+            if [ "$has_build_devdep" = "false" ] \
+               && ! grep -qE '"(build|compile|dist|bundle|webpack|vite|tsc|rollup|esbuild|prepare|prepack)"[[:space:]]*:' "$tree/package.json" 2>/dev/null; then
+                applicable="false"; build_class="none"
+            fi
+            # else: a build-ish script or a build-tool devDep we don't auto-run ->
+            # stays not_run (an honest gap). Known bounded edge: a polyglot repo with
+            # a package.json (no build) co-present with an UNLISTED foreign build
+            # manifest could read N/A; not common and not list-free-fixable, so it is
+            # a documented CONCERN, not a blocker.
+        fi
+        # No package.json (foreign or not) -> build_class stays "present" -> not_run.
+        # has_foreign_manifest=true -> also not_run. Only the narrow package.json-
+        # no-build case above reaches N/A.
+    fi
+
+    if [ "$build_class" = "present" ]; then
+        # A build phase exists but we did not run it -> honest not_run gap. applicable
+        # stays true (a build IS applicable), status not_run (we did not verify it).
+        applicable="true"; ran="false"; status="not_run"
+        log_info "Build check: a build system is present but not auto-run -> honest gap (not verified)"
+    elif [ "$applicable" = "true" ]; then
+        # EXECUTION is expensive (a real vite/webpack/go/cargo build, seconds to
+        # minutes) so we run it AT MOST ONCE per build run, not every iteration --
+        # honoring the "fastest / lowest cost" goal. A freshness marker (mirrors the
+        # test-results.iter pattern) records that the build already ran this run; a
+        # later iteration reuses the recorded verified/failed status instead of
+        # re-building. LOKI_BUILD_CHECK=0 opts out entirely (records N/A-style skip
+        # without running). If a prior result exists and is still valid, keep it.
+        local marker="$quality_dir/.build-check.done"
+        if [ "${LOKI_BUILD_CHECK:-1}" = "0" ]; then
+            log_info "Build check: execution disabled (LOKI_BUILD_CHECK=0); recording applicability only"
+            ran="false"; exit_code="null"; status="not_run"
+        elif [ -f "$marker" ] && [ -f "$out_file" ]; then
+            log_info "Build check: already ran this build; reusing recorded result"
+            return 0
+        else
+            local rc=0
+            ( cd "$tree" && timeout "$timeout_s" sh -c "$cmd" >/dev/null 2>&1 ) || rc=$?
+            ran="true"; exit_code="$rc"
+            if [ "$rc" -eq 0 ]; then status="verified"; else status="failed"; fi
+            : > "$marker" 2>/dev/null || true
+            log_info "Build check: $cmd -> exit $rc"
+        fi
+    else
+        # build_class="none": a POSITIVE proof-of-no-build determination -> honest
+        # N/A (the founder's CLI). applicable already false; status not_applicable.
+        applicable="false"; ran="false"; status="not_applicable"
+        log_info "Build check: no build step for this stack (N/A)"
+    fi
+
+    printf '{"timestamp":"%s","command":"%s","ran":%s,"applicable":%s,"exit_code":%s,"duration_sec":null,"status":"%s"}\n' \
+        "$ts" "$cmd" "$ran" "$applicable" "$exit_code" "$status" > "$out_file"
+    return 0
+}
+
 enforce_static_analysis() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local quality_dir="$loki_dir/quality"
@@ -9160,6 +9317,21 @@ _loki_zero_tests_executed() {
             fi
             return 1
             ;;
+        unittest)
+            # #139: `python3 -m unittest discover` on ZERO discovered tests prints
+            # "Ran 0 tests" + "NO TESTS RAN". Depending on the Python version it
+            # exits 5 (newer, already not-pass) OR 0 (older = a silent fake-green,
+            # the #82/#89 trap). POSITIVE detection so it is inconclusive on BOTH:
+            # a "Ran 0 tests" line (authoritative), or the "NO TESTS RAN" banner,
+            # AND no ran-count >= 1. A real run prints "Ran N test(s)" with N>=1
+            # and "OK"/"FAILED", so it is never downgraded. Verified live: zero ->
+            # "Ran 0 tests"/"NO TESTS RAN"; one -> "Ran 1 test"/"OK".
+            if printf '%s' "$_zt_out" | grep -qE '^Ran 0 tests' 2>/dev/null \
+               || printf '%s' "$_zt_out" | grep -qE '^NO TESTS RAN$' 2>/dev/null; then
+                return 0
+            fi
+            return 1
+            ;;
         *)
             # Unknown/unparseable runner -> never claim zero-tests (safe default).
             return 1
@@ -9326,6 +9498,17 @@ sys.stdout.write(t.strip())
                 -print -quit 2>/dev/null | grep -q .; then
                 has_python_project=true
             fi
+        elif find "${TARGET_DIR:-.}" -maxdepth 2 -type f \
+                \( -name 'test_*.py' -o -name '*_test.py' \) \
+                -not -path '*/.loki/*' -not -path '*/.git/*' -not -path '*/node_modules/*' \
+                -not -path '*/.venv/*' -not -path '*/venv/*' \
+                -print -quit 2>/dev/null | grep -q .; then
+            # #139: a ROOT-LEVEL (or shallow) test_*.py / *_test.py with NO tests/
+            # dir and NO config file. The founder's invoice CLI had exactly this
+            # shape (test_invoice_cli.py at the root) -> was missed -> tests read
+            # "not run" on a genuinely-passing 16-test unittest suite. This is the
+            # same false-negative class as #79 (validated work reads as unvalidated).
+            has_python_project=true
         fi
         if [ "$has_python_project" = "true" ] && command -v pytest &>/dev/null; then
             test_runner="pytest"
@@ -9341,6 +9524,29 @@ sys.stdout.write(t.strip())
             else
                 [ "$pytest_exit" -ne 0 ] && test_passed=false
                 details="pytest: $(echo "$output" | tail -5 | tr '\n' ' ')"
+            fi
+        elif [ "$has_python_project" = "true" ] && command -v python3 &>/dev/null; then
+            # #139: pytest ABSENT but a Python test suite exists. stdlib unittest
+            # discovery runs test_*.py with ZERO third-party deps -- so a legit
+            # unittest suite (the invoice CLI's 16 tests) is verified instead of
+            # silently read as "not run". The zero-test guard (unittest case) makes
+            # a zero-discovery run inconclusive, NOT a fake-green pass (unittest
+            # prints "NO TESTS RAN" and exits 0 -- the #82/#89 trap, guarded).
+            test_runner="unittest"
+            local output unittest_exit _ut_to
+            _ut_to="${LOKI_PYTEST_TIMEOUT:-${LOKI_GATE_TIMEOUT:-300}}"
+            local _ut_cmd=(timeout "${_ut_to}s")
+            command -v gtimeout &>/dev/null && _ut_cmd=(gtimeout "${_ut_to}s")
+            command -v timeout &>/dev/null || command -v gtimeout &>/dev/null || _ut_cmd=()
+            output=$(cd "${TARGET_DIR:-.}" && "${_ut_cmd[@]}" python3 -m unittest discover -p 'test_*.py' 2>&1)
+            unittest_exit=$?
+            if [ "$unittest_exit" -eq 124 ]; then
+                test_passed=false
+                log_warn "unittest gate timed out after ${_ut_to}s (exit 124)"
+                details="unittest: TIMED OUT after ${_ut_to}s -- $(echo "$output" | tail -3 | tr '\n' ' ')"
+            else
+                [ "$unittest_exit" -ne 0 ] && test_passed=false
+                details="unittest: $(echo "$output" | tail -5 | tr '\n' ' ')"
             fi
         fi
     fi
@@ -16048,6 +16254,21 @@ run_autonomous() {
         esac
     fi
 
+    # Contract-first scaffold seam (opt-in via LOKI_SCAFFOLD_CONTRACT_FIRST=1,
+    # default OFF -> default build path is byte-identical). Mirrors the
+    # LOKI_SENTRUX_GATE pattern: source the helper only when the gate is enabled,
+    # and it self-gates further on greenfield + a derivable REST resource. It can
+    # ONLY add a starting skeleton (contract-first codegen + real backend + design
+    # system, M1-M3); it never overwrites existing code or touches a brownfield
+    # repo. On any doubt it no-ops and the normal build proceeds unchanged.
+    if [ "${LOKI_SCAFFOLD_CONTRACT_FIRST:-0}" = "1" ]; then
+        # shellcheck disable=SC1090,SC1091
+        source "${SCRIPT_DIR}/lib/scaffold-hook.sh" 2>/dev/null || true
+        if type run_contract_scaffold_hook >/dev/null 2>&1; then
+            run_contract_scaffold_hook "${TARGET_DIR:-.}" "$prd_path" || true
+        fi
+    fi
+
     # Auto-detect PRD if not provided
     if [ -z "$prd_path" ]; then
         log_step "No PRD provided, searching for existing PRD files..."
@@ -17574,6 +17795,14 @@ if __name__ == "__main__":
                 fi
                 emit_stage_complete "static_analysis" "$_stg_ok" "$_stg_t0"
             fi
+            # Build check (#47). Records .loki/quality/build-results.json each
+            # iteration so the Evidence Receipt tells the truth about the build:
+            # a real build that ran (verified/failed) or an HONEST N/A when the
+            # stack has no build step. Advisory (best-effort): a build failure
+            # surfaces as a receipt gap via facts.build, never a hard loop block,
+            # mirroring the security scan. Absent writer historically = facts.build
+            # permanently not_run for every project (the founder-reported defect).
+            enforce_build_check || true
             # Secure-by-default scan (v7.87.0). Advisory by default (never
             # blocks); records .loki/quality/security-findings.json each
             # iteration. Blocks only on un-waived HIGH when LOKI_SECURE_GATE=block.

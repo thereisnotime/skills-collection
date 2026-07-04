@@ -44,12 +44,14 @@ async function getResearch<T>(
   path: string,
   options: ResearchBaseOptions
 ): Promise<T> {
+  const url = `${path}${path.includes('?') ? '&' : '?'}integration=cli`;
+
   if (isKeylessMode(options.apiKey, options.apiUrl)) {
-    return (await keylessGet(path)) as T;
+    return (await keylessGet(url)) as T;
   }
 
   const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
-  const response = await (app as any).http.get(path);
+  const response = await (app as any).http.get(url);
   return (response?.data ?? {}) as T;
 }
 

@@ -53,12 +53,19 @@ def run_check(check: dict, project_dir: str, timeout: int) -> dict:
 
     try:
         if check_type == "file_exists":
-            path = check.get("path", "")
+            # The checklist is LLM-emitted (generated_from a PRD), so the path
+            # field name is not pinnable: real checks in the wild carry the path
+            # under "path" OR "target" OR "file". Reading only "path" made a valid
+            # file_exists on a present file (target="package.json") raise
+            # "Invalid path characters: ''" -> None -> the item stuck 'pending' ->
+            # a correct build never reached a verified card. Alias the variants
+            # (same fake-inconclusive class as the grep/tests_pass runner bugs).
+            path = check.get("path") or check.get("target") or check.get("file") or ""
             full_path = _validate_path(path, project_dir)
             result["passed"] = os.path.exists(full_path)
 
         elif check_type == "file_contains":
-            path = check.get("path", "")
+            path = check.get("path") or check.get("target") or check.get("file") or ""
             pattern = check.get("pattern", "")
             if pattern and not _SAFE_PATTERN_RE.match(pattern):
                 result["passed"] = None
@@ -84,11 +91,47 @@ def run_check(check: dict, project_dir: str, timeout: int) -> dict:
                 result["passed"] = None
                 result["output"] = f"Unsafe pattern rejected: {pattern!r}"
             elif pattern:
-                # Use list form (shell=False) to prevent injection
-                if os.path.isfile(os.path.join(project_dir, "package.json")):
-                    cmd = ["npx", "jest", "--testPathPattern", pattern, "--passWithNoTests"]
+                # Runner-agnostic: use the PROJECT'S OWN declared test command
+                # rather than hardcoding a runner. A project's package.json
+                # "scripts.test" may be vitest / jest / mocha / node:test / ava /
+                # etc. Hardcoding `npx jest` was a fake-RED: on a vitest project
+                # (cdbbb5af, "test":"vitest run", jest not installed) `npx jest`
+                # either errored on the drifted --testPathPattern flag or npx tried
+                # to FETCH jest and timed out -> a genuinely-passing 26/26 suite read
+                # False/None ("tests not run") -> the item never reaches 'verified'
+                # -> a correct build never shows a verified card. Running the
+                # declared command runs the runner the build actually chose, so it
+                # is model-/complexity-agnostic. NB: we run the WHOLE declared suite
+                # (the per-item `pattern` is not a runner filter -- a mismatched
+                # vitest/jest filter can exit 0 with zero tests run = a fake-green).
+                pkg_path = os.path.join(project_dir, "package.json")
+                test_script = None
+                if os.path.isfile(pkg_path):
+                    try:
+                        with open(pkg_path) as _pf:
+                            _pkg = json.load(_pf)
+                        test_script = (_pkg.get("scripts") or {}).get("test")
+                    except (json.JSONDecodeError, OSError):
+                        test_script = None
+                if os.path.isfile(pkg_path):
+                    if test_script and test_script.strip():
+                        # `npm test` runs scripts.test with the project's local
+                        # runner on PATH; list-form + shell=False + cwd = same
+                        # posture as before (the engine already ran this exact
+                        # command to build the workspace -- not a new surface).
+                        cmd = ["npm", "test", "--silent"]
+                    else:
+                        # package.json but no test script -> nothing declared to
+                        # run. Do NOT invent a runner (that reintroduces the
+                        # hardcoded-runner fake-RED). Inconclusive, not a failure.
+                        result["passed"] = None
+                        result["output"] = (
+                            "No 'scripts.test' declared in package.json; cannot run "
+                            "the project's tests (inconclusive, not a failure)."
+                        )
+                        return result
                 else:
-                    cmd = ["python3", "-m", "pytest", "-q", pattern]
+                    cmd = ["python3", "-m", "pytest", "-q"]
                 try:
                     proc = subprocess.run(
                         cmd,
@@ -98,34 +141,74 @@ def run_check(check: dict, project_dir: str, timeout: int) -> dict:
                         timeout=timeout,
                     )
                     combined = proc.stdout + proc.stderr
-                    # Trust gate: a tests_pass check REQUIRES that at least one
-                    # test was actually discovered and run. jest is invoked with
-                    # --passWithNoTests, so a zero-match pattern exits 0 ("No
-                    # tests found ...") -- that would be a fake-green (a required
-                    # verification passing with nothing run). pytest exits 5 when
-                    # it collects no tests. Detect either no-test signal and fail
-                    # the check rather than report success on an empty run.
+                    _low = combined.lower()
+                    # Trust gate: a tests_pass check REQUIRES POSITIVE PROOF that at
+                    # least one test actually ran and passed. rc==0 alone is NOT
+                    # proof: a no-op test script (`echo done`, `exit 0`, `true`, `:`)
+                    # exits 0 having run ZERO tests -> passing on rc==0 would be a
+                    # FAKE-GREEN (a required verification green with nothing tested).
+                    # So we require a runner's "N passed" signal. Absence of that
+                    # signal on rc==0 is INCONCLUSIVE (None -> pending), never True
+                    # (fake-green) and never False (that would fake-RED an exotic
+                    # passing runner). rc!=0 with real failures -> honest False. This
+                    # is the same inconclusive-never-false moat as grep_codebase.
                     no_tests = (
-                        "No tests found" in combined
-                        or "no tests ran" in combined.lower()
-                        or "no tests to run" in combined.lower()
-                        or proc.returncode == 5  # pytest: no tests collected
+                        "no tests found" in _low            # jest
+                        or "no test files found" in _low    # vitest
+                        or "no tests ran" in _low           # pytest/jest phrasing
+                        or "no tests to run" in _low
+                        or proc.returncode == 5             # pytest: none collected
+                    )
+                    # Positive "tests ran and passed" signals across common runners.
+                    # jest:  "Tests: 3 passed"        vitest: "Tests  26 passed (26)"
+                    # pytest:"3 passed in 0.05s"      mocha:  "3 passing"
+                    # node:test: "# pass 3"           tap:    "pass 3"
+                    # The count MUST be >=1 (`[1-9]\d*`, never a literal 0): a
+                    # runner can print "0 passed" / "0 passing" (mocha over an
+                    # empty describe, all-.skip, node:test "# pass 0") on rc=0 with
+                    # ZERO tests run -- matching a bare `\d+` would re-open the
+                    # fake-green. A zero count falls through to the inconclusive
+                    # else -> None (pending), correctly never green.
+                    _ran_and_passed = bool(
+                        re.search(r'tests?:\s*[1-9]\d*\s+passed', _low)   # jest
+                        or re.search(r'tests?\s+[1-9]\d*\s+passed', _low) # vitest
+                        or re.search(r'\b[1-9]\d*\s+passed\b', _low)      # pytest/vitest
+                        or re.search(r'\b[1-9]\d*\s+passing\b', _low)     # mocha
+                        or re.search(r'#\s*pass\s+[1-9]\d*', _low)        # node:test
+                        or re.search(r'\bpass\s+[1-9]\d*\b', _low)        # tap
                     )
                     if no_tests:
                         result["passed"] = False
                         result["output"] = (
                             "No tests discovered for required check "
-                            f"(pattern={pattern!r}); a tests_pass check must run "
-                            "at least one test. Output: "
+                            "(a tests_pass check must run at least one test). "
+                            "Output: "
                         ) + combined[:400]
-                    else:
-                        result["passed"] = proc.returncode == 0
+                    elif proc.returncode != 0:
+                        # Ran and FAILED -> honest False (blocks). A non-zero exit
+                        # from a real runner is a genuine negative, not inconclusive.
+                        result["passed"] = False
                         result["output"] = combined[:500]
+                    elif _ran_and_passed:
+                        # rc==0 WITH positive "N passed" proof -> True.
+                        result["passed"] = True
+                        result["output"] = combined[:500]
+                    else:
+                        # rc==0 but NO positive "tests ran" signal (a no-op script,
+                        # or a runner whose output we do not recognise). We cannot
+                        # prove tests ran -> INCONCLUSIVE (None -> pending), never a
+                        # fake-green True and never a fake-RED False.
+                        result["passed"] = None
+                        result["output"] = (
+                            "Test command exited 0 but produced no recognisable "
+                            "'N passed' signal -- cannot confirm any test ran "
+                            "(inconclusive, not a pass). Output: "
+                        ) + combined[:350]
                 except subprocess.TimeoutExpired:
-                    result["passed"] = None  # timeout = pending
+                    result["passed"] = None  # timeout = pending (couldn't run)
                     result["output"] = f"Timed out after {timeout}s"
                 except FileNotFoundError:
-                    result["passed"] = None
+                    result["passed"] = None  # runner not found = couldn't run
                     result["output"] = "Test runner not found"
             else:
                 result["passed"] = None
@@ -169,9 +252,17 @@ def run_check(check: dict, project_dir: str, timeout: int) -> dict:
             elif pattern:
                 try:
                     # grep with --exclude-dir for safety (no .git, node_modules)
-                    # Use '--' to prevent pattern being interpreted as flags
+                    # Use '--' to prevent pattern being interpreted as flags.
+                    # Use -E (ERE) NOT the default BRE: LLM-emitted patterns are
+                    # ERE/PCRE-flavoured (e.g. app\.get\('/api/tasks'). In BRE an
+                    # escaped `\(` is a GROUP-OPEN, so an unmatched one makes grep
+                    # error 'parentheses not balanced' (rc=2) -- a fake-RED that
+                    # marked 3 present endpoints failing -> a 64-min non-converging
+                    # build (#142/#124). Under -E, `\(` is a LITERAL paren (no
+                    # error) AND quantifiers `.` `*` `+` keep their regex meaning,
+                    # so a present-as-regex endpoint matches instead of erroring.
                     proc = subprocess.run(
-                        ["grep", "-r", "-l",
+                        ["grep", "-r", "-l", "-E",
                          "--exclude-dir=.git", "--exclude-dir=node_modules",
                          "--exclude-dir=.loki", "--exclude-dir=__pycache__",
                          "--", pattern, "."],
@@ -180,9 +271,74 @@ def run_check(check: dict, project_dir: str, timeout: int) -> dict:
                         text=True,
                         timeout=timeout,
                     )
-                    result["passed"] = proc.returncode == 0
-                    files_found = proc.stdout.strip().split("\n") if proc.stdout.strip() else []
-                    result["output"] = f"Found in {len(files_found)} file(s)"
+                    # grep exit codes: 0=match found, 1=no match, >=2=ERROR (bad
+                    # regex, unreadable file, or a grep variant -- e.g. ugrep on
+                    # macOS -- that rejects a pattern GNU grep accepts). A grep that
+                    # ERRORED has NOT proven the pattern is absent, so it must be
+                    # INCONCLUSIVE (passed=None), NOT a hard False. Collapsing an
+                    # error to False is a fake-RED: it marks a genuinely-present
+                    # endpoint 'failing' -> the council hard-gate blocks a correct
+                    # build forever (observed: an LLM-emitted pattern app\.get\('...'
+                    # made ugrep error position-26 mismatched-paren -> returncode 2
+                    # -> 3 working endpoints read failing -> a 64-min non-converging
+                    # build). Only a clean 1 (real no-match) is an honest False.
+                    if proc.returncode == 0:
+                        result["passed"] = True
+                        files_found = proc.stdout.strip().split("\n") if proc.stdout.strip() else []
+                        result["output"] = f"Found in {len(files_found)} file(s)"
+                    elif proc.returncode == 1:
+                        result["passed"] = False
+                        result["output"] = "Found in 0 file(s)"
+                    else:
+                        # rc>=2 = grep ERROR even under -E (e.g. a genuinely
+                        # malformed pattern, or an unreadable file). Do NOT collapse
+                        # to False (fake-RED) and do NOT punt straight to
+                        # inconclusive (that opens a fake-green: an ABSENT endpoint
+                        # whose pattern also errors would read pending, not failing).
+                        # RECOVER real signal by retrying as a FIXED string (grep -F,
+                        # escapes stripped to the intended literal), which cannot
+                        # error on metacharacters. A fixed-string retry is a strict
+                        # subset match: rc=0 (literal present) is a sound True; a
+                        # literal-absent rc=1 keeps the honest-False moat for the
+                        # common case. Only if -F ALSO errors is the check truly
+                        # unrecoverable -> inconclusive (None), never a hard fail.
+                        # NB: the -E primary already resolves the whole LLM
+                        # escaped-paren class, so this branch is now rarely reached.
+                        literal = re.sub(r'\\(.)', r'\1', pattern)
+                        try:
+                            proc2 = subprocess.run(
+                                ["grep", "-r", "-l", "-F",
+                                 "--exclude-dir=.git", "--exclude-dir=node_modules",
+                                 "--exclude-dir=.loki", "--exclude-dir=__pycache__",
+                                 "--", literal, "."],
+                                cwd=project_dir, capture_output=True,
+                                text=True, timeout=timeout,
+                            )
+                        except subprocess.TimeoutExpired:
+                            proc2 = None
+                        if proc2 is not None and proc2.returncode == 0:
+                            files_found = proc2.stdout.strip().split("\n") if proc2.stdout.strip() else []
+                            result["passed"] = True
+                            result["output"] = f"Found in {len(files_found)} file(s) (fixed-string retry after regex error)"
+                        else:
+                            # -F rc=1 (literal absent) or rc>=2 (also errored) ->
+                            # INCONCLUSIVE (None), never False. Once -E has failed to
+                            # parse the pattern, the escape-stripped literal cannot
+                            # distinguish "present only via a regex quantifier" from
+                            # "genuinely absent" -- so a literal-absent here is NOT
+                            # proof of absence. Mapping it to False would re-open the
+                            # narrowed fake-RED. None -> item 'pending' (never blocks
+                            # a correct build); a genuinely-absent endpoint is caught
+                            # by the -E primary's honest rc=1 False above, not here.
+                            result["passed"] = None
+                            _err = (proc.stderr or "").strip().splitlines()
+                            _why = ("literal-absent, cannot prove absence"
+                                    if (proc2 is not None and proc2.returncode == 1)
+                                    else (_err[0] if _err else f"exit {proc.returncode}"))
+                            result["output"] = (
+                                "grep regex error, unrecoverable (inconclusive, not a failure): "
+                                + _why
+                            )[:200]
                 except subprocess.TimeoutExpired:
                     result["passed"] = None
                     result["output"] = f"Timed out after {timeout}s"

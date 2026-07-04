@@ -15,6 +15,8 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 
 [Website](https://www.autonomi.dev/) | [Documentation](wiki/Home.md) | [Installation](docs/INSTALLATION.md) | [Changelog](CHANGELOG.md) | [Purple Lab -- deprecated v7.44.0](#purple-lab)
 
+**Current release: v7.121.1**
+
 </div>
 
 ---
@@ -26,6 +28,7 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 ## Why Loki Mode?
 
 - **Spec-driven, autonomous, with a built-in trust layer** -- Hand Loki a spec, walk away, come back to working code with tests. The full RARV-C closure loop (Reason - Act - Reflect - Verify - Close) runs until the work is actually done, not just attempted. The verified-completion evidence gate (`skills/quality-gates.md`) refuses any "done" claim on an empty git diff against the run-start commit, and blocks completion when tests run red, so "complete" means proven, not promised.
+- **A checklist verifier that is honest, not brittle** -- Each completion checklist item is checked deterministically before the completion council will accept "done". The verifier speaks extended regex (`grep -E`) so real LLM-emitted patterns match instead of erroring, and it is runner-agnostic: it runs the project's own declared test command rather than assuming a fixed runner. Crucially, a check that cannot be established is reported as inconclusive (pending), never as a false pass and never as a false failure. `rc == 0` alone is not a pass; a test check goes green only on a real "N passed" signal from the runner (v7.121.x).
 - **Production quality built in** -- 8 quality gates (`skills/quality-gates.md`), blind 3-reviewer code review (`run.sh:run_code_review()`), anti-sycophancy checks
 - **Standalone verification: `loki verify`** -- Run Loki's deterministic gates (build, tests, static analysis, secret scan, dependency audit) against any branch or PR diff, including code written by other agents or humans. CI-ready exit codes (0 VERIFIED, 1 CONCERNS, 2 BLOCKED), machine-readable evidence at `.loki/verify/evidence.json`. Inconclusive evidence is never reported as VERIFIED (v7.27.0).
 - **Living spec and pre-build interrogation** -- `loki spec` locks a spec and detects drift deterministically (`spec.lock`, `drift-report.json`, and a `SPEC_DRIFT` finding in `loki verify` with CI exit codes), so you can tell when the build diverges from what was agreed. `loki grill` runs a Devil's-Advocate interrogation of the spec before you build, surfacing gaps and contradictions early (v7.28.0).
@@ -75,6 +78,9 @@ The receipt's headline is computed only from the facts:
 This is honesty-of-done, not a claim of perfection. The receipt proves the
 completion claim is backed by deterministic evidence and is independently
 re-checkable; it does not claim the generated code is bug-free.
+
+<details>
+<summary><strong>Verify a receipt yourself -- <code>loki proof</code> commands, tamper/drift checks, proven PRs (advanced)</strong></summary>
 
 ### Verify it yourself
 
@@ -133,6 +139,8 @@ An optional advisory status check (`loki: verified-completion`) maps the verdict
 to a GitHub check-run. It is opt-in (`LOKI_PROVEN_PR_CHECK=1`) and can never block
 a merge on its own. To make verified-completion blocking, add it as a required
 status check in your repository's branch-protection settings.
+
+</details>
 
 ---
 
@@ -244,7 +252,8 @@ See the [Installation Guide](docs/INSTALLATION.md) for the long form.
 
 ---
 
-## Runtime Architecture
+<details>
+<summary><strong>Runtime architecture -- dual Bash/Bun runtime, rollback flag, migration cost (advanced)</strong></summary>
 
 Loki Mode runs a dual runtime by deliberate design: the battle-tested Bash engine is the stable core (the autonomous loop, quality gates, and completion council stay on it; it receives bug fixes and hardening), and new product surfaces are built TypeScript/Bun-first as modules that wrap the engine rather than reimplement it. An earlier plan to make v8 Bun-only has been superseded by this stable-engine approach: rewriting the verified trust layer would risk the exact guarantees this product exists to provide, for no capability gain. Bash support is not going away.
 
@@ -278,6 +287,8 @@ The next major release sunsets the Bash runtime entirely. There is no firm calen
 
 - [UPGRADING.md](UPGRADING.md) -- per-version upgrade and rollback guidance.
 - [ADR-001: Runtime Migration](docs/architecture/ADR-001-runtime-migration.md) -- design rationale and phase definitions.
+
+</details>
 
 ---
 
@@ -347,7 +358,8 @@ All formats land in the same RARV pipeline and pass the same 8 quality gates (`s
 
 ---
 
-## Architecture
+<details>
+<summary><strong>Internal architecture -- RARV cycle, agent roles, quality gates, memory, dashboard, enterprise layer (advanced)</strong></summary>
 
 <div align="center">
 <img width="100%" alt="Loki Mode Architecture" src="https://github.com/user-attachments/assets/c9798120-9587-4847-8e8d-8f421f984dfc" />
@@ -410,6 +422,8 @@ env vars. See [Enterprise Identity Roadmap](docs/ENTERPRISE-IDENTITY-ROADMAP.md)
 </tr>
 </table>
 
+</details>
+
 ---
 
 ## Purple Lab
@@ -425,7 +439,7 @@ The historical feature set (platform pages, Monaco IDE workspace, AI chat panel)
 | Feature | Loki Mode | bolt.new | Replit | Lovable |
 |---------|:---------:|:--------:|:------:|:-------:|
 | Self-hosted / your keys | Yes | No | No | No |
-| 5 AI provider failover | Yes | No | No | No |
+| Multi-provider failover (4 providers) | Yes | No | No | No |
 | 8 quality gates | Yes | No | No | No |
 | Blind code review | Yes | No | No | No |
 | Enterprise auth (OIDC token + scoped RBAC) | Yes | No | Yes | No |
@@ -438,7 +452,8 @@ Loki Mode is the only platform that is fully self-hosted, source-available (BUSL
 
 ---
 
-## Provider-Agnostic Runtime
+<details>
+<summary><strong>Provider matrix -- per-provider status, autonomous flags, parallelism, install (includes deprecated Gemini)</strong></summary>
 
 Loki's autonomy and quality loop are the product; the underlying coding CLI is swappable. Loki runs on any of the providers below so you are never locked to one vendor.
 
@@ -451,6 +466,8 @@ Loki's autonomy and quality loop are the product; the underlying coding CLI is s
 | **Google Gemini CLI** | DEPRECATED v7.5.18 | -- | -- | Upstream deprecated; runtime removed. `LOKI_PROVIDER=gemini` exits with migration message. |
 
 Status legend: "E2E-verified" means we run real spec-to-code builds on it ourselves. Claude Code is the primary, fully supported provider and the one Loki Mode is built for; it gets full features (subagents, parallelization, MCP, Task tool). "Experimental" means the wiring is in place but we have not produced an end-to-end verified build ourselves; treat as community-tested. Experimental providers run sequentially. Auto-failover switches providers when rate-limited. See [Provider Guide](skills/providers.md).
+
+</details>
 
 ---
 
@@ -569,7 +586,7 @@ See [benchmarks/](benchmarks/) for methodology.
 | **Code Gen** | Full-stack apps from PRDs | Complex domain logic may need human review |
 | **Deploy** | Generates configs, Dockerfiles, CI/CD; `loki deploy` prints the exact deploy command | Does not deploy -- human runs the printed deploy command (Loki never runs a cloud CLI or git push) |
 | **Testing** | 8 automated quality gates | Test quality depends on AI assertions |
-| **Providers** | 5 providers with auto-failover | Non-Claude providers lack parallel agents |
+| **Providers** | 4 providers with auto-failover | Non-Claude providers lack parallel agents |
 | **Dashboard** | Real-time single-machine monitoring | No multi-node clustering |
 
 > **What "autonomous" means:** The system runs RARV cycles without prompting. It does NOT access your cloud accounts, payment systems, or external services unless you provide credentials. Human oversight is expected for deployment, API keys, and critical decisions.

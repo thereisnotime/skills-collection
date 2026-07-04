@@ -28,7 +28,7 @@ ln -sf ~/.claude/skills/loki-mode/autonomy/loki /usr/local/bin/loki
 
 ## Docker
 
-**Status:** Image exists on Docker Hub. Tags: `latest`, version-specific (e.g., `5.52.0`).
+**Status:** Image exists on Docker Hub. Tags: `latest`, version-specific (e.g., `7.121.1`).
 
 ```bash
 docker pull asklokesh/loki-mode:latest
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: asklokesh/loki-mode@v5
+      - uses: asklokesh/loki-mode@v7.121.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           mode: review
@@ -76,7 +76,7 @@ jobs:
 ```
 
 **Prerequisites:**
-- API key for your provider (set as repository secret): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`
+- API key for your provider (set as repository secret): `ANTHROPIC_API_KEY` (Claude, recommended) or `OPENAI_API_KEY` (Codex). `GOOGLE_API_KEY` was for the Gemini provider, which is DEPRECATED as of v7.5.18.
 - The action auto-installs `loki-mode` and `@anthropic-ai/claude-code`
 
 **Action Inputs:**
@@ -84,7 +84,7 @@ jobs:
 | Input | Default | Description |
 |-------|---------|-------------|
 | `mode` | `review` | `review`, `fix`, or `test` |
-| `provider` | `claude` | `claude`, `codex`, or `gemini` |
+| `provider` | `claude` | `claude` (recommended), `codex`, `cline`, or `aider`. `gemini` is DEPRECATED (v7.5.18). |
 | `budget_limit` | `5.00` | Max cost in USD |
 | `max_iterations` | `3` | Max RARV cycles |
 | `github_token` | (required) | GitHub token for PR comments |
@@ -108,22 +108,19 @@ jobs:
 
 ```bash
 # Download and extract to skills directory
-curl -sL https://github.com/asklokesh/loki-mode/archive/refs/tags/v5.52.0.tar.gz | tar xz
-mv loki-mode-5.52.0 ~/.claude/skills/loki-mode
+curl -sL https://github.com/asklokesh/loki-mode/archive/refs/tags/v7.121.1.tar.gz | tar xz
+mv loki-mode-7.121.1 ~/.claude/skills/loki-mode
 ```
 
 **Best for:** Offline or air-gapped environments, pinned version deployments.
 
 ---
 
-## VS Code Extension
+## VS Code Extension (Deprecated)
 
-**Status:** Available on VS Code Marketplace.
-
-Search for "Loki Mode" in VS Code Extensions, or:
-
-```bash
-code --install-extension asklokesh.loki-mode
-```
-
-**Best for:** VS Code users who want dashboard integration within their editor.
+> **DEPRECATED as of v7.2.0.** The Loki Mode VS Code extension is no longer
+> maintained and is no longer published to the VS Code Marketplace. Use the
+> dashboard instead (`loki dashboard start`, then open http://localhost:57374).
+> The `vscode-extension/` source remains in the repository for contributors who
+> want to build it locally. See
+> [INSTALLATION.md](INSTALLATION.md#vs-code-extension-deprecated) for details.

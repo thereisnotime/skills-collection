@@ -723,6 +723,11 @@ _detect_port() {
         *make*)
             _APP_RUNNER_PORT=8080
             ;;
+        *http.server*|static)
+            # Static site served by python3 -m http.server. 8000 is python's
+            # http.server convention; keep it distinct from the 8080 catch-all.
+            _APP_RUNNER_PORT=8000
+            ;;
         *)
             _APP_RUNNER_PORT=8080
             ;;
@@ -910,6 +915,34 @@ app_runner_init() {
         _detect_port "$_APP_RUNNER_METHOD"
         _write_detection "go" "$_APP_RUNNER_METHOD"
         log_info "App Runner: detected Go project"
+        _APP_RUNNER_URL="http://localhost:${_APP_RUNNER_PORT}"
+        return 0
+    fi
+
+    # 9b. Static site: a web root with an index.html and no server-app signal
+    # above (no dev/start script, no Flask/Django/etc). A landing page / static
+    # site IS a serveable web app -- without this it fell through to "none" and
+    # got no preview, no health check, no screenshot (founder feedback: a hero/
+    # pricing/waitlist landing page showed "This app has no live server"). Serve
+    # it with python3 -m http.server (always present, zero deps). Guarded on a
+    # REAL web root index.html so genuine CLIs/libraries (no index.html) still
+    # honestly read "none" below -- this never green-washes a non-web artifact.
+    local static_root=""
+    if [ -f "$dir/index.html" ]; then
+        static_root="$dir"
+    elif [ -f "$dir/public/index.html" ]; then
+        static_root="$dir/public"
+    elif [ -f "$dir/dist/index.html" ]; then
+        static_root="$dir/dist"
+    elif [ -f "$dir/build/index.html" ]; then
+        static_root="$dir/build"
+    fi
+    if [ -n "$static_root" ]; then
+        _detect_port "static"
+        # Serve the static root on the detected port; bind localhost, no reload.
+        _APP_RUNNER_METHOD="python3 -m http.server ${_APP_RUNNER_PORT} --bind 127.0.0.1 --directory $static_root"
+        _write_detection "static" "$_APP_RUNNER_METHOD"
+        log_info "App Runner: detected static site (index.html) -> serving $static_root"
         _APP_RUNNER_URL="http://localhost:${_APP_RUNNER_PORT}"
         return 0
     fi

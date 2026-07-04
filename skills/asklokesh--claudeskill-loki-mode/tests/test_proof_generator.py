@@ -755,6 +755,88 @@ class HonestyHeadlineTests(unittest.TestCase):
         self.assertIn("tests", items)
         self.assertEqual(items["tests"]["status"], "failed")
 
+    # --- Build applicability (#47 honest N/A) ---------------------------
+    # A stack that genuinely has NO build step (a CLI, a plain script) is N/A,
+    # not a skipped gap. The receipt must say so and NOT count it against the
+    # headline. But the anti-fake-green line is sharp: N/A ONLY from an explicit
+    # applicable:false; an absent file or an un-run real build stays an honest
+    # gap. These four tests pin every branch of that boundary.
+
+    def test_build_not_applicable_is_not_a_gap_and_can_be_verified(self):
+        # applicable:false (no build step for this stack) + verified tests +
+        # real diff -> VERIFIED, and build is NOT in the degraded ledger.
+        proj, base = self._git_repo_with_change()
+        loki_dir = os.path.join(proj, ".loki")
+        out_dir = os.path.join(self.tmp, "out-build-na")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        self._write_tests(loki_dir, {"status": "verified",
+                                     "command": "node --test", "exit_code": 0})
+        self._write_build(loki_dir, {"applicable": False, "ran": False,
+                                     "command": "", "exit_code": None})
+        d = _run_generator(loki_dir, out_dir,
+                           env_extra={"_LOKI_ITER_START_SHA": base})
+        self.assertEqual(d["facts"]["build"]["status"], "not_applicable")
+        items = {x["item"]: x for x in d["honesty"]["degraded"]}
+        self.assertNotIn("build", items,
+                         "a genuinely-N/A build must NOT be a gap")
+        self.assertEqual(d["honesty"]["headline"], "VERIFIED",
+                         "verified tests + real diff + N/A build == VERIFIED")
+
+    def test_build_absent_file_stays_not_run_gap(self):
+        # ANTI-FAKE-GREEN: no build-results.json at all -> not_run (an honest
+        # gap), NEVER not_applicable. Absent must never mean N/A -- that would
+        # flip an un-built project green just because nobody wrote the file.
+        proj, base = self._git_repo_with_change()
+        loki_dir = os.path.join(proj, ".loki")
+        out_dir = os.path.join(self.tmp, "out-build-absent")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        self._write_tests(loki_dir, {"status": "verified",
+                                     "command": "node --test", "exit_code": 0})
+        # No build-results.json written.
+        d = _run_generator(loki_dir, out_dir,
+                           env_extra={"_LOKI_ITER_START_SHA": base})
+        self.assertEqual(d["facts"]["build"]["status"], "not_run")
+        items = {x["item"]: x for x in d["honesty"]["degraded"]}
+        self.assertIn("build", items,
+                      "an absent build fact is a gap, not N/A")
+        self.assertNotEqual(d["honesty"]["headline"], "VERIFIED")
+
+    def test_build_applicable_but_failed_is_a_gap_not_na(self):
+        # DIRECTIONAL GUARD (the moat): a real build script that FAILED must
+        # STILL be a gap and force NOT VERIFIED -- never relabeled N/A. This is
+        # the test that fails on any too-broad N/A exclusion.
+        proj, base = self._git_repo_with_change()
+        loki_dir = os.path.join(proj, ".loki")
+        out_dir = os.path.join(self.tmp, "out-build-failed")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        self._write_tests(loki_dir, {"status": "verified",
+                                     "command": "node --test", "exit_code": 0})
+        self._write_build(loki_dir, {"applicable": True, "ran": True,
+                                     "command": "npm run build", "exit_code": 2})
+        d = _run_generator(loki_dir, out_dir,
+                           env_extra={"_LOKI_ITER_START_SHA": base})
+        self.assertEqual(d["facts"]["build"]["status"], "failed")
+        self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED",
+                         "a failed build is RED, never N/A, never green")
+
+    def test_build_applicable_true_but_not_run_stays_gap(self):
+        # applicable:true + ran:false (a build we SHOULD have run but did not)
+        # stays not_run -> a gap. Only applicable:false is N/A.
+        proj, base = self._git_repo_with_change()
+        loki_dir = os.path.join(proj, ".loki")
+        out_dir = os.path.join(self.tmp, "out-build-skipped")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        self._write_tests(loki_dir, {"status": "verified",
+                                     "command": "node --test", "exit_code": 0})
+        self._write_build(loki_dir, {"applicable": True, "ran": False,
+                                     "command": "npm run build",
+                                     "exit_code": None})
+        d = _run_generator(loki_dir, out_dir,
+                           env_extra={"_LOKI_ITER_START_SHA": base})
+        self.assertEqual(d["facts"]["build"]["status"], "not_run")
+        items = {x["item"]: x for x in d["honesty"]["degraded"]}
+        self.assertIn("build", items)
+
 
 class SecurityHonestyTests(unittest.TestCase):
     """Secure-by-default gate honesty (Loop 4): the Evidence Receipt must tell

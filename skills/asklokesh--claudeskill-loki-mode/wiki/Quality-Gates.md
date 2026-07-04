@@ -20,7 +20,7 @@ green gate is a bounded signal, not a proof of correctness.
 | # | Gate | Detects | Does NOT detect | Blocking | Opt-out flag |
 |---|------|---------|-----------------|----------|--------------|
 | 1 | Static Analysis | CodeQL, ESLint/Pylint, type-checker findings | Logic bugs that pass the linters | Yes (severity ladder) | `PHASE_STATIC_ANALYSIS=false` |
-| 2 | Test Suite (pass/fail) | Whether the project test runner passes or fails | Coverage % (not measured in this release) | Yes (red blocks) | `PHASE_UNIT_TESTS=false` |
+| 2 | Test Suite (pass/fail) | Whether the project's OWN test runner passes or fails, read from a positive "N passed" signal (v7.121.x) | Coverage % (not measured in this release) | Yes (red blocks) | `PHASE_UNIT_TESTS=false` |
 | 3 | Blind Code Review (3-reviewer council + severity blocking) | Correctness/security/design issues via 3 blind reviewers; Critical/High block, Medium/Low advisory | Issues none of the 3 reviewers surface | Yes (Crit/High block) | `PHASE_CODE_REVIEW=false` |
 | 4 | Anti-Sycophancy / Devil's Advocate (on unanimous PASS) | Sycophantic unanimous approvals via a Devil's Advocate re-review; its Crit/High findings block | Problems the Devil's Advocate reviewer also misses | Yes (DA Crit/High block) | `LOKI_GATE_DEVILS_ADVOCATE=false` |
 | 5 | Mock Integrity Detector | Tautological assertions, internal-mock ratio, tests that do not import source; HIGH blocks | Semantic correctness of mocks | Yes (HIGH blocks) | `LOKI_GATE_MOCK=false` |
@@ -36,6 +36,39 @@ review (gate 3), not a separate gate.
 Coverage honesty: gate 2 decides purely on the test runner's pass/fail. The
 coverage percentage is not measured in this release. Real coverage measurement
 is a follow-up (Fix A).
+
+### Gate 2: runner-agnostic tests, positive-proof only (v7.121.x)
+
+Gate 2 runs the project's OWN declared test command instead of hardcoding a
+single runner. A project that declares `"test": "vitest run"` is run with
+vitest; a Python project with a root-level `test_*.py` is run with pytest (or
+`python3 -m unittest discover` when pytest is absent). Before v7.121.0 the
+verifier hardcoded `npx jest`, so a genuinely-passing vitest or unittest suite
+read as "tests not run" and the item never reached verified.
+
+The gate reads GREEN only on a positive "N passed" proof from the runner, with a
+real count of one or more:
+
+- jest / vitest `N passed`, pytest `N passed`, mocha `N passing`, node:test
+  `# pass N`, tap `pass N` -- where `N` is `1` or more.
+
+An exit code of 0 is NOT enough on its own. A no-op test script (`echo done`,
+`exit 0`, `true`, `:`) exits 0 having run zero tests; a `0 passing` line over an
+empty suite runs nothing. Neither counts as a pass. This closes a fake-green
+where a required verification could go green with nothing actually tested.
+
+<details>
+<summary>How the three outcomes are recorded (honest, never fake-green or fake-RED)</summary>
+
+- A real "N passed" (N >= 1) -> **True** (green).
+- A real runner failure (nonzero exit with failing tests) -> **False** (honest red,
+  blocks).
+- Exit 0 with no "N passed" proof, or a no-test signal (no runner, `0 passing`,
+  "no tests ran") -> **inconclusive** (`None` -> pending): never counted green, and
+  never a fake-RED `False`. The item simply does not reach verified until real
+  test evidence exists.
+
+</details>
 
 ### Conditional auditor (not numbered): Backward Compatibility (healing mode)
 
@@ -138,6 +171,45 @@ access. The reservation lives on disk at `.loki/checklist/held-out.json`; an
 agent with read access to the working tree can open that file and learn which
 items were held out. The guarantee is that held-out items are kept out of the
 build loop's own prompt context, not that they are sandboxed.
+
+---
+
+## Checklist verifier: ERE grep, no fake-RED (v7.121.0)
+
+Checklist items with a `grep_codebase` pattern (for example "an endpoint
+`app.get('/api/tasks')` exists in the source") are verified by grep. That result
+feeds the completion council's `critical_checklist_failures` hard gate: a
+critical item reading `failing` blocks completion.
+
+The verifier runs grep in extended-regex mode (`grep -E`, ERE). LLM-emitted
+patterns are ERE/PCRE-flavored (`app\.get\('/api/tasks'`,
+`router.get\('/tasks'|router.get\("/tasks"`, `base62|BASE62`). Under grep's old
+BRE default, an escaped `\(` was a group-open and `|` was a literal, so those
+patterns errored (`parentheses not balanced`) and the code collapsed BOTH
+not-found and error to `failing`. The effect was a fake-RED: genuinely-present,
+tested, curl-verified endpoints read `failing`, and the hard gate blocked a
+CORRECT build until it timed out. This was the concrete driver of the
+"builds don't converge / no progress" reports.
+
+<details>
+<summary>How a checklist grep result maps to pass / fail / pending</summary>
+
+- Pattern matches under `-E` (rc 0) -> **True** (item present).
+- Pattern is valid and genuinely absent (rc 1) -> honest **False** (item missing;
+  a real gate block -- the moat is intact).
+- Pattern still fails to parse even under `-E`: a fixed-string (`grep -F`) retry
+  recovers a real literal match to **True**; anything else is **inconclusive**
+  (`None` -> checklist `pending`), never a hard `False`. Once `-E` cannot parse a
+  pattern, an escape-stripped literal cannot tell "present via a quantifier" from
+  "absent", so the honest result is pending, not a fabricated pass or a fabricated
+  failure.
+
+</details>
+
+The inconclusive-never-false rule is the moat: a result is only ever green on
+positive proof, and an unparseable or unestablished check becomes `pending`, never
+a fake-RED that blocks correct work and never a fake-green that ships unverified
+work.
 
 ---
 

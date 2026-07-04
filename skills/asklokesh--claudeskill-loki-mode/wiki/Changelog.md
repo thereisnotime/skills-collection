@@ -4,6 +4,33 @@ For the complete release history and detailed changes, see the main [CHANGELOG.m
 
 ## Recent Releases
 
+### [7.121.1] - 2026-07-03
+
+Fixed (trust / accuracy):
+- **`tests_pass` requires a positive "N passed" proof to read green; exit code 0 alone is no longer a pass.** The v7.121.0 runner-agnostic change keyed on `rc==0`, but a no-op test script (`echo done`, `exit 0`, `true`, `:`) exits 0 having run zero tests, which would let a required verification go green with nothing tested. The gate now requires a runner's "N passed" signal (jest/vitest `N passed`, pytest `N passed`, mocha `N passing`, node:test `# pass N`, tap `pass N`) with a count of one or more (a `0 passing` empty-suite line does not count). Exit 0 without that proof is inconclusive (`None` -> pending), never green and never a fake red; a real failure is an honest red. See [[Quality Gates]].
+
+### [7.121.0] - 2026-07-03
+
+Fixed (trust / accuracy, the non-convergence driver behind "no progress"):
+- **Checklist `grep_codebase` now uses extended-regex (`grep -E`).** LLM-emitted patterns are ERE/PCRE-flavored (`app\.get\('/api/tasks'`, `router.get\('/tasks'|...`), which errored under grep's BRE default; the old code collapsed both not-found and error to `failing`. Genuinely-present, tested, curl-verified endpoints read `failing`, and the completion council's `critical_checklist_failures` hard gate blocked a correct build until it timed out (a fake red). Now `-E` runs first; a valid absent pattern is still an honest `failing` (moat intact), and a pattern that still cannot parse falls back to a fixed-string retry, else becomes `pending` (`None`), never a hard false.
+- **`tests_pass` is runner-agnostic.** The verifier ran the project's OWN declared test command instead of hardcoding `npx jest`, so a genuinely-passing vitest or unittest suite no longer reads "tests not run."
+
+### [7.120.0] - 2026-07-02
+
+Fixed (trust / accuracy):
+- **Root-level Python `test_*.py` is detected and run.** A Python CLI with a root-level test file (no `tests/` dir, no config) had its passing suite read as "tests not run." Detection now sees shallow root-level `test_*.py` / `*_test.py`; when pytest is absent it falls back to `python3 -m unittest discover` (stdlib). A zero-discovery run ("Ran 0 tests" / "no tests ran") is inconclusive, never a pass.
+
+### [7.119.0] - 2026-07-02
+
+Added (trust / Evidence Receipt honesty):
+- **Honest build applicability: N/A is not a gap.** The Evidence Receipt showed "Build: not run" on every build, dragging the headline to "Working, with gaps" even when tests and security passed, because `build-results.json` had no writer. New `enforce_build_check()` runs the stack's build when one exists (a real failure stays a gap) and records `not_applicable` only on positive proof of no build step (a `package.json` with no build script and no build-tool devDep). Any project without that positive signal stays `not_run` (the honest catch-all), so a forgotten stack under-claims rather than fake-greens. `LOKI_BUILD_CHECK=0` opts out.
+
+### [7.118.0] - 2026-07-01
+
+Fixed (build speed + Evidence Receipt honesty):
+- **Tier-aware `MIN_ITERATIONS` floor: simple builds converge at iteration 1, not a forced 3.** A small app was forced through ~2 idle iterations (~15 min) before the council could approve. The floor now resolves from detected complexity (simple -> 1, else 3); every gate still runs. Measured on a real build: 28m52s + timed out -> 8m25s + passed (3.4x).
+- **Proof records real quality gates + council from on-disk artifacts.** A build whose gates passed and council voted 3-0 recorded `quality_gates:{0,0}` and blank reviewers. The generator now reads `.loki/quality/*.pass` + `test-results.json` and expands `council/votes/round-N.json` into per-reviewer rows (a reporting fix only, not a verification change).
+
 ### [7.28.0] - 2026-06-10
 
 Added:
@@ -22,7 +49,7 @@ Fixed:
 ### [7.7.13] - 2026-05-27
 
 Fixed:
-- `loki start` no-PRD crash on bash 3.2 (macOS default) — `args[@]: unbound variable`. Safe expansion `${args[@]+"${args[@]}"}` applied at exec/nohup sites.
+- `loki start` no-PRD crash on bash 3.2 (macOS default) -- `args[@]: unbound variable`. Safe expansion `${args[@]+"${args[@]}"}` applied at exec/nohup sites.
 - `docker run --rm asklokesh/loki-mode start` exited without input. Now detects non-TTY stdin and auto-confirms with clear warning.
 
 ### [7.7.12] - 2026-05-27

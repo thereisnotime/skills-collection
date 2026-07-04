@@ -350,6 +350,18 @@ _verify_zero_tests_executed() {
             fi
             return 1
             ;;
+        unittest)
+            # #139: `python3 -m unittest discover` on ZERO discovered tests prints
+            # "Ran 0 tests" + "NO TESTS RAN". On older Python it EXITS 0 (a silent
+            # fake-green), on newer it exits 5 (already not-pass). POSITIVE detection
+            # so it is inconclusive on BOTH. A real run prints "Ran N test(s)" (N>=1)
+            # + "OK"/"FAILED" -> never downgraded. Mirrors run.sh's guard exactly.
+            if printf '%s' "$_zt_out" | grep -qE '^Ran 0 tests' 2>/dev/null \
+               || printf '%s' "$_zt_out" | grep -qE '^NO TESTS RAN$' 2>/dev/null; then
+                return 0
+            fi
+            return 1
+            ;;
         *)
             return 1
             ;;
@@ -411,8 +423,15 @@ verify_gate_tests() {
         # them so the gate runs (or goes inconclusive -> CONCERNS when no
         # runner is installed), never silently skipped.
         if [ "$has_python" = "false" ]; then
-            if find "$tree" -maxdepth 1 -type f \
+            # maxdepth 2 (was 1) + exclusions to MIRROR run.sh's enforce_test_coverage
+            # detection exactly (#139 parity): a shallow-but-not-root test_*.py (e.g.
+            # a src/-adjacent test) is now seen by BOTH gates, not just run.sh. Still
+            # the safe direction (under-detect only, never a fake-green): worst case a
+            # deeper test dir is inconclusive, never falsely VERIFIED.
+            if find "$tree" -maxdepth 2 -type f \
                 \( -name 'test_*.py' -o -name '*_test.py' \) \
+                -not -path '*/.loki/*' -not -path '*/.git/*' -not -path '*/node_modules/*' \
+                -not -path '*/.venv/*' -not -path '*/venv/*' \
                 -print -quit 2>/dev/null | grep -q .; then
                 has_python=true
             fi
@@ -421,9 +440,19 @@ verify_gate_tests() {
             if command -v pytest >/dev/null 2>&1; then
                 runner="pytest"
                 out="$(cd "$tree" && timeout "$timeout_s" pytest --tb=short 2>&1)" || rc=$?
+            elif command -v python3 >/dev/null 2>&1; then
+                # #139 parity: pytest ABSENT but a Python suite exists -> run it with
+                # stdlib unittest (zero third-party deps) instead of going blindly
+                # inconclusive. A real passing test_*.py suite is now VERIFIED here
+                # too, matching run.sh's enforce_test_coverage. Zero-discovery is
+                # handled below (unittest exits 5 on newer Python = fail-not-pass, or
+                # a "Ran 0 tests" line detected by the zero-test guard on the run.sh
+                # mirror) so this never green-washes an empty suite.
+                runner="unittest"
+                out="$(cd "$tree" && timeout "$timeout_s" python3 -m unittest discover -p 'test_*.py' 2>&1)" || rc=$?
             else
                 # Applicable but cannot run -> inconclusive (Entanglement 2).
-                _verify_add_gate "tests" "inconclusive" "pytest" "python project detected but pytest not on PATH" "true"
+                _verify_add_gate "tests" "inconclusive" "pytest" "python project detected but no pytest/python3 on PATH" "true"
                 return 0
             fi
         fi
