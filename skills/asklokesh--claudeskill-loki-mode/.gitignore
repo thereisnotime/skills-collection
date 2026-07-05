@@ -62,3 +62,35 @@ vscode-extension/.loki/
 .gstack/
 internal/
 artifacts/competitive-analysis/
+
+# Local-only, non-public, or generated scratch -- never ship to users / npm.
+# Codex provider scratch + skill (kept out of the public CLI repo).
+.codex/
+AGENTS.md
+# Other harness / verify scratch dot-folders.
+.loki-verify/
+.claude/launch.json
+tmp/
+# Generated per-build output docs (e.g. a Loki self-run's handoff), NOT curated
+# repo docs. Stale/auto-generated API/architecture dumps also land here -- do not
+# commit until they are refreshed to the current version and reviewed.
+HANDOFF.md
+# Internal strategy / roadmap / next-steps / MOAT specs -- hidden from the public repo.
+artifacts/ROADMAP-*.md
+artifacts/v7-e2e-saas/MOAT-*.md
+artifacts/v7-e2e-saas/DESIGN-*.md
+# Internal build/test/e2e output + screenshots under artifacts/ -- scratch, not
+# public CLI material. (Specific curated artifacts can be force-added with `git
+# add -f` when genuinely meant to ship.)
+artifacts/adoption-emptystate/
+artifacts/app-runner-ui-fixes/
+artifacts/budget-tracker-screens/
+artifacts/dashboard-preview/
+artifacts/dashboard-settings-fix/
+artifacts/dashboard-tab-audit/
+artifacts/e4-e2e/
+artifacts/e4-e2e-rerun/
+artifacts/live-preview-screens/
+artifacts/observability/screenshot.png
+artifacts/paolo/
+artifacts/v781-e2e/

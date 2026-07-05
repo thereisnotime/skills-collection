@@ -48,14 +48,19 @@ TMPROOT=$(mktemp -d -t loki-static-analysis-lang.XXXXXX)
 # Extract enforce_static_analysis() and load it with stub helpers.
 #-------------------------------------------------------------------------------
 FN_FILE="$TMPROOT/_fn.sh"
-awk '/^enforce_static_analysis\(\) \{/{f=1} f{print} f&&/^\}/{exit}' "$RUN_SH" > "$FN_FILE"
+# enforce_static_analysis() now calls the has_npm_lint_script() helper (prefer
+# the app's own `lint` script), so extract BOTH into the harness.
+awk '/^has_npm_lint_script\(\) \{/{f=1} f{print} f&&/^\}/{exit}' "$RUN_SH" > "$FN_FILE"
+echo >> "$FN_FILE"
+awk '/^enforce_static_analysis\(\) \{/{f=1} f{print} f&&/^\}/{exit}' "$RUN_SH" >> "$FN_FILE"
 
-if ! grep -q '^enforce_static_analysis() {' "$FN_FILE" || ! grep -q '^}' "$FN_FILE"; then
-    bad "could not extract enforce_static_analysis() from run.sh"
+if ! grep -q '^enforce_static_analysis() {' "$FN_FILE" || \
+   ! grep -q '^has_npm_lint_script() {' "$FN_FILE"; then
+    bad "could not extract enforce_static_analysis() + has_npm_lint_script() from run.sh"
     echo "Total: $((PASS+FAIL+SKIP))  Passed: $PASS  Failed: $FAIL  Skipped: $SKIP"
     exit 1
 fi
-ok "extracted enforce_static_analysis() from run.sh"
+ok "extracted enforce_static_analysis() + has_npm_lint_script() from run.sh"
 
 # Source into harness with stub loggers so the function is callable in isolation.
 load_fn() {
@@ -302,6 +307,159 @@ for token in "ktlint found issues" "detekt found issues"; do
         ok "run.sh removed old block-on-style wiring: $token"
     fi
 done
+
+#-------------------------------------------------------------------------------
+# App-declared lint script (oxlint / eslint / biome) -- the gate must PREFER the
+# app's own `npm run lint` so a project that defines a real linter the eslint
+# config probe does not recognize (e.g. oxlint) is checked, not skipped as
+# not_run. This is the honest static-analysis fix: run the check the app defines.
+#-------------------------------------------------------------------------------
+# Unit: has_npm_lint_script detects a real lint script and honestly rejects
+# absence / empty / substring-only. Pure package.json read; no linter needed.
+(
+    load_fn
+    d="$TMPROOT/lintprobe-ox"; mkdir -p "$d"
+    echo '{"scripts":{"dev":"vite","lint":"oxlint"}}' > "$d/package.json"
+    has_npm_lint_script "$d"
+) && ok "has_npm_lint_script: detects an oxlint lint script" \
+   || bad "has_npm_lint_script: missed a real oxlint lint script"
+
+(
+    load_fn
+    d="$TMPROOT/lintprobe-none"; mkdir -p "$d"
+    echo '{"scripts":{"dev":"vite","build":"vite build"}}' > "$d/package.json"
+    has_npm_lint_script "$d"
+) && bad "has_npm_lint_script: false-positive on a package with no lint script" \
+   || ok "has_npm_lint_script: honest absence when no lint script"
+
+(
+    load_fn
+    d="$TMPROOT/lintprobe-sub"; mkdir -p "$d"
+    echo '{"scripts":{"build":"echo lint"},"description":"a lint tool"}' > "$d/package.json"
+    has_npm_lint_script "$d"
+) && bad "has_npm_lint_script: false-positive on a 'lint' substring elsewhere" \
+   || ok "has_npm_lint_script: not fooled by a 'lint' substring"
+
+# Behavioral: the gate runs the app's oxlint and reports a REAL pass/fail.
+# CLEAN_JS is lint-clean; ERR_JS has a debugger statement (oxlint no-debugger).
+if command -v npx >/dev/null 2>&1 && npx --yes oxlint --version >/dev/null 2>&1; then
+    CLEAN_JS='const x = 1;
+console.log(x);
+'
+    ERR_JS='debugger;
+const x = 1;
+console.log(x);
+'
+    # make_lint_fixture: like make_fixture, but package.json (with the app's lint
+    # script) is part of the BASELINE commit, so `git diff HEAD~1` reports ONLY
+    # the changed source file -- the gate then sees a JS change AND finds the lint
+    # script. Committing package.json separately would move HEAD so the source
+    # file drops out of the HEAD~1 diff (a fixture bug, not a gate bug).
+    make_lint_fixture() {
+        local name="$1" rel="$2" content="$3" lintcmd="$4"
+        local proj="$TMPROOT/$name"
+        mkdir -p "$proj"
+        (
+            cd "$proj" || exit 1
+            git init -q; git config user.email t@t.t; git config user.name t
+            echo "baseline" > README.md
+            printf '{"scripts":{"lint":"%s"}}' "$lintcmd" > package.json
+            git add README.md package.json
+            git commit -qm baseline
+            mkdir -p "$(dirname "$rel")"
+            printf '%s' "$content" > "$rel"
+            git add "$rel"
+            git commit -qm change
+        )
+        echo "$proj"
+    }
+    LINTCMD="npx --yes oxlint --deny no-debugger src"
+
+    P=$(make_lint_fixture ox-clean "src/ok.js" "$CLEAN_JS" "$LINTCMD")
+    if [ "$(run_gate "$P")" = "rc=0" ]; then
+        ok "oxlint app: clean JS passes the gate (app lint script actually run)"
+    else
+        bad "oxlint app: clean JS unexpectedly blocked"
+    fi
+
+    P=$(make_lint_fixture ox-bug "src/bug.js" "$ERR_JS" "$LINTCMD")
+    if [ "$(run_gate "$P")" = "rc=1" ]; then
+        ok "oxlint app: a real lint violation (debugger) blocks (rc=1, not fake-green)"
+    else
+        bad "oxlint app: a real lint violation did not block"
+    fi
+else
+    skip "oxlint app: npx/oxlint not available on this host"
+fi
+
+# Additive regression: a lint script must NOT replace the type/syntax check. An
+# app that DECLARES a (passing) lint script AND has a real syntax error in a
+# changed file must still be blocked -- proving the lint branch is additive, not
+# an early-return that silences the parser/typecheck path (the lenience the
+# elif->sequential restructure removed). Uses a syntax error (bun/tsc/node all
+# catch it) so the test is portable regardless of which checker is on the host.
+BAD_SYNTAX_TS='const a = ;
+export {};
+'
+if command -v tsc >/dev/null 2>&1 || command -v bun >/dev/null 2>&1 || command -v npx >/dev/null 2>&1; then
+    P="$TMPROOT/lint-additive"
+    mkdir -p "$P/src"
+    (
+        cd "$P" && git init -q && git config user.email t@t.t && git config user.name t
+        echo baseline > README.md
+        # A lint script that trivially PASSES (echo), so ONLY the type/syntax path
+        # can produce the finding -- if lint replaced it, the build would go green.
+        printf '{"scripts":{"lint":"echo lint-ok"}}' > package.json
+        git add README.md package.json && git commit -qm baseline
+        printf '%s' "$BAD_SYNTAX_TS" > src/broken.ts
+        git add src/broken.ts && git commit -qm change
+    )
+    if [ "$(run_gate "$P")" = "rc=1" ]; then
+        ok "additive: a passing lint script does NOT silence the syntax/type check (bug blocks)"
+    else
+        bad "additive: lint script wrongly replaced the type/syntax check (lenience regressed)"
+    fi
+else
+    skip "additive lint test: no tsc/bun/npx available"
+fi
+
+# JSX false-positive regression: a VALID .jsx file must NOT be reported as a
+# syntax error. Before the fix, .jsx fell into the per-file `node --check` branch,
+# which cannot parse JSX (ERR_UNKNOWN_FILE_EXTENSION) and flagged EVERY React
+# component as a "Syntax error" -- the exact 11 false findings seen on a real
+# landing-page build. With a JSX-capable checker (tsc/bun) present, valid JSX
+# passes; without one it is an honest skip, never a false finding.
+VALID_JSX='export default function App() {
+  return <div className="x">hi</div>;
+}
+'
+P=$(make_fixture jsx-valid "src/App.jsx" "$VALID_JSX")
+# No package.json lint script here: exercise the type/syntax path directly.
+if [ "$(run_gate "$P")" = "rc=0" ]; then
+    ok "valid .jsx passes static analysis (no false 'Syntax error' from node --check)"
+else
+    bad "valid .jsx wrongly flagged as a syntax error (JSX false-positive regressed)"
+fi
+
+# Robustness: a lint script whose linter is NOT resolvable (rc 127) must be an
+# honest skip, NEVER counted as a lint finding (that would false-block a build).
+# package.json goes in the baseline (see make_lint_fixture rationale above) so the
+# HEAD~1 diff reports the JS file and the gate reaches the lint branch.
+P="$TMPROOT/lint-missing"
+mkdir -p "$P/src"
+(
+    cd "$P" && git init -q && git config user.email t@t.t && git config user.name t
+    echo baseline > README.md
+    printf '{"scripts":{"lint":"nonexistent-linter-xyz-9 src"}}' > package.json
+    git add README.md package.json && git commit -qm baseline
+    printf 'const y = 2;\nconsole.log(y);\n' > src/x.js
+    git add src/x.js && git commit -qm change
+)
+if [ "$(run_gate "$P")" = "rc=0" ]; then
+    ok "missing linter (rc 127) is an honest skip, not a false block"
+else
+    bad "missing linter wrongly blocked the build (false finding)"
+fi
 
 #-------------------------------------------------------------------------------
 echo

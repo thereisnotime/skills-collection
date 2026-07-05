@@ -1,15 +1,12 @@
 # Testing the Claude Code Plugin
 
-## ✅ Setup Complete
+## ✅ Prerequisites
 
-The test marketplace has been created at:
-```
-/Users/vinayak/Documents/test-marketplace/
-```
+Create a test marketplace and a test project (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#plugin-development) for the marketplace configuration):
 
-A test project has been created at:
 ```
-/Users/vinayak/Documents/test-plugin-project/
+<path-to-test-marketplace>/          # e.g. a sibling directory of this repo
+<path-to-test-project>/              # any empty directory to test in
 ```
 
 ## 🧪 Step-by-Step Testing
@@ -19,7 +16,7 @@ A test project has been created at:
 In Claude Code (this chat), run:
 
 ```
-/plugin marketplace add /Users/vinayak/Documents/test-marketplace
+/plugin marketplace add <path-to-test-marketplace>
 ```
 
 Expected output: Confirmation that the marketplace was added.
@@ -48,7 +45,7 @@ If Claude Code asks you to restart, do so now.
 
 Open the test project directory in Claude Code:
 ```
-/Users/vinayak/Documents/test-plugin-project/
+<path-to-test-project>/
 ```
 
 Or use Cursor's "Open Folder" and navigate to this directory.
@@ -58,7 +55,7 @@ Or use Cursor's "Open Folder" and navigate to this directory.
 In the test project, run:
 
 ```
-/scientific-writer:init
+/claude-scientific-writer:scientific-writer-init
 ```
 
 Expected behavior:
@@ -82,7 +79,7 @@ Expected output: Should list the scientific writing skills, including:
 - clinical-reports
 - research-grants
 - scientific-slides
-- And 13 more...
+- And 19 more...
 
 ### Step 8: Test Basic Functionality
 
@@ -100,7 +97,7 @@ Expected behavior:
 ### Step 9: Verify CLAUDE.md Content
 
 Open the created CLAUDE.md file and verify:
-- [ ] File exists at `/Users/vinayak/Documents/test-plugin-project/CLAUDE.md`
+- [ ] File exists at `<path-to-test-project>/CLAUDE.md`
 - [ ] Contains "Claude Agent System Instructions" header
 - [ ] Has the plugin comment at the top
 - [ ] Contains comprehensive scientific writing instructions
@@ -110,7 +107,7 @@ Open the created CLAUDE.md file and verify:
 
 ### Plugin Not Found
 If the plugin isn't found:
-1. Check marketplace path is correct: `/Users/vinayak/Documents/test-marketplace`
+1. Check the marketplace path you added is correct
 2. Verify marketplace.json exists and is valid JSON
 3. Try removing and re-adding: `/plugin marketplace remove test-marketplace`
 
@@ -121,14 +118,14 @@ If skills aren't available:
 3. Try reinstalling the plugin
 
 ### Init Command Not Working
-If `/scientific-writer:init` doesn't work:
+If `/claude-scientific-writer:scientific-writer-init` doesn't work:
 1. Check that `commands/scientific-writer-init.md` exists
 2. Verify the YAML frontmatter in the command file
 3. Check that `templates/CLAUDE.scientific-writer.md` exists
 
 ### Template Not Found
 If init command can't find the template:
-1. Verify `/Users/vinayak/Documents/claude-scientific-writer/templates/CLAUDE.scientific-writer.md` exists
+1. Verify `<path-to-repo>/templates/CLAUDE.scientific-writer.md` exists
 2. Check file permissions
 3. Try using absolute path in the plugin
 
@@ -139,7 +136,7 @@ After completing all steps:
 - [ ] Test marketplace added successfully
 - [ ] Plugin visible in marketplace list
 - [ ] Plugin installed without errors
-- [ ] `/scientific-writer:init` command executed successfully
+- [ ] `/claude-scientific-writer:scientific-writer-init` command executed successfully
 - [ ] CLAUDE.md created in test project
 - [ ] Skills query returns scientific writing skills
 - [ ] Can create a simple scientific document
@@ -150,14 +147,14 @@ After completing all steps:
 The plugin is working correctly if:
 
 1. **Installation succeeds** - No errors during marketplace add or plugin install
-2. **Command works** - `/scientific-writer:init` creates CLAUDE.md
-3. **Skills available** - "What skills are available?" shows 19 skills
+2. **Command works** - `/claude-scientific-writer:scientific-writer-init` creates CLAUDE.md
+3. **Skills available** - "What skills are available?" shows 25 skills
 4. **Functional** - Can create scientific content using the skills
 5. **Template correct** - CLAUDE.md contains full scientific writing instructions
 
 ## 📝 Notes
 
-- The `.claude/` directory in the plugin repo is for development only
+- The `.claude/` directory in the plugin repo is a generated mirror of `skills/` (see [CONTRIBUTING.md](CONTRIBUTING.md)); never edit it directly
 - The plugin uses `skills/`, `commands/`, and `templates/` directories
 - Users can customize their CLAUDE.md after initialization
 - Skills are available project-wide once plugin is installed
@@ -165,7 +162,7 @@ The plugin is working correctly if:
 ## 🚀 Next Steps After Successful Test
 
 If everything works:
-1. Update version in `.claude-plugin/plugin.json` if needed
+1. Update version in `.claude-plugin/marketplace.json` if needed
 2. Commit and push changes to GitHub
 3. Consider publishing to a public marketplace
 4. Update documentation with real-world usage examples

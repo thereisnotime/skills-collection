@@ -20,9 +20,9 @@ async def simple_example():
     print("Simple Example: Generate a Paper with Live Text Streaming")
     print("=" * 70)
     print()
-    
+
     query = "Create a short 2-page LaTeX paper on quantum computing basics"
-    
+
     async for update in generate_paper(query):
         if update["type"] == "text":
             # Stream Scientific-Writer's live text output
@@ -38,15 +38,15 @@ async def simple_example():
             print(f"\n✓ Status: {update['status']}")
             print(f"✓ Directory: {update['paper_directory']}")
             print(f"✓ Paper name: {update['paper_name']}")
-            
+
             if update['files']['pdf_final']:
                 print(f"\n📄 Final PDF: {update['files']['pdf_final']}")
             if update['files']['tex_final']:
                 print(f"📝 Final TeX: {update['files']['tex_final']}")
-            
+
             print(f"\n📚 Citations: {update['citations']['count']}")
             print(f"🖼️  Figures: {update['figures_count']}")
-            
+
             if update['metadata']['word_count']:
                 print(f"📊 Word count: {update['metadata']['word_count']}")
 
@@ -57,9 +57,9 @@ async def progress_only_example():
     print("Progress-Only Example: Structured Updates Without Text")
     print("=" * 70)
     print()
-    
+
     query = "Create a short paper on machine learning basics"
-    
+
     async for update in generate_paper(query):
         if update["type"] == "text":
             # Skip text updates - only show progress
@@ -76,14 +76,14 @@ async def advanced_example():
     print("Advanced Example: Custom Options + JSON Export")
     print("=" * 70)
     print()
-    
+
     # You can provide custom data files
     data_files = []  # Add your files here: ["data.csv", "figure.png"]
-    
+
     query = "Create a NeurIPS paper on transformer attention mechanisms"
-    
+
     result_data = None
-    
+
     async for update in generate_paper(
         query=query,
         output_dir="./my_custom_papers",  # Custom output directory
@@ -97,13 +97,13 @@ async def advanced_example():
             print(f"\n[{update['stage']:12s}] {update['message']}")
         elif update["type"] == "result":
             result_data = update
-    
+
     if result_data:
         # Save the complete result to JSON for later reference
         output_file = "paper_result.json"
         with open(output_file, "w") as f:
             json.dump(result_data, f, indent=2)
-        
+
         print(f"\n✓ Result saved to: {output_file}")
         print(f"✓ Paper directory: {result_data['paper_directory']}")
 
@@ -114,10 +114,10 @@ async def error_handling_example():
     print("Error Handling Example")
     print("=" * 70)
     print()
-    
+
     try:
         query = "Create a conference paper on machine learning"
-        
+
         async for update in generate_paper(query):
             if update["type"] == "text":
                 print(update["content"], end="", flush=True)
@@ -126,15 +126,15 @@ async def error_handling_example():
             elif update["type"] == "result":
                 # Check for errors
                 if update['status'] == 'failed':
-                    print(f"\n❌ Paper generation failed!")
+                    print("\n❌ Paper generation failed!")
                     if update['errors']:
                         print(f"Errors: {update['errors']}")
                 elif update['status'] == 'partial':
-                    print(f"\n⚠️  Partial success - TeX created but PDF compilation failed")
+                    print("\n⚠️  Partial success - TeX created but PDF compilation failed")
                     print(f"TeX file: {update['files']['tex_final']}")
                 else:
                     print(f"\n✓ Success! PDF: {update['files']['pdf_final']}")
-    
+
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
         print("Make sure ANTHROPIC_API_KEY is set!")
@@ -148,9 +148,9 @@ async def token_tracking_example():
     print("Token Tracking Example")
     print("=" * 70)
     print()
-    
+
     query = "Create a short abstract on neural networks"
-    
+
     async for update in generate_paper(query, track_token_usage=True):
         if update["type"] == "text":
             print(update["content"], end="", flush=True)
@@ -158,11 +158,11 @@ async def token_tracking_example():
             print(f"\n[{update['stage']:12s}] {update['message']}")
         elif update["type"] == "result":
             print(f"\n✓ Status: {update['status']}")
-            
+
             # Show token usage
             if "token_usage" in update:
                 usage = update["token_usage"]
-                print(f"\n📊 Token Usage:")
+                print("\n📊 Token Usage:")
                 print(f"   Input tokens: {usage['input_tokens']}")
                 print(f"   Output tokens: {usage['output_tokens']}")
                 print(f"   Total tokens: {usage['total_tokens']}")
@@ -179,12 +179,12 @@ async def main():
     print("  5. Token tracking example")
     print("  0. Run all examples")
     print()
-    
+
     # For demonstration, we'll just print instructions
     # Uncomment the following to actually run examples:
-    
+
     # choice = input("Enter choice (0-5): ").strip()
-    # 
+    #
     # if choice == "1":
     #     await simple_example()
     # elif choice == "2":
@@ -205,7 +205,7 @@ async def main():
     #     await error_handling_example()
     #     print("\n\n")
     #     await token_tracking_example()
-    
+
     print("NOTE: To actually run examples, uncomment the code in main()")
     print("      and ensure ANTHROPIC_API_KEY is set in your environment.")
     print()

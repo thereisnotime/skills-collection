@@ -2,7 +2,7 @@
 
 **Scientific Writer is a deep research and writing tool** that combines the power of AI-driven deep research with well-formatted written outputs of various forms. Before generating any document, it conducts comprehensive literature searches, verifies citations, and synthesizes information—ensuring your scientific writing is backed by real, verifiable sources.
 
-This guide provides a comprehensive overview of all features available in Scientific Writer v2.0.
+This guide provides a comprehensive overview of all features available in Scientific Writer.
 
 ## Table of Contents
 
@@ -168,7 +168,7 @@ Publication-quality diagrams and visualizations.
 
 ### Real-Time Research Lookup
 
-Powered by Perplexity Sonar Pro Search via OpenRouter API.
+Powered by parallel-cli and the Parallel Chat API.
 
 **Features:**
 - Live internet search during paper generation
@@ -179,7 +179,7 @@ Powered by Perplexity Sonar Pro Search via OpenRouter API.
 **Setup:**
 ```bash
 # Add to .env file
-echo "OPENROUTER_API_KEY=your_key" >> .env
+echo "PARALLEL_API_KEY=your_key" >> .env
 ```
 
 **Automatic Usage:**
@@ -289,7 +289,7 @@ Finds specific papers by topic:
 Matches based on directory names (format: `YYYYMMDD_HHMMSS_topic`):
 
 ```bash
-# Finds 20241027_090109_acoustics_vinayak_agarwal/
+# Finds 20241027_090109_acoustics_underwater_noise/
 > update the acoustics paper
 
 # Finds 20251029_130950_transformers_ai_paper/
@@ -435,11 +435,16 @@ async def generate_paper(
     query: str,
     output_dir: Optional[str] = None,
     api_key: Optional[str] = None,
-    model: str = "claude-opus-4-8",
+    model: Optional[str] = None,
+    effort_level: Literal["low", "medium", "high"] = "medium",
     data_files: Optional[List[str]] = None,
     cwd: Optional[str] = None,
+    track_token_usage: bool = False,
+    auto_continue: bool = True,
 ) -> AsyncGenerator[Dict[str, Any], None]
 ```
+
+When `model` is omitted, it is resolved from `effort_level` (`low` = Claude Haiku 4.5, `medium` = Claude Opus 4.8, `high` = Claude Opus 4.8). See the [API Reference](API.md#generate_paper) for full parameter details.
 
 **Type-Safe Models:**
 ```python

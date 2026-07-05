@@ -4,6 +4,26 @@ For the complete release history and detailed changes, see the main [CHANGELOG.m
 
 ## Recent Releases
 
+### [7.121.5] - 2026-07-04
+
+Chore (non-functional):
+- **Keep non-public scratch out of the CLI repo.** Added `.gitignore` rules so internal/local-only material never ships to users or npm: Codex provider scratch (`.codex/`, `AGENTS.md`), harness scratch (`.loki-verify/`, `.claude/launch.json`, `tmp/`), generated per-build output docs (`HANDOFF.md`), internal strategy / roadmap / MOAT specs, and build/test/e2e output plus screenshots under `artifacts/`. Curated artifacts can still be force-added when genuinely meant to ship. No runtime, CLI, or API change.
+
+### [7.121.4] - 2026-07-04
+
+Fixed (trust / accuracy):
+- **`static_analysis` no longer falsely gaps on React/JSX apps (two bugs).** `enforce_static_analysis` routed `.jsx` files into a per-file `node --check` that cannot parse JSX (`ERR_UNKNOWN_FILE_EXTENSION`) and flagged every React component as a syntax error; `.jsx` now routes to the JSX-capable tsc/bun path like `.tsx`. The gate also additively runs the app's own `lint` script (oxlint / biome / eslint) when declared, and the proof collector now reads the `"pass"` marker key so a real failing result is no longer understated as `not_run`. This closes the static_analysis half of a "Working, with gaps" card; it does not green a card whose Tests axis is still not_run.
+
+### [7.121.3] - 2026-07-04
+
+Fixed (app-runner):
+- **Static sites get a live preview and health check.** A static web root (index.html with no server-app signal) fell through the detection cascade to "none", so it got no app-runner, no live preview, no health check, and no screenshot. The runner now detects a real static root (index.html at root, or public/dist/build) and serves it with `python3 -m http.server` (zero deps) after the framework handlers and before the "none" fallback. Guarded on a real index.html so genuine CLIs/libraries still honestly read "none", and a real server still wins over static. Future-builds-only: an already-finished build classified "none" needs a re-run to preview.
+
+### [7.121.2] - 2026-07-03
+
+Docs (non-functional):
+- **Refreshed all user-facing markdown to v7.121.x and collapsed advanced sections.** README states the current release and describes the honest checklist verifier (ERE grep, runner-agnostic tests_pass, inconclusive-never-false, "rc==0 alone is not a pass"), with deep material folded behind collapsibles. Install/upgrade guides and wiki refreshed; 8 stale "current version" strings fixed. No code changed.
+
 ### [7.121.1] - 2026-07-03
 
 Fixed (trust / accuracy):

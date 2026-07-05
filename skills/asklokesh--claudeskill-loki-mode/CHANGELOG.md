@@ -5,6 +5,49 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v7.121.5
+
+### Chore: keep non-public scratch out of the CLI repo
+
+Added `.gitignore` rules so internal/local-only material never ships to users or
+npm: the Codex provider scratch (`.codex/`, `AGENTS.md`), harness scratch
+(`.loki-verify/`, `.claude/launch.json`, `tmp/`), generated per-build output docs
+(`HANDOFF.md`), internal strategy / roadmap / MOAT specs, and build/test/e2e
+output plus screenshots under `artifacts/`. Curated artifacts can still be
+force-added when genuinely meant to ship. No runtime, CLI, or API change.
+
+## v7.121.4
+
+### Fixed: static_analysis falsely gapped on React/JSX apps (two bugs)
+
+The static_analysis axis read as a gap on real React builds for two independent
+reasons, both fixed with corpus-first extraction proof (no engine build from the
+worktree). This closes the static_analysis half of a "Working, with gaps" card;
+it does NOT green a card whose Tests axis is still not_run (an app with no test
+command remains an honest gap -- unchanged, founder-gated).
+
+- **JSX false-positives (the visible driver).** `enforce_static_analysis`
+  (`autonomy/run.sh`) routed `.jsx` files into a per-file `node --check`, which
+  cannot parse JSX (`ERR_UNKNOWN_FILE_EXTENSION`) and flagged EVERY React
+  component as a "Syntax error" (observed: 11 false findings on one landing
+  build). `.jsx` now routes to the JSX-capable tsc/bun path like `.tsx`, and is
+  included in tsconfig project-mode detection.
+- **The gate now ADDITIVELY runs the app's OWN linter.** When `package.json`
+  declares a `lint` script (oxlint / biome / eslint -- increasingly the default
+  scaffold, which the eslint-config probe did not recognize), the gate runs
+  `npm run lint`. This is additive: the type/syntax check still runs, so a TS
+  app's type errors are never silenced by a passing lint. A missing linter
+  (rc 127) is an honest skip, never a false finding.
+- **Collector misread the marker.** `proof-generator.py:_collect_quality_gates`
+  read `"passed"`/`"status"`, but the marker writes `"pass"` (bool), so a real
+  failing result collapsed to `not_run` (understating a failure as "did not
+  run"). The collector now reads `"pass"` too; an absent outcome key still
+  stays `not_run` (never fabricated passed).
+
+Tests: `tests/test-static-analysis-languages.sh` (+ JSX / oxlint / additive /
+missing-linter cases), `tests/test_proof_generator.py` (+ marker->gate-status
+chain). Both suites green.
+
 ## v7.121.3
 
 ### Fix (app-runner: static sites get a live preview + health check)

@@ -1,21 +1,24 @@
 # Python
+# NOTE: directory patterns are anchored to the repo root (leading /) so that
+# skill asset folders like skills/*/data/ or skills/*/figures/ are never
+# silently excluded from git — and therefore from the built wheel.
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -42,9 +45,9 @@ uv.lock
 .env.local
 
 # Output directories
-paper_outputs/
-writing_outputs/
-data/
+/paper_outputs/
+/writing_outputs/
+/data/
 
 # LaTeX auxiliary files
 *.aux
@@ -63,6 +66,6 @@ Thumbs.db
 
 # Temporary files
 *.tmp
-temp/
-tmp/
-figures/
+/temp/
+/tmp/
+/figures/

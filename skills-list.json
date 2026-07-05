@@ -12240,8 +12240,8 @@
       "description": "\"GPU-accelerate Python code using CuPy, Numba CUDA, Warp, cuDF, cuML, cuGraph, KvikIO, cuCIM, cuxfilter, cuVS, cuSpatial, and RAFT. Use whenever the user mentions GPU/CUDA/NVIDIA acceleration, or want",
       "path": "K-Dense-AI--claude-scientific-skills/skills/optimize-for-gpu/SKILL.md",
       "remote_path": "skills/optimize-for-gpu/SKILL.md",
-      "lines": 700,
-      "words": 4520,
+      "lines": 708,
+      "words": 4765,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -12374,12 +12374,12 @@
     },
     {
       "name": "research-lookup",
-      "description": "'Look up current research information using parallel-cli search (primary, fast web search), the Parallel Chat API (deep research), or Perplexity sonar-pro-search (academic paper searches). Automatical",
+      "description": "'Look up current research and scientific information across three backends: fast web search via parallel-cli (default), the Parallel Chat API for deep multi-source synthesis, and Perplexity sonar-pro-",
       "path": "K-Dense-AI--claude-scientific-skills/skills/research-lookup/SKILL.md",
       "remote_path": "skills/research-lookup/SKILL.md",
-      "lines": 551,
-      "words": 2928,
-      "code_blocks": 18,
+      "lines": 251,
+      "words": 1821,
+      "code_blocks": 9,
       "languages": [
         "bash"
       ],
@@ -13938,13 +13938,16 @@
     },
     {
       "name": "paper-lookup",
-      "description": "Search 10 academic paper databases via REST APIs for research papers, preprints, and scholarly articles. Covers PubMed, PMC (full text), bioRxiv, medRxiv, arXiv, OpenAlex, Crossref, Semantic Scholar, ",
+      "description": "Search 10 academic literature APIs for papers, preprints, citations, and open-access full text, and return results with reproducible provenance. Covers PubMed, PMC (full text), bioRxiv, medRxiv, arXiv",
       "path": "K-Dense-AI--claude-scientific-skills/skills/paper-lookup/SKILL.md",
       "remote_path": "skills/paper-lookup/SKILL.md",
-      "lines": 193,
-      "words": 1573,
-      "code_blocks": 1,
-      "languages": []
+      "lines": 215,
+      "words": 2301,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "networkx",
@@ -14017,12 +14020,12 @@
     },
     {
       "name": "statistical-analysis",
-      "description": "Guided statistical analysis with test selection and reporting. Use when you need help choosing appropriate tests for your data, assumption checking, power analysis, and APA-formatted results. Best for",
+      "description": "Guided statistical analysis for research data - test selection, assumption checking, effect sizes, power analysis, Bayesian alternatives, and APA-formatted reporting. Use whenever a user wants to comp",
       "path": "K-Dense-AI--claude-scientific-skills/skills/statistical-analysis/SKILL.md",
       "remote_path": "skills/statistical-analysis/SKILL.md",
-      "lines": 652,
-      "words": 2715,
-      "code_blocks": 16,
+      "lines": 445,
+      "words": 2704,
+      "code_blocks": 14,
       "languages": [
         "bash",
         "python"
@@ -14076,6 +14079,19 @@
   ],
   "K-Dense-AI--claude-scientific-writer": [
     {
+      "name": "scholar-evaluation",
+      "description": "Systematically evaluate scholarly and research work using the ScholarEval framework. Use when evaluating research papers, proposals, or literature reviews for quality and rigor, scoring methodology an",
+      "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
+      "remote_path": "scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
+      "lines": 299,
+      "words": 1586,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT license"
+    },
+    {
       "name": "markitdown",
       "description": "\"Convert files and office documents to Markdown. Supports PDF, DOCX, PPTX, XLSX, images (with OCR), audio (with transcription), HTML, CSV, JSON, XML, ZIP, YouTube URLs, EPubs and more.\"",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/markitdown/SKILL.md",
@@ -14105,15 +14121,16 @@
     },
     {
       "name": "research-lookup",
-      "description": "\"Look up current research information using the Parallel Chat API (primary) or Perplexity sonar-pro-search (academic paper searches). Automatically routes queries to the best backend. Use for finding ",
+      "description": "Look up current research information using parallel-cli search (primary, fast web search) or the Parallel Chat API (deep research). Automatically routes queries to the best backend. Use for finding pa",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/research-lookup/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/research-lookup/SKILL.md",
-      "lines": 410,
-      "words": 2100,
-      "code_blocks": 12,
+      "lines": 530,
+      "words": 2723,
+      "code_blocks": 18,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "generate-image",
@@ -14129,17 +14146,18 @@
     },
     {
       "name": "scientific-schematics",
-      "description": "\"Create publication-quality scientific diagrams using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3 Pro for quality review. Only regenerates if quality is below threshold for your ",
+      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.1 Pro Preview for quality review. Only regenerates if quality is below threshold fo",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-schematics/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-schematics/SKILL.md",
-      "lines": 618,
-      "words": 3185,
+      "lines": 619,
+      "words": 3102,
       "code_blocks": 21,
       "languages": [
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "venue-templates",
@@ -14191,30 +14209,31 @@
       ]
     },
     {
-      "name": "latex-posters",
-      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
+      "name": "pptx-posters",
+      "description": "Create research posters using HTML/CSS that can be exported to PDF or PPTX. Use this skill ONLY when the user explicitly requests PowerPoint/PPTX poster format. For standard research posters, use late",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/pptx-posters/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/pptx-posters/SKILL.md",
-      "lines": 959,
-      "words": 4163,
-      "code_blocks": 25,
+      "lines": 415,
+      "words": 2020,
+      "code_blocks": 15,
       "languages": [
         "bash",
-        "latex"
-      ]
+        "css",
+        "html",
+        "python"
+      ],
+      "license": "MIT license"
     },
     {
       "name": "parallel-web",
-      "description": "\"Search the web, extract URL content, and run deep research using the Parallel Chat API and Extract API. Use for ALL web searches, research queries, and general information gathering. Provides synthes",
+      "description": "\"Search the web, extract URL content, enrich datasets, and run deep research using parallel-cli, prioritizing academic and scientific sources. Use for ANY web-related task: looking things up, fetching",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/parallel-web/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/parallel-web/SKILL.md",
-      "lines": 311,
-      "words": 1459,
-      "code_blocks": 11,
+      "lines": 104,
+      "words": 796,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ]
     },
     {
@@ -14259,15 +14278,17 @@
     },
     {
       "name": "scientific-writing",
-      "description": "\"Core skill for the deep research and writing tool. Write scientific manuscripts in full paragraphs (never bullet points). Use two-stage process: (1) create section outlines with key points using rese",
+      "description": "Core skill for the deep research and writing tool. Write scientific manuscripts in full paragraphs (never bullet points). Use two-stage process with (1) section outlines with key points using research",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-writing/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-writing/SKILL.md",
-      "lines": 579,
-      "words": 3814,
-      "code_blocks": 5,
+      "lines": 718,
+      "words": 4333,
+      "code_blocks": 9,
       "languages": [
-        "bash"
-      ]
+        "bash",
+        "latex"
+      ],
+      "license": "MIT license"
     },
     {
       "name": "clinical-decision-support",
@@ -14284,12 +14305,12 @@
     },
     {
       "name": "latex-posters",
-      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
+      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. This is the default poster skill for conference presentations, academic posters, and scientific communicatio",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/latex-posters/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/latex-posters/SKILL.md",
-      "lines": 1292,
-      "words": 6514,
-      "code_blocks": 37,
+      "lines": 1595,
+      "words": 8592,
+      "code_blocks": 48,
       "languages": [
         "bash",
         "latex"
@@ -14322,16 +14343,32 @@
     },
     {
       "name": "scientific-slides",
-      "description": "\"Build slide decks and presentations for research talks using Nano Banana Pro AI. Generates stunning PDF presentations with AI-generated slides. Use for conference presentations, seminar talks, thesis",
+      "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-slides/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-slides/SKILL.md",
-      "lines": 943,
-      "words": 5369,
-      "code_blocks": 19,
+      "lines": 1155,
+      "words": 6367,
+      "code_blocks": 23,
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "license": "MIT license"
+    },
+    {
+      "name": "poster-presentation",
+      "description": "Create scientific conference posters as native, editable .pptx files using python-pptx. Handles A0/A1 layouts, section placement, figure insertion, and academic color schemes. Exports editable .pptx a",
+      "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/poster-presentation/SKILL.md",
+      "remote_path": "scientific_writer/.claude/skills/poster-presentation/SKILL.md",
+      "lines": 879,
+      "words": 3283,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "python"
+      ],
+      "version": "\"1.0.0\"",
+      "license": "MIT license"
     },
     {
       "name": "clinical-reports",
@@ -14415,6 +14452,19 @@
         "markdown"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
+    },
+    {
+      "name": "scholar-evaluation",
+      "description": "Systematically evaluate scholarly and research work using the ScholarEval framework. Use when evaluating research papers, proposals, or literature reviews for quality and rigor, scoring methodology an",
+      "path": "K-Dense-AI--claude-scientific-writer/skills/scholar-evaluation/SKILL.md",
+      "remote_path": "skills/scholar-evaluation/SKILL.md",
+      "lines": 299,
+      "words": 1586,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT license"
     },
     {
       "name": "markitdown",
@@ -14551,11 +14601,11 @@
     },
     {
       "name": "parallel-web",
-      "description": "\"All-in-one web toolkit powered by parallel-cli, with a strong emphasis on academic and scientific sources. Use this skill whenever the user needs to search the web, fetch/extract URL content, enrich ",
+      "description": "\"Search the web, extract URL content, enrich datasets, and run deep research using parallel-cli, prioritizing academic and scientific sources. Use for ANY web-related task: looking things up, fetching",
       "path": "K-Dense-AI--claude-scientific-writer/skills/parallel-web/SKILL.md",
       "remote_path": "skills/parallel-web/SKILL.md",
       "lines": 104,
-      "words": 884,
+      "words": 796,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14630,11 +14680,11 @@
     },
     {
       "name": "latex-posters",
-      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
+      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. This is the default poster skill for conference presentations, academic posters, and scientific communicatio",
       "path": "K-Dense-AI--claude-scientific-writer/skills/latex-posters/SKILL.md",
       "remote_path": "skills/latex-posters/SKILL.md",
       "lines": 1595,
-      "words": 8579,
+      "words": 8592,
       "code_blocks": 48,
       "languages": [
         "bash",
@@ -14682,17 +14732,18 @@
     },
     {
       "name": "poster-presentation",
-      "description": "Create scientific conference posters as .pptx files using python-pptx. Handles A0/A1 layouts, section placement, figure insertion, and academic color schemes. Exports editable .pptx and PDF.",
+      "description": "Create scientific conference posters as native, editable .pptx files using python-pptx. Handles A0/A1 layouts, section placement, figure insertion, and academic color schemes. Exports editable .pptx a",
       "path": "K-Dense-AI--claude-scientific-writer/skills/poster-presentation/SKILL.md",
       "remote_path": "skills/poster-presentation/SKILL.md",
-      "lines": 876,
-      "words": 3249,
+      "lines": 879,
+      "words": 3283,
       "code_blocks": 15,
       "languages": [
         "bash",
         "python"
       ],
-      "version": "\"1.0.0\""
+      "version": "\"1.0.0\"",
+      "license": "MIT license"
     },
     {
       "name": "clinical-reports",
@@ -14778,6 +14829,19 @@
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
+      "name": "scholar-evaluation",
+      "description": "Systematically evaluate scholarly and research work using the ScholarEval framework. Use when evaluating research papers, proposals, or literature reviews for quality and rigor, scoring methodology an",
+      "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scholar-evaluation/SKILL.md",
+      "remote_path": ".claude/skills/scholar-evaluation/SKILL.md",
+      "lines": 299,
+      "words": 1586,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT license"
+    },
+    {
       "name": "markitdown",
       "description": "\"Convert files and office documents to Markdown. Supports PDF, DOCX, PPTX, XLSX, images (with OCR), audio (with transcription), HTML, CSV, JSON, XML, ZIP, YouTube URLs, EPubs and more.\"",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/markitdown/SKILL.md",
@@ -14807,15 +14871,16 @@
     },
     {
       "name": "research-lookup",
-      "description": "\"Look up current research information using the Parallel Chat API (primary) or Perplexity sonar-pro-search (academic paper searches). Automatically routes queries to the best backend. Use for finding ",
+      "description": "Look up current research information using parallel-cli search (primary, fast web search) or the Parallel Chat API (deep research). Automatically routes queries to the best backend. Use for finding pa",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/research-lookup/SKILL.md",
       "remote_path": ".claude/skills/research-lookup/SKILL.md",
-      "lines": 410,
-      "words": 2100,
-      "code_blocks": 12,
+      "lines": 530,
+      "words": 2723,
+      "code_blocks": 18,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "generate-image",
@@ -14831,17 +14896,18 @@
     },
     {
       "name": "scientific-schematics",
-      "description": "\"Create publication-quality scientific diagrams using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3 Pro for quality review. Only regenerates if quality is below threshold for your ",
+      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.1 Pro Preview for quality review. Only regenerates if quality is below threshold fo",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-schematics/SKILL.md",
       "remote_path": ".claude/skills/scientific-schematics/SKILL.md",
-      "lines": 618,
-      "words": 3185,
+      "lines": 619,
+      "words": 3102,
       "code_blocks": 21,
       "languages": [
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "venue-templates",
@@ -14893,30 +14959,31 @@
       ]
     },
     {
-      "name": "latex-posters",
-      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
+      "name": "pptx-posters",
+      "description": "Create research posters using HTML/CSS that can be exported to PDF or PPTX. Use this skill ONLY when the user explicitly requests PowerPoint/PPTX poster format. For standard research posters, use late",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/pptx-posters/SKILL.md",
       "remote_path": ".claude/skills/pptx-posters/SKILL.md",
-      "lines": 959,
-      "words": 4163,
-      "code_blocks": 25,
+      "lines": 415,
+      "words": 2020,
+      "code_blocks": 15,
       "languages": [
         "bash",
-        "latex"
-      ]
+        "css",
+        "html",
+        "python"
+      ],
+      "license": "MIT license"
     },
     {
       "name": "parallel-web",
-      "description": "\"Search the web, extract URL content, and run deep research using the Parallel Chat API and Extract API. Use for ALL web searches, research queries, and general information gathering. Provides synthes",
+      "description": "\"Search the web, extract URL content, enrich datasets, and run deep research using parallel-cli, prioritizing academic and scientific sources. Use for ANY web-related task: looking things up, fetching",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/parallel-web/SKILL.md",
       "remote_path": ".claude/skills/parallel-web/SKILL.md",
-      "lines": 311,
-      "words": 1459,
-      "code_blocks": 11,
+      "lines": 104,
+      "words": 796,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ]
     },
     {
@@ -14961,15 +15028,17 @@
     },
     {
       "name": "scientific-writing",
-      "description": "\"Core skill for the deep research and writing tool. Write scientific manuscripts in full paragraphs (never bullet points). Use two-stage process: (1) create section outlines with key points using rese",
+      "description": "Core skill for the deep research and writing tool. Write scientific manuscripts in full paragraphs (never bullet points). Use two-stage process with (1) section outlines with key points using research",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-writing/SKILL.md",
       "remote_path": ".claude/skills/scientific-writing/SKILL.md",
-      "lines": 579,
-      "words": 3814,
-      "code_blocks": 5,
+      "lines": 718,
+      "words": 4333,
+      "code_blocks": 9,
       "languages": [
-        "bash"
-      ]
+        "bash",
+        "latex"
+      ],
+      "license": "MIT license"
     },
     {
       "name": "clinical-decision-support",
@@ -14986,12 +15055,12 @@
     },
     {
       "name": "latex-posters",
-      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
+      "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. This is the default poster skill for conference presentations, academic posters, and scientific communicatio",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/latex-posters/SKILL.md",
       "remote_path": ".claude/skills/latex-posters/SKILL.md",
-      "lines": 1292,
-      "words": 6514,
-      "code_blocks": 37,
+      "lines": 1595,
+      "words": 8592,
+      "code_blocks": 48,
       "languages": [
         "bash",
         "latex"
@@ -15024,16 +15093,32 @@
     },
     {
       "name": "scientific-slides",
-      "description": "\"Build slide decks and presentations for research talks using Nano Banana Pro AI. Generates stunning PDF presentations with AI-generated slides. Use for conference presentations, seminar talks, thesis",
+      "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-slides/SKILL.md",
       "remote_path": ".claude/skills/scientific-slides/SKILL.md",
-      "lines": 943,
-      "words": 5369,
-      "code_blocks": 19,
+      "lines": 1155,
+      "words": 6367,
+      "code_blocks": 23,
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "license": "MIT license"
+    },
+    {
+      "name": "poster-presentation",
+      "description": "Create scientific conference posters as native, editable .pptx files using python-pptx. Handles A0/A1 layouts, section placement, figure insertion, and academic color schemes. Exports editable .pptx a",
+      "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/poster-presentation/SKILL.md",
+      "remote_path": ".claude/skills/poster-presentation/SKILL.md",
+      "lines": 879,
+      "words": 3283,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "python"
+      ],
+      "version": "\"1.0.0\"",
+      "license": "MIT license"
     },
     {
       "name": "clinical-reports",
@@ -20276,11 +20361,11 @@
     },
     {
       "name": "expo-observe",
-      "description": "Use for anything related to EAS Observe \u2014 adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive, the useObserve hook, and the Expo Router / React Navigation integra",
+      "description": "Use for anything related to EAS Observe \u2014 adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive, the useObserve hook, the Expo Router / React Navigation integration",
       "path": "expo--skills/plugins/expo/skills/expo-observe/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-observe/SKILL.md",
-      "lines": 30,
-      "words": 291,
+      "lines": 31,
+      "words": 305,
       "code_blocks": 0,
       "languages": [],
       "version": "1.0.0",
@@ -21321,8 +21406,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
-      "lines": 236,
-      "words": 1954,
+      "lines": 231,
+      "words": 1942,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -60865,6 +60950,87 @@
       "words": 49,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "schema-optimization-orchestrator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/SKILL.md",
+      "remote_path": "workspace/lab/schema-optimization/SKILL.md",
+      "lines": 288,
+      "words": 668,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "phase-2-field-utilization",
+      "description": "\"Phase 2 of the BigQuery schema optimization pipeline \u2014 reads the phase 1 report and schema exports to identify fields with >90% null rates, detect never-queried columns, and produce ranked removal an",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_2.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_2.md",
+      "lines": 100,
+      "words": 401,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-1-schema-analysis",
+      "description": "\"Phase 1 of the BigQuery schema optimization pipeline \u2014 parses schema export files to count tables and fields, detect naming patterns and type inconsistencies, flag duplicate or nullable issues, and w",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_1.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_1.md",
+      "lines": 95,
+      "words": 366,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-3-impact-assessment",
+      "description": "\"Phase 3 of the BigQuery schema optimization pipeline \u2014 evaluates proposed schema changes from phases 1-2 against dependent queries and systems, categorizes each change by risk level, estimates storag",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_3.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_3.md",
+      "lines": 105,
+      "words": 416,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-4-verification",
+      "description": "'Runs BigQuery field-utilization shell scripts to empirically validate phase 2-3 conclusions, reconciles manual vs. script findings, and writes a verification report. Use when phase 3 analysis is comp",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_4.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_4.md",
+      "lines": 119,
+      "words": 439,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-5-recommendations",
+      "description": "'Synthesizes BigQuery schema optimization findings from all prior phases into a prioritized implementation plan with rollback procedures, timelines, and success metrics. Use when all previous phase re",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_5.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_5.md",
+      "lines": 121,
+      "words": 443,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "skill-auditor",

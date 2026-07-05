@@ -1,13 +1,17 @@
 [project]
 name = "scientific-writer"
-version = "2.15.1"
+version = "2.16.0"
 description = "Deep research and writing tool - combines AI-driven deep research with well-formatted written outputs. Generates publication-ready scientific documents with verified citations."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
-    "claude-agent-sdk>=0.1.0",
+    # The code imports the 0.2.x hook/types surface (StopHookInput, HookContext);
+    # cap below 0.3 since the SDK API is still evolving pre-1.0.
+    "claude-agent-sdk>=0.2.0,<0.3",
     "python-dotenv>=1.0.0",
+    # requests and pymupdf are not imported by scientific_writer itself, but the
+    # bundled skill scripts (web lookup, pdf_to_images) rely on them at runtime.
     "requests>=2.31.0",
     "pymupdf>=1.24.0",
 ]
@@ -44,8 +48,35 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["scientific_writer"]
 
-[tool.uv]
-dev-dependencies = []
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+# The bundled/mirrored skill trees and vendored extensions carry their own scripts;
+# lint only the package, scripts, and tests.
+extend-exclude = [
+    "skills",
+    ".claude",
+    "scientific_writer/.claude",
+    "extensions",
+    "templates",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["scientific_writer"]
+exclude = "scientific_writer/\\.claude"
+ignore_missing_imports = true
 
 
 [tool.codespell]

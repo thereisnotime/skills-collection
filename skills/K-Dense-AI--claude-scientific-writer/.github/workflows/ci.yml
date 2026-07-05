@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: Lint, typecheck, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Ruff
+        run: uv run ruff check .
+      - name: Mypy
+        run: uv run mypy
+      - name: Pytest
+        run: uv run pytest tests/ -q
+
+  integrity:
+    name: Skill mirrors, consistency, package build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Skill mirrors in sync
+        run: python scripts/sync_skills.py --check
+      - name: Repository consistency
+        run: python scripts/check_consistency.py
+      - name: Package verification
+        run: python scripts/verify_package.py
+      - name: Build wheel
+        run: uv build
+      - name: Wheel ships the .claude payload
+        run: |
+          python - <<'EOF'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "scripts")
+          from publish import verify_wheel_payload
+          verify_wheel_payload(Path("dist"))
+          EOF

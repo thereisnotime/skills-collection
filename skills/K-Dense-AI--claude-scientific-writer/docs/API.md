@@ -2,7 +2,7 @@
 
 **Scientific Writer is a deep research and writing tool** that combines AI-driven deep research with well-formatted written outputs. This API lets you programmatically generate publication-ready documents backed by real-time literature search and verified citations.
 
-Complete reference for the Scientific Writer v2.0 programmatic API. For a quick start, see the README. This page contains full details, examples, and best practices.
+Complete reference for the Scientific Writer programmatic API. For a quick start, see the README. This page contains full details, examples, and best practices.
 
 ## Installation
 
@@ -38,16 +38,18 @@ Asynchronous generator that creates a scientific paper and yields progress updat
 
 **Signature:**
 ```python
-from typing import AsyncGenerator, Dict, Any, Optional, List
+from typing import AsyncGenerator, Dict, Any, Optional, List, Literal
 
 async def generate_paper(
     query: str,
     output_dir: Optional[str] = None,
     api_key: Optional[str] = None,
-    model: str = "claude-opus-4-8",
+    model: Optional[str] = None,
+    effort_level: Literal["low", "medium", "high"] = "medium",
     data_files: Optional[List[str]] = None,
     cwd: Optional[str] = None,
     track_token_usage: bool = False,
+    auto_continue: bool = True,
 ) -> AsyncGenerator[Dict[str, Any], None]
 ```
 
@@ -58,10 +60,12 @@ async def generate_paper(
 | `query` | `str` | Yes | - | The paper generation request (e.g., "Create a Nature paper on CRISPR") |
 | `output_dir` | `str` | No | `None` | Custom output directory. Defaults to `cwd/writing_outputs` |
 | `api_key` | `str` | No | `None` | Anthropic API key. Defaults to `ANTHROPIC_API_KEY` env var |
-| `model` | `str` | No | `"claude-opus-4-8"` | Claude model to use |
+| `model` | `str` | No | `None` | Explicit Claude model to use. If provided, overrides `effort_level`; otherwise the model is resolved from `effort_level` |
+| `effort_level` | `"low" \| "medium" \| "high"` | No | `"medium"` | Effort level that determines the model: `low` = Claude Haiku 4.5, `medium` = Claude Opus 4.8, `high` = Claude Opus 4.8 |
 | `data_files` | `List[str]` | No | `None` | List of file paths to include in the paper |
-| `cwd` | `str` | No | `None` | Working directory. Defaults to package parent directory |
+| `cwd` | `str` | No | `None` | Working directory. Defaults to the current working directory |
 | `track_token_usage` | `bool` | No | `False` | If True, track and return token usage in the final result |
+| `auto_continue` | `bool` | No | `True` | If True, the agent will not stop on its own and continues until the task is complete. Set to False to allow normal stopping behavior (can also be disabled via the `SCIENTIFIC_WRITER_AUTO_CONTINUE=false` env var) |
 
 **Returns:**
 
@@ -358,16 +362,18 @@ async def list_all_files():
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `ANTHROPIC_API_KEY` | Yes* | Your Anthropic API key for Scientific-Writer |
-| `OPENROUTER_API_KEY` | No | For real-time research lookup via Perplexity Sonar Pro Search |
+| `PARALLEL_API_KEY` | For research | Enables research lookup, web search, and deep research via parallel-cli and the Parallel Chat API |
+| `OPENROUTER_API_KEY` | No | Optional; used by the AI image generation skills (generate-image, scientific-schematics, scientific-slides, infographics, and markitdown AI features) |
+| `NCBI_API_KEY` / `NCBI_EMAIL` | No | Optional; higher-rate PubMed lookups in literature-review scripts |
 
 \* Can be overridden by passing `api_key` parameter to `generate_paper()`
 
 ### Research Lookup
 
-When `OPENROUTER_API_KEY` is set, the system gains access to real-time research capabilities:
+When `PARALLEL_API_KEY` is set, the system gains access to real-time research capabilities:
 
 - **Live internet search** during paper generation
-- **Recent publications** from 2024-2025
+- **Recent publications** and preprints
 - **Fact verification** with current data
 - **Citation discovery** for latest research
 
@@ -375,19 +381,18 @@ The research lookup is automatically invoked when needed - you don't need to exp
 
 ### Native Web Search
 
-In addition to research lookup, the system includes Claude's native **WebSearch** tool for:
+In addition to research lookup, the system includes Claude's native **WebSearch** tool as a fallback for:
 
 - **Current events** and general information
 - **Non-academic sources** (news, blogs, documentation)
 - **Real-time information** that may not be in academic databases
-- **Fact-checking** and verification from diverse sources
 
-Both tools work together: use research-lookup for scholarly/academic content, and WebSearch for broader web information.
+Parallel-based research lookup and web search are the primary tools; native WebSearch is only used as a last resort when they are unavailable.
 
 **Setup:**
 ```bash
 # Add to your .env file
-echo "OPENROUTER_API_KEY=your_key_here" >> .env
+echo "PARALLEL_API_KEY=your_key_here" >> .env
 ```
 
 **Example usage:**
@@ -513,12 +518,26 @@ async for update in generate_paper(
 
 ### Model Selection
 
-Choose different Claude models (though Sonnet 4.5 is recommended):
+By default, the model is chosen from `effort_level`:
+
+| Effort level | Model |
+|--------------|-------|
+| `low` | `claude-haiku-4-5` (fastest, most economical) |
+| `medium` (default) | `claude-opus-4-8` (balanced, premium) |
+| `high` | `claude-opus-4-8` (most capable) |
 
 ```python
+# Choose a model via effort level
 async for update in generate_paper(
     query="Create a paper",
-    model="claude-opus-4-8"  # Latest Opus 4.8
+    effort_level="high"
+):
+    pass
+
+# Or pass an explicit model, which overrides effort_level
+async for update in generate_paper(
+    query="Create a paper",
+    model="claude-opus-4-8"
 ):
     pass
 ```

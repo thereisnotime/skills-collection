@@ -5,6 +5,7 @@ This document provides solutions to common issues you may encounter when using t
 ## Table of Contents
 - [Windows: Claude Code Not Found Error](#windows-claude-code-not-found-error)
 - [API Key Issues](#api-key-issues)
+- [Research Lookup and Web Search Issues](#research-lookup-and-web-search-issues)
 - [Installation Problems](#installation-problems)
 - [LaTeX Compilation Issues](#latex-compilation-issues)
 - [General Issues](#general-issues)
@@ -209,6 +210,41 @@ set ANTHROPIC_API_KEY=your_api_key_here
 
 ---
 
+## Research Lookup and Web Search Issues
+
+Research lookup, web search, and deep research are powered by parallel-cli and the Parallel Chat API.
+
+### Problem: "PARALLEL_API_KEY not set" or research lookup returns no results
+
+Research lookup requires a Parallel API key. Add it to your `.env` file (see `.env.example`):
+```bash
+PARALLEL_API_KEY=your_key_here
+```
+
+Or export it in your shell:
+```bash
+export PARALLEL_API_KEY='your_key_here'
+```
+
+You can obtain a key from [parallel.ai](https://parallel.ai/).
+
+### Problem: "parallel-cli: command not found"
+
+Fast web searches use the `parallel-cli` tool. If it is not installed, install it with:
+```bash
+curl -fsSL https://parallel.ai/install.sh | bash
+# or
+uv tool install "parallel-web-tools[cli]"
+```
+
+If parallel-cli is unavailable, the research-lookup skill falls back to the Parallel Chat API (which requires `PARALLEL_API_KEY`).
+
+### Note: OpenRouter is no longer used for research
+
+Older versions used `OPENROUTER_API_KEY` for research lookup via Perplexity. Since v2.13, research goes through Parallel. `OPENROUTER_API_KEY` is now only needed for the AI image generation skills (generate-image, scientific-schematics, scientific-slides, infographics, and markitdown AI features).
+
+---
+
 ## Installation Problems
 
 ### Problem: "Module not found" errors
@@ -357,7 +393,7 @@ chmod u+w /path/to/claude-scientific-writer
 
 If you've tried the solutions above and still have issues:
 
-1. **Check the GitHub Issues**: [github.com/your-repo/issues](https://github.com)
+1. **Check the GitHub Issues**: [github.com/K-Dense-AI/claude-scientific-writer/issues](https://github.com/K-Dense-AI/claude-scientific-writer/issues)
 2. **Create a New Issue**: Include:
    - Operating system and version
    - Python version (`python --version`)

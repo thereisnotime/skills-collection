@@ -6,6 +6,23 @@ All notable changes to the Scientific Writer project will be documented in this 
 
 ---
 
+## [2.16.0] - 2026-07-04
+
+### 🐛 Fixed
+
+- **Bundled skills now install and refresh reliably** — `setup_claude_skills` previously skipped copying entirely when the working directory already had a `.claude/` folder, silently leaving users with no skills and a generic prompt; it now refreshes the bundled skills and WRITER.md on every run while preserving user-owned files (custom skills, settings), and logs failures instead of swallowing them.
+- **Skill mirror drift eliminated** — `skills/` is now the single source of truth; `.claude/skills/` and `scientific_writer/.claude/skills/` are regenerated with `scripts/sync_skills.py` (`--check` in CI). Drift had left the shipped copies with 19 stale Perplexity references in research-lookup, a mis-named `pptx-posters` skill, and a missing `poster-presentation` skill.
+- **All 25 skills registered in the plugin marketplace** — `generate-image`, `infographics`, `market-research-reports`, `parallel-web`, `poster-presentation`, and `pptx-posters` were previously missing from `.claude-plugin/marketplace.json`, so plugin users never received them; the marketplace version now tracks the package version.
+- **Timestamp and CLI fixes** — replaced deprecated `datetime.utcnow()` with timezone-aware timestamps (and fixed a local timestamp mislabeled with a UTC "Z" suffix), replaced a blocking `time.sleep` in the async CLI loop with `asyncio.sleep`, implemented real citation-style detection (`\bibliographystyle`/biblatex), and removed stale Perplexity references from the CLI banner and help.
+
+### 🚀 Improved
+
+- **Effort levels** — `low`/`medium`/`high` now resolve through a single shared model map (`low` = Claude Haiku 4.5; `medium` and `high` = Claude Opus 4.8), and the CLI gained an `--effort` flag; a regression test guarantees no tier selects a Fable model.
+- **CI and tooling** — new GitHub Actions pipeline (ruff, mypy, pytest, mirror-sync check, repository consistency checks, and a wheel build that asserts the bundled `.claude` payload ships), a 23-test suite, `scripts/check_consistency.py`, hardened release scripts (version bumps auto-commit; git tags are created only after a successful PyPI upload; existing tags fail loudly), anchored `.gitignore` patterns, and a `py.typed` marker.
+- **Documentation accuracy** — research-backend docs now match the code (`PARALLEL_API_KEY` for research lookup and web search; `OPENROUTER_API_KEY` is optional and only for AI image generation), the plugin init command is corrected to `/claude-scientific-writer:scientific-writer-init` everywhere, the API reference documents the real `generate_paper` signature (`effort_level`, `auto_continue`, `model=None` resolution), stale versions/skill counts/anchors are fixed, and `CONTRIBUTING.md` plus `docs/SKILL_AUTHORING.md` are new.
+
+---
+
 ## [2.15.1] - 2026-06-15
 
 ### 🚀 Improved

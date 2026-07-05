@@ -1161,5 +1161,50 @@ class GateAndCouncilReportingTests(unittest.TestCase):
         self.assertEqual(names.get("unit_tests"), "passed")
 
 
+class StaticAnalysisMarkerTests(unittest.TestCase):
+    """The static-analysis marker writes `"pass": <bool>`. The collector must
+    read that real outcome -- a FAILING marker ({"pass":false,"findings":11})
+    must surface as a failed gate, NEVER collapse to not_run (which understated
+    a real gate failure as "did not run" -- the founder-visible "gaps" bug).
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="loki-proof-gen-sa-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _gates(self, marker):
+        loki_dir = os.path.join(self.tmp, "p", ".loki")
+        out_dir = os.path.join(self.tmp, "out")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        os.makedirs(out_dir)
+        # No state/quality-gates.json aggregate -> exercise the marker fallback.
+        with open(os.path.join(loki_dir, "quality", "static-analysis.json"), "w") as f:
+            json.dump(marker, f)
+        d = _run_generator(loki_dir, out_dir)
+        return {g["name"]: g["status"] for g in d["quality_gates"]["gates"]}
+
+    def test_failing_marker_reads_failed_not_not_run(self):
+        # The exact real-build shape: findings present, pass=false. Before the
+        # fix the reader looked only for "passed"/"status" and defaulted to
+        # not_run, hiding a real failure.
+        names = self._gates({"files_checked": 13, "findings": 11,
+                              "summary": "Syntax error: ...", "pass": False})
+        self.assertEqual(names.get("static_analysis"), "failed",
+                         "a failing static-analysis marker must read failed, not not_run")
+
+    def test_passing_marker_reads_passed(self):
+        names = self._gates({"files_checked": 5, "findings": 0,
+                             "summary": "", "pass": True})
+        self.assertEqual(names.get("static_analysis"), "passed")
+
+    def test_absent_outcome_key_stays_not_run(self):
+        # Honest floor: a marker with NO recognizable outcome key must NOT be
+        # fabricated as passed -- it stays not_run.
+        names = self._gates({"files_checked": 0, "summary": "unknown"})
+        self.assertEqual(names.get("static_analysis"), "not_run")
+
+
 if __name__ == "__main__":
     unittest.main()

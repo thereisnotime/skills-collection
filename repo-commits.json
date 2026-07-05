@@ -939,6 +939,18 @@
   ],
   "K-Dense-AI--claude-scientific-skills": [
     {
+      "sha": "26fd7a8",
+      "message": "Update optimize-for-gpu and paper-lookup skills",
+      "date": "2026-07-04",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "afa84b4",
+      "message": "Update research-lookup and statistical-analysis skills",
+      "date": "2026-07-04",
+      "author": "Timothy Kassis"
+    },
+    {
       "sha": "1e024ea",
       "message": "Enhance database lookup skill documentation and API interaction. Updated descriptions for clarity, improved retrieval co",
       "date": "2026-07-01",
@@ -985,79 +997,67 @@
       "message": "Update Ginkgo Cloud Lab skill",
       "date": "2026-06-23",
       "author": "Timothy Kassis"
-    },
-    {
-      "sha": "ddd2f7f",
-      "message": "chore: update security scan report [skip ci]",
-      "date": "2026-06-22",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "2093901",
-      "message": "Enhance database lookup skill with deterministic querying and provenance features. Updated documentation to reflect impr",
-      "date": "2026-06-15",
-      "author": "Timothy Kassis"
     }
   ],
   "K-Dense-AI--claude-scientific-writer": [
     {
+      "sha": "44414bd",
+      "message": "chore: bump version to 2.16.0; add Trusted Publishing release workflow",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "cba6347",
+      "message": "fix: pass PyPI token via environment, not command line",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "ab7b0bc",
+      "message": "docs: add CHANGELOG entry for v2.16.0",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "a8e7141",
+      "message": "fix: keep high effort on Opus 4.8 \u2014 no tier selects Fable",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "2eb880a",
+      "message": "chore: lint whitespace cleanup in example_api_usage.py",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "5fa3d60",
+      "message": "docs: correct stale backend/version/command claims across all docs",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "8f16b9f",
+      "message": "feat: add CI, consistency checks, and hardened release tooling",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "194cb91",
+      "message": "fix: package correctness fixes with a real test suite",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "ec3afa9",
+      "message": "fix: make skills/ the single source of truth and resync stale mirrors",
+      "date": "2026-07-05",
+      "author": "Timothy Kassis"
+    },
+    {
       "sha": "2d323a1",
       "message": "CI: remove codespell GitHub Actions workflow",
       "date": "2026-06-15",
-      "author": "vin-bio"
-    },
-    {
-      "sha": "e5e5f1a",
-      "message": "Docs: update outdated /scientific-writer:init command references in README",
-      "date": "2026-06-15",
-      "author": "vin-bio"
-    },
-    {
-      "sha": "14f13bb",
-      "message": "Docs: remove SkillKit third-party product endorsement from README",
-      "date": "2026-06-15",
-      "author": "vin-bio"
-    },
-    {
-      "sha": "d8bdf66",
-      "message": "Merge branch 'feat/pptx-poster-and-gemini-docs'",
-      "date": "2026-06-15",
-      "author": "vin-bio"
-    },
-    {
-      "sha": "e59c666",
-      "message": "feat: Add docx-editor-zotero extension for Word document editing with Zotero preservation (#22)",
-      "date": "2026-06-15",
-      "author": "Guillaume-DAVY"
-    },
-    {
-      "sha": "ebd1068",
-      "message": "Add codespell support with configuration and fixes (#20)",
-      "date": "2026-06-15",
-      "author": "Yaroslav Halchenko"
-    },
-    {
-      "sha": "1e05e43",
-      "message": "Bump version to 2.15.1 and update CHANGELOG",
-      "date": "2026-06-15",
-      "author": "vin-bio"
-    },
-    {
-      "sha": "6287202",
-      "message": "feat: make Claude Opus 4.8 the default model across CLI, API, and documentation",
-      "date": "2026-06-15",
-      "author": "vin-bio"
-    },
-    {
-      "sha": "dd271f4",
-      "message": "chore: release v2.15.0",
-      "date": "2026-06-10",
-      "author": "vin-bio"
-    },
-    {
-      "sha": "93dff38",
-      "message": "feat: enhance citation management and verification processes",
-      "date": "2026-06-10",
       "author": "vin-bio"
     }
   ],
@@ -2253,6 +2253,12 @@
   ],
   "expo--skills": [
     {
+      "sha": "e7e81d2",
+      "message": "Document user-defined events in the expo-observe skill (#100)",
+      "date": "2026-07-04",
+      "author": "Douglas Lowder"
+    },
+    {
       "sha": "1f99511",
       "message": "Add eas-simulator skill (#88)",
       "date": "2026-07-02",
@@ -2304,12 +2310,6 @@
       "sha": "b553ae4",
       "message": "Add expo-examples skill (#84)",
       "date": "2026-06-18",
-      "author": "Adam Zvada"
-    },
-    {
-      "sha": "b76270a",
-      "message": "Center README intro (#82)",
-      "date": "2026-06-15",
       "author": "Adam Zvada"
     }
   ],
@@ -2839,6 +2839,18 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "94cb42b",
+      "message": "docs(neon-ai-gateway): drop Mastra mention from dialect section",
+      "date": "2026-07-04",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "eec2e08",
+      "message": "docs: Mastra 1.47 neon/* magic string model in skill examples",
+      "date": "2026-07-04",
+      "author": "Andre Landgraf"
+    },
+    {
       "sha": "8703a12",
       "message": "neon-postgres skill: reference @neon/sdk (successor to @neondatabase/api-client)",
       "date": "2026-07-02",
@@ -2884,18 +2896,6 @@
       "sha": "9f4c830",
       "message": "Merge pull request #40 from mezotv/feat/readme-skills-sh-badges",
       "date": "2026-06-25",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "b3ae55e",
-      "message": "Merge pull request #41 from mezotv/feat/readme-platform-skills",
-      "date": "2026-06-25",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "c1d6871",
-      "message": "neon-functions: drop the heartbeat clearInterval SIGINT handler",
-      "date": "2026-06-24",
       "author": "Andre Landgraf"
     }
   ],
@@ -4527,6 +4527,42 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
+      "sha": "92efb15",
+      "message": "docs: refresh current-state docs to v7.121.5 (accurate providers/versions/paths)",
+      "date": "2026-07-05",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "73fb31e",
+      "message": "release: v7.121.5 - hide non-public scratch from the CLI repo",
+      "date": "2026-07-05",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "d7d6967",
+      "message": "chore(gitignore): hide non-public scratch (.codex, generated docs, roadmaps, e2e artifacts)",
+      "date": "2026-07-05",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "805f945",
+      "message": "fix(static-analysis): stop false-gapping React/JSX apps (v7.121.4)",
+      "date": "2026-07-04",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "f2140cf",
+      "message": "feat(receipt): record app healthcheck fact (descriptive, verdict inert)",
+      "date": "2026-07-04",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "d5c3e90",
+      "message": "feat(fv2): opt-in functional gate -- a failed FV check makes a build NOT VERIFIED",
+      "date": "2026-07-04",
+      "author": "asklokesh"
+    },
+    {
       "sha": "74da42a",
       "message": "feat(fv2): record the functional signal on the receipt (descriptive, verdict UNCHANGED)",
       "date": "2026-07-04",
@@ -4548,42 +4584,6 @@
       "sha": "e4f9f5a",
       "message": "feat(m2): real-backend-as-floor scaffold -- a persistent Express+SQLite backend, FV-verified",
       "date": "2026-07-04",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "cc46fcf",
-      "message": "docs(m2): record the template-substitution architecture decision for the backend scaffold",
-      "date": "2026-07-04",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "da90a81",
-      "message": "feat(m1): contract-first codegen scaffolder -- the spine that makes static shells impossible",
-      "date": "2026-07-04",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "1faeb58",
-      "message": "feat(fv): FV-1 functional-verification harness -- does the built app DO what the spec asked?",
-      "date": "2026-07-04",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "5130bd5",
-      "message": "release(v7.121.3): app-runner serves static sites for live preview + health check",
-      "date": "2026-07-04",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "0dd0ad1",
-      "message": "fix(app-runner): serve static sites (index.html) so landing pages get a live preview + health check",
-      "date": "2026-07-04",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "b9b525a",
-      "message": "docs(v7.121.2): refresh user-facing markdown to v7.121.x, collapse advanced sections",
-      "date": "2026-07-03",
       "author": "asklokesh"
     }
   ],
@@ -5203,6 +5203,18 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "3022dd3",
+      "message": "chore(reviewers): sources.yaml-is-a-pointer rule + note to automated reviewers (review to our specs, not web searches) (",
+      "date": "2026-07-04",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "8b6e8e5",
+      "message": "docs(doc-filing): sync filing standard to canonical v4.4 (#961)",
+      "date": "2026-07-04",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "2cafb23",
       "message": "feat(coreweave-pack): add coreweave-fabric-diagnostics (v2 heavy-hitter) [skip auto-bump] (#959)",
       "date": "2026-07-03",
@@ -5247,18 +5259,6 @@
     {
       "sha": "7e81f28",
       "message": "docs(security-pro-pack): lock the v2 namespace and skill taxonomy (Option C) (#953)",
-      "date": "2026-07-02",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "fe04885",
-      "message": "feat(marketplace): include the docs section in unified search (#951)",
-      "date": "2026-07-02",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "bb8834b",
-      "message": "fix(openrouter-pack): clear the standing marketplace-tier gate errors (#950)",
       "date": "2026-07-02",
       "author": "intentsolutions.io"
     }
@@ -5451,6 +5451,12 @@
   ],
   "affaan-m--everything-claude-code": [
     {
+      "sha": "4130457",
+      "message": "fix(tests): use mkdtempSync for test scratch dirs (CodeQL js/insecure-temporary-file) (#2443)",
+      "date": "2026-07-04",
+      "author": "Affaan Mustafa"
+    },
+    {
       "sha": "49128b5",
       "message": "feat(install): add Kimi Code CLI install target (kimi-project adapter) (#2441)",
       "date": "2026-07-04",
@@ -5503,12 +5509,6 @@
       "message": "fix(install): rewrite relative skill links for injected ecc namespace (#2399)",
       "date": "2026-07-04",
       "author": "Gaurav Dubey"
-    },
-    {
-      "sha": "90f82d3",
-      "message": "fix(observer): replace hardcoded sleep 2 with PID file poll in start-observer.sh (#2356)",
-      "date": "2026-07-04",
-      "author": "Jun"
     }
   ],
   "glebis--claude-skills": [
@@ -5575,63 +5575,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "df04946",
-      "message": "chore(subagents-badge): update Last Updated badge to Jul 04, 2026 v2.1.201",
-      "date": "2026-07-04",
+      "sha": "e028b6b",
+      "message": "chore(docs): update Last Updated badge to Jul 05, 2026 (v2.1.201)",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "deec8cb",
-      "message": "chore(subagents-changelog): append 2026-07-04 no-drift entry for v2.1.201",
-      "date": "2026-07-04",
+      "sha": "dda8708",
+      "message": "chore(changelog): append 2026-07-05 subagents drift check entry (v2.1.201, no drift)",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "3a986d9",
-      "message": "changelog(claude-commands): append 2026-07-04 no-drift entry (v2.1.201)",
-      "date": "2026-07-04",
+      "sha": "05fccb8",
+      "message": "chore(commands-badge): update Last Updated badge to Jul 05, 2026 \u2014 v2.1.201 unchanged",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "81e29be",
-      "message": "docs(claude-commands): bump Last Updated badge to Jul 04, 2026 and version to v2.1.201",
-      "date": "2026-07-04",
+      "sha": "d3a6980",
+      "message": "chore(commands-changelog): append 2026-07-05 no-drift entry for v2.1.201",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "c985240",
-      "message": "docs(claude-skills): update badge to v2.1.201, fix dataviz introduced version",
-      "date": "2026-07-04",
+      "sha": "153aafb",
+      "message": "chore(skills-changelog): append 2026-07-05 no-drift entry for v2.1.201",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "105d01e",
-      "message": "changelog(claude-skills): append 2026-07-04 entry \u2014 dataviz version correction (v2.1.201)",
-      "date": "2026-07-04",
+      "sha": "ddc1eae",
+      "message": "chore(skills-badge): update Last Updated badge to Jul 05, 2026 10:03 AM PKT",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "6d443c9",
-      "message": "chore(readme): bump Last Updated badge to Jul 04 2026, remove Chrome beta badge",
-      "date": "2026-07-04",
+      "sha": "7a20838",
+      "message": "chore(badge): update Last Updated badge to Jul 05, 2026 \u2014 v2.1.201",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "f0051c0",
-      "message": "chore(changelog): append concepts drift entries Jun 30 \u2013 Jul 04, 2026",
-      "date": "2026-07-04",
+      "sha": "c418f85",
+      "message": "chore(concepts-changelog): append 2026-07-05 drift-check entry \u2014 no drift, v2.1.201",
+      "date": "2026-07-05",
       "author": "Claude"
     },
     {
-      "sha": "b9a713b",
-      "message": "chore(changelog): log development workflows run \u2014 Jul 04 2026 9:26 AM PKT",
-      "date": "2026-07-04",
+      "sha": "d158ac3",
+      "message": "chore: append development workflows changelog entry \u2014 Jul 5, 2026",
+      "date": "2026-07-05",
       "author": "Claude Routine"
     },
     {
-      "sha": "7958375",
-      "message": "chore(readme): refresh development workflows table \u2014 Jul 04 2026 9:26 AM PKT",
-      "date": "2026-07-04",
+      "sha": "b09c245",
+      "message": "chore: update development workflows table \u2014 Jul 5, 2026",
+      "date": "2026-07-05",
       "author": "Claude Routine"
     }
   ],
@@ -5699,6 +5699,54 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "4f093be",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-05",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "c9a444b",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-05",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "69233ea",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-05",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "3c1bb5e",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-04",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "bd31c50",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-04",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "c87da50",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-04",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "c320f6c",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-04",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "5480238",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-07-04",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "ce716dd",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-07-04",
@@ -5708,54 +5756,6 @@
       "sha": "9cb4c56",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-07-04",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "e2d99ee",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-04",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "0b9037d",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "3376421",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "4e41f30",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "462d955",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "92a0907",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "0fc921d",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "5a92ba7",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-07-03",
       "author": "github-actions[bot]"
     }
   ],

@@ -1,0 +1,68 @@
+name: Release
+
+# Publishes to PyPI via Trusted Publishing (OIDC) — no long-lived token anywhere.
+# One-time setup on pypi.org: project "scientific-writer" → Settings → Publishing →
+# add GitHub publisher (owner K-Dense-AI, repo claude-scientific-writer,
+# workflow release.yml, environment pypi).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Tag matches package version
+        if: github.ref_type == 'tag'
+        run: |
+          python - <<'EOF'
+          import os, re, sys
+          text = open("pyproject.toml").read()
+          version = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M).group(1)
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          if tag != version:
+              sys.exit(f"tag v{tag} does not match pyproject version {version}")
+          print(f"tag matches version {version}")
+          EOF
+      - name: Lint
+        run: uv run ruff check .
+      - name: Tests
+        run: uv run pytest tests/ -q
+      - name: Skill mirrors in sync
+        run: python scripts/sync_skills.py --check
+      - name: Repository consistency
+        run: python scripts/check_consistency.py
+
+  publish:
+    name: Publish to PyPI
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: uv build
+      - name: Wheel ships the .claude payload
+        run: |
+          python - <<'EOF'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "scripts")
+          from publish import verify_wheel_payload
+          verify_wheel_payload(Path("dist"))
+          EOF
+      - name: Publish (trusted publishing)
+        run: uv publish --trusted-publishing always

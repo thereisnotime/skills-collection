@@ -8511,6 +8511,30 @@ enforce_build_check() {
     return 0
 }
 
+# True when the workspace's package.json declares a non-empty `lint` script, so
+# the static-analysis gate can run the app's OWN linter (oxlint/eslint/biome/...)
+# via `npm run lint` rather than only recognizing eslint config files. Pure read
+# of package.json; returns non-zero on absence / no lint script / unreadable.
+has_npm_lint_script() {
+    local dir="${1:-.}"
+    local pkg="$dir/package.json"
+    [ -f "$pkg" ] || return 1
+    # Parse with python3 (already a hard dep of the engine) so a `"lint":` inside
+    # a string value or comment cannot yield a false positive; require a real,
+    # non-empty scripts.lint entry.
+    python3 - "$pkg" <<'PYEOF' 2>/dev/null
+import json, sys
+try:
+    with open(sys.argv[1]) as fh:
+        data = json.load(fh)
+except Exception:
+    sys.exit(1)
+scripts = data.get("scripts") or {}
+lint = scripts.get("lint")
+sys.exit(0 if isinstance(lint, str) and lint.strip() else 1)
+PYEOF
+}
+
 enforce_static_analysis() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local quality_dir="$loki_dir/quality"
@@ -8539,6 +8563,31 @@ enforce_static_analysis() {
         done
         if [ -n "$abs_files" ]; then
             total_checked=$((total_checked + $(echo "$abs_files" | wc -w)))
+            # v7.x (static-analysis honest coverage): ADDITIVELY run the app's OWN
+            # declared `lint` script when present. Generated apps increasingly use
+            # oxlint / biome (not eslint) -- e.g. package.json `"lint": "oxlint"`
+            # with a `.oxlintrc.json` -- which the eslint-config probe below does
+            # not recognize, so the app's real lint check was skipped. Running
+            # `npm run lint` respects whatever linter the app declares. This is
+            # ADDITIVE (not a replacement): we STILL run the eslint/tsc type checks
+            # below, so a lint pass never silences the type-error check for TS apps
+            # (oxlint is not type-aware). rc 127 = the declared linter is not
+            # installed/resolvable -> HONEST skip, never counted as a violation
+            # (rc-only signal; a real lint failure whose OUTPUT mentions "not
+            # found" must still count, so we do NOT grep the message).
+            if has_npm_lint_script "${TARGET_DIR:-.}"; then
+                local lint_out lint_rc=0
+                lint_out=$(cd "${TARGET_DIR:-.}" && npm run --silent lint 2>&1) || lint_rc=$?
+                if [ "$lint_rc" -eq 127 ]; then
+                    log_info "Static analysis: app 'lint' script did not resolve a linter (not run, honest skip)"
+                elif [ "$lint_rc" -ne 0 ]; then
+                    findings=$((findings + 1))
+                    details="${details}Lint (npm run lint): $(echo "$lint_out" | tail -3 | tr '\n' ' '). "
+                fi
+            fi
+            # Type/syntax check path (unchanged contract): eslint when configured,
+            # else tsc project-mode + per-file parse. Runs REGARDLESS of the lint
+            # step above so TS type errors are always caught.
             if [ -f "${TARGET_DIR:-.}/.eslintrc.js" ] || [ -f "${TARGET_DIR:-.}/.eslintrc.json" ] || \
                [ -f "${TARGET_DIR:-.}/eslint.config.js" ] || [ -f "${TARGET_DIR:-.}/eslint.config.mjs" ]; then
                 local eslint_out
@@ -8559,7 +8608,7 @@ enforce_static_analysis() {
                 if [ -f "${TARGET_DIR:-.}/tsconfig.json" ] && command -v tsc &>/dev/null; then
                     local _has_ts=0
                     for f in $abs_files; do
-                        case "$f" in *.ts|*.tsx) _has_ts=1; break ;; esac
+                        case "$f" in *.ts|*.tsx|*.jsx) _has_ts=1; break ;; esac
                     done
                     if [ "$_has_ts" -eq 1 ]; then
                         _ts_project_mode=1
@@ -8569,7 +8618,7 @@ enforce_static_analysis() {
                             local _changed_ts_errors=""
                             for f in $js_files; do
                                 case "$f" in
-                                    *.ts|*.tsx)
+                                    *.ts|*.tsx|*.jsx)
                                         # tsc emits paths relative to project root with `(line,col):` suffix.
                                         # v7.5.12 Dev11 (R1 MED): use grep -F (literal) so filenames
                                         # containing regex metacharacters cannot cause false positives
@@ -8591,11 +8640,16 @@ enforce_static_analysis() {
                     fi
                 fi
                 for f in $abs_files; do
-                    # node --check cannot parse TypeScript / TSX files; it
-                    # crashes with ERR_UNKNOWN_FILE_EXTENSION. Skip them when
-                    # tsc is not available; otherwise delegate to tsc.
+                    # node --check cannot parse TypeScript / TSX / JSX files; it
+                    # crashes with ERR_UNKNOWN_FILE_EXTENSION (JSX) or a parse error
+                    # (TS syntax). Route .ts/.tsx AND .jsx to the JSX-capable tsc
+                    # path; only plain .js/.mjs/.cjs go through node --check. Before
+                    # the .jsx addition here, every valid .jsx file was falsely
+                    # reported as a "Syntax error" (node --check ERR_UNKNOWN_FILE_
+                    # EXTENSION) -- a whole class of false static-analysis findings
+                    # on React apps.
                     case "$f" in
-                        *.ts|*.tsx)
+                        *.ts|*.tsx|*.jsx)
                             # When tsconfig project-mode handled it above, skip
                             # the per-file fallback to avoid duplicate / false errors.
                             if [ "$_ts_project_mode" -eq 1 ]; then

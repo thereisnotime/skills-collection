@@ -287,9 +287,22 @@ def _collect_quality_gates(loki_dir):
             elif os.path.exists(result_json):
                 rj = _read_json(result_json, default=None)
                 if isinstance(rj, dict):
-                    status = _norm_gate_status(
-                        rj.get("passed", rj.get("status", "not_run"))
-                    )
+                    # Read the marker's outcome key. enforce_static_analysis writes
+                    # `"pass"` (a bool); other markers may write `"passed"` or
+                    # `"status"`. Try all three so a real result is NEVER misread as
+                    # not_run: a failing static-analysis marker ({"pass":false,
+                    # "findings":11}) was collapsing to not_run (the reader looked
+                    # only for "passed"/"status"), understating a real gate FAILURE
+                    # as "did not run" -- the receipt read "gaps" where it should
+                    # read a failed gate. _norm_gate_status maps a bool correctly
+                    # (True->passed, False->failed). A key that is genuinely absent
+                    # still defaults to not_run (honest -- never fabricated passed).
+                    if "pass" in rj:
+                        status = _norm_gate_status(rj.get("pass"))
+                    else:
+                        status = _norm_gate_status(
+                            rj.get("passed", rj.get("status", "not_run"))
+                        )
             if status is not None:
                 gates.append({"name": gate_name, "status": status})
                 seen.add(gate_name)
@@ -460,6 +473,32 @@ def _collect_functional(loki_dir):
         v = summary.get(k)
         if isinstance(v, int):
             out[k] = v
+    return out
+
+
+def _collect_healthcheck(loki_dir):
+    """Read .loki/app-runner/health.json (the app-runner liveness probe).
+
+    Deterministic FACT: did the built app actually come up and respond (HTTP/PID
+    health), as written by app-runner. Absent -> not_run. Shape:
+    {ran, ok, status, checked_at}. status: not_run (never checked) | healthy
+    (ran, ok:true) | unhealthy (ran, ok:false).
+
+    DESCRIPTIVE ONLY (Evidence Receipt record half): recorded for transparency,
+    NOT read by _compute_headline / _compute_degraded, so it does not change what
+    "Verified" means. Gating on it is the founder-gated trust decision (mirrors the
+    FV-2 opt-in gate). ponytail: reuses the health.json app-runner already writes.
+    """
+    out = {"ran": False, "ok": False, "status": "not_run", "checked_at": ""}
+    raw = _read_json(
+        os.path.join(loki_dir, "app-runner", "health.json"), default=None
+    )
+    if not isinstance(raw, dict):
+        return out
+    out["ran"] = True
+    out["ok"] = bool(raw.get("ok"))
+    out["checked_at"] = str(raw.get("checked_at") or "")
+    out["status"] = "healthy" if out["ok"] else "unhealthy"
     return out
 
 
@@ -796,6 +835,7 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     tests = _collect_tests(loki_dir)
     security = _collect_security(loki_dir)
     functional = _collect_functional(loki_dir)  # FV-2 record-half: descriptive only
+    healthcheck = _collect_healthcheck(loki_dir)  # Evidence Receipt record-half
     evidence_gate = _collect_evidence_gate(loki_dir)
 
     deployed_url = os.environ.get("LOKI_DEPLOYED_URL") or None
@@ -838,6 +878,9 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
         # _compute_degraded, so it does not (yet) change the verdict. Wiring it into
         # the green headline is the founder-gated trust-semantics decision.
         "functional": functional,
+        # Evidence Receipt (record half): did the built app come up + respond?
+        # Descriptive; NOT read by _compute_headline (gating is founder-gated).
+        "healthcheck": healthcheck,
         "cost": cost,
         "meta": {
             "run_id": run_id,
@@ -1002,12 +1045,25 @@ def _compute_headline(facts, degraded):
     # intent). This keeps the receipt honest about security, not just tests.
     sec = facts.get("security") or {}
     sec_high = bool(sec.get("ran") and (sec.get("high_active") or 0) > 0)
+    # FV-2 gate (opt-in via LOKI_FV_GATE=1, default OFF -> headline unchanged). When
+    # enabled, a functional check that RAN and FAILED (the built app does not do what
+    # the spec asked -- a static shell for a backend spec) is a hard failure, same
+    # class as a failed test. Default-off keeps every existing build's verdict
+    # byte-identical; the founder flips it on after reviewing the reclassification.
+    # ponytail: reads the already-recorded functional fact; no new plumbing.
+    fn = facts.get("functional") or {}
+    fn_failed = bool(
+        os.environ.get("LOKI_FV_GATE") == "1"
+        and fn.get("ran")
+        and fn.get("functional_status") == "failed"
+    )
     any_failed = (
         tests.get("status") == "failed"
         or build.get("status") == "failed"
         or any(g.get("status") == "failed"
                for g in (facts.get("quality_gates") or []))
         or sec_high
+        or fn_failed
     )
     if any_failed:
         return "NOT VERIFIED"
