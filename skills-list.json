@@ -135,7 +135,7 @@
       "path": "samber--cc-skills-golang/skills/golang-uber-dig/SKILL.md",
       "remote_path": "skills/golang-uber-dig/SKILL.md",
       "lines": 226,
-      "words": 1364,
+      "words": 1400,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -149,7 +149,7 @@
       "path": "samber--cc-skills-golang/skills/golang-samber-mo/SKILL.md",
       "remote_path": "skills/golang-samber-mo/SKILL.md",
       "lines": 276,
-      "words": 1418,
+      "words": 1454,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -163,7 +163,7 @@
       "path": "samber--cc-skills-golang/skills/golang-uber-fx/SKILL.md",
       "remote_path": "skills/golang-uber-fx/SKILL.md",
       "lines": 232,
-      "words": 1398,
+      "words": 1434,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -204,7 +204,7 @@
       "path": "samber--cc-skills-golang/skills/golang-samber-lo/SKILL.md",
       "remote_path": "skills/golang-samber-lo/SKILL.md",
       "lines": 184,
-      "words": 1353,
+      "words": 1389,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -218,7 +218,7 @@
       "path": "samber--cc-skills-golang/skills/golang-stretchr-testify/SKILL.md",
       "remote_path": "skills/golang-stretchr-testify/SKILL.md",
       "lines": 196,
-      "words": 765,
+      "words": 801,
       "code_blocks": 5,
       "languages": [
         "go"
@@ -231,7 +231,7 @@
       "path": "samber--cc-skills-golang/skills/golang-spf13-cobra/SKILL.md",
       "remote_path": "skills/golang-spf13-cobra/SKILL.md",
       "lines": 171,
-      "words": 1289,
+      "words": 1325,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -245,7 +245,7 @@
       "path": "samber--cc-skills-golang/skills/golang-samber-hot/SKILL.md",
       "remote_path": "skills/golang-samber-hot/SKILL.md",
       "lines": 136,
-      "words": 995,
+      "words": 1031,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -259,7 +259,7 @@
       "path": "samber--cc-skills-golang/skills/golang-data-structures/SKILL.md",
       "remote_path": "skills/golang-data-structures/SKILL.md",
       "lines": 185,
-      "words": 1362,
+      "words": 1400,
       "code_blocks": 4,
       "languages": [
         "go"
@@ -298,7 +298,7 @@
       "path": "samber--cc-skills-golang/skills/golang-swagger/SKILL.md",
       "remote_path": "skills/golang-swagger/SKILL.md",
       "lines": 229,
-      "words": 1135,
+      "words": 1171,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -311,8 +311,8 @@
       "description": "\"Security best practices and vulnerability prevention for Golang. Covers injection (SQL, command, XSS), cryptography, filesystem safety, network security, cookies, secrets management, memory safety, a",
       "path": "samber--cc-skills-golang/skills/golang-security/SKILL.md",
       "remote_path": "skills/golang-security/SKILL.md",
-      "lines": 188,
-      "words": 1788,
+      "lines": 190,
+      "words": 1865,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -324,8 +324,8 @@
       "description": "\"Golang skills orchestrator \u2014 always active on any Golang coding, review, debug, or setup task. Reads the task context and loads the most relevant skills from samber/cc-skills-golang, often multiple a",
       "path": "samber--cc-skills-golang/skills/golang-how-to/SKILL.md",
       "remote_path": "skills/golang-how-to/SKILL.md",
-      "lines": 111,
-      "words": 970,
+      "lines": 162,
+      "words": 2062,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -348,8 +348,8 @@
       "description": "\"Troubleshoot Golang programs systematically - find and fix the root cause. Use when encountering bugs, crashes, deadlocks, or unexpected behavior in Go code. Covers debugging methodology, common Go p",
       "path": "samber--cc-skills-golang/skills/golang-troubleshooting/SKILL.md",
       "remote_path": "skills/golang-troubleshooting/SKILL.md",
-      "lines": 193,
-      "words": 1606,
+      "lines": 195,
+      "words": 1644,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -360,7 +360,7 @@
       "path": "samber--cc-skills-golang/skills/golang-samber-ro/SKILL.md",
       "remote_path": "skills/golang-samber-ro/SKILL.md",
       "lines": 182,
-      "words": 1560,
+      "words": 1596,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -387,7 +387,7 @@
       "path": "samber--cc-skills-golang/skills/golang-samber-slog/SKILL.md",
       "remote_path": "skills/golang-samber-slog/SKILL.md",
       "lines": 229,
-      "words": 1352,
+      "words": 1388,
       "code_blocks": 5,
       "languages": [
         "go"
@@ -399,8 +399,8 @@
       "description": "\"Comprehensive documentation guide for Golang projects, covering godoc comments, README, CONTRIBUTING, CHANGELOG, Go Playground, Example tests, API docs, and llms.txt. Use when writing or reviewing do",
       "path": "samber--cc-skills-golang/skills/golang-documentation/SKILL.md",
       "remote_path": "skills/golang-documentation/SKILL.md",
-      "lines": 237,
-      "words": 1708,
+      "lines": 239,
+      "words": 1748,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -414,8 +414,8 @@
       "description": "\"Golang everyday observability \u2014 the always-on signals in production. Covers structured logging with slog, Prometheus metrics, OpenTelemetry distributed tracing, continuous profiling with pprof/Pyrosc",
       "path": "samber--cc-skills-golang/skills/golang-observability/SKILL.md",
       "remote_path": "skills/golang-observability/SKILL.md",
-      "lines": 193,
-      "words": 1707,
+      "lines": 195,
+      "words": 1738,
       "code_blocks": 7,
       "languages": [
         "go"
@@ -427,8 +427,8 @@
       "description": "\"Golang concurrency patterns. Use when writing or reviewing concurrent Go code involving goroutines, channels, select, locks, sync primitives, errgroup, singleflight, worker pools, or fan-out/fan-in p",
       "path": "samber--cc-skills-golang/skills/golang-concurrency/SKILL.md",
       "remote_path": "skills/golang-concurrency/SKILL.md",
-      "lines": 153,
-      "words": 1241,
+      "lines": 155,
+      "words": 1272,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -440,8 +440,8 @@
       "description": "\"Modernize Golang code to use recent language features, standard library improvements, and idiomatic patterns. Trigger proactively when writing or reviewing Go code and old-style patterns are detected",
       "path": "samber--cc-skills-golang/skills/golang-modernize/SKILL.md",
       "remote_path": "skills/golang-modernize/SKILL.md",
-      "lines": 153,
-      "words": 1337,
+      "lines": 155,
+      "words": 1447,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -452,7 +452,7 @@
       "path": "samber--cc-skills-golang/skills/golang-samber-do/SKILL.md",
       "remote_path": "skills/golang-samber-do/SKILL.md",
       "lines": 223,
-      "words": 867,
+      "words": 903,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -492,7 +492,7 @@
       "path": "samber--cc-skills-golang/skills/golang-popular-libraries/SKILL.md",
       "remote_path": "skills/golang-popular-libraries/SKILL.md",
       "lines": 71,
-      "words": 505,
+      "words": 573,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -503,7 +503,7 @@
       "path": "samber--cc-skills-golang/skills/golang-graphql/SKILL.md",
       "remote_path": "skills/golang-graphql/SKILL.md",
       "lines": 277,
-      "words": 1591,
+      "words": 1627,
       "code_blocks": 8,
       "languages": [
         "go",
@@ -516,8 +516,8 @@
       "description": "\"Golang performance optimization patterns and methodology - if X bottleneck, then apply Y. Covers allocation reduction, CPU efficiency, memory layout, GC tuning, pooling, caching, and hot-path optimiz",
       "path": "samber--cc-skills-golang/skills/golang-performance/SKILL.md",
       "remote_path": "skills/golang-performance/SKILL.md",
-      "lines": 116,
-      "words": 1108,
+      "lines": 120,
+      "words": 1204,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -527,8 +527,8 @@
       "description": "\"Golang package and module documentation and exploration via `godig`, a pkg.go.dev API client (CLI + MCP server) \u2014 package docs, API references, symbols, code examples, available versions, importers (",
       "path": "samber--cc-skills-golang/skills/golang-pkg-go-dev/SKILL.md",
       "remote_path": "skills/golang-pkg-go-dev/SKILL.md",
-      "lines": 196,
-      "words": 1607,
+      "lines": 200,
+      "words": 1723,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -540,8 +540,8 @@
       "description": "\"Golang benchmarking, profiling, and performance measurement. Use when writing, running, or comparing Go benchmarks, profiling hot paths with pprof, interpreting CPU/memory/trace profiles, analyzing r",
       "path": "samber--cc-skills-golang/skills/golang-benchmark/SKILL.md",
       "remote_path": "skills/golang-benchmark/SKILL.md",
-      "lines": 185,
-      "words": 1390,
+      "lines": 193,
+      "words": 1517,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -554,8 +554,8 @@
       "description": "\"Idiomatic Golang error handling \u2014 creation, wrapping with %w, errors.Is/As, errors.Join, custom error types, sentinel errors, panic/recover, the single handling rule, structured logging with slog, HT",
       "path": "samber--cc-skills-golang/skills/golang-error-handling/SKILL.md",
       "remote_path": "skills/golang-error-handling/SKILL.md",
-      "lines": 88,
-      "words": 856,
+      "lines": 90,
+      "words": 893,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -576,8 +576,8 @@
       "description": "\"Linting best practices and golangci-lint configuration for Golang projects \u2014 running linters, configuring .golangci.yml, suppressing warnings with nolint directives, interpreting lint output, and sel",
       "path": "samber--cc-skills-golang/skills/golang-lint/SKILL.md",
       "remote_path": "skills/golang-lint/SKILL.md",
-      "lines": 156,
-      "words": 909,
+      "lines": 158,
+      "words": 948,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -591,8 +591,8 @@
       "description": "\"Golang code style conventions \u2014 line length and breaking, variable declarations, control flow clarity, when comments help vs hurt. Use when writing or reviewing Go code, asking about style or clarity",
       "path": "samber--cc-skills-golang/skills/golang-code-style/SKILL.md",
       "remote_path": "skills/golang-code-style/SKILL.md",
-      "lines": 237,
-      "words": 1223,
+      "lines": 239,
+      "words": 1257,
       "code_blocks": 12,
       "languages": [
         "go"
@@ -604,8 +604,8 @@
       "description": "\"Production-ready Golang tests \u2014 table-driven tests, testify suites and mocks, parallel tests, fuzzing, fixtures, goroutine leak detection with goleak, snapshot testing, code coverage, integration tes",
       "path": "samber--cc-skills-golang/skills/golang-testing/SKILL.md",
       "remote_path": "skills/golang-testing/SKILL.md",
-      "lines": 429,
-      "words": 1722,
+      "lines": 431,
+      "words": 1758,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -618,8 +618,8 @@
       "description": "\"Comprehensive guide for dependency injection (DI) in Golang. Covers why DI matters (testability, loose coupling, separation of concerns, lifecycle management), manual constructor injection, and DI li",
       "path": "samber--cc-skills-golang/skills/golang-dependency-injection/SKILL.md",
       "remote_path": "skills/golang-dependency-injection/SKILL.md",
-      "lines": 284,
-      "words": 1666,
+      "lines": 286,
+      "words": 1700,
       "code_blocks": 8,
       "languages": [
         "go"
@@ -632,7 +632,7 @@
       "path": "samber--cc-skills-golang/skills/golang-grpc/SKILL.md",
       "remote_path": "skills/golang-grpc/SKILL.md",
       "lines": 222,
-      "words": 1215,
+      "words": 1251,
       "code_blocks": 5,
       "languages": [
         "go"
@@ -645,7 +645,7 @@
       "path": "samber--cc-skills-golang/skills/golang-google-wire/SKILL.md",
       "remote_path": "skills/golang-google-wire/SKILL.md",
       "lines": 230,
-      "words": 1382,
+      "words": 1418,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -659,7 +659,7 @@
       "path": "samber--cc-skills-golang/skills/golang-spf13-viper/SKILL.md",
       "remote_path": "skills/golang-spf13-viper/SKILL.md",
       "lines": 181,
-      "words": 1220,
+      "words": 1256,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -686,7 +686,7 @@
       "path": "samber--cc-skills-golang/skills/golang-samber-oops/SKILL.md",
       "remote_path": "skills/golang-samber-oops/SKILL.md",
       "lines": 277,
-      "words": 1182,
+      "words": 1218,
       "code_blocks": 11,
       "languages": [
         "go"
@@ -19628,10 +19628,10 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 654,
-      "words": 9815,
+      "words": 9883,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.10.0",
+      "version": "3.11.0",
       "license": "MIT"
     },
     {
@@ -20186,11 +20186,11 @@
     },
     {
       "name": "route-researcher",
-      "description": "Research North American mountain peaks and generate comprehensive route beta reports",
+      "description": "Research mountain routes and generate comprehensive route beta reports for North American peaks, aggregating weather forecasts, avalanche conditions, daylight windows, trip reports, and access info fr",
       "path": "dreamiurg--claude-mountaineering-skills/skills/route-researcher/SKILL.md",
       "remote_path": "skills/route-researcher/SKILL.md",
       "lines": 897,
-      "words": 5541,
+      "words": 5586,
       "code_blocks": 30,
       "languages": [
         "bash",
@@ -22667,11 +22667,11 @@
   "remotion-dev--skills": [
     {
       "name": "remotion-best-practices",
-      "description": "Best practices for Remotion - Video creation in React",
+      "description": "Best practices and domain knowledge for building videos programmatically with Remotion (videos in React/TypeScript, rendered to MP4). Use whenever writing or editing Remotion code \u2014 scaffolding a vide",
       "path": "remotion-dev--skills/skills/remotion/SKILL.md",
       "remote_path": "skills/remotion/SKILL.md",
       "lines": 365,
-      "words": 1361,
+      "words": 1422,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -24058,7 +24058,7 @@
   "squirrelscan--skills": [
     {
       "name": "audit-website",
-      "description": "Audit websites for SEO, performance, security, technical, content, and 17 other issue categories with 240+ rules using the squirrelscan CLI. Returns LLM-optimized reports with health scores, broken li",
+      "description": "Audit websites for SEO, performance, security, technical, content, and 16 other issue categories with 249+ rules using the squirrelscan CLI. Returns LLM-optimized reports with health scores, broken li",
       "path": "squirrelscan--skills/audit-website/SKILL.md",
       "remote_path": "audit-website/SKILL.md",
       "lines": 492,
@@ -43040,6 +43040,16 @@
       ]
     },
     {
+      "name": "cs-pm-orchestrator",
+      "description": "Flow-first delivery lead. Routes project-management inquiries (sprint/velocity, portfolio health, Jira/JQL, Confluence, Atlassian admin, templates, meetings, comms) to the right sub-skill via the pm-s",
+      "path": "alirezarezvani--claude-skills/project-management/agents/cs-pm-orchestrator.md",
+      "remote_path": "project-management/agents/cs-pm-orchestrator.md",
+      "lines": 78,
+      "words": 554,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "\"jira-expert\"",
       "description": "Atlassian Jira expert for creating and managing projects, planning, product discovery, JQL queries, workflows, custom fields, automation, reporting, and all Jira features. Use when setting up or confi",
       "path": "alirezarezvani--claude-skills/project-management/skills/jira-expert/SKILL.md",
@@ -43125,16 +43135,16 @@
     },
     {
       "name": "\"pm-skills\"",
-      "description": "\"Router/index for the 8 project-management skills bundled in this plugin (senior PM quant toolkit, scrum master, Jira/JQL, Confluence, Atlassian admin, Atlassian templates, meeting analyzer, team comm",
+      "description": "\"Use when coordinating project-delivery work across the 8 project-management sub-skills \u2014 sprint/velocity analytics, portfolio health, Jira/JQL, Confluence, Atlassian admin, templates, meeting analysi",
       "path": "alirezarezvani--claude-skills/project-management/skills/pm-skills/SKILL.md",
       "remote_path": "project-management/skills/pm-skills/SKILL.md",
-      "lines": 51,
-      "words": 324,
-      "code_blocks": 1,
+      "lines": 174,
+      "words": 1373,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "2.9.0",
+      "version": "2.11.1",
       "license": "MIT"
     },
     {
@@ -44183,16 +44193,16 @@
     },
     {
       "name": "\"product-skills\"",
-      "description": "\"Router/index for the 12 product skills bundled in this plugin (RICE prioritization, OKRs, UX research, design tokens, competitive teardown, analytics, experiments, discovery, roadmaps, spec-to-repo, ",
+      "description": "\"Use when coordinating product work across the 12 bundled product sub-skills (RICE, OKRs, UX research, design tokens, competitive teardown, analytics, experiments, discovery, roadmaps, spec-to-repo, l",
       "path": "alirezarezvani--claude-skills/.gemini/skills/product-skills/SKILL.md",
       "remote_path": ".gemini/skills/product-skills/SKILL.md",
-      "lines": 62,
-      "words": 390,
-      "code_blocks": 1,
+      "lines": 181,
+      "words": 1376,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "2.9.0",
+      "version": "2.11.1",
       "license": "MIT"
     },
     {
@@ -47204,16 +47214,16 @@
     },
     {
       "name": "\"pm-skills\"",
-      "description": "\"Router/index for the 8 project-management skills bundled in this plugin (senior PM quant toolkit, scrum master, Jira/JQL, Confluence, Atlassian admin, Atlassian templates, meeting analyzer, team comm",
+      "description": "\"Use when coordinating project-delivery work across the 8 project-management sub-skills \u2014 sprint/velocity analytics, portfolio health, Jira/JQL, Confluence, Atlassian admin, templates, meeting analysi",
       "path": "alirezarezvani--claude-skills/.gemini/skills/pm-skills/SKILL.md",
       "remote_path": ".gemini/skills/pm-skills/SKILL.md",
-      "lines": 51,
-      "words": 324,
-      "code_blocks": 1,
+      "lines": 174,
+      "words": 1373,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "2.9.0",
+      "version": "2.11.1",
       "license": "MIT"
     },
     {
@@ -50162,6 +50172,28 @@
       "languages": []
     },
     {
+      "name": "harness-runner",
+      "description": "Drives one agent-harness loop iteration to completion \u2014 reads the plan and state files, executes exactly one task with the task skill's own tools, lets the controller verify it, and reports the direct",
+      "path": "alirezarezvani--claude-skills/engineering/agent-harness/agents/harness-runner.md",
+      "remote_path": "engineering/agent-harness/agents/harness-runner.md",
+      "lines": 36,
+      "words": 359,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "agent-harness",
+      "description": "\"Turn any domain folder of skills into a bounded agentic loop: compile a goal into a verifiable task plan, execute tasks with the domain's own tools, verify every task with machine-run checks, retry w",
+      "path": "alirezarezvani--claude-skills/engineering/agent-harness/skills/agent-harness/SKILL.md",
+      "remote_path": "engineering/agent-harness/skills/agent-harness/SKILL.md",
+      "lines": 131,
+      "words": 1134,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "\"terraform-patterns\"",
       "description": "\"Terraform infrastructure-as-code agent skill and plugin for Claude Code, Codex, Gemini CLI, Cursor, OpenClaw. Covers module design patterns, state management strategies, provider configuration, secur",
       "path": "alirezarezvani--claude-skills/engineering/terraform-patterns/skills/terraform-patterns/SKILL.md",
@@ -50831,6 +50863,16 @@
       "license": "MIT"
     },
     {
+      "name": "cs-product-orchestrator",
+      "description": "Outcome-first product lead. Routes product inquiries (prioritization, OKRs, UX research, design systems, competitive, analytics, experiments, discovery, roadmaps, scaffolding, stories, HIG, code-to-PR",
+      "path": "alirezarezvani--claude-skills/product-team/agents/cs-product-orchestrator.md",
+      "remote_path": "product-team/agents/cs-product-orchestrator.md",
+      "lines": 82,
+      "words": 591,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "code-to-prd",
       "description": "\"Reverse-engineer any codebase into a complete Product Requirements Document (PRD). Analyzes routes, components, state management, API integrations, and user interactions to produce business-readable ",
       "path": "alirezarezvani--claude-skills/product-team/code-to-prd/skills/code-to-prd/SKILL.md",
@@ -50872,16 +50914,16 @@
     },
     {
       "name": "\"product-skills\"",
-      "description": "\"Router/index for the 12 product skills bundled in this plugin (RICE prioritization, OKRs, UX research, design tokens, competitive teardown, analytics, experiments, discovery, roadmaps, spec-to-repo, ",
+      "description": "\"Use when coordinating product work across the 12 bundled product sub-skills (RICE, OKRs, UX research, design tokens, competitive teardown, analytics, experiments, discovery, roadmaps, spec-to-repo, l",
       "path": "alirezarezvani--claude-skills/product-team/skills/product-skills/SKILL.md",
       "remote_path": "product-team/skills/product-skills/SKILL.md",
-      "lines": 62,
-      "words": 390,
-      "code_blocks": 1,
+      "lines": 181,
+      "words": 1376,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "2.9.0",
+      "version": "2.11.1",
       "license": "MIT"
     },
     {
@@ -120032,8 +120074,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-migrate-memory-to-doc/SKILL.md",
       "remote_path": "daymade-claude-code/claude-migrate-memory-to-doc/SKILL.md",
-      "lines": 145,
-      "words": 1811,
+      "lines": 155,
+      "words": 2218,
       "code_blocks": 2,
       "languages": []
     },
@@ -120127,14 +120169,15 @@
     },
     {
       "name": "transcript-fixer",
-      "description": "Corrects speech-to-text transcription errors using dictionary rules and AI-powered analysis. Builds personalized correction databases that learn from each fix. Triggers when working with ASR/STT outpu",
+      "description": "Corrects speech-to-text transcription errors using dictionary rules and AI-powered analysis. Builds personalized correction databases that learn from each fix, and auto-loads person-name ASR variants ",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 317,
-      "words": 3902,
-      "code_blocks": 10,
+      "lines": 363,
+      "words": 4212,
+      "code_blocks": 12,
       "languages": [
-        "bash"
+        "bash",
+        "markdown"
       ]
     },
     {
@@ -120231,6 +120274,18 @@
         "yaml"
       ],
       "license": "Complete terms in LICENSE.txt"
+    },
+    {
+      "name": "skill-governance",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
+      "remote_path": "daymade-skill/skill-governance/SKILL.md",
+      "lines": 150,
+      "words": 1159,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ]
     },
     {
       "name": "skill-reviewer",
@@ -136321,6 +136376,18 @@
       ]
     },
     {
+      "name": "elimination-research",
+      "description": "This skill should be used for elimination-style research where the user wants to choose from a shortlist of products, tools, services, vendors, or other options using explicit criteria, numeric eviden",
+      "path": "glebis--claude-skills/elimination-research/SKILL.md",
+      "remote_path": "elimination-research/SKILL.md",
+      "lines": 121,
+      "words": 864,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "health-data",
       "description": "Query Apple Health SQLite database for vitals, activity, sleep, and workouts. Supports Markdown, JSON, and FHIR R4 output formats. This skill should be used when analyzing health metrics, generating h",
       "path": "glebis--claude-skills/health-data/SKILL.md",
@@ -136597,6 +136664,16 @@
       ]
     },
     {
+      "name": "nielsen-heuristics",
+      "description": "This skill should be used to run a formal heuristic evaluation of a design artifact against Jakob Nielsen's 10 usability heuristics, producing an evidence-backed, severity-scored report. Use it when t",
+      "path": "glebis--claude-skills/nielsen-heuristics/SKILL.md",
+      "remote_path": "nielsen-heuristics/SKILL.md",
+      "lines": 81,
+      "words": 1116,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "pdf-generation",
       "description": "Professional PDF generation from markdown using Pandoc with Eisvogel template and EB Garamond fonts. Use when converting markdown to PDF, creating white papers, research documents, marketing materials",
       "path": "glebis--claude-skills/pdf-generation/SKILL.md",
@@ -136665,8 +136742,8 @@
       "description": "This skill should be used when editing, translating, or reviewing an Astro-style i18n string corpus (files of the form export default { en: {...}, ru: {...} } under src/i18n/strings), or when the user",
       "path": "glebis--claude-skills/i18n-studio/SKILL.md",
       "remote_path": "i18n-studio/SKILL.md",
-      "lines": 127,
-      "words": 1016,
+      "lines": 135,
+      "words": 1125,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -136853,6 +136930,16 @@
         "bash",
         "yaml"
       ]
+    },
+    {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
+      "languages": []
     },
     {
       "name": "meeting-prep",
