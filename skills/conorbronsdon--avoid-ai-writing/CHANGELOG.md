@@ -4,6 +4,28 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.13.0] — 2026-07-07
+
+### Added
+- **Speculative scenario openers** — the LLM habit of opening an argument with a hypothetical that lists desirable outcomes instead of making a claim: "Imagine a world where…", "Picture a future in which…", "Envision a world where…", including the comma-interrupted "Imagine, for a moment, a world where…" cadence. The scenario does the persuading; no evidence is offered. New detection category (49 → 50) and a `speculative-opener` detector `type` (44 → 45). Gated to the world/future/reality object plus where/in-which, so instructional "imagine you have a sorted array" and analytical "consider a scenario where…" stay clean. Known accepted false positive: fiction openings and staged thought experiments also match; the skill's carve-out handles that judgment, and a lone hit cannot flip a document's classification. Source: tropes.fyi ("Imagine a World Where…").
+- **"deeply" as a conditional Tier 2 word** — one of the "magic adverbs" AI uses to inflate mundane descriptions. Stricter than standard Tier 2: "deeply" only counts toward a cluster in its significance collocations ("deeply integrated," "deeply committed," "deeply rooted"), because bare "deeply" is everyday English — adversarial testing showed an unconditional entry flags clean human prose ("deeply nested JSON… crucial") and can tip an otherwise-borderline human document across a classification boundary. Literal uses never count, in any company. Source: tropes.fyi ("Quietly" and Other Magic Adverbs).
+
+### Changed
+- **"It's not X — it's Y" contrastive rule** — extended to name the **multi-negation countdown** ("It's not the price. It's not the features. It's the trust."), the same reveal move inflated across several negated options. LLM-judgment rule; no new category. Source: tropes.fyi ("Not X. Not Y. Just Z.").
+- **Novelty inflation** — extended to flag **invented concept labels**: pseudo-analytical compound terms coined mid-sentence and never defined ("the supervision paradox," "a coordination tax"). Naming a concept is not explaining it. LLM-judgment rule; no new category. Source: tropes.fyi ("Invented Concept Labels").
+- **Notability name-dropping** — extended with a related-pattern note on **historical analogy stacking**: rapid-fire lists of past technologies or companies to borrow their weight ("like the printing press, the telegraph, and the internet before it"). LLM-judgment rule; no new category. Source: tropes.fyi ("Historical Analogy Stacking").
+
+Trope review sourced from [tropes.fyi/directory](https://tropes.fyi/directory) and its [tropes-md digest](https://tropes.fyi/tropes-md), with thanks to the [tropes.fyi markdown gist](https://gist.github.com/ossa-ma/f3baa9d25154c33095e22272c631f5a1) by ossa-ma. Most of the 33 catalogued tropes were already covered; this release adds the gaps that survived a false-positive review.
+
+---
+
+## [3.12.0] — 2026-07-06
+
+### Added
+- **"quietly" to Tier 2 word table** — AI uses "quietly" as a significance adverb to imply underdog credibility without evidence: "quietly building," "quietly reshaping," "quietly becoming." On its own in a sentence it's fine; in a paragraph already leaning on other Tier 2 words it's a cluster tell. Added to both the SKILL.md Tier 2 table and the detector engine. The detector fires when "quietly" appears alongside one other Tier 2 word in the same paragraph. Replacement: cut the adverb, or name the concrete contrast. Source: tropes.fyi/tropes ("Quietly" and Other Magic Adverbs).
+
+---
+
 ## [3.11.0] — 2026-07-05
 
 ### Changed

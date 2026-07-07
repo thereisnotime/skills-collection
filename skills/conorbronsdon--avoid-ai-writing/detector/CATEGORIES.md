@@ -6,14 +6,14 @@ the skill, decide here whether it's regex-detectable (give it a detector `type`)
 or LLM-only judgment (mark it so). When you add a detector `type`, point it back
 at the skill section it enforces.
 
-The engine exposes 44 issue `type`s (see `TYPE_LABELS` in `patterns.js`). The
+The engine exposes 45 issue `type`s (see `TYPE_LABELS` in `patterns.js`). The
 skill has more `###` sections than that — the gap is **not** missing coverage,
 it's rules that are judgment calls a regex can't make. The three groups below
 account for every entry on both sides.
 
 Three counts coexist on purpose and should not be forced to match: the README's
 **pattern-category count** (the human-facing prose catalog, derived from SKILL.md
-and guarded in CI), the engine's **44 `type`s** (which split the vocabulary tiers
+and guarded in CI), the engine's **45 `type`s** (which split the vocabulary tiers
 and add stylometric signals), and SKILL.md's `###` sections (which also include
 writer-side tests with no detectable form). The
 `categories.test.js` check enforces only the engine ↔ this-file mapping.
@@ -37,7 +37,7 @@ writer-side tests with no detectable form). The
 | `lets-construction` | "Let's" opener | "Let's" constructions |
 | `reasoning-artifact` | Reasoning artifact | Reasoning chain artifacts |
 | `significance-inflation` | Significance inflation | Significance inflation |
-| `novelty-inflation` | Novelty inflation | Novelty inflation |
+| `novelty-inflation` | Novelty inflation | Novelty inflation *(the invented-concept-labels sub-rule is LLM-judgment only — open-ended coinages aren't regex-matchable)* |
 | `real-actual-inflation` | "Real/actual" inflation | "Real/actual" adjective inflation |
 | `vague-attribution` | Vague attribution | Vague attributions |
 | `emotional-flatline` | Emotional flatline | Emotional flatline / Superficial -ing analyses |
@@ -45,6 +45,7 @@ writer-side tests with no detectable form). The
 | `false-concession` | False concession | False concession structure |
 | `rhetorical-question` | Rhetorical question | Rhetorical question openers |
 | `formulaic-opener` | Formulaic opener | Formulaic challenges |
+| `speculative-opener` | Speculative scenario opener | Speculative scenario openers |
 | `confidence-calibration` | Confidence stacking | Confidence calibration phrases |
 | `hedge-stack` | Hedge-stacked prediction | Hedge-stacked predictions |
 | `parenthetical-hedge` | Parenthetical hedge | Parenthetical hedging |
@@ -87,6 +88,7 @@ mistake their absence for a coverage gap:
 - Synonym cycling
 - Copula avoidance
 - Promotional language
+- Sentence structure: "It's not X — it's Y" / split-sentence form / multi-negation countdown
 - Structural issues / Excessive structure / Inline-header lists / Numbered list inflation
 - False ranges
 - Notability name-dropping

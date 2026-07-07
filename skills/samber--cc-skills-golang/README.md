@@ -4,10 +4,14 @@ AI agent skills are reusable instruction sets that extend your coding assistant 
 
 For generic skills, please visit [cc-skills](https://github.com/samber/cc-skills).
 
+<!-- prettier-ignore-start -->
+
 > [!IMPORTANT]
 > Bootstrapped with Claude Code by distilling my Go project commits. **Edited, tested, reviewed and reworked by a human**.
 >
 > **No AI slop here.** AI-made skills are useless.
+
+<!-- prettier-ignore-end -->
 
 <img width="1414" height="491" alt="image" src="https://github.com/user-attachments/assets/620b5835-c1ba-4ea9-bf47-2293b58b879e" />
 
@@ -146,8 +150,8 @@ These skills are designed as **atomic, cross-referencing units**. A skill may re
 │ safety       │ │ dep-inject   │ │ troubleshoot    │ │ CI               │
 │ structs-iface│ │ data-structs │ │ observability   │ │ stay-updated     │
 │ documentation│ │ database     │ │                 │ │ dep-management   │
-│ lint         │ │ modernize    │ │                 │ │                  │
-│ security     │ │              │ │                 │ │                  │
+│ lint         │ │ modernize    │ │                 │ │ gopls            │
+│ security     │ │ refactoring  │ │                 │ │                  │
 └──────────────┘ └──────────────┘ └─────────────────┘ └──────────────────┘
 
     ┌─────────────────────────────────────────────────────────────────────────┐
@@ -193,6 +197,7 @@ These skills are designed as **atomic, cross-referencing units**. A skill may re
 | ⭐️ | ✅ `golang-how-to` | ⚡ | — | 165 | 2,254 | 10,372 |
 | ⭐️ | ✅ `golang-modernize` | ⚡ 🤖 | -61% | 68 | 2,780 | 9,093 |
 | ⭐️ | ✅ `golang-naming` | ⚡ ⚙️ | -23% | 158 | 2,865 | 7,233 |
+| ⭐️ | ✅ `golang-refactoring` | ⚡ 🧠 🤖 ⚙️ | — | 246 | 3,639 | 19,840 |
 | ⭐️ | ✅ `golang-safety` | ⚡ | -58% | 78 | 2,457 | 5,227 |
 | ⭐️ | ✅ `golang-testing` | ⚡ 🧠 🤖 ⚙️ | -32% | 113 | 3,105 | 6,212 |
 | ⭐️ | ✅ `golang-troubleshooting` | ⚡ 🧠 🤖 | -32% | 126 | 2,735 | 15,901 |
@@ -208,6 +213,7 @@ These skills are designed as **atomic, cross-referencing units**. A skill may re
 |  | ✅ `golang-lint` | ⚡ 🤖 | -41% | 98 | 1,714 | 5,493 |
 |  | ✅ `golang-observability` | ⚡ 🤖 ⚙️ | -37% | 161 | 2,921 | 18,453 |
 |  | ✅ `golang-performance` | ⚡ 🧠 🤖 | -39% | 130 | 2,190 | 18,190 |
+|  | ✅ `golang-gopls` | ⚡ | — | 219 | 2,308 | 12,076 |
 |  | ✅ `golang-pkg-go-dev` | ⚡ | — | 185 | 2,693 | 4,302 |
 |  | ✅ `golang-popular-libraries` | ⚡ | -30% | 61 | 893 | 4,287 |
 |  | ✅ `golang-project-layout` | ⚡ | -38% | 69 | 1,510 | 5,718 |
@@ -309,6 +315,10 @@ Idiomatic Go design patterns. Functional options, constructors, builder pattern,
 
 Modernize Go code to use recent language features. Range-over-int, min/max builtins, iterators, slices/maps/cmp/slog stdlib packages, testing patterns (t.Context, b.Loop, synctest), and tooling upgrades.
 
+#### `golang-refactoring`
+
+Safe, at-scale refactoring process for existing Go code. Coverage-adaptive safety net, tool-driven behavior-preserving transforms (gopls Rename/Inline/Extract, gofmt -r, eg, gopatch), the Fowler catalog mapped to Go, breaking import cycles, type-alias gradual code repair, and a human-in-the-loop workflow of staged PRs on a refactoring branch.
+
 ### QA & Performance
 
 #### `golang-benchmark`
@@ -344,6 +354,10 @@ CI/CD pipeline configuration for Go projects using GitHub Actions. Build, test, 
 #### `golang-dependency-management`
 
 Go module dependency strategies. go.mod conventions, versioning, replace directives, tool dependencies, and multi-module workspaces.
+
+#### `golang-gopls`
+
+Semantic code intelligence for your local build via `gopls`, the official Go language server. Go-to-definition, find references, call/implementation hierarchy, workspace symbol search, diagnostics, safe rename, and refactors (extract/inline/fill/rewrite). Reachable via gopls's own MCP server, Claude Code's native `LSP` tool, or the `gopls` CLI.
 
 #### `golang-pkg-go-dev`
 

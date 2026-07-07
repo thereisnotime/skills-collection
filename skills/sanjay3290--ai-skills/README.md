@@ -41,6 +41,8 @@ A collection of portable skills for AI coding assistants. Works with all major A
 | [google-tts](skills/google-tts/) | Text-to-speech narration and podcast generation using Google Cloud TTS (Neural2, WaveNet, Studio voices, 40+ languages) |
 | [atlassian](skills/atlassian/) | Manage Jira issues and Confluence wiki pages in Atlassian Cloud (OAuth 2.1 via MCP server or API token fallback) |
 | [azure-devops](skills/azure-devops/) | Manage Azure DevOps projects, work items, repos, PRs, pipelines, wikis, test plans, security alerts, variable groups, environments/approvals, branch policies, and attachments (99 tools, 13 domains) |
+| [apple-container](skills/apple-container/) | Build, run, and manage OCI/Linux containers as lightweight VMs on Apple-silicon macOS with Apple's `container` CLI — no Docker daemon |
+| [telegram](skills/telegram/) | Send Telegram messages, files, and alerts via bot; ask-and-wait approvals with inline buttons; multi-bot and multi-target routing; Claude Code hook integration |
 
 ### Google Workspace Skills
 
@@ -65,7 +67,7 @@ Lightweight alternatives to the full [Google Workspace MCP server](https://githu
 ### Install Skills
 
 ```bash
-# Browse all 20 available skills
+# Browse all 22 available skills
 npx skills add sanjay3290/ai-skills --list
 
 # Install a single skill (auto-detects your agent)
@@ -424,6 +426,8 @@ Skill placement by category:
 - google-tts: Creative & Media
 - atlassian: Collaboration & Project Management (Jira + Confluence)
 - azure-devops: Development & Automation
+- apple-container: Development & Automation (containers on Apple-silicon macOS)
+- telegram: Collaboration & Project Management (bot messaging, alerts, approvals)
 - google-*: Collaboration & Project Management (all Google Workspace skills)
 - gmail: Collaboration & Project Management
 -->

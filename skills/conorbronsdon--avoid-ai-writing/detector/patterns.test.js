@@ -168,6 +168,45 @@ test('hashtag-stuff does not fire on prose with 2-3 hashtags', () => {
   assert.ok(!types.has('hashtag-stuff'), 'should not flag 2 hashtags as hashtag-stuff');
 });
 
+test('"quietly" clusters with another Tier 2 word flags tier2', () => {
+  // "quietly" alone in a paragraph should not fire; paired with another
+  // Tier 2 word in the same paragraph it should produce a tier2 issue.
+  const single = AIDetector.analyzeText('The team quietly shipped the update last week without any announcement.');
+  const singleTypes = new Set(single.issues.map((i) => i.type));
+  assert.ok(!singleTypes.has('tier2'), 'single "quietly" should not fire tier2 on its own');
+
+  const clustered = AIDetector.analyzeText('The team quietly worked to harness new opportunities, building the platform without any announcement.');
+  const clusteredTypes = new Set(clustered.issues.map((i) => i.type));
+  assert.ok(clusteredTypes.has('tier2'), 'expected tier2 flag when "quietly" clusters with another Tier 2 word');
+});
+
+test('"deeply" joins a tier2 cluster only in significance collocations', () => {
+  // "deeply" is conditional Tier 2: bare uses never count toward a cluster,
+  // even next to another Tier 2 word — the base rate of literal "deeply"
+  // in human prose is too high for an unconditional entry.
+  const literal = [
+    'The parser handles deeply nested JSON, and getting the indentation right is crucial for readability.',
+    'I care deeply about this work, and the reality is more nuanced than the headline suggests.',
+    'This helper is deeply coupled to the session object; could we facilitate testing by injecting it?',
+  ];
+  for (const text of literal) {
+    const r = AIDetector.analyzeText(text);
+    const types = new Set(r.issues.map((i) => i.type));
+    assert.ok(!types.has('tier2'), `literal "deeply" must not cluster: ${text}`);
+  }
+
+  // The significance collocation DOES count when a second Tier 2 word
+  // shares the paragraph...
+  const clustered = AIDetector.analyzeText('The team is deeply committed to helping partners harness the new platform across every region.');
+  const clusteredTypes = new Set(clustered.issues.map((i) => i.type));
+  assert.ok(clusteredTypes.has('tier2'), 'expected tier2 when "deeply committed" clusters with another Tier 2 word');
+
+  // ...but the collocation alone, with no second Tier 2 word, stays clean.
+  const lone = AIDetector.analyzeText('The billing module is deeply integrated with the ledger, so invoice edits show up in both places.');
+  const loneTypes = new Set(lone.issues.map((i) => i.type));
+  assert.ok(!loneTypes.has('tier2'), 'lone "deeply integrated" must not fire tier2 by itself');
+});
+
 test('bullet-np-list does not fire on prose containing short verb-form bullets', () => {
   // Genuine list items with finite verbs should not trip the bare-NP
   // detector. The verb-token guard is what keeps todo lists, changelog
@@ -410,6 +449,34 @@ test('v2: formulaic opener fires', () => {
   const r = AIDetector.analyzeText(text);
   const types = new Set(r.issues.map((i) => i.type));
   assert.ok(types.has('formulaic-opener'), 'expected formulaic-opener flag');
+});
+
+test('v2: speculative scenario opener fires', () => {
+  const text = 'Imagine a world where every developer ships bug-free code on the first try. That is the promise this framework keeps making in its docs, and it deserves a much harder look before anyone commits a roadmap to it.';
+  const r = AIDetector.analyzeText(text);
+  const types = new Set(r.issues.map((i) => i.type));
+  assert.ok(types.has('speculative-opener'), 'expected speculative-opener flag');
+
+  // The comma-interrupted cadence is the same tell and must also fire.
+  const interrupted = AIDetector.analyzeText('Imagine, for a moment, a world where every deploy is instant. That is the pitch, and the pricing page leans on it hard enough that the claim deserves scrutiny before anyone signs.');
+  const interruptedTypes = new Set(interrupted.issues.map((i) => i.type));
+  assert.ok(interruptedTypes.has('speculative-opener'), 'expected speculative-opener on "Imagine, for a moment, a world where"');
+});
+
+test('v2: speculative opener leaves instructional "imagine you have" alone', () => {
+  // The gate keys on the world/future/reality/scenario object plus
+  // where/in-which, so a teaching device that points at a concrete
+  // example must stay clean.
+  const clean = [
+    'Imagine you have a sorted array of one million integers and you want to find one value fast.',
+    'Picture the request as it moves through the load balancer, the cache, and finally the database.',
+    'Consider a scenario where the token expires mid-request; the client has to retry with a fresh one.',
+  ];
+  for (const text of clean) {
+    const r = AIDetector.analyzeText(text);
+    const types = new Set(r.issues.map((i) => i.type));
+    assert.ok(!types.has('speculative-opener'), `false positive on instructional prose: ${text}`);
+  }
 });
 
 test('v2: parenthetical hedge fires', () => {

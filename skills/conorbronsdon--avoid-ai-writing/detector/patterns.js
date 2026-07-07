@@ -1,6 +1,6 @@
 /**
  * Avoid AI Writing — detection engine (canonical source of truth)
- * Implements 44-category pattern detection. This repo's SKILL.md
+ * Implements 45-category pattern detection. This repo's SKILL.md
  * catalogs the human-editable pattern rules; this engine is the executable
  * expression of the regex-detectable subset and extends it with stylometric and
  * AI-tool-fingerprint detectors that don't make sense as skill prose
@@ -187,10 +187,25 @@ const AIDetector = (() => {
     'nascent': 'new, early-stage',
     'quintessential': 'typical, classic, defining',
     'overarching': 'main, central, broad',
+    'quietly': 'cut, or name the concrete contrast',
     'underpinning': 'basis, foundation',
     'underpinnings': 'basis, foundations',
     'paradigm-shifting': 'describe what shifted',
   };
+
+  // Conditional Tier 2 entries: everyday words whose AI tell is a specific
+  // significance collocation, not the word itself. They join a paragraph's
+  // Tier 2 cluster only when the collocation matches — bare uses ("deeply
+  // nested JSON", "cares deeply") never count, because the base rate of
+  // these words in innocent prose is far higher than the rest of the table
+  // and an unconditional entry measurably flags clean human writing.
+  const TIER2_CONDITIONAL = [
+    {
+      word: 'deeply',
+      pattern: /\bdeeply\s+(?:integrated|committed|rooted|personal|human|flawed|resonant|transformative|interconnected|ingrained|embedded|meaningful)\b/i,
+      suggestion: 'cut, or name what specifically runs deep',
+    },
+  ];
 
   // ─── Tier 3: Flag by density ───────────────────────────────────────
   const TIER3 = [
@@ -277,6 +292,10 @@ const AIDetector = (() => {
     // otherwise wash out on a short LinkedIn-length post.
     'social-cta-closer': 8,
     'formulaic-opener': 8,
+    // Speculative scenario opener ("Imagine a world where…"). Weighted like
+    // formulaic-opener: a single strong opener tell the length divisor would
+    // otherwise wash out on a short post.
+    'speculative-opener': 8,
     'title-case-header': 4,
     'parenthetical-hedge': 3,
     'smart-punct-signature': 6,
@@ -560,6 +579,25 @@ const AIDetector = (() => {
     /\bhas\s+become\s+increasingly\s+(?:important|critical|popular|relevant|prominent|essential)\b/gi,
   ];
 
+  // ─── Speculative scenario openers ──────────────────────────────────
+  // "Imagine a world where...", "Picture a future in which...", "Envision
+  // a world where..." — the LLM habit of opening an argument with a
+  // hypothetical that lists desirable outcomes instead of making a claim.
+  // Gated to the world/future/reality object plus where/in-which so it
+  // stays off instructional "imagine you have an array" (a teaching device
+  // pointing at a concrete example, not a speculative world) and bare
+  // "imagine that" asides. "consider a scenario where…" is deliberately
+  // excluded: that is analytical framing common in technical reasoning,
+  // not the marketing-opener tell. An optional short comma interrupter
+  // catches the equally common "Imagine, for a moment, a world where…"
+  // cadence. Known accepted false positive: fiction openings and staged
+  // thought experiments match too — the engine has no fiction context
+  // mode, so that call is left to the skill's carve-out (highlight-only;
+  // a lone hit cannot flip a document's classification).
+  const SPECULATIVE_OPENERS = [
+    /\b(?:imagine|picture|envision)(?:\s*,[^,\n]{1,30},)?\s+a\s+(?:world|future|reality)\s+(?:where|in\s+which)\b/gi,
+  ];
+
   // ─── Title Case Section Headers in non-technical prose ─────────────
   // "Strategic Negotiations And Key Partnerships" — every content word
   // capitalized. Acceptable in API docs, ML papers, news headlines. Tell
@@ -790,9 +828,17 @@ const AIDetector = (() => {
     for (const para of paragraphs) {
       const paraTokens = tokenize(para);
       const found = [];
+      const suggestions = {};
       for (const token of paraTokens) {
         if (TIER2[token] && !found.includes(token)) {
           found.push(token);
+          suggestions[token] = TIER2[token];
+        }
+      }
+      for (const cond of TIER2_CONDITIONAL) {
+        if (!found.includes(cond.word) && cond.pattern.test(para)) {
+          found.push(cond.word);
+          suggestions[cond.word] = cond.suggestion;
         }
       }
       if (found.length >= 2) {
@@ -802,7 +848,7 @@ const AIDetector = (() => {
             type: 'tier2',
             text: word,
             severity: 'medium',
-            suggestion: TIER2[word],
+            suggestion: suggestions[word],
           });
         }
       }
@@ -859,6 +905,7 @@ const AIDetector = (() => {
 
     // ── Tier 1 v2: formulaic openers + parenthetical hedges ──────────
     issues.push(...matchPatterns(text, FORMULAIC_OPENERS, 'formulaic-opener', 'high'));
+    issues.push(...matchPatterns(text, SPECULATIVE_OPENERS, 'speculative-opener', 'high'));
     issues.push(...matchPatterns(text, PARENTHETICAL_HEDGE, 'parenthetical-hedge', 'medium'));
 
     // Title-case headers — gated to marketing/personal/general modes
@@ -1633,6 +1680,7 @@ const AIDetector = (() => {
     'real-actual-inflation': '"Real/actual" inflation',
     'social-cta-closer': 'Engagement-bait closer',
     'formulaic-opener': 'Formulaic opener',
+    'speculative-opener': 'Speculative scenario opener',
     'title-case-header': 'Title Case header',
     'parenthetical-hedge': 'Parenthetical hedge',
     'smart-punct-signature': 'Smart-punct signature',

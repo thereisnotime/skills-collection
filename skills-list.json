@@ -130,6 +130,17 @@
       "license": "MIT"
     },
     {
+      "name": "golang-refactoring",
+      "description": "\"Golang refactoring \u2014 the safe, at-scale process for restructuring existing Go code: a coverage-adaptive safety net, tool-driven behavior-preserving transforms (gopls Rename/Inline/Extract, `gofmt -r`",
+      "path": "samber--cc-skills-golang/skills/golang-refactoring/SKILL.md",
+      "remote_path": "skills/golang-refactoring/SKILL.md",
+      "lines": 156,
+      "words": 2216,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
       "name": "golang-uber-dig",
       "description": "\"Implements dependency injection in Golang using uber-go/dig \u2014 reflection-based container, Provide/Invoke, dig.In/dig.Out parameter and result objects, named values, value groups, optional dependencie",
       "path": "samber--cc-skills-golang/skills/golang-uber-dig/SKILL.md",
@@ -190,8 +201,8 @@
       "description": "'Golang struct and interface design patterns \u2014 composition, embedding, type assertions, type switches, interface segregation, dependency injection via interfaces, struct field tags, and pointer vs val",
       "path": "samber--cc-skills-golang/skills/golang-structs-interfaces/SKILL.md",
       "remote_path": "skills/golang-structs-interfaces/SKILL.md",
-      "lines": 384,
-      "words": 1871,
+      "lines": 385,
+      "words": 1913,
       "code_blocks": 17,
       "languages": [
         "go"
@@ -272,7 +283,7 @@
       "path": "samber--cc-skills-golang/skills/golang-project-layout/SKILL.md",
       "remote_path": "skills/golang-project-layout/SKILL.md",
       "lines": 121,
-      "words": 821,
+      "words": 848,
       "code_blocks": 1,
       "languages": [
         "go"
@@ -284,8 +295,8 @@
       "description": "\"Idiomatic Golang design patterns \u2014 functional options, constructors, error flow and cascading, resource management and lifecycle, graceful shutdown, resilience, architecture, dependency injection, da",
       "path": "samber--cc-skills-golang/skills/golang-design-patterns/SKILL.md",
       "remote_path": "skills/golang-design-patterns/SKILL.md",
-      "lines": 277,
-      "words": 1482,
+      "lines": 278,
+      "words": 1506,
       "code_blocks": 7,
       "languages": [
         "go"
@@ -324,8 +335,8 @@
       "description": "\"Golang skills orchestrator \u2014 always active on any Golang coding, review, debug, or setup task. Reads the task context and loads the most relevant skills from samber/cc-skills-golang, often multiple a",
       "path": "samber--cc-skills-golang/skills/golang-how-to/SKILL.md",
       "remote_path": "skills/golang-how-to/SKILL.md",
-      "lines": 162,
-      "words": 2062,
+      "lines": 159,
+      "words": 1858,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -349,7 +360,7 @@
       "path": "samber--cc-skills-golang/skills/golang-troubleshooting/SKILL.md",
       "remote_path": "skills/golang-troubleshooting/SKILL.md",
       "lines": 195,
-      "words": 1644,
+      "words": 1677,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -410,6 +421,17 @@
       "license": "MIT"
     },
     {
+      "name": "golang-gopls",
+      "description": "\"Golang semantic code intelligence via `gopls`, the official Go language server \u2014 go-to-definition, find references, call/implementation hierarchy, workspace symbol search, package API discovery, diag",
+      "path": "samber--cc-skills-golang/skills/golang-gopls/SKILL.md",
+      "remote_path": "skills/golang-gopls/SKILL.md",
+      "lines": 93,
+      "words": 1312,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
       "name": "golang-observability",
       "description": "\"Golang everyday observability \u2014 the always-on signals in production. Covers structured logging with slog, Prometheus metrics, OpenTelemetry distributed tracing, continuous profiling with pprof/Pyrosc",
       "path": "samber--cc-skills-golang/skills/golang-observability/SKILL.md",
@@ -440,8 +462,8 @@
       "description": "\"Modernize Golang code to use recent language features, standard library improvements, and idiomatic patterns. Trigger proactively when writing or reviewing Go code and old-style patterns are detected",
       "path": "samber--cc-skills-golang/skills/golang-modernize/SKILL.md",
       "remote_path": "skills/golang-modernize/SKILL.md",
-      "lines": 155,
-      "words": 1447,
+      "lines": 159,
+      "words": 1528,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -465,8 +487,8 @@
       "description": "\"Go (Golang) naming conventions \u2014 covers packages, constructors, structs, interfaces, constants, enums, errors, booleans, receivers, getters/setters, functional options, acronyms, test functions, and ",
       "path": "samber--cc-skills-golang/skills/golang-naming/SKILL.md",
       "remote_path": "skills/golang-naming/SKILL.md",
-      "lines": 164,
-      "words": 1671,
+      "lines": 168,
+      "words": 1756,
       "code_blocks": 2,
       "languages": [
         "go"
@@ -528,7 +550,7 @@
       "path": "samber--cc-skills-golang/skills/golang-pkg-go-dev/SKILL.md",
       "remote_path": "skills/golang-pkg-go-dev/SKILL.md",
       "lines": 200,
-      "words": 1723,
+      "words": 1719,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -591,8 +613,8 @@
       "description": "\"Golang code style conventions \u2014 line length and breaking, variable declarations, control flow clarity, when comments help vs hurt. Use when writing or reviewing Go code, asking about style or clarity",
       "path": "samber--cc-skills-golang/skills/golang-code-style/SKILL.md",
       "remote_path": "skills/golang-code-style/SKILL.md",
-      "lines": 239,
-      "words": 1257,
+      "lines": 240,
+      "words": 1316,
       "code_blocks": 12,
       "languages": [
         "go"
@@ -15717,8 +15739,8 @@
       "description": "Review an existing GitHub pull request and post inline review comments on its diff. Use when the changes are on an opened PR rather than your local working tree.",
       "path": "NeoLabHQ--context-engineering-kit/plugins/review/skills/review-pr/SKILL.md",
       "remote_path": "plugins/review/skills/review-pr/SKILL.md",
-      "lines": 282,
-      "words": 2243,
+      "lines": 284,
+      "words": 2268,
       "code_blocks": 9,
       "languages": [
         "markdown",
@@ -15731,8 +15753,8 @@
       "description": "Review your local uncommitted working-tree changes (git diff plus untracked files) and return actionable improvement suggestions. Use before committing, when nothing has been pushed yet.",
       "path": "NeoLabHQ--context-engineering-kit/plugins/review/skills/review-local-changes/SKILL.md",
       "remote_path": "plugins/review/skills/review-local-changes/SKILL.md",
-      "lines": 339,
-      "words": 2640,
+      "lines": 341,
+      "words": 2665,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -19627,11 +19649,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 654,
-      "words": 9883,
+      "lines": 663,
+      "words": 10190,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.11.0",
+      "version": "3.13.0",
       "license": "MIT"
     },
     {
@@ -19639,11 +19661,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 654,
-      "words": 9815,
+      "lines": 663,
+      "words": 10190,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.10.0",
+      "version": "3.13.0",
       "license": "MIT"
     }
   ],
@@ -19721,6 +19743,16 @@
       "lines": 239,
       "words": 1070,
       "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "marketing-council",
+      "description": "\"When the user wants multiple expert perspectives on a marketing question \u2014 a simulated board of advisors staffed by legendary marketers (Seth Godin, David Ogilvy, Eugene Schwartz, April Dunford, Rory",
+      "path": "coreyhaines31--marketingskills/skills/marketing-council/SKILL.md",
+      "remote_path": "skills/marketing-council/SKILL.md",
+      "lines": 162,
+      "words": 1793,
+      "code_blocks": 1,
       "languages": []
     },
     {
@@ -19943,9 +19975,9 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 363,
-      "words": 2025,
-      "code_blocks": 6,
+      "lines": 411,
+      "words": 2528,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "csv"
@@ -19979,9 +20011,9 @@
       "description": "\"When the user wants help with paid advertising campaigns on Google Ads, Meta (Facebook/Instagram), LinkedIn, Twitter/X, or other ad platforms. Also use when the user mentions 'PPC,' 'paid media,' 'RO",
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
-      "lines": 553,
-      "words": 3929,
-      "code_blocks": 3,
+      "lines": 488,
+      "words": 3743,
+      "code_blocks": 2,
       "languages": []
     },
     {
@@ -20318,12 +20350,26 @@
       "license": "MIT"
     },
     {
+      "name": "expo-router",
+      "description": "Navigation and routing for Expo Router. Covers file-based routes, groups and dynamic routes, folder organization, Link with previews and context menus, native Stack, page titles, modals and form sheet",
+      "path": "expo--skills/plugins/expo/skills/expo-router/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-router/SKILL.md",
+      "lines": 231,
+      "words": 724,
+      "code_blocks": 10,
+      "languages": [
+        "tsx"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "expo-examples",
       "description": "Expo's official example projects \u2014 the expo/examples repo of ~70 `with-*` integrations (Stripe, Clerk, Supabase, OpenAI, maps, Reanimated, SQLite, Skia, NativeWind, and more). Use when integrating a t",
       "path": "expo--skills/plugins/expo/skills/expo-examples/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-examples/SKILL.md",
-      "lines": 98,
-      "words": 848,
+      "lines": 99,
+      "words": 854,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -20403,16 +20449,16 @@
     },
     {
       "name": "building-native-ui",
-      "description": "Complete guide for building beautiful apps with Expo Router. Covers fundamentals, styling, components, navigation, animations, patterns, and native tabs.",
+      "description": "Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, animations, visual effects, gradients, storage, and responsive layout. For ",
       "path": "expo--skills/plugins/expo/skills/building-native-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/building-native-ui/SKILL.md",
-      "lines": 378,
-      "words": 1653,
-      "code_blocks": 13,
+      "lines": 182,
+      "words": 1110,
+      "code_blocks": 4,
       "languages": [
         "tsx"
       ],
-      "version": "1.0.1",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -21607,6 +21653,16 @@
       ]
     },
     {
+      "name": "netlify-access-control",
+      "description": "Use when the task involves controlling who can reach a Netlify site, or telling Netlify Identity apart from Secure Access. Trigger whenever the user wants to lock a site or deploy to their company/tea",
+      "path": "netlify--context-and-tools/skills/netlify-access-control/SKILL.md",
+      "remote_path": "skills/netlify-access-control/SKILL.md",
+      "lines": 66,
+      "words": 1252,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "netlify-image-cdn",
       "description": "Guide for using Netlify Image CDN for image optimization and transformation. Use when serving optimized images, creating responsive image markup, setting up user-uploaded image pipelines, or configuri",
       "path": "netlify--context-and-tools/skills/netlify-image-cdn/SKILL.md",
@@ -21646,11 +21702,11 @@
     },
     {
       "name": "netlify-identity",
-      "description": "Use when the task involves authentication, user signups, logins, password recovery, OAuth providers, role-based access control, or protecting routes and functions. Always use `@netlify/identity`. Neve",
+      "description": "Use when the task involves authentication, user signups, logins, password recovery, OAuth providers, role-based access control, or protecting routes and functions. Always use `@netlify/identity` for n",
       "path": "netlify--context-and-tools/skills/netlify-identity/SKILL.md",
       "remote_path": "skills/netlify-identity/SKILL.md",
-      "lines": 444,
-      "words": 2324,
+      "lines": 460,
+      "words": 2917,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -21665,7 +21721,7 @@
       "path": "netlify--context-and-tools/skills/netlify-functions/SKILL.md",
       "remote_path": "skills/netlify-functions/SKILL.md",
       "lines": 262,
-      "words": 1334,
+      "words": 1384,
       "code_blocks": 12,
       "languages": [
         "typescript"
@@ -21803,6 +21859,16 @@
       ]
     },
     {
+      "name": "netlify-access-control",
+      "description": "Use when the task involves controlling who can reach a Netlify site, or telling Netlify Identity apart from Secure Access. Trigger whenever the user wants to lock a site or deploy to their company/tea",
+      "path": "netlify--context-and-tools/codex/skills/netlify-access-control/SKILL.md",
+      "remote_path": "codex/skills/netlify-access-control/SKILL.md",
+      "lines": 66,
+      "words": 1252,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "netlify-image-cdn",
       "description": "Guide for using Netlify Image CDN for image optimization and transformation. Use when serving optimized images, creating responsive image markup, setting up user-uploaded image pipelines, or configuri",
       "path": "netlify--context-and-tools/codex/skills/netlify-image-cdn/SKILL.md",
@@ -21842,11 +21908,11 @@
     },
     {
       "name": "netlify-identity",
-      "description": "Use when the task involves authentication, user signups, logins, password recovery, OAuth providers, role-based access control, or protecting routes and functions. Always use `@netlify/identity`. Neve",
+      "description": "Use when the task involves authentication, user signups, logins, password recovery, OAuth providers, role-based access control, or protecting routes and functions. Always use `@netlify/identity` for n",
       "path": "netlify--context-and-tools/codex/skills/netlify-identity/SKILL.md",
       "remote_path": "codex/skills/netlify-identity/SKILL.md",
-      "lines": 444,
-      "words": 2324,
+      "lines": 460,
+      "words": 2917,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -21861,7 +21927,7 @@
       "path": "netlify--context-and-tools/codex/skills/netlify-functions/SKILL.md",
       "remote_path": "codex/skills/netlify-functions/SKILL.md",
       "lines": 262,
-      "words": 1334,
+      "words": 1384,
       "code_blocks": 12,
       "languages": [
         "typescript"
@@ -23837,6 +23903,19 @@
       "license": "Apache-2.0"
     },
     {
+      "name": "telegram",
+      "description": "\"Send Telegram messages, files, and alerts via bot API; read replies; ask questions with inline buttons and wait for the answer (approve-from-phone). Supports multiple bots and named chat targets. Use",
+      "path": "sanjay3290--ai-skills/skills/telegram/SKILL.md",
+      "remote_path": "skills/telegram/SKILL.md",
+      "lines": 61,
+      "words": 327,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
       "name": "google-slides",
       "description": "|",
       "path": "sanjay3290--ai-skills/skills/google-slides/SKILL.md",
@@ -23941,6 +24020,19 @@
         "bash",
         "json",
         "python"
+      ],
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "apple-container",
+      "description": "|",
+      "path": "sanjay3290--ai-skills/skills/apple-container/SKILL.md",
+      "remote_path": "skills/apple-container/SKILL.md",
+      "lines": 141,
+      "words": 1198,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
       ],
       "license": "Apache-2.0"
     },
@@ -40911,11 +41003,11 @@
     },
     {
       "name": "pentest-engagement",
-      "description": "Run a professional web/API/cloud penetration engagement from a scope file \u2014 mandatory surface expansion, systematic OWASP attack-class coverage, reversible active exploitation, root-cause severity, au",
+      "description": "Run a professional penetration engagement OR a network vulnerability scan from a scope. WEB mode (apex domains / app URLs) \u2014 mandatory surface expansion, systematic OWASP attack-class coverage, revers",
       "path": "transilienceai--communitytools/skills/pentest-engagement/SKILL.md",
       "remote_path": "skills/pentest-engagement/SKILL.md",
-      "lines": 44,
-      "words": 432,
+      "lines": 53,
+      "words": 725,
       "code_blocks": 2,
       "languages": []
     },
@@ -41125,11 +41217,11 @@
     },
     {
       "name": "mobile-security",
-      "description": "Mobile application security testing \u2014 Android (smali, Frida, IL2CPP, Flutter AOT, root detection), iOS (jailbreak, Objection).",
+      "description": "Mobile application security testing \u2014 Android (smali, Frida, IL2CPP, Flutter AOT, React Native/Hermes, root detection), iOS (jailbreak, Objection).",
       "path": "transilienceai--communitytools/skills/mobile-security/SKILL.md",
       "remote_path": "skills/mobile-security/SKILL.md",
-      "lines": 26,
-      "words": 292,
+      "lines": 28,
+      "words": 365,
       "code_blocks": 0,
       "languages": []
     },
@@ -41266,6 +41358,18 @@
       ]
     },
     {
+      "name": "transilience-report-style",
+      "description": "Generate a Transilience-branded PDF report (pentest, vuln assessment, compliance, threat intel) from a single findings JSON using the bundled ReportLab generator. Use whenever an engagement needs its ",
+      "path": "transilienceai--communitytools/skills/transilience-report-style/SKILL.md",
+      "remote_path": "skills/transilience-report-style/SKILL.md",
+      "lines": 42,
+      "words": 431,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "pci-secure-software",
       "description": "Automated PCI Secure Software Standard (SSS) v2.0 readiness gap-assessment of an application from its source code and documentation. Deterministically enumerates every applicable Test Requirement from",
       "path": "transilienceai--communitytools/skills/pci-secure-software/SKILL.md",
@@ -41273,6 +41377,16 @@
       "lines": 84,
       "words": 799,
       "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "cloud-defense",
+      "description": "Detect and break the cloud post-compromise attack chain (AWS / Azure / GCP) \u2014 per-stage CloudTrail / Activity-Log / Audit-Log detection signals and the preventive controls that close each step. Use fo",
+      "path": "transilienceai--communitytools/skills/cloud-defense/SKILL.md",
+      "remote_path": "skills/cloud-defense/SKILL.md",
+      "lines": 28,
+      "words": 241,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -49038,6 +49152,26 @@
       "license": "MIT"
     },
     {
+      "name": "\"minimalist\"",
+      "description": "\"Use when the user asks to write code efficiently, avoid over-engineering, reduce dependencies, or prevent unnecessary abstractions. Enforces a strict efficiency ladder: YAGNI, reuse, stdlib, native p",
+      "path": "alirezarezvani--claude-skills/engineering/minimalist/SKILL.md",
+      "remote_path": "engineering/minimalist/SKILL.md",
+      "lines": 61,
+      "words": 518,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "\"strict-api\"",
+      "description": "\"Use when the user says 'no hallucinations', 'verify APIs', 'reality check', or 'don't invent functions'. Prevents the agent from calling methods, imports, or variables that do not provably exist in t",
+      "path": "alirezarezvani--claude-skills/engineering/strict-api/SKILL.md",
+      "remote_path": "engineering/strict-api/SKILL.md",
+      "lines": 72,
+      "words": 526,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "\"demo-video\"",
       "description": "\"Use when the user asks to create a demo video, product walkthrough, feature showcase, animated presentation, marketing video, or GIF from screenshots or scene descriptions. Orchestrates playwright, f",
       "path": "alirezarezvani--claude-skills/engineering/demo-video/skills/demo-video/SKILL.md",
@@ -51675,11 +51809,11 @@
     },
     {
       "name": "\"arquiteto-de-empresa\"",
-      "description": "\"Arquiteto de Empresa: constr\u00f3i um neg\u00f3cio do zero como bundle OKF (Open Knowledge Format) \u2014 uma \u00e1rvore de arquivos .md version\u00e1veis com frontmatter type, links formando grafo, e index.md/log.md reser",
+      "description": "\"Company Architect: builds a business from scratch as an OKF (Open Knowledge Format) bundle \u2014 a tree of version-controllable .md files with frontmatter type, links forming a graph, and reserved index.",
       "path": "alirezarezvani--claude-skills/c-level-advisor/skills/arquiteto-de-empresa/SKILL.md",
       "remote_path": "c-level-advisor/skills/arquiteto-de-empresa/SKILL.md",
       "lines": 95,
-      "words": 902,
+      "words": 885,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -52180,31 +52314,31 @@
     },
     {
       "name": "\"cs-arquiteto\"",
-      "description": "\"/cs:arquiteto \u2014 Constr\u00f3i uma empresa do zero como bundle OKF (\u00e1rvore de .md com type + grafo de links). Conduz a entrevista de 12 fases, uma de cada vez, e gera os conceitos markdown conformantes. Em",
+      "description": "\"/cs:arquiteto \u2014 Builds a company from scratch as an OKF bundle (tree of .md with type + link graph). Guides the 12-phase interview, one at a time, and generates conformant markdown concepts. In Engli",
       "path": "alirezarezvani--claude-skills/c-level-advisor/arquiteto-de-empresa/commands/cs-arquiteto.md",
       "remote_path": "c-level-advisor/arquiteto-de-empresa/commands/cs-arquiteto.md",
       "lines": 42,
-      "words": 272,
+      "words": 262,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "cs-arquiteto",
-      "description": "Arquiteto de Empresa \u2014 chief of staff s\u00eanior que constr\u00f3i um neg\u00f3cio do zero como um bundle OKF (Open Knowledge Format): uma \u00e1rvore de arquivos .md version\u00e1veis com frontmatter type, links formando gr",
+      "description": "Company Architect \u2014 a senior chief of staff who builds a business from scratch as an OKF (Open Knowledge Format) bundle: a tree of version-controllable .md files with frontmatter type, links forming a",
       "path": "alirezarezvani--claude-skills/c-level-advisor/arquiteto-de-empresa/agents/cs-arquiteto.md",
       "remote_path": "c-level-advisor/arquiteto-de-empresa/agents/cs-arquiteto.md",
       "lines": 44,
-      "words": 427,
+      "words": 425,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "\"arquiteto-de-empresa\"",
-      "description": "\"Arquiteto de Empresa: constr\u00f3i um neg\u00f3cio do zero como bundle OKF (Open Knowledge Format) \u2014 uma \u00e1rvore de arquivos .md version\u00e1veis com frontmatter type, links formando grafo, e index.md/log.md reser",
+      "description": "\"Company Architect: builds a business from scratch as an OKF (Open Knowledge Format) bundle \u2014 a tree of version-controllable .md files with frontmatter type, links forming a graph, and reserved index.",
       "path": "alirezarezvani--claude-skills/c-level-advisor/arquiteto-de-empresa/skills/arquiteto-de-empresa/SKILL.md",
       "remote_path": "c-level-advisor/arquiteto-de-empresa/skills/arquiteto-de-empresa/SKILL.md",
       "lines": 95,
-      "words": 902,
+      "words": 885,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -136930,16 +137064,6 @@
         "bash",
         "yaml"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "meeting-prep",
