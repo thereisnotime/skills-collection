@@ -695,6 +695,31 @@ describe("ce-compound Phase 1 artifact contract", () => {
   })
 })
 
+describe("concept-teaching seam parity (ce-commit-push-pr <-> lfg)", () => {
+  // lfg echoes the `New concepts:` trailer ce-commit-push-pr prints after the PR URL.
+  // The two SKILL.md files are edited independently, so these assertions cross-check
+  // that both ends name the same trailer format and that the callsite hardcodes the
+  // non-interactive mode (a drift on either end fails here, not in production runs).
+  test("lfg hardcodes mode:pipeline at the callsite and echoes the trailer", async () => {
+    const skill = await readRepoFile("skills/ce-commit-push-pr/SKILL.md")
+    const lfg = await readRepoFile("skills/lfg/SKILL.md")
+
+    // Both ends name the same trailer format
+    expect(skill).toContain("New concepts:")
+    expect(lfg).toContain("New concepts:")
+
+    // The callsite passes the mode explicitly rather than relying on defaults
+    expect(lfg).toContain("Invoke the `ce-commit-push-pr` skill with `mode:pipeline`.")
+
+    // The pre-DONE report line names the concept and the /ce-explain pointer
+    expect(lfg).toContain("New concept introduced:")
+    expect(lfg).toContain("run /ce-explain")
+
+    // The callee documents the mode the caller passes
+    expect(skill).toContain("mode:pipeline")
+  })
+})
+
 describe("learnings-researcher local prompt domain-agnostic contract", () => {
   test("local prompt frames as domain-agnostic not bug-focused", async () => {
     const agent = await readRepoFile(

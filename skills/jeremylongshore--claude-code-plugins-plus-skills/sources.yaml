@@ -46,7 +46,8 @@ sources:
       email: numman.ali@gmail.com
     license: Apache-2.0
     category: community
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     # Files to sync (relative to source_path)
     include:
       - 'SKILL.md'
@@ -69,7 +70,8 @@ sources:
       email: numman.ali@gmail.com
     license: Apache-2.0
     category: community
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'README.md'
@@ -126,7 +128,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -145,7 +148,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -164,7 +168,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -183,7 +188,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -202,7 +208,8 @@ sources:
       github: wondelai
     license: MIT
     category: design
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -221,7 +228,8 @@ sources:
       github: wondelai
     license: MIT
     category: productivity
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -240,7 +248,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -259,7 +268,8 @@ sources:
       github: wondelai
     license: MIT
     category: design
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -278,7 +288,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -297,7 +308,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -316,7 +328,8 @@ sources:
       github: wondelai
     license: MIT
     category: design
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -335,7 +348,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -354,7 +368,8 @@ sources:
       github: wondelai
     license: MIT
     category: productivity
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -373,7 +388,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -392,7 +408,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -411,7 +428,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -430,7 +448,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -449,7 +468,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -468,7 +488,8 @@ sources:
       github: wondelai
     license: MIT
     category: design
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -487,7 +508,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -506,7 +528,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -525,7 +548,8 @@ sources:
       github: wondelai
     license: MIT
     category: design
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -544,7 +568,8 @@ sources:
       github: wondelai
     license: MIT
     category: business-tools
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -563,7 +588,8 @@ sources:
       github: wondelai
     license: MIT
     category: design
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -582,7 +608,8 @@ sources:
       github: wondelai
     license: MIT
     category: design
-    verified: true
+    # census 2026-07-08: graded D/F — verified flips back to true when the upstream fix lands (deadline 2026-07-22)
+    verified: false
     include:
       - 'SKILL.md'
       - 'references/**'
@@ -1332,33 +1359,201 @@ sources:
       - '.git/**'
       - '*.log'
 
+  # NOTE (2026-07-07): mytradeledger-skills (trpsbill/skills) was removed
+  # from this list. Its mtl.py trips the unwaivable secret-exfil-cooccur
+  # REFUSE at sync time (run 28886237377) — code review shows an own-service
+  # API client (own .env token → own configured MTL_URL), i.e. a rule-fidelity
+  # gap, not malware. Re-add once the rule distinguishes own-service clients
+  # from foreign-credential exfil. Tracked in #985 (defect 1).
+
   # ============================================================
-  # MyTradeLedger Skills (trpsbill)
-  # https://github.com/trpsbill/skills
-  # MyTradeLedger REST API skill — journaled crypto trades,
-  # account balances / realized P&L, CSV export, asset registry.
+  # mnemos (Polyx Media)
+  # https://github.com/polyxmedia/mnemos
+  # Persistent memory for Claude Code — 2026-W28 featured skill.
+  # Killer-skill nomination #833: 8/8 required frontmatter fields
+  # at upstream HEAD, MIT, active. Pure pinned mirror (no local
+  # hardening needed — upstream is already A-grade).
   # ============================================================
 
-  - name: mytradeledger-skills
-    description: Access and manage MyTradeLedger journaled crypto trades via the REST API — ledger entries (CRUD + bulk-import + P&L recompute), account balances and realized P&L, CSV export, asset registry, entry metadata, and personal access token management.
-    repo: trpsbill/skills
+  - name: mnemos
+    description: Persistent memory for Claude Code — capture, digest, and recall project knowledge across sessions with a dependency-free Go CLI and hook integration.
+    repo: polyxmedia/mnemos
     source_path: .
-    target_path: plugins/community/mytradeledger-skills
+    target_path: plugins/community/mnemos
     author:
-      name: trpsbill
-      github: trpsbill
-      email: trpsbill@gmail.com
+      name: Polyx Media
+      github: polyxmedia
     license: MIT
     category: community
     verified: false
     include:
+      - '/.claude-plugin/plugin.json'
+      - '/.claude/skills/mnemos/SKILL.md'
+      - '/README.md'
+      - '/LICENSE'
+    exclude:
+      - '.git/**'
+      - 'node_modules/**'
+      - '*.log'
+
+  # ============================================================
+  # PortalJS (Datopian)
+  # https://github.com/datopian/portaljs
+  # Open source, AI-native framework for data portals — 12 skills
+  # to scaffold portals, add datasets/charts/maps, connect CKAN,
+  # and generate DCAT + Croissant metadata
+  # ============================================================
+
+  - name: portaljs
+    description: Agent skills that build data portals — scaffold a portal, add datasets, charts and maps, connect CKAN, and generate DCAT/Croissant metadata
+    repo: datopian/portaljs
+    source_path: .
+    target_path: plugins/community/portaljs
+    author:
+      name: Datopian
+      github: datopian
+      email: anuar.ustayev@datopian.com
+    license: MIT
+    category: community
+    verified: false
+    include:
+      - '/.claude-plugin/**'
+      - '/skills/**'
+      - '/README.md'
+      # upstream stores its license file as lowercase `license`; the sync
+      # glob match is case-sensitive, so the casing must match theirs
+      - '/license'
+    exclude:
+      - 'node_modules/**'
+      - '.git/**'
+      - '*.log'
+
+  # ============================================================
+  # llm-box (alib8b8)
+  # https://github.com/alib8b8/llm-box
+  # ============================================================
+
+  - name: llm-box
+    description: Terminal-first workflow automation engine. Generate and execute YAML workflows from plain English with 20+ nodes and 15+ LLM providers.
+    repo: alib8b8/llm-box
+    source_path: .
+    target_path: plugins/community/llm-box
+    author:
+      name: alib8b8
+      github: alib8b8
+    license: MIT
+    category: community
+    verified: false
+    keywords:
+      - workflow
+      - automation
+      - cli
+      - yaml
+      - llm
+      - mcp
+    include:
+      - '/.claude-plugin/plugin.json'
+      - '/skills/llm-box/SKILL.md'
+      - '/skills/setup/SKILL.md'
+      - '/commands/create-workflow.md'
+      - '/commands/run-workflow.md'
+      - '/commands/list-nodes.md'
+      - '/.mcp.json'
+      - '/README.md'
+      - '/README.zh-CN.md'
+    exclude:
+      - 'node_modules/**'
+      - '.git/**'
+      - '*.log'
+      - 'dist/**'
+      - 'contrib/**'
+
+  # ============================================================
+  # ServiceGraph (Artur Briugeman / nostrband)
+  # https://github.com/nostrband/ServiceGraph
+  # Agent-skills front-end to servicegraph.co's metrics-enriched
+  # business datasets for founders (110k+ US agencies, product /
+  # business directories, newsletters) — 1 branded dataset-agnostic
+  # skill + 17 find-* skills driving api/mcp.servicegraph.co.
+  # ============================================================
+
+  - name: servicegraph
+    description: ServiceGraph business datasets for founders — 18 skills for finding agencies, firms, and directories via metrics-enriched data (110k+ US professional-services agencies, product and business directories, newsletters)
+    repo: nostrband/ServiceGraph
+    source_path: .
+    target_path: plugins/mcp/servicegraph
+    author:
+      name: Artur Briugeman
+      github: nostrband
+      email: artur@nostr.band
+    license: MIT
+    category: mcp
+    verified: false
+    # curated: killer-skill nomination #828 (featuring doctrine 000-docs/700:
+    # featuring = mirror + curated: true). Content vendored byte-for-byte from
+    # jeremylongshore/ServiceGraph @ skill-frontmatter-spec (df4648a4), the
+    # staged fix branch 1 commit ahead of upstream main — it brings all 18
+    # SKILL.md files to the 8-field marketplace frontmatter standard. The fix
+    # was offered upstream but the maintainer has been silent 17 days (upstream
+    # frozen since 2026-06-02), so we feature the hardened copy; `curated: true`
+    # FREEZES the mirror. The upstream PR remains the courtesy off-ramp — once
+    # merged, drop `curated:` to resume normal mirroring. See tonone above.
+    # 2026-07-07: curated hardening extended in-PR — marketplace-tier body restructuring (the 6 required sections) across all 18 SKILL.md, on top of the fork's frontmatter fix; upstream prose preserved, moved not rewritten.
+    curated: true
+    include:
       - '.claude-plugin/plugin.json'
+      - '.mcp.json'
       - 'skills/**'
+      - 'assets/**'
+      - 'README.md'
       - 'LICENSE'
     exclude:
       - 'node_modules/**'
       - '.git/**'
       - '*.log'
+      - 'eval/**'
+
+  # ============================================================
+  # schedule-after-usage-reset (patricksong1993 / lemondepat)
+  # https://github.com/lemondepat/schedule-after-usage-reset
+  # macOS-only skill: reads the real usage-limit reset time from
+  # the Anthropic usage API (Keychain creds) and calls /schedule
+  # with a 5-minute buffer to queue work for when the limit lifts.
+  # ============================================================
+
+  - name: schedule-after-usage-reset
+    description: Find the real Claude usage-limit reset time from the Anthropic usage API and schedule a deferred task to run right after the limit lifts (macOS)
+    repo: lemondepat/schedule-after-usage-reset
+    source_path: .
+    target_path: plugins/productivity/schedule-after-usage-reset
+    author:
+      name: patricksong1993
+      github: patricksong1993
+    license: MIT
+    category: productivity
+    verified: false
+    # curated: killer-skill nomination #830 (featuring doctrine 000-docs/700:
+    # featuring = mirror + curated: true). Content vendored byte-for-byte from
+    # jeremylongshore/schedule-after-usage-reset @ skill-frontmatter-spec
+    # (a83ea165), the staged fix branch 1 commit ahead of upstream main — it
+    # fixes the broken frontmatter YAML and adds the 8 required fields. The fix
+    # was offered upstream but the maintainer has been silent 17 days (upstream
+    # frozen since 2026-05-23), so we feature the hardened copy; `curated: true`
+    # FREEZES the mirror. The upstream PR remains the courtesy off-ramp — once
+    # merged, drop `curated:` to resume normal mirroring. See tonone above.
+    # Attribution: repo owner is lemondepat; plugin.json author/homepage point
+    # at patricksong1993 — both credited.
+    curated: true
+    include:
+      - '.claude-plugin/plugin.json'
+      - 'skills/schedule-after-usage-reset/SKILL.md'
+      - 'README.md'
+      - 'LICENSE'
+    exclude:
+      - 'node_modules/**'
+      - '.git/**'
+      - '*.log'
+
 # Sync configuration
 config:
   # Branch to sync from (default: main)

@@ -10621,9 +10621,9 @@
       "description": "Document a recently solved problem or durable project vocabulary in docs/solutions/ or CONCEPTS.md. Use when capturing a learning after work.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 728,
-      "words": 8091,
-      "code_blocks": 19,
+      "lines": 759,
+      "words": 8860,
+      "code_blocks": 20,
       "languages": [
         "bash"
       ]
@@ -10657,8 +10657,8 @@
       "description": "'Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, think through scope, decide what to build, or needs collaborative product fr",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 286,
-      "words": 5937,
+      "lines": 290,
+      "words": 6144,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10669,8 +10669,8 @@
       "description": "Run the full hands-off engineering pipeline from planning through a green PR.",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 128,
-      "words": 1714,
+      "lines": 130,
+      "words": 1770,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -10706,8 +10706,8 @@
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
-      "lines": 807,
-      "words": 14163,
+      "lines": 810,
+      "words": 14327,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -10739,8 +10739,8 @@
       "description": "\"Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked for review; interactive mode can fix locally, while mode:agent reports only for pipeline callers.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 836,
-      "words": 13954,
+      "lines": 838,
+      "words": 14231,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -10753,7 +10753,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
       "lines": 680,
-      "words": 8418,
+      "words": 8421,
       "code_blocks": 7,
       "languages": [
         "text"
@@ -10764,8 +10764,8 @@
       "description": "Commit, push, and open a PR. Use when asked to ship/open a PR, or for PR-description-only flows like writing, rewriting, or describing a PR body.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
-      "lines": 135,
-      "words": 1444,
+      "lines": 157,
+      "words": 2023,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -19327,7 +19327,7 @@
       "path": "callstackincubator--agent-skills/skills/react-native-best-practices/SKILL.md",
       "remote_path": "skills/react-native-best-practices/SKILL.md",
       "lines": 242,
-      "words": 1356,
+      "words": 1374,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -19340,7 +19340,7 @@
       "path": "callstackincubator--agent-skills/skills/react-native-best-practices/POWER.md",
       "remote_path": "skills/react-native-best-practices/POWER.md",
       "lines": 173,
-      "words": 981,
+      "words": 987,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -19649,11 +19649,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 663,
-      "words": 10190,
+      "lines": 669,
+      "words": 10411,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.13.0",
+      "version": "3.14.0",
       "license": "MIT"
     },
     {
@@ -19661,11 +19661,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 663,
-      "words": 10190,
+      "lines": 669,
+      "words": 10411,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.13.0",
+      "version": "3.14.0",
       "license": "MIT"
     }
   ],
@@ -20259,27 +20259,12 @@
       "license": "MIT"
     },
     {
-      "name": "expo-cicd-workflows",
-      "description": "Helps understand and write EAS workflow YAML files for Expo projects. Use this skill when the user asks about CI/CD or workflows in an Expo or EAS context, mentions .eas/workflows/, or wants help with",
-      "path": "expo--skills/plugins/expo/skills/expo-cicd-workflows/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-cicd-workflows/SKILL.md",
-      "lines": 93,
-      "words": 481,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "sh"
-      ],
-      "version": "1.0.0",
-      "license": "MIT License"
-    },
-    {
       "name": "expo-tailwind-setup",
-      "description": "Set up Tailwind CSS v4 in Expo with react-native-css and NativeWind v5 for universal styling",
+      "description": "Framework (OSS). Set up Tailwind CSS v4 in Expo with react-native-css and NativeWind v5 for universal styling",
       "path": "expo--skills/plugins/expo/skills/expo-tailwind-setup/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-tailwind-setup/SKILL.md",
       "lines": 481,
-      "words": 1368,
+      "words": 1370,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -20292,98 +20277,12 @@
       "license": "MIT"
     },
     {
-      "name": "expo-api-routes",
-      "description": "Guidelines for creating API routes in Expo Router with EAS Hosting",
-      "path": "expo--skills/plugins/expo/skills/expo-api-routes/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-api-routes/SKILL.md",
-      "lines": 369,
-      "words": 1156,
-      "code_blocks": 20,
-      "languages": [
-        "bash",
-        "ts"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "expo-deployment",
-      "description": "Deploy Expo apps to production with EAS \u2014 build and submit to the iOS App Store, Google Play Store, and TestFlight, configure eas.json build and submit profiles, manage app versions and build numbers,",
-      "path": "expo--skills/plugins/expo/skills/expo-deployment/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-deployment/SKILL.md",
-      "lines": 168,
-      "words": 583,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "use-dom",
-      "description": "Use Expo DOM components to run web code in a webview on native and as-is on web. Migrate web code to native incrementally.",
-      "path": "expo--skills/plugins/expo/skills/use-dom/SKILL.md",
-      "remote_path": "plugins/expo/skills/use-dom/SKILL.md",
-      "lines": 418,
-      "words": 1283,
-      "code_blocks": 15,
-      "languages": [
-        "tsx"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "eas-simulator",
-      "description": "\"Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Always read before executing any `eas simulator:*` commands \u2014 it has the current syntax for this experimental API. ",
-      "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
-      "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 155,
-      "words": 2542,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "expo-router",
-      "description": "Navigation and routing for Expo Router. Covers file-based routes, groups and dynamic routes, folder organization, Link with previews and context menus, native Stack, page titles, modals and form sheet",
-      "path": "expo--skills/plugins/expo/skills/expo-router/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-router/SKILL.md",
-      "lines": 231,
-      "words": 724,
-      "code_blocks": 10,
-      "languages": [
-        "tsx"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "expo-examples",
-      "description": "Expo's official example projects \u2014 the expo/examples repo of ~70 `with-*` integrations (Stripe, Clerk, Supabase, OpenAI, maps, Reanimated, SQLite, Skia, NativeWind, and more). Use when integrating a t",
-      "path": "expo--skills/plugins/expo/skills/expo-examples/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-examples/SKILL.md",
-      "lines": 99,
-      "words": 854,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "web-to-native",
-      "description": "Migrate an existing web React app to a native iOS/Android app with Expo. Use when the user wants to turn a website into a mobile app, port a Next.js/Vite/CRA React codebase to React Native, reuse web ",
-      "path": "expo--skills/plugins/expo/skills/web-to-native/SKILL.md",
-      "remote_path": "plugins/expo/skills/web-to-native/SKILL.md",
+      "name": "expo-web-to-native",
+      "description": "Framework (OSS). Migrate an existing web React app to a native iOS/Android app with Expo. Use when the user wants to turn a website into a mobile app, port a Next.js/Vite/CRA React codebase to React N",
+      "path": "expo--skills/plugins/expo/skills/expo-web-to-native/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-web-to-native/SKILL.md",
       "lines": 84,
-      "words": 1438,
+      "words": 1440,
       "code_blocks": 1,
       "languages": [
         "mermaid"
@@ -20392,94 +20291,53 @@
       "license": "MIT"
     },
     {
-      "name": "expo-ui",
-      "description": "\"Build native UI with the @expo/ui package: real SwiftUI on iOS and Jetpack Compose on Android rendered from React in an Expo or React Native app. Covers universal cross-platform components (Host, Col",
-      "path": "expo--skills/plugins/expo/skills/expo-ui/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-ui/SKILL.md",
-      "lines": 48,
-      "words": 585,
-      "code_blocks": 2,
+      "name": "eas-app-stores",
+      "description": "EAS service (paid). Deploy Expo apps to the app stores with EAS - build and submit to the iOS App Store, Google Play Store, and TestFlight, configure eas.json build and submit profiles, manage app ver",
+      "path": "expo--skills/plugins/expo/skills/eas-app-stores/SKILL.md",
+      "remote_path": "plugins/expo/skills/eas-app-stores/SKILL.md",
+      "lines": 153,
+      "words": 620,
+      "code_blocks": 7,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ],
       "version": "1.0.0",
       "license": "MIT"
     },
     {
-      "name": "expo-observe",
-      "description": "Use for anything related to EAS Observe \u2014 adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive, the useObserve hook, the Expo Router / React Navigation integration",
-      "path": "expo--skills/plugins/expo/skills/expo-observe/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-observe/SKILL.md",
-      "lines": 31,
-      "words": 305,
+      "name": "expo-data-fetching",
+      "description": "Framework (OSS). Use when implementing or debugging ANY network request, API call, or data fetching. Covers fetch API, React Query, SWR, error handling, caching, offline support, and Expo Router data ",
+      "path": "expo--skills/plugins/expo/skills/expo-data-fetching/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-data-fetching/SKILL.md",
+      "lines": 450,
+      "words": 1363,
+      "code_blocks": 19,
+      "languages": [
+        "tsx"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "eas-observe",
+      "description": "EAS service (paid). Use for anything related to EAS Observe - adding `expo-observe` to an Expo project (AppMetricsRoot/ObserveRoot HOC, markInteractive, the useObserve hook, the Expo Router / React Na",
+      "path": "expo--skills/plugins/expo/skills/eas-observe/SKILL.md",
+      "remote_path": "plugins/expo/skills/eas-observe/SKILL.md",
+      "lines": 33,
+      "words": 344,
       "code_blocks": 0,
       "languages": [],
       "version": "1.0.0",
       "license": "MIT"
     },
     {
-      "name": "upgrading-expo",
-      "description": "Guidelines for upgrading Expo SDK versions and fixing dependency issues",
-      "path": "expo--skills/plugins/expo/skills/upgrading-expo/SKILL.md",
-      "remote_path": "plugins/expo/skills/upgrading-expo/SKILL.md",
-      "lines": 135,
-      "words": 776,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "expo-dev-client",
-      "description": "Build Expo app for development",
-      "path": "expo--skills/plugins/expo/skills/expo-dev-client/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-dev-client/SKILL.md",
-      "lines": 173,
-      "words": 550,
-      "code_blocks": 12,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.1.0",
-      "license": "MIT"
-    },
-    {
-      "name": "building-native-ui",
-      "description": "Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, animations, visual effects, gradients, storage, and responsive layout. For ",
-      "path": "expo--skills/plugins/expo/skills/building-native-ui/SKILL.md",
-      "remote_path": "plugins/expo/skills/building-native-ui/SKILL.md",
-      "lines": 182,
-      "words": 1110,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ],
-      "version": "1.1.0",
-      "license": "MIT"
-    },
-    {
-      "name": "expo-brownfield",
-      "description": "Integrate Expo and React Native into an existing native iOS or Android app. Use when the user mentions brownfield, embedding React Native in a native app, AAR/XCFramework, or adding Expo to an existin",
-      "path": "expo--skills/plugins/expo/skills/expo-brownfield/SKILL.md",
-      "remote_path": "plugins/expo/skills/expo-brownfield/SKILL.md",
-      "lines": 55,
-      "words": 477,
-      "code_blocks": 1,
-      "languages": [
-        "sh"
-      ]
-    },
-    {
-      "name": "add-app-clip",
-      "description": "Add an iOS App Clip target to an Expo app. Use when the user mentions App Clip, AASA, apple-app-site-association, appclips, smart app banner, or wants to ship a lightweight iOS Clip invoked from a URL",
-      "path": "expo--skills/plugins/expo/skills/add-app-clip/SKILL.md",
-      "remote_path": "plugins/expo/skills/add-app-clip/SKILL.md",
-      "lines": 281,
-      "words": 1085,
+      "name": "expo-app-clip",
+      "description": "Framework (OSS). Add an iOS App Clip target to an Expo app. Use when the user mentions App Clip, AASA, apple-app-site-association, appclips, smart app banner, or wants to ship a lightweight iOS Clip i",
+      "path": "expo--skills/plugins/expo/skills/expo-app-clip/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-app-clip/SKILL.md",
+      "lines": 283,
+      "words": 1147,
       "code_blocks": 18,
       "languages": [
         "html",
@@ -20491,13 +20349,141 @@
       ]
     },
     {
-      "name": "native-data-fetching",
-      "description": "Use when implementing or debugging ANY network request, API call, or data fetching. Covers fetch API, React Query, SWR, error handling, caching, offline support, and Expo Router data loaders (`useLoad",
-      "path": "expo--skills/plugins/expo/skills/native-data-fetching/SKILL.md",
-      "remote_path": "plugins/expo/skills/native-data-fetching/SKILL.md",
-      "lines": 506,
-      "words": 1475,
-      "code_blocks": 23,
+      "name": "eas-simulator",
+      "description": "\"EAS service (paid). Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experim",
+      "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
+      "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
+      "lines": 157,
+      "words": 2570,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "expo-router",
+      "description": "Framework (OSS). Navigation and routing for Expo Router. Covers file-based routes, groups and dynamic routes, folder organization, Link with previews and context menus, native Stack, page titles, moda",
+      "path": "expo--skills/plugins/expo/skills/expo-router/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-router/SKILL.md",
+      "lines": 231,
+      "words": 726,
+      "code_blocks": 10,
+      "languages": [
+        "tsx"
+      ],
+      "version": "1.0.1",
+      "license": "MIT"
+    },
+    {
+      "name": "expo-examples",
+      "description": "Framework (OSS). Expo's official example projects - the expo/examples repo of ~70 `with-*` integrations (Stripe, Clerk, Supabase, OpenAI, maps, Reanimated, SQLite, Skia, NativeWind, and more). Use whe",
+      "path": "expo--skills/plugins/expo/skills/expo-examples/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-examples/SKILL.md",
+      "lines": 100,
+      "words": 865,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "expo-ui",
+      "description": "\"Framework (OSS). Build native UI with the @expo/ui package: real SwiftUI on iOS and Jetpack Compose on Android rendered from React in an Expo or React Native app. Covers universal cross-platform comp",
+      "path": "expo--skills/plugins/expo/skills/expo-ui/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-ui/SKILL.md",
+      "lines": 48,
+      "words": 587,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "eas-workflows",
+      "description": "EAS service (paid). Helps understand and write EAS workflow YAML files for Expo projects. Use this skill when the user asks about CI/CD or workflows in an Expo or EAS context, mentions .eas/workflows/",
+      "path": "expo--skills/plugins/expo/skills/eas-workflows/SKILL.md",
+      "remote_path": "plugins/expo/skills/eas-workflows/SKILL.md",
+      "lines": 95,
+      "words": 531,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "sh"
+      ],
+      "version": "1.0.0",
+      "license": "MIT License"
+    },
+    {
+      "name": "expo-dev-client",
+      "description": "Framework (OSS). Build and distribute Expo development clients locally or via TestFlight for internal testing. For production TestFlight releases and store submission, use the eas-app-stores skill.",
+      "path": "expo--skills/plugins/expo/skills/expo-dev-client/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-dev-client/SKILL.md",
+      "lines": 175,
+      "words": 612,
+      "code_blocks": 12,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.1.0",
+      "license": "MIT"
+    },
+    {
+      "name": "expo-brownfield",
+      "description": "Framework (OSS). Integrate Expo and React Native into an existing native iOS or Android app. Use when the user mentions brownfield, embedding React Native in a native app, AAR/XCFramework, or adding E",
+      "path": "expo--skills/plugins/expo/skills/expo-brownfield/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-brownfield/SKILL.md",
+      "lines": 55,
+      "words": 479,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
+      "name": "expo-native-ui",
+      "description": "Framework (OSS). Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, animations, visual effects, gradients, storage, and respon",
+      "path": "expo--skills/plugins/expo/skills/expo-native-ui/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-native-ui/SKILL.md",
+      "lines": 182,
+      "words": 1113,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ],
+      "version": "1.1.1",
+      "license": "MIT"
+    },
+    {
+      "name": "eas-hosting",
+      "description": "EAS service (paid). Deploy Expo websites and Expo Router API routes to EAS Hosting - export the web bundle, run eas deploy for production and PR preview URLs, manage environment secrets and custom dom",
+      "path": "expo--skills/plugins/expo/skills/eas-hosting/SKILL.md",
+      "remote_path": "plugins/expo/skills/eas-hosting/SKILL.md",
+      "lines": 424,
+      "words": 1495,
+      "code_blocks": 22,
+      "languages": [
+        "bash",
+        "ts",
+        "yaml"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "expo-dom",
+      "description": "Framework (OSS). Use Expo DOM components to run web code in a webview on native and as-is on web. Migrate web code to native incrementally. For the end-to-end migration of a whole web app, use the exp",
+      "path": "expo--skills/plugins/expo/skills/expo-dom/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-dom/SKILL.md",
+      "lines": 418,
+      "words": 1298,
+      "code_blocks": 15,
       "languages": [
         "tsx"
       ],
@@ -20506,11 +20492,11 @@
     },
     {
       "name": "expo-module",
-      "description": "Guide for creating and writing Expo native modules and views using the Expo Modules API (Swift, Kotlin, TypeScript). Covers module definition DSL, native views, shared objects, config plugins, lifecyc",
+      "description": "Framework (OSS). Guide for creating and writing Expo native modules and views using the Expo Modules API (Swift, Kotlin, TypeScript). Covers module definition DSL, native views, shared objects, config",
       "path": "expo--skills/plugins/expo/skills/expo-module/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-module/SKILL.md",
       "lines": 142,
-      "words": 714,
+      "words": 716,
       "code_blocks": 5,
       "languages": [
         "json",
@@ -20522,12 +20508,27 @@
       "license": "MIT"
     },
     {
+      "name": "expo-upgrade",
+      "description": "Framework (OSS). Guidelines for upgrading Expo SDK versions and fixing dependency issues",
+      "path": "expo--skills/plugins/expo/skills/expo-upgrade/SKILL.md",
+      "remote_path": "plugins/expo/skills/expo-upgrade/SKILL.md",
+      "lines": 135,
+      "words": 778,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "eas-update-insights",
-      "description": "\"Check the health of published EAS Updates: crash rates, install/launch counts, unique users, payload size, and the split between embedded and OTA users per channel. Use when the user asks how an upda",
+      "description": "\"EAS service (paid). Check the health of published EAS Update: crash rates, install/launch counts, unique users, payload size, and the split between embedded and OTA users per channel. Use when the us",
       "path": "expo--skills/plugins/expo/skills/eas-update-insights/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-update-insights/SKILL.md",
-      "lines": 229,
-      "words": 1597,
+      "lines": 231,
+      "words": 1639,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21577,8 +21578,8 @@
       "description": "Reference for Netlify AI Gateway \u2014 the managed proxy that routes calls to OpenAI, Anthropic, and Google Gemini SDKs without provider API keys. Use this skill any time the user wants to add AI on a Net",
       "path": "netlify--context-and-tools/skills/netlify-ai-gateway/SKILL.md",
       "remote_path": "skills/netlify-ai-gateway/SKILL.md",
-      "lines": 208,
-      "words": 1223,
+      "lines": 233,
+      "words": 1883,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21590,8 +21591,8 @@
       "description": "Guide for deploying web frameworks on Netlify. Use when setting up a framework project (Vite/React, Astro, TanStack Start, Next.js, Nuxt, SvelteKit, Remix) for Netlify deployment, configuring adapters",
       "path": "netlify--context-and-tools/skills/netlify-frameworks/SKILL.md",
       "remote_path": "skills/netlify-frameworks/SKILL.md",
-      "lines": 67,
-      "words": 363,
+      "lines": 79,
+      "words": 660,
       "code_blocks": 1,
       "languages": [
         "toml"
@@ -21602,8 +21603,8 @@
       "description": "Guide for using the Netlify CLI and deploying sites. Use when installing the CLI, linking sites, deploying (Git-based or manual), managing environment variables, or running local development. Covers n",
       "path": "netlify--context-and-tools/skills/netlify-cli-and-deploy/SKILL.md",
       "remote_path": "skills/netlify-cli-and-deploy/SKILL.md",
-      "lines": 152,
-      "words": 600,
+      "lines": 168,
+      "words": 1158,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21615,8 +21616,8 @@
       "description": "Guide for using Netlify Database \u2014 the GA managed Postgres product built into Netlify. Use when a project needs any kind of dynamic, structured, or relational data. Covers provisioning via @netlify/da",
       "path": "netlify--context-and-tools/skills/netlify-database/SKILL.md",
       "remote_path": "skills/netlify-database/SKILL.md",
-      "lines": 366,
-      "words": 3086,
+      "lines": 370,
+      "words": 3103,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -21629,8 +21630,8 @@
       "description": "Guide for using Netlify Forms for HTML form handling. Use when adding contact forms, feedback forms, file upload forms, or any form that should be collected by Netlify. Covers the data-netlify attribu",
       "path": "netlify--context-and-tools/skills/netlify-forms/SKILL.md",
       "remote_path": "skills/netlify-forms/SKILL.md",
-      "lines": 173,
-      "words": 765,
+      "lines": 196,
+      "words": 1326,
       "code_blocks": 9,
       "languages": [
         "html",
@@ -21644,9 +21645,9 @@
       "description": "Build, deploy, and secure Model Context Protocol (MCP) servers on Netlify. Use whenever the task involves creating an MCP server, exposing an app or API to AI agents as MCP tools, letting Claude / Cur",
       "path": "netlify--context-and-tools/skills/netlify-mcp-servers/SKILL.md",
       "remote_path": "skills/netlify-mcp-servers/SKILL.md",
-      "lines": 165,
-      "words": 1704,
-      "code_blocks": 3,
+      "lines": 208,
+      "words": 2440,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "typescript"
@@ -21667,8 +21668,8 @@
       "description": "Guide for using Netlify Image CDN for image optimization and transformation. Use when serving optimized images, creating responsive image markup, setting up user-uploaded image pipelines, or configuri",
       "path": "netlify--context-and-tools/skills/netlify-image-cdn/SKILL.md",
       "remote_path": "skills/netlify-image-cdn/SKILL.md",
-      "lines": 90,
-      "words": 421,
+      "lines": 100,
+      "words": 700,
       "code_blocks": 5,
       "languages": [
         "html",
@@ -21680,9 +21681,9 @@
       "description": "Guide for controlling caching on Netlify's CDN. Use when configuring cache headers, setting up stale-while-revalidate, implementing on-demand cache purge, or understanding Netlify's CDN caching behavi",
       "path": "netlify--context-and-tools/skills/netlify-caching/SKILL.md",
       "remote_path": "skills/netlify-caching/SKILL.md",
-      "lines": 137,
-      "words": 493,
-      "code_blocks": 6,
+      "lines": 187,
+      "words": 1121,
+      "code_blocks": 10,
       "languages": [
         "toml",
         "typescript"
@@ -21693,8 +21694,8 @@
       "description": "Deploy web projects to Netlify using the Netlify CLI (`npx netlify`). Use when the user asks to deploy, host, publish, or link a site/repo on Netlify, including preview and production deploys.",
       "path": "netlify--context-and-tools/skills/netlify-deploy/SKILL.md",
       "remote_path": "skills/netlify-deploy/SKILL.md",
-      "lines": 236,
-      "words": 1068,
+      "lines": 243,
+      "words": 1310,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -21705,8 +21706,8 @@
       "description": "Use when the task involves authentication, user signups, logins, password recovery, OAuth providers, role-based access control, or protecting routes and functions. Always use `@netlify/identity` for n",
       "path": "netlify--context-and-tools/skills/netlify-identity/SKILL.md",
       "remote_path": "skills/netlify-identity/SKILL.md",
-      "lines": 460,
-      "words": 2917,
+      "lines": 465,
+      "words": 3005,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -21720,10 +21721,11 @@
       "description": "Guide for writing Netlify serverless functions. Use when creating API endpoints, background processing, scheduled tasks, or any server-side logic using Netlify Functions. Covers modern syntax (default",
       "path": "netlify--context-and-tools/skills/netlify-functions/SKILL.md",
       "remote_path": "skills/netlify-functions/SKILL.md",
-      "lines": 262,
-      "words": 1384,
-      "code_blocks": 12,
+      "lines": 287,
+      "words": 1921,
+      "code_blocks": 13,
       "languages": [
+        "toml",
         "typescript"
       ]
     },
@@ -21732,8 +21734,8 @@
       "description": "Reference for netlify.toml configuration. Use when configuring build settings, redirects, rewrites, headers, deploy contexts, environment variables, or any site-level configuration. Covers the complet",
       "path": "netlify--context-and-tools/skills/netlify-config/SKILL.md",
       "remote_path": "skills/netlify-config/SKILL.md",
-      "lines": 176,
-      "words": 481,
+      "lines": 189,
+      "words": 911,
       "code_blocks": 10,
       "languages": [
         "toml"
@@ -21744,9 +21746,9 @@
       "description": "Guide for using Netlify Blobs for file and asset storage \u2014 images, documents, uploads, exports, cached binary artifacts. Covers getStore(), CRUD operations, metadata, listing, deploy-scoped vs site-sc",
       "path": "netlify--context-and-tools/skills/netlify-blobs/SKILL.md",
       "remote_path": "skills/netlify-blobs/SKILL.md",
-      "lines": 119,
-      "words": 846,
-      "code_blocks": 6,
+      "lines": 170,
+      "words": 1551,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "typescript"
@@ -21757,8 +21759,8 @@
       "description": "Run AI agent tasks remotely on Netlify using Claude, Codex, or Gemini. Use when the user wants to run an AI agent on their site, get a second opinion from another model, or delegate development tasks ",
       "path": "netlify--context-and-tools/skills/netlify-agent-runner/SKILL.md",
       "remote_path": "skills/netlify-agent-runner/SKILL.md",
-      "lines": 137,
-      "words": 1254,
+      "lines": 151,
+      "words": 1574,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -21769,9 +21771,9 @@
       "description": "Guide for writing Netlify Edge Functions. Use when building middleware, geolocation-based logic, request/response manipulation, authentication checks, A/B testing, or any low-latency edge compute. Cov",
       "path": "netlify--context-and-tools/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "skills/netlify-edge-functions/SKILL.md",
-      "lines": 127,
-      "words": 476,
-      "code_blocks": 8,
+      "lines": 181,
+      "words": 1111,
+      "code_blocks": 10,
       "languages": [
         "json",
         "toml",
@@ -21783,8 +21785,8 @@
       "description": "Reference for Netlify AI Gateway \u2014 the managed proxy that routes calls to OpenAI, Anthropic, and Google Gemini SDKs without provider API keys. Use this skill any time the user wants to add AI on a Net",
       "path": "netlify--context-and-tools/codex/skills/netlify-ai-gateway/SKILL.md",
       "remote_path": "codex/skills/netlify-ai-gateway/SKILL.md",
-      "lines": 208,
-      "words": 1223,
+      "lines": 233,
+      "words": 1883,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21796,8 +21798,8 @@
       "description": "Guide for deploying web frameworks on Netlify. Use when setting up a framework project (Vite/React, Astro, TanStack Start, Next.js, Nuxt, SvelteKit, Remix) for Netlify deployment, configuring adapters",
       "path": "netlify--context-and-tools/codex/skills/netlify-frameworks/SKILL.md",
       "remote_path": "codex/skills/netlify-frameworks/SKILL.md",
-      "lines": 67,
-      "words": 363,
+      "lines": 79,
+      "words": 660,
       "code_blocks": 1,
       "languages": [
         "toml"
@@ -21808,8 +21810,8 @@
       "description": "Guide for using the Netlify CLI and deploying sites. Use when installing the CLI, linking sites, deploying (Git-based or manual), managing environment variables, or running local development. Covers n",
       "path": "netlify--context-and-tools/codex/skills/netlify-cli-and-deploy/SKILL.md",
       "remote_path": "codex/skills/netlify-cli-and-deploy/SKILL.md",
-      "lines": 152,
-      "words": 600,
+      "lines": 168,
+      "words": 1158,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21821,8 +21823,8 @@
       "description": "Guide for using Netlify Database \u2014 the GA managed Postgres product built into Netlify. Use when a project needs any kind of dynamic, structured, or relational data. Covers provisioning via @netlify/da",
       "path": "netlify--context-and-tools/codex/skills/netlify-database/SKILL.md",
       "remote_path": "codex/skills/netlify-database/SKILL.md",
-      "lines": 366,
-      "words": 3086,
+      "lines": 370,
+      "words": 3103,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -21835,8 +21837,8 @@
       "description": "Guide for using Netlify Forms for HTML form handling. Use when adding contact forms, feedback forms, file upload forms, or any form that should be collected by Netlify. Covers the data-netlify attribu",
       "path": "netlify--context-and-tools/codex/skills/netlify-forms/SKILL.md",
       "remote_path": "codex/skills/netlify-forms/SKILL.md",
-      "lines": 173,
-      "words": 765,
+      "lines": 196,
+      "words": 1326,
       "code_blocks": 9,
       "languages": [
         "html",
@@ -21850,9 +21852,9 @@
       "description": "Build, deploy, and secure Model Context Protocol (MCP) servers on Netlify. Use whenever the task involves creating an MCP server, exposing an app or API to AI agents as MCP tools, letting Claude / Cur",
       "path": "netlify--context-and-tools/codex/skills/netlify-mcp-servers/SKILL.md",
       "remote_path": "codex/skills/netlify-mcp-servers/SKILL.md",
-      "lines": 165,
-      "words": 1704,
-      "code_blocks": 3,
+      "lines": 208,
+      "words": 2440,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "typescript"
@@ -21873,8 +21875,8 @@
       "description": "Guide for using Netlify Image CDN for image optimization and transformation. Use when serving optimized images, creating responsive image markup, setting up user-uploaded image pipelines, or configuri",
       "path": "netlify--context-and-tools/codex/skills/netlify-image-cdn/SKILL.md",
       "remote_path": "codex/skills/netlify-image-cdn/SKILL.md",
-      "lines": 90,
-      "words": 421,
+      "lines": 100,
+      "words": 700,
       "code_blocks": 5,
       "languages": [
         "html",
@@ -21886,9 +21888,9 @@
       "description": "Guide for controlling caching on Netlify's CDN. Use when configuring cache headers, setting up stale-while-revalidate, implementing on-demand cache purge, or understanding Netlify's CDN caching behavi",
       "path": "netlify--context-and-tools/codex/skills/netlify-caching/SKILL.md",
       "remote_path": "codex/skills/netlify-caching/SKILL.md",
-      "lines": 137,
-      "words": 493,
-      "code_blocks": 6,
+      "lines": 187,
+      "words": 1121,
+      "code_blocks": 10,
       "languages": [
         "toml",
         "typescript"
@@ -21899,8 +21901,8 @@
       "description": "Deploy web projects to Netlify using the Netlify CLI (`npx netlify`). Use when the user asks to deploy, host, publish, or link a site/repo on Netlify, including preview and production deploys.",
       "path": "netlify--context-and-tools/codex/skills/netlify-deploy/SKILL.md",
       "remote_path": "codex/skills/netlify-deploy/SKILL.md",
-      "lines": 236,
-      "words": 1068,
+      "lines": 243,
+      "words": 1310,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -21911,8 +21913,8 @@
       "description": "Use when the task involves authentication, user signups, logins, password recovery, OAuth providers, role-based access control, or protecting routes and functions. Always use `@netlify/identity` for n",
       "path": "netlify--context-and-tools/codex/skills/netlify-identity/SKILL.md",
       "remote_path": "codex/skills/netlify-identity/SKILL.md",
-      "lines": 460,
-      "words": 2917,
+      "lines": 465,
+      "words": 3005,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -21926,10 +21928,11 @@
       "description": "Guide for writing Netlify serverless functions. Use when creating API endpoints, background processing, scheduled tasks, or any server-side logic using Netlify Functions. Covers modern syntax (default",
       "path": "netlify--context-and-tools/codex/skills/netlify-functions/SKILL.md",
       "remote_path": "codex/skills/netlify-functions/SKILL.md",
-      "lines": 262,
-      "words": 1384,
-      "code_blocks": 12,
+      "lines": 287,
+      "words": 1921,
+      "code_blocks": 13,
       "languages": [
+        "toml",
         "typescript"
       ]
     },
@@ -21938,8 +21941,8 @@
       "description": "Reference for netlify.toml configuration. Use when configuring build settings, redirects, rewrites, headers, deploy contexts, environment variables, or any site-level configuration. Covers the complet",
       "path": "netlify--context-and-tools/codex/skills/netlify-config/SKILL.md",
       "remote_path": "codex/skills/netlify-config/SKILL.md",
-      "lines": 176,
-      "words": 481,
+      "lines": 189,
+      "words": 911,
       "code_blocks": 10,
       "languages": [
         "toml"
@@ -21950,9 +21953,9 @@
       "description": "Guide for using Netlify Blobs for file and asset storage \u2014 images, documents, uploads, exports, cached binary artifacts. Covers getStore(), CRUD operations, metadata, listing, deploy-scoped vs site-sc",
       "path": "netlify--context-and-tools/codex/skills/netlify-blobs/SKILL.md",
       "remote_path": "codex/skills/netlify-blobs/SKILL.md",
-      "lines": 119,
-      "words": 846,
-      "code_blocks": 6,
+      "lines": 170,
+      "words": 1551,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "typescript"
@@ -21963,8 +21966,8 @@
       "description": "Run AI agent tasks remotely on Netlify using Claude, Codex, or Gemini. Use when the user wants to run an AI agent on their site, get a second opinion from another model, or delegate development tasks ",
       "path": "netlify--context-and-tools/codex/skills/netlify-agent-runner/SKILL.md",
       "remote_path": "codex/skills/netlify-agent-runner/SKILL.md",
-      "lines": 137,
-      "words": 1254,
+      "lines": 151,
+      "words": 1574,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -21975,9 +21978,9 @@
       "description": "Guide for writing Netlify Edge Functions. Use when building middleware, geolocation-based logic, request/response manipulation, authentication checks, A/B testing, or any low-latency edge compute. Cov",
       "path": "netlify--context-and-tools/codex/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "codex/skills/netlify-edge-functions/SKILL.md",
-      "lines": 127,
-      "words": 476,
-      "code_blocks": 8,
+      "lines": 181,
+      "words": 1111,
+      "code_blocks": 10,
       "languages": [
         "json",
         "toml",
@@ -24150,12 +24153,25 @@
   "squirrelscan--skills": [
     {
       "name": "audit-website",
-      "description": "Audit websites for SEO, performance, security, technical, content, and 16 other issue categories with 249+ rules using the squirrelscan CLI. Returns LLM-optimized reports with health scores, broken li",
-      "path": "squirrelscan--skills/audit-website/SKILL.md",
-      "remote_path": "audit-website/SKILL.md",
-      "lines": 492,
-      "words": 2785,
-      "code_blocks": 18,
+      "description": "Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 15 other rule categories (249+ rules), returns an LLM-op",
+      "path": "squirrelscan--skills/skills/audit-website/SKILL.md",
+      "remote_path": "skills/audit-website/SKILL.md",
+      "lines": 108,
+      "words": 897,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "See LICENSE file in repository root"
+    },
+    {
+      "name": "squirrelscan",
+      "description": "squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (249+ rules) and scores site health, via the squirrel CLI. Use when the user wants to ch",
+      "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
+      "remote_path": "skills/squirrelscan/SKILL.md",
+      "lines": 191,
+      "words": 1138,
+      "code_blocks": 12,
       "languages": [
         "bash"
       ],
@@ -24205,6 +24221,16 @@
       ]
     },
     {
+      "name": "connect-recommend",
+      "description": ">-",
+      "path": "stripe--ai/providers/cursor/plugin/skills/connect-recommend/SKILL.md",
+      "remote_path": "providers/cursor/plugin/skills/connect-recommend/SKILL.md",
+      "lines": 367,
+      "words": 2758,
+      "code_blocks": 12,
+      "languages": []
+    },
+    {
       "name": "stripe-best-practices",
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
@@ -24222,6 +24248,16 @@
       "lines": 78,
       "words": 793,
       "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Company Researcher",
+      "description": "\"Research a company from its URL or description to infer Stripe Connect integration shape\"",
+      "path": "stripe--ai/providers/cursor/plugin/skills/connect-recommend/agents/company-researcher.md",
+      "remote_path": "providers/cursor/plugin/skills/connect-recommend/agents/company-researcher.md",
+      "lines": 115,
+      "words": 1142,
+      "code_blocks": 1,
       "languages": []
     },
     {
@@ -27210,13 +27246,11 @@
       "description": ">",
       "path": "typefully--agent-skills/skills/typefully/SKILL.md",
       "remote_path": "skills/typefully/SKILL.md",
-      "lines": 660,
-      "words": 4516,
-      "code_blocks": 49,
+      "lines": 279,
+      "words": 1882,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "markdown",
-        "text"
+        "bash"
       ]
     }
   ],
@@ -63260,11 +63294,11 @@
     },
     {
       "name": "design-sprint",
-      "description": "'Run a structured 5-day process to prototype, test, and validate product ideas with real users. Use when the user mentions \"design sprint\", \"validate in a week\", \"rapid prototype\", \"test with users\", ",
+      "description": "'Run a structured 5-day process to prototype, test, and validate product ideas with real users. Use when the user mentions \"design sprint\", \"validate before we build\", \"rapid prototype\", \"test with us",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/wondelai-design-sprint/SKILL.md",
       "remote_path": "plugins/productivity/wondelai-design-sprint/SKILL.md",
-      "lines": 233,
-      "words": 2043,
+      "lines": 240,
+      "words": 2316,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -63274,8 +63308,8 @@
       "description": "'Design MVPs, validated learning experiments, and pivot-or-persevere decisions using Build-Measure-Learn. Use when the user mentions \"MVP scope\", \"validated learning\", \"pivot or persevere\", \"vanity me",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/wondelai-lean-startup/SKILL.md",
       "remote_path": "plugins/productivity/wondelai-lean-startup/SKILL.md",
-      "lines": 260,
-      "words": 2228,
+      "lines": 250,
+      "words": 2396,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -63642,6 +63676,20 @@
         "bash",
         "text"
       ]
+    },
+    {
+      "name": "schedule-after-usage-reset",
+      "description": "\"Schedule a task to run after the Claude usage limit resets. Use when the user says things like: schedule this after my usage resets, run this when my tokens refresh, queue this task for after the lim",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/schedule-after-usage-reset/skills/schedule-after-usage-reset/SKILL.md",
+      "remote_path": "plugins/productivity/schedule-after-usage-reset/skills/schedule-after-usage-reset/SKILL.md",
+      "lines": 108,
+      "words": 660,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"1.0.0\"",
+      "license": "MIT"
     },
     {
       "name": "guide",
@@ -64195,17 +64243,16 @@
     },
     {
       "name": "manager",
-      "description": "\"Obsidian project documentation manager that creates/updates vault notes, extracts session decisions, syncs CLAUDE.md, and manages git commit/push after each working session. Use when you want to docu",
+      "description": "Use this agent when the user requests an action that should trigger 'documentation' behavior. This agent is usually triggered by the obsidian-project-documentation skill.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/obsidian-project-documentation/agents/manager.md",
       "remote_path": "plugins/productivity/obsidian-project-documentation/agents/manager.md",
-      "lines": 309,
-      "words": 2082,
+      "lines": 296,
+      "words": 1971,
       "code_blocks": 5,
       "languages": [
         "bash",
         "text"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "obsidian-project-documentation",
@@ -64224,14 +64271,13 @@
     },
     {
       "name": "advisor",
-      "description": "\"Evidence-based health advisor for adults 50+ covering fitness, nutrition, metabolic health, sleep, and longevity \u2014 maintains persistent context files and generates clinician-ready reports. Use when y",
+      "description": "Use this agent when the User asks for health, fitness, nutrition, or longevity guidance tailored to adults 50+, or when they describe physical symptoms, fatigue, lab results, metabolic markers, joint ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/over-50s-health/agents/advisor.md",
       "remote_path": "plugins/productivity/over-50s-health/agents/advisor.md",
-      "lines": 145,
-      "words": 953,
+      "lines": 131,
+      "words": 894,
       "code_blocks": 0,
-      "languages": [],
-      "version": "1.0.0"
+      "languages": []
     },
     {
       "name": "plane",
@@ -64567,17 +64613,16 @@
     },
     {
       "name": "coach",
-      "description": "\"Graduated pair programming coach that enforces four assistance levels (advise-only \u2192 scaffold \u2192 alternate \u2192 generate+explain-back) to develop coding skills without dependency on AI generation. Use wh",
+      "description": "Use this agent when the user requests coding assistance with a declared assistance level (1-4) or mentions graduated assistance, pair programming, or preventing skill atrophy.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pair-programmer/agents/coach.md",
       "remote_path": "plugins/productivity/pair-programmer/agents/coach.md",
-      "lines": 589,
-      "words": 3138,
+      "lines": 577,
+      "words": 3039,
       "code_blocks": 21,
       "languages": [
         "python",
         "text"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "sync-setup",
@@ -64668,8 +64713,8 @@
       "description": "'Select, pair, and implement typefaces for web projects. Use when the user mentions \"font pairing\", \"which typeface\", \"line height\", \"responsive typography\", \"web font loading\", \"type hierarchy\", \"var",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/design/wondelai-web-typography/SKILL.md",
       "remote_path": "plugins/design/wondelai-web-typography/SKILL.md",
-      "lines": 312,
-      "words": 2658,
+      "lines": 298,
+      "words": 2648,
       "code_blocks": 7,
       "languages": [
         "css"
@@ -64678,33 +64723,33 @@
     },
     {
       "name": "refactoring-ui",
-      "description": "'Audit and fix visual hierarchy, spacing, color, and depth in web UIs. Use when the user mentions \"my UI looks off\", \"fix the design\", \"Tailwind styling\", \"color palette\", \"visual hierarchy\", \"design ",
+      "description": "'Audit and fix visual hierarchy, spacing, color, and depth in web UIs. Use when the user mentions \"my UI looks off\" (or amateur/unprofessional), \"fix the design\", \"Tailwind styling\", \"color palette\", ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/design/wondelai-refactoring-ui/SKILL.md",
       "remote_path": "plugins/design/wondelai-refactoring-ui/SKILL.md",
-      "lines": 268,
-      "words": 2187,
+      "lines": 252,
+      "words": 2176,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "top-design",
-      "description": "'Create award-winning, immersive web experiences at the level of Awwwards-featured agencies. Use when the user mentions \"premium website\", \"portfolio site\", \"scroll animations\", \"Awwwards quality\", \"b",
+      "description": "'Create award-winning, immersive web experiences at the level of Awwwards-featured agencies. Use when the user mentions \"Awwwards quality\", \"make my site stunning\", \"scroll animations\", \"parallax stor",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/design/wondelai-top-design/SKILL.md",
       "remote_path": "plugins/design/wondelai-top-design/SKILL.md",
-      "lines": 395,
-      "words": 3718,
+      "lines": 289,
+      "words": 3261,
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "hooked-ux",
-      "description": "'Design habit-forming product loops using the Hook Model (Trigger, Action, Variable Reward, Investment). Use when the user mentions \"users arent coming back\", \"engagement loops\", \"habit formation\", \"p",
+      "description": "'Design habit-forming product loops using the Hook Model (Trigger, Action, Variable Reward, Investment). Use when the user mentions \"users arent coming back\", \"habit formation\", \"engagement loops\", \"h",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/design/wondelai-hooked-ux/SKILL.md",
       "remote_path": "plugins/design/wondelai-hooked-ux/SKILL.md",
-      "lines": 251,
-      "words": 1928,
+      "lines": 241,
+      "words": 1998,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -64714,8 +64759,8 @@
       "description": "'Design native iOS interfaces following Apple Human Interface Guidelines. Use when the user mentions \"iPhone app\", \"iPad layout\", \"SwiftUI\", \"UIKit\", \"Dynamic Island\", \"safe areas\", \"HIG compliance\", ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/design/wondelai-ios-hig-design/SKILL.md",
       "remote_path": "plugins/design/wondelai-ios-hig-design/SKILL.md",
-      "lines": 329,
-      "words": 2875,
+      "lines": 297,
+      "words": 2803,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -64725,19 +64770,19 @@
       "description": "'Apply foundational design principles: affordances, signifiers, constraints, feedback, and conceptual models. Use when the user mentions \"why is this confusing\", \"affordance\", \"error prevention\", \"dis",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/design/wondelai-design-everyday-things/SKILL.md",
       "remote_path": "plugins/design/wondelai-design-everyday-things/SKILL.md",
-      "lines": 322,
-      "words": 2367,
+      "lines": 295,
+      "words": 2327,
       "code_blocks": 3,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "ux-heuristics",
-      "description": "'Evaluate and improve interface usability using heuristic analysis. Use when the user mentions \"usability audit\", \"UX review\", \"users are confused\", \"heuristic evaluation\", \"form usability\", \"navigati",
+      "description": "'Evaluate and improve interface usability using heuristic analysis. Use when the user mentions \"usability audit\", \"users are confused\", \"form usability\", \"navigation problems\", \"Nielsen heuristics\", \"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/design/wondelai-ux-heuristics/SKILL.md",
       "remote_path": "plugins/design/wondelai-ux-heuristics/SKILL.md",
-      "lines": 263,
-      "words": 2371,
+      "lines": 242,
+      "words": 2446,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -66112,44 +66157,44 @@
     },
     {
       "name": "drive-motivation",
-      "description": "'Design motivation systems using Autonomy, Mastery, and Purpose (AMP) for products and teams. Use when the user mentions \"intrinsic motivation\", \"gamification isnt working\", \"team incentives\", \"autono",
+      "description": "'Design motivation systems using Autonomy, Mastery, and Purpose (AMP) for products and teams. Use when the user mentions \"intrinsic motivation\", \"gamification isnt working\", \"rewards arent working\", \"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-drive-motivation/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-drive-motivation/SKILL.md",
-      "lines": 205,
-      "words": 1744,
+      "lines": 201,
+      "words": 1780,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "predictable-revenue",
-      "description": "'Build a scalable outbound B2B sales process with specialized roles (SDR, AE, CSM). Use when the user mentions \"outbound sales\", \"Cold Calling 2.0\", \"prospecting emails\", \"sales pipeline\", \"SDR proces",
+      "description": "'Build a scalable outbound B2B sales machine with specialized roles (SDR, AE, CSM). Use when the user mentions \"outbound sales\", \"Cold Calling 2.0\", \"cold email sequences\", \"sales pipeline\", \"SDR proc",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-predictable-revenue/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-predictable-revenue/SKILL.md",
-      "lines": 239,
-      "words": 1803,
+      "lines": 209,
+      "words": 1818,
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "one-page-marketing",
-      "description": "'Build a complete marketing plan covering the full customer journey from stranger to raving fan. Use when the user mentions \"marketing plan\", \"target market\", \"USP\", \"lead nurture\", \"customer lifetime",
+      "description": "'Build a complete marketing plan covering the full customer journey from stranger to raving fan. Use when the user mentions \"marketing plan\", \"marketing strategy\", \"target market\", \"USP\", \"lead nurtur",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-one-page-marketing/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-one-page-marketing/SKILL.md",
-      "lines": 371,
-      "words": 3600,
+      "lines": 344,
+      "words": 3390,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "crossing-the-chasm",
-      "description": "'Navigate the technology adoption lifecycle from early adopters to mainstream market. Use when the user mentions \"crossing the chasm\", \"beachhead segment\", \"whole product\", \"early adopters vs. mainstr",
+      "description": "'Navigate the technology adoption lifecycle from early adopters to mainstream market. Use when the user mentions \"crossing the chasm\", \"beachhead segment\", \"whole product\", \"early adopters vs mainstre",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-crossing-the-chasm/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-crossing-the-chasm/SKILL.md",
-      "lines": 231,
-      "words": 1832,
+      "lines": 214,
+      "words": 2026,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -66159,30 +66204,30 @@
       "description": "'Discover what customers truly need by analyzing the \"job\" they hire your product to do. Use when the user mentions \"customer discovery\", \"why customers churn\", \"what job does this solve\", \"competing ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-jobs-to-be-done/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-jobs-to-be-done/SKILL.md",
-      "lines": 250,
-      "words": 2428,
+      "lines": 231,
+      "words": 2451,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "hundred-million-offers",
-      "description": "'Create irresistible offers using the Value Equation, bonus stacking, risk-reversing guarantees, and ethical scarcity. Use when the user mentions \"pricing strategy\", \"irresistible offer\", \"bonuses and",
+      "description": "'Create irresistible offers using the Value Equation, bonus stacking, risk-reversing guarantees, and ethical scarcity. Use when the user mentions \"grand slam offer\", \"make my offer more compelling\", \"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-hundred-million-offers/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-hundred-million-offers/SKILL.md",
-      "lines": 325,
-      "words": 2998,
+      "lines": 310,
+      "words": 2987,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "scorecard-marketing",
-      "description": "'Build quiz and assessment funnels that generate qualified leads at 30-50% conversion. Use when the user mentions \"lead magnet\", \"quiz funnel\", \"assessment tool\", \"lead generation\", \"score-based segme",
+      "description": "'Build quiz and assessment funnels that generate qualified leads at 30-50% conversion. Use when the user mentions \"quiz funnel\", \"scorecard\", \"lead magnet\", \"score-based segmentation\", or \"lead qualif",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-scorecard-marketing/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-scorecard-marketing/SKILL.md",
-      "lines": 221,
-      "words": 1998,
+      "lines": 214,
+      "words": 2055,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -66192,41 +66237,41 @@
       "description": "'Define product positioning by mapping competitive alternatives, unique attributes, and best-fit customers to the right market category. Use when the user mentions \"positioning\", \"competitive alternat",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-obviously-awesome/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-obviously-awesome/SKILL.md",
-      "lines": 272,
-      "words": 2824,
+      "lines": 246,
+      "words": 2689,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "storybrand-messaging",
-      "description": "'Clarify brand messaging using narrative structure that positions the customer as hero. Use when the user mentions \"brand message\", \"website copy\", \"elevator pitch\", \"one-liner\", \"messaging isnt reson",
+      "description": "'Clarify brand messaging using narrative structure that positions the customer as hero. Use when the user mentions \"brand message\", \"website copy\", \"elevator pitch\", \"one-liner\", \"brand script\", \"Stor",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-storybrand-messaging/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-storybrand-messaging/SKILL.md",
-      "lines": 281,
-      "words": 2263,
+      "lines": 260,
+      "words": 2262,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "influence-psychology",
-      "description": "'Apply the six principles of ethical persuasion (reciprocity, commitment, social proof, authority, liking, scarcity) to product design, copy, and sales. Use when the user mentions \"social proof\", \"per",
+      "description": "'Apply the seven principles of ethical persuasion (reciprocity, commitment, social proof, authority, liking, scarcity, unity) to product design, copy, and sales. Use when the user mentions \"social pro",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-influence-psychology/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-influence-psychology/SKILL.md",
-      "lines": 333,
-      "words": 2381,
+      "lines": 313,
+      "words": 2471,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
     },
     {
       "name": "traction-eos",
-      "description": "'Implement the Entrepreneurial Operating System (EOS) to align vision and execution across a company. Use when the user mentions \"EOS\", \"V/TO\", \"quarterly rocks\", \"Level 10 meetings\", \"accountability ",
+      "description": "'Implement the Entrepreneurial Operating System (EOS) to align vision and execution across a company. Use when the user mentions \"EOS\", \"Entrepreneurial Operating System\", \"V/TO\", \"quarterly rocks\", \"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-traction-eos/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-traction-eos/SKILL.md",
-      "lines": 273,
-      "words": 2121,
+      "lines": 259,
+      "words": 2165,
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
@@ -66236,8 +66281,8 @@
       "description": "'Craft messages that are understood, remembered, and drive action using the SUCCESs checklist (Simple, Unexpected, Concrete, Credible, Emotional, Stories). Use when the user mentions \"make it memorabl",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-made-to-stick/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-made-to-stick/SKILL.md",
-      "lines": 274,
-      "words": 2307,
+      "lines": 249,
+      "words": 2341,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -66247,8 +66292,8 @@
       "description": "'Prepare and execute negotiations using tactical empathy, calibrated questions, and the Ackerman method. Use when the user mentions \"salary negotiation\", \"contract terms\", \"handling objections\", \"mirr",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-negotiation/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-negotiation/SKILL.md",
-      "lines": 306,
-      "words": 2812,
+      "lines": 295,
+      "words": 2871,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -66258,8 +66303,8 @@
       "description": "'Engineer word-of-mouth and virality using the STEPPS framework (Social Currency, Triggers, Emotion, Public, Practical Value, Stories). Use when the user mentions \"go viral\", \"word of mouth\", \"shareab",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-contagious/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-contagious/SKILL.md",
-      "lines": 283,
-      "words": 2465,
+      "lines": 280,
+      "words": 2614,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -66269,8 +66314,8 @@
       "description": "'Create uncontested market space using value innovation instead of competing head-to-head. Use when the user mentions \"blue ocean\", \"red ocean\", \"strategy canvas\", \"ERRC framework\", \"value innovation\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-blue-ocean-strategy/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-blue-ocean-strategy/SKILL.md",
-      "lines": 180,
-      "words": 1825,
+      "lines": 172,
+      "words": 1981,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -66280,8 +66325,8 @@
       "description": "'Audit websites and landing pages for conversion issues and design evidence-based A/B tests. Use when the user mentions \"landing page isnt converting\", \"conversion rate\", \"A/B test\", \"why visitors lea",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/wondelai-cro-methodology/SKILL.md",
       "remote_path": "plugins/business-tools/wondelai-cro-methodology/SKILL.md",
-      "lines": 258,
-      "words": 2468,
+      "lines": 228,
+      "words": 2464,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -72154,6 +72199,256 @@
       "license": "Apache-2.0"
     },
     {
+      "name": "find-cybersecurity-firm",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US cybersecurity firms \u2014 pen-testing/red team, security audits, vCISO, SOC 2 readiness, incident response, managed SOC, IAM, cloud securi",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-cybersecurity-firm/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-cybersecurity-firm/SKILL.md",
+      "lines": 334,
+      "words": 1898,
+      "code_blocks": 11,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-management-consultant",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US management consultancies \u2014 strategy, operations, executive coaching, leadership development, org-development/change management, PMO/pr",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-management-consultant/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-management-consultant/SKILL.md",
+      "lines": 304,
+      "words": 1636,
+      "code_blocks": 10,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-ai-consultancy",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US AI/ML/data consulting firms (consultancies) \u2014 AI/ML development, MLOps, generative AI / LLM apps (RAG, chatbots, agents), computer vis",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-ai-consultancy/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-ai-consultancy/SKILL.md",
+      "lines": 358,
+      "words": 2036,
+      "code_blocks": 13,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-law-firm",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US B2B law firms \u2014 corporate, IP/patent, M&A and securities, employment, commercial litigation, regulatory/compliance, data privacy/cyber",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-law-firm/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-law-firm/SKILL.md",
+      "lines": 327,
+      "words": 1895,
+      "code_blocks": 11,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.2.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-ai-directories",
+      "description": "Use whenever the user wants to find, rank, or shortlist directories and listing sites where they can submit an AI product \u2014 an AI tool, AI app, AI agent, or agent skill / plugin \u2014 to get backlinks, re",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-ai-directories/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-ai-directories/SKILL.md",
+      "lines": 319,
+      "words": 2019,
+      "code_blocks": 9,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.1.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-service-providers",
+      "description": "Use whenever the user wants to find, shortlist, vet, enrich, or research US professional-services firms \u2014 law, marketing, consulting, accounting, IT services, architecture, engineering, HR, PR, design",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-service-providers/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-service-providers/SKILL.md",
+      "lines": 372,
+      "words": 2531,
+      "code_blocks": 9,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-marketing-agency",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US marketing agencies \u2014 including branding, content marketing, PPC/paid media, social media, email marketing, performance/demand-gen, vid",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-marketing-agency/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-marketing-agency/SKILL.md",
+      "lines": 367,
+      "words": 2062,
+      "code_blocks": 12,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.4.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-design-agency",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US design and creative agencies \u2014 graphic design, UX/UI, product design, brand identity, packaging, illustration, motion design, and crea",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-design-agency/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-design-agency/SKILL.md",
+      "lines": 363,
+      "words": 2114,
+      "code_blocks": 13,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-web-developer",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US web development firms \u2014 building, refreshing, or rebuilding marketing sites, landing pages, ecommerce, WordPress/Webflow/Shopify, head",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-web-developer/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-web-developer/SKILL.md",
+      "lines": 326,
+      "words": 1865,
+      "code_blocks": 12,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-product-directories",
+      "description": "Use whenever the user wants to find, rank, or shortlist directories, listing sites, or launch platforms where they can submit a software product, SaaS, app, tool, or startup \u2014 to get backlinks, referr",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-product-directories/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-product-directories/SKILL.md",
+      "lines": 377,
+      "words": 2497,
+      "code_blocks": 11,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.1.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-mcp-directories",
+      "description": "Use whenever the user wants to find, rank, or shortlist directories and registries where they can submit or list an MCP server (Model Context Protocol server) \u2014 to get backlinks, referral traffic, and",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-mcp-directories/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-mcp-directories/SKILL.md",
+      "lines": 303,
+      "words": 1893,
+      "code_blocks": 8,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.1.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-recruiting-firm",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US recruiting and staffing firms \u2014 executive search/retained search, RPO, tech/sales/healthcare recruiting, contingent/contract staffing,",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-recruiting-firm/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-recruiting-firm/SKILL.md",
+      "lines": 311,
+      "words": 1772,
+      "code_blocks": 11,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.2.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "servicegraph",
+      "description": "The branded entry point to ServiceGraph \u2014 use whenever the user explicitly names **ServiceGraph** \u2014 \"use ServiceGraph to\u2026\", \"what datasets does ServiceGraph have\", \"search ServiceGraph for\u2026\", \"pull co",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/servicegraph/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/servicegraph/SKILL.md",
+      "lines": 150,
+      "words": 1073,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "\"0.1.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-pr-agency",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US public-relations and communications agencies \u2014 media relations, crisis comms, investor relations (IR), product-launch PR, tech/startup",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-pr-agency/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-pr-agency/SKILL.md",
+      "lines": 347,
+      "words": 1988,
+      "code_blocks": 11,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-seo-agency",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US SEO agencies \u2014 technical SEO, on-page/off-page, link-building, content-led SEO, local SEO, ecommerce SEO, B2B SEO, and SEO audits. Tri",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-seo-agency/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-seo-agency/SKILL.md",
+      "lines": 333,
+      "words": 1897,
+      "code_blocks": 12,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.2.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-engineering-firm",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US engineering firms \u2014 civil, structural, MEP, mechanical, electrical, geotechnical, transportation, environmental, and manufacturing. **",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-engineering-firm/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-engineering-firm/SKILL.md",
+      "lines": 351,
+      "words": 2070,
+      "code_blocks": 11,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.3.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-software-developer",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US software development firms \u2014 custom software, web development, mobile app development, backend/API development, DevOps/cloud, system i",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-software-developer/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-software-developer/SKILL.md",
+      "lines": 328,
+      "words": 1862,
+      "code_blocks": 12,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.4.0\"",
+      "license": "MIT"
+    },
+    {
+      "name": "find-cpa-firm",
+      "description": "Use whenever the user wants to find, shortlist, vet, or enrich US accounting and tax firms (CPA firms) \u2014 financial-statement audit, SOC 1/2 audit, corporate tax, bookkeeping for businesses, advisory/f",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/servicegraph/skills/find-cpa-firm/SKILL.md",
+      "remote_path": "plugins/mcp/servicegraph/skills/find-cpa-firm/SKILL.md",
+      "lines": 324,
+      "words": 1827,
+      "code_blocks": 10,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.2.0\"",
+      "license": "MIT"
+    },
+    {
       "name": "pr-to-spec",
       "description": "Analyze code changes and detect intent drift using pr-to-spec CLI",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/pr-to-spec/.claude/skills/pr-to-spec/SKILL.md",
@@ -72173,8 +72468,8 @@
       "description": "Configure Slack channel tokens (bot token + app-level token)",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/slack-channel/skills/configure/SKILL.md",
       "remote_path": "plugins/mcp/slack-channel/skills/configure/SKILL.md",
-      "lines": 69,
-      "words": 216,
+      "lines": 73,
+      "words": 244,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -72216,8 +72511,8 @@
       "description": "Manage Slack channel access control \u2014 pairing, allowlist, channel opt-in",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/slack-channel/skills/access/SKILL.md",
       "remote_path": "plugins/mcp/slack-channel/skills/access/SKILL.md",
-      "lines": 96,
-      "words": 441,
+      "lines": 106,
+      "words": 599,
       "code_blocks": 1,
       "languages": [],
       "version": "1.0.0",
@@ -72228,8 +72523,8 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/governed-second-brain/skills/brain/SKILL.md",
       "remote_path": "plugins/mcp/governed-second-brain/skills/brain/SKILL.md",
-      "lines": 123,
-      "words": 766,
+      "lines": 127,
+      "words": 826,
       "code_blocks": 3,
       "languages": [],
       "version": "1.0.0",
@@ -72240,8 +72535,8 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/governed-second-brain/skills/brain-save/SKILL.md",
       "remote_path": "plugins/mcp/governed-second-brain/skills/brain-save/SKILL.md",
-      "lines": 131,
-      "words": 951,
+      "lines": 148,
+      "words": 1164,
       "code_blocks": 2,
       "languages": [],
       "version": "1.0.0",
@@ -72249,55 +72544,51 @@
     },
     {
       "name": "triage-summarizer",
-      "description": "Renders fully-processed bug clusters as concise, scannable terminal markdown ordered by severity, and parses interactive review commands for the orchestrator. Use when presenting final triage results ",
+      "description": "\"Format triage results for terminal display and parse review commands. Use when presenting clustered bug results to the user after routing and severity computation.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/triage-summarizer.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/triage-summarizer.md",
-      "lines": 60,
-      "words": 397,
+      "lines": 48,
+      "words": 308,
       "code_blocks": 1,
       "languages": [
         "json"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "repo-scanner",
-      "description": "Gathers triage-quality evidence for bug clusters by scanning up to 3 mapped GitHub repos for matching issues, suspicious recent commits, affected paths, and deploy timing. Use when building the eviden",
+      "description": "\"Scan mapped GitHub repos for issue matches, recent commits, affected paths, and deploy changes. Use when gathering evidence for bug clusters after clustering step.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/repo-scanner.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/repo-scanner.md",
-      "lines": 67,
-      "words": 395,
+      "lines": 54,
+      "words": 296,
       "code_blocks": 1,
       "languages": [
         "json"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "owner-router",
-      "description": "Routes bug clusters to the most likely owning team using strict 6-level precedence (service owner \u2192 on-call \u2192 CODEOWNERS \u2192 recent assignees \u2192 committers \u2192 fallback) with staleness flagging and overrid",
+      "description": "\"Recommend likely bug owners using strict 6-level routing precedence with staleness detection and override memory. Use when routing clustered bugs to teams after evidence gathering.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/owner-router.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/owner-router.md",
-      "lines": 83,
-      "words": 430,
+      "lines": 70,
+      "words": 330,
       "code_blocks": 2,
       "languages": [
         "json"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "bug-clusterer",
-      "description": "Normalizes raw X/Twitter posts into 33-field BugCandidates with PII redaction, reliability scoring, and deterministic clustering by bug family and signature. Use when processing a triage run's raw soc",
+      "description": "\"Parse, classify, redact PII, score reliability, and cluster bug candidates by family and signal layers. Use when processing raw X/Twitter posts into structured bug clusters.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/bug-clusterer.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/bug-clusterer.md",
-      "lines": 72,
-      "words": 419,
+      "lines": 59,
+      "words": 327,
       "code_blocks": 1,
       "languages": [
         "json"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "bug-clustering",
@@ -109951,44 +110242,41 @@
     },
     {
       "name": "quality-guardian",
-      "description": "\"Enforce code quality, test coverage, security (OWASP Top 10), and documentation standards in Sugar's autonomous dev system \u2014 running linters, coverage tools, and security scanners then issuing PASS/C",
+      "description": "Code quality, testing, and validation enforcement specialist",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/devops/sugar/agents/quality-guardian.md",
       "remote_path": "plugins/devops/sugar/agents/quality-guardian.md",
-      "lines": 518,
-      "words": 1660,
+      "lines": 498,
+      "words": 1503,
       "code_blocks": 24,
       "languages": [
         "bash",
         "python"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "sugar-orchestrator",
-      "description": "\"Orchestrates Sugar's autonomous development pipeline: analyzes tasks, assigns specialized agents, monitors execution, and validates completion. Use when managing a complex multi-agent dev workflow. T",
+      "description": "Coordinates Sugar's autonomous development workflows with strategic oversight",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/devops/sugar/agents/sugar-orchestrator.md",
       "remote_path": "plugins/devops/sugar/agents/sugar-orchestrator.md",
-      "lines": 302,
-      "words": 1291,
+      "lines": 280,
+      "words": 1157,
       "code_blocks": 10,
       "languages": [
         "python"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "task-planner",
-      "description": "\"Decomposes complex development requests into subtasks with effort estimates, dependency graphs, risk assessment, and SMART success criteria. Use when planning a feature, bug fix, or refactor sprint. ",
+      "description": "Strategic task planning and breakdown specialist for complex development work",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/devops/sugar/agents/task-planner.md",
       "remote_path": "plugins/devops/sugar/agents/task-planner.md",
-      "lines": 420,
-      "words": 1527,
+      "lines": 399,
+      "words": 1393,
       "code_blocks": 13,
       "languages": [
         "bash",
         "yaml"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "managing-autonomous-development",
@@ -111295,18 +111583,17 @@
     },
     {
       "name": "cli-ux-tester",
-      "description": "Evaluates CLI usability across 11 criteria \u2014 discoverability, naming, error messages, help, consistency, visual design, performance, accessibility, integration, security, and onboarding \u2014 then produce",
+      "description": "Expert UX evaluator for CLIs and developer APIs. Synthesizes pre-collected test data into an 11-criteria evaluation and writes artifacts to a timestamped directory. Launched by the cli-ux-tester skill",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/cli-ux-tester/agents/cli-ux-tester.md",
       "remote_path": "plugins/testing/cli-ux-tester/agents/cli-ux-tester.md",
-      "lines": 531,
-      "words": 2671,
+      "lines": 518,
+      "words": 2566,
       "code_blocks": 10,
       "languages": [
         "bash",
         "json",
         "text"
-      ],
-      "version": "1.0.0"
+      ]
     },
     {
       "name": "cli-ux-tester",
@@ -111552,6 +111839,30 @@
       "license": "MIT"
     },
     {
+      "name": "monitor-test-run",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/kobiton-automate/skills/monitor-test-run/SKILL.md",
+      "remote_path": "plugins/testing/kobiton-automate/skills/monitor-test-run/SKILL.md",
+      "lines": 348,
+      "words": 3482,
+      "code_blocks": 3,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "create-test-run",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/kobiton-automate/skills/create-test-run/SKILL.md",
+      "remote_path": "plugins/testing/kobiton-automate/skills/create-test-run/SKILL.md",
+      "lines": 178,
+      "words": 1544,
+      "code_blocks": 1,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "drive-automation-session",
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/kobiton-automate/skills/drive-automation-session/SKILL.md",
@@ -111570,8 +111881,8 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/kobiton-automate/skills/run-automation-suite/SKILL.md",
       "remote_path": "plugins/testing/kobiton-automate/skills/run-automation-suite/SKILL.md",
-      "lines": 317,
-      "words": 3316,
+      "lines": 321,
+      "words": 3566,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -111587,6 +111898,30 @@
       "lines": 443,
       "words": 3621,
       "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "monitor-test-run",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/kobiton-automate/.codex/skills/monitor-test-run/SKILL.md",
+      "remote_path": "plugins/testing/kobiton-automate/.codex/skills/monitor-test-run/SKILL.md",
+      "lines": 348,
+      "words": 3482,
+      "code_blocks": 3,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "create-test-run",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/kobiton-automate/.codex/skills/create-test-run/SKILL.md",
+      "remote_path": "plugins/testing/kobiton-automate/.codex/skills/create-test-run/SKILL.md",
+      "lines": 178,
+      "words": 1544,
+      "code_blocks": 1,
       "languages": [],
       "version": "1.0.0",
       "license": "MIT"
@@ -111610,8 +111945,8 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/testing/kobiton-automate/.codex/skills/run-automation-suite/SKILL.md",
       "remote_path": "plugins/testing/kobiton-automate/.codex/skills/run-automation-suite/SKILL.md",
-      "lines": 317,
-      "words": 3316,
+      "lines": 321,
+      "words": 3566,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -113127,6 +113462,63 @@
       "license": "MIT"
     },
     {
+      "name": "create-workflow",
+      "description": "Generate a YAML workflow from natural language",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/llm-box/commands/create-workflow.md",
+      "remote_path": "plugins/community/llm-box/commands/create-workflow.md",
+      "lines": 37,
+      "words": 124,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "run-workflow",
+      "description": "Execute a YAML workflow file",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/llm-box/commands/run-workflow.md",
+      "remote_path": "plugins/community/llm-box/commands/run-workflow.md",
+      "lines": 41,
+      "words": 97,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "list-nodes",
+      "description": "List all available workflow nodes",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/llm-box/commands/list-nodes.md",
+      "remote_path": "plugins/community/llm-box/commands/list-nodes.md",
+      "lines": 48,
+      "words": 135,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "setup",
+      "description": "Install and configure llm-box, including the MCP server connection for Claude Code.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/llm-box/skills/setup/SKILL.md",
+      "remote_path": "plugins/community/llm-box/skills/setup/SKILL.md",
+      "lines": 73,
+      "words": 160,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "json",
+        "yaml"
+      ]
+    },
+    {
+      "name": "workflow",
+      "description": "Generate and execute terminal workflows using llm-box. Use when the user wants to automate multi-step terminal tasks, chain commands, fetch URLs, process data, create reusable pipelines, or build CI/C",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/llm-box/skills/llm-box/SKILL.md",
+      "remote_path": "plugins/community/llm-box/skills/llm-box/SKILL.md",
+      "lines": 193,
+      "words": 740,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "yaml"
+      ]
+    },
+    {
       "name": "gastown",
       "description": "Multi-agent orchestrator for Claude Code. Use when user mentions gastown, gas town, gt commands, bd commands, convoys, polecats, crew, rigs, slinging work, multi-agent coordination, beads, hooks, mole",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/gastown/skills/gastown/SKILL.md",
@@ -114628,6 +115020,140 @@
       "words": 269,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "portaljs-check-data-quality",
+      "description": "Audit a local or remote tabular file (CSV/TSV) for common data quality issues. Read-only. Use only when the user explicitly asks to check or audit data quality.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-check-data-quality/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-check-data-quality/SKILL.md",
+      "lines": 19,
+      "words": 129,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-add-dcat",
+      "description": "Make a PortalJS portal harvestable by national/EU/US open-data portals \u2014 emit standards-compliant DCAT catalog feeds (DCAT 2/3, DCAT-AP, DCAT-US, national profiles) in JSON-LD, Turtle, and RDF/XML at ",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-add-dcat/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-add-dcat/SKILL.md",
+      "lines": 19,
+      "words": 142,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-architect",
+      "description": "Recommend a data-portal architecture (storage, compute, catalog, access, hosting, metadata) from your needs, then hand off to the build skills. The advisory entry point.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-architect/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-architect/SKILL.md",
+      "lines": 19,
+      "words": 121,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-define-schema",
+      "description": "Define a dataset's metadata profile \u2014 infer a Frictionless Table Schema from its data, add Data Package metadata (license, sources, keywords), and write it into datasets.json so the showcase renders a",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-define-schema/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-define-schema/SKILL.md",
+      "lines": 19,
+      "words": 158,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-migrate",
+      "description": "Migrate (harvest) datasets between open-data platforms. Reads CKAN, a DCAT-US /data.json catalog (DKAN, ArcGIS Hub, data.gov), a DCAT / DCAT-AP RDF feed (JSON-LD, Turtle, or RDF/XML \u2014 data.europa.eu, ",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-migrate/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-migrate/SKILL.md",
+      "lines": 19,
+      "words": 213,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-add-chart",
+      "description": "Add a chart (line, bar, area, pie, or scatter) to a dataset's showcase in a PortalJS portal. Installs recharts, writes a reusable Chart component, and renders it in the showcase Views section.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-add-chart/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-add-chart/SKILL.md",
+      "lines": 19,
+      "words": 138,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-deploy",
+      "description": "Deploy a PortalJS portal to PortalJS Arc \u2014 Datopian-managed static hosting on Cloudflare. Builds a static export, uploads it, and returns a live <slug>.arc.portaljs.com URL. One command, one target.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-deploy/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-deploy/SKILL.md",
+      "lines": 19,
+      "words": 131,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-add-resource",
+      "description": "Add another file (resource) to an EXISTING dataset in a PortalJS portal \u2014 a data dictionary, methodology, or an additional data file. Turns a single-file dataset into a multi-resource one; the showcas",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-add-resource/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-add-resource/SKILL.md",
+      "lines": 19,
+      "words": 148,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-add-map",
+      "description": "Render a GeoJSON dataset on an interactive Leaflet map in the Views section of a dataset's showcase. Installs react-leaflet and a Map component, then renders the map for the chosen dataset.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-add-map/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-add-map/SKILL.md",
+      "lines": 19,
+      "words": 136,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-new-portal",
+      "description": "Scaffold a new PortalJS data portal from a brief. Copies the canonical template from examples/portaljs-catalog and substitutes project tokens.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-new-portal/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-new-portal/SKILL.md",
+      "lines": 19,
+      "words": 112,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-add-dataset",
+      "description": "Add a dataset (CSV, TSV, JSON, or GeoJSON) to an existing PortalJS portal. Appends an entry to datasets.json so the catalog and showcase render it automatically; routes the data by source (local file ",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-add-dataset/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-add-dataset/SKILL.md",
+      "lines": 19,
+      "words": 168,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "portaljs-connect-ckan",
+      "description": "Wire a scaffolded PortalJS portal to a CKAN backend over its API. Generates a tiny server-side fetch client (no runtime dependency) and feeds the /search catalog and /@<namespace>/<slug> showcases fro",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/portaljs/skills/portaljs-connect-ckan/SKILL.md",
+      "remote_path": "plugins/community/portaljs/skills/portaljs-connect-ckan/SKILL.md",
+      "lines": 19,
+      "words": 142,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "mnemos",
+      "description": "Persistent memory and learning-loop skills for AI coding agents using mnemos MCP tools. Use whenever mnemos_* MCP tools are available and you are doing work worth remembering. Cross-session memory, co",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/mnemos/.claude/skills/mnemos/SKILL.md",
+      "remote_path": "plugins/community/mnemos/.claude/skills/mnemos/SKILL.md",
+      "lines": 177,
+      "words": 1839,
+      "code_blocks": 5,
+      "languages": [
+        "json"
+      ],
+      "version": "0.9.0",
+      "license": "MIT"
     },
     {
       "name": "firebase-vertex-ai",

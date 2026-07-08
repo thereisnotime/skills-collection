@@ -35,17 +35,17 @@ Or use Claude's built-in command:
 
 <!-- KILLER-SKILL:START — do not edit; run `node scripts/render-spotlight.mjs` -->
 
-> **Killer Skill of the Week** — [databricks-pack](https://tonsofskills.com/plugins/databricks-pack) by [Jeremy Longshore](https://github.com/jeremylongshore)
+> **Killer Skill of the Week** — [mnemos](https://github.com/polyxmedia/mnemos) by [Polyx Media](https://github.com/polyxmedia)
 >
-> **Find the ~$27K/month leaking out of a $100K Databricks workspace — from the billing table, not a guess**
+> **Persistent memory for Claude Code that actually gets written — measured, not promised**
 >
-> The databricks-cost-leak-hunter skill audits a workspace for real-dollar cost leaks and emits a CFO-grokkable, dollar-ranked FinOps report. Every confirmed figure is computed from the customer's own system.billing.usage joined to list_prices — never an estimate. Four named leaks — idle clusters that never auto-terminate, scheduled jobs on All-Purpose compute (2–3× overpay), overprovisioned clusters, and the Photon premium paid without the speedup — each tagged confirmed / estimated / at-risk so a CFO never confuses billed waste with modeled savings. A deterministic Python ranker does the arithmetic (the LLM never eyeballs a number), and the databricks-workspace-mcp control plane turns each leak into a single-config-change fix. One of 24 skills in the Databricks pack.
+> The mnemos skill closes the loop most memory tools leave open: getting anything recorded at all. A SessionStart hook prewarms a token-budgeted context block and a UserPromptSubmit hook pattern-matches correction-shaped prompts into a non-skippable capture directive — upstream measured capture jumping from a 7% baseline to 53%, with a +40% behavior lift on paired Claude runs. Corrections persist as structured tried/wrong_because/fix records, and three that cluster auto-promote into a skill deterministically, no LLM in the loop. The engine is a dependency-free single Go binary (~15 MB, pure-Go SQLite) keeping everything local. MIT-licensed, with all 8/8 required frontmatter fields verified at upstream HEAD.
 >
-> _"A $100K/month Databricks workspace is likely burning ~$27,000/month — and every line is one config change."_ — Jeremy Longshore
+> _"A memory layer for AI coding agents — because Claude Code keeps forgetting, and that gets old fast."_ — Polyx Media
 >
-> Grade: A | Week of June 30, 2026 (W27) | [Browse on Marketplace](https://tonsofskills.com/plugins/databricks-pack)
+> Grade: A | Week of July 7, 2026 (W28) | [View on GitHub](https://github.com/polyxmedia/mnemos)
 >
-> Previous picks: [kobiton-automate](https://tonsofskills.com/plugins/kobiton-automate), [skyvern](https://github.com/Skyvern-AI/skyvern), [code-cleanup](https://tonsofskills.com/plugins/code-cleanup), [web-analytics](https://tonsofskills.com/plugins/web-analytics), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
+> Previous picks: [databricks-pack](https://tonsofskills.com/plugins/databricks-pack), [kobiton-automate](https://tonsofskills.com/plugins/kobiton-automate), [skyvern](https://github.com/Skyvern-AI/skyvern), [code-cleanup](https://tonsofskills.com/plugins/code-cleanup), [web-analytics](https://tonsofskills.com/plugins/web-analytics), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
 
 <!-- KILLER-SKILL:END -->
 
@@ -124,16 +124,16 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | 🎭  | [AI Agents & Agency](#ai-agents--agency)           |      10 |
 | 🔌  | [API Development](#api-development)                |      26 |
 | 💼  | [Business Tools](#business-tools)                  |      21 |
-| 👥  | [Community](#community)                            |      19 |
+| 👥  | [Community](#community)                            |      22 |
 | ₿   | [Crypto & Web3](#crypto--web3)                     |      27 |
 | 💾  | [Database](#database)                              |      26 |
 | 🎨  | [Design](#design)                                  |       7 |
 | 🔧  | [DevOps & Infrastructure](#devops--infrastructure) |      36 |
 | 📚  | [Examples & Templates](#examples--templates)       |       5 |
-| 🧩  | [MCP Servers](#mcp-servers)                        |      15 |
+| 🧩  | [MCP Servers](#mcp-servers)                        |      16 |
 | 📦  | [Packages](#packages)                              |       5 |
 | ⚡  | [Performance](#performance)                        |      25 |
-| ✅  | [Productivity](#productivity)                      |      28 |
+| ✅  | [Productivity](#productivity)                      |      30 |
 | 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     106 |
 | 🔐  | [Security](#security)                              |      26 |
 | ✨  | [Skill Enhancers](#skill-enhancers)                |       9 |
@@ -271,7 +271,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 
 ### Community
 
-👥 **19 plugins** · category slug: `community`
+👥 **22 plugins** · category slug: `community`
 
 | Plugin                   | Description                                                                                                                                 |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -292,6 +292,9 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `hermes-tweet`           | Hermes Agent X/Twitter research, monitoring, drafts, exports, and approved actions                                                          |
 | `jeremy-firebase`        | Firebase platform expert for Firestore, Auth, Functions, and Vertex AI integration                                                          |
 | `jeremy-firestore`       | Firestore database specialist for schema design, queries, and real-time sync                                                                |
+| `llm-box`                | Terminal-first workflow automation engine. Generate and execute YAML workflows from plain English with 20+ nodes and 15+ LLM providers.     |
+| `mnemos`                 | Persistent memory for Claude Code — capture, digest, and recall project knowledge across sessions with a dependency-free Go CLI and hook…   |
+| `portaljs`               | Agent skills that build data portals — scaffold a portal, add datasets, charts and maps, connect CKAN, and generate DCAT/Croissant metadata |
 | `sprint`                 | Autonomous multi-agent development framework with spec-driven sprints. Write specs, run /sprint, and let coordinated agents (backend,…      |
 | `zai-cli`                | Z.AI vision, search, reader, and GitHub exploration via CLI and MCP. Analyze images, search the web, read pages as markdown, explore repos. |
 
@@ -445,7 +448,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 
 ### MCP Servers
 
-🧩 **15 plugins** · category slug: `mcp`
+🧩 **16 plugins** · category slug: `mcp`
 
 | Plugin                        | Description                                                                                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -460,6 +463,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `lumera-agent-memory`         | Durable agent memory with Cascade object storage, client-side encryption, and local full-text search index. Persists agent context across…  |
 | `pr-to-spec`                  | The flight envelope for agentic coding — convert PRs and local diffs into structured, agent-consumable specs with intent drift detection    |
 | `project-health-auditor`      | Multi-dimensional code health analysis with complexity, churn, and test coverage - identifies technical debt hot spots                      |
+| `servicegraph`                | ServiceGraph business datasets for founders — 18 skills for finding agencies, firms, and directories via metrics-enriched data (110k+ US…   |
 | `slack-channel`               | Two-way Slack channel for Claude Code — chat from Slack DMs and channels via Socket Mode                                                    |
 | `workflow-orchestrator`       | DAG-based workflow automation with parallel task execution and dependency management                                                        |
 | `x-bug-triage`                | Closed-loop bug triage — X complaints → clusters → repo evidence → owner routing → Slack review → filed issues                              |
@@ -517,7 +521,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 
 ### Productivity
 
-✅ **28 plugins** · category slug: `productivity`
+✅ **30 plugins** · category slug: `productivity`
 
 | Plugin                                     | Description                                                                                                                                 |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -529,6 +533,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `ai-commit-gen`                            | AI-powered commit message generator - analyzes your git diff and creates conventional commit messages instantly                             |
 | `box-cloud-filesystem`                     | Transparent cloud filesystem for AI agents using Box CLI (@box/cli). Upload, download, search, share, and sync files to Box cloud storage…  |
 | `claude-workflow-skills`                   | Common Claude Code workflow skills — promote, audit-plugin, audit-standards, improve, and triage                                            |
+| `claudebase`                               | Back up, restore, and sync your Claude Code config to a private GitHub repo with named profiles                                             |
 | `claudebase`                               | Back up, restore, and sync your Claude Code config to a private GitHub repo with named profiles                                             |
 | `claudebase`                               | Back up, restore, and sync your Claude Code config to a private GitHub repo with named profiles                                             |
 | `cli-power-skills`                         | Agentic CLI tool skills — 7 domain-grouped skills covering 26 CLI tools                                                                     |
@@ -543,6 +548,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `pm-ai-partner`                            | 12 PM-specific agent skills, 6 workflow commands, 3 automation hooks for Product Managers                                                   |
 | `prettier-markdown-hook`                   | Automatically format markdown files with prettier when Claude stops responding, with configurable organization and path exclusions          |
 | `publishing-skills`                        | Four composable skills that turn an AI agent into a platform-agnostic long-tail SEO publishing pipeline — topic research, drafting, SVG…    |
+| `schedule-after-usage-reset`               | Find the real Claude usage-limit reset time from the Anthropic usage API and schedule a deferred task to run right after the limit lifts…   |
 | `skyvern`                                  | AI browser automation via CLI — navigate sites, fill forms, extract data, handle logins                                                     |
 | `travel-assistant`                         | Intelligent travel assistant with real-time weather, currency conversion, timezone info, and AI-powered itinerary planning. Your complete…  |
 | `vibe-guide`                               | Non-technical progress summaries for Claude Code work (hides diffs/log noise).                                                              |
