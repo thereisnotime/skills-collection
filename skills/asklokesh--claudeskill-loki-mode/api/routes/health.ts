@@ -153,7 +153,8 @@ export async function detailedStatus(_req: Request): Promise<Response> {
 async function checkProviders(): Promise<{
   claude: boolean;
   codex: boolean;
-  gemini: boolean;
+  cline: boolean;
+  aider: boolean;
 }> {
   const checkCommand = async (cmd: string): Promise<boolean> => {
     try {
@@ -169,13 +170,16 @@ async function checkProviders(): Promise<{
     }
   };
 
-  const [claude, codex, gemini] = await Promise.all([
+  // v7.5.18: gemini removed (runtime deprecated); cline + aider are the real
+  // Tier-2/Tier-3 providers. Probe the actually-supported set.
+  const [claude, codex, cline, aider] = await Promise.all([
     checkCommand("claude"),
     checkCommand("codex"),
-    checkCommand("gemini"),
+    checkCommand("cline"),
+    checkCommand("aider"),
   ]);
 
-  return { claude, codex, gemini };
+  return { claude, codex, cline, aider };
 }
 
 /**

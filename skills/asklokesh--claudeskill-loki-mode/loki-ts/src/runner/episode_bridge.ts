@@ -6,7 +6,11 @@
 // `store_episode_trace()`. Reuses the existing `EpisodeTrace.create()`
 // constructor and `MemoryEngine.store_episode()` API.
 //
-// Default off: only fires when LOKI_AUTO_LEARNINGS=1 (gated by callers).
+// Default OFF: this episodic-memory enrichment only fires when a caller opts in
+// (LOKI_AUTO_LEARNINGS_EPISODE=1, or an explicit episodeBridge). Both production
+// callers of appendLearning pass episodeBridge:null, so the default-ON learnings
+// file write (LOKI_AUTO_LEARNINGS != 0) does NOT trigger this bridge -- it forks
+// python3/chromadb and is kept opt-in so a missing dep never disrupts a run.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";

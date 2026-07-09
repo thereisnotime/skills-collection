@@ -420,6 +420,111 @@ else
 fi
 rm -rf "$FO_FAKEBIN"
 
+# -------------------------------------------------------------------------
+# Scenario 10: --explain is trust-legibility only, never verdict-altering.
+#   10a. --explain renders the "Why you can trust this" table (per-gate
+#        evidence) to stdout.
+#   10b. --explain leaves verdict + exit code byte-identical to a plain run
+#        (additive rendering, CLI-invariant).
+# -------------------------------------------------------------------------
+EXPLAIN_OUT="$( ( cd "$S1" && bash "$VERIFY_SH" main --explain ) 2>/dev/null )"
+EXPLAIN_RC=$?
+EXPLAIN_VERDICT="NO_EVIDENCE"
+if [ -f "$S1/.loki/verify/evidence.json" ]; then
+    EXPLAIN_VERDICT="$(python3 -c "import json; print(json.load(open('$S1/.loki/verify/evidence.json'))['verdict'])" 2>/dev/null || echo "PARSE_ERROR")"
+fi
+if printf '%s' "$EXPLAIN_OUT" | grep -q "Why you can trust this" \
+   && printf '%s' "$EXPLAIN_OUT" | grep -q "GATE"; then
+    _ok "--explain renders the trust table"
+else
+    _no "--explain did not render the trust table"
+fi
+if [ "$EXPLAIN_RC" -eq "$DEF_RC" ] && [ "$EXPLAIN_VERDICT" = "$DEF_VERDICT" ]; then
+    _ok "--explain leaves verdict+exit unchanged ($DEF_VERDICT/$DEF_RC)"
+else
+    _no "--explain changed verdict/exit ($DEF_VERDICT/$DEF_RC -> $EXPLAIN_VERDICT/$EXPLAIN_RC)"
+fi
+
+# -------------------------------------------------------------------------
+# Scenario 11: --check-fresh is a fail-closed freshness gate over prior evidence.
+#   11a. fresh (evidence matches HEAD, clean tree)      -> FRESH   (exit 0)
+#   11b. dirty worktree since grade                      -> STALE   (exit 2)
+#   11c. HEAD drifted since grade                        -> STALE   (exit 2)
+#   11d. no evidence at all                              -> ERROR   (exit 3)
+#   11e. corrupt/unparseable evidence                    -> ERROR   (exit 3)
+# The whole point: a stored green never reports FRESH once the code moved on.
+# -------------------------------------------------------------------------
+S11="$TMP_ROOT/s11-fresh"
+init_repo "$S11"
+( cd "$S11"
+  git checkout -q -b feature
+  echo 'function add(a,b){return a+b;}' > util.js
+  git add util.js
+  git commit -qm "add util" --no-gpg-sign --no-verify
+)
+# Produce evidence (a real verify run).
+( cd "$S11" && bash "$VERIFY_SH" main ) >/dev/null 2>&1
+
+# 11a: fresh right after grading.
+( cd "$S11" && bash "$VERIFY_SH" --check-fresh ) >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    _ok "--check-fresh: FRESH right after grading (exit 0)"
+else
+    _no "--check-fresh: expected FRESH/0 immediately after grading"
+fi
+
+# 11b: dirty the worktree (a code file, not .loki/).
+( cd "$S11" && echo '// touch' >> util.js )
+( cd "$S11" && bash "$VERIFY_SH" --check-fresh ) >/dev/null 2>&1
+if [ $? -eq 2 ]; then
+    _ok "--check-fresh: dirty worktree -> STALE (exit 2)"
+else
+    _no "--check-fresh: expected STALE/2 on dirty worktree"
+fi
+( cd "$S11" && git checkout util.js ) >/dev/null 2>&1
+
+# 11c: move HEAD forward.
+( cd "$S11"
+  echo '// more' >> util.js
+  git add util.js
+  git commit -qm "more" --no-gpg-sign --no-verify
+) >/dev/null 2>&1
+( cd "$S11" && bash "$VERIFY_SH" --check-fresh ) >/dev/null 2>&1
+if [ $? -eq 2 ]; then
+    _ok "--check-fresh: HEAD drift -> STALE (exit 2)"
+else
+    _no "--check-fresh: expected STALE/2 on HEAD drift"
+fi
+
+# 11d: no evidence at all (fresh repo, never verified).
+S11D="$TMP_ROOT/s11d-noevidence"
+init_repo "$S11D"
+( cd "$S11D" && bash "$VERIFY_SH" --check-fresh ) >/dev/null 2>&1
+if [ $? -eq 3 ]; then
+    _ok "--check-fresh: no evidence -> ERROR (exit 3, fail-closed)"
+else
+    _no "--check-fresh: expected ERROR/3 when evidence absent"
+fi
+
+# 11e: corrupt evidence.
+S11E="$TMP_ROOT/s11e-corrupt"
+init_repo "$S11E"
+mkdir -p "$S11E/.loki/verify"
+printf 'not valid json{' > "$S11E/.loki/verify/evidence.json"
+( cd "$S11E" && bash "$VERIFY_SH" --check-fresh ) >/dev/null 2>&1
+if [ $? -eq 3 ]; then
+    _ok "--check-fresh: corrupt evidence -> ERROR (exit 3, fail-closed)"
+else
+    _no "--check-fresh: expected ERROR/3 on corrupt evidence"
+fi
+
+# 11f: evidence.json records worktree_clean_at_grade (freshness metadata present).
+if python3 -c "import json,sys; d=json.load(open('$S11/.loki/verify/evidence.json')); sys.exit(0 if 'worktree_clean_at_grade' in d['subject'] else 1)" 2>/dev/null; then
+    _ok "evidence.json records subject.worktree_clean_at_grade"
+else
+    _no "evidence.json missing subject.worktree_clean_at_grade"
+fi
+
 echo ""
 echo "=== results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ]

@@ -48,7 +48,7 @@ class CLIBridge {
    */
   async startSession(
     prdPath?: string,
-    provider: "claude" | "codex" | "gemini" = "claude",
+    provider: "claude" | "codex" | "cline" | "aider" = "claude",
     options: { dryRun?: boolean; verbose?: boolean } = {}
   ): Promise<Session> {
     const sessionId = `session_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;

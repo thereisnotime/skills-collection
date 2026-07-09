@@ -36,6 +36,19 @@ export interface NativeSkillsInstallResult {
   linkedAgents: string[];
 }
 
+/**
+ * Per-harness global skills directories.
+ *
+ * These MUST match the authoritative registry used by the `npx skills` tool
+ * (antfu/skills-cli, src/agents.ts) so the native fallback path (no npx) writes
+ * to the exact same place npx would. Several dirs are NOT `.<name>/skills`
+ * (windsurf, opencode, github-copilot), so relying on the synthesized fallback
+ * would install to the wrong directory. Paths are relative to HOME.
+ *
+ * openclaw/openhands/hermes-agent are Firecrawl launch targets; openclaw and
+ * openhands are verified (OpenClaw docs / antfu registry), hermes-agent mirrors
+ * its `~/.hermes` config home.
+ */
 const AGENTS: AgentConfig[] = [
   {
     name: 'claude-code',
@@ -48,9 +61,10 @@ const AGENTS: AgentConfig[] = [
     detectDir: '.cursor',
   },
   {
+    // Windsurf stores skills under Codeium, NOT `.windsurf/skills`.
     name: 'windsurf',
-    globalSkillsDir: '.windsurf/skills',
-    detectDir: '.windsurf',
+    globalSkillsDir: '.codeium/windsurf/skills',
+    detectDir: '.codeium/windsurf',
   },
   {
     name: 'codex',
@@ -63,11 +77,6 @@ const AGENTS: AgentConfig[] = [
     detectDir: '.continue',
   },
   {
-    name: 'augment',
-    globalSkillsDir: '.augment/skills',
-    detectDir: '.augment',
-  },
-  {
     name: 'roo',
     globalSkillsDir: '.roo/skills',
     detectDir: '.roo',
@@ -78,7 +87,8 @@ const AGENTS: AgentConfig[] = [
     detectDir: '.gemini',
   },
   {
-    name: 'copilot',
+    // antfu's agent id is 'github-copilot'; global skills live under `.copilot`.
+    name: 'github-copilot',
     globalSkillsDir: '.copilot/skills',
     detectDir: '.copilot',
   },
@@ -86,6 +96,29 @@ const AGENTS: AgentConfig[] = [
     name: 'droid',
     globalSkillsDir: '.factory/skills',
     detectDir: '.factory',
+  },
+  {
+    // OpenCode stores global skills under `.config/opencode`, NOT `.opencode`.
+    name: 'opencode',
+    globalSkillsDir: '.config/opencode/skills',
+    detectDir: '.config/opencode',
+  },
+  {
+    name: 'openclaw',
+    globalSkillsDir: '.openclaw/skills',
+    detectDir: '.openclaw',
+  },
+  {
+    name: 'openhands',
+    globalSkillsDir: '.openhands/skills',
+    detectDir: '.openhands',
+  },
+  {
+    // Launch target's skillsAgent is 'hermes-agent'; its config home is
+    // `~/.hermes`, so skills live in `.hermes/skills` (not `.hermes-agent`).
+    name: 'hermes-agent',
+    globalSkillsDir: '.hermes/skills',
+    detectDir: '.hermes',
   },
 ];
 
@@ -260,6 +293,14 @@ function hashDir(dir: string): string {
 
   walk(dir);
   return hash.digest('hex');
+}
+
+/**
+ * Names of the agents/harnesses whose config directories currently exist under
+ * HOME. Used to populate the interactive harness picker in `firecrawl init`.
+ */
+export function detectInstalledAgentNames(): string[] {
+  return detectInstalledAgents().map((agent) => agent.name);
 }
 
 /** Detect which agents are installed by checking for their config directories */

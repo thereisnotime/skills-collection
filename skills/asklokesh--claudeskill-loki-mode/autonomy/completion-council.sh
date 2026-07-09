@@ -1184,9 +1184,34 @@ EVIDENCE_SECTION
         echo "## PRD Checklist Verification Results" >> "$evidence_file"
         cat ".loki/checklist/verification-results.json" >> "$evidence_file" 2>/dev/null || true
     else
+        # Scope honesty (rec #5): a missing checklist is not neutral -- it means
+        # "done" cannot be verified against derived acceptance criteria on this
+        # run. Say so explicitly so a council member weights their vote on the
+        # OTHER evidence (tests, diff, build) rather than reading silence as a
+        # pass. Distinguish "a spec exists but yielded no checklist" (a real
+        # scope-honesty concern -- the criteria were underivable) from "no spec
+        # was provided" (a one-line brief; checklist absence is expected, not a
+        # gap). Never fabricate coverage that does not exist.
         echo "" >> "$evidence_file"
         echo "## PRD Checklist Verification Results" >> "$evidence_file"
-        echo "No PRD checklist has been created yet." >> "$evidence_file"
+        local _has_spec="no"
+        if [ -n "$prd_path" ] && [ -f "$prd_path" ]; then
+            _has_spec="yes"
+        elif [ -f ".loki/prd.md" ] || [ -f ".loki/spec/spec.md" ]; then
+            _has_spec="yes"
+        fi
+        if [ "$_has_spec" = "yes" ]; then
+            echo "SCOPE-HONESTY: A spec/PRD is present but NO checklist of" \
+                "acceptance criteria was derived from it. \"Done\" cannot be" \
+                "verified against explicit criteria on this run -- treat" \
+                "completion as UNVERIFIED-BY-CHECKLIST and rely on the other" \
+                "evidence below (tests, diff, build). Do not read the absence" \
+                "of a checklist as a pass." >> "$evidence_file"
+        else
+            echo "No PRD checklist has been created yet (no spec/PRD provided;" \
+                "checklist-based completion criteria are not applicable to this" \
+                "run). Completion rests on the other evidence below." >> "$evidence_file"
+        fi
     fi
 
     # Playwright smoke test results (v5.46.0 - advisory only)

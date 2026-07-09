@@ -903,6 +903,7 @@ show_help() {
     echo "  --github         Enable GitHub issue import"
     echo "  --no-dashboard   Disable web dashboard"
     echo "  --sandbox        Run in Docker sandbox for isolation (default: off; requires Docker)"
+    echo "  --isolation LVL  Per-run isolation dial: none (default) | worktree | docker"
     echo "  --skip-memory    Skip loading memory context at startup"
     echo "  --fresh-prd      Regenerate the PRD from the codebase (no-PRD runs; ignores the reusable generated PRD)"
     echo "  --compliance PRESET  Enable compliance mode (default|healthcare|fintech|government)"
@@ -1221,6 +1222,8 @@ cmd_start() {
                 echo "  --no-dashboard        Disable web dashboard"
                 echo "  --api                 Start dashboard API server alongside the build"
                 echo "  --sandbox             Run in Docker sandbox (default: off; requires Docker)"
+                echo "  --isolation LEVEL     Per-run isolation: none (default) | worktree | docker."
+                echo "                        Unified dial; --parallel = worktree, --sandbox = docker."
                 echo "  --skip-memory         Skip loading memory context at startup"
                 echo "  --fresh-prd           Regenerate the PRD from the codebase on a no-PRD run"
                 echo "                        (ignores the reusable generated PRD; aliases: --regen-prd,"
@@ -1384,6 +1387,34 @@ cmd_start() {
             --sandbox)
                 export LOKI_SANDBOX_MODE=true
                 shift
+                ;;
+            --isolation|--isolation=*)
+                # Unified per-run isolation dial (rec #4). ONE canonical knob that
+                # subsumes the fragmented --parallel (worktree) and --sandbox
+                # (docker) flags, matching the zeroshot none/worktree/docker model
+                # while keeping every existing flag working as an alias:
+                #   none     -> default (in-place; exactly today's behavior)
+                #   worktree -> git-worktree isolation (same mechanism as --parallel)
+                #   docker   -> Docker sandbox (same mechanism as --sandbox)
+                # Fail-closed on an unknown value: never silently downgrade to a
+                # weaker isolation than the operator asked for.
+                local _iso_val
+                if [[ "$1" == --isolation=* ]]; then
+                    _iso_val="${1#--isolation=}"; shift
+                else
+                    _iso_val="${2:-}"; shift 2 2>/dev/null || shift
+                fi
+                case "$_iso_val" in
+                    none|"")
+                        : ;;  # default: no isolation, in-place
+                    worktree|wt)
+                        args+=("--parallel") ;;
+                    docker|sandbox)
+                        export LOKI_SANDBOX_MODE=true ;;
+                    *)
+                        echo -e "${RED}Error: --isolation must be one of: none, worktree, docker (got '${_iso_val}')${NC}" >&2
+                        return 2 ;;
+                esac
                 ;;
             --skip-memory)
                 export LOKI_SKIP_MEMORY=true

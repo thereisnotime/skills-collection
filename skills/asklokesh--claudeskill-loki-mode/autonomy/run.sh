@@ -11263,6 +11263,13 @@ MANAGED_SELECTION
     export LOKI_REVIEW_DIFF_FILE="$diff_file"
     export LOKI_REVIEW_FILES_FILE="$files_file"
     export LOKI_AGENTS_TYPES_FILE="${PROJECT_DIR}/agents/types.json"
+    # Complexity-proportional verification (rec #3): scale the number of
+    # keyword-selected specialists to the detected task tier. HARD FLOOR: every
+    # tier keeps the 2 mandatory reviewers + 2 specialists (= today's behavior),
+    # so simple/standard are byte-identical to prior releases and nothing
+    # shippable ever gets LESS scrutiny. Only `complex` ADDS specialists (deeper
+    # battery for hard tasks). Never drops below the floor.
+    export LOKI_REVIEW_COMPLEXITY="${DETECTED_COMPLEXITY:-standard}"
     local selected_specialists
     selected_specialists=$(python3 << 'SPECIALIST_SELECT'
 import os
@@ -11366,11 +11373,31 @@ for name, spec in SPECIALISTS.items():
 # Sort by score descending, then by priority ascending (tie-breaker)
 ranked = sorted(scores.keys(), key=lambda n: (-scores[n], SPECIALISTS[n]["priority"]))
 
-# If no keywords matched at all, use defaults
+# Complexity-proportional specialist count (rec #3). HARD FLOOR of 2 keyword
+# specialists on every tier -- combined with the 2 always-on mandatory reviewers
+# below, that is the 4-reviewer battery every prior release shipped, so simple
+# and standard are byte-identical. Only `complex` ADDS specialists (up to 4) for
+# a deeper battery on hard tasks; it never drops below the floor. Capped at the
+# available pool so a small pool cannot request more than exist.
+complexity = os.environ.get("LOKI_REVIEW_COMPLEXITY", "standard").strip().lower()
+SPECIALIST_COUNT_BY_TIER = {"simple": 2, "standard": 2, "complex": 4}
+want = SPECIALIST_COUNT_BY_TIER.get(complexity, 2)
+if want < 2:
+    want = 2  # floor guard: an unknown/forced tier can never shrink the battery
+
+# If no keywords matched at all, use defaults (still honoring the tier count:
+# pad the two hardcoded defaults with the next-ranked specialists for `complex`).
 if all(s == 0 for s in scores.values()):
-    selected = ["security-sentinel", "test-coverage-auditor"]
+    base_defaults = ["security-sentinel", "test-coverage-auditor"]
+    selected = list(base_defaults)
+    if want > len(selected):
+        for n in ranked:
+            if n not in selected:
+                selected.append(n)
+            if len(selected) >= want:
+                break
 else:
-    selected = ranked[:2]
+    selected = ranked[:want]
 
 # Output JSON: architecture-strategist + maintainer-mergeability always first
 # (both carry a mandate no keyword-selected specialist does), then the 2 selected.
@@ -11406,7 +11433,7 @@ result = {
 print(json.dumps(result))
 SPECIALIST_SELECT
     )
-    unset LOKI_REVIEW_DIFF_FILE LOKI_REVIEW_FILES_FILE LOKI_AGENTS_TYPES_FILE LOKI_REVIEW_HEALING_ACTIVE
+    unset LOKI_REVIEW_DIFF_FILE LOKI_REVIEW_FILES_FILE LOKI_AGENTS_TYPES_FILE LOKI_REVIEW_HEALING_ACTIVE LOKI_REVIEW_COMPLEXITY
 
     if [ -z "$selected_specialists" ]; then
         log_error "Code review: Specialist selection failed"

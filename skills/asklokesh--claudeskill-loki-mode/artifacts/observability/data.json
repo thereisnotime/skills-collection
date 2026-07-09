@@ -1,29 +1,17 @@
 {
-  "generated_at": "2026-07-03T21:07:20Z",
-  "current_version": "7.121.3",
+  "generated_at": "2026-07-08T21:32:19Z",
+  "current_version": "7.121.5",
   "github": {
-    "stars": 1000,
-    "forks": 193,
+    "stars": 1011,
+    "forks": 195,
     "open_issues": 2,
     "created_at": "2025-12-26T16:26:14Z",
     "status": "ok",
-    "fetched_at": "2026-07-03T21:07:20Z"
+    "fetched_at": "2026-07-08T21:32:19Z"
   },
   "npm": {
-    "total": 29567,
+    "total": 29901,
     "daily": [
-      {
-        "downloads": 1817,
-        "day": "2026-06-03"
-      },
-      {
-        "downloads": 565,
-        "day": "2026-06-04"
-      },
-      {
-        "downloads": 0,
-        "day": "2026-06-05"
-      },
       {
         "downloads": 513,
         "day": "2026-06-06"
@@ -131,16 +119,28 @@
       {
         "downloads": 2415,
         "day": "2026-07-02"
+      },
+      {
+        "downloads": 1688,
+        "day": "2026-07-03"
+      },
+      {
+        "downloads": 646,
+        "day": "2026-07-04"
+      },
+      {
+        "downloads": 382,
+        "day": "2026-07-05"
       }
     ],
     "status": "ok",
-    "fetched_at": "2026-07-03T21:07:20Z"
+    "fetched_at": "2026-07-08T21:32:19Z"
   },
   "docker": {
-    "pulls": 58848,
-    "last_updated": "2026-07-03T21:06:50.793008Z",
+    "pulls": 62213,
+    "last_updated": "2026-07-05T01:17:59.639749Z",
     "status": "ok",
-    "fetched_at": "2026-07-03T21:07:20Z"
+    "fetched_at": "2026-07-08T21:32:19Z"
   },
   "homebrew": {
     "status": "not_available",
@@ -148,39 +148,59 @@
   },
   "releases_downloads": [
     {
+      "tag": "v7.121.5",
+      "date": "2026-07-05",
+      "downloads": 15
+    },
+    {
+      "tag": "v7.121.4",
+      "date": "2026-07-04",
+      "downloads": 13
+    },
+    {
+      "tag": "v7.121.3",
+      "date": "2026-07-04",
+      "downloads": 13
+    },
+    {
+      "tag": "v7.121.2",
+      "date": "2026-07-03",
+      "downloads": 13
+    },
+    {
       "tag": "v7.121.1",
       "date": "2026-07-03",
-      "downloads": 6
+      "downloads": 13
     },
     {
       "tag": "v7.121.0",
       "date": "2026-07-03",
-      "downloads": 7
+      "downloads": 13
     },
     {
       "tag": "v7.120.0",
       "date": "2026-07-03",
-      "downloads": 7
+      "downloads": 14
     },
     {
       "tag": "v7.119.0",
       "date": "2026-07-03",
-      "downloads": 7
+      "downloads": 13
     },
     {
       "tag": "v7.118.0",
       "date": "2026-07-03",
-      "downloads": 13
+      "downloads": 16
     },
     {
       "tag": "v7.117.2",
       "date": "2026-07-03",
-      "downloads": 13
+      "downloads": 14
     },
     {
       "tag": "v7.117.1",
       "date": "2026-07-03",
-      "downloads": 19
+      "downloads": 22
     },
     {
       "tag": "v7.117.0",
@@ -276,26 +296,6 @@
       "tag": "v7.104.0",
       "date": "2026-07-01",
       "downloads": 13
-    },
-    {
-      "tag": "v7.103.0",
-      "date": "2026-06-30",
-      "downloads": 13
-    },
-    {
-      "tag": "v7.102.0",
-      "date": "2026-06-30",
-      "downloads": 13
-    },
-    {
-      "tag": "v7.101.0",
-      "date": "2026-06-30",
-      "downloads": 13
-    },
-    {
-      "tag": "v7.100.1",
-      "date": "2026-06-30",
-      "downloads": 8
     }
   ],
   "releases_timeline": [
@@ -589,57 +589,43 @@
       ]
     }
   ],
+  "rarvc_bench": [
+    {
+      "spec": "hard-1-order-api",
+      "model": "claude-sonnet-5",
+      "success_rate": 1.0,
+      "n_trials": 3,
+      "cost_usd_median": 0.8621,
+      "duration_s_median": 531.125,
+      "duration_s_min": 529.39,
+      "duration_s_max": 1164.767,
+      "file": "hard-1-order-api-loki-20260708T204228Z.json"
+    },
+    {
+      "spec": "simple-1-contact-form",
+      "model": "haiku",
+      "success_rate": 0.6667,
+      "n_trials": 3,
+      "cost_usd_median": 0.4601,
+      "duration_s_median": 127.559,
+      "duration_s_min": 78.798,
+      "duration_s_max": 137.787,
+      "file": "simple-1-contact-form-loki-20260708T211236Z.json"
+    },
+    {
+      "spec": "simple-2-fizzbuzz",
+      "model": "claude-sonnet-5",
+      "success_rate": 0.6667,
+      "n_trials": 3,
+      "cost_usd_median": 0.5069,
+      "duration_s_median": 164.359,
+      "duration_s_min": 77.299,
+      "duration_s_max": 181.497,
+      "file": "simple-2-fizzbuzz-loki-20260708T203524Z.json"
+    }
+  ],
   "acs": {
     "rows": [
-      {
-        "metric": "Multi-spec fake-RED blast radius (v7.121.x, 31 real builds)",
-        "provenance": "measured",
-        "value": "1/31 builds was gate-hung by the bug; 100% unblocked (3/3 critical items)",
-        "detail": "Ran the fixed verifier across all 31 real captured build checklists. HONEST scope: only 1 build (cdbbb5af) had a CRITICAL item that the old BRE-grep verifier fake-RED-blocked to a hang; the fix rescues all 3 of its critical items (gate no longer hard-fails). Other patterns that errored under BRE were on non-critical items or builds that reached a verdict anyway, so the bug's real blast radius in the captured set is 1 build -- not systemic. Fix is correct+complete for the affected population; population is small. Newly-hit builds of the same shape (LLM ERE endpoint patterns as critical checks) are protected going forward.",
-        "source": "fixed checklist-verify.py replayed over autonomi-workspaces/*/.loki/checklist.json"
-      },
-      {
-        "metric": "Time-to-usable-verdict on the hung build (v7.121.x)",
-        "provenance": "measured",
-        "value": "3h50m timeout -> <10min converge (>23x); $11.83 wasted -> yields a verdict",
-        "detail": "Real cdbbb5af build: Timeline shows work done in ~4.6min (Iter1 + all gates Pass), then hung 3h45m on the fake-RED gate and TIMED OUT with no verdict (~$11.83 wasted). The v7.121.x fix unblocks the gate at work-completion, so the same work yields 'Working, with gaps' in <10min instead of a discarded timeout. CAVEAT: 'after' is a conservative extraction-proven bound (exact wall-clock needs a paid live re-run); within-product before/after, NOT a competitor benchmark.",
-        "source": "founder build Timeline (cdbbb5af) + chain-to-green extraction on real .loki state"
-      },
-      {
-        "metric": "Verifier is model-independent (cross-model, v7.121.x)",
-        "provenance": "measured",
-        "value": "0 LLM calls in verify path; 3 model dialects -> identical verdicts",
-        "detail": "Static+runtime proof: the completion verifier (checklist-verify.py) makes ZERO LLM/model API calls -- its only network call is a localhost HTTP GET to the app-under-test (behavioral check). Verdict = pure fn(pattern, filesystem, app-response). Same requirement in 3 model dialects (escaped-paren, alternation, quantifier) -> all True, stable across 5 runs each. Model-agnostic by construction: no model output can change a verdict.",
-        "source": "autonomy/checklist-verify.py static AST scan + deterministic run_check replay"
-      },
-      {
-        "metric": "Checklist gate on real workspace (v7.121.x)",
-        "provenance": "measured",
-        "value": "BLOCK (3 critical failing) -> PASS (0 failing)",
-        "detail": "function-extraction of checklist-verify.py against the real failing workspace cdbbb5af: four trust fixes (grep BRE->ERE, runner-agnostic tests_pass, path|target|file alias, positive 'N passed' proof) turned 3 critical false-negatives green. Verified items 1/11 -> 4/11. HONEST CAVEAT: converges the card to 'Working, with gaps', NOT a green Verified card -- that still needs the Evidence Receipt axes (build/security/healthcheck).",
-        "source": "commits 52fab952, 72ecc81b; autonomy/checklist-verify.py + tests, function-extraction on cdbbb5af"
-      },
-      {
-        "metric": "grep_codebase BRE->ERE endpoint reads (v7.121.0)",
-        "provenance": "measured",
-        "value": "TIMED OUT (9 iters) -> CONVERGING",
-        "detail": "LLM ERE patterns like app\\.get\\('/api/tasks') errored under BRE (grep rc>=2) so present endpoints read as failing, driving the build to time out after 9 iterations. Fix: grep -E. Chain re-run on cdbbb5af converges.",
-        "source": "commit 52fab952; autonomy/checklist-verify.py + tests, function-extraction on cdbbb5af"
-      },
-      {
-        "metric": "Runner-agnostic tests_pass (v7.121.0)",
-        "provenance": "measured",
-        "value": "'not run' -> 26/26 read passing",
-        "detail": "tests_pass was hardcoded to npx jest; a passing 26/26 vitest suite read 'not run'. Fix: runner-agnostic (npm test / project scripts.test). Verified on cdbbb5af's real vitest suite.",
-        "source": "commit 52fab952; autonomy/checklist-verify.py + tests, function-extraction on cdbbb5af"
-      },
-      {
-        "metric": "Positive test-proof anti-fake-green (v7.121.1)",
-        "provenance": "measured",
-        "value": "no-op/zero-count 'green' -> requires 'N passed' (N>=1)",
-        "detail": "tests_pass now requires positive proof [1-9]\\d* passed, closing a fake-green where a no-op scripts.test (echo done / exit 0) or a zero-count ('0 passing') read green with zero tests. Caught by release council over 2 rounds; RED/GREEN verified.",
-        "source": "commit 72ecc81b; autonomy/checklist-verify.py + tests"
-      },
       {
         "metric": "Convergence speed (v7.105 fix)",
         "provenance": "measured",
@@ -683,7 +669,7 @@
         "source": "live calibration v7.115 vs v7.116 (.loki/quality/test-results.json)"
       }
     ],
-    "live_note": "Convergence deltas are measured on real builds; quality_score is a designed threshold and review cost is an arithmetic projection (labeled). A live v7.114 calibration confirms the composed behavior end-to-end. The v7.121.x checklist-verifier convergence deltas are measured via function-extraction on the real failing cdbbb5af workspace and yield convergence to \"Working, with gaps\", not a green Verified card."
+    "live_note": "Convergence deltas are measured on real builds; quality_score is a designed threshold and review cost is an arithmetic projection (labeled). A live v7.114 calibration confirms the composed behavior end-to-end."
   },
   "what_worked": [
     {

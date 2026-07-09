@@ -208,28 +208,47 @@ main() {
   # Resolve the binary path (may need updated PATH)
   local firecrawl_bin="$install_dir/firecrawl"
 
+  # Any extra args passed to the installer are forwarded to `firecrawl init`.
+  # This lets callers scope setup to a single harness in one non-interactive
+  # command, e.g.:
+  #   curl -fsSL https://firecrawl.dev/install.sh | bash -s -- --agent openclaw
+  local -a init_args=("$@")
+  local has_init_args=0
+  [ ${#init_args[@]} -gt 0 ] && has_init_args=1
+
   # Offer to continue with setup (login, skills, integrations)
   if [ -t 0 ] && [ -t 1 ]; then
-    # Interactive terminal — prompt
-    echo "  Next: authenticate and install AI coding skills."
-    echo ""
-    printf "  Continue with setup? [Y/n] "
-    read -r answer </dev/tty || answer=""
-    echo ""
+    # Interactive terminal — prompt (skip the prompt if the caller already
+    # told us what to do via forwarded args).
+    if [ "$has_init_args" -eq 1 ]; then
+      "$firecrawl_bin" init --skip-install ${init_args[@]+"${init_args[@]}"}
+    else
+      echo "  Next: authenticate and install AI coding skills."
+      echo ""
+      printf "  Continue with setup? [Y/n] "
+      read -r answer </dev/tty || answer=""
+      echo ""
 
-    case "$answer" in
-      [nN]*)
-        echo "  Run 'firecrawl init --skip-install' later to set up."
-        echo ""
-        ;;
-      *)
-        "$firecrawl_bin" init --skip-install
-        ;;
-    esac
+      case "$answer" in
+        [nN]*)
+          echo "  Run 'firecrawl init --skip-install' later to set up."
+          echo ""
+          ;;
+        *)
+          "$firecrawl_bin" init --skip-install
+          ;;
+      esac
+    fi
   else
-    # Non-interactive (piped) — print instructions
-    echo "  Run 'firecrawl init --skip-install' to authenticate and install skills."
-    echo ""
+    # Non-interactive (piped). With forwarded args, run a scoped one-shot
+    # (add --yes so init never blocks on a prompt). Otherwise print instructions.
+    if [ "$has_init_args" -eq 1 ]; then
+      "$firecrawl_bin" init --skip-install --yes ${init_args[@]+"${init_args[@]}"}
+    else
+      echo "  Run 'firecrawl init --skip-install' to authenticate and install skills."
+      echo "  To scope to one harness: bash -s -- --agent <harness> (e.g. openclaw)."
+      echo ""
+    fi
   fi
 }
 

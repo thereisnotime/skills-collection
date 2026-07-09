@@ -704,7 +704,7 @@ components:
           nullable: true
         provider:
           type: string
-          enum: [claude, codex, gemini]
+          enum: [claude, codex, cline, aider]
         status:
           type: string
           enum: [starting, running, paused, stopping, stopped, failed, completed]
@@ -770,7 +770,7 @@ components:
           description: Path to PRD file
         provider:
           type: string
-          enum: [claude, codex, gemini]
+          enum: [claude, codex, cline, aider]
           default: claude
         options:
           type: object
@@ -837,7 +837,9 @@ components:
               type: boolean
             codex:
               type: boolean
-            gemini:
+            cline:
+              type: boolean
+            aider:
               type: boolean
         activeSession:
           type: string

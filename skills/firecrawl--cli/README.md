@@ -29,6 +29,37 @@ firecrawl setup workflows
 
 These install globally across all detected coding editors by default. Use `--agent <agent>` to scope either command to one editor.
 
+#### Scope setup to a single harness
+
+By default skills route to every detected harness. To install and route to only
+one harness in a single command:
+
+```bash
+# One-shot from the install script (non-interactive, no TTY needed)
+curl -fsSL https://firecrawl.dev/install.sh | bash -s -- --agent openclaw
+
+# Or, once the CLI is installed
+firecrawl init --agent openclaw          # only OpenClaw
+firecrawl setup skills --agent openclaw
+firecrawl setup workflows --agent openclaw
+```
+
+Any args after `bash -s --` are forwarded to `firecrawl init`, so you can add
+things like `--skip-auth` for a skills-only, no-login setup. When you run
+`firecrawl init` interactively without `--agent`, it shows a checkbox of your
+detected harnesses (all selected by default) so you can pick a subset.
+
+| Harness      | `--agent` value |
+| ------------ | --------------- |
+| Claude Code  | `claude-code`   |
+| Codex        | `codex`         |
+| Cursor       | `cursor`        |
+| Windsurf     | `windsurf`      |
+| OpenCode     | `opencode`      |
+| OpenClaw     | `openclaw`      |
+| OpenHands    | `openhands`     |
+| Hermes Agent | `hermes-agent`  |
+
 ### Agent skills
 
 The init command installs all Firecrawl agent skill segments into AI coding agents (Cursor, Claude Code, Windsurf, etc.):

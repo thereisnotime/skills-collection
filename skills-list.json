@@ -19649,11 +19649,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 669,
-      "words": 10411,
+      "lines": 684,
+      "words": 10973,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.14.0",
+      "version": "3.15.0",
       "license": "MIT"
     },
     {
@@ -19661,11 +19661,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 669,
-      "words": 10411,
+      "lines": 684,
+      "words": 10973,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.14.0",
+      "version": "3.15.0",
       "license": "MIT"
     }
   ],
@@ -19975,8 +19975,8 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 411,
-      "words": 2528,
+      "lines": 413,
+      "words": 2606,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -21591,24 +21591,12 @@
       "description": "Guide for deploying web frameworks on Netlify. Use when setting up a framework project (Vite/React, Astro, TanStack Start, Next.js, Nuxt, SvelteKit, Remix) for Netlify deployment, configuring adapters",
       "path": "netlify--context-and-tools/skills/netlify-frameworks/SKILL.md",
       "remote_path": "skills/netlify-frameworks/SKILL.md",
-      "lines": 79,
-      "words": 660,
-      "code_blocks": 1,
-      "languages": [
-        "toml"
-      ]
-    },
-    {
-      "name": "netlify-cli-and-deploy",
-      "description": "Guide for using the Netlify CLI and deploying sites. Use when installing the CLI, linking sites, deploying (Git-based or manual), managing environment variables, or running local development. Covers n",
-      "path": "netlify--context-and-tools/skills/netlify-cli-and-deploy/SKILL.md",
-      "remote_path": "skills/netlify-cli-and-deploy/SKILL.md",
-      "lines": 168,
-      "words": 1158,
-      "code_blocks": 9,
+      "lines": 115,
+      "words": 942,
+      "code_blocks": 3,
       "languages": [
         "bash",
-        "typescript"
+        "toml"
       ]
     },
     {
@@ -21646,7 +21634,7 @@
       "path": "netlify--context-and-tools/skills/netlify-mcp-servers/SKILL.md",
       "remote_path": "skills/netlify-mcp-servers/SKILL.md",
       "lines": 208,
-      "words": 2440,
+      "words": 2441,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -21691,12 +21679,12 @@
     },
     {
       "name": "netlify-deploy",
-      "description": "Deploy web projects to Netlify using the Netlify CLI (`npx netlify`). Use when the user asks to deploy, host, publish, or link a site/repo on Netlify, including preview and production deploys.",
+      "description": "Deploy, host, and publish web projects on Netlify with the Netlify CLI. Use when the user wants to deploy a site or repository to Netlify, link a local project to a Netlify site, ship a production or ",
       "path": "netlify--context-and-tools/skills/netlify-deploy/SKILL.md",
       "remote_path": "skills/netlify-deploy/SKILL.md",
-      "lines": 243,
-      "words": 1310,
-      "code_blocks": 9,
+      "lines": 153,
+      "words": 1897,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ]
@@ -21731,13 +21719,14 @@
     },
     {
       "name": "netlify-config",
-      "description": "Reference for netlify.toml configuration. Use when configuring build settings, redirects, rewrites, headers, deploy contexts, environment variables, or any site-level configuration. Covers the complet",
+      "description": "Reference for netlify.toml configuration and site environment variables. Use when configuring build settings, redirects, rewrites, headers, deploy contexts, or any site-level configuration \u2014 and when ",
       "path": "netlify--context-and-tools/skills/netlify-config/SKILL.md",
       "remote_path": "skills/netlify-config/SKILL.md",
-      "lines": 189,
-      "words": 911,
-      "code_blocks": 10,
+      "lines": 229,
+      "words": 1188,
+      "code_blocks": 12,
       "languages": [
+        "bash",
         "toml"
       ]
     },
@@ -21798,24 +21787,12 @@
       "description": "Guide for deploying web frameworks on Netlify. Use when setting up a framework project (Vite/React, Astro, TanStack Start, Next.js, Nuxt, SvelteKit, Remix) for Netlify deployment, configuring adapters",
       "path": "netlify--context-and-tools/codex/skills/netlify-frameworks/SKILL.md",
       "remote_path": "codex/skills/netlify-frameworks/SKILL.md",
-      "lines": 79,
-      "words": 660,
-      "code_blocks": 1,
-      "languages": [
-        "toml"
-      ]
-    },
-    {
-      "name": "netlify-cli-and-deploy",
-      "description": "Guide for using the Netlify CLI and deploying sites. Use when installing the CLI, linking sites, deploying (Git-based or manual), managing environment variables, or running local development. Covers n",
-      "path": "netlify--context-and-tools/codex/skills/netlify-cli-and-deploy/SKILL.md",
-      "remote_path": "codex/skills/netlify-cli-and-deploy/SKILL.md",
-      "lines": 168,
-      "words": 1158,
-      "code_blocks": 9,
+      "lines": 115,
+      "words": 942,
+      "code_blocks": 3,
       "languages": [
         "bash",
-        "typescript"
+        "toml"
       ]
     },
     {
@@ -21853,7 +21830,7 @@
       "path": "netlify--context-and-tools/codex/skills/netlify-mcp-servers/SKILL.md",
       "remote_path": "codex/skills/netlify-mcp-servers/SKILL.md",
       "lines": 208,
-      "words": 2440,
+      "words": 2441,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -21898,12 +21875,12 @@
     },
     {
       "name": "netlify-deploy",
-      "description": "Deploy web projects to Netlify using the Netlify CLI (`npx netlify`). Use when the user asks to deploy, host, publish, or link a site/repo on Netlify, including preview and production deploys.",
+      "description": "Deploy, host, and publish web projects on Netlify with the Netlify CLI. Use when the user wants to deploy a site or repository to Netlify, link a local project to a Netlify site, ship a production or ",
       "path": "netlify--context-and-tools/codex/skills/netlify-deploy/SKILL.md",
       "remote_path": "codex/skills/netlify-deploy/SKILL.md",
-      "lines": 243,
-      "words": 1310,
-      "code_blocks": 9,
+      "lines": 153,
+      "words": 1897,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ]
@@ -21938,13 +21915,14 @@
     },
     {
       "name": "netlify-config",
-      "description": "Reference for netlify.toml configuration. Use when configuring build settings, redirects, rewrites, headers, deploy contexts, environment variables, or any site-level configuration. Covers the complet",
+      "description": "Reference for netlify.toml configuration and site environment variables. Use when configuring build settings, redirects, rewrites, headers, deploy contexts, or any site-level configuration \u2014 and when ",
       "path": "netlify--context-and-tools/codex/skills/netlify-config/SKILL.md",
       "remote_path": "codex/skills/netlify-config/SKILL.md",
-      "lines": 189,
-      "words": 911,
-      "code_blocks": 10,
+      "lines": 229,
+      "words": 1188,
+      "code_blocks": 12,
       "languages": [
+        "bash",
         "toml"
       ]
     },
@@ -23766,7 +23744,7 @@
       "path": "sanity-io--agent-toolkit/skills/sanity-best-practices/SKILL.md",
       "remote_path": "skills/sanity-best-practices/SKILL.md",
       "lines": 80,
-      "words": 573,
+      "words": 579,
       "code_blocks": 1,
       "languages": []
     },
@@ -27247,7 +27225,7 @@
       "path": "typefully--agent-skills/skills/typefully/SKILL.md",
       "remote_path": "skills/typefully/SKILL.md",
       "lines": 279,
-      "words": 1882,
+      "words": 1905,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -64707,6 +64685,20 @@
       ],
       "version": "0.2.0",
       "license": "MIT"
+    },
+    {
+      "name": "j-rig",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/j-rig/skills/j-rig/SKILL.md",
+      "remote_path": "plugins/productivity/j-rig/skills/j-rig/SKILL.md",
+      "lines": 206,
+      "words": 1572,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ],
+      "version": "0.1.0",
+      "license": "Apache-2.0"
     },
     {
       "name": "web-typography",
@@ -121599,7 +121591,7 @@
       "path": "affaan-m--everything-claude-code/agents/security-reviewer.md",
       "remote_path": "agents/security-reviewer.md",
       "lines": 118,
-      "words": 782,
+      "words": 780,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -121810,7 +121802,7 @@
       "path": "affaan-m--everything-claude-code/agents/database-reviewer.md",
       "remote_path": "agents/database-reviewer.md",
       "lines": 101,
-      "words": 755,
+      "words": 753,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -133367,6 +133359,22 @@
       ]
     },
     {
+      "name": "plan-canvas",
+      "description": "Open plans and HTML artifacts in a local browser canvas where the human annotates elements, chats, and approves or requests changes without leaving the page. Use when presenting a plan for review, or ",
+      "path": "affaan-m--everything-claude-code/skills/plan-canvas/SKILL.md",
+      "remote_path": "skills/plan-canvas/SKILL.md",
+      "lines": 154,
+      "words": 939,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "json",
+        "markdown",
+        "mermaid"
+      ],
+      "version": "\"1.0.0\""
+    },
+    {
       "name": "opensource-pipeline",
       "description": "\"Open-source pipeline: fork, sanitize, and package private projects for safe public release. Chains 3 agents (forker, sanitizer, packager). Triggers: '/opensource', 'open source this', 'make this publ",
       "path": "affaan-m--everything-claude-code/skills/opensource-pipeline/SKILL.md",
@@ -135035,11 +135043,11 @@
     },
     {
       "name": "data-scraper-agent",
-      "description": "Build a fully automated AI-powered data collection agent for any public source \u2014 job boards, prices, news, GitHub, sports, anything. Scrapes on a schedule, enriches data with a free LLM (Gemini Flash)",
+      "description": "Build a fully automated AI-powered data collection agent for any public source \u2014 job boards, prices, news, GitHub, sports, anything. Runs on a schedule, enriches data with a free LLM (Gemini Flash), s",
       "path": "affaan-m--everything-claude-code/skills/data-scraper-agent/SKILL.md",
       "remote_path": "skills/data-scraper-agent/SKILL.md",
       "lines": 766,
-      "words": 2961,
+      "words": 2962,
       "code_blocks": 22,
       "languages": [
         "python",
@@ -136651,6 +136659,21 @@
       "code_blocks": 1,
       "languages": [
         "json"
+      ]
+    },
+    {
+      "name": "plan-canvas",
+      "description": "Open plans and HTML artifacts in a local browser canvas where the human annotates elements, chats, and approves or requests changes without leaving the page. Use when presenting a plan for review, or ",
+      "path": "affaan-m--everything-claude-code/.agents/skills/plan-canvas/SKILL.md",
+      "remote_path": ".agents/skills/plan-canvas/SKILL.md",
+      "lines": 153,
+      "words": 937,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "json",
+        "markdown",
+        "mermaid"
       ]
     },
     {

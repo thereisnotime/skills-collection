@@ -47,7 +47,7 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
 # Install Node.js 20 LTS (required for Claude CLI and npm packages)
 # Security: Use official NodeSource repository with GPG verification
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
@@ -99,8 +99,8 @@ RUN npm install -g @google/gemini-cli --ignore-scripts 2>/dev/null || \
 FROM debian:bookworm-slim AS runtime
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="7.121.5"
-LABEL org.opencontainers.image.version="7.121.5"
+LABEL version="7.125.0"
+LABEL org.opencontainers.image.version="7.125.0"
 LABEL description="Security-hardened sandbox for Loki Mode by Autonomi"
 LABEL url="https://www.autonomi.dev/"
 LABEL org.opencontainers.image.source="https://github.com/asklokesh/claudeskill-loki-mode"

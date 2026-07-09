@@ -1141,7 +1141,27 @@ export function isHealingActive(cwd: string, diff?: string): boolean {
 
 export type SelectReviewersOpts = {
   healingActive?: boolean;
+  // Complexity-proportional verification (rec #3): the detected task tier
+  // (simple | standard | complex). Scales the keyword-specialist count with a
+  // HARD FLOOR of 2 (parity with the bash SPECIALIST_SELECT). Absent/unknown ->
+  // treated as the floor, so the battery never shrinks below today's 4 reviewers.
+  complexity?: string;
 };
+
+// Keyword-specialist count per tier. Combined with the 2 always-on mandatory
+// reviewers this yields 4 reviewers for simple/standard (byte-identical to every
+// prior release) and 6 for complex (deeper battery, additive only). Parity with
+// SPECIALIST_COUNT_BY_TIER in autonomy/run.sh.
+const SPECIALIST_COUNT_BY_TIER: Record<string, number> = {
+  simple: 2,
+  standard: 2,
+  complex: 4,
+};
+function specialistCountForTier(complexity?: string): number {
+  const want = SPECIALIST_COUNT_BY_TIER[(complexity ?? "").trim().toLowerCase()] ?? 2;
+  // Floor guard: an unknown or forced-garbage tier can never shrink the battery.
+  return want < 2 ? 2 : want;
+}
 
 export function selectReviewers(
   diff: string,
@@ -1163,20 +1183,29 @@ export function selectReviewers(
     scores[name] = s;
   }
 
+  const want = specialistCountForTier(opts.complexity);
+  const ranked = Object.keys(pool)
+    .slice()
+    .sort((a, b) => {
+      const sa = scores[a] ?? 0;
+      const sb = scores[b] ?? 0;
+      if (sb !== sa) return sb - sa;
+      return pool[a]!.priority - pool[b]!.priority;
+    });
+
   const allZero = Object.values(scores).every((v) => v === 0);
   let selected: string[];
   if (allZero) {
+    // Defaults path: the two historical defaults, padded with the next-ranked
+    // specialists (no duplicates) when the tier asks for more. Parity with bash.
     selected = ["security-sentinel", "test-coverage-auditor"];
+    for (const n of ranked) {
+      if (selected.length >= want) break;
+      if (!selected.includes(n)) selected.push(n);
+    }
+    selected = selected.slice(0, Math.max(want, 2));
   } else {
-    selected = Object.keys(pool)
-      .slice()
-      .sort((a, b) => {
-        const sa = scores[a] ?? 0;
-        const sb = scores[b] ?? 0;
-        if (sb !== sa) return sb - sa;
-        return pool[a]!.priority - pool[b]!.priority;
-      })
-      .slice(0, 2);
+    selected = ranked.slice(0, want);
   }
 
   const reviewers: Reviewer[] = [
@@ -1485,6 +1514,10 @@ export async function runCodeReview(
 
   const selection = selectReviewers(diff, files, {
     healingActive: isHealingActive(cwd, diff),
+    // Complexity-proportional battery (rec #3): DETECTED_COMPLEXITY is set by the
+    // bash runner (run_autonomous) and by the Bun autonomous loop; absent ->
+    // selectReviewers floors to the standard 4-reviewer battery.
+    complexity: process.env["DETECTED_COMPLEXITY"] || "standard",
   });
   atomicWriteText(join(reviewDir, "selection.json"), `${JSON.stringify(selection, null, 2)}\n`);
 

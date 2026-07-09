@@ -6,12 +6,12 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="7.121.5"
+LABEL version="7.125.0"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="7.121.5"
+LABEL org.opencontainers.image.version="7.125.0"
 LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Provider-agnostic: Claude Code, Codex CLI, Cline, Aider"
 LABEL url="https://www.autonomi.dev/"
 
@@ -32,9 +32,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     redis-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20 LTS from NodeSource with GPG verification
+# Install Node.js 24 LTS from NodeSource (v20 reached EOL 2026-03) with GPG verification
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
@@ -81,8 +81,15 @@ RUN npm install -g npm@latest \
 # time via ANTHROPIC_API_KEY (default) or a mounted Claude Code OAuth
 # credentials file (see DOCKER_README.md). Codex/Cline/Aider remain
 # bring-your-own-CLI in Docker.
-RUN npm install -g @anthropic-ai/claude-code \
-    && npm cache clean --force \
+# Use the RECOMMENDED native installer (curl install.sh) rather than the npm
+# package: the npm path pulls the native binary via a per-platform OPTIONAL
+# dependency + a postinstall link step, which fails in a hardened Docker build
+# ("claude native binary not installed"). The native installer places the same
+# binary directly and is the current documented best practice
+# (code.claude.com/docs/en/setup). Pin to the stable channel for reproducible
+# images; PATH is extended so `claude` is found for the verify + at runtime.
+RUN curl -fsSL https://claude.ai/install.sh | bash -s stable \
+    && ln -sf /root/.local/bin/claude /usr/local/bin/claude \
     && claude --version
 
 # Security: Create non-root user (UID 1000 for host volume mount compatibility)

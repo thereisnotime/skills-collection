@@ -38,7 +38,7 @@ const DEFAULT_HOST = '127.0.0.1';
 const PROJECT_DIR = process.env.LOKI_PROJECT_DIR || process.cwd();
 
 // Security constants
-const VALID_PROVIDERS = ['claude', 'codex', 'gemini'];
+const VALID_PROVIDERS = ['claude', 'codex', 'cline', 'aider'];
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB limit
 const MAX_LOG_LINES = 1000;
 const LOKI_DIR = path.join(PROJECT_DIR, '.loki');

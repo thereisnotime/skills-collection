@@ -38,9 +38,9 @@ export async function startSession(req: Request): Promise<Response> {
 
   // Validate provider
   const provider = data.provider || "claude";
-  if (!["claude", "codex", "gemini"].includes(provider)) {
+  if (!["claude", "codex", "cline", "aider"].includes(provider)) {
     throw new LokiApiError(
-      `Invalid provider: ${provider}. Must be one of: claude, codex, gemini`,
+      `Invalid provider: ${provider}. Must be one of: claude, codex, cline, aider`,
       ErrorCodes.VALIDATION_ERROR
     );
   }
@@ -51,7 +51,7 @@ export async function startSession(req: Request): Promise<Response> {
     "provider",
     provider,
     {
-      alternativesRejected: ["claude", "codex", "gemini"].filter((p) => p !== provider),
+      alternativesRejected: ["claude", "codex", "cline", "aider"].filter((p) => p !== provider),
       context: {
         hasPrd: !!data.prdPath,
         options: data.options,

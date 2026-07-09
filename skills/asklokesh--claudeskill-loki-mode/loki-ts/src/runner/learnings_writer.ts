@@ -7,7 +7,13 @@
 // references/core-workflow.md:123-149 describe a Mistakes & Learnings loop
 // that depends on this file. This module is the writer that closes the loop.
 //
-// Default off: only fires when LOKI_AUTO_LEARNINGS=1.
+// Default ON in the Bun runner: the callers (quality_gates.ts,
+// internal_phase1.ts) fire the file write on `LOKI_AUTO_LEARNINGS !== "0"`, so
+// relevant-learnings.json is populated unless explicitly disabled with
+// LOKI_AUTO_LEARNINGS=0. The env gate lives at the call sites, not here.
+// The episodic-memory bridge is a SEPARATE, default-OFF enrichment: both
+// production callers pass episodeBridge:null, so it only runs when a caller
+// opts in (or LOKI_AUTO_LEARNINGS_EPISODE=1 with the default bridge).
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";

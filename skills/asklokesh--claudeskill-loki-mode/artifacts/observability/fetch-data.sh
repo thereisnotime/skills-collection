@@ -163,6 +163,35 @@ for f in sorted(glob.glob(os.path.join(results_dir, "speed-*.json"))):
     except Exception:
         pass
 
+# RARV-C loop-efficiency bench (real corpus results, honest metrics).
+# Reads benchmarks/bench/results/<spec>-loki-*.json (the discriminator corpus).
+# Surfaces per-spec: verified-pass-rate, $/build median, wall-clock spread. Pass =
+# deterministic held-out grader (success_rate), NEVER council self-assessment.
+rarvc_bench = []
+_bench_results = os.path.join(REPO_ROOT, "benchmarks", "bench", "results")
+_seen_specs = {}
+for f in sorted(glob.glob(os.path.join(_bench_results, "*-loki-*.json"))):
+    try:
+        d = json.load(open(f))
+        tid = d.get("task_id")
+        if not tid or tid == "demo-pass":
+            continue
+        s = d.get("summary", {})
+        _seen_specs[tid] = {  # newest per spec (sorted glob -> last wins)
+            "spec": tid,
+            "model": d.get("model"),
+            "success_rate": s.get("success_rate"),
+            "n_trials": s.get("n_trials"),
+            "cost_usd_median": s.get("cost_usd_median"),
+            "duration_s_median": s.get("duration_s_median"),
+            "duration_s_min": s.get("duration_s_min"),
+            "duration_s_max": s.get("duration_s_max"),
+            "file": os.path.basename(f),
+        }
+    except Exception:
+        pass
+rarvc_bench = [_seen_specs[k] for k in sorted(_seen_specs)]
+
 # Mistakes -> fixes (real, source-attributed)
 mistakes = [
     {
@@ -348,6 +377,7 @@ out = {
     "releases_downloads": releases_downloads,
     "releases_timeline": releases_timeline,
     "benchmarks": benchmarks,
+    "rarvc_bench": rarvc_bench,
     "acs": acs,
     "what_worked": what_worked,
     "didnt_work": didnt_work,

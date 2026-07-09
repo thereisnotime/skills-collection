@@ -1302,6 +1302,37 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
     expect(sel.pool_size).toBe(4);
   });
 
+  it("complexity-proportional (rec #3): simple/standard keep the 4-reviewer floor, complex gets 6", () => {
+    const diff =
+      "+ const password = req.body.password;\n+ db.query(`SELECT * FROM u WHERE id=${id}`);\n+ cache.get(key); render(); import x from 'pkg';\n";
+    const files = "src/auth.ts src/db.ts src/cache.ts\n";
+    // Floor: no opt / simple / standard / unknown -> 4 (byte-identical to prior).
+    expect(selectReviewers(diff, files).reviewers.length).toBe(4);
+    expect(selectReviewers(diff, files, { complexity: "simple" }).reviewers.length).toBe(4);
+    expect(selectReviewers(diff, files, { complexity: "standard" }).reviewers.length).toBe(4);
+    expect(selectReviewers(diff, files, { complexity: "garbage-tier" }).reviewers.length).toBe(4);
+    // Complex: additive -> 6 (2 always-on + 4 specialists), strictly deeper.
+    const cpx = selectReviewers(diff, files, { complexity: "complex" });
+    expect(cpx.reviewers.length).toBe(6);
+    expect(cpx.reviewers[0]?.name).toBe("architecture-strategist");
+    expect(cpx.reviewers[1]?.name).toBe("maintainer-mergeability");
+    // No duplicate reviewers regardless of tier.
+    const names = cpx.reviewers.map((r) => r.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("complexity-proportional no-keyword-match path honors tier count without duplicates", () => {
+    const std = selectReviewers("only whitespace", "README.md\n", { complexity: "standard" });
+    expect(std.reviewers.length).toBe(4);
+    const cpx = selectReviewers("only whitespace", "README.md\n", { complexity: "complex" });
+    expect(cpx.reviewers.length).toBe(6);
+    const names = cpx.reviewers.map((r) => r.name);
+    expect(new Set(names).size).toBe(names.length);
+    // The two historical defaults are still present at the front of the specialists.
+    expect(names).toContain("security-sentinel");
+    expect(names).toContain("test-coverage-auditor");
+  });
+
   it("excludes legacy-healing-auditor by default even when 'refactor' or 'adapter' appears in diff", () => {
     // agentbudget regression: common tokens like "refactor"/"adapter" used to
     // trigger the auditor on greenfield projects, BLOCKing iterations on

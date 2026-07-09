@@ -5,6 +5,168 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v7.125.0
+
+### Added: unified per-run isolation dial `--isolation none|worktree|docker` (rec #4)
+
+One canonical knob for how a run is isolated, replacing the fragmented flags with
+a single clear dial (zeroshot's none/worktree/docker model, the Loki way):
+
+- `--isolation none` (default) -- in-place, exactly today's behavior.
+- `--isolation worktree` -- git-worktree isolation (same mechanism as `--parallel`).
+- `--isolation docker` -- Docker sandbox (same mechanism as `--sandbox`).
+
+Every existing flag keeps working as an alias (`--parallel` = worktree,
+`--sandbox` = docker), so nothing breaks and there is no forced migration --
+this is CLI consolidation, not replacement. Fail-closed on an unknown level
+(errors with the valid set, exit 2) so a typo never silently downgrades to
+weaker isolation than the operator asked for. Documented in both `loki --help`
+and `loki start --help`. New test `tests/test-isolation-dial.sh` (7 cases incl.
+a real-CLI fail-closed check). Bash-route only (`loki start`); no behavior change
+to any other command.
+
+## v7.124.0
+
+### Added: complexity-proportional verification (rec #3)
+
+The code-review battery now scales its specialist count to the detected task tier
+(`detect_complexity()` -> simple | standard | complex), with a HARD FLOOR so
+nothing shippable ever gets less scrutiny:
+
+- Battery = 2 always-on mandatory reviewers (architecture-strategist +
+  maintainer-mergeability) + N keyword specialists.
+- simple / standard -> N=2 (total 4 reviewers) -- byte-identical to every prior
+  release. A missing or forced-unknown tier also floors here.
+- complex -> N=4 (total 6 reviewers) -- a deeper battery for hard tasks, ADDITIVE
+  only, never dropping below the floor.
+
+This is the zeroshot-style "scale verification to difficulty" lever done the
+Loki way: only ADD validators for hard work, never subtract below the floor for
+anything shippable -- a cost/speed win on simple tasks with no trust regression.
+The no-keyword-match path also honors the tier count (padding the historical two
+defaults with the next-ranked specialists, de-duplicated).
+
+Wired on BOTH routes with parity: bash SPECIALIST_SELECT (autonomy/run.sh) and
+the Bun `selectReviewers()` (loki-ts/src/runner/quality_gates.ts), each reading
+DETECTED_COMPLEXITY. New tests: tests/test-complexity-proportional-review.sh
+(8 cases, extracts the real selector) and 2 Bun cases in quality_gates.test.ts.
+No change to the block/no-block verdict logic or to any other gate.
+
+## v7.123.1
+
+### Added: scope-honesty in completion-council evidence (rec #5)
+
+When the completion council gathers evidence and no PRD checklist exists, the
+"PRD Checklist Verification Results" section was passive ("No PRD checklist has
+been created yet") -- a reviewer could read that silence as a pass. Now it is
+scope-honest and distinguishes two cases:
+
+- A spec/PRD IS present but yielded no derived acceptance criteria -> an explicit
+  SCOPE-HONESTY note that "done" is UNVERIFIED-BY-CHECKLIST on this run, telling
+  the council member to weight the OTHER evidence (tests, diff, build) and never
+  read checklist-absence as a pass.
+- No spec/PRD was provided (e.g. a one-line brief) -> "not applicable"; checklist
+  absence is expected, not a gap.
+
+Never fabricates coverage that does not exist. This completes the trust-legibility
+arc with v7.122.0 `--explain` (what was verified) and v7.123.0 `--check-fresh`
+(is it current): now the council is honest about what it could NOT assess. The
+hard-gate block/no-block decision is unchanged; this only enriches the evidence
+text reviewers read. New extraction-harness test `tests/test-council-scope-honesty.sh`
+(3 cases: spec-present, spec-via-.loki, no-spec).
+
+## v7.123.0
+
+### Added: `loki verify --check-fresh` (evidence staleness, fail-closed)
+
+Evidence is only trustworthy while it still describes the current code. New
+`--check-fresh` is a consumer-side freshness gate: it does NOT re-run gates, it
+reads a prior `<out>/evidence.json` and decides whether that verdict still
+applies to the live repo. FRESH (exit 0) when the graded `head_sha` matches HEAD
+and the worktree is clean (ignoring `.loki/`, verify's own output); STALE (exit 2)
+when HEAD drifted or the tree changed since grading; ERROR (exit 3) when evidence
+is missing, unparseable, or records no graded head. It is fail-closed by
+construction: a stored VERIFIED that no longer matches its code never reports
+FRESH -- trusting a cached green after the code moved on is exactly the fake-green
+the moat forbids. This is for CI and proof consumers that gate on a stored
+verdict.
+
+evidence.json now records `subject.worktree_clean_at_grade` (additive), and
+`--explain` shows the graded HEAD + tree state and points at `--check-fresh` for
+a later re-check. Together with v7.122.0's `--explain`, this completes the
+competitive-research "prove trust to a skeptic in 60 seconds" pair: `--explain`
+shows what the evidence is; `--check-fresh` proves it is current.
+
+Default `loki verify` behavior and output are unchanged. Six new fail-closed
+tests in `tests/test-verify.sh` (fresh / dirty / drift / missing / corrupt /
+metadata present).
+
+## v7.122.1
+
+### Fixed: doc-vs-code default for the auto-learnings loop (it is default-ON)
+
+Three in-code comments and the `loki internal` help text wrongly described the
+failure-learning loop as "default off, only fires when LOKI_AUTO_LEARNINGS=1".
+The runtime is the opposite: both call sites gate on `LOKI_AUTO_LEARNINGS !== "0"`
+(`quality_gates.ts`, `internal_phase1.ts`), so `.loki/state/relevant-learnings.json`
+is written by default and fed into the next iteration's prompt -- the loop that
+makes Loki avoid repeating past mistakes is ON out of the box. Only the misleading
+docs were wrong; no behavior change. Corrected `learnings_writer.ts`,
+`episode_bridge.ts`, and the CLI help so operators see the true default (set
+`LOKI_AUTO_LEARNINGS=0` to disable). Clarified that the episodic-memory mirror is
+a separate, intentionally opt-in enrichment (`LOKI_AUTO_LEARNINGS_EPISODE=1`) so a
+missing python3/chromadb dep never disrupts a run. Verified default-on with the
+exact runtime predicate; learnings + phase1 tests green (11 pass). dist bundle
+rebuilt.
+
+## v7.122.0
+
+### Added: `loki verify --explain` (trust legibility)
+
+New `--explain` flag on `loki verify` renders a "Why you can trust this" panel
+after the run: the exact diff graded (merge-base..head, file/line counts, base
+ref), evidence freshness (this run's start/end, gates re-executed now), and a
+per-gate table (GATE / STATUS / RUNNER / REPRO / EVIDENCE) showing which real
+runner or scanner produced each row. The panel makes explicit that the verdict
+is computed ONLY from those independent gate rows -- a pass is a real runner exit,
+never a self-assessment. This is the top recommendation from the ralph-tui /
+zeroshot competitive analysis: competitors surface a verdict; Loki now shows the
+receipts behind it.
+
+CLI-invariant and additive: `--explain` never changes the verdict or exit code.
+Proven by a byte-identity test (verdict + exit identical to a plain run) plus a
+render assertion in `tests/test-verify.sh`. Default `loki verify` output is
+unchanged.
+
+## v7.121.7
+
+### Fixed: Docker image build (Node 24 LTS + native Claude Code installer)
+
+The v7.121.6 Docker publish failed on two independent ecosystem shifts, not a
+Loki change: (1) `npm install -g npm@latest` now pulls npm@12, which requires
+Node >=22.22.2/24.15.0/26 -- but the base image was on Node 20 (EOL 2026-03),
+giving EBADENGINE. Bumped the NodeSource repo to Node 24.x (current Active LTS) in
+both Dockerfile and Dockerfile.sandbox so latest npm works. (2) `@anthropic-ai/
+claude-code` now ships its runtime via a per-platform OPTIONAL npm dependency +
+postinstall link, which fails in the hardened build ("claude native binary not
+installed"). Switched to the documented recommended native installer
+(`curl https://claude.ai/install.sh | bash -s stable`), which places the same
+binary directly. Verified with a full local multi-stage build (Node 24.18.0,
+Claude Code 2.1.197 installed, image built clean). No runtime/CLI behavior change.
+
+## v7.121.6
+
+### Fixed: REST API provider set now matches actual support (claude/codex/cline/aider)
+
+The HTTP/SSE REST API was the last surface still exposing the removed `gemini`
+provider (runtime deprecated v7.5.18) and omitting the real `cline` (Tier 2) and
+`aider` (Tier 3) providers. The server-side validator actively rejected valid
+`cline`/`aider` build requests and accepted a dead `gemini` one. Fixed across all
+six surfaces (server validator, session validation + preference signal, TS types
++ health object, health probe, client bridge, OpenAPI enums + health schema) so
+the provider set is `claude`, `codex`, `cline`, `aider` everywhere, matching
+`providers/*.sh` and the existing tests. No trust-core / `build_prompt` change.
+
 ## v7.121.5
 
 ### Chore: keep non-public scratch out of the CLI repo

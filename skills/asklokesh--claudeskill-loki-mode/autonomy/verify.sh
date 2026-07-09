@@ -96,6 +96,47 @@ _verify_add_gate() {
         "$1" "$2" "${3:-}" "${4:-}" "${5:-true}" >>"$_VERIFY_GATES_FILE"
 }
 
+# --explain render: a one-screen, skeptic-legible trust proof over the SAME gate
+# rows the verdict is computed from (no new machinery -- a pure render). Prints
+# each gate, status, the runner/scanner that produced the evidence, whether it is
+# reproducible, plus the freshness (verify-run timestamp) and the diff it graded.
+# Reads $_VERIFY_GATES_FILE (gate\tstatus\trunner\tsummary\treproducible). Called
+# only under --explain; never affects the verdict or exit code.
+_verify_render_explain() {
+    local started_at="$1" completed_at="$2" verdict="$3"
+    printf '\n'
+    printf '=== Why you can trust this (loki verify --explain) ===\n'
+    printf 'Diff graded: %s (%s files, +%s/-%s) vs %s\n' \
+        "${VERIFY_MERGE_BASE:0:12}..${VERIFY_HEAD_SHA:0:12}" \
+        "${VERIFY_DIFF_FILES:-0}" "${VERIFY_DIFF_INS:-0}" "${VERIFY_DIFF_DEL:-0}" \
+        "${VERIFY_BASE_REF:-?}"
+    printf 'Evidence freshness: run %s -> %s (this run; gates re-executed now)\n' \
+        "$started_at" "$completed_at"
+    printf 'Graded tree: HEAD %s, worktree %s. Re-check later with: loki verify --check-fresh\n' \
+        "${VERIFY_HEAD_SHA:0:12}" \
+        "$([ "${VERIFY_WORKTREE_CLEAN:-}" = "true" ] && echo "clean" || echo "had uncommitted changes")"
+    printf '\n'
+    printf '  %-18s %-12s %-14s %-6s %s\n' "GATE" "STATUS" "RUNNER" "REPRO" "EVIDENCE"
+    printf '  %-18s %-12s %-14s %-6s %s\n' "----" "------" "------" "-----" "--------"
+    if [ -s "$_VERIFY_GATES_FILE" ]; then
+        # TSV: gate\tstatus\trunner\tsummary\treproducible. Rendered with awk
+        # FS="\t" (NOT bash `read`, whose default IFS collapses consecutive tabs
+        # and mis-shifts a row with an empty runner field). awk preserves empty
+        # fields by position, so the columns always align.
+        awk -F'\t' '{
+            g=$1; st=$2; runner=($3==""?"-":$3); su=$4; repro=($5==""?"-":$5);
+            if (length(su) > 60) su = substr(su, 1, 57) "...";
+            printf "  %-18s %-12s %-14s %-6s %s\n", g, st, runner, repro, su;
+        }' "$_VERIFY_GATES_FILE"
+    else
+        printf '  (no gates recorded)\n'
+    fi
+    printf '\n'
+    printf 'Verdict is computed ONLY from these gate rows above -- pass = independent\n'
+    printf 'evidence (a real runner/scanner exit), never a self-assessment.\n'
+    printf '\n'
+}
+
 # ---------------------------------------------------------------------------
 # Entanglement 1: PR-aware diff base.
 #
@@ -1631,6 +1672,7 @@ verify_emit_evidence() {
     _V_TOOLVER="$tool_version" \
     _V_REPO="$repo_name" \
     _V_HEAD="${VERIFY_HEAD_SHA:-}" \
+    _V_WT_CLEAN="${VERIFY_WORKTREE_CLEAN:-}" \
     _V_BASE="${VERIFY_BASE_REF:-}" \
     _V_MB="${VERIFY_MERGE_BASE:-}" \
     _V_FILES="${VERIFY_DIFF_FILES:-0}" \
@@ -1703,6 +1745,7 @@ doc = {
         "repo": os.environ["_V_REPO"],
         "pr_number": None,
         "head_sha": os.environ["_V_HEAD"],
+        "worktree_clean_at_grade": (os.environ.get("_V_WT_CLEAN") == "true"),
         "base_branch": os.environ["_V_BASE"],
         "merge_base_sha": os.environ["_V_MB"],
         "diff_stats": {
@@ -1865,6 +1908,19 @@ OPTIONS:
                        Default: critical,high  (one notch looser than the
                        Loki build loop, which also blocks on medium).
     --no-llm           Accepted for forward-compat; LLM is already off in MVP.
+    --explain          Print a one-screen, skeptic-legible trust proof: every
+                       gate that ran, its status, the runner/scanner that
+                       produced the evidence, whether it is reproducible, plus
+                       freshness and the diff graded. Additive render before the
+                       VERDICT banner; never changes the verdict or exit code.
+    --check-fresh      Do NOT re-run gates. Read a prior <out>/evidence.json and
+                       decide whether its verdict still applies to the CURRENT
+                       repo. FRESH (0) when the graded head_sha matches HEAD and
+                       the worktree is clean (ignoring .loki/); STALE (2) when
+                       HEAD drifted or the tree changed; ERROR (3) when evidence
+                       is missing/unparseable. Fail-closed: stale or unreadable
+                       evidence never reports FRESH. For CI / proof consumers that
+                       must not trust a cached green after the code moved on.
     --hosted           Opt-in. When the embedded Autonomi Verify engine is
                        usable (bun present + bundle present), fold its verdict
                        fields into evidence.json under a "hosted" key. Additive
@@ -2310,6 +2366,102 @@ PYEOF
     return 0
 }
 
+# Worktree dirtiness for freshness purposes, EXCLUDING verify's own output
+# directory (.loki/). `git status --porcelain` lists every change one per line;
+# we drop any path under .loki/ so evidence.json/report.md written by this very
+# run never register as code drift. Emits the filtered porcelain (empty = clean).
+_verify_dirty_porcelain() {
+    git status --porcelain 2>/dev/null | grep -v -E '(^|[[:space:]])"?\.loki/' || true
+}
+
+# ---------------------------------------------------------------------------
+# Freshness gate (--check-fresh)
+# ---------------------------------------------------------------------------
+# Reads a prior <out>/evidence.json and decides whether the verdict it records
+# still applies to the CURRENT repo state. This is the consumer-side half of the
+# trust contract: --explain shows WHAT the evidence is; --check-fresh proves it
+# is CURRENT before anyone trusts a stored green.
+#
+# Fail-closed, always:
+#   fresh (graded head_sha == current HEAD, worktree clean)     -> VERIFIED (0)
+#   drifted (HEAD moved) or worktree dirty                      -> BLOCKED  (2)
+#   evidence missing / unparseable / no head_sha / not in a repo-> ERROR    (3)
+# A stale or unreadable evidence document NEVER yields VERIFIED. The whole point
+# is that "it passed once" is not "it passes now".
+_verify_check_fresh() {
+    local out_dir="$1"
+    local ev_path="$out_dir/evidence.json"
+
+    if [ ! -f "$ev_path" ]; then
+        _verify_err "no evidence at $ev_path; run 'loki verify' first (fail-closed)"
+        VERIFY_VERDICT="ERROR"; VERIFY_EXIT=$VERIFY_EXIT_ERROR
+        printf 'VERDICT: NOT FRESH (no evidence)\n'
+        return $VERIFY_EXIT_ERROR
+    fi
+
+    local cur_head cur_dirty
+    cur_head="$(git rev-parse HEAD 2>/dev/null || echo "")"
+    if [ -z "$cur_head" ]; then
+        _verify_err "not inside a git repository; cannot check freshness (fail-closed)"
+        VERIFY_VERDICT="ERROR"; VERIFY_EXIT=$VERIFY_EXIT_ERROR
+        printf 'VERDICT: NOT FRESH (no git HEAD)\n'
+        return $VERIFY_EXIT_ERROR
+    fi
+    # Any tracked-or-untracked change means the graded tree is not the live tree.
+    # Exclude .loki/ -- verify writes its own evidence.json/report.md there, so
+    # counting it would make every run report its own output as drift.
+    if [ -n "$(_verify_dirty_porcelain)" ]; then
+        cur_dirty="true"
+    else
+        cur_dirty="false"
+    fi
+
+    # Parse the graded head_sha out of the evidence document. python3 is the same
+    # dependency the emitter uses; a parse failure is fail-closed (ERROR).
+    local graded_head parse_rc
+    graded_head="$(_VF_EV="$ev_path" python3 - <<'PYEOF' 2>/dev/null
+import json, os, sys
+try:
+    doc = json.load(open(os.environ["_VF_EV"]))
+    print((doc.get("subject") or {}).get("head_sha") or "")
+except Exception:
+    sys.exit(1)
+PYEOF
+)"
+    parse_rc=$?
+    if [ "$parse_rc" -ne 0 ]; then
+        _verify_err "evidence.json unparseable at $ev_path (fail-closed)"
+        VERIFY_VERDICT="ERROR"; VERIFY_EXIT=$VERIFY_EXIT_ERROR
+        printf 'VERDICT: NOT FRESH (unparseable evidence)\n'
+        return $VERIFY_EXIT_ERROR
+    fi
+    if [ -z "$graded_head" ]; then
+        _verify_err "evidence.json has no subject.head_sha (fail-closed)"
+        VERIFY_VERDICT="ERROR"; VERIFY_EXIT=$VERIFY_EXIT_ERROR
+        printf 'VERDICT: NOT FRESH (evidence records no graded head_sha)\n'
+        return $VERIFY_EXIT_ERROR
+    fi
+
+    if [ "$graded_head" != "$cur_head" ]; then
+        _verify_log "freshness: HEAD drifted ${graded_head:0:12} -> ${cur_head:0:12}"
+        VERIFY_VERDICT="BLOCKED"; VERIFY_EXIT=$VERIFY_EXIT_BLOCKED
+        printf 'VERDICT: STALE (graded %s, now %s) -- re-run loki verify\n' \
+            "${graded_head:0:12}" "${cur_head:0:12}"
+        return $VERIFY_EXIT_BLOCKED
+    fi
+    if [ "$cur_dirty" = "true" ]; then
+        _verify_log "freshness: worktree dirty since grade"
+        VERIFY_VERDICT="BLOCKED"; VERIFY_EXIT=$VERIFY_EXIT_BLOCKED
+        printf 'VERDICT: STALE (worktree modified since %s) -- re-run loki verify\n' \
+            "${graded_head:0:12}"
+        return $VERIFY_EXIT_BLOCKED
+    fi
+
+    VERIFY_VERDICT="VERIFIED"; VERIFY_EXIT=$VERIFY_EXIT_VERIFIED
+    printf 'VERDICT: FRESH (evidence matches HEAD %s, clean worktree)\n' "${cur_head:0:12}"
+    return $VERIFY_EXIT_VERIFIED
+}
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -2320,6 +2472,12 @@ verify_main() {
     # Opt-in hosted-engine enrichment (--hosted). Default 0 = exactly today.
     VERIFY_HOSTED=0
     VERIFY_HOSTED_SUMMARY=""
+    # Opt-in one-screen trust-proof render (--explain). Default 0 = exactly today.
+    VERIFY_EXPLAIN=0
+    # Opt-in freshness gate (--check-fresh). Default 0 = exactly today. When set,
+    # verify does NOT re-run gates: it reads a prior evidence.json and fails
+    # closed if the repo has drifted since that evidence was graded.
+    VERIFY_CHECK_FRESH=0
 
     # Fail-closed defaults. These globals are read at the end of this function
     # (the VERDICT banner and the function return code). verify_compute_verdict()
@@ -2344,6 +2502,27 @@ verify_main() {
                 block_on="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
             --no-llm)
                 shift ;;
+            --explain)
+                # Render a one-screen, skeptic-legible trust proof: every gate
+                # that ran, its status, the runner/scanner that produced the
+                # evidence, whether it is reproducible, and the freshness (the
+                # verify run's own timestamp). Additive: it only ADDS output
+                # before the existing VERDICT banner; the verdict + exit code are
+                # unchanged. This is the "why you can trust this" surface -- Loki
+                # runs more verification than competitors but proved it worse.
+                VERIFY_EXPLAIN=1; shift ;;
+            --check-fresh)
+                # Freshness gate for CONSUMERS of a prior verify run (CI, proof
+                # share, a council reading a cached green). Does NOT re-run gates:
+                # reads <out>/evidence.json and fails CLOSED if the current repo
+                # HEAD differs from the graded head_sha, or the worktree is dirty,
+                # or the evidence is missing/unparseable. A stored VERIFIED that
+                # no longer matches the code it was graded against is not trust --
+                # it is a stale cache, and trusting it is exactly the fake-green
+                # the moat forbids. Fresh -> exit 0; drifted -> exit 2 (BLOCKED);
+                # missing/unreadable -> exit 3 (ERROR). Never prints VERIFIED for
+                # stale evidence.
+                VERIFY_CHECK_FRESH=1; shift ;;
             --hosted)
                 # Opt-in: when the embedded Autonomi Verify engine is usable
                 # (bun present + bundle present), enrich evidence.json with the
@@ -2386,6 +2565,24 @@ verify_main() {
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         _verify_err "not inside a git repository; cannot resolve a PR diff"
         # Still emit an evidence doc with inconclusive verdict (never silent pass).
+    fi
+
+    # --check-fresh short-circuits BEFORE any gate runs: it is a pure freshness
+    # gate over a prior evidence.json, not a verification. Dispatch here so it
+    # never spawns runners/scanners and never rewrites the evidence document.
+    if [ "${VERIFY_CHECK_FRESH:-0}" = "1" ]; then
+        _verify_check_fresh "$out_dir"
+        return $?
+    fi
+
+    # Record the worktree state at grade time so a later --check-fresh (and any
+    # external consumer) knows whether this evidence was graded against a clean
+    # tree. Empty porcelain output = clean. Best-effort; defaults to unknown-safe
+    # "false" (treated as not-clean) if git cannot answer.
+    if [ -z "$(_verify_dirty_porcelain)" ] && git rev-parse HEAD >/dev/null 2>&1; then
+        VERIFY_WORKTREE_CLEAN="true"
+    else
+        VERIFY_WORKTREE_CLEAN="false"
     fi
 
     _VERIFY_FINDINGS_FILE="$(mktemp -t loki-verify-findings.XXXXXX)" || { _verify_err "mktemp failed"; return $VERIFY_EXIT_ERROR; }
@@ -2465,6 +2662,13 @@ verify_main() {
     # exit code. Skipped entirely on the default path (VERIFY_HOSTED=0).
     if [ "${VERIFY_HOSTED:-0}" = "1" ]; then
         verify_hosted_enrich "$out_dir" "$base_ref" || true
+    fi
+
+    # --explain: render the one-screen trust proof BEFORE the verdict banner.
+    # Pure render over the gate rows the verdict was just computed from; never
+    # changes VERIFY_VERDICT/VERIFY_EXIT. Default path (VERIFY_EXPLAIN=0) skips it.
+    if [ "${VERIFY_EXPLAIN:-0}" = "1" ]; then
+        _verify_render_explain "$started_at" "$completed_at" "$VERIFY_VERDICT"
     fi
 
     printf 'VERDICT: %s\n' "$VERIFY_VERDICT"

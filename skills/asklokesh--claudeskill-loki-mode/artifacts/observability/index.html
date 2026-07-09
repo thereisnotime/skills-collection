@@ -349,6 +349,15 @@
       </div>
     </section>
 
+    <!-- RARV-C LOOP-EFFICIENCY BENCH (real corpus, honest metrics) -->
+    <section id="rarvc-bench">
+      <h2>RARV-C Loop Efficiency - Corpus Bench</h2>
+      <div class="caveat">Real per-spec results from the discriminator corpus. Pass = deterministic held-out grader (never council self-assessment). Cost/duration are medians across trials. Includes failures honestly - a low pass-rate is shown, not hidden.</div>
+      <div class="speed-row" id="rarvc-bench-cards">
+        <div class="loading">Loading bench data...</div>
+      </div>
+    </section>
+
     <!-- ACCURACY / COST / SPEED (per-release measurable deltas, provenance-labeled) -->
     <section id="acs">
       <h2>Accuracy / Cost / Speed - measurable deltas</h2>
@@ -785,6 +794,37 @@ function renderBenchmarks(benchmarks) {
   }
 }
 
+function renderRarvcBench(rows) {
+  const el = document.getElementById('rarvc-bench-cards');
+  if (!el) return;
+  if (!rows || rows.length === 0) {
+    el.innerHTML = '<div class="loading">No corpus bench results yet.</div>';
+    return;
+  }
+  let html = '';
+  for (const r of rows) {
+    const pass = (r.success_rate == null) ? null : Math.round(r.success_rate * 100);
+    // Honest color: green only at 100% pass; amber below; grey if unknown.
+    let passColor = 'var(--muted)';
+    if (pass === 100) passColor = 'var(--verified-text)';
+    else if (pass != null) passColor = '#c98a1a';
+    const cost = (r.cost_usd_median == null) ? 'n/a' : ('$' + Number(r.cost_usd_median).toFixed(3));
+    const durMed = (r.duration_s_median == null) ? 'n/a' : (Math.round(r.duration_s_median) + 's');
+    const durRange = (r.duration_s_min != null && r.duration_s_max != null)
+      ? `${Math.round(r.duration_s_min)}-${Math.round(r.duration_s_max)}s` : '';
+    html += `
+      <div class="speed-card">
+        <div class="label">${r.spec}</div>
+        <div class="val" style="color:${passColor};">${pass == null ? 'n/a' : pass + '% pass'}</div>
+        <div class="note">${cost}/build median &middot; ${durMed}${durRange ? ' (' + durRange + ')' : ''}</div>
+        <div class="note" style="margin-top:4px;">model: ${r.model || 'n/a'} &middot; n=${r.n_trials || '?'} trials</div>
+        <div class="note">Source: benchmarks/bench/results/${r.file}</div>
+      </div>
+    `;
+  }
+  el.innerHTML = html;
+}
+
 function renderReleases(timeline) {
   const tbody = document.getElementById('release-tbody');
   if (!timeline || timeline.length === 0) {
@@ -937,6 +977,7 @@ fetch('data.json')
 
     // Benchmarks
     renderBenchmarks(data.benchmarks || []);
+    renderRarvcBench(data.rarvc_bench || []);
 
     // Accuracy / Cost / Speed (provenance-labeled)
     renderACS(data.acs || null);

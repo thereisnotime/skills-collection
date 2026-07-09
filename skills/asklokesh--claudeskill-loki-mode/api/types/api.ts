@@ -8,7 +8,7 @@
 export interface Session {
   id: string;
   prdPath: string | null;
-  provider: "claude" | "codex" | "gemini";
+  provider: "claude" | "codex" | "cline" | "aider";
   status: SessionStatus;
   startedAt: string;
   updatedAt: string;
@@ -62,7 +62,7 @@ export type TaskStatus =
 // API Request/Response types
 export interface StartSessionRequest {
   prdPath?: string;
-  provider?: "claude" | "codex" | "gemini";
+  provider?: "claude" | "codex" | "cline" | "aider";
   options?: {
     dryRun?: boolean;
     verbose?: boolean;
@@ -116,7 +116,8 @@ export interface HealthResponse {
   providers: {
     claude: boolean;
     codex: boolean;
-    gemini: boolean;
+    cline: boolean;
+    aider: boolean;
   };
   activeSession: string | null;
 }

@@ -32,8 +32,39 @@ def _detect_loki_version(runner=None, cwd=None):
     return text.splitlines()[0].strip() if text else None
 
 
+def _count_iteration_completes(loki_dir):
+    """Canonical iterations = count of 'iteration_complete' events in
+    events.jsonl -- the SAME source speed-benchmark.sh uses (len(completes)),
+    so the two harnesses can never disagree. events.jsonl is the real
+    per-session timeline; session.json can be mid-write. Returns None if the
+    file is absent/unreadable so the caller can fall back."""
+    path = os.path.join(loki_dir, "events.jsonl")
+    try:
+        n = 0
+        with open(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(ev, dict) and ev.get("type") == "iteration_complete":
+                    n += 1
+        return n
+    except Exception:
+        return None
+
+
 def _read_iteration_count(loki_dir):
-    """Read iteration count from .loki state (magic-ab pattern)."""
+    """Iteration count for the bench schema. CANONICAL source is the
+    events.jsonl 'iteration_complete' count (matches speed-benchmark.sh); the
+    session.json/autonomy-state.json counter is only a FALLBACK for when
+    events.jsonl is absent (older runs)."""
+    canonical = _count_iteration_completes(loki_dir)
+    if canonical is not None:
+        return canonical
     for name in ("session.json", "autonomy-state.json"):
         path = os.path.join(loki_dir, name)
         try:
@@ -72,9 +103,21 @@ def run(workdir, spec, *, model="claude", timeout=900, runner=None,
         "--no-dashboard",
         "--yes",
     ]
+    run_env = {"LOKI_AUTO_CONFIRM": "true"}
+    # Model pin: `loki start` has no --model flag; the whole-run tier pin is the
+    # LOKI_SESSION_MODEL env var (run.sh:742, default sonnet). The `model` arg
+    # here doubles as a provider LABEL ("claude") when no real model is chosen,
+    # so only pin when it is an actual model alias / id -- otherwise we would set
+    # LOKI_SESSION_MODEL="claude" (invalid) and silently change nothing. Without
+    # this, `--model haiku` in the bench was dropped (the run stayed on sonnet),
+    # making tier-routing (Rank 2) unmeasurable.
+    _pin = (model or "").strip().lower()
+    _REAL_MODEL_ALIASES = ("haiku", "sonnet", "opus", "fable")
+    if _pin and (_pin in _REAL_MODEL_ALIASES or _pin.startswith("claude-")):
+        run_env["LOKI_SESSION_MODEL"] = _pin
     rc, _out, _err, status, duration = _base.run_cli(
         cmd, cwd=workdir, timeout=timeout, runner=runner,
-        env={"LOKI_AUTO_CONFIRM": "true"},
+        env=run_env,
     )
 
     loki_dir = os.path.join(workdir, ".loki")
