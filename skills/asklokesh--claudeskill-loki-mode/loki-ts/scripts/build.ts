@@ -90,6 +90,34 @@ async function main(): Promise<number> {
   process.stdout.write(
     `build: ok  ${formatBytes(info.size)}  ${elapsedMs.toFixed(1)} ms  ->  ${OUTFILE}\n`,
   );
+
+  // Second entry: the cockpit render CLI (invoked by autonomy/lib/
+  // cockpit-render.sh). Bundled to dist/cockpit.js so it SHIPS with the npm
+  // package (which ships loki-ts/dist/ but NOT loki-ts/src/); without this the
+  // installed `loki cockpit` could never render an inline image and would
+  // silently fall back on every install.
+  const cockpitEntry = resolve(PKG_ROOT, "src", "cockpit", "cli.ts");
+  const cockpitOut = resolve(OUTDIR, "cockpit.js");
+  const cockpitResult = await Bun.build({
+    entrypoints: [cockpitEntry],
+    outdir: OUTDIR,
+    naming: "cockpit.js",
+    target: "bun",
+    format: "esm",
+    minify: true,
+    sourcemap: "external",
+    external: ["node:*", "bun:*", "@resvg/resvg-js"],
+    splitting: false,
+  });
+  if (!cockpitResult.success) {
+    process.stderr.write("build: cockpit bundle FAILED\n");
+    for (const log of cockpitResult.logs) process.stderr.write(`  ${log}\n`);
+    return 1;
+  }
+  const cockpitInfo = await stat(cockpitOut);
+  process.stdout.write(
+    `build: ok  ${formatBytes(cockpitInfo.size)}  ->  ${cockpitOut}\n`,
+  );
   return 0;
 }
 

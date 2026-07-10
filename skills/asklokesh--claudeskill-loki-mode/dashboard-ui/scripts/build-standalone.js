@@ -107,18 +107,20 @@ function generateStandaloneHTML(bundleCode) {
   <title>Loki Mode Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32'><path d='M16 6C8 6 2 16 2 16s6 10 14 10 14-10 14-10S24 6 16 6z' fill='none' stroke='%23553DE9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><circle cx='16' cy='16' r='5' fill='%23553DE9'/><circle cx='16' cy='16' r='2' fill='%23fff'/></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' width='32' height='32'><rect width='512' height='512' rx='118' fill='%23553DE9'/><path d='M152 405 L242 120' fill='none' stroke='%23FFFEFB' stroke-width='28' stroke-linecap='round'/><path d='M360 405 L270 120' fill='none' stroke='%23FFFEFB' stroke-width='28' stroke-linecap='round'/><path d='M242 120 Q256 86 270 120' fill='none' stroke='%23FFFEFB' stroke-width='28' stroke-linecap='round'/><circle cx='256' cy='295' r='20' fill='%231FC5A8'/></svg>">
   <style>
-    /* Loki Mode Design Language */
+    /* Autonomi Design Language. Light-grey ground is the default (founder-
+       approved identity); dark is an optional toggle persisted in
+       localStorage (see data-loki-theme wiring near the end of this file). */
     :root {
-      /* Light theme (default - cream/editorial) */
-      --loki-bg-primary: #FAFAF7;
-      --loki-bg-secondary: #F2F0EB;
-      --loki-bg-tertiary: #E8E5DE;
-      --loki-bg-card: rgba(255, 255, 255, 0.72);
-      --loki-bg-hover: #EDEAE4;
-      --loki-text-primary: #1A1614;
+      /* Light theme (default - Autonomi light-grey ground) */
+      --loki-bg-primary: #F1F2F6;
+      --loki-bg-secondary: #E6E8EE;
+      --loki-bg-tertiary: #DBDEE6;
+      --loki-bg-card: rgba(255, 255, 255, 0.86);
+      --loki-bg-hover: #E6E8EE;
+      --loki-text-primary: #201515;
       --loki-text-secondary: #4A4640;
       --loki-text-muted: #8A857C;
       --loki-accent: #553DE9;
@@ -126,51 +128,23 @@ function generateStandaloneHTML(bundleCode) {
       --loki-accent-glow: rgba(85, 61, 233, 0.15);
       --loki-border: rgba(0, 0, 0, 0.08);
       --loki-border-light: rgba(0, 0, 0, 0.05);
-      --loki-success: #1AAF95;
-      --loki-warning: #C4922E;
-      --loki-error: #C04848;
+      --loki-success: #1f8a52;
+      --loki-warning: #9a6a12;
+      --loki-error: #b23a3a;
       --loki-info: #2F71E3;
-      --loki-glass-bg: rgba(255, 255, 255, 0.55);
-      --loki-glass-border: rgba(255, 255, 255, 0.35);
+      --loki-glass-bg: rgba(255, 255, 255, 0.7);
+      --loki-glass-border: rgba(255, 255, 255, 0.4);
       --loki-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
       --loki-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* v7.90.1: dark mode removed (light-only). Disabled via an always-false media
-       query so an OS dark preference no longer flips the dashboard to the dark
-       palette the founder found worse. Kept (not deleted) to minimize churn. */
-    @media (prefers-color-scheme: dark) and (max-width: 0px) {
-      :root {
-        --loki-bg-primary: #0F0B1A;
-        --loki-bg-secondary: #150F24;
-        --loki-bg-tertiary: #1E1533;
-        --loki-bg-card: rgba(30, 21, 51, 0.72);
-        --loki-bg-hover: #251C3D;
-        --loki-text-primary: #F0ECF8;
-        --loki-text-secondary: #B8B0C8;
-        --loki-text-muted: #7B6FA0;
-        --loki-accent: #7B6BF0;
-        --loki-accent-hover: #9488F5;
-        --loki-accent-glow: rgba(123, 107, 240, 0.2);
-        --loki-border: rgba(255, 255, 255, 0.08);
-        --loki-border-light: rgba(255, 255, 255, 0.04);
-        --loki-success: #2ED8B6;
-        --loki-warning: #E8B84A;
-        --loki-error: #E07070;
-        --loki-info: #5A9CF5;
-        --loki-glass-bg: rgba(20, 14, 38, 0.65);
-        --loki-glass-border: rgba(255, 255, 255, 0.08);
-        --loki-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.12);
-      }
-    }
-
     [data-loki-theme="light"] {
-      --loki-bg-primary: #FAFAF7;
-      --loki-bg-secondary: #F2F0EB;
-      --loki-bg-tertiary: #E8E5DE;
-      --loki-bg-card: rgba(255, 255, 255, 0.72);
-      --loki-bg-hover: #EDEAE4;
-      --loki-text-primary: #1A1614;
+      --loki-bg-primary: #F1F2F6;
+      --loki-bg-secondary: #E6E8EE;
+      --loki-bg-tertiary: #DBDEE6;
+      --loki-bg-card: rgba(255, 255, 255, 0.86);
+      --loki-bg-hover: #E6E8EE;
+      --loki-text-primary: #201515;
       --loki-text-secondary: #4A4640;
       --loki-text-muted: #8A857C;
       --loki-accent: #553DE9;
@@ -178,34 +152,34 @@ function generateStandaloneHTML(bundleCode) {
       --loki-accent-glow: rgba(85, 61, 233, 0.15);
       --loki-border: rgba(0, 0, 0, 0.08);
       --loki-border-light: rgba(0, 0, 0, 0.05);
-      --loki-success: #1AAF95;
-      --loki-warning: #C4922E;
-      --loki-error: #C04848;
+      --loki-success: #1f8a52;
+      --loki-warning: #9a6a12;
+      --loki-error: #b23a3a;
       --loki-info: #2F71E3;
-      --loki-glass-bg: rgba(255, 255, 255, 0.55);
-      --loki-glass-border: rgba(255, 255, 255, 0.35);
+      --loki-glass-bg: rgba(255, 255, 255, 0.7);
+      --loki-glass-border: rgba(255, 255, 255, 0.4);
       --loki-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
     }
 
     [data-loki-theme="dark"] {
-      --loki-bg-primary: #0F0B1A;
-      --loki-bg-secondary: #150F24;
-      --loki-bg-tertiary: #1E1533;
-      --loki-bg-card: rgba(30, 21, 51, 0.72);
-      --loki-bg-hover: #251C3D;
+      --loki-bg-primary: #17161C;
+      --loki-bg-secondary: #1E1D25;
+      --loki-bg-tertiary: #27262F;
+      --loki-bg-card: rgba(35, 34, 43, 0.82);
+      --loki-bg-hover: #27262F;
       --loki-text-primary: #F0ECF8;
       --loki-text-secondary: #B8B0C8;
-      --loki-text-muted: #7B6FA0;
-      --loki-accent: #7B6BF0;
-      --loki-accent-hover: #9488F5;
-      --loki-accent-glow: rgba(123, 107, 240, 0.2);
+      --loki-text-muted: #8B85A0;
+      --loki-accent: #8b7bf5;
+      --loki-accent-hover: #9c8ff7;
+      --loki-accent-glow: rgba(139, 123, 245, 0.2);
       --loki-border: rgba(255, 255, 255, 0.08);
       --loki-border-light: rgba(255, 255, 255, 0.04);
       --loki-success: #2ED8B6;
       --loki-warning: #E8B84A;
       --loki-error: #E07070;
       --loki-info: #5A9CF5;
-      --loki-glass-bg: rgba(20, 14, 38, 0.65);
+      --loki-glass-bg: rgba(23, 22, 28, 0.7);
       --loki-glass-border: rgba(255, 255, 255, 0.08);
       --loki-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.12);
     }
@@ -324,6 +298,10 @@ function generateStandaloneHTML(bundleCode) {
       align-items: center;
       gap: 10px;
     }
+    .autonomi-logo {
+      flex: 0 0 auto;
+      border-radius: 8px;
+    }
     .brand-text {
       display: flex;
       flex-direction: column;
@@ -332,7 +310,7 @@ function generateStandaloneHTML(bundleCode) {
     }
 
     .logo-brand {
-      font-family: 'DM Serif Display', Georgia, serif;
+      font-family: 'Fraunces', Georgia, serif;
       font-size: 22px;
       font-weight: 400;
       color: var(--loki-text-primary);
@@ -613,6 +591,34 @@ function generateStandaloneHTML(bundleCode) {
     .api-btn:hover {
       background: var(--loki-accent-hover);
       border-color: var(--loki-accent-hover);
+    }
+
+    .theme-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--loki-bg-primary);
+      border: 1px solid var(--loki-border);
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--loki-text-primary);
+      cursor: pointer;
+      transition: all var(--loki-transition);
+    }
+    .theme-toggle-btn:hover {
+      background: var(--loki-bg-hover);
+      border-color: var(--loki-border-light);
+    }
+    .theme-toggle-icon {
+      width: 13px;
+      height: 13px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      flex-shrink: 0;
     }
 
     .api-url-input {
@@ -941,7 +947,7 @@ function generateStandaloneHTML(bundleCode) {
     }
 
     .section-page-title {
-      font-family: 'DM Serif Display', Georgia, serif;
+      font-family: 'Fraunces', Georgia, serif;
       font-size: 1.8rem;
       font-weight: 400;
       color: var(--loki-text-primary);
@@ -984,7 +990,7 @@ function generateStandaloneHTML(bundleCode) {
     }
     .first-run-hero__icon svg { width: 22px; height: 22px; }
     .first-run-hero__title {
-      font-family: 'DM Serif Display', Georgia, serif;
+      font-family: 'Fraunces', Georgia, serif;
       font-size: 1.5rem;
       font-weight: 400;
       color: var(--loki-text-primary);
@@ -1209,7 +1215,13 @@ function generateStandaloneHTML(bundleCode) {
           </svg>
         </button>
         <div class="brand-row">
-          <loki-mascot-presence id="mascot-presence" size="34" aria-hidden="true"></loki-mascot-presence>
+          <svg class="autonomi-logo" width="34" height="34" viewBox="0 0 512 512" role="img" aria-label="Autonomi">
+            <rect width="512" height="512" rx="118" fill="#553DE9"/>
+            <path d="M152 405 L242 120" fill="none" stroke="#FFFEFB" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M360 405 L270 120" fill="none" stroke="#FFFEFB" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M242 120 Q256 86 270 120" fill="none" stroke="#FFFEFB" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="256" cy="295" r="20" fill="#1FC5A8"/>
+          </svg>
           <div class="brand-text">
             <span class="logo-brand">Loki Mode</span>
             <span class="logo-subtitle">powered by Autonomi</span>
@@ -1407,11 +1419,11 @@ function generateStandaloneHTML(bundleCode) {
         </div>
         <div style="display: grid; gap: 24px;">
           <div>
-            <h3 style="font-family: 'DM Serif Display', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Logs</h3>
+            <h3 style="font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Logs</h3>
             <loki-log-stream id="log-stream" auto-scroll max-lines="500"></loki-log-stream>
           </div>
           <div>
-            <h3 style="font-family: 'DM Serif Display', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Memory</h3>
+            <h3 style="font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Memory</h3>
             <loki-memory-browser id="memory-browser" tab="summary"></loki-memory-browser>
             <!-- v7.7.21 token economics tile: hit rate + tokens + top patterns -->
             <div id="memory-economics-tile" style="margin-top: 12px; background: var(--loki-bg-card, rgba(255,255,255,0.72)); border: 1px solid var(--loki-border, rgba(0,0,0,0.08)); border-radius: 5px; padding: 12px;">
@@ -1464,7 +1476,7 @@ function generateStandaloneHTML(bundleCode) {
             </script>
           </div>
           <div>
-            <h3 style="font-family: 'DM Serif Display', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Memory Files</h3>
+            <h3 style="font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Memory Files</h3>
             <div id="memory-files-panel" style="background: var(--loki-bg-card, rgba(255,255,255,0.72)); border: 1px solid var(--loki-border, rgba(0,0,0,0.08)); border-radius: 5px; padding: 12px;">
               <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;" id="memory-files-tabs"></div>
               <div style="display: grid; grid-template-columns: minmax(220px, 320px) 1fr; gap: 12px; min-height: 280px;">
@@ -1544,12 +1556,12 @@ function generateStandaloneHTML(bundleCode) {
             </script>
           </div>
           <div>
-            <h3 style="font-family: 'DM Serif Display', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Learning Metrics</h3>
+            <h3 style="font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">Learning Metrics</h3>
             <loki-learning-dashboard id="learning-dashboard" time-range="7d"></loki-learning-dashboard>
           </div>
           <!-- v7.7.1 F-1 follow-up: How to Run (USAGE.md) -->
           <div>
-            <h3 style="font-family: 'DM Serif Display', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">How to Run (USAGE.md)</h3>
+            <h3 style="font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 400; color: var(--loki-text-primary); margin-bottom: 12px;">How to Run (USAGE.md)</h3>
             <div id="usage-doc-panel" style="background: var(--loki-bg-card, rgba(255,255,255,0.72)); border: 1px solid var(--loki-border, rgba(0,0,0,0.08)); border-radius: 5px; padding: 12px;">
               <div id="usage-doc-meta" style="font-size: 11px; color: var(--loki-text-muted, #888); margin-bottom: 8px;">Loading...</div>
               <div id="usage-doc-content" class="usage-md"></div>
@@ -1874,6 +1886,13 @@ function generateStandaloneHTML(bundleCode) {
                   <input type="text" class="api-url-input" id="api-url" placeholder="API URL">
                   <button class="api-btn" id="connect-btn" type="button">Go</button>
                 </div>
+                <label class="settings-field-label" style="margin-top: 10px;">Appearance</label>
+                <div class="settings-field-row">
+                  <button class="theme-toggle-btn" id="theme-toggle-btn" type="button" aria-pressed="false">
+                    <svg class="theme-toggle-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    <span id="theme-toggle-label">Dark mode</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2140,6 +2159,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     btn.addEventListener('click', function() {
       apply(btn.getAttribute('aria-expanded') !== 'true', true);
+    });
+  })();
+
+  // Autonomi identity: dark-mode toggle. Light-grey ground (#f1f2f6) is the
+  // default; dark is opt-in and persisted per machine via data-loki-theme on
+  // <html> (the CSS variable blocks for both live at the top of this file).
+  // Best-effort -- no-ops on an older build without the button.
+  (function initThemeToggle() {
+    var btn = document.getElementById('theme-toggle-btn');
+    var label = document.getElementById('theme-toggle-label');
+    if (!btn) return;
+    var STORE_KEY = 'loki-theme';
+    var root = document.documentElement;
+
+    function apply(theme, persist) {
+      root.setAttribute('data-loki-theme', theme);
+      btn.setAttribute('aria-pressed', String(theme === 'dark'));
+      if (label) label.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+      if (persist) {
+        try { localStorage.setItem(STORE_KEY, theme); } catch (e) { /* ignore */ }
+      }
+    }
+
+    var stored = null;
+    try { stored = localStorage.getItem(STORE_KEY); } catch (e) { /* ignore */ }
+    apply(stored === 'dark' ? 'dark' : 'light', false);
+
+    btn.addEventListener('click', function() {
+      var current = root.getAttribute('data-loki-theme') === 'dark' ? 'dark' : 'light';
+      apply(current === 'dark' ? 'light' : 'dark', true);
     });
   })();
 

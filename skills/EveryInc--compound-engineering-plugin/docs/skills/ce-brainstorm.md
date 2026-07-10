@@ -220,6 +220,12 @@ Yes — a domain-agnostic facilitator preserves the one-question-at-a-time disci
 
 ---
 
+## Fable elevation (Claude Code only)
+
+When you're on a cheaper session model, `ce-brainstorm` can still generate approaches with a higher-reasoning model: it dispatches approach generation to Fable via a subagent, so you get sharper, less-generic options without switching your whole session. Opt in per run by saying "use fable" in your prompt, or set `brainstorm_use_fable: true` in `.compound-engineering/config.local.yaml`. A mechanical host gate makes this a silent no-op on every non-Claude-Code harness (Codex, Cursor). See `references/reasoning-elevation.md`.
+
+---
+
 ## See Also
 
 - [`ce-ideate`](./ce-ideate.md) — upstream "what's worth exploring" discovery

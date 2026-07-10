@@ -35,6 +35,11 @@ The step that emits a Target's converted Bundle onto disk, in that Target's expe
 ### Bundle
 The in-memory converted form of a Plugin for a single Target — the handoff a Converter produces and a Writer consumes.
 
+### Install manifest
+A per-plugin ledger, written by a Writer at install time, of exactly which skill, agent, prompt, and extension paths that install created on a Target — the record later installs consult to tell tool-owned content apart from user-managed content.
+
+The load-bearing invariant is that a Writer never claims a path it did not write: a path the user has replaced (a symlink into a personal fork, a hand-authored directory) is excluded from the manifest and preserved on reinstall rather than overwritten, and the ledger is self-healing — removing the override lets the next install resume tracking that path. A path with no manifest entry — including one from an install predating the mechanism — reads as unowned and is therefore preserved.
+
 ### Marketplace
 The catalog metadata listing installable plugins and their versions for distribution, kept consistent with each Plugin's manifest by release validation.
 

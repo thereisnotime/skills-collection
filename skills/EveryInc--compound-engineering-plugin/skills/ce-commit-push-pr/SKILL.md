@@ -33,13 +33,13 @@ argument-hint: "[PR ref] [mode:pipeline] [archive:on|off]"
 !`git log --oneline -10`
 
 **Remote default branch:**
-!`git rev-parse --abbrev-ref origin/HEAD 2>/dev/null || echo 'DEFAULT_BRANCH_UNRESOLVED'`
+!`git rev-parse --abbrev-ref origin/HEAD`
 
 **Existing PR check:**
-!`gh pr view --json url,title,body,state 2>/dev/null || echo 'NO_OPEN_PR'`
+!`gh pr view --json url,title,body,state`
 
 **Repo root (pre-resolved):**
-!`git rev-parse --show-toplevel 2>/dev/null || true`
+!`git rev-parse --show-toplevel`
 
 ### Context fallback
 
@@ -51,7 +51,7 @@ printf '=== STATUS ===\n'; git status; printf '\n=== DIFF ===\n'; git diff HEAD;
 
 ## Step 1: Resolve branch and PR state
 
-The remote default branch returns something like `origin/main`; strip the `origin/` prefix. If it returned `DEFAULT_BRANCH_UNRESOLVED` or bare `HEAD`, try `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'`. If both fail, fall back to `main`.
+The remote default branch returns something like `origin/main`; strip the `origin/` prefix. If it returned `DEFAULT_BRANCH_UNRESOLVED`, an error, or bare `HEAD`, try `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'`. If both fail, fall back to `main`. An error from the existing-PR check means no open PR was found (or `gh` is unavailable) — treat it as `NO_OPEN_PR`.
 
 Branch routing:
 
@@ -97,9 +97,9 @@ If the working tree is clean and all commits are already pushed, this step is a 
 
 1. **User supplied evidence** (URL, markdown image/embed, local artifact path they want referenced) — incorporate it into the PR body as `## Demo`, `## Screenshots`, or `## Evidence`, matching the artifact type. Do not invent or upload evidence.
 2. **User explicitly asks to include evidence but has not supplied it** — ask for the URL/markdown/path, or tell them to use the current harness's capture flow and return with the artifact. Do not launch another CE skill.
-3. **Agent judgment on authored changes** — if you authored the commits and know the change is non-observable (internal plumbing, type-only, backend refactor without user-facing effect, docs/markdown/changelog/CI/test-only, pure refactors), skip evidence handling without asking.
+3. **Agent judgment on authored changes** — if you authored the commits and know the change produces no material claim a reviewer would need evidence for (internal plumbing, type-only, backend refactor without user-facing effect, inert documentation, pure refactors), skip evidence handling without asking. Classify by runtime purpose, not extension: markdown or YAML that is runtime agent instructions, configuration, generated product content, or policy code is not auto-skippable just for being markdown or YAML.
 
-Otherwise, if the branch diff changes observable behavior (UI, CLI output, API behavior with runnable code, generated artifacts, workflow output), include a concise validation note in the PR body describing what was exercised and how it behaved. If no real run was possible because of unavailable credentials, paid services, deploy-only infrastructure, hardware, or missing local setup, say that plainly in the validation section.
+Otherwise, if the branch diff changes behavior a reviewer would need evidence for (UI, CLI output, API behavior with runnable code, generated artifacts, workflow output, ranking/scoring logic, deployment or config behavior), include a concise validation note in the PR body describing what was exercised and how it behaved. If no real run was possible because of unavailable credentials, paid services, deploy-only infrastructure, hardware, or missing local setup, say that plainly in the validation section.
 
 Do not block PR creation solely because no visual artifact exists. Test output and manual validation notes are acceptable validation evidence, but do not label test output as "Demo" or "Screenshots."
 
@@ -108,7 +108,7 @@ Do not block PR creation solely because no visual artifact exists. Test output a
 - Gate **on** — judge concept novelty and compose the section per **Step B2** of the reference. The gate is single: when it is off, skip judgment, the section, the Step 5 trailer and offer, and archival entirely.
 - Gate **off** — compose the description without any concept handling.
 
-Then continue with the rest of the reference (Steps A through D, including the Step B2 concept judgment when the gate is on) to compose the title and body.
+Then continue with the rest of the reference (Steps A through E, including the Step B2 concept judgment when the gate is on) to compose the title and body — Step E is the pre-apply coverage audit and must run before the body is returned.
 
 ## Step 5: Apply and report
 

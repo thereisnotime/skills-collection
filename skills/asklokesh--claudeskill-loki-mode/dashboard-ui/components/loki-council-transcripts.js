@@ -302,7 +302,7 @@ export class LokiCouncilTranscripts extends LokiElement {
           color: var(--text-primary, #201515);
         }
         .ct-heading {
-          font-family: 'DM Serif Display', Georgia, serif;
+          font-family: 'Fraunces', Georgia, serif;
           font-size: 1.15rem;
           font-weight: 400;
           color: var(--loki-text-primary, #201515);

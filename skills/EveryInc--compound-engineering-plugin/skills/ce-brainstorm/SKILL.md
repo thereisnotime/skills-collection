@@ -36,7 +36,7 @@ These rules apply to every brainstorm, including the universal (non-software) fl
 
 ## Output Guidance
 
-- **Keep outputs concise** - Prefer short sections, brief bullets, and only enough detail to support the next decision.
+- **Prioritize decision-relevant detail** - Preserve the facts, tradeoffs, and caveats needed for the next decision; trim introductions, repetition, and optional background first.
 
 ## Model Tiers
 
@@ -59,9 +59,9 @@ Do not proceed until you have a feature description from the user.
 Determine `OUTPUT_FORMAT` before any other phase fires. Output mode is **exclusive** — the requirements-only unified plan is written as either markdown (`.md`) OR HTML (`.html`), never both. Precedence: in-prompt request > user-stated preference > config > default (`md`), with a hard pipeline-mode override.
 
 **Read config.** The repo root is pre-resolved at skill load:
-!`git rev-parse --show-toplevel 2>/dev/null || true`
+!`git rev-parse --show-toplevel`
 
-If the line above is an absolute path, use it as `<repo-root>`. If it is empty or still shows a backtick command string (a non-Claude harness that did not run the pre-resolution), resolve `<repo-root>` at runtime by running `git rev-parse --show-toplevel` with the shell tool. Then read `<repo-root>/.compound-engineering/config.local.yaml` with the native file-read tool. If the root cannot be resolved (not a git repo) or the file does not exist, fall through to the defaults below.
+If the line above is an absolute path, use it as `<repo-root>`. If it is empty, shows an error, or still shows a backtick command string (a harness that did not run the pre-resolution), resolve `<repo-root>` at runtime by running `git rev-parse --show-toplevel` with the shell tool. Then read `<repo-root>/.compound-engineering/config.local.yaml` with the native file-read tool. If the root cannot be resolved (not a git repo) or the file does not exist, fall through to the defaults below.
 
 Resolution steps:
 
@@ -210,6 +210,8 @@ Follow the Interaction Rules above. Use the platform's blocking question tool wh
 **Exit condition:** Exit Phase 1.3 when each of these holds, OR the user explicitly wants to proceed: the primary actor/user is identified or marked unknown; the desired outcome is stated; the in-scope and out-of-scope boundaries that matter are known; success criteria or acceptance signals are known or recorded as assumptions; every Phase 1.2 gap found has been probed or recorded as an assumption; and no integration-check question is pending.
 
 ### Phase 2: Explore Approaches
+
+**Reasoning elevation (Claude Code only).** Before generating approaches, if positively Claude Code (`CLAUDECODE=1`, not Cursor/Codex), load `references/reasoning-elevation.md` and follow it — it may dispatch approach generation to a higher-reasoning model when the user has opted in, and it owns the completion-time discoverability tip. On any non-Claude host, skip it entirely — proceed on the session model with no mention. If a prompt names a model this skill does not recognize on this harness, proceed on the session model without comment.
 
 If multiple plausible directions remain, propose **2-3 concrete approaches** based on research and conversation. Otherwise state the recommended direction directly.
 

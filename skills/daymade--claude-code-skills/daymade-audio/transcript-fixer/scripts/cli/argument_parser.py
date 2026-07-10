@@ -55,6 +55,24 @@ def create_argument_parser() -> argparse.ArgumentParser:
         dest="audit_dictionary",
         help="Audit all active corrections for false positive risks (common words, short text, substring collisions)"
     )
+    parser.add_argument(
+        "--export",
+        metavar="PATH",
+        dest="export_path",
+        help="Export corrections to a JSON file"
+    )
+    parser.add_argument(
+        "--import",
+        metavar="PATH",
+        dest="import_path",
+        help="Import corrections from a JSON file"
+    )
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        default=False,
+        help="Merge imported corrections with existing rules instead of replacing matching entries"
+    )
 
     # Correction workflow
     parser.add_argument(
@@ -94,7 +112,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--changes-file",
         action="store_true",
         dest="changes_file",
-        help="Always write *_changes.md with before/after/risk for every correction (automatically on in safe mode, which is the default)"
+        help="Write *_changes.md with before/after/risk when a run applies or defers corrections (automatically on in safe mode, which is the default; a 0-change run writes no report)"
     )
 
     # Learning commands

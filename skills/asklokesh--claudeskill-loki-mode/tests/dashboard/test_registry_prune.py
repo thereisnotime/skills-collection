@@ -169,5 +169,55 @@ class RunningProjectsSwitcherTest(_TempRegistry):
         self.assertEqual(len(remaining), 3)
 
 
+class ReconcileStaleRunsTest(_TempRegistry):
+    """reconcile_stale_runs marks dead-pid in-flight entries as stopped.
+
+    A reaped/crashed session leaves status frozen at running/building with a dead
+    pid; over time these zombies accumulate (a fleet of 130+ "BUILDING" entries
+    with no live process). Reconcile corrects them to "stopped" without touching
+    live-pid entries or already-terminal statuses.
+    """
+
+    def _inject_status(self, name, status, pid):
+        path = os.path.join(self.tmp, name)
+        reg = registry._load_registry()
+        pid_ = registry._generate_project_id(path)
+        reg["projects"][pid_] = {
+            "id": pid_, "path": path, "name": name, "status": status, "pid": pid,
+        }
+        registry._save_registry(reg)
+        return pid_
+
+    def test_marks_dead_pid_inflight_as_stopped(self):
+        # A zombie: dead pid (99999999 is not a live process) but status running.
+        z = self._inject_status("zombie", "running", 99999999)
+        # A real live build: our own pid, status building -> must stay in-flight.
+        live = self._inject_status("live", "building", os.getpid())
+        # An already-stopped entry -> untouched.
+        done = self._inject_status("done", "stopped", 99999999)
+
+        n = registry.reconcile_stale_runs()
+        self.assertEqual(n, 1)  # only the zombie was reconciled
+
+        projs = registry._load_registry()["projects"]
+        self.assertEqual(projs[z]["status"], "stopped")   # zombie fixed
+        self.assertEqual(projs[live]["status"], "building")  # live untouched
+        self.assertEqual(projs[done]["status"], "stopped")   # terminal untouched
+
+    def test_idempotent(self):
+        self._inject_status("zombie", "running", 99999999)
+        self.assertEqual(registry.reconcile_stale_runs(), 1)
+        self.assertEqual(registry.reconcile_stale_runs(), 0)  # nothing left to fix
+
+    def test_get_fleet_runs_reports_stale_not_running(self):
+        # A dead-pid "running" entry must surface as status="stale" in the fleet
+        # view even before reconcile runs (honest read).
+        self._inject_status("zombie", "running", 99999999)
+        runs = registry.get_fleet_runs(include_inactive=True)
+        z = next(r for r in runs if r["name"] == "zombie")
+        self.assertFalse(z["running"])
+        self.assertEqual(z["status"], "stale")
+
+
 if __name__ == "__main__":
     unittest.main()

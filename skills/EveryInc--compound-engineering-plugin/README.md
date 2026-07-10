@@ -231,6 +231,44 @@ You can also browse it through Kimi's custom marketplace flow:
 
 After installing or updating, run `/reload` or start a new Kimi session so the plugin skills are loaded.
 
+### Grok Build CLI (`grok`)
+
+xAI's [Grok Build CLI](https://x.ai/cli) (`grok`) installs Compound Engineering directly from this repository — the repo root is a valid Grok plugin (`grok` reads the existing Claude-compatible manifests, and the repo also ships a native `.grok-plugin/plugin.json`):
+
+```bash
+grok plugin install EveryInc/compound-engineering-plugin
+```
+
+This tracks the repository; run `grok plugin update` to pull the latest. To browse it as a marketplace source instead, the repo ships a native `.grok-plugin/marketplace.json`:
+
+```bash
+grok plugin marketplace add EveryInc/compound-engineering-plugin
+grok plugin install compound-engineering
+```
+
+Both paths track the repository directly (no commit pin), so no Bun install step is needed. Add `--trust` to skip the install confirmation. `grok` stores config under `~/.grok`; start a new session after installing so the skills load.
+
+Compound Engineering is also being submitted to the official [xAI plugin marketplace](https://github.com/xai-org/plugin-marketplace); see [`docs/grok-marketplace-submission.md`](docs/grok-marketplace-submission.md) for the maintainer runbook.
+
+### Devin CLI
+
+Devin CLI can install Compound Engineering directly from GitHub because the repo ships a native `.devin-plugin/plugin.json` manifest:
+
+```bash
+devin plugins install EveryInc/compound-engineering-plugin
+```
+
+Verify the install and inspect the skills:
+
+```bash
+devin plugins list
+devin plugins info compound-engineering
+```
+
+Update to the latest version with `devin plugins update compound-engineering`. Plugins load at session start, so start a new Devin session after installing or updating for the skills to appear (as `/compound-engineering:<skill>` slash commands).
+
+A few skills declare Claude-style `allowed-tools` names that Devin does not map (for example `Bash`); those skills still work, but some of their actions ask for permission instead of running auto-approved. See [`docs/specs/devin.md`](docs/specs/devin.md) for details.
+
 ### GitHub Copilot
 
 For **VS Code Copilot Agent Plugins**:
@@ -416,6 +454,14 @@ To test the local marketplace catalog instead, pass the catalog path:
 ```text
 /plugins marketplace /path/to/compound-engineering-plugin/.kimi-plugin/marketplace.json
 ```
+
+**Devin CLI**
+
+```bash
+devin plugins install /path/to/compound-engineering-plugin
+```
+
+Local installs are linked to the checkout rather than copied, so skill edits apply on the next Devin session without reinstalling.
 
 **OpenCode**
 

@@ -10550,7 +10550,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
       "lines": 129,
-      "words": 753,
+      "words": 750,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -10587,8 +10587,8 @@
       "description": "Review requirements, plans, or specs with role-specific lenses. Use when the user wants to improve an existing planning document.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
-      "lines": 244,
-      "words": 2676,
+      "lines": 249,
+      "words": 2859,
       "code_blocks": 4,
       "languages": []
     },
@@ -10622,7 +10622,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
       "lines": 759,
-      "words": 8860,
+      "words": 8870,
       "code_blocks": 20,
       "languages": [
         "bash"
@@ -10646,7 +10646,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit/SKILL.md",
       "remote_path": "skills/ce-commit/SKILL.md",
       "lines": 106,
-      "words": 1011,
+      "words": 1009,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -10657,8 +10657,8 @@
       "description": "'Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, think through scope, decide what to build, or needs collaborative product fr",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 290,
-      "words": 6144,
+      "lines": 292,
+      "words": 6227,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10706,8 +10706,8 @@
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
-      "lines": 810,
-      "words": 14327,
+      "lines": 812,
+      "words": 14500,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -10740,7 +10740,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
       "lines": 838,
-      "words": 14231,
+      "words": 14236,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -10765,7 +10765,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
       "lines": 157,
-      "words": 2023,
+      "words": 2101,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -10777,7 +10777,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
       "lines": 415,
-      "words": 7790,
+      "words": 7789,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -10826,7 +10826,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-product-pulse/SKILL.md",
       "remote_path": "skills/ce-product-pulse/SKILL.md",
       "lines": 180,
-      "words": 2057,
+      "words": 2056,
       "code_blocks": 0,
       "languages": []
     },
@@ -10862,7 +10862,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
       "lines": 63,
-      "words": 1081,
+      "words": 1087,
       "code_blocks": 0,
       "languages": []
     },
@@ -19772,8 +19772,8 @@
       "description": "\"When the user wants to optimize content for AI search engines, get cited by LLMs, or appear in AI-generated answers. Also use when the user mentions 'AI SEO,' 'AEO,' 'GEO,' 'LLMO,' 'answer engine opt",
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
-      "lines": 490,
-      "words": 3899,
+      "lines": 493,
+      "words": 4018,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -19921,8 +19921,8 @@
       "description": "\"When the user wants help creating, scheduling, or optimizing social media content for LinkedIn, Twitter/X, Instagram, TikTok, Facebook, or other platforms, or wants to do social listening and engagem",
       "path": "coreyhaines31--marketingskills/skills/social/SKILL.md",
       "remote_path": "skills/social/SKILL.md",
-      "lines": 412,
-      "words": 2203,
+      "lines": 414,
+      "words": 2248,
       "code_blocks": 4,
       "languages": []
     },
@@ -19975,8 +19975,8 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 413,
-      "words": 2606,
+      "lines": 415,
+      "words": 2746,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -20021,8 +20021,8 @@
       "description": "\"When the user wants to create competitor comparison or alternative pages for SEO and sales enablement. Also use when the user mentions 'alternative page,' 'vs page,' 'competitor comparison,' 'compari",
       "path": "coreyhaines31--marketingskills/skills/competitors/SKILL.md",
       "remote_path": "skills/competitors/SKILL.md",
-      "lines": 257,
-      "words": 1147,
+      "lines": 259,
+      "words": 1215,
       "code_blocks": 0,
       "languages": []
     },
@@ -20221,8 +20221,8 @@
       "description": "Research mountain routes and generate comprehensive route beta reports for North American peaks, aggregating weather forecasts, avalanche conditions, daylight windows, trip reports, and access info fr",
       "path": "dreamiurg--claude-mountaineering-skills/skills/route-researcher/SKILL.md",
       "remote_path": "skills/route-researcher/SKILL.md",
-      "lines": 897,
-      "words": 5586,
+      "lines": 917,
+      "words": 5915,
       "code_blocks": 30,
       "languages": [
         "bash",
@@ -20745,7 +20745,7 @@
       "description": ">-",
       "path": "hashicorp--agent-skills/terraform/provider-development/skills/provider-test-patterns/SKILL.md",
       "remote_path": "terraform/provider-development/skills/provider-test-patterns/SKILL.md",
-      "lines": 414,
+      "lines": 415,
       "words": 1266,
       "code_blocks": 15,
       "languages": [
@@ -20757,7 +20757,7 @@
       "description": "Use this when scaffolding a new Terraform provider.",
       "path": "hashicorp--agent-skills/terraform/provider-development/skills/new-terraform-provider/SKILL.md",
       "remote_path": "terraform/provider-development/skills/new-terraform-provider/SKILL.md",
-      "lines": 26,
+      "lines": 25,
       "words": 134,
       "code_blocks": 0,
       "languages": [],
@@ -20809,7 +20809,7 @@
       "description": "Generate Terraform HCL code following HashiCorp's security practices",
       "path": "hashicorp--agent-skills/terraform/code-generation/skills/terraform-style-guide/SECURITY.md",
       "remote_path": "terraform/code-generation/skills/terraform-style-guide/SECURITY.md",
-      "lines": 164,
+      "lines": 165,
       "words": 535,
       "code_blocks": 4,
       "languages": [
@@ -24005,6 +24005,18 @@
       "license": "Apache-2.0"
     },
     {
+      "name": "whatsapp",
+      "description": "\"Send and receive WhatsApp messages via the unofficial linked-device client pywhats (pip install pywhats) \u2014 pair with QR, send text/images, group chat, read receipts, presence/typing, and a long-runni",
+      "path": "sanjay3290--ai-skills/skills/whatsapp/SKILL.md",
+      "remote_path": "skills/whatsapp/SKILL.md",
+      "lines": 84,
+      "words": 555,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "apple-container",
       "description": "|",
       "path": "sanjay3290--ai-skills/skills/apple-container/SKILL.md",
@@ -24054,6 +24066,21 @@
       "languages": [
         "bash",
         "markdown"
+      ],
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "grok-build",
+      "description": "\"Orchestrate coding work by delegating well-specified implementation tasks to xAI's Grok Build CLI (grok) running headlessly, while the coding assistant plans, writes the task specs, reviews every dif",
+      "path": "sanjay3290--ai-skills/skills/grok-build/SKILL.md",
+      "remote_path": "skills/grok-build/SKILL.md",
+      "lines": 136,
+      "words": 825,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "markdown",
+        "powershell"
       ],
       "license": "Apache-2.0"
     },
@@ -27224,9 +27251,9 @@
       "description": ">",
       "path": "typefully--agent-skills/skills/typefully/SKILL.md",
       "remote_path": "skills/typefully/SKILL.md",
-      "lines": 279,
-      "words": 1905,
-      "code_blocks": 7,
+      "lines": 299,
+      "words": 2006,
+      "code_blocks": 9,
       "languages": [
         "bash"
       ]
@@ -63895,30 +63922,28 @@
     },
     {
       "name": "validate-consistency",
-      "description": "Generate comprehensive read-only discrepancy report comparing messaging...",
+      "description": "Run the document consistency audit via the validate-consistency skill",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/000-jeremy-content-consistency-validator/commands/validate-consistency.md",
       "remote_path": "plugins/productivity/000-jeremy-content-consistency-validator/commands/validate-consistency.md",
-      "lines": 374,
-      "words": 1260,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "markdown"
-      ]
+      "lines": 20,
+      "words": 148,
+      "code_blocks": 0,
+      "languages": []
     },
     {
-      "name": "000-jeremy-content-consistency-validator",
-      "description": "'Validate messaging consistency across website, GitHub repos, and local",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/000-jeremy-content-consistency-validator/skills/000-jeremy-content-consistency-validator/SKILL.md",
-      "remote_path": "plugins/productivity/000-jeremy-content-consistency-validator/skills/000-jeremy-content-consistency-validator/SKILL.md",
-      "lines": 115,
-      "words": 755,
-      "code_blocks": 4,
+      "name": "validate-consistency",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/000-jeremy-content-consistency-validator/skills/validate-consistency/SKILL.md",
+      "remote_path": "plugins/productivity/000-jeremy-content-consistency-validator/skills/validate-consistency/SKILL.md",
+      "lines": 467,
+      "words": 3196,
+      "code_blocks": 8,
       "languages": [
         "bash",
-        "markdown"
+        "markdown",
+        "yaml"
       ],
-      "version": "1.0.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -67628,15 +67653,237 @@
       "version": "1.0.0"
     },
     {
+      "name": "security-reviewer",
+      "description": "Use when reviewing authentication, authorization, secrets handling, input trust boundaries, or any security-sensitive code path \u2014 the standalone security gate that halts the pipeline on a violation. V",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/security-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/security-reviewer.md",
+      "lines": 31,
+      "words": 279,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "debugger",
+      "description": "Use when finding the root cause of a bug, failing test, or regression \u2014 runs systematic 5-Whys and parallel hypothesis testing before any patch. The root-cause investigator behind /hyperflow:trace.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/debugger.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/debugger.md",
+      "lines": 29,
+      "words": 270,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "architect",
+      "description": "Use when designing a new system or subsystem, or making a structural change to an existing one \u2014 the system-design specialist that decomposes the architecture, sets module/service/component boundaries",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/architect.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/architect.md",
+      "lines": 59,
+      "words": 593,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "frontend-reviewer",
+      "description": "Use when reviewing changes to UI components, hooks, client state, or rendering logic (React/Vue/Svelte) \u2014 verifies component correctness, state topology, and render purity against the frontend and ui ",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/frontend-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/frontend-reviewer.md",
+      "lines": 32,
+      "words": 292,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "algorithm-reviewer",
+      "description": "Use when code contains non-trivial algorithms, loops, recursion, or data-structure choices \u2014 the specialist that analyzes the time/space complexity (Big-O) of every routine and proposes a lower-comple",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/algorithm-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/algorithm-reviewer.md",
+      "lines": 45,
+      "words": 502,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "devops-reviewer",
+      "description": "Use when reviewing CI/CD pipelines, infrastructure-as-code, container/build config, deployment, or observability changes \u2014 verifies operational safety against the devops persona standards.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/devops-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/devops-reviewer.md",
+      "lines": 29,
+      "words": 220,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "database-reviewer",
+      "description": "Use when reviewing schema changes, migrations, indexes, or query patterns \u2014 verifies reversibility, index strategy, and query-plan correctness against the db persona standards.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/database-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/database-reviewer.md",
+      "lines": 29,
+      "words": 224,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "designer",
+      "description": "Use when designing the visual and experiential surface of a product, or reviewing a UI change for taste \u2014 the design specialist that establishes and maintains the project's design system, grounds ever",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/designer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/designer.md",
+      "lines": 58,
+      "words": 643,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "api-reviewer",
+      "description": "Use when reviewing HTTP/RPC/GraphQL endpoints, request/response contracts, input validation, or error semantics \u2014 verifies the API surface against the api persona standards.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/api-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/api-reviewer.md",
+      "lines": 30,
+      "words": 224,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "compliance-reviewer",
+      "description": "Use when a change touches PII, regulated data, consent, retention, or audit-trail requirements (GDPR/CCPA/HIPAA/PCI) \u2014 verifies regulatory posture against the security and docs persona standards. Disp",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/compliance-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/compliance-reviewer.md",
+      "lines": 28,
+      "words": 249,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "backend-reviewer",
+      "description": "Use when reviewing service-layer logic, module boundaries, business rules, or cross-service contracts \u2014 verifies architecture integrity and service correctness against the api and architect persona st",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/backend-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/backend-reviewer.md",
+      "lines": 32,
+      "words": 252,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "mobile",
+      "description": "Use when designing or reviewing a mobile app \u2014 React Native, Flutter, native iOS (Swift/SwiftUI), native Android (Kotlin/Compose), or responsive mobile web \u2014 the mobile specialist that picks the platf",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/mobile.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/mobile.md",
+      "lines": 60,
+      "words": 672,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "vulnerability-reviewer",
+      "description": "Use when assessing dependencies, exploit paths, or known-CVE exposure \u2014 the deep security-research specialist that maps the diff against current advisories. Verifies against the security and scientifi",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/vulnerability-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/vulnerability-reviewer.md",
+      "lines": 33,
+      "words": 283,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "brain",
+      "description": "Use when a task has been triaged and the chain needs to decide which specialist agents are responsible \u2014 the router consulted once after triage to finalize the reviewer/investigator roster, web-resear",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/brain.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/brain.md",
+      "lines": 64,
+      "words": 505,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "analyst",
+      "description": "Use when a decision needs multi-dimensional analysis \u2014 weighing intent/fit, scope/risk, and alternatives before a design or approach is chosen. The synthesis investigator behind spec analysis.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/analyst.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/analyst.md",
+      "lines": 28,
+      "words": 222,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "researcher",
+      "description": "Use when a task needs external evaluation \u2014 surveying libraries, comparing approaches, or gathering current best practices and prior art from the web. The deep external-research investigator.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/researcher.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/researcher.md",
+      "lines": 28,
+      "words": 244,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "data-ml-reviewer",
+      "description": "Use when reviewing data pipelines, numerical/ML code, model training/inference, or analytics correctness \u2014 verifies reproducibility and numerical correctness against the scientific and db persona stan",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/data-ml-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/data-ml-reviewer.md",
+      "lines": 28,
+      "words": 220,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "performance-reviewer",
+      "description": "Use when reviewing hot paths, algorithmic complexity, caching, bundle size, or anything with a latency/throughput budget \u2014 verifies performance against the performance persona standards.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/performance-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/performance-reviewer.md",
+      "lines": 29,
+      "words": 219,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "database-optimization-reviewer",
+      "description": "Use when database performance is in question \u2014 query optimization, indexing strategy, query plans, schema/access-pattern tradeoffs, or \"is this the fastest way to read/write this data\". The DB perform",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/database-optimization-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/database-optimization-reviewer.md",
+      "lines": 44,
+      "words": 523,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "accessibility-reviewer",
+      "description": "Use when reviewing user-facing UI for WCAG conformance, keyboard navigation, screen-reader semantics, or reduced-motion support \u2014 verifies accessibility against the ui and frontend persona standards.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/accessibility-reviewer.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/accessibility-reviewer.md",
+      "lines": 29,
+      "words": 228,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "motion",
+      "description": "Use when designing or reviewing how elements move \u2014 animations, transitions, scroll-driven effects, gestures, and micro-interactions \u2014 the motion specialist that picks the right animation library, hol",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/motion.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/motion.md",
+      "lines": 57,
+      "words": 587,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "searcher",
+      "description": "Use when the chain needs the codebase mapped \u2014 locating implementations, call sites, conventions, or affected surfaces \u2014 before analysis or implementation. The surface-mapping investigator.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/agents/searcher.md",
+      "remote_path": "plugins/ai-agency/hyperflow/agents/searcher.md",
+      "lines": 26,
+      "words": 217,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "trace",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/trace/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/trace/SKILL.md",
       "lines": 343,
-      "words": 2950,
+      "words": 2944,
       "code_blocks": 4,
       "languages": [],
-      "version": "3.1.2",
+      "version": "3.1.3",
       "license": "MIT"
     },
     {
@@ -67644,25 +67891,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/status/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/status/SKILL.md",
-      "lines": 296,
-      "words": 1609,
-      "code_blocks": 14,
+      "lines": 312,
+      "words": 1709,
+      "code_blocks": 15,
       "languages": [
         "bash"
       ],
-      "version": "3.1.2",
-      "license": "MIT"
-    },
-    {
-      "name": "amplify",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/amplify/SKILL.md",
-      "remote_path": "plugins/ai-agency/hyperflow/skills/amplify/SKILL.md",
-      "lines": 95,
-      "words": 1119,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.0.0",
+      "version": "3.1.3",
       "license": "MIT"
     },
     {
@@ -67680,15 +67915,27 @@
       "license": "MIT"
     },
     {
+      "name": "design",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/design/SKILL.md",
+      "remote_path": "plugins/ai-agency/hyperflow/skills/design/SKILL.md",
+      "lines": 142,
+      "words": 1071,
+      "code_blocks": 2,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "flush",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/flush/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/flush/SKILL.md",
       "lines": 96,
-      "words": 623,
+      "words": 625,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.12.6",
+      "version": "4.12.7",
       "license": "MIT"
     },
     {
@@ -67697,10 +67944,10 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/deploy/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/deploy/SKILL.md",
       "lines": 350,
-      "words": 2913,
+      "words": 2974,
       "code_blocks": 7,
       "languages": [],
-      "version": "3.1.2",
+      "version": "3.1.3",
       "license": "MIT"
     },
     {
@@ -67708,25 +67955,11 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/sticky/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/sticky/SKILL.md",
-      "lines": 240,
-      "words": 1474,
+      "lines": 239,
+      "words": 1481,
       "code_blocks": 13,
       "languages": [],
       "version": "4.9.0",
-      "license": "MIT"
-    },
-    {
-      "name": "scope",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/scope/SKILL.md",
-      "remote_path": "plugins/ai-agency/hyperflow/skills/scope/SKILL.md",
-      "lines": 547,
-      "words": 5335,
-      "code_blocks": 13,
-      "languages": [
-        "markdown"
-      ],
-      "version": "3.1.2",
       "license": "MIT"
     },
     {
@@ -67734,11 +67967,11 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/dispatch/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/dispatch/SKILL.md",
-      "lines": 403,
-      "words": 5981,
+      "lines": 473,
+      "words": 7424,
       "code_blocks": 5,
       "languages": [],
-      "version": "3.1.2",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -67746,46 +67979,46 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/scaffold/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/scaffold/SKILL.md",
-      "lines": 216,
-      "words": 1432,
+      "lines": 217,
+      "words": 1487,
       "code_blocks": 5,
       "languages": [],
-      "version": "3.1.2",
+      "version": "3.1.3",
       "license": "MIT"
     },
     {
-      "name": "spec",
+      "name": "issue",
       "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/spec/SKILL.md",
-      "remote_path": "plugins/ai-agency/hyperflow/skills/spec/SKILL.md",
-      "lines": 625,
-      "words": 6604,
-      "code_blocks": 16,
-      "languages": [
-        "markdown"
-      ],
-      "version": "3.1.2",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/issue/SKILL.md",
+      "remote_path": "plugins/ai-agency/hyperflow/skills/issue/SKILL.md",
+      "lines": 114,
+      "words": 1022,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0",
       "license": "MIT"
     },
     {
       "name": "hyperflow",
-      "description": "\"Use when applying Hyperflow's orchestration doctrine in Codex, Antigravity, or another single-agent surface. Auto-invoke for non-trivial engineering work: build, implement, add, refactor, debug, fix,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/hyperflow/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/hyperflow/SKILL.md",
-      "lines": 111,
-      "words": 1020,
+      "lines": 139,
+      "words": 1304,
       "code_blocks": 1,
       "languages": [
         "text"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "workflow",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/workflow/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/workflow/SKILL.md",
-      "lines": 150,
-      "words": 1220,
+      "lines": 179,
+      "words": 1458,
       "code_blocks": 1,
       "languages": [
         "text"
@@ -67799,7 +68032,7 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/bridge/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/bridge/SKILL.md",
       "lines": 260,
-      "words": 2013,
+      "words": 2014,
       "code_blocks": 10,
       "languages": [
         "markdown"
@@ -67808,15 +68041,51 @@
       "license": "MIT"
     },
     {
+      "name": "pr",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/pr/SKILL.md",
+      "remote_path": "plugins/ai-agency/hyperflow/skills/pr/SKILL.md",
+      "lines": 116,
+      "words": 926,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "handoff",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/handoff/SKILL.md",
+      "remote_path": "plugins/ai-agency/hyperflow/skills/handoff/SKILL.md",
+      "lines": 71,
+      "words": 536,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.1",
+      "license": "MIT"
+    },
+    {
       "name": "cache",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/cache/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/cache/SKILL.md",
       "lines": 207,
-      "words": 1296,
+      "words": 1298,
       "code_blocks": 5,
       "languages": [],
-      "version": "3.1.2",
+      "version": "3.1.3",
+      "license": "MIT"
+    },
+    {
+      "name": "plan",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/plan/SKILL.md",
+      "remote_path": "plugins/ai-agency/hyperflow/skills/plan/SKILL.md",
+      "lines": 278,
+      "words": 5347,
+      "code_blocks": 3,
+      "languages": [],
+      "version": "2.0.1",
       "license": "MIT"
     },
     {
@@ -67824,13 +68093,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/skills/audit/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/skills/audit/SKILL.md",
-      "lines": 400,
-      "words": 3680,
+      "lines": 409,
+      "words": 3836,
       "code_blocks": 6,
       "languages": [
         "markdown"
       ],
-      "version": "3.1.2",
+      "version": "3.1.3",
       "license": "MIT"
     },
     {
@@ -67839,17 +68108,7 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-scaffold/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-scaffold/SKILL.md",
       "lines": 24,
-      "words": 211,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "hyperflow-scope",
-      "description": "Hyperflow planning phase. Use when a task is clear enough to decompose into batched steps before writing code \u2014 verbs like scope, decompose, \"plan out\", \"break down\", \"plan this\". Read-only with respe",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-scope/SKILL.md",
-      "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-scope/SKILL.md",
-      "lines": 23,
-      "words": 229,
+      "words": 209,
       "code_blocks": 0,
       "languages": []
     },
@@ -67864,32 +68123,12 @@
       "languages": []
     },
     {
-      "name": "hyperflow-spec",
-      "description": "Hyperflow design phase. Use when the user is exploring an idea, weighing approaches, or has an ambiguous request \u2014 verbs like brainstorm, design, explore, \"should we\", \"what's the best way to\", \"unsur",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-spec/SKILL.md",
-      "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-spec/SKILL.md",
-      "lines": 23,
-      "words": 249,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "hyperflow-sticky",
       "description": "Hyperflow auto-routing mode. Use to control how aggressively hyperflow auto-routes \u2014 \"make hyperflow sticky\", \"stop using hyperflow\", \"auto-route to hyperflow\", \"disable hyperflow auto-routing\". Sets ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-sticky/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-sticky/SKILL.md",
       "lines": 26,
       "words": 163,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "hyperflow-amplify",
-      "description": "Hyperflow prompt amplifier. Use when a prompt is rough, vague, or under-specified and should be rewritten to high quality before running it \u2014 \"enhance this prompt\", \"make this prompt better\", \"improve",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-amplify/SKILL.md",
-      "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-amplify/SKILL.md",
-      "lines": 27,
-      "words": 331,
       "code_blocks": 0,
       "languages": []
     },
@@ -67924,12 +68163,32 @@
       "languages": []
     },
     {
+      "name": "hyperflow-plan",
+      "description": "Hyperflow planning phase. Use when a request needs shaping before code \u2014 a rough prompt to sharpen, an ambiguous idea to design, or a clear-enough task to decompose. Verbs like plan, design, brainstor",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-plan/SKILL.md",
+      "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-plan/SKILL.md",
+      "lines": 25,
+      "words": 367,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "hyperflow-deploy",
       "description": "Hyperflow ship phase. Use when the user is ready to release \u2014 verbs like ship, push, release, deploy, \"cut a release\", \"ready to push\". Runs pre-push gates (lint + typecheck + build + tests + security",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-deploy/SKILL.md",
       "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-deploy/SKILL.md",
       "lines": 23,
       "words": 237,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "hyperflow-design",
+      "description": "Hyperflow design phase. Use when designing a UI / visual system or making a screen look good \u2014 verbs like \"design the UI\", \"make it look good\", \"design the screen\", \"visual design\", \"design system\". E",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-design/SKILL.md",
+      "remote_path": "plugins/ai-agency/hyperflow/templates/antigravity/skills/hyperflow-design/SKILL.md",
+      "lines": 22,
+      "words": 259,
       "code_blocks": 0,
       "languages": []
     },
@@ -116350,6 +116609,33 @@
       "license": "MIT"
     },
     {
+      "name": "agent-preflight",
+      "description": "Generate a lightweight repository risk receipt before AI-agent edits",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/security/agent-safety-preflight/commands/agent-preflight.md",
+      "remote_path": "plugins/security/agent-safety-preflight/commands/agent-preflight.md",
+      "lines": 93,
+      "words": 408,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "agent-safety-preflight",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/security/agent-safety-preflight/skills/agent-safety-preflight/SKILL.md",
+      "remote_path": "plugins/security/agent-safety-preflight/skills/agent-safety-preflight/SKILL.md",
+      "lines": 100,
+      "words": 687,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "scan",
       "description": "Scan codebase for security vulnerabilities",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/security/vulnerability-scanner/commands/scan.md",
@@ -120070,9 +120356,9 @@
       "description": ">",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1069,
-      "words": 7389,
-      "code_blocks": 62,
+      "lines": 1121,
+      "words": 7982,
+      "code_blocks": 65,
       "languages": [
         "bash",
         "json",
@@ -120256,15 +120542,16 @@
     },
     {
       "name": "competitors-analysis",
-      "description": "Analyze competitor repositories with evidence-based approach. Use when tracking competitors, creating competitor profiles, or generating competitive analysis. CRITICAL - all analysis must be based on ",
+      "description": ">-",
       "path": "daymade--claude-code-skills/competitors-analysis/SKILL.md",
       "remote_path": "competitors-analysis/SKILL.md",
-      "lines": 252,
-      "words": 734,
-      "code_blocks": 13,
+      "lines": 232,
+      "words": 1147,
+      "code_blocks": 7,
       "languages": [
         "bash",
-        "markdown"
+        "markdown",
+        "text"
       ]
     },
     {
@@ -120308,8 +120595,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 369,
-      "words": 3957,
+      "lines": 376,
+      "words": 4176,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -120346,8 +120633,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 377,
-      "words": 3798,
+      "lines": 466,
+      "words": 6236,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -120506,9 +120793,9 @@
       "description": "Co-create a personal investment-research LLM Wiki (Andrej Karpathy's pattern) where the user's OWN analysis framework becomes a living CLAUDE.md \u2014 by interviewing them, NOT by handing them a template.",
       "path": "daymade--claude-code-skills/llm-wiki-setup/SKILL.md",
       "remote_path": "llm-wiki-setup/SKILL.md",
-      "lines": 85,
-      "words": 481,
-      "code_blocks": 2,
+      "lines": 95,
+      "words": 510,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -120689,8 +120976,8 @@
       "description": ">",
       "path": "daymade--claude-code-skills/daymade-claude-code/statusline-generator/SKILL.md",
       "remote_path": "daymade-claude-code/statusline-generator/SKILL.md",
-      "lines": 185,
-      "words": 1035,
+      "lines": 211,
+      "words": 1303,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -120701,9 +120988,9 @@
       "description": "Set up multiple isolated Claude Code CLI profiles so students and power users can run different LLM providers (Kimi, GLM, DeepSeek, StepFun, Anthropic) in separate terminal windows at the same time. U",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 178,
-      "words": 1069,
-      "code_blocks": 3,
+      "lines": 235,
+      "words": 1610,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "json"
@@ -120762,8 +121049,8 @@
       "description": "Diagnose and resolve Claude Code plugin and skill issues. This skill should be used when plugins are installed but not showing in available skills list, skills are not activating as expected, or when ",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-skills-troubleshooting/SKILL.md",
       "remote_path": "daymade-claude-code/claude-skills-troubleshooting/SKILL.md",
-      "lines": 149,
-      "words": 603,
+      "lines": 155,
+      "words": 651,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -120809,24 +121096,25 @@
     },
     {
       "name": "asr-transcribe-to-text",
-      "description": "Transcribes audio and video files to text using Qwen3-ASR. Supports two modes \u2014 local MLX inference on macOS Apple Silicon (no API key, 15-27x realtime) and remote API via vLLM/OpenAI-compatible endpo",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 251,
-      "words": 1140,
-      "code_blocks": 14,
+      "lines": 351,
+      "words": 1991,
+      "code_blocks": 21,
       "languages": [
-        "bash"
+        "bash",
+        "text"
       ]
     },
     {
       "name": "transcript-fixer",
-      "description": "Corrects speech-to-text transcription errors using dictionary rules and AI-powered analysis. Builds personalized correction databases that learn from each fix, and auto-loads person-name ASR variants ",
+      "description": "Corrects speech-to-text transcription errors using dictionary rules and AI-powered analysis. Builds personalized correction databases that learn from each fix, auto-loads person-name ASR variants from",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 363,
-      "words": 4212,
-      "code_blocks": 12,
+      "lines": 407,
+      "words": 5128,
+      "code_blocks": 14,
       "languages": [
         "bash",
         "markdown"
@@ -120916,9 +121204,9 @@
       "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1199,
-      "words": 11560,
-      "code_blocks": 41,
+      "lines": 1218,
+      "words": 11716,
+      "code_blocks": 42,
       "languages": [
         "bash",
         "json",
@@ -120932,8 +121220,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
       "remote_path": "daymade-skill/skill-governance/SKILL.md",
-      "lines": 150,
-      "words": 1159,
+      "lines": 173,
+      "words": 1494,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -120944,9 +121232,9 @@
       "description": "Reviews and improves Claude Code skills against official best practices. Supports three modes - self-review (validate your own skills), external review (evaluate others' skills), and auto-PR (fork, im",
       "path": "daymade--claude-code-skills/daymade-skill/skill-reviewer/SKILL.md",
       "remote_path": "daymade-skill/skill-reviewer/SKILL.md",
-      "lines": 199,
-      "words": 697,
-      "code_blocks": 10,
+      "lines": 198,
+      "words": 760,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "markdown",

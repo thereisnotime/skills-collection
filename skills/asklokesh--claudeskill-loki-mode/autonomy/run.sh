@@ -19385,18 +19385,24 @@ main() {
         loki_show_disclosure_once
     fi
 
-    echo ""
-    echo -e "${BOLD}${BLUE}"
-    echo "  ██╗      ██████╗ ██╗  ██╗██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗"
-    echo "  ██║     ██╔═══██╗██║ ██╔╝██║    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
-    echo "  ██║     ██║   ██║█████╔╝ ██║    ██╔████╔██║██║   ██║██║  ██║█████╗  "
-    echo "  ██║     ██║   ██║██╔═██╗ ██║    ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
-    echo "  ███████╗╚██████╔╝██║  ██╗██║    ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
-    echo "  ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝    ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
-    echo -e "${NC}"
-    echo -e "  ${CYAN}Autonomous Spec-to-Product System${NC}"
-    echo -e "  ${CYAN}Version: $(cat "$PROJECT_DIR/VERSION" 2>/dev/null || echo "4.x.x")${NC}"
-    echo ""
+    # Legacy ASCII "LOKI MODE" banner. Skipped when the new `loki start` handoff
+    # already rendered the Autonomi brand banner (LOKI_BRAND_SHOWN=1) so the user
+    # does not see two banners back to back. Still shown on the non-handoff path
+    # (CI / --bg / --yes / non-interactive / direct run.sh), unchanged.
+    if [ "${LOKI_BRAND_SHOWN:-}" != "1" ]; then
+        echo ""
+        echo -e "${BOLD}${BLUE}"
+        echo "  ██╗      ██████╗ ██╗  ██╗██╗    ███╗   ███╗ ██████╗ ██████╗ ███████╗"
+        echo "  ██║     ██╔═══██╗██║ ██╔╝██║    ████╗ ████║██╔═══██╗██╔══██╗██╔════╝"
+        echo "  ██║     ██║   ██║█████╔╝ ██║    ██╔████╔██║██║   ██║██║  ██║█████╗  "
+        echo "  ██║     ██║   ██║██╔═██╗ ██║    ██║╚██╔╝██║██║   ██║██║  ██║██╔══╝  "
+        echo "  ███████╗╚██████╔╝██║  ██╗██║    ██║ ╚═╝ ██║╚██████╔╝██████╔╝███████╗"
+        echo "  ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝    ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝"
+        echo -e "${NC}"
+        echo -e "  ${CYAN}Autonomous Spec-to-Product System${NC}"
+        echo -e "  ${CYAN}Version: $(cat "$PROJECT_DIR/VERSION" 2>/dev/null || echo "4.x.x")${NC}"
+        echo ""
+    fi
 
     # Parse arguments
     PRD_PATH=""

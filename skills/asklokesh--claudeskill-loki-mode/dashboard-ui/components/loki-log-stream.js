@@ -456,8 +456,8 @@ export class LokiLogStream extends LokiElement {
         }
 
         .terminal-btn.active {
-          background: #7B6BF0;
-          border-color: #7B6BF0;
+          background: var(--loki-accent);
+          border-color: var(--loki-accent);
           color: white;
         }
 
@@ -473,7 +473,7 @@ export class LokiLogStream extends LokiElement {
 
         .filter-input:focus {
           outline: none;
-          border-color: #7B6BF0;
+          border-color: var(--loki-accent);
         }
 
         .filter-input::placeholder {

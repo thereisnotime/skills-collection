@@ -379,6 +379,10 @@ run_test "Build-time HOME isolation (in-build app exec sandbox)" "$SCRIPT_DIR/te
 # rebuilding finished work; never fake-green; build only the unsatisfied gap.
 run_test "Reuse done-recognition gate (no-PRD reuse: done/incomplete/inconclusive)" "$SCRIPT_DIR/test-reuse-done-recognition.sh"
 
+# Multi-provider issue backends (#7 team parity): detection, parse, normalize
+# for GitHub / GitLab / Jira / Azure DevOps -- network-free, mocked responses.
+run_test "Issue providers (GitHub/GitLab/Jira/Azure detect+parse+normalize)" "$SCRIPT_DIR/test-issue-providers.sh"
+
 # Linting
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 

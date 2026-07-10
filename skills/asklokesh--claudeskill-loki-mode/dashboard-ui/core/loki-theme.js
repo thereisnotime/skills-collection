@@ -49,7 +49,7 @@ export const THEME_VARIABLES = {
 
     // Accent colors (violet)
     '--loki-accent': '#553DE9',
-    '--loki-accent-light': '#7B6BF0',
+    '--loki-accent-light': '#553de9',
     '--loki-accent-muted': 'rgba(85, 61, 233, 0.10)',
 
     // Text colors
@@ -90,7 +90,7 @@ export const THEME_VARIABLES = {
     '--loki-bg-hover': '#2A1F4A',
 
     // Accent colors (violet, brighter for dark bg)
-    '--loki-accent': '#7B6BF0',
+    '--loki-accent': '#553de9',
     '--loki-accent-light': '#9488F5',
     '--loki-accent-muted': 'rgba(123, 107, 240, 0.18)',
 
@@ -117,7 +117,7 @@ export const THEME_VARIABLES = {
 
     // Model colors
     '--loki-opus': '#f59e0b',
-    '--loki-sonnet': '#7B6BF0',
+    '--loki-sonnet': '#553de9',
     '--loki-haiku': '#2ED8B6',
 
     // Transition

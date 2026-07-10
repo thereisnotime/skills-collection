@@ -7,6 +7,32 @@
 - `uv` package manager
 - ~3GB disk for model weights (first download)
 
+## Verified Dependency Stack
+
+The bundled `scripts/transcribe_local_mlx.py` pins the local MLX stack because newer resolver output has broken Qwen3-ASR model loading in practice.
+
+| Package | Version | Why |
+|---------|---------|-----|
+| `mlx-audio` | `0.3.1` | Known-good Qwen3-ASR loader |
+| `mlx-lm` | `0.30.5` | Compatible transitive loader stack |
+| `transformers` | `5.0.0rc3` | Avoids tokenizer registration failure seen with newer 5.x builds |
+
+Run this before a long transcription:
+
+```bash
+uv run scripts/transcribe_local_mlx.py --smoke-test
+```
+
+Expected output includes:
+
+```text
+Dependency stack: mlx-audio 0.3.1, mlx-lm 0.30.5, transformers 5.0.0rc3
+Model loaded in ...
+Smoke test OK: model loaded
+```
+
+If the dependency stack differs, the agent is probably running an installed/stale copy or bypassing the bundled script.
+
 ## Recommended Configuration
 
 | Setting | Value | Why |
@@ -49,10 +75,20 @@ Two MLX packages exist for Qwen3-ASR. Their weight formats are **incompatible**:
 
 Crossing these produces "Missing 297 parameters" error. This skill uses `mlx-audio`.
 
+## Known Failure: Unpinned Newer Dependencies
+
+Failure signature:
+
+```text
+AttributeError: 'str' object has no attribute '__module__'
+```
+
+Observed root cause: resolving `mlx-audio>=0.3.1` installed `mlx-audio 0.4.4`, `mlx-lm 0.31.3`, and `transformers 5.13.0`; model loading failed before transcription began. The fix is to run the bundled script with its pinned PEP 723 dependencies and confirm `--smoke-test` passes.
+
 ## Alternatives Not Recommended
 
 | Approach | Issue |
 |----------|-------|
 | PyTorch MPS (qwen-asr package) | 97.77% time in GPU↔CPU sync, RTF 5.5-24.5x |
-| whisper.cpp large-v3-turbo | High Chinese error rate |
+| whisper.cpp large-v3-turbo | High Chinese error rate **for pure transcription** — but when the task needs word-level timestamps (subtitles, audio-visual alignment), whisper is the only local option and Qwen3-ASR cannot do it at all; see `whisper_word_timestamps.md` |
 | Official qwen-asr on macOS | Designed for CUDA only |

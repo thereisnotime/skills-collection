@@ -33,7 +33,7 @@ export const THEMES = {
     '--loki-accent': '#553DE9',
     '--loki-accent-hover': '#4432c4',
     '--loki-accent-active': '#3828a0',
-    '--loki-accent-light': '#7B6BF0',
+    '--loki-accent-light': '#553de9',
     '--loki-accent-muted': 'rgba(85, 61, 233, 0.10)',
 
     // Text hierarchy
@@ -94,7 +94,7 @@ export const THEMES = {
     '--loki-bg-overlay': 'rgba(20, 11, 36, 0.85)',
 
     // Accent colors (violet, brighter for dark bg)
-    '--loki-accent': '#7B6BF0',
+    '--loki-accent': '#553de9',
     '--loki-accent-hover': '#9488F5',
     '--loki-accent-active': '#6258D0',
     '--loki-accent-light': '#9488F5',
@@ -110,7 +110,7 @@ export const THEMES = {
     // Border colors
     '--loki-border': '#2A1F3E',
     '--loki-border-light': '#3D3060',
-    '--loki-border-focus': '#7B6BF0',
+    '--loki-border-focus': '#553de9',
 
     // Status colors - semantic
     '--loki-success': '#2ED8B6',
@@ -136,7 +136,7 @@ export const THEMES = {
 
     // Model colors
     '--loki-opus': '#f59e0b',
-    '--loki-sonnet': '#7B6BF0',
+    '--loki-sonnet': '#553de9',
     '--loki-haiku': '#2ED8B6',
 
     // Shadows (subtle glows on dark)
@@ -358,7 +358,7 @@ export const RADIUS = {
 export const TYPOGRAPHY = {
   fontFamily: {
     sans: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-    serif: "'DM Serif Display', Georgia, 'Times New Roman', serif",
+    serif: "'Fraunces', Georgia, 'Times New Roman', serif",
     mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace",
   },
   fontSize: {

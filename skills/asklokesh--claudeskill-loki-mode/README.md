@@ -483,6 +483,7 @@ Status legend: "E2E-verified" means we run real spec-to-code builds on it oursel
 | `loki modernize heal <path>` | Legacy system healing (archaeology, stabilize, isolate, modernize, validate -- v6.67.0; was: `loki heal`) |
 | `loki pause` / `resume` | Pause/resume after current session |
 | `loki status` | Show current status |
+| `loki cockpit` | Live multi-repo status as an inline terminal image (Kitty/iTerm2/WezTerm/Ghostty); text + dashboard fallback elsewhere (v7.126.0) |
 | `loki dashboard` | Open web dashboard |
 | `loki preview` | Print running app URL and open in browser (Live App Preview, v7.24.0; was: `loki open`) |
 | `loki web` | Launch Purple Lab web UI [DEPRECATED in v7.44.0 -- use `loki start` which auto-opens the dashboard at http://localhost:57374; for the hosted platform see Autonomi Cloud] |

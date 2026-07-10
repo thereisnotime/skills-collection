@@ -5,6 +5,140 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v7.128.2
+
+### Fixed: cockpit fills the terminal + honest fleet (no stale-run zombies)
+
+Three fixes that make `loki cockpit` genuinely useful instead of a tiny,
+noisy-looking frame:
+
+- Image scales to the terminal width. The inline image previously rendered at its
+  native pixel size, so it appeared small in a corner of a large window. The
+  encoder now sets the iTerm2 `width=<cols>` / Kitty `c=<cols>` from the terminal
+  width so the cockpit fills the pane.
+- Stale-run reconciliation. A reaped or crashed `loki start` left its registry
+  entry frozen at status "running"/"building" with a dead pid, so the fleet
+  accumulated 100+ zombie "BUILDING" entries. `get_fleet_runs` now reports a
+  dead-pid in-flight entry as "stale", and the new `registry.reconcile_stale_runs()`
+  (run opportunistically by the cockpit) marks them "stopped". The fleet header
+  now reads "FLEET (N active / M total)" (or "M total, none active") so a long
+  tail of finished runs is not alarming, and the list is ordered live-first.
+- A not-running fleet entry no longer displays a frozen in-flight phase; it shows
+  its reconciled status.
+
+Tests: registry reconcile (3 new, tests/dashboard/test_registry_prune.py),
+encoder width scaling + fleet header (cockpit.test.ts, now 26). Full bun suite
+1190/0.
+
+## v7.128.1
+
+### Fixed: duplicate banner on `loki start` (new handoff + legacy ASCII banner)
+
+The v7.126.0 `loki start` handoff renders the Autonomi brand banner, but run.sh
+still printed its legacy ASCII "LOKI MODE" banner right after it, so an
+interactive `loki start` showed TWO banners back to back. cmd_start now exports
+`LOKI_BRAND_SHOWN=1` when the handoff runs, and run.sh skips the legacy banner in
+that case. The legacy banner is unchanged on the non-handoff path (CI / --bg /
+--yes / non-interactive / direct run.sh). New test tests/test-start-banner-dedup.sh.
+
+## v7.128.0
+
+### Added: `loki cockpit` renders the inline image out of the box (bundled wasm)
+
+The cockpit now draws its full inline image on graphics-capable terminals
+(iTerm2 / Kitty / WezTerm / Ghostty) with NOTHING to install. The SVG-to-PNG
+rasterizer is a bundled, platform-independent WebAssembly build of resvg
+(`@resvg/resvg-wasm`, shipped as `loki-ts/data/resvg.wasm`), so there is no
+native compile step and no per-arch binary. Native `@resvg/resvg-js` is still
+used automatically if a user happens to have it (fastest path); otherwise the
+bundled wasm renders the frame. Only if both are somehow unavailable does the
+cockpit fall back honestly to the text summary + browser dashboard.
+
+Font fix: the wasm rasterizer runs in a fontless sandbox, so it now loads a real
+system font buffer (cross-platform search of common font locations) with a
+sensible default family; without this every text label rendered blank. The SVG's
+Fraunces / Inter / JetBrains Mono families gracefully fall back to it.
+
+Robustness: `buildSvg` normalizes a malformed or partial state (missing verdict,
+budget, or arrays) to safe defaults so a truncated state file degrades gracefully
+and always renders a frame instead of crashing the render.
+
+`loki doctor`'s cockpit section now reports "SVG rasterizer: ready (bundled
+wasm)" and "Render path: inline image" accordingly. Tests: cockpit.test.ts grew
+to 23 (real wasm image render, font-bearing raster >30KB, and malformed-state
+graceful degrade, all fail-when-broken). Full bun suite 1187/0. The honest
+fallback (protocol none / --no-image / rasterizer unavailable) is unchanged, and
+never claims an image it did not produce.
+
+## v7.127.0
+
+### Enhanced: the Loki Cockpit (5 enhancement loops)
+
+Five enhancements to the v7.126.0 cockpit, all dependency-free and honest:
+
+- E1 - flicker-free, event-driven `loki cockpit --follow`: enters the alternate
+  screen buffer with cursor save/restore and INT/TERM/EXIT cleanup traps, and
+  redraws only when the focused run's state files change (mtime-driven) instead
+  of blind interval polling.
+- E2 - richer rendered cockpit: the SVG now shows the RARV loop with the current
+  step highlighted from phase, per-reviewer council votes (name + model tier +
+  APPROVE/CONCERN/REJECT/pending), and the verify --explain gate rows
+  (gate / status / runner / evidence). Canvas height auto-fits content so no
+  section clips.
+- E3 - keyboard interactivity in `--follow`: Tab / arrows cycle repo focus across
+  the multi-repo fleet, e prints verify --explain for the focused run, s shows a
+  steering hint, q / Ctrl-C quits and restores the terminal. Skipped on non-TTY.
+- E4 - start-open plan preview + first-run delight: the handoff card shows a
+  3-line "what Loki will do" preview derived from the detected tier + spec (honest
+  "exploring the codebase" when there is no spec), with a warmer first-run touch
+  that teaches `loki cockpit`.
+- E5 - robustness + `loki doctor` cockpit report: graceful degradation for
+  no-bun / no-resvg / tiny terminal / huge fleet (fleet capped with a "+N more"
+  line), and a new doctor section reporting the detected inline-image protocol,
+  truecolor, bun, @resvg, and exactly which render path `loki cockpit` will use.
+
+Tests: test-cockpit-follow.sh (E1), cockpit.test.ts grew to 21 (E2 RARV +
+height now fail-when-broken, mutation-verified), test-cockpit-keys.sh (E3),
+test-start-handoff.sh grew to 33 (E4), test-cockpit-cmd.sh 16 (E5). Full bun
+suite 1185/0. `loki watch` and non-interactive `loki start` unchanged.
+
+## v7.126.0
+
+### Added: the Loki Cockpit (rec #6) - stare-worthy start, `loki cockpit`, dashboard identity
+
+A complete observability layer, built with zero new user-facing tooling (no chafa,
+no headless Chrome, nothing to install):
+
+- `loki start` now DETACHES to the background by default on an interactive TTY,
+  after a stare-worthy handoff: a crafted truecolor Autonomi banner (the real
+  purple squircle + white "A" + teal dot logo, "LOKI" wordmark) and a rich card
+  (spec, path, tier, provider, budget + breaker, log, dashboard URL) with a
+  choice - Both (default) / Dashboard / Watch (cockpit) / Detach / Stop - and an
+  8s auto-Both. The choice is remembered per project. CI / --bg / --yes /
+  non-interactive shells bypass it entirely and keep the exact prior foreground
+  behavior. Both opens the dashboard AND points at the cockpit.
+- `loki cockpit` (new command; `loki watch` is unchanged - it remains the PRD
+  auto-rerun watcher) renders live multi-repo status as an inline terminal image
+  on graphics-capable terminals (Kitty / iTerm2 / WezTerm / Ghostty), via a
+  dependency-free pipeline: state -> self-contained SVG -> PNG (optional
+  @resvg/resvg-js) -> pure-base64 Kitty/iTerm2 protocol, with capability
+  detection. On any other terminal it falls back HONESTLY to a text summary plus
+  the browser dashboard - it never claims an image rendered when it did not. The
+  multi-repo fleet is read from the existing registry (~/.loki/dashboard/
+  projects.json); per-run state from .loki/autonomy-state.json, .loki/verify/
+  evidence.json, and .loki/council/*.json.
+- The web dashboard is redesigned to the Autonomi identity (real logo, accent
+  #553de9, teal #1FC5A8, Fraunces / Inter / JetBrains Mono, light-grey ground
+  default with a dark toggle, multi-repo run switcher) so Both / Dashboard look
+  identical to the cockpit.
+
+The cockpit CLI ships as loki-ts/dist/cockpit.js (bundled) so it works on every
+npm/Docker/brew install, not just from source. Tests: tests/test-start-handoff.sh
+(27, incl. the truecolor banner + degradation), tests/test-cockpit-cmd.sh (8),
+tests/test-dashboard-identity.sh (9), loki-ts/tests/cockpit.test.ts (14, encoder
+byte-shape + capability matrix + honest fallback, all mutation-verified). No
+existing command changed behavior.
+
 ## v7.125.0
 
 ### Added: unified per-run isolation dial `--isolation none|worktree|docker` (rec #4)

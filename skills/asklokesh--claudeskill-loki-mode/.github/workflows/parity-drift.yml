@@ -130,6 +130,7 @@ jobs:
                 sed -E "s/Disk space: [0-9]+GB/Disk space: NGB/g" "$src" \
                   | sed -E "/Runtime route:/,/^$/d" \
                   | sed -E "/Phase 1 artifacts:/,/^$/d" \
+                  | sed -E "/Cockpit:/,/^$/d" \
                   | sed -E "/Dashboard:.*http/d" \
                   > "$dst"
               done

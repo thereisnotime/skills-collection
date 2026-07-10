@@ -31,7 +31,11 @@ plugins/mcp/servicegraph/README.md:mcp-remote  same remote MCP endpoint document
 # per-review gate; a persistent line here would auto-waive FUTURE source-list
 # changes too, so each sources PR swaps this line for its own scoped reason and
 # the one-shot-waiver fix (#985 defect 3) retires the convention entirely.
-sources.yaml:sources-change-unscanned  2026-07-08 verified-flag honesty PR reviewed: strictly risk-reducing — flips verified:true to false on the 27 census-drifted entries (wondelai family + n-skills, graded D/F) until upstream fixes land; no source added, repointed, or re-included
+sources.yaml:sources-change-unscanned  2026-07-10 hyperflow unfreeze PR reviewed: drops curated freeze after upstream merged the frontmatter uplift (Mohammed-Abdelhady/hyperflow#7, HEAD be6ae2d3) — field-parity evidence gate passed (0 regressions across 13 shared skills; amplify/scope/spec removal is upstream-intended merge into plan; unicode hygiene --strict + payload scan clean over all 87 mirror-scope files); include list gains agents/** + scripts/** (v5.x skills dispatch agents/*.md and run scripts/*); relock pins upstream HEAD hashes. No source added or repointed
+sources.lock.json:sources-change-unscanned  2026-07-10 same hyperflow unfreeze PR: the lock diff is the --relock re-baseline itself (hyperflow block only, verified by JSON key diff) pinning upstream HEAD be6ae2d3 hashes after the field-parity + hygiene review above
+
+# ── hyperflow orchestrator skill: upstream web-research feature. ──
+plugins/ai-agency/hyperflow/skills/hyperflow/SKILL.md:allowed-tools-network  upstream v5.8.x added WebFetch/WebSearch to the orchestrator skill for its web-research feature (skills/hyperflow/web-research.md); mirror content hand-reviewed 2026-07-10 (evidence gate on #1008 + the be6ae2d3->eae6e34c5 delta review) — external mirror, upstream's design, no credential surface
 
 # ── Skill Refiner plugin: the 3-layer hook architecture IS the product. ──
 # /j-rig is the eval-guided SKILL.md improvement loop; its sinker/line/hook hooks
@@ -40,3 +44,6 @@ sources.yaml:sources-change-unscanned  2026-07-08 verified-flag honesty PR revie
 # network, no embedded credentials, no dynamic-exec of untrusted input. SKILL_ID
 # is validated (^[a-zA-Z0-9_-]+$) before any use. Reviewed 2026-07-09.
 plugins/productivity/j-rig/**:hook-definition  the sinker/line/hook 3-layer architecture is this plugin's purpose; hooks only wrap the published @intentsolutions/refiner CLI + a deterministic validator, no network/credentials/dynamic-exec — reviewed 2026-07-09
+
+# ── Reviewed defensive scanner signatures. ──
+plugins/security/agent-safety-preflight/scripts/agent_preflight_lite.py:outbound-network  defensive scanner regex detects curl/wget install chains; it does not perform network calls

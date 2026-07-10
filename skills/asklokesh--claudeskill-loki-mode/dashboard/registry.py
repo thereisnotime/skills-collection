@@ -396,6 +396,41 @@ def prune_missing_projects(running_ids: Optional[set] = None) -> list[dict]:
     return pruned
 
 
+def reconcile_stale_runs() -> int:
+    """Self-heal the registry: mark dead-pid in-flight entries as stopped.
+
+    `loki start` records status="running" for a build, and an exit trap marks it
+    stopped on clean shutdown. But a reaped session, a crash, or a SIGKILL skips
+    that trap, leaving the entry frozen at "running"/"building" forever with a
+    dead pid. Over time these zombies accumulate (a fleet of 130+ "BUILDING"
+    entries with no live process), polluting the cockpit and dashboard.
+
+    This reconciles reality: for every entry whose recorded pid is NOT alive but
+    whose status is still in-flight (running/building/active/in_progress), set
+    status="stopped". Non-destructive (the entry is kept, just corrected) and
+    never touches a live-pid entry or an already-terminal status. Best-effort and
+    concurrency-safe (runs under the registry lock with the atomic save).
+
+    Returns:
+        The number of entries reconciled (0 when the registry is already clean).
+    """
+    IN_FLIGHT = {"running", "building", "active", "in_progress"}
+    reconciled = 0
+    with _registry_lock():
+        registry = _load_registry()
+        projects = registry.get("projects", {})
+        changed = False
+        for project in projects.values():
+            status = str(project.get("status") or "").lower()
+            if status in IN_FLIGHT and not _pid_alive(project.get("pid")):
+                project["status"] = "stopped"
+                reconciled += 1
+                changed = True
+        if changed:
+            _save_registry(registry)
+    return reconciled
+
+
 def check_project_health(identifier: str) -> dict:
     """
     Check the health status of a project.
@@ -754,11 +789,17 @@ def get_fleet_runs(include_inactive: bool = True) -> list[dict]:
         running = _pid_alive(pid)
         snap = _read_project_run_snapshot(path)
 
-        # A live pid is authoritative for "running"; otherwise reflect the
-        # registry status (stopped/active/missing). This mirrors the
-        # running-projects endpoint's pid-first precedence.
+        # A live pid is authoritative for "running". When the pid is DEAD but the
+        # registry still says the run is in-flight (running/building/active), the
+        # run was reaped or crashed without its exit trap marking it stopped -- it
+        # is a stale zombie, NOT still building. Report it honestly as "stale" so
+        # the fleet does not show 100+ frozen "BUILDING" entries. A dead pid with
+        # a terminal registry status (stopped/completed/failed) keeps that status.
+        reg_status = (p.get("status") or "unknown").lower()
         if running:
             status = "running"
+        elif reg_status in ("running", "building", "active", "in_progress"):
+            status = "stale"
         else:
             status = p.get("status") or "unknown"
 
