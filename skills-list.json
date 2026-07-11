@@ -11499,8 +11499,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 483,
-      "words": 5243,
+      "lines": 486,
+      "words": 5275,
       "code_blocks": 4,
       "languages": []
     },
@@ -11742,8 +11742,8 @@
       "description": "\"Writes the full paper draft section by section from the structured outline and Paper Configuration Record\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
-      "lines": 587,
-      "words": 6084,
+      "lines": 588,
+      "words": 6114,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -11795,8 +11795,8 @@
       "description": "\"Guides paper authors through Socratic questions to sharpen arguments and surface unstated assumptions\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/socratic_mentor_agent.md",
       "remote_path": "academic-paper/agents/socratic_mentor_agent.md",
-      "lines": 526,
-      "words": 3999,
+      "lines": 528,
+      "words": 4127,
       "code_blocks": 14,
       "languages": [
         "markdown"
@@ -11954,8 +11954,8 @@
       "description": "\"Guides researchers through Socratic questioning to clarify and sharpen their research thinking\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/socratic_mentor_agent.md",
       "remote_path": "deep-research/agents/socratic_mentor_agent.md",
-      "lines": 723,
-      "words": 7570,
+      "lines": 725,
+      "words": 7698,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -19139,12 +19139,24 @@
   ],
   "better-auth--skills": [
     {
+      "name": "better-auth-security-best-practices",
+      "description": "Configure rate limiting, manage auth secrets, set up CSRF protection, define trusted origins, secure sessions and cookies, encrypt OAuth tokens, track IP addresses, and implement audit logging for Bet",
+      "path": "better-auth--skills/security/SKILL.md",
+      "remote_path": "security/SKILL.md",
+      "lines": 433,
+      "words": 1331,
+      "code_blocks": 19,
+      "languages": [
+        "ts"
+      ]
+    },
+    {
       "name": "better-auth-best-practices",
       "description": "Configure Better Auth server and client, set up database adapters, manage sessions, add plugins, and handle environment variables. Use when users mention Better Auth, betterauth, auth.ts, or need to s",
       "path": "better-auth--skills/better-auth/best-practices/SKILL.md",
       "remote_path": "better-auth/best-practices/SKILL.md",
-      "lines": 175,
-      "words": 768,
+      "lines": 182,
+      "words": 869,
       "code_blocks": 1,
       "languages": []
     },
@@ -19154,22 +19166,23 @@
       "path": "better-auth--skills/better-auth/organization/SKILL.md",
       "remote_path": "better-auth/organization/SKILL.md",
       "lines": 480,
-      "words": 1297,
+      "words": 1305,
       "code_blocks": 25,
       "languages": [
         "ts"
       ]
     },
     {
-      "name": "create-auth-skill",
+      "name": "create-auth",
       "description": "Scaffold and implement authentication in TypeScript/JavaScript apps using Better Auth. Detect frameworks, configure database adapters, set up route handlers, add OAuth providers, and create auth UI pa",
       "path": "better-auth--skills/better-auth/create-auth/SKILL.md",
       "remote_path": "better-auth/create-auth/SKILL.md",
-      "lines": 322,
-      "words": 1690,
-      "code_blocks": 3,
+      "lines": 391,
+      "words": 1989,
+      "code_blocks": 8,
       "languages": [
-        "env"
+        "env",
+        "ts"
       ]
     },
     {
@@ -19190,7 +19203,7 @@
       "path": "better-auth--skills/better-auth/twoFactor/SKILL.md",
       "remote_path": "better-auth/twoFactor/SKILL.md",
       "lines": 332,
-      "words": 988,
+      "words": 996,
       "code_blocks": 18,
       "languages": [
         "ts",
@@ -19322,6 +19335,19 @@
       "license": "MIT"
     },
     {
+      "name": "assess-react-native-migration",
+      "description": "Assesses whether and how an existing mobile product should migrate to React Native. Use when auditing one or more product repositories for migration readiness, including products whose iOS, Android, a",
+      "path": "callstackincubator--agent-skills/skills/assess-react-native-migration/SKILL.md",
+      "remote_path": "skills/assess-react-native-migration/SKILL.md",
+      "lines": 196,
+      "words": 2044,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "react-native-best-practices",
       "description": "Provides React Native performance optimization guidelines for FPS, TTI, bundle size, memory leaks, re-renders, and animations. Applies to tasks involving Hermes optimization, JS thread blocking, bridg",
       "path": "callstackincubator--agent-skills/skills/react-native-best-practices/SKILL.md",
@@ -19408,11 +19434,11 @@
     },
     {
       "name": "react-native-brownfield-migration",
-      "description": "Provides an incremental adoption strategy to migrate native iOS or Android apps to React Native or Expo using @callstack/react-native-brownfield for initial setup. Use when planning migration steps, p",
+      "description": "Implements an accepted incremental brownfield migration from native iOS or Android to React Native or Expo using @callstack/react-native-brownfield. Use after the brownfield path has been selected, wh",
       "path": "callstackincubator--agent-skills/skills/react-native-brownfield-migration/SKILL.md",
       "remote_path": "skills/react-native-brownfield-migration/SKILL.md",
-      "lines": 115,
-      "words": 696,
+      "lines": 122,
+      "words": 763,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -19975,8 +20001,8 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 415,
-      "words": 2746,
+      "lines": 418,
+      "words": 2827,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -20115,8 +20141,8 @@
       "description": "When the user wants to conduct, analyze, or synthesize customer research. Use when the user mentions \"customer research,\" \"ICP research,\" \"talk to customers,\" \"analyze transcripts,\" \"customer intervie",
       "path": "coreyhaines31--marketingskills/skills/customer-research/SKILL.md",
       "remote_path": "skills/customer-research/SKILL.md",
-      "lines": 273,
-      "words": 1808,
+      "lines": 285,
+      "words": 1937,
       "code_blocks": 2,
       "languages": []
     },
@@ -21453,8 +21479,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
-      "lines": 231,
-      "words": 1942,
+      "lines": 237,
+      "words": 1928,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21467,7 +21493,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 463,
-      "words": 4798,
+      "words": 4797,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -24200,6 +24226,54 @@
     {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
+      "path": "stripe--ai/providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
+      "remote_path": "providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
+      "lines": 186,
+      "words": 709,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "html",
+        "javascript",
+        "python",
+        "ruby"
+      ]
+    },
+    {
+      "name": "stripe-projects",
+      "description": ">",
+      "path": "stripe--ai/providers/codex/plugin/skills/stripe-projects/SKILL.md",
+      "remote_path": "providers/codex/plugin/skills/stripe-projects/SKILL.md",
+      "lines": 139,
+      "words": 850,
+      "code_blocks": 8,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-best-practices",
+      "description": ">-",
+      "path": "stripe--ai/providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
+      "remote_path": "providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
+      "lines": 49,
+      "words": 431,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "stripe-directory",
+      "description": ">-",
+      "path": "stripe--ai/providers/codex/plugin/skills/stripe-directory/SKILL.md",
+      "remote_path": "providers/codex/plugin/skills/stripe-directory/SKILL.md",
+      "lines": 78,
+      "words": 793,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "upgrade-stripe",
+      "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/providers/cursor/plugin/skills/upgrade-stripe/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/upgrade-stripe/SKILL.md",
       "lines": 186,
@@ -24388,8 +24462,8 @@
       "description": "\"Use when doing ANY task involving Supabase. Triggers: Supabase products (Database, Auth, Edge Functions, Realtime, Storage, Vectors, Cron, Queues); client libraries and SSR integrations (supabase-js,",
       "path": "supabase--agent-skills/skills/supabase/SKILL.md",
       "remote_path": "skills/supabase/SKILL.md",
-      "lines": 136,
-      "words": 1583,
+      "lines": 146,
+      "words": 1661,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -53427,7 +53501,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-612-semantic-content-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-612-semantic-content-auditor/SKILL.md",
       "lines": 182,
-      "words": 1124,
+      "words": 1139,
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
@@ -53449,7 +53523,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-629-runtime-lifecycle-config-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-629-runtime-lifecycle-config-auditor/SKILL.md",
       "lines": 178,
-      "words": 915,
+      "words": 931,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53460,7 +53534,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-628-concurrency-correctness-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-628-concurrency-correctness-auditor/SKILL.md",
       "lines": 298,
-      "words": 1984,
+      "words": 2000,
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
@@ -53471,7 +53545,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-653-runtime-performance-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-653-runtime-performance-auditor/SKILL.md",
       "lines": 215,
-      "words": 1145,
+      "words": 1161,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53482,7 +53556,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-627-diagnosability-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-627-diagnosability-auditor/SKILL.md",
       "lines": 160,
-      "words": 779,
+      "words": 795,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53504,7 +53578,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-611-docs-structure-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-611-docs-structure-auditor/SKILL.md",
       "lines": 121,
-      "words": 910,
+      "words": 925,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -53514,8 +53588,8 @@
       "description": "\"Checks layer leakage in method signatures, missing DTOs, entity leakage to API, inconsistent error contracts. Use when auditing API contracts.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-643-api-contract-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-643-api-contract-auditor/SKILL.md",
-      "lines": 189,
-      "words": 1081,
+      "lines": 190,
+      "words": 1091,
       "code_blocks": 5,
       "languages": [],
       "license": "MIT"
@@ -53548,7 +53622,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-626-dead-code-pruning-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-626-dead-code-pruning-auditor/SKILL.md",
       "lines": 166,
-      "words": 960,
+      "words": 976,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53621,8 +53695,8 @@
       "description": "\"Audits whether one implemented architectural pattern fits project needs and best practices. Use when checking pattern fitness.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-641-pattern-fitness-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-641-pattern-fitness-auditor/SKILL.md",
-      "lines": 178,
-      "words": 947,
+      "lines": 180,
+      "words": 965,
       "code_blocks": 6,
       "languages": [],
       "license": "MIT"
@@ -53633,7 +53707,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-647-configuration-boundary-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-647-configuration-boundary-auditor/SKILL.md",
       "lines": 143,
-      "words": 783,
+      "words": 799,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -53667,8 +53741,8 @@
       "description": "\"Builds dependency topology, detects cycles, validates import rules, and calculates coupling metrics. Use when auditing architecture topology.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-644-dependency-topology-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-644-dependency-topology-auditor/SKILL.md",
-      "lines": 431,
-      "words": 2063,
+      "lines": 433,
+      "words": 2081,
       "code_blocks": 10,
       "languages": [],
       "license": "MIT"
@@ -53679,7 +53753,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-623-duplication-overabstraction-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-623-duplication-overabstraction-auditor/SKILL.md",
       "lines": 191,
-      "words": 1938,
+      "words": 1954,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53690,7 +53764,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-624-code-maintainability-hotspot-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-624-code-maintainability-hotspot-auditor/SKILL.md",
       "lines": 290,
-      "words": 1949,
+      "words": 1965,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53701,7 +53775,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-654-resource-lifecycle-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-654-resource-lifecycle-auditor/SKILL.md",
       "lines": 338,
-      "words": 2023,
+      "words": 2039,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53712,7 +53786,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-634-test-coverage-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-634-test-coverage-auditor/SKILL.md",
       "lines": 227,
-      "words": 1230,
+      "words": 1246,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53723,7 +53797,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-621-security-boundary-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-621-security-boundary-auditor/SKILL.md",
       "lines": 183,
-      "words": 1081,
+      "words": 1097,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -53734,7 +53808,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-645-architecture-modernization-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-645-architecture-modernization-auditor/SKILL.md",
       "lines": 136,
-      "words": 770,
+      "words": 786,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -53745,7 +53819,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-625-dependency-reuse-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-625-dependency-reuse-auditor/SKILL.md",
       "lines": 215,
-      "words": 1123,
+      "words": 1139,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53755,8 +53829,8 @@
       "description": "\"Checks layer, resource ownership, and orchestration boundaries. Use when auditing architecture boundary enforcement.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-642-layer-ownership-boundary-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-642-layer-ownership-boundary-auditor/SKILL.md",
-      "lines": 284,
-      "words": 1351,
+      "lines": 286,
+      "words": 1369,
       "code_blocks": 8,
       "languages": [],
       "license": "MIT"
@@ -53789,7 +53863,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-646-project-structure-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-646-project-structure-auditor/SKILL.md",
       "lines": 142,
-      "words": 756,
+      "words": 772,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -53799,8 +53873,8 @@
       "description": "\"Checks build, lint, type, test, and CI delivery gate failures. Use when auditing whether the project can reliably ship.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-622-build-delivery-gate-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-622-build-delivery-gate-auditor/SKILL.md",
-      "lines": 189,
-      "words": 1096,
+      "lines": 190,
+      "words": 1139,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53811,7 +53885,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-652-transaction-correctness-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-652-transaction-correctness-auditor/SKILL.md",
       "lines": 241,
-      "words": 1468,
+      "words": 1484,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53822,7 +53896,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-651-query-efficiency-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-651-query-efficiency-auditor/SKILL.md",
       "lines": 215,
-      "words": 1204,
+      "words": 1220,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -53833,7 +53907,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-614-docs-fact-checker/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-614-docs-fact-checker/SKILL.md",
       "lines": 221,
-      "words": 1586,
+      "words": 1601,
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
@@ -54136,8 +54210,8 @@
       "description": "\"Replans Stories by comparing IDEAL vs existing (KEEP/UPDATE/OBSOLETE/CREATE). Use when Epic requirements changed and Stories need realignment.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-222-story-replanner/SKILL.md",
       "remote_path": "plugins/agile-workflow/skills/ln-222-story-replanner/SKILL.md",
-      "lines": 135,
-      "words": 474,
+      "lines": 137,
+      "words": 491,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -54912,8 +54986,8 @@
       "description": "\"Analyzes current or recent session for errors, inefficiencies, and improvement opportunities across skills, tools, hooks, and communication. Use after completing a task or periodically.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-002-session-analyzer/SKILL.md",
       "remote_path": "plugins/setup-environment/skills/ln-002-session-analyzer/SKILL.md",
-      "lines": 276,
-      "words": 1632,
+      "lines": 286,
+      "words": 1758,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -55088,8 +55162,8 @@
       "description": "\"Creates complete project documentation system (project docs, reference, tasks, tests). Use when bootstrapping docs from scratch or regenerating all.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-100-documents-pipeline/SKILL.md",
       "remote_path": "plugins/documentation-pipeline/skills/ln-100-documents-pipeline/SKILL.md",
-      "lines": 740,
-      "words": 4155,
+      "lines": 741,
+      "words": 4168,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -55103,8 +55177,8 @@
       "description": "\"Creates task management docs (kanban board, workflow rules) with configured tracker integration. Use when setting up task tracking for a project.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-130-tasks-docs-creator/SKILL.md",
       "remote_path": "plugins/documentation-pipeline/skills/ln-130-tasks-docs-creator/SKILL.md",
-      "lines": 463,
-      "words": 2102,
+      "lines": 467,
+      "words": 2164,
       "code_blocks": 11,
       "languages": [
         "json",
@@ -120283,6 +120357,19 @@
       ]
     },
     {
+      "name": "github-review-pr",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/github-review-pr/SKILL.md",
+      "remote_path": "github-review-pr/SKILL.md",
+      "lines": 488,
+      "words": 3653,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "text"
+      ]
+    },
+    {
       "name": "local-codex",
       "description": "\"Launch and manage OpenAI Codex CLI (local agent) as a non-interactive coding sub-agent. Use when the user wants to delegate coding tasks to Codex, run code reviews, generate or refactor code, or use ",
       "path": "daymade--claude-code-skills/local-codex/SKILL.md",
@@ -120633,9 +120720,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 466,
-      "words": 6236,
-      "code_blocks": 10,
+      "lines": 493,
+      "words": 7102,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "js",
@@ -120873,6 +120960,18 @@
       "languages": []
     },
     {
+      "name": "photo-to-scanned-pdf",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-docs/photo-to-scanned-pdf/SKILL.md",
+      "remote_path": "daymade-docs/photo-to-scanned-pdf/SKILL.md",
+      "lines": 170,
+      "words": 1290,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "ppt-creator",
       "description": "\"Create professional slide decks from topics or documents. Generates structured content with data-driven charts, speaker notes, and complete PPTX files. Applies persuasive storytelling principles (Pyr",
       "path": "daymade--claude-code-skills/daymade-docs/ppt-creator/SKILL.md",
@@ -121001,8 +121100,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-web-conversation/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-web-conversation/SKILL.md",
-      "lines": 196,
-      "words": 1433,
+      "lines": 254,
+      "words": 1891,
       "code_blocks": 4,
       "languages": [
         "js"
@@ -121201,11 +121300,11 @@
     },
     {
       "name": "skill-creator",
-      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill",
+      "description": "Create new skills, modify and improve existing skills, and measure skill performance. This daymade edition supersedes the official skill-creator plugin \u2014 when both appear in the skill list, always use",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1218,
-      "words": 11716,
+      "lines": 1271,
+      "words": 13155,
       "code_blocks": 42,
       "languages": [
         "bash",
@@ -121240,6 +121339,39 @@
         "markdown",
         "yaml"
       ]
+    },
+    {
+      "name": "<unique-kebab-name>",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-creator/references/reference_template.md",
+      "remote_path": "daymade-skill/skill-creator/references/reference_template.md",
+      "lines": 53,
+      "words": 190,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "mining-target",
+      "description": "A throwaway target skill used by conversation-mining tests.",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-creator/tests/fixtures/mining-target/SKILL.fixture.md",
+      "remote_path": "daymade-skill/skill-creator/tests/fixtures/mining-target/SKILL.fixture.md",
+      "lines": 13,
+      "words": 50,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "examplehub-cli",
+      "description": "Command reference for a fictional CLI used only by tests.",
+      "path": "daymade--claude-code-skills/daymade-skill/skill-creator/tests/fixtures/mining-target/references/examplehub_cli.md",
+      "remote_path": "daymade-skill/skill-creator/tests/fixtures/mining-target/references/examplehub_cli.md",
+      "lines": 17,
+      "words": 47,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "Bug Report",
