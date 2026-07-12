@@ -125,6 +125,7 @@ ARS exposes a few opt-in flags. All default to OFF; setting them changes behavio
 | `ARS_PASSPORT_RESET=1` | v3.6.3 | Promote every FULL checkpoint to a context-reset boundary. Required to *emit* boundary entries; **not** required to invoke `resume_from_passport=<hash>` in a fresh session. With the flag ON in `systematic-review` mode, reset is mandatory at every FULL checkpoint. | `academic-pipeline/references/passport_as_reset_boundary.md` |
 | `ARS_CROSS_MODEL_SAMPLE_INTERVAL` | v3.5.0 | Sampling interval for cross-model integrity checks (advisory) | `shared/cross_model_verification.md` |
 | `ARS_VERIFICATION_CACHE_PATH` | v3.11 | Override the citation-verification cache location (see below). Not an on/off flag — the cache is on by default; this only relocates it. | `scripts/verification_cache.py` |
+| `ARS_MODEL_TIERING` | Unreleased (#517) | Opt-in model tiering: `economy` (frontier session — execution-type agents step down one tier, floor Opus-class) or `quality-boost` (below-frontier session — judgment-type agents jump up to the frontier tier at the checkpoint surfaces: Stage 2.5/4.5 gates, the opt-in Stage 4→5 claim–ref audit, and final review). Unset = session model everywhere; unknown values warn once and behave as unset. | `shared/model_tiering.md` |
 
 ---
 
@@ -154,6 +155,10 @@ export GOOGLE_AI_API_KEY="AIza-your-key-here"    # For Gemini 3.1 Pro
 # Step 2: Choose your cross-verification model
 export ARS_CROSS_MODEL="gpt-5.5"                # Recommended pair (gpt-5.5-pro = strongest reasoning, ~6x cost)
 # or: export ARS_CROSS_MODEL="gemini-3.1-pro-preview"  # Strong at factual verification
+# or: export ARS_CROSS_MODEL="gpt-5.6-sol"      # Frontier, provisional pending ARS validation (same rates as gpt-5.5)
+
+# Optional: reasoning effort for OpenAI verifier calls (unset = provider default)
+# export ARS_CROSS_MODEL_REASONING_EFFORT="medium"
 
 # Step 3: Run Claude Code as normal — cross-verification activates automatically
 claude
@@ -163,9 +168,10 @@ claude
 
 | Feature | Without cross-model | With cross-model |
 |---|---|---|
-| Integrity verification | Single-model 100% check | + 30% sample independently verified by 2nd model |
+| Integrity verification | Single-model 100% check | + risk-stratified verification by 2nd model: 100% of high-impact references (final gate adds 100% of new/changed-claim references) + a sampled remainder |
 | Devil's Advocate | Single-model DA | + Cross-model generates independent critique, novel findings added |
 | Peer Review | 5 reviewers (same model) | Same 5 reviewers + cross-model DA critique/calibration support |
+| Irreversible checkpoints | Single-model decision | + Blind cross-model decision at design freeze + final editorial decision; divergence escalated to you, never averaged |
 
 ### Cost
 

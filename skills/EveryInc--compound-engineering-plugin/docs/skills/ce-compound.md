@@ -43,13 +43,13 @@ Most teams solve the same problem twice — sometimes with the same person — b
 
 ## What Makes It Novel
 
-### 1. Two modes — Full vs Lightweight
+### 1. Two modes — Full vs Lightweight, agent-selected
 
-**Full mode** runs three research subagents in parallel (Context Analyzer / Solution Extractor / Related Docs Finder), then optionally a foreground Session Historian (off by default — searches your prior sessions across Claude Code, Codex, Cursor for related context). Cross-references existing docs, detects duplicates, runs specialized reviews.
+**Full mode** runs three research subagents in parallel (Context Analyzer / Solution Extractor / Related Docs Finder), plus an automatic session-history probe that searches your prior sessions across Claude Code, Codex, and Cursor for related context. Cross-references existing docs, detects duplicates, runs specialized reviews.
 
-**Lightweight mode** does the same documentation in a single pass, no subagents, no cross-referencing. Faster, fewer tokens. Best for simple fixes or when context is tight.
+**Lightweight mode** does the same documentation in a single pass, no subagents, no cross-referencing. Faster, fewer tokens.
 
-User picks the mode explicitly — the skill never auto-selects.
+**The skill picks the mode itself — it does not ask.** Full is the default because its token cost is small next to the work that produced the learning; Lightweight is chosen only under real context pressure (session near its limit, or a trivial fix where cross-referencing adds nothing). Those are conditions the agent can observe and the user can't, so a prompt would just ask you to guess. The skill states which mode it ran, and why, on the first line of its output; if it guessed wrong for your taste, re-running is a cheap correction.
 
 ### 2. Bug track vs knowledge track — different structures for different shapes
 
@@ -88,9 +88,9 @@ After capturing the new learning, `ce-compound` checks whether it should invoke 
 
 Based on the problem type, optional skill-local prompt assets review the documentation: `performance-oracle` for performance issues, `security-sentinel` for security, and `data-integrity-guardian` for database-oriented issues. Code-heavy docs may also get a read-only simplification review of the drafted examples and explanatory claims; this does not invoke `ce-simplify-code` and does not mutate product code.
 
-### 8. Session history integration (opt-in)
+### 8. Session history integration (automatic probe, not a question)
 
-Full mode optionally dispatches a skill-local session-history prompt to search prior sessions across harnesses for related context — what was tried before, what didn't work, key decisions. Findings are folded into "What Didn't Work" (bug track) or "Context" (knowledge track). Off by default because of token cost; the user explicitly opts in.
+Searching prior sessions pays off when an *unrelated* earlier session holds related problem-solving — something neither the agent nor the user can know a priori, which is why it was a poor fit for a yes/no prompt. Full mode instead resolves it with a cheap two-stage probe: a discovery+metadata pass always runs (in parallel with the research subagents, so it's near-free on wall-clock), and it escalates to the expensive extraction+synthesis only when a candidate session clears a relevance bar — a current-branch match or ≥2 topic-keyword hits. On a hit, findings fold into "What Didn't Work" (bug track) or "Context" (knowledge track); on a miss, the run records "no relevant prior sessions" and moves on. The gate is what keeps an always-on probe cheap. Lightweight and headless modes skip it entirely.
 
 ### 9. Auto-invoke triggers
 
@@ -102,9 +102,9 @@ Phrases like "that worked", "it's fixed", "working now", "problem solved" auto-i
 
 You've just spent 45 minutes debugging an N+1 query in the brief-generation flow. You confirm the fix works and say "that worked, ship it."
 
-`ce-compound` auto-invokes (or you call it explicitly). It asks whether to use Full or Lightweight mode, then whether to also search session history. You pick Full, no session history.
+`ce-compound` auto-invokes (or you call it explicitly). With plenty of context left, it silently picks Full mode and notes "Ran Full mode." at the top of its output — no prompt.
 
-Three subagents dispatch in parallel: Context Analyzer reads conversation history, classifies as `performance_issue` (bug track), proposes the filename and category. Solution Extractor structures the fix with before/after code. Related Docs Finder greps `docs/solutions/` for related issues, reports moderate overlap with an older doc on a different N+1 case.
+Three subagents dispatch in parallel: Context Analyzer reads conversation history, classifies as `performance_issue` (bug track), proposes the filename and category. Solution Extractor structures the fix with before/after code. Related Docs Finder greps `docs/solutions/` for related issues, reports moderate overlap with an older doc on a different N+1 case. Alongside them, the session-history probe scans your recent sessions; none clear the relevance bar, so it records "no relevant prior sessions" without paying for synthesis.
 
 The orchestrator assembles the doc, validates frontmatter via the YAML safety script, and writes `docs/solutions/performance-issues/n-plus-one-brief-generation.md`. Grounding validation then runs: the mechanical script confirms every cited path and SHA resolves, and the validator subagent quotes the defining source line behind the doc's claim about the ORM's default batching behavior. The discoverability check finds `AGENTS.md` doesn't mention `docs/solutions/`, proposes a one-line addition to the existing directory listing, and applies it after you confirm.
 
@@ -153,7 +153,7 @@ The skill is its own complete cycle:
 
 - **Just-finished problem** — `/ce-compound` (or auto-invoked from "that worked")
 - **With context hint** — `/ce-compound "the email digest race condition we fixed"`
-- **Lightweight on a long session** — when context is tight, pick lightweight mode at the prompt
+- **Lightweight on a long session** — when context is tight, the skill selects lightweight mode on its own and says so in its output
 
 The auto-invoke triggers happen mid-conversation; you don't need to remember the slash command if you've just confirmed something works.
 
@@ -186,8 +186,8 @@ Auto-invoke triggers: phrases like "that worked", "it's fixed", "working now", "
 
 ## FAQ
 
-**Why two modes?**
-Full mode is for most cases — the parallel subagents catch duplicates, find related docs, and run specialized reviews. Lightweight mode exists for simple fixes or sessions running tight on context, where the deep cross-referencing isn't worth the token cost.
+**Why two modes, and why doesn't it ask me which one?**
+Full mode is for most cases — the parallel subagents catch duplicates, find related docs, and run specialized reviews. Lightweight mode exists for simple fixes or sessions running tight on context, where the deep cross-referencing isn't worth the token cost. The skill picks between them itself rather than prompting, because the deciding factor (how much context budget is left) is something the agent can see and you can't — asking would just make you guess. It reports the choice in its output, and re-running is a cheap correction if it guessed wrong.
 
 **What's the difference between bug track and knowledge track?**
 Bug track captures incident-level fixes — "X broke, here's why and how we fixed it." Knowledge track captures durable guidance — "this is how we do X here, and why." The two have different audiences and structures: bug track has Symptoms / What Didn't Work / Solution; knowledge track has Context / Guidance / When to Apply.

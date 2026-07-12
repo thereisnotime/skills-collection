@@ -10549,7 +10549,7 @@
       "description": "\"Check Compound Engineering health and repo-local config.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 129,
+      "lines": 125,
       "words": 750,
       "code_blocks": 6,
       "languages": [
@@ -10617,13 +10617,25 @@
       ]
     },
     {
+      "name": "ce-babysit-pr",
+      "description": "\"Babysits or watches an open GitHub PR until merge-ready, continuously reacting to new review comments and CI failures throughout the PR's life. Use when asked to 'babysit the PR', 'watch the PR', mon",
+      "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
+      "remote_path": "skills/ce-babysit-pr/SKILL.md",
+      "lines": 186,
+      "words": 6816,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "ce-compound",
       "description": "Document a recently solved problem or durable project vocabulary in docs/solutions/ or CONCEPTS.md. Use when capturing a learning after work.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 759,
-      "words": 8870,
-      "code_blocks": 20,
+      "lines": 733,
+      "words": 9103,
+      "code_blocks": 18,
       "languages": [
         "bash"
       ]
@@ -10633,8 +10645,8 @@
       "description": "'Diagnosis loop for bugs and failing behavior. Use for errors, stack traces, regressions, failed tests, issue-tracker bugs, stuck investigations after failed fixes, or asks to debug/fix a bug.'",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
-      "lines": 310,
-      "words": 4998,
+      "lines": 320,
+      "words": 5249,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -10669,9 +10681,9 @@
       "description": "Run the full hands-off engineering pipeline from planning through a green PR.",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 130,
-      "words": 1770,
-      "code_blocks": 7,
+      "lines": 81,
+      "words": 1598,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -10719,8 +10731,8 @@
       "description": "Resolve PR review feedback. Use when addressing review comments, resolving review threads, or fixing code-review feedback.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-resolve-pr-feedback/SKILL.md",
       "remote_path": "skills/ce-resolve-pr-feedback/SKILL.md",
-      "lines": 54,
-      "words": 574,
+      "lines": 68,
+      "words": 1242,
       "code_blocks": 0,
       "languages": []
     },
@@ -10764,8 +10776,8 @@
       "description": "Commit, push, and open a PR. Use when asked to ship/open a PR, or for PR-description-only flows like writing, rewriting, or describing a PR body.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
-      "lines": 157,
-      "words": 2101,
+      "lines": 152,
+      "words": 2391,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -10835,9 +10847,9 @@
       "description": "Run browser tests for pages affected by the current branch or PR.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-test-browser/SKILL.md",
       "remote_path": "skills/ce-test-browser/SKILL.md",
-      "lines": 299,
-      "words": 1545,
-      "code_blocks": 17,
+      "lines": 242,
+      "words": 1534,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "markdown"
@@ -11489,8 +11501,8 @@
       "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Simulates 5 independent reviewers (EIC + 3 peer reviewers + Devil's Advocate) with field-specific expertise. Supports full revi",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 431,
-      "words": 3242,
+      "lines": 444,
+      "words": 3435,
       "code_blocks": 4,
       "languages": []
     },
@@ -11499,8 +11511,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 486,
-      "words": 5275,
+      "lines": 499,
+      "words": 5500,
       "code_blocks": 4,
       "languages": []
     },
@@ -11509,8 +11521,8 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 549,
-      "words": 3820,
+      "lines": 562,
+      "words": 4035,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -11533,8 +11545,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/agents/research_architect_agent.md",
       "remote_path": "agents/research_architect_agent.md",
-      "lines": 215,
-      "words": 1293,
+      "lines": 233,
+      "words": 1766,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -11559,8 +11571,8 @@
       "description": "\"Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-researc",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
-      "lines": 624,
-      "words": 5171,
+      "lines": 637,
+      "words": 5360,
       "code_blocks": 11,
       "languages": []
     },
@@ -11629,8 +11641,8 @@
       "description": "\"Synthesizes all reviewer reports into a unified editorial decision letter and revision roadmap\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
-      "lines": 408,
-      "words": 3734,
+      "lines": 423,
+      "words": 4175,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -11796,7 +11808,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/socratic_mentor_agent.md",
       "remote_path": "academic-paper/agents/socratic_mentor_agent.md",
       "lines": 528,
-      "words": 4127,
+      "words": 4303,
       "code_blocks": 14,
       "languages": [
         "markdown"
@@ -11845,8 +11857,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/research_architect_agent.md",
       "remote_path": "deep-research/agents/research_architect_agent.md",
-      "lines": 215,
-      "words": 1293,
+      "lines": 233,
+      "words": 1766,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -11955,7 +11967,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/socratic_mentor_agent.md",
       "remote_path": "deep-research/agents/socratic_mentor_agent.md",
       "lines": 725,
-      "words": 7698,
+      "words": 7874,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -12013,8 +12025,8 @@
       "description": "\"Verifies all references, citations, and data for factual accuracy before submission and after revision\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
-      "lines": 691,
-      "words": 6377,
+      "lines": 695,
+      "words": 6569,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -21480,7 +21492,7 @@
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
       "lines": 237,
-      "words": 1928,
+      "words": 1961,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -22739,48 +22751,22 @@
   ],
   "remotion-dev--skills": [
     {
-      "name": "remotion-best-practices",
-      "description": "Best practices and domain knowledge for building videos programmatically with Remotion (videos in React/TypeScript, rendered to MP4). Use whenever writing or editing Remotion code \u2014 scaffolding a vide",
-      "path": "remotion-dev--skills/skills/remotion/SKILL.md",
-      "remote_path": "skills/remotion/SKILL.md",
-      "lines": 365,
-      "words": 1422,
-      "code_blocks": 13,
+      "name": "remotion-captions",
+      "description": "Dealing with captions in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-captions/SKILL.md",
+      "remote_path": "skills/remotion-captions/SKILL.md",
+      "lines": 37,
+      "words": 120,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "tsx"
-      ]
-    },
-    {
-      "name": "trimming",
-      "description": "Trimming patterns for Remotion - cut the beginning or end of animations",
-      "path": "remotion-dev--skills/skills/remotion/rules/trimming.md",
-      "remote_path": "skills/remotion/rules/trimming.md",
-      "lines": 52,
-      "words": 177,
-      "code_blocks": 3,
-      "languages": [
-        "tsx"
-      ]
-    },
-    {
-      "name": "light-leaks",
-      "description": "Light leak overlay effects for Remotion using @remotion/light-leaks.",
-      "path": "remotion-dev--skills/skills/remotion/rules/light-leaks.md",
-      "remote_path": "skills/remotion/rules/light-leaks.md",
-      "lines": 74,
-      "words": 281,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "tsx"
+        "ts"
       ]
     },
     {
       "name": "transcribe-captions",
       "description": "Transcribing audio to generate captions in Remotion",
-      "path": "remotion-dev--skills/skills/remotion/rules/transcribe-captions.md",
-      "remote_path": "skills/remotion/rules/transcribe-captions.md",
+      "path": "remotion-dev--skills/skills/remotion-captions/transcribe-captions.md",
+      "remote_path": "skills/remotion-captions/transcribe-captions.md",
       "lines": 71,
       "words": 211,
       "code_blocks": 2,
@@ -22792,8 +22778,8 @@
     {
       "name": "import-srt-captions",
       "description": "Importing .srt subtitle files into Remotion using @remotion/captions",
-      "path": "remotion-dev--skills/skills/remotion/rules/import-srt-captions.md",
-      "remote_path": "skills/remotion/rules/import-srt-captions.md",
+      "path": "remotion-dev--skills/skills/remotion-captions/import-srt-captions.md",
+      "remote_path": "skills/remotion-captions/import-srt-captions.md",
       "lines": 70,
       "words": 298,
       "code_blocks": 2,
@@ -22803,10 +22789,215 @@
       ]
     },
     {
+      "name": "display-captions",
+      "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
+      "path": "remotion-dev--skills/skills/remotion-captions/display-captions.md",
+      "remote_path": "skills/remotion-captions/display-captions.md",
+      "lines": 185,
+      "words": 658,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-render",
+      "description": "Best practices for rendering videos",
+      "path": "remotion-dev--skills/skills/remotion-render/SKILL.md",
+      "remote_path": "skills/remotion-render/SKILL.md",
+      "lines": 29,
+      "words": 59,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "transparent-videos",
+      "description": "Rendering transparent videos in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-render/transparent-videos.md",
+      "remote_path": "skills/remotion-render/transparent-videos.md",
+      "lines": 107,
+      "words": 225,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "rendering",
+      "description": "Advice on programmatic rendering with Remotion.",
+      "path": "remotion-dev--skills/skills/remotion-saas/rendering.md",
+      "remote_path": "skills/remotion-saas/rendering.md",
+      "lines": 70,
+      "words": 442,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "framework",
+      "description": "Choose a framework for a Remotion-based app.",
+      "path": "remotion-dev--skills/skills/remotion-saas/framework.md",
+      "remote_path": "skills/remotion-saas/framework.md",
+      "lines": 22,
+      "words": 122,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "remotion-saas",
+      "description": "Building video apps with Remotion - framework, rendering and Player advice",
+      "path": "remotion-dev--skills/skills/remotion-saas/SKILL.md",
+      "remote_path": "skills/remotion-saas/SKILL.md",
+      "lines": 35,
+      "words": 167,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "player",
+      "description": "Embed a Remotion preview in a React app with @remotion/player.",
+      "path": "remotion-dev--skills/skills/remotion-saas/player.md",
+      "remote_path": "skills/remotion-saas/player.md",
+      "lines": 34,
+      "words": 102,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "mediabunny",
+      "description": "Multimedia handling with the Mediabunny library",
+      "path": "remotion-dev--skills/skills/mediabunny/SKILL.md",
+      "remote_path": "skills/mediabunny/SKILL.md",
+      "lines": 22,
+      "words": 95,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "get-audio-duration",
+      "description": "Getting the duration of an audio file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/mediabunny/get-audio-duration.md",
+      "remote_path": "skills/mediabunny/get-audio-duration.md",
+      "lines": 59,
+      "words": 177,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-duration",
+      "description": "Getting the duration of a video file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/mediabunny/get-video-duration.md",
+      "remote_path": "skills/mediabunny/get-video-duration.md",
+      "lines": 61,
+      "words": 180,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-dimensions",
+      "description": "Getting the width and height of a video file with Mediabunny",
+      "path": "remotion-dev--skills/skills/mediabunny/get-video-dimensions.md",
+      "remote_path": "skills/mediabunny/get-video-dimensions.md",
+      "lines": 69,
+      "words": 202,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-create",
+      "description": "Creating a new Remotion video",
+      "path": "remotion-dev--skills/skills/remotion-create/SKILL.md",
+      "remote_path": "skills/remotion-create/SKILL.md",
+      "lines": 50,
+      "words": 193,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "tailwind",
+      "description": "Using TailwindCSS in Remotion.",
+      "path": "remotion-dev--skills/skills/remotion-create/tailwind.md",
+      "remote_path": "skills/remotion-create/tailwind.md",
+      "lines": 12,
+      "words": 52,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "video-layout",
+      "description": "Video-first layout, composition, and text sizing guidance for Remotion.",
+      "path": "remotion-dev--skills/skills/remotion-create/video-layout.md",
+      "remote_path": "skills/remotion-create/video-layout.md",
+      "lines": 69,
+      "words": 669,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "remotion-best-practices",
+      "description": "Best practices for Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/SKILL.md",
+      "lines": 35,
+      "words": 163,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "trimming",
+      "description": "Trimming patterns for Remotion - cut the beginning or end of animations",
+      "path": "remotion-dev--skills/skills/remotion-markup/trimming.md",
+      "remote_path": "skills/remotion-markup/trimming.md",
+      "lines": 52,
+      "words": 177,
+      "code_blocks": 3,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-markup",
+      "description": "Best practices for writing Remotion React Markup",
+      "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
+      "remote_path": "skills/remotion-markup/SKILL.md",
+      "lines": 274,
+      "words": 1091,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "light-leaks",
+      "description": "Light leak overlay effects for Remotion using @remotion/light-leaks.",
+      "path": "remotion-dev--skills/skills/remotion-markup/light-leaks.md",
+      "remote_path": "skills/remotion-markup/light-leaks.md",
+      "lines": 74,
+      "words": 281,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
       "name": "3d",
       "description": "3D content in Remotion using Three.js and React Three Fiber.",
-      "path": "remotion-dev--skills/skills/remotion/rules/3d.md",
-      "remote_path": "skills/remotion/rules/3d.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/3d.md",
+      "remote_path": "skills/remotion-markup/3d.md",
       "lines": 87,
       "words": 298,
       "code_blocks": 4,
@@ -22818,8 +23009,8 @@
     {
       "name": "fonts",
       "description": "Loading Google Fonts and local fonts in Remotion",
-      "path": "remotion-dev--skills/skills/remotion/rules/google-fonts.md",
-      "remote_path": "skills/remotion/rules/google-fonts.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/google-fonts.md",
+      "remote_path": "skills/remotion-markup/google-fonts.md",
       "lines": 73,
       "words": 235,
       "code_blocks": 4,
@@ -22829,34 +23020,20 @@
       ]
     },
     {
-      "name": "get-audio-duration",
-      "description": "Getting the duration of an audio file in seconds with Mediabunny",
-      "path": "remotion-dev--skills/skills/remotion/rules/get-audio-duration.md",
-      "remote_path": "skills/remotion/rules/get-audio-duration.md",
-      "lines": 59,
-      "words": 177,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ]
-    },
-    {
-      "name": "get-video-duration",
-      "description": "Getting the duration of a video file in seconds with Mediabunny",
-      "path": "remotion-dev--skills/skills/remotion/rules/get-video-duration.md",
-      "remote_path": "skills/remotion/rules/get-video-duration.md",
-      "lines": 61,
-      "words": 180,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ]
+      "name": "maps",
+      "description": "Choose between simple static maps, Mapbox GL JS maps, and MapLibre GL JS maps for Remotion videos.",
+      "path": "remotion-dev--skills/skills/remotion-markup/map.md",
+      "remote_path": "skills/remotion-markup/map.md",
+      "lines": 16,
+      "words": 98,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "transitions",
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
-      "path": "remotion-dev--skills/skills/remotion/rules/transitions.md",
-      "remote_path": "skills/remotion/rules/transitions.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/transitions.md",
+      "remote_path": "skills/remotion-markup/transitions.md",
       "lines": 198,
       "words": 649,
       "code_blocks": 9,
@@ -22868,8 +23045,8 @@
     {
       "name": "sfx",
       "description": "Including sound effects",
-      "path": "remotion-dev--skills/skills/remotion/rules/sfx.md",
-      "remote_path": "skills/remotion/rules/sfx.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/sfx.md",
+      "remote_path": "skills/remotion-markup/sfx.md",
       "lines": 52,
       "words": 116,
       "code_blocks": 1,
@@ -22880,8 +23057,8 @@
     {
       "name": "ffmpeg",
       "description": "Using FFmpeg and FFprobe in Remotion",
-      "path": "remotion-dev--skills/skills/remotion/rules/ffmpeg.md",
-      "remote_path": "skills/remotion/rules/ffmpeg.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/ffmpeg.md",
+      "remote_path": "skills/remotion-markup/ffmpeg.md",
       "lines": 35,
       "words": 165,
       "code_blocks": 3,
@@ -22891,32 +23068,10 @@
       ]
     },
     {
-      "name": "tailwind",
-      "description": "Using TailwindCSS in Remotion.",
-      "path": "remotion-dev--skills/skills/remotion/rules/tailwind.md",
-      "remote_path": "skills/remotion/rules/tailwind.md",
-      "lines": 12,
-      "words": 56,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "get-video-dimensions",
-      "description": "Getting the width and height of a video file with Mediabunny",
-      "path": "remotion-dev--skills/skills/remotion/rules/get-video-dimensions.md",
-      "remote_path": "skills/remotion/rules/get-video-dimensions.md",
-      "lines": 69,
-      "words": 202,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ]
-    },
-    {
       "name": "voiceover",
       "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
-      "path": "remotion-dev--skills/skills/remotion/rules/voiceover.md",
-      "remote_path": "skills/remotion/rules/voiceover.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/voiceover.md",
+      "remote_path": "skills/remotion-markup/voiceover.md",
       "lines": 100,
       "words": 361,
       "code_blocks": 3,
@@ -22929,10 +23084,10 @@
     {
       "name": "calculate-metadata",
       "description": "Dynamically set composition duration, dimensions, and props",
-      "path": "remotion-dev--skills/skills/remotion/rules/calculate-metadata.md",
-      "remote_path": "skills/remotion/rules/calculate-metadata.md",
-      "lines": 135,
-      "words": 366,
+      "path": "remotion-dev--skills/skills/remotion-markup/calculate-metadata.md",
+      "remote_path": "skills/remotion-markup/calculate-metadata.md",
+      "lines": 137,
+      "words": 393,
       "code_blocks": 6,
       "languages": [
         "tsx"
@@ -22941,8 +23096,8 @@
     {
       "name": "audio-visualization",
       "description": "Audio visualization patterns - spectrum bars, waveforms, bass-reactive effects",
-      "path": "remotion-dev--skills/skills/remotion/rules/audio-visualization.md",
-      "remote_path": "skills/remotion/rules/audio-visualization.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/audio-visualization.md",
+      "remote_path": "skills/remotion-markup/audio-visualization.md",
       "lines": 199,
       "words": 566,
       "code_blocks": 7,
@@ -22952,24 +23107,10 @@
       ]
     },
     {
-      "name": "transparent-videos",
-      "description": "Rendering transparent videos in Remotion",
-      "path": "remotion-dev--skills/skills/remotion/rules/transparent-videos.md",
-      "remote_path": "skills/remotion/rules/transparent-videos.md",
-      "lines": 107,
-      "words": 225,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "ts",
-        "tsx"
-      ]
-    },
-    {
       "name": "measuring-dom-nodes",
       "description": "Measuring DOM element dimensions in Remotion",
-      "path": "remotion-dev--skills/skills/remotion/rules/measuring-dom-nodes.md",
-      "remote_path": "skills/remotion/rules/measuring-dom-nodes.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/measuring-dom-nodes.md",
+      "remote_path": "skills/remotion-markup/measuring-dom-nodes.md",
       "lines": 35,
       "words": 117,
       "code_blocks": 1,
@@ -22980,11 +23121,11 @@
     {
       "name": "compositions",
       "description": "Defining compositions, stills, folders, default props and dynamic metadata",
-      "path": "remotion-dev--skills/skills/remotion/rules/compositions.md",
-      "remote_path": "skills/remotion/rules/compositions.md",
-      "lines": 134,
-      "words": 386,
-      "code_blocks": 5,
+      "path": "remotion-dev--skills/skills/remotion-markup/compositions.md",
+      "remote_path": "skills/remotion-markup/compositions.md",
+      "lines": 109,
+      "words": 402,
+      "code_blocks": 4,
       "languages": [
         "tsx"
       ]
@@ -22992,11 +23133,11 @@
     {
       "name": "timing",
       "description": "Interpolation and timing in Remotion\u2014prefer interpolate with B\u00e9zier easing; springs as a specialized option",
-      "path": "remotion-dev--skills/skills/remotion/rules/timing.md",
-      "remote_path": "skills/remotion/rules/timing.md",
-      "lines": 163,
-      "words": 758,
-      "code_blocks": 10,
+      "path": "remotion-dev--skills/skills/remotion-markup/timing.md",
+      "remote_path": "skills/remotion-markup/timing.md",
+      "lines": 162,
+      "words": 775,
+      "code_blocks": 9,
       "languages": [
         "ts",
         "tsx"
@@ -23005,8 +23146,8 @@
     {
       "name": "parameters",
       "description": "Make a video parametrizable by adding a Zod schema",
-      "path": "remotion-dev--skills/skills/remotion/rules/parameters.md",
-      "remote_path": "skills/remotion/rules/parameters.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/parameters.md",
+      "remote_path": "skills/remotion-markup/parameters.md",
       "lines": 110,
       "words": 334,
       "code_blocks": 9,
@@ -23016,23 +23157,10 @@
       ]
     },
     {
-      "name": "videos",
-      "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
-      "path": "remotion-dev--skills/skills/remotion/rules/videos.md",
-      "remote_path": "skills/remotion/rules/videos.md",
-      "lines": 172,
-      "words": 486,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "tsx"
-      ]
-    },
-    {
       "name": "effects",
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
-      "path": "remotion-dev--skills/skills/remotion/rules/effects.md",
-      "remote_path": "skills/remotion/rules/effects.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
+      "remote_path": "skills/remotion-markup/effects.md",
       "lines": 236,
       "words": 922,
       "code_blocks": 6,
@@ -23043,22 +23171,10 @@
       ]
     },
     {
-      "name": "subtitles",
-      "description": "subtitles and caption rules",
-      "path": "remotion-dev--skills/skills/remotion/rules/subtitles.md",
-      "remote_path": "skills/remotion/rules/subtitles.md",
-      "lines": 37,
-      "words": 119,
-      "code_blocks": 2,
-      "languages": [
-        "ts"
-      ]
-    },
-    {
       "name": "lottie",
       "description": "Embedding Lottie animations in Remotion.",
-      "path": "remotion-dev--skills/skills/remotion/rules/lottie.md",
-      "remote_path": "skills/remotion/rules/lottie.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/lottie.md",
+      "remote_path": "skills/remotion-markup/lottie.md",
       "lines": 71,
       "words": 226,
       "code_blocks": 3,
@@ -23068,20 +23184,37 @@
       ]
     },
     {
-      "name": "text-animations",
-      "description": "Typography and text animation patterns for Remotion.",
-      "path": "remotion-dev--skills/skills/remotion/rules/text-animations.md",
-      "remote_path": "skills/remotion/rules/text-animations.md",
-      "lines": 21,
-      "words": 88,
-      "code_blocks": 0,
-      "languages": []
+      "name": "maps-mapbox",
+      "description": "Make deterministic Remotion map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, flyovers, map markers, labels, camera movement, or Mapbox styles.",
+      "path": "remotion-dev--skills/skills/remotion-markup/mapbox.md",
+      "remote_path": "skills/remotion-markup/mapbox.md",
+      "lines": 443,
+      "words": 1418,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "embedding-videos",
+      "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
+      "path": "remotion-dev--skills/skills/remotion-markup/embedding-videos.md",
+      "remote_path": "skills/remotion-markup/embedding-videos.md",
+      "lines": 172,
+      "words": 485,
+      "code_blocks": 13,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
     },
     {
       "name": "sequencing",
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
-      "path": "remotion-dev--skills/skills/remotion/rules/sequencing.md",
-      "remote_path": "skills/remotion/rules/sequencing.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/sequencing.md",
+      "remote_path": "skills/remotion-markup/sequencing.md",
       "lines": 145,
       "words": 399,
       "code_blocks": 8,
@@ -23090,20 +23223,10 @@
       ]
     },
     {
-      "name": "video-layout",
-      "description": "Video-first layout, composition, and text sizing guidance for Remotion.",
-      "path": "remotion-dev--skills/skills/remotion/rules/video-layout.md",
-      "remote_path": "skills/remotion/rules/video-layout.md",
-      "lines": 69,
-      "words": 669,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "audio",
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
-      "path": "remotion-dev--skills/skills/remotion/rules/audio.md",
-      "remote_path": "skills/remotion/rules/audio.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/audio.md",
+      "remote_path": "skills/remotion-markup/audio.md",
       "lines": 170,
       "words": 523,
       "code_blocks": 12,
@@ -23115,8 +23238,8 @@
     {
       "name": "gif",
       "description": "Displaying GIFs, APNG, AVIF and WebP in Remotion",
-      "path": "remotion-dev--skills/skills/remotion/rules/gifs.md",
-      "remote_path": "skills/remotion/rules/gifs.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/gifs.md",
+      "remote_path": "skills/remotion-markup/gifs.md",
       "lines": 142,
       "words": 444,
       "code_blocks": 11,
@@ -23126,23 +23249,10 @@
       ]
     },
     {
-      "name": "display-captions",
-      "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
-      "path": "remotion-dev--skills/skills/remotion/rules/display-captions.md",
-      "remote_path": "skills/remotion/rules/display-captions.md",
-      "lines": 185,
-      "words": 658,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "tsx"
-      ]
-    },
-    {
       "name": "silence-detection",
       "description": "Adaptive silence detection for video/audio files using FFmpeg loudnorm and silencedetect",
-      "path": "remotion-dev--skills/skills/remotion/rules/silence-detection.md",
-      "remote_path": "skills/remotion/rules/silence-detection.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/silence-detection.md",
+      "remote_path": "skills/remotion-markup/silence-detection.md",
       "lines": 72,
       "words": 349,
       "code_blocks": 4,
@@ -23154,8 +23264,8 @@
     {
       "name": "measuring-text",
       "description": "Measuring text dimensions, fitting text to containers, and checking overflow",
-      "path": "remotion-dev--skills/skills/remotion/rules/measuring-text.md",
-      "remote_path": "skills/remotion/rules/measuring-text.md",
+      "path": "remotion-dev--skills/skills/remotion-markup/measuring-text.md",
+      "remote_path": "skills/remotion-markup/measuring-text.md",
       "lines": 141,
       "words": 372,
       "code_blocks": 8,
@@ -23165,18 +23275,566 @@
       ]
     },
     {
-      "name": "maps",
-      "description": "Make deterministic Remotion map animations with MapLibre GL JS and Turf. Use for animated routes, flyovers, map markers, labels, and camera movement.",
-      "path": "remotion-dev--skills/skills/remotion/rules/maplibre.md",
-      "remote_path": "skills/remotion/rules/maplibre.md",
+      "name": "maps-maplibre",
+      "description": "Make deterministic Remotion map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, flyovers, map markers, labels, and camera movement.",
+      "path": "remotion-dev--skills/skills/remotion-markup/maplibre.md",
+      "remote_path": "skills/remotion-markup/maplibre.md",
       "lines": 459,
-      "words": 1371,
+      "words": 1376,
       "code_blocks": 14,
       "languages": [
         "bash",
         "ts",
         "tsx"
       ]
+    },
+    {
+      "name": "remotion-interactivity",
+      "description": "Best practices for writing Remotion animations that stay intuitive for agents and editable in Remotion Studio Visual Mode.",
+      "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
+      "remote_path": "skills/remotion-interactivity/SKILL.md",
+      "lines": 15,
+      "words": 56,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "remotion-captions",
+      "description": "Dealing with captions in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/remotion-captions/SKILL.md",
+      "lines": 37,
+      "words": 120,
+      "code_blocks": 2,
+      "languages": [
+        "ts"
+      ]
+    },
+    {
+      "name": "transcribe-captions",
+      "description": "Transcribing audio to generate captions in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/transcribe-captions.md",
+      "remote_path": "skills/remotion-best-practices/remotion-captions/transcribe-captions.md",
+      "lines": 71,
+      "words": 211,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "ts"
+      ]
+    },
+    {
+      "name": "import-srt-captions",
+      "description": "Importing .srt subtitle files into Remotion using @remotion/captions",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/import-srt-captions.md",
+      "remote_path": "skills/remotion-best-practices/remotion-captions/import-srt-captions.md",
+      "lines": 70,
+      "words": 298,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "display-captions",
+      "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/display-captions.md",
+      "remote_path": "skills/remotion-best-practices/remotion-captions/display-captions.md",
+      "lines": 185,
+      "words": 658,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-render",
+      "description": "Best practices for rendering videos",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/remotion-render/SKILL.md",
+      "lines": 29,
+      "words": 59,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "transparent-videos",
+      "description": "Rendering transparent videos in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/transparent-videos.md",
+      "remote_path": "skills/remotion-best-practices/remotion-render/transparent-videos.md",
+      "lines": 107,
+      "words": 225,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "rendering",
+      "description": "Advice on programmatic rendering with Remotion.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/rendering.md",
+      "remote_path": "skills/remotion-best-practices/remotion-saas/rendering.md",
+      "lines": 70,
+      "words": 442,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "framework",
+      "description": "Choose a framework for a Remotion-based app.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/framework.md",
+      "remote_path": "skills/remotion-best-practices/remotion-saas/framework.md",
+      "lines": 22,
+      "words": 122,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "remotion-saas",
+      "description": "Building video apps with Remotion - framework, rendering and Player advice",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/remotion-saas/SKILL.md",
+      "lines": 35,
+      "words": 167,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "player",
+      "description": "Embed a Remotion preview in a React app with @remotion/player.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/player.md",
+      "remote_path": "skills/remotion-best-practices/remotion-saas/player.md",
+      "lines": 34,
+      "words": 102,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "mediabunny",
+      "description": "Multimedia handling with the Mediabunny library",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/mediabunny/SKILL.md",
+      "lines": 22,
+      "words": 95,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "get-audio-duration",
+      "description": "Getting the duration of an audio file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-audio-duration.md",
+      "remote_path": "skills/remotion-best-practices/mediabunny/get-audio-duration.md",
+      "lines": 59,
+      "words": 177,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-duration",
+      "description": "Getting the duration of a video file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-video-duration.md",
+      "remote_path": "skills/remotion-best-practices/mediabunny/get-video-duration.md",
+      "lines": 61,
+      "words": 180,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-dimensions",
+      "description": "Getting the width and height of a video file with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-video-dimensions.md",
+      "remote_path": "skills/remotion-best-practices/mediabunny/get-video-dimensions.md",
+      "lines": 69,
+      "words": 202,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-create",
+      "description": "Creating a new Remotion video",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/remotion-create/SKILL.md",
+      "lines": 50,
+      "words": 193,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "tailwind",
+      "description": "Using TailwindCSS in Remotion.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/tailwind.md",
+      "remote_path": "skills/remotion-best-practices/remotion-create/tailwind.md",
+      "lines": 12,
+      "words": 52,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "video-layout",
+      "description": "Video-first layout, composition, and text sizing guidance for Remotion.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/video-layout.md",
+      "remote_path": "skills/remotion-best-practices/remotion-create/video-layout.md",
+      "lines": 69,
+      "words": 669,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "trimming",
+      "description": "Trimming patterns for Remotion - cut the beginning or end of animations",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/trimming.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/trimming.md",
+      "lines": 52,
+      "words": 177,
+      "code_blocks": 3,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-markup",
+      "description": "Best practices for writing Remotion React Markup",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/SKILL.md",
+      "lines": 274,
+      "words": 1091,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "light-leaks",
+      "description": "Light leak overlay effects for Remotion using @remotion/light-leaks.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/light-leaks.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/light-leaks.md",
+      "lines": 74,
+      "words": 281,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "3d",
+      "description": "3D content in Remotion using Three.js and React Three Fiber.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/3d.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/3d.md",
+      "lines": 87,
+      "words": 298,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "fonts",
+      "description": "Loading Google Fonts and local fonts in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/google-fonts.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/google-fonts.md",
+      "lines": 73,
+      "words": 235,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "maps",
+      "description": "Choose between simple static maps, Mapbox GL JS maps, and MapLibre GL JS maps for Remotion videos.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/map.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/map.md",
+      "lines": 16,
+      "words": 98,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "transitions",
+      "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/transitions.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/transitions.md",
+      "lines": 198,
+      "words": 649,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "sfx",
+      "description": "Including sound effects",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/sfx.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/sfx.md",
+      "lines": 52,
+      "words": 116,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "ffmpeg",
+      "description": "Using FFmpeg and FFprobe in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/ffmpeg.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/ffmpeg.md",
+      "lines": 35,
+      "words": 165,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "voiceover",
+      "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/voiceover.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/voiceover.md",
+      "lines": 100,
+      "words": 361,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "calculate-metadata",
+      "description": "Dynamically set composition duration, dimensions, and props",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/calculate-metadata.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/calculate-metadata.md",
+      "lines": 137,
+      "words": 393,
+      "code_blocks": 6,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "audio-visualization",
+      "description": "Audio visualization patterns - spectrum bars, waveforms, bass-reactive effects",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio-visualization.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/audio-visualization.md",
+      "lines": 199,
+      "words": 566,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "measuring-dom-nodes",
+      "description": "Measuring DOM element dimensions in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/measuring-dom-nodes.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/measuring-dom-nodes.md",
+      "lines": 35,
+      "words": 117,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "compositions",
+      "description": "Defining compositions, stills, folders, default props and dynamic metadata",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/compositions.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/compositions.md",
+      "lines": 109,
+      "words": 402,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "timing",
+      "description": "Interpolation and timing in Remotion\u2014prefer interpolate with B\u00e9zier easing; springs as a specialized option",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/timing.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/timing.md",
+      "lines": 162,
+      "words": 775,
+      "code_blocks": 9,
+      "languages": [
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "parameters",
+      "description": "Make a video parametrizable by adding a Zod schema",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/parameters.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/parameters.md",
+      "lines": 110,
+      "words": 334,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "effects",
+      "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
+      "lines": 236,
+      "words": 922,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "lottie",
+      "description": "Embedding Lottie animations in Remotion.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/lottie.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/lottie.md",
+      "lines": 71,
+      "words": 226,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "maps-mapbox",
+      "description": "Make deterministic Remotion map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, flyovers, map markers, labels, camera movement, or Mapbox styles.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/mapbox.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/mapbox.md",
+      "lines": 443,
+      "words": 1418,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "embedding-videos",
+      "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/embedding-videos.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/embedding-videos.md",
+      "lines": 172,
+      "words": 485,
+      "code_blocks": 13,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "sequencing",
+      "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/sequencing.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/sequencing.md",
+      "lines": 145,
+      "words": 399,
+      "code_blocks": 8,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "audio",
+      "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/audio.md",
+      "lines": 170,
+      "words": 523,
+      "code_blocks": 12,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "gif",
+      "description": "Displaying GIFs, APNG, AVIF and WebP in Remotion",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/gifs.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/gifs.md",
+      "lines": 142,
+      "words": 444,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "silence-detection",
+      "description": "Adaptive silence detection for video/audio files using FFmpeg loudnorm and silencedetect",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/silence-detection.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/silence-detection.md",
+      "lines": 72,
+      "words": 349,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "measuring-text",
+      "description": "Measuring text dimensions, fitting text to containers, and checking overflow",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/measuring-text.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/measuring-text.md",
+      "lines": 141,
+      "words": 372,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "maps-maplibre",
+      "description": "Make deterministic Remotion map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, flyovers, map markers, labels, and camera movement.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/maplibre.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/maplibre.md",
+      "lines": 459,
+      "words": 1376,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-interactivity",
+      "description": "Best practices for writing Remotion animations that stay intuitive for agents and editable in Remotion Studio Visual Mode.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/SKILL.md",
+      "remote_path": "skills/remotion-best-practices/remotion-interactivity/SKILL.md",
+      "lines": 15,
+      "words": 56,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "replicate--skills": [
@@ -53486,1725 +54144,172 @@
   "BehiSecc--awesome-claude-skills": [],
   "levnikolaevich--claude-code-skills": [
     {
-      "name": "hex-line",
-      "description": "hex-line MCP tool preferences with compact coding style",
-      "path": "levnikolaevich--claude-code-skills/mcp/hex-line-mcp/output-style.md",
-      "remote_path": "mcp/hex-line-mcp/output-style.md",
-      "lines": 90,
-      "words": 956,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "ln-612-semantic-content-auditor",
-      "description": "\"Checks document semantic content against SCOPE and project goals, coverage gaps, off-topic content, SSOT. Use when auditing documentation relevance.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-612-semantic-content-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-612-semantic-content-auditor/SKILL.md",
-      "lines": 182,
-      "words": 1139,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-633-test-value-auditor",
-      "description": "\"Scores each test by portfolio value and returns KEEP/DELETE/MERGE/REWRITE. Use when pruning test-suite cost.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-633-test-value-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-633-test-value-auditor/SKILL.md",
-      "lines": 212,
-      "words": 1160,
-      "code_blocks": 5,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-629-runtime-lifecycle-config-auditor",
-      "description": "\"Checks runtime lifecycle and config validation: bootstrap, shutdown, probes, cleanup, env sync, and fail-fast startup. Use for runtime readiness.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-629-runtime-lifecycle-config-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-629-runtime-lifecycle-config-auditor/SKILL.md",
-      "lines": 178,
-      "words": 931,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-628-concurrency-correctness-auditor",
-      "description": "\"Checks races, deadlocks, async hazards, TOCTOU, blocking I/O, and shared resource contention. Use when auditing concurrency correctness.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-628-concurrency-correctness-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-628-concurrency-correctness-auditor/SKILL.md",
-      "lines": 298,
-      "words": 2000,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-653-runtime-performance-auditor",
-      "description": "\"Checks blocking IO in async, unnecessary allocations, sync sleep, string concat in loops, redundant copies. Use when auditing runtime performance.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-653-runtime-performance-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-653-runtime-performance-auditor/SKILL.md",
-      "lines": 215,
-      "words": 1161,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-627-diagnosability-auditor",
-      "description": "\"Checks diagnosability through structured logs, metrics, traces, correlation IDs, and useful log levels. Use when auditing incident visibility.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-627-diagnosability-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-627-diagnosability-auditor/SKILL.md",
-      "lines": 160,
-      "words": 795,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-631-test-business-logic-auditor",
-      "description": "\"Detects tests proving platform behavior instead of local product behavior. Use when auditing product-behavior focus.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-631-test-business-logic-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-631-test-business-logic-auditor/SKILL.md",
-      "lines": 180,
-      "words": 913,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-611-docs-structure-auditor",
-      "description": "\"Checks hierarchy, links, SSOT, compression, requirements compliance, freshness, legacy cleanup. Use when auditing documentation structure.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-611-docs-structure-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-611-docs-structure-auditor/SKILL.md",
-      "lines": 121,
-      "words": 925,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-643-api-contract-auditor",
-      "description": "\"Checks layer leakage in method signatures, missing DTOs, entity leakage to API, inconsistent error contracts. Use when auditing API contracts.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-643-api-contract-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-643-api-contract-auditor/SKILL.md",
-      "lines": 190,
-      "words": 1091,
-      "code_blocks": 5,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-613-code-comments-auditor",
-      "description": "\"Checks inline code documentation quality: WHY-not-WHAT, density, forbidden content, docstrings quality, actuality, legacy cleanup. Use when auditing comments and docstrings.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-613-code-comments-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-613-code-comments-auditor/SKILL.md",
-      "lines": 116,
-      "words": 722,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-637-test-structure-auditor",
-      "description": "\"Audits test maintainability and structure: layout drift, orphan tests, fragmented duplicates, test-to-source mapping, and domain grouping. Use when auditing test suite organization.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-637-test-structure-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-637-test-structure-auditor/SKILL.md",
-      "lines": 256,
-      "words": 1602,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-626-dead-code-pruning-auditor",
-      "description": "\"Finds code that can be safely deleted: unreachable, unused, obsolete compatibility, and commented-out code. Use when pruning dead code.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-626-dead-code-pruning-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-626-dead-code-pruning-auditor/SKILL.md",
-      "lines": 166,
-      "words": 976,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-650-persistence-performance-auditor",
-      "description": "\"Use when auditing persistence and runtime performance through the evaluation platform with mandatory research, coordinated data-layer workers, and structured summaries.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-650-persistence-performance-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-650-persistence-performance-auditor/SKILL.md",
-      "lines": 113,
-      "words": 480,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-610-docs-auditor",
-      "description": "\"Use when auditing project documentation through the evaluation platform with mandatory research, coordinated audit workers, and structured summaries.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-610-docs-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-610-docs-auditor/SKILL.md",
-      "lines": 149,
-      "words": 590,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-620-codebase-auditor",
-      "description": "\"Use when auditing the codebase through the evaluation platform with mandatory research, coordinated domain audit workers, and structured summaries.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-620-codebase-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-620-codebase-auditor/SKILL.md",
-      "lines": 161,
-      "words": 667,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-640-pattern-evolution-auditor",
-      "description": "\"Use when auditing architectural patterns through the evaluation platform with mandatory best-practice research, coordinated pattern workers, and structured summaries.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-640-pattern-evolution-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-640-pattern-evolution-auditor/SKILL.md",
-      "lines": 131,
-      "words": 590,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-635-test-isolation-auditor",
-      "description": "\"Audits whether test results can be trusted: flakiness, isolation, real external dependencies, time/random/order dependency, and shared state. Use when auditing test trustworthiness.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-635-test-isolation-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-635-test-isolation-auditor/SKILL.md",
-      "lines": 311,
-      "words": 1393,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-641-pattern-fitness-auditor",
-      "description": "\"Audits whether one implemented architectural pattern fits project needs and best practices. Use when checking pattern fitness.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-641-pattern-fitness-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-641-pattern-fitness-auditor/SKILL.md",
-      "lines": 180,
-      "words": 965,
-      "code_blocks": 6,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-647-configuration-boundary-auditor",
-      "description": "\"Audits architecture config boundaries: typed settings, scattered env reads, config leakage, and layer ownership. Use for config architecture.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-647-configuration-boundary-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-647-configuration-boundary-auditor/SKILL.md",
-      "lines": 143,
-      "words": 799,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-636-manual-test-auditor",
-      "description": "\"Audits manual test evidence quality: reproducibility, fail-fast behavior, expected evidence/golden files, idempotency, and documentation. Use when auditing manual tests.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-636-manual-test-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-636-manual-test-auditor/SKILL.md",
-      "lines": 232,
-      "words": 1201,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-630-test-auditor",
-      "description": "\"Use when auditing the test surface through the evaluation platform with mandatory research, coordinated test audit workers, and structured summaries.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-630-test-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-630-test-auditor/SKILL.md",
-      "lines": 125,
-      "words": 571,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-644-dependency-topology-auditor",
-      "description": "\"Builds dependency topology, detects cycles, validates import rules, and calculates coupling metrics. Use when auditing architecture topology.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-644-dependency-topology-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-644-dependency-topology-auditor/SKILL.md",
-      "lines": 433,
-      "words": 2081,
-      "code_blocks": 10,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-623-duplication-overabstraction-auditor",
-      "description": "\"Checks evidence-backed duplication, over-abstraction, and unused extensibility. Use when auditing DRY/KISS/YAGNI risk.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-623-duplication-overabstraction-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-623-duplication-overabstraction-auditor/SKILL.md",
-      "lines": 191,
-      "words": 1954,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-624-code-maintainability-hotspot-auditor",
-      "description": "\"Checks local maintainability hotspots: complexity, long methods, god modules, signatures, algorithms, and constants. Also flags identifier drift across API/DTO/DB layers. Use when auditing code hotsp",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-624-code-maintainability-hotspot-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-624-code-maintainability-hotspot-auditor/SKILL.md",
-      "lines": 290,
-      "words": 1965,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-654-resource-lifecycle-auditor",
-      "description": "\"Checks session scope mismatch, missing cleanup, pool config, error path leaks, resource holding. Use when auditing resource lifecycle.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-654-resource-lifecycle-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-654-resource-lifecycle-auditor/SKILL.md",
-      "lines": 338,
-      "words": 2039,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-634-test-coverage-auditor",
-      "description": "\"Identifies missing tests for unique critical local logic: money, auth, permissions, data integrity, algorithms, and domain rules. Use when auditing critical logic coverage gaps.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-634-test-coverage-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-634-test-coverage-auditor/SKILL.md",
-      "lines": 227,
-      "words": 1246,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-621-security-boundary-auditor",
-      "description": "\"Checks application security boundaries: secrets, injection, XSS, input validation, and sensitive env defaults. Use when auditing exploitable code paths.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-621-security-boundary-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-621-security-boundary-auditor/SKILL.md",
-      "lines": 183,
-      "words": 1097,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-645-architecture-modernization-auditor",
-      "description": "\"Finds architecture-level modernization opportunities: obsolete custom mechanisms, overbuilt extension points, and simplifiable architecture. Use when auditing architecture evolution.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-645-architecture-modernization-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-645-architecture-modernization-auditor/SKILL.md",
-      "lines": 136,
-      "words": 786,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-625-dependency-reuse-auditor",
-      "description": "\"Checks dependency health and generic custom utility/integration replacement opportunities. Use when auditing dependency and reuse risk.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-625-dependency-reuse-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-625-dependency-reuse-auditor/SKILL.md",
-      "lines": 215,
-      "words": 1139,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-642-layer-ownership-boundary-auditor",
-      "description": "\"Checks layer, resource ownership, and orchestration boundaries. Use when auditing architecture boundary enforcement.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-642-layer-ownership-boundary-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-642-layer-ownership-boundary-auditor/SKILL.md",
-      "lines": 286,
-      "words": 1369,
-      "code_blocks": 8,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-632-test-e2e-priority-auditor",
-      "description": "\"Audits E2E coverage for critical user-visible journeys and wasteful E2E tests. Use when reviewing E2E journey value.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-632-test-e2e-priority-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-632-test-e2e-priority-auditor/SKILL.md",
-      "lines": 176,
-      "words": 1032,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-638-test-oracle-effectiveness-auditor",
-      "description": "\"Audits assertion strength and test oracles that prove real defects. Use when finding weak tests that execute code but prove little.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-638-test-oracle-effectiveness-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-638-test-oracle-effectiveness-auditor/SKILL.md",
-      "lines": 192,
-      "words": 1171,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-646-project-structure-auditor",
-      "description": "\"Audits physical architecture structure: modules, domains, layer layout, junk drawers, and framework placement. Use for structure drift.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-646-project-structure-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-646-project-structure-auditor/SKILL.md",
-      "lines": 142,
-      "words": 772,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-622-build-delivery-gate-auditor",
-      "description": "\"Checks build, lint, type, test, and CI delivery gate failures. Use when auditing whether the project can reliably ship.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-622-build-delivery-gate-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-622-build-delivery-gate-auditor/SKILL.md",
-      "lines": 190,
-      "words": 1139,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-652-transaction-correctness-auditor",
-      "description": "\"Checks transaction scope, missing rollback handling, long-held transactions, trigger/notify interaction. Use when auditing transaction correctness.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-652-transaction-correctness-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-652-transaction-correctness-auditor/SKILL.md",
-      "lines": 241,
-      "words": 1484,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-651-query-efficiency-auditor",
-      "description": "\"Checks redundant fetches, N+1 loops, over-fetching, missing bulk operations, wrong caching scope. Use when auditing query efficiency.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-651-query-efficiency-auditor/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-651-query-efficiency-auditor/SKILL.md",
-      "lines": 215,
-      "words": 1220,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-614-docs-fact-checker",
-      "description": "\"Verifies claims in .md files (paths, versions, counts, configs, endpoints) against codebase, cross-checks contradictions. Use when auditing docs accuracy.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-614-docs-fact-checker/SKILL.md",
-      "remote_path": "plugins/codebase-audit-suite/skills/ln-614-docs-fact-checker/SKILL.md",
-      "lines": 221,
-      "words": 1601,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-310-multi-agent-validator",
-      "description": "\"Use when validating Stories, plans, or tasks through the evaluation platform with mandatory research, parallel evidence lanes, sequential merge, and bounded refinement. Modes: story | plan_review.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-310-multi-agent-validator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-310-multi-agent-validator/SKILL.md",
-      "lines": 396,
-      "words": 1863,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-316-review-refinement-worker",
-      "description": "\"Use when an evaluation run requires bounded iterative refinement with trace and cleanup evidence.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-316-review-refinement-worker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-316-review-refinement-worker/SKILL.md",
-      "lines": 175,
-      "words": 924,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-230-story-prioritizer",
-      "description": "\"RICE-scores Stories with market research and generates prioritization table. Use when Stories need business priority ranking for sprint planning.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-230-story-prioritizer/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-230-story-prioritizer/SKILL.md",
-      "lines": 566,
-      "words": 2462,
-      "code_blocks": 19,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-220-story-coordinator",
-      "description": "\"Creates, replans, or appends 5-10 Stories per Epic with standards research and multi-epic routing. Use when Epic needs Story decomposition.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-220-story-coordinator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-220-story-coordinator/SKILL.md",
-      "lines": 276,
-      "words": 1156,
-      "code_blocks": 2,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-221-story-creator",
-      "description": "\"Creates Story documents with 9-section structure and INVEST validation via the configured tracker provider. Use when Epic has an IDEAL plan ready for Story generation.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-221-story-creator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-221-story-creator/SKILL.md",
-      "lines": 138,
-      "words": 515,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-404-test-executor",
-      "description": "\"Executes test tasks (label 'tests') through Todo to To Review with risk-based limits. Use for test task execution. Not for implementation tasks.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-404-test-executor/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-404-test-executor/SKILL.md",
-      "lines": 149,
-      "words": 1163,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-403-task-rework",
-      "description": "\"Fixes tasks in To Rework by applying reviewer feedback, then returns to To Review. Use when task was rejected during review.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-403-task-rework/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-403-task-rework/SKILL.md",
-      "lines": 88,
-      "words": 747,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-1000-pipeline-orchestrator",
-      "description": "\"Drives a Story through full pipeline (tasks, validation, execution, quality). Use when executing a Story end-to-end from kanban board.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-1000-pipeline-orchestrator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-1000-pipeline-orchestrator/SKILL.md",
-      "lines": 610,
-      "words": 3626,
-      "code_blocks": 14,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-210-epic-coordinator",
-      "description": "\"Creates or replans 3-7 Epics from scope using Decompose-First pattern. Use when initiative needs Epic-level breakdown or Epic scope changed.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-210-epic-coordinator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-210-epic-coordinator/SKILL.md",
-      "lines": 628,
-      "words": 3480,
-      "code_blocks": 5,
-      "languages": [
-        "html",
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-400-story-executor",
-      "description": "\"Executes Story tasks in priority order (To Review, To Rework, Todo). Use when Story has planned tasks ready for implementation.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-400-story-executor/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-400-story-executor/SKILL.md",
-      "lines": 331,
-      "words": 1867,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "javascript"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-401-task-executor",
-      "description": "\"Executes implementation tasks through Todo, In Progress, To Review. Use when task needs coding with KISS/YAGNI. Not for test tasks.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-401-task-executor/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-401-task-executor/SKILL.md",
-      "lines": 193,
-      "words": 1892,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-200-scope-decomposer",
-      "description": "\"Decomposes scope into Epics, Stories, and RICE priorities. Use when user has project scope and wants full Agile breakdown.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-200-scope-decomposer/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-200-scope-decomposer/SKILL.md",
-      "lines": 527,
-      "words": 2750,
-      "code_blocks": 12,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-520-test-planner",
-      "description": "\"Orchestrates test planning pipeline: research, manual testing, automated test planning. Use when Story needs comprehensive test coverage planning.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-520-test-planner/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-520-test-planner/SKILL.md",
-      "lines": 254,
-      "words": 1292,
-      "code_blocks": 3,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-511-code-quality-checker",
-      "description": "\"Checks DRY/KISS/YAGNI/architecture compliance with quantitative Code Quality Score. Use when implementation tasks are Done and need quality scoring.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-511-code-quality-checker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-511-code-quality-checker/SKILL.md",
-      "lines": 249,
-      "words": 2090,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-521-test-researcher",
-      "description": "\"Researches real-world problems, competitor solutions, and customer complaints for a feature domain. Use before test planning to ground tests in actual user pain points.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-521-test-researcher/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-521-test-researcher/SKILL.md",
-      "lines": 190,
-      "words": 884,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-312-review-findings-worker",
-      "description": "\"Use when an evaluation coordinator needs normalized findings from target artifacts and research evidence.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-312-review-findings-worker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-312-review-findings-worker/SKILL.md",
-      "lines": 147,
-      "words": 633,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-402-task-reviewer",
-      "description": "\"Reviews task implementation for quality, code standards, and test coverage. Use when task is in To Review. Sets task Done or To Rework.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-402-task-reviewer/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-402-task-reviewer/SKILL.md",
-      "lines": 285,
-      "words": 2642,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-513-regression-checker",
-      "description": "\"Runs existing test suite to catch regressions after implementation changes. Use when Story needs regression verification. No status changes.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-513-regression-checker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-513-regression-checker/SKILL.md",
-      "lines": 94,
-      "words": 464,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-300-task-coordinator",
-      "description": "\"Analyzes Story and builds optimal task plan (1-8 tasks), then routes to create or replan. Use when Story needs task breakdown or replanning.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-300-task-coordinator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-300-task-coordinator/SKILL.md",
-      "lines": 326,
-      "words": 1729,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-302-task-replanner",
-      "description": "\"Compares ideal plan vs existing tasks and applies KEEP/UPDATE/OBSOLETE/CREATE changes. Use when Story tasks need re-sync with updated requirements.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-302-task-replanner/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-302-task-replanner/SKILL.md",
-      "lines": 108,
-      "words": 431,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-201-opportunity-discoverer",
-      "description": "\"Discovers growth opportunities using Traffic-First KILL funnel. Use when searching for next product direction with validated demand.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-201-opportunity-discoverer/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-201-opportunity-discoverer/SKILL.md",
-      "lines": 485,
-      "words": 1970,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-510-quality-coordinator",
-      "description": "\"Use when coordinating story quality evaluation with mandatory research, worker summaries, agent review, regression evidence, and bounded refinement.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-510-quality-coordinator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-510-quality-coordinator/SKILL.md",
-      "lines": 247,
-      "words": 989,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-313-review-docs-worker",
-      "description": "\"Use when an evaluation run needs review-driven documentation updates and a structured documentation summary.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-313-review-docs-worker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-313-review-docs-worker/SKILL.md",
-      "lines": 108,
-      "words": 403,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-311-review-research-worker",
-      "description": "\"Use when an evaluation run needs mandatory official-doc, MCP Ref, Context7, and current best-practice research with a structured research summary.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-311-review-research-worker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-311-review-research-worker/SKILL.md",
-      "lines": 136,
-      "words": 584,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-222-story-replanner",
-      "description": "\"Replans Stories by comparing IDEAL vs existing (KEEP/UPDATE/OBSOLETE/CREATE). Use when Epic requirements changed and Stories need realignment.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-222-story-replanner/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-222-story-replanner/SKILL.md",
-      "lines": 137,
-      "words": 491,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-523-auto-test-planner",
-      "description": "\"Plans automated tests (E2E/Integration/Unit) using Risk-Based Testing after manual testing. Use when Story needs a test task with prioritized scenarios.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-523-auto-test-planner/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-523-auto-test-planner/SKILL.md",
-      "lines": 283,
-      "words": 1697,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-314-review-repair-worker",
-      "description": "\"Use when accepted findings require bounded repair changes and a structured repair summary.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-314-review-repair-worker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-314-review-repair-worker/SKILL.md",
-      "lines": 111,
-      "words": 513,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-315-review-merge-worker",
-      "description": "\"Use when an evaluation run must merge research, findings, documentation, and repair outputs into one verified result.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-315-review-merge-worker/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-315-review-merge-worker/SKILL.md",
-      "lines": 110,
-      "words": 451,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-512-tech-debt-cleaner",
-      "description": "\"Auto-fixes low-risk tech debt (unused imports, dead code, commented-out code) with >=90% confidence. Use when audit findings need safe automated cleanup.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-512-tech-debt-cleaner/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-512-tech-debt-cleaner/SKILL.md",
-      "lines": 207,
-      "words": 1272,
-      "code_blocks": 3,
-      "languages": [
-        "markdown",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-500-story-quality-gate",
-      "description": "\"Story-level quality gate with 4-level verdict (PASS/CONCERNS/FAIL/WAIVED) and Quality Score. Use when Story is ready for quality assessment.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-500-story-quality-gate/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-500-story-quality-gate/SKILL.md",
-      "lines": 304,
-      "words": 1701,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "javascript"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-301-task-creator",
-      "description": "\"Creates implementation, refactoring, and test tasks from templates. Use when an approved task plan needs tasks created via the configured tracker provider and reflected in kanban.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-301-task-creator/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-301-task-creator/SKILL.md",
-      "lines": 117,
-      "words": 556,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-514-test-log-analyzer",
-      "description": "\"Analyzes application logs: classifies errors, checks log quality, maps stack traces to source. Use when logs need review after test runs or during development.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-514-test-log-analyzer/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-514-test-log-analyzer/SKILL.md",
-      "lines": 222,
-      "words": 1605,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-522-manual-tester",
-      "description": "\"Performs manual testing of Story AC via executable bash scripts in tests/manual/. Use when Story implementation needs hands-on AC verification.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/agile-workflow/skills/ln-522-manual-tester/SKILL.md",
-      "remote_path": "plugins/agile-workflow/skills/ln-522-manual-tester/SKILL.md",
-      "lines": 344,
-      "words": 1566,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-731-docker-generator",
-      "description": "\"Generates Dockerfile and docker-compose configuration for multi-container development. Use when containerizing a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-731-docker-generator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-731-docker-generator/SKILL.md",
-      "lines": 203,
-      "words": 883,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-774-healthcheck-setup",
-      "description": "\"Configures health check endpoints for Kubernetes readiness/liveness/startup probes. Use when deploying to Kubernetes.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-774-healthcheck-setup/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-774-healthcheck-setup/SKILL.md",
-      "lines": 285,
-      "words": 964,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "csharp",
-        "json",
-        "python",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-720-structure-migrator",
-      "description": "\"Scaffolds new or restructures existing projects to Clean Architecture. Use when setting up project structure.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-720-structure-migrator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-720-structure-migrator/SKILL.md",
-      "lines": 289,
-      "words": 1280,
-      "code_blocks": 8,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-732-cicd-generator",
-      "description": "\"Generates GitHub Actions CI workflow configuration. Use when adding continuous integration to a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-732-cicd-generator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-732-cicd-generator/SKILL.md",
-      "lines": 197,
-      "words": 754,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-743-test-infrastructure",
-      "description": "\"Sets up test infrastructure with Vitest, xUnit, and pytest. Use when adding testing frameworks and sample tests to a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-743-test-infrastructure/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-743-test-infrastructure/SKILL.md",
-      "lines": 281,
-      "words": 945,
-      "code_blocks": 9,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-783-container-launcher",
-      "description": "\"Builds and launches Docker containers with health verification. Use when validating that containerized services start correctly.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-783-container-launcher/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-783-container-launcher/SKILL.md",
-      "lines": 241,
-      "words": 1163,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-775-api-docs-generator",
-      "description": "\"Configures Swagger/OpenAPI documentation for backend APIs. Use when adding interactive API docs to a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-775-api-docs-generator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-775-api-docs-generator/SKILL.md",
-      "lines": 270,
-      "words": 917,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "csharp",
-        "json",
-        "python",
-        "xml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-741-linter-configurator",
-      "description": "\"Configures ESLint, Prettier, Ruff, mypy, and .NET analyzers. Use when setting up linting and formatting for a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-741-linter-configurator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-741-linter-configurator/SKILL.md",
-      "lines": 281,
-      "words": 1438,
-      "code_blocks": 7,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-733-env-configurator",
-      "description": "\"Configures environment variables and secrets protection. Use when setting up .env files and gitignore rules for a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-733-env-configurator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-733-env-configurator/SKILL.md",
-      "lines": 180,
-      "words": 730,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-700-project-bootstrap",
-      "description": "\"Bootstraps projects to production-ready structure. Use when creating new or transforming existing projects.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-700-project-bootstrap/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-700-project-bootstrap/SKILL.md",
-      "lines": 540,
-      "words": 2116,
-      "code_blocks": 12,
-      "languages": [
-        "bash",
-        "markdown",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-730-devops-setup",
-      "description": "\"Sets up Docker, CI/CD, and environment configuration with auto-detection. Use when adding DevOps infrastructure to a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-730-devops-setup/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-730-devops-setup/SKILL.md",
-      "lines": 214,
-      "words": 876,
-      "code_blocks": 3,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-781-build-verifier",
-      "description": "\"Builds all detected projects and verifies successful compilation. Use when checking that a bootstrapped project compiles.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-781-build-verifier/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-781-build-verifier/SKILL.md",
-      "lines": 156,
-      "words": 669,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-723-seed-data-generator",
-      "description": "\"Generates seed data from ORM schemas or entity definitions to any target format. Use when populating databases for development.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-723-seed-data-generator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-723-seed-data-generator/SKILL.md",
-      "lines": 246,
-      "words": 1530,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-771-logging-configurator",
-      "description": "\"Configures structured JSON logging with Serilog (.NET) or structlog (Python). Use when adding logging to backend projects.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-771-logging-configurator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-771-logging-configurator/SKILL.md",
-      "lines": 250,
-      "words": 866,
-      "code_blocks": 4,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-721-frontend-restructure",
-      "description": "\"Scaffolds new React projects or restructures monoliths to component-based architecture. Use when setting up frontend structure.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-721-frontend-restructure/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-721-frontend-restructure/SKILL.md",
-      "lines": 223,
-      "words": 1244,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-780-bootstrap-verifier",
-      "description": "\"Verifies bootstrapped projects via build, test, and container health checks. Use when validating project setup completeness.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-780-bootstrap-verifier/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-780-bootstrap-verifier/SKILL.md",
-      "lines": 179,
-      "words": 813,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-740-quality-setup",
-      "description": "\"Sets up linters, pre-commit hooks, and test infrastructure. Use when adding code quality tooling to a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-740-quality-setup/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-740-quality-setup/SKILL.md",
-      "lines": 240,
-      "words": 1123,
-      "code_blocks": 3,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-772-error-handler-setup",
-      "description": "\"Configures global exception handling middleware. Use when adding centralized error handling to .NET or Python backends.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-772-error-handler-setup/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-772-error-handler-setup/SKILL.md",
-      "lines": 228,
-      "words": 803,
-      "code_blocks": 6,
-      "languages": [
-        "csharp",
-        "json",
-        "python"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-761-secret-scanner",
-      "description": "\"Scans codebase for hardcoded secrets with severity classification and remediation guidance. Use when auditing a project for leaked credentials.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-761-secret-scanner/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-761-secret-scanner/SKILL.md",
-      "lines": 122,
-      "words": 558,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-760-security-setup",
-      "description": "\"Sets up security scanning for secrets and dependency vulnerabilities. Use when adding security infrastructure to a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-760-security-setup/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-760-security-setup/SKILL.md",
-      "lines": 198,
-      "words": 868,
-      "code_blocks": 2,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-742-precommit-setup",
-      "description": "\"Configures Husky, lint-staged, commitlint, and Python pre-commit hooks. Use when adding Git hook automation to a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-742-precommit-setup/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-742-precommit-setup/SKILL.md",
-      "lines": 260,
-      "words": 865,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-773-cors-configurator",
-      "description": "\"Configures CORS policy for development and production environments. Use when setting up cross-origin access for APIs.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-773-cors-configurator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-773-cors-configurator/SKILL.md",
-      "lines": 234,
-      "words": 849,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "csharp",
-        "json",
-        "python"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-782-test-runner",
-      "description": "\"Executes all test suites and reports results with coverage. Use when verifying that test infrastructure works after bootstrap.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-782-test-runner/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-782-test-runner/SKILL.md",
-      "lines": 193,
-      "words": 874,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-722-backend-generator",
-      "description": "\"Generates .NET Clean Architecture backend structure from entity definitions. Use when bootstrapping .NET backend projects.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-722-backend-generator/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-722-backend-generator/SKILL.md",
-      "lines": 215,
-      "words": 1076,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-724-artifact-cleaner",
-      "description": "\"Removes platform-specific artifacts from Replit, StackBlitz, CodeSandbox, Glitch. Use when preparing exported projects for production.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-724-artifact-cleaner/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-724-artifact-cleaner/SKILL.md",
-      "lines": 337,
-      "words": 1187,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-770-crosscutting-setup",
-      "description": "\"Sets up logging, error handling, CORS, health checks, and API docs. Use when adding cross-cutting concerns to backend projects.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/project-bootstrap/skills/ln-770-crosscutting-setup/SKILL.md",
-      "remote_path": "plugins/project-bootstrap/skills/ln-770-crosscutting-setup/SKILL.md",
-      "lines": 317,
-      "words": 1253,
-      "code_blocks": 10,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-812-optimization-researcher",
-      "description": "\"Researches competitive benchmarks and generates optimization hypotheses for identified bottlenecks. Use after profiling.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-812-optimization-researcher/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-812-optimization-researcher/SKILL.md",
-      "lines": 302,
-      "words": 1605,
-      "code_blocks": 3,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-810-performance-optimizer",
-      "description": "\"Multi-cycle performance optimization with profiling and bottleneck analysis. Use when optimizing application performance.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-810-performance-optimizer/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-810-performance-optimizer/SKILL.md",
-      "lines": 287,
-      "words": 1227,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "javascript",
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-832-bundle-optimizer",
-      "description": "\"Reduces JS/TS bundle size via tree-shaking, code splitting, and unused dependency removal. Use when optimizing frontend bundle size.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-832-bundle-optimizer/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-832-bundle-optimizer/SKILL.md",
-      "lines": 204,
-      "words": 905,
-      "code_blocks": 3,
-      "languages": [
-        "text",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-811-performance-profiler",
-      "description": "\"Profiles runtime performance with CPU, memory, and I/O metrics. Use when measuring bottlenecks before optimization.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-811-performance-profiler/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-811-performance-profiler/SKILL.md",
-      "lines": 402,
-      "words": 2320,
-      "code_blocks": 4,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-830-code-modernization-coordinator",
-      "description": "\"Modernizes codebase via OSS replacement and bundle optimization. Use when acting on audit findings to reduce custom code.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-830-code-modernization-coordinator/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-830-code-modernization-coordinator/SKILL.md",
-      "lines": 309,
-      "words": 1412,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "text",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-840-benchmark-compare",
-      "description": "\"Use when benchmarking hex-line MCP against Claude built-in tools with scenario manifests, activation checks, and diff-based correctness.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-840-benchmark-compare/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-840-benchmark-compare/SKILL.md",
-      "lines": 291,
-      "words": 1283,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-821-npm-upgrader",
-      "description": "\"Upgrades npm/yarn/pnpm dependencies with breaking change handling. Use when updating JavaScript/TypeScript dependencies.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-821-npm-upgrader/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-821-npm-upgrader/SKILL.md",
-      "lines": 266,
-      "words": 1104,
-      "code_blocks": 1,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-831-oss-replacer",
-      "description": "\"Replaces custom modules with OSS packages using atomic keep/discard testing. Use when migrating custom code to established libraries.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-831-oss-replacer/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-831-oss-replacer/SKILL.md",
-      "lines": 209,
-      "words": 1008,
-      "code_blocks": 2,
-      "languages": [
-        "text",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-814-optimization-executor",
-      "description": "\"Executes optimization hypotheses with keep/discard testing loop. Use when applying validated performance improvements.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-814-optimization-executor/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-814-optimization-executor/SKILL.md",
-      "lines": 348,
-      "words": 1974,
-      "code_blocks": 5,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-820-dependency-optimization-coordinator",
-      "description": "\"Upgrades dependencies across all detected package managers. Use when updating npm, NuGet, or pip packages project-wide.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-820-dependency-optimization-coordinator/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-820-dependency-optimization-coordinator/SKILL.md",
-      "lines": 347,
-      "words": 1662,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "text",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-822-nuget-upgrader",
-      "description": "\"Upgrades .NET NuGet packages with breaking change handling. Use when updating .NET dependencies.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-822-nuget-upgrader/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-822-nuget-upgrader/SKILL.md",
-      "lines": 221,
-      "words": 852,
-      "code_blocks": 1,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-823-pip-upgrader",
-      "description": "\"Upgrades Python pip/poetry/pipenv dependencies with breaking change handling. Use when updating Python dependencies.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-823-pip-upgrader/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-823-pip-upgrader/SKILL.md",
-      "lines": 204,
-      "words": 788,
-      "code_blocks": 1,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-813-optimization-plan-validator",
-      "description": "\"Use when validating optimization plans through the evaluation platform with mandatory research, parallel agent evidence, sequential merge, and bounded refinement.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-813-optimization-plan-validator/SKILL.md",
-      "remote_path": "plugins/optimization-suite/skills/ln-813-optimization-plan-validator/SKILL.md",
-      "lines": 204,
-      "words": 753,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-913-community-debater",
-      "description": "\"Launches RFC and debate discussions on GitHub. Use when proposing changes that need community input or voting.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/community-engagement/skills/ln-913-community-debater/SKILL.md",
-      "remote_path": "plugins/community-engagement/skills/ln-913-community-debater/SKILL.md",
-      "lines": 174,
-      "words": 859,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-912-community-announcer",
-      "description": "\"Composes and publishes announcements to GitHub Discussions. Use when sharing releases, updates, or news with the community.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/community-engagement/skills/ln-912-community-announcer/SKILL.md",
-      "remote_path": "plugins/community-engagement/skills/ln-912-community-announcer/SKILL.md",
-      "lines": 150,
-      "words": 889,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-914-community-responder",
-      "description": "\"Responds to unanswered GitHub discussions and issues with codebase-informed replies. Use when clearing community question backlog.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/community-engagement/skills/ln-914-community-responder/SKILL.md",
-      "remote_path": "plugins/community-engagement/skills/ln-914-community-responder/SKILL.md",
-      "lines": 261,
-      "words": 1204,
-      "code_blocks": 7,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-911-github-triager",
-      "description": "\"Produces prioritized triage report from open GitHub issues, PRs, and discussions. Use when reviewing community backlog.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/community-engagement/skills/ln-911-github-triager/SKILL.md",
-      "remote_path": "plugins/community-engagement/skills/ln-911-github-triager/SKILL.md",
-      "lines": 274,
-      "words": 1353,
-      "code_blocks": 8,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-910-community-engagement",
-      "description": "\"Analyzes community health and delegates engagement tasks. Use when managing GitHub issues, discussions, and announcements.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/community-engagement/skills/ln-910-community-engagement/SKILL.md",
-      "remote_path": "plugins/community-engagement/skills/ln-910-community-engagement/SKILL.md",
-      "lines": 214,
-      "words": 1008,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-021-codegraph",
-      "description": "\"Builds and queries code knowledge graph for dependency analysis, references, implementations, and architecture overview. Use when starting work on unfamiliar codebase or before refactoring.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-021-codegraph/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-021-codegraph/SKILL.md",
-      "lines": 145,
-      "words": 1104,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-011-agent-installer",
-      "description": "\"Installs or updates Codex CLI and Claude Code. Use when CLI agents need installation or update.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-011-agent-installer/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-011-agent-installer/SKILL.md",
-      "lines": 165,
-      "words": 891,
-      "code_blocks": 2,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-001-push-all",
-      "description": "\"Commits and pushes all changes (staged, unstaged, untracked) to remote. Use when you need a quick push of everything at once.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-001-push-all/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-001-push-all/SKILL.md",
-      "lines": 125,
-      "words": 700,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-015-hex-line-uninstaller",
-      "description": "\"Use when removing Claude-side hex-line integration surfaces such as MCP registration, permissions, hooks, and output style.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-015-hex-line-uninstaller/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-015-hex-line-uninstaller/SKILL.md",
-      "lines": 145,
-      "words": 730,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-013-config-syncer",
-      "description": "\"Use when installing or verifying this marketplace in Claude and Codex, aligning selected plugins, MCP settings, and Codex execution defaults.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-013-config-syncer/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-013-config-syncer/SKILL.md",
-      "lines": 279,
-      "words": 1892,
-      "code_blocks": 3,
-      "languages": [
-        "text",
-        "toml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-022-researchgraph",
-      "description": "\"Indexes and queries project research graphs backed by hex-research MCP. Use for hypotheses, goals, benchmark runs, evidence depth, derived goal metrics, lineage, generated research maps, and graph au",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-022-researchgraph/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-022-researchgraph/SKILL.md",
+      "name": "ln-24-architecture-auditor",
+      "description": "\"Audits implemented architecture fitness, boundaries, contracts, dependency topology, structure, and configuration ownership. Use for system structure; not implementation-plan review.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
+      "remote_path": "plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
       "lines": 120,
-      "words": 717,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-012-mcp-configurator",
-      "description": "\"Use when installing MCP packages and configuring Claude-side MCP registration, hooks, permissions, IDE extension mode, and migrations.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-012-mcp-configurator/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-012-mcp-configurator/SKILL.md",
-      "lines": 579,
-      "words": 4610,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-014-agent-instructions-manager",
-      "description": "\"Creates AGENTS.md canonical and CLAUDE.md @AGENTS.md stub; audits token budget, cache safety, import-pattern compliance. Use when instruction files need alignment.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-014-agent-instructions-manager/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-014-agent-instructions-manager/SKILL.md",
-      "lines": 278,
-      "words": 2049,
-      "code_blocks": 2,
+      "words": 1547,
+      "code_blocks": 1,
       "languages": [
         "markdown"
-      ],
-      "license": "MIT"
+      ]
     },
     {
-      "name": "ln-002-session-analyzer",
-      "description": "\"Analyzes current or recent session for errors, inefficiencies, and improvement opportunities across skills, tools, hooks, and communication. Use after completing a task or periodically.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-002-session-analyzer/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-002-session-analyzer/SKILL.md",
-      "lines": 286,
-      "words": 1758,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-010-dev-environment-setup",
-      "description": "\"Installs agents, configures MCP servers, aligns marketplace plugins, creates and audits instructions. Use after setup or when agents/MCP/plugins need alignment.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/setup-environment/skills/ln-010-dev-environment-setup/SKILL.md",
-      "remote_path": "plugins/setup-environment/skills/ln-010-dev-environment-setup/SKILL.md",
-      "lines": 309,
-      "words": 1719,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-111-root-docs-creator",
-      "description": "\"Creates root documentation files (AGENTS.md, CLAUDE.md, docs/README.md, standards, principles). Use for initial project doc setup.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-111-root-docs-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-111-root-docs-creator/SKILL.md",
-      "lines": 169,
-      "words": 1115,
+      "name": "ln-23-test-suite-auditor",
+      "description": "\"Audits whether an existing test suite proves important product behavior with strong, isolated tests. Use when test confidence is uncertain; not to design or implement new tests.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
+      "remote_path": "plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
+      "lines": 120,
+      "words": 1578,
       "code_blocks": 1,
       "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-110-project-docs-coordinator",
-      "description": "\"Coordinates project documentation creation with single context gathering and project type detection. Use when generating project docs subset.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-110-project-docs-coordinator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-110-project-docs-coordinator/SKILL.md",
-      "lines": 314,
-      "words": 1539,
-      "code_blocks": 7,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-140-test-docs-creator",
-      "description": "\"Creates test documentation (testing-strategy.md, tests/README.md) with Risk-Based Testing philosophy. Use when setting up test strategy for a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-140-test-docs-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-140-test-docs-creator/SKILL.md",
-      "lines": 530,
-      "words": 2596,
-      "code_blocks": 7,
-      "languages": [
-        "json",
         "markdown"
-      ],
-      "license": "MIT"
+      ]
     },
     {
-      "name": "ln-162-skill-reviewer",
-      "description": "\"Reviews skills (D1-D11 + M1-M6 criteria) or .claude/commands for quality. Use when validating skill correctness before release.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-162-skill-reviewer/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-162-skill-reviewer/SKILL.md",
-      "lines": 262,
-      "words": 1129,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-160-docs-skill-extractor",
-      "description": "\"Extracts procedural content from project docs into slash commands. Use when docs contain deploy, test, or troubleshoot procedures.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-160-docs-skill-extractor/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-160-docs-skill-extractor/SKILL.md",
-      "lines": 288,
-      "words": 1130,
-      "code_blocks": 8,
-      "languages": [
-        "json",
-        "text",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-115-devops-docs-creator",
-      "description": "\"Creates infrastructure.md and runbook.md (Docker-conditional). Use for DevOps documentation in any project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-115-devops-docs-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-115-devops-docs-creator/SKILL.md",
-      "lines": 195,
-      "words": 1050,
+      "name": "ln-25-persistence-auditor",
+      "description": "\"Audits queries, transactions, data-path performance, and persistence resource lifecycle. Use when data correctness or scalability is at risk; not for general performance tuning.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
+      "remote_path": "plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
+      "lines": 118,
+      "words": 1506,
       "code_blocks": 1,
       "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-114-frontend-docs-creator",
-      "description": "\"Creates design_guidelines.md with WCAG 2.1 compliance and design system docs. Use when project has a frontend.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-114-frontend-docs-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-114-frontend-docs-creator/SKILL.md",
-      "lines": 148,
-      "words": 670,
-      "code_blocks": 1,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-113-backend-docs-creator",
-      "description": "\"Creates backend docs (api_spec.md, database_schema.md). Use when project has backend API or database.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-113-backend-docs-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-113-backend-docs-creator/SKILL.md",
-      "lines": 150,
-      "words": 694,
-      "code_blocks": 1,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-120-reference-docs-creator",
-      "description": "\"Creates reference docs (ADRs, guides, manuals) for nontrivial tech stack choices. Use when project needs justified architecture decision records.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-120-reference-docs-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-120-reference-docs-creator/SKILL.md",
-      "lines": 577,
-      "words": 2516,
-      "code_blocks": 11,
-      "languages": [
-        "json",
         "markdown"
-      ],
-      "license": "MIT"
+      ]
     },
     {
-      "name": "ln-161-skill-creator",
-      "description": "\"Creates slash commands from procedural doc sections. Use when transforming documentation prose into executable commands.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-161-skill-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-161-skill-creator/SKILL.md",
-      "lines": 158,
-      "words": 748,
+      "name": "ln-22-codebase-auditor",
+      "description": "\"Audits cross-cutting code health across security, delivery, maintainability, dependencies, diagnosability, concurrency, and lifecycle. Use when no specialist audit is primary.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
+      "remote_path": "plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
+      "lines": 126,
+      "words": 1725,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-21-documentation-auditor",
+      "description": "\"Audits documentation and code comments for structure, coverage, factual accuracy, and maintainability. Use for documentation trust reviews; not code, test, or architecture audits.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
+      "remote_path": "plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
+      "lines": 124,
+      "words": 1573,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-51-opportunity-evaluator",
+      "description": "\"Evaluates new product directions using current demand, acquisition, competition, economics, and validation evidence. Use before commitment; not for backlog or implementation planning.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
+      "remote_path": "plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
+      "lines": 106,
+      "words": 1236,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-31-performance-optimizer",
+      "description": "\"Optimizes a measured latency, throughput, memory, CPU, or I/O problem through profiling and keep-or-discard experiments. Use for a known bottleneck; not unbiased A/B comparison.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
+      "remote_path": "plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
+      "lines": 123,
+      "words": 1567,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-32-dependency-upgrader",
+      "description": "\"Upgrades dependencies across package managers with breaking-change research and rollback-safe verification. Use for dependency maintenance; not general code modernization.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
+      "remote_path": "plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
+      "lines": 119,
+      "words": 1512,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-34-benchmark-comparator",
+      "description": "\"Compares tools or implementations through reproducible A/B workloads, correctness oracles, and controlled measurements. Use to choose alternatives; not to optimize a known bottleneck.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
+      "remote_path": "plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
+      "lines": 124,
+      "words": 1600,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-33-code-modernizer",
+      "description": "\"Modernizes a bounded capability by removing obsolete custom mechanisms or reducing bundle and maintenance cost. Use for proven modernization value; not routine upgrades or tuning.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
+      "remote_path": "plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
+      "lines": 122,
+      "words": 1632,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-42-acceptance-test-builder",
+      "description": "\"Creates and runs reproducible acceptance tests for stated requirements using project-native tooling. Use when executable acceptance evidence is needed; not for audits or product fixes.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
+      "remote_path": "plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
+      "lines": 104,
+      "words": 1218,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-41-test-strategy-planner",
+      "description": "\"Designs a risk-based test strategy and prioritized scenarios without changing code. Use when requirements need a test plan; not for auditing or implementing tests.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
+      "remote_path": "plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
+      "lines": 104,
+      "words": 1233,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-11-plan-reviewer",
+      "description": "\"Reviews implementation plans against repository evidence and current authoritative guidance. Use before execution to expose gaps and risks; not for completed delivery review.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
+      "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
+      "lines": 134,
+      "words": 2051,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-12-delivery-reviewer",
+      "description": "\"Reviews completed code and delivery evidence before acceptance or release. Use to find defects and verify readiness; not for plan review, implementation, or repair.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
+      "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
+      "lines": 197,
+      "words": 2758,
       "code_blocks": 2,
       "languages": [
-        "json",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-112-project-core-creator",
-      "description": "\"Creates core project docs (requirements, architecture, tech stack, patterns catalog). Use for any project regardless of type.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-112-project-core-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-112-project-core-creator/SKILL.md",
-      "lines": 177,
-      "words": 942,
-      "code_blocks": 1,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-100-documents-pipeline",
-      "description": "\"Creates complete project documentation system (project docs, reference, tasks, tests). Use when bootstrapping docs from scratch or regenerating all.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-100-documents-pipeline/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-100-documents-pipeline/SKILL.md",
-      "lines": 741,
-      "words": 4168,
-      "code_blocks": 12,
-      "languages": [
-        "bash",
-        "json",
         "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "ln-130-tasks-docs-creator",
-      "description": "\"Creates task management docs (kanban board, workflow rules) with configured tracker integration. Use when setting up task tracking for a project.\"",
-      "path": "levnikolaevich--claude-code-skills/plugins/documentation-pipeline/skills/ln-130-tasks-docs-creator/SKILL.md",
-      "remote_path": "plugins/documentation-pipeline/skills/ln-130-tasks-docs-creator/SKILL.md",
-      "lines": 467,
-      "words": 2164,
-      "code_blocks": 11,
-      "languages": [
-        "json",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "Bug Report",
-      "description": "",
-      "path": "levnikolaevich--claude-code-skills/.github/ISSUE_TEMPLATE/bug_report.md",
-      "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
-      "lines": 40,
-      "words": 103,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
-      "name": "Feature Request",
-      "description": "",
-      "path": "levnikolaevich--claude-code-skills/.github/ISSUE_TEMPLATE/feature_request.md",
-      "remote_path": ".github/ISSUE_TEMPLATE/feature_request.md",
-      "lines": 33,
-      "words": 128,
-      "code_blocks": 0,
-      "languages": []
+      ]
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
