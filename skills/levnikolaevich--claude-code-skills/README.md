@@ -1,8 +1,10 @@
-# Lev Nikolaevich Skills
+# Claude-Codex Skills
 
 A compact marketplace of standalone engineering skills for Claude Code and Codex.
 
-[Browse the Skills v2 catalog](https://levnikolaevich.github.io/claude-code-skills/) or install only the plugins you need below.
+> **Why this repository is intentionally small:** Earlier coding models needed a large orchestration and evaluation harness to follow complex workflows reliably. Modern Claude and Codex models work better with concise procedural guidance, so that machinery has been removed. These skills retain only the domain knowledge, decision gates, tool guidance, and evidence checklists worth bringing into context.
+
+[Browse the skills catalog](https://levnikolaevich.github.io/claude-code-skills/) or install only the plugins you need below.
 
 The repository intentionally contains only the skills, minimal plugin manifests, two host-specific marketplace catalogs, documentation, and a static catalog site. It has no MCP servers, orchestration hierarchy, distributed shared resources, generated skill copies, or evaluation harness.
 
@@ -47,6 +49,15 @@ The repository intentionally contains only the skills, minimal plugin manifests,
 |---:|---|---|
 | 51 | [Opportunity Evaluator](plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md) | Compare product opportunities using current evidence and a low-cost validation path. |
 
+### Maintainer Suite
+
+| Index | Skill | Purpose |
+|---:|---|---|
+| 61 | [Skill Reviewer](plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md) | Review skills and marketplace integration before publication. |
+| 62 | [Repository Publisher](plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md) | Validate, commit, push, and verify changes from the public remote. |
+| 63 | [Release Publisher](plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md) | Prepare and publish an approved tagged GitHub Release. |
+| 64 | [Community Announcer](plugins/maintainer-suite/skills/ln-64-community-announcer/SKILL.md) | Draft and publish fact-checked GitHub Discussions announcements. |
+
 ## Install in Claude Code
 
 Add the marketplace and install only the suites you need:
@@ -58,6 +69,7 @@ Add the marketplace and install only the suites you need:
 /plugin install optimization-suite@levnikolaevich-skills-marketplace
 /plugin install testing-suite@levnikolaevich-skills-marketplace
 /plugin install product-discovery-suite@levnikolaevich-skills-marketplace
+/plugin install maintainer-suite@levnikolaevich-skills-marketplace
 ```
 
 For local development, load one plugin directly:
@@ -75,6 +87,7 @@ codex plugin add codebase-audit-suite@levnikolaevich-skills-marketplace
 codex plugin add optimization-suite@levnikolaevich-skills-marketplace
 codex plugin add testing-suite@levnikolaevich-skills-marketplace
 codex plugin add product-discovery-suite@levnikolaevich-skills-marketplace
+codex plugin add maintainer-suite@levnikolaevich-skills-marketplace
 ```
 
 ## Repository layout
@@ -88,7 +101,8 @@ codex plugin add product-discovery-suite@levnikolaevich-skills-marketplace
     ├── codebase-audit-suite/
     ├── optimization-suite/
     ├── testing-suite/
-    └── product-discovery-suite/
+    ├── product-discovery-suite/
+    └── maintainer-suite/
 ```
 
 Each plugin contains `.codex-plugin/plugin.json` for Codex and a shared `skills/<skill>/SKILL.md` tree used by both hosts.
@@ -102,23 +116,9 @@ This is the smallest practical shared layout for distributed plugins:
 
 The structure follows the current official [Codex skill guide](https://learn.chatgpt.com/docs/build-skills), [Codex plugin guide](https://learn.chatgpt.com/docs/build-plugins), [Claude Code skill guide](https://code.claude.com/docs/en/skills), and [Claude Code plugin reference](https://code.claude.com/docs/en/plugins-reference).
 
-## Migration from v1
-
-Skills v2 replaces the broad workflow framework with small, standalone capabilities. Existing cached installations are not removed automatically: reinstall the desired v2 plugins and start a new Claude Code or Codex session after updating the marketplace.
-
-| Previous plugin | v2 status |
-|---|---|
-| `agile-workflow` | Retired. Plan and delivery review moved to `review-suite`; focused audit, testing, optimization, and discovery work moved to their respective suites. Backlog orchestration and task execution are intentionally not retained. |
-| `documentation-pipeline` | Retired. Read-only documentation assessment is covered by `ln-21-documentation-auditor`; document-generation pipelines are not retained. |
-| `project-bootstrap` | Retired without replacement; use project-native setup and host-native tools. |
-| `community-engagement` | Retired without replacement; it is outside the engineering-skill catalog. |
-| `setup-environment` | Retired without replacement; host setup and MCP installation are no longer managed by these skills. |
-
-Every published version of `@levnikolaevich/hex-line-mcp`, `@levnikolaevich/hex-graph-mcp`, `@levnikolaevich/hex-research-mcp`, and `@levnikolaevich/hex-ssh-mcp` is deprecated on npm. Their source and publishing infrastructure were removed from the active tree. The packages receive no updates or support and must not be used for new Skills v2 workflows; historical source remains in Git history and release tags.
-
 ## Indexing
 
-The first digit identifies the plugin and the second identifies the skill within it: `1x` review, `2x` audit, `3x` optimization, `4x` testing, and `5x` product discovery. See the canonical allocation and overflow rules in [AGENTS.md](AGENTS.md#index-system).
+The first digit identifies the plugin and the second identifies the skill within it: `1x` review, `2x` audit, `3x` optimization, `4x` testing, `5x` product discovery, and `6x` repository maintenance. See the canonical allocation and overflow rules in [AGENTS.md](AGENTS.md#index-system).
 
 ## License
 

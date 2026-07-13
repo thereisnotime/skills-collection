@@ -4,13 +4,14 @@
 
 [![Release](https://img.shields.io/badge/release-v4.33.0-green)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/releases/tag/v4.33.0)
 [![CLI](https://img.shields.io/badge/CLI-ccpi-blueviolet?logo=npm)](https://www.npmjs.com/package/@intentsolutionsio/ccpi)
-[![Plugins](https://img.shields.io/badge/plugins-431-blue)](https://tonsofskills.com/explore)
-[![Skills](https://img.shields.io/badge/skills-2%2C754-green)](https://tonsofskills.com/skills)
+[![Plugins](https://img.shields.io/badge/plugins-464-blue)](https://tonsofskills.com/explore)
+[![Skills](https://img.shields.io/badge/skills-3661-green)](https://tonsofskills.com/skills)
 [![GitHub Stars](https://img.shields.io/github/stars/jeremylongshore/claude-code-plugins-plus-skills?style=social)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills)
+[![skills.sh](https://skills.sh/b/jeremylongshore/claude-code-plugins-plus-skills)](https://skills.sh/jeremylongshore/claude-code-plugins-plus-skills)
 [![Sponsor: Kobiton](https://img.shields.io/badge/Sponsor-kobiton.com-0487D9)](https://kobiton.com)
 [![Buy me a monster](https://img.shields.io/badge/Buy%20me%20a-Monster-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jeremylongshore)
 
-432 plugins, 2,769 skills, 297 agents, 30 community contributors — validated and ready to install.
+464 plugins, 3,661 skills, 343 agents, 30 community contributors — validated and ready to install.
 
 ## Why this repo
 
@@ -591,7 +592,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `coreweave-pack`    | Claude Code skill pack for CoreWeave (23 skills)                                                                                            |
 | `cursor-pack`       | Complete Cursor integration skill pack with 30 skills covering AI code editing, composer workflows, codebase indexing, and productivity…    |
 | `customerio-pack`   | Complete Customer.io integration skill pack with 24 skills covering marketing automation, email campaigns, SMS, push notifications, and…    |
-| `databricks-pack`   | DEPRECATED (v1) — these 24 documentation skills are removed in v2.0.0, which rebuilds the pack as 5 live-detection skills + a shared…       |
+| `databricks-pack`   | 5 live-detection Databricks skills — cost-leak-hunter, cluster-forensics, uc-migration-pilot, streaming-guardian, bundle-medic — backed by… |
 | `deepgram-pack`     | Complete Deepgram integration skill pack with 24 skills covering speech-to-text, real-time transcription, voice intelligence, and audio…    |
 | `documenso-pack`    | Complete Documenso integration skill pack with 24 skills covering document signing, templates, workflows, and e-signature automation.…      |
 | `elevenlabs-pack`   | Claude Code skill pack for ElevenLabs (18 skills)                                                                                           |
@@ -1068,7 +1069,7 @@ The [GitHub wiki](https://github.com/jeremylongshore/claude-code-plugins-plus-sk
 
 ## FAQ
 
-**What is this?** A Claude Code plugin marketplace: 432 plugins, 2,769 skills, 297 agents, all validated against the [AgentSkills.io](https://agentskills.io/specification) open standard and the [Claude Code skills](https://code.claude.com/docs/en/skills) / [plugins](https://code.claude.com/docs/en/plugins) references.
+**What is this?** A Claude Code plugin marketplace: 464 plugins, 3,661 skills, 343 agents, all validated against the [AgentSkills.io](https://agentskills.io/specification) open standard and the [Claude Code skills](https://code.claude.com/docs/en/skills) / [plugins](https://code.claude.com/docs/en/plugins) references.
 
 **How do I install a plugin?** Use the CLI (`ccpi install <name>`) or Claude Code's built-in `/plugin marketplace add jeremylongshore/claude-code-plugins` followed by `/plugin install <name>@claude-code-plugins-plus`. The [Quick Start](#quick-start) covers both paths.
 

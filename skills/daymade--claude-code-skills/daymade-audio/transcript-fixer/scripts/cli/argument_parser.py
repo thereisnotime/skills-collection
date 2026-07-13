@@ -98,7 +98,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--review",
         action="store_true",
-        help="(Deprecated — safe mode is now the Stage 1 default) Kept as a no-op for backward compatibility"
+        help="(Deprecated no-op — safe mode is the Stage 1 default; accepted but "
+             "ignored for backward compatibility, slated for removal)"
     )
     parser.add_argument(
         "--apply-all",
@@ -109,10 +110,30 @@ def create_argument_parser() -> argparse.ArgumentParser:
              "domain matches the transcript and you've reviewed the rules."
     )
     parser.add_argument(
+        "--apply-domain",
+        action="store_true",
+        dest="apply_domain",
+        help="Trust the rules of the domain you explicitly passed via --domain: apply them at "
+             "every risk level, while keeping safe-mode deferral for everything else (people "
+             "roster, context rules). Rationale: rules added under a project domain were "
+             "hand-confirmed for exactly this kind of transcript, so domain match = trust. "
+             "Narrower than --apply-all; no-op without --domain. Batch workflows go from three "
+             "passes (safe -> review sidecar -> --apply-all rerun) to one."
+    )
+    parser.add_argument(
         "--changes-file",
         action="store_true",
         dest="changes_file",
         help="Write *_changes.md with before/after/risk when a run applies or defers corrections (automatically on in safe mode, which is the default; a 0-change run writes no report)"
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Emit a machine-readable Stage 1 status object as the ONLY thing on stdout "
+             "(the human-readable log is routed to stderr). Fields: applied, deferred, "
+             "output_path, needs_review_path, input_unchanged. Lets consumers stop inferring "
+             "no-op vs failure from whether a *_stage1.md sidecar exists."
     )
 
     # Learning commands

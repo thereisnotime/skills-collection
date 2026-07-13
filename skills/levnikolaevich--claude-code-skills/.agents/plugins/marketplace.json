@@ -1,7 +1,7 @@
 {
   "name": "levnikolaevich-skills-marketplace",
   "interface": {
-    "displayName": "Lev Nikolaevich Skills"
+    "displayName": "Claude-Codex Skills"
   },
   "plugins": [
     {
@@ -57,6 +57,18 @@
       "source": {
         "source": "local",
         "path": "./plugins/product-discovery-suite"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "maintainer-suite",
+      "source": {
+        "source": "local",
+        "path": "./plugins/maintainer-suite"
       },
       "policy": {
         "installation": "AVAILABLE",

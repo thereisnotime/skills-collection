@@ -386,7 +386,7 @@ def cmd_import_corrections(args: argparse.Namespace) -> None:
     print(f"   Skipped: {skipped}")
 
 
-def cmd_run_correction(args: argparse.Namespace) -> None:
+def cmd_run_correction(args: argparse.Namespace) -> dict | None:
     """Run the correction workflow.
 
     Heavy imports (AIProcessor, diff generator) are loaded only when Stage 2/3
@@ -439,7 +439,19 @@ def cmd_run_correction(args: argparse.Namespace) -> None:
         auto_finalized = _auto_finalize_stage1(input_path, output_dir, dry_run=dry_run)
         if auto_finalized and args.stage == 1:
             print("✅ Finalize complete.")
-            return
+            # Auto-finalize promoted a previous run's *_stage1.md onto the input
+            # file, so the input now IS the corrected output. For --json: this
+            # invocation applied no NEW corrections (applied/deferred = 0), the
+            # output is the finalized input file, and input_unchanged is False
+            # because its content was replaced. In dry-run nothing was actually
+            # written, so report output_path=None / input_unchanged=True instead.
+            return {
+                "applied": 0,
+                "deferred": 0,
+                "output_path": None if dry_run else str(input_path),
+                "needs_review_path": None,
+                "input_unchanged": bool(dry_run),
+            }
 
     # Initialize service
     service = _get_service()
@@ -448,6 +460,16 @@ def cmd_run_correction(args: argparse.Namespace) -> None:
     corrections, correction_meta = service.get_corrections_with_metadata(args.domain)
     context_rules = service.load_context_rules()
     domain_stats = service.get_domain_stats()
+
+    # --apply-domain: the user explicitly asserted this transcript belongs to
+    # args.domain, and every rule loaded above came from exactly that domain —
+    # each was hand-added for this project's vocabulary, so domain match =
+    # trust. Mark them so _assess_risk grades them low (auto-applied even in
+    # safe mode). MUST run before the roster merge below: roster entries are
+    # global (cross-project) and keep normal risk grading.
+    if getattr(args, "apply_domain", False) and args.domain:
+        for _m in correction_meta.values():
+            _m["trusted_domain"] = True
 
     # Merge person-name ASR variants from the people roster (if configured).
     # Source: args.people_roster > env TRANSCRIPT_FIXER_PEOPLE_ROSTER > config.json paths.people_roster_path.
@@ -515,11 +537,22 @@ def cmd_run_correction(args: argparse.Namespace) -> None:
     # Path whose CONTENT matches stage1_text — what Stage 3's diff report must
     # read as the "stage 1" column. Defaults to the input (0-correction case).
     stage1_report_source = input_path
+    # --json status tracking. applied_count/skipped_count are (re)assigned inside
+    # the Stage 1 block below — always entered, since --stage choices are 1/2/3 —
+    # but pre-init them so the status object is well-defined even if that ever
+    # changes. The *_written paths capture what was ACTUALLY written to disk, so
+    # --json consumers never infer no-op vs failure from a sidecar's existence.
+    applied_count = 0
+    skipped_count = 0
+    stage1_output_written: Path | None = None
+    needs_review_written: Path | None = None
     if args.stage >= 1:
         print("=" * 60)
         print("🔧 Stage 1: Dictionary Corrections")
         if dry_run:
             print("   (DRY RUN — no files will be written)")
+        elif review_mode and getattr(args, "apply_domain", False) and args.domain:
+            print(f"   (SAFE MODE + trusted domain '{args.domain}' — its rules apply at every risk level; roster/other rules still defer to *_needs_review.md.)")
         elif review_mode:
             print("   (SAFE MODE [default] — only low-risk auto-applied; medium/high → *_needs_review.md. Pass --apply-all to apply every level.)")
         else:
@@ -565,6 +598,7 @@ def cmd_run_correction(args: argparse.Namespace) -> None:
                     f.write(stage1_text)
                 print(f"💾 Saved: {stage1_file}")
                 stage1_report_source = stage1_file
+                stage1_output_written = stage1_file
             else:
                 print(f"✓ No corrections applied — skipping {stage1_file.name} (input is already the final output)")
                 # Nothing was written: stage1_text is byte-identical to the
@@ -591,6 +625,7 @@ def cmd_run_correction(args: argparse.Namespace) -> None:
                 with open(review_file_path, 'w', encoding='utf-8') as f:
                     f.write(review_report)
                 print(f"🟡 Needs review: {review_file_path}")
+                needs_review_written = review_file_path
 
         else:
             # Dry run: write a changes report so the user can preview. Mark which
@@ -715,6 +750,20 @@ def cmd_run_correction(args: argparse.Namespace) -> None:
             print("   Skipped: Stage 2 output required for diff report\n")
 
     print("✅ Correction complete!")
+
+    # --json status object (see the --json flag help + the main() dispatch that
+    # emits this on stdout). Built from what Stage 1 actually did: output_path is
+    # the corrected *_stage1.md only when it was truly written (None on a no-op
+    # run, mirroring the "skip writing when byte-identical" contract above), and
+    # input_unchanged is the authoritative no-op signal. Scope is Stage 1 status;
+    # a --stage>=2 run still reports the Stage 1 result here.
+    return {
+        "applied": applied_count,
+        "deferred": skipped_count,
+        "output_path": str(stage1_output_written) if stage1_output_written else None,
+        "needs_review_path": str(needs_review_written) if needs_review_written else None,
+        "input_unchanged": stage1_text == original_text,
+    }
 
 
 def cmd_review_learned(args: argparse.Namespace) -> None:
