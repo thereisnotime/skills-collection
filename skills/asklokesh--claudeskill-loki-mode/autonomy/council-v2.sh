@@ -296,7 +296,47 @@ Respond ONLY with a valid JSON object. No markdown fencing."
                 # inline prefix here is belt-and-suspenders so the carve-out is
                 # self-documenting and robust to sourcing order. No-op when caveman
                 # is absent.
-                result=$(echo "$full_prompt" | CAVEMAN_DEFAULT_MODE=off claude "${_c2_argv[@]}" -p 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                #
+                # STRUCTURED VERDICT (v8.x): when the CLI supports --json-schema,
+                # force valid JSON so the sed-carve below never has to rescue
+                # prose-wrapped output. --json-schema takes INLINE content, not a
+                # path (CLI 2.1.207 rejects a path). On any failure fall through to
+                # the plain -p call + sed-carve (unchanged, fail-closed to REJECT).
+                # Opt out LOKI_REVIEW_JSON_SCHEMA=off. claude branch only.
+                local _c2_schema_dir _c2_schema
+                _c2_schema_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+                _c2_schema="${_c2_schema_dir}/loki-ts/data/council-v2-schema.json"
+                result=""
+                if [ "${LOKI_REVIEW_JSON_SCHEMA:-on}" != "off" ] && [ -f "$_c2_schema" ] \
+                   && type loki_claude_flag_supported >/dev/null 2>&1 \
+                   && loki_claude_flag_supported "--json-schema"; then
+                    local _c2_schema_content _c2_json
+                    _c2_schema_content="$(cat "$_c2_schema" 2>/dev/null)" || _c2_schema_content=""
+                    if [ -n "$_c2_schema_content" ]; then
+                        _c2_json="$(echo "$full_prompt" | CAVEMAN_DEFAULT_MODE=off claude "${_c2_argv[@]}" -p \
+                            --json-schema "$_c2_schema_content" --output-format json 2>/dev/null)" || _c2_json=""
+                        if [ -n "$_c2_json" ]; then
+                            # Pull the schema-validated object out of the envelope.
+                            result="$(printf '%s' "$_c2_json" | python3 -c 'import sys,json
+try:
+    e=json.load(sys.stdin)
+    p=e.get("structured_output")
+    if not isinstance(p,dict):
+        r=e.get("result")
+        p=json.loads(r) if isinstance(r,str) else None
+    if isinstance(p,dict) and str(p.get("verdict","")).upper() in ("APPROVE","REJECT"):
+        sys.stdout.write(json.dumps(p))
+    else:
+        sys.exit(1)
+except Exception:
+    sys.exit(1)' 2>/dev/null)" || result=""
+                        fi
+                    fi
+                fi
+                # Fall through to the plain text call (+ sed-carve) on any miss.
+                if [ -z "$result" ]; then
+                    result=$(echo "$full_prompt" | CAVEMAN_DEFAULT_MODE=off claude "${_c2_argv[@]}" -p 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                fi
             else
                 result='{"verdict":"REJECT","reasoning":"reviewer CLI unavailable","issues":[]}'
             fi

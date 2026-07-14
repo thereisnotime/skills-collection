@@ -851,9 +851,15 @@ if command -v bun >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
         # dashboard state, not by the two routes formatting status differently).
         for src in "$PARITY_TMP/$label.bash" "$PARITY_TMP/$label.bun"; do
           dst="${src}.norm"
+          # Cockpit block: route-dependent (the bash doctor probes the cockpit
+          # renderer; the Bun doctor does not emit this section), so strip it on
+          # both sides -- parity with .github/workflows/bun-parity.yml:182 which
+          # already deletes it. Without this, local-ci flagged a diff the CI gate
+          # does not (the CI normalizer strips it), a local-ci-only false failure.
           sed -E "s/Disk space: [0-9]+GB/Disk space: NGB/g" "$src" \
             | sed -E "/Runtime route:/,/^$/d" \
             | sed -E "/Phase 1 artifacts:/,/^$/d" \
+            | sed -E "/Cockpit:/,/^$/d" \
             | sed -E "/Dashboard:.*http/d" \
             | sed -E "s/[0-9]+ passed/N passed/g; s/[0-9]+ failed/N failed/g; s/[0-9]+ warnings/N warnings/g" \
             > "$dst"

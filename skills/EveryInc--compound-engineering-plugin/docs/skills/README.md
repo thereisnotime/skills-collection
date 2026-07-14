@@ -110,7 +110,7 @@ Invoked when a specific need arises — not part of any chain.
 
 | Skill | Description |
 |-------|-------------|
-| [`/ce-proof`](./ce-proof.md) | Publish, view, comment on, and edit markdown via [Proof](https://www.proofeditor.ai), Every's collaborative editor — Web API and Local Bridge surfaces |
+| [`/ce-proof`](./ce-proof.md) | Publish, view, comment on, and edit markdown via [Proof](https://www.proofeditor.ai), Every's collaborative editor — hosted v3 web API with owner credential lifecycle |
 
 ---
 

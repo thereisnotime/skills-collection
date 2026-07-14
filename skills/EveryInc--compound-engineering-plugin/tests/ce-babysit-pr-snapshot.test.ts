@@ -47,6 +47,42 @@ function watch(stateDir: string, fetch: string, extra: string[] = []): any {
   return JSON.parse(r.stdout.trim().split("\n").pop()!) // the wake sentinel is the final line
 }
 
+function extractFeedback(view: unknown): any[] {
+  const r = spawnSync(
+    "python3",
+    [
+      "-c",
+      `import json; from importlib.machinery import SourceFileLoader; ` +
+        `m=SourceFileLoader('prs', ${JSON.stringify(SCRIPT)}).load_module(); ` +
+        `print(json.dumps(m._extract_feedback(json.loads(${JSON.stringify(JSON.stringify(view))}))))`,
+    ],
+    { encoding: "utf8" },
+  )
+  expect(r.status, r.stderr).toBe(0)
+  return JSON.parse(r.stdout.trim())
+}
+
+const CODEX_WRAPPER = `
+### 💡 Codex Review
+
+Here are some automated review suggestions for this pull request.
+
+**Reviewed commit:** \`50ffb4dd99\`
+
+<details> <summary>ℹ️ About Codex in GitHub</summary>
+<br/>
+
+[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you
+- Open a pull request for review
+- Mark a draft as ready
+- Comment "@codex review".
+
+If Codex has suggestions, it will comment; otherwise it will react with 👍.
+
+Codex can also answer questions or update the PR. Try commenting "@codex address that feedback".
+
+</details>`
+
 const FAILING = {
   pr_state: "OPEN",
   mergeable: "MERGEABLE",
@@ -480,32 +516,28 @@ describe("ce-babysit-pr pr-snapshot engine", () => {
     expect(d2.open_needs_human).toBe(1) // parked comment blocks merge-ready just like a parked thread
   })
 
-  test("_extract_feedback excludes the PR author and pure CI/status bots (incl [bot] suffix), keeps review bots and non-empty review bodies", () => {
+  test("_extract_feedback surfaces every non-empty external body for agent judgment", () => {
     const v = {
       author: { login: "me" },
       comments: [
         { id: "c-me", author: { login: "me" }, body: "my own note" }, // author -> excluded
-        { id: "c-cov", author: { login: "codecov[bot]" }, body: "coverage -0.1%" }, // CI bot -> excluded
-        { id: "c-rev", author: { login: "octo-reviewer" }, body: "please rename this" }, // human -> kept
+        { id: "c-cov", author: { login: "codecov[bot]" }, body: "coverage -0.1%" },
+        { id: "c-wrapper", author: { login: "chatgpt-codex-connector" }, body: CODEX_WRAPPER },
+        { id: "c-near-match", author: { login: "chatgpt-codex-connector" }, body: `${CODEX_WRAPPER}\n\nP1: Preserve this appended actionable finding.` },
+        { id: "c-claude", author: { login: "github-actions" }, body: "<!-- claude-review-summary -->\n## Claude Review\nBLOCKING: regenerate code" },
+        { id: "c-ghost", author: null, body: "feedback from an unavailable account" },
         { id: "c-empty", author: { login: "octo-reviewer" }, body: "   " }, // empty -> excluded
       ],
       reviews: [
-        { id: "r-cr", author: { login: "coderabbitai[bot]" }, body: "overall LGTM but see nits", state: "COMMENTED" }, // review bot -> kept
+        { id: "r-wrapper", author: { login: "chatgpt-codex-connector" }, body: CODEX_WRAPPER.replace("50ffb4dd99", "1f95273c71"), state: "COMMENTED" },
+        { id: "r-codex", author: { login: "chatgpt-codex-connector" }, body: `### 💡 Codex Review\n\nhttps://github.com/o/r/blob/abc/file.ts#L1-L2\n**P2 Block archiving core questions**\n\nAdd the invariant guard.\n\n<details> <summary>ℹ️ About Codex in GitHub</summary></details>`, state: "COMMENTED" },
+        { id: "r-cr", author: { login: "coderabbitai[bot]" }, body: "Actionable comments posted: 1\n\nInline review comments failed to post. Fix the custom agent ID path.", state: "COMMENTED" },
         { id: "r-empty", author: { login: "octo-reviewer" }, body: "", state: "APPROVED" }, // empty body -> excluded
       ],
     }
-    const r = spawnSync(
-      "python3",
-      [
-        "-c",
-        `import json; from importlib.machinery import SourceFileLoader; ` +
-          `m=SourceFileLoader('prs', ${JSON.stringify(SCRIPT)}).load_module(); ` +
-          `print(json.dumps([f['id'] for f in m._extract_feedback(json.loads(${JSON.stringify(JSON.stringify(v))}))]))`,
-      ],
-      { encoding: "utf8" },
-    )
-    expect(r.status, r.stderr).toBe(0)
-    expect(JSON.parse(r.stdout.trim()).sort()).toEqual(["c-rev", "r-cr"])
+    expect(extractFeedback(v).map((f: any) => f.id).sort()).toEqual([
+      "c-claude", "c-cov", "c-ghost", "c-near-match", "c-wrapper", "r-codex", "r-cr", "r-wrapper",
+    ])
   })
 
   test("watch: wakes on actionable backlog, terminal, and merge-ready-after-settle; times out on clean-not-settled", () => {

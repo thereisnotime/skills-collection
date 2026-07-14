@@ -18,6 +18,7 @@
   * [Review](plugins/review/README.md)
     * [review-local-changes](plugins/review/review-local-changes.md)
     * [review-pr](plugins/review/review-pr.md)
+    * [traiage-review](plugins/review/traiage-review.md)
     * [Usage Examples](plugins/review/usage-examples.md)
   * [Customize Agent](plugins/customaize-agent/README.md)
     * [create-agent](plugins/customaize-agent/create-agent.md)

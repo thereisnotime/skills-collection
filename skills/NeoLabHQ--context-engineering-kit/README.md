@@ -282,6 +282,7 @@ Comprehensive code and PR review commands that use multiple specialized agents f
 
 - [/review-local-changes](https://neolab.gitbook.io/cek/plugins/review/review-local-changes) - Comprehensive review of local uncommitted changes using specialized agents with code improvement suggestions
 - [/review-pr](https://neolab.gitbook.io/cek/plugins/review/review-pr) - Comprehensive pull request review using specialized agents
+- [/traiage-review](https://neolab.gitbook.io/cek/plugins/review/traiage-review) - Pick the top most important files from huge changeset for human reviewer, to decrease amount of files that need to review before approving it.
 
 **Agents**
 
@@ -293,6 +294,12 @@ This plugin uses multiple specialized agents for comprehensive code quality anal
 - **historical-context-reviewer** - Analyzes changes in relation to codebase history and patterns
 - **security-auditor** - Identifies security vulnerabilities and potential attack vectors
 - **test-coverage-reviewer** - Evaluates test coverage and suggests missing test cases
+
+The `traiage-review` skill additionally uses four change-triage agents: 
+- **change-story-agent
+- **change-impact-agent**
+- **change-failure-agent**
+- **change-expectation-agent**
 
 You can use this plugin to review code in GitHub Actions; to do so, follow [this guide](https://neolab.gitbook.io/cek/guides/ci-integration).
 

@@ -43,6 +43,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { claudeFlagSupported, ensureClaudeHelpCache } from "../providers/claude_flags.ts";
 import { atomicWriteText, withFileLockSync } from "../util/atomic.ts";
 import { REPO_ROOT, lokiDir } from "../util/paths.ts";
 import { commandExists, run } from "../util/shell.ts";
@@ -1277,6 +1278,63 @@ export const REVIEWER_UNAVAILABLE_MARKER = "REVIEWER_UNAVAILABLE";
 const REVIEW_GUARD_DENYLIST =
   "Edit,Write,NotebookEdit,Bash(git commit:*),Bash(git reset:*),Bash(git push:*),Bash(git checkout:*),Bash(git clean:*),Bash(git rm:*),Bash(git stash:*),Bash(git -C:*),Bash(git --git-dir:*),Bash(git -c:*)";
 
+// v8.x: absolute path to the code-review verdict schema (distinct from the
+// council finding-schema; this one speaks PASS/FAIL + severity).
+const CODE_REVIEW_SCHEMA_PATH = join(REPO_ROOT, "loki-ts", "data", "code-review-schema.json");
+
+// Re-materialize a `claude --json-schema --output-format json` envelope into the
+// LEGACY "VERDICT: X\nFINDINGS:\n- [severity] description" text so parseVerdict,
+// countNonBlockingFindings, computeMergeabilityScore and the DA arm stay
+// byte-identical. Returns null on ANY structural miss (fail-closed) so the caller
+// emits the synthetic blocking FAIL, never a PASS. Mirrors
+// autonomy/lib/cr-rematerialize.py exactly, INCLUDING the T1 rule: any Critical/
+// High finding forces verdict FAIL regardless of the emitted token (JSON Schema
+// cannot express that cross-field constraint).
+export function rematerializeCodeReview(rawJson: string): string | null {
+  let env: unknown;
+  try {
+    env = JSON.parse(rawJson);
+  } catch {
+    return null;
+  }
+  if (typeof env !== "object" || env === null) return null;
+  const e = env as Record<string, unknown>;
+  const stop = e["stop_reason"];
+  if (stop !== undefined && stop !== null && stop !== "tool_use") return null;
+  let payload: unknown = e["structured_output"];
+  if (typeof payload !== "object" || payload === null) {
+    const res = e["result"];
+    if (typeof res === "string") {
+      try {
+        payload = JSON.parse(res);
+      } catch {
+        payload = null;
+      }
+    }
+  }
+  if (typeof payload !== "object" || payload === null) return null;
+  const p = payload as Record<string, unknown>;
+  let verdict = String(p["verdict"] ?? "").trim().toUpperCase();
+  if (verdict !== "PASS" && verdict !== "FAIL") return null;
+  const findings = Array.isArray(p["findings"]) ? p["findings"] : [];
+  const body: string[] = [];
+  let hasBlocking = false;
+  for (const f of findings) {
+    if (typeof f !== "object" || f === null) continue;
+    const ff = f as Record<string, unknown>;
+    const sev = String(ff["severity"] ?? "").trim();
+    const desc = String(ff["description"] ?? "").trim();
+    if (!sev || !desc) continue;
+    if (sev.toUpperCase() === "CRITICAL" || sev.toUpperCase() === "HIGH") hasBlocking = true;
+    body.push(`- [${sev}] ${desc}`);
+  }
+  if (hasBlocking) verdict = "FAIL"; // T1: no fake-green on a self-contradictory PASS+Critical
+  const lines = [`VERDICT: ${verdict}`, "FINDINGS:"];
+  if (body.length > 0) lines.push(...body);
+  else lines.push("- None");
+  return lines.join("\n") + "\n";
+}
+
 export const claudeReviewer: ReviewerFn = async ({ prompt }) => {
   const argv = ["claude", "--dangerously-skip-permissions"];
   // OPT-IN advisor pin (LOKI_ADVISOR_MODEL): default no --model (account
@@ -1288,6 +1346,29 @@ export const claudeReviewer: ReviewerFn = async ({ prompt }) => {
   if (process.env["LOKI_REVIEW_TOOL_GUARD"] !== "0") {
     argv.push("--disallowedTools", REVIEW_GUARD_DENYLIST);
   }
+
+  // STRUCTURED VERDICT (v8.x): when the CLI supports --json-schema, force valid
+  // JSON and re-materialize legacy VERDICT/FINDINGS text so parseVerdict et al are
+  // untouched. --json-schema takes INLINE content, not a path (CLI 2.1.207 rejects
+  // a path). Fail-closed: any miss -> synthetic blocking FAIL (parity with the
+  // rc/empty branches below and the bash fall-through). Opt out
+  // LOKI_REVIEW_JSON_SCHEMA=off. Guards (--disallowedTools, no default --model,
+  // CAVEMAN_DEFAULT_MODE=off) carry over since we spread the same argv.
+  if (process.env["LOKI_REVIEW_JSON_SCHEMA"] !== "off" && existsSync(CODE_REVIEW_SCHEMA_PATH)) {
+    await ensureClaudeHelpCache();
+    if (claudeFlagSupported("--json-schema")) {
+      const schemaContent = readFileSync(CODE_REVIEW_SCHEMA_PATH, "utf8");
+      const sArgv = [...argv, "-p", prompt, "--json-schema", schemaContent, "--output-format", "json"];
+      const rs = await run(sArgv, { env: { CAVEMAN_DEFAULT_MODE: "off" }, timeoutMs: 600_000 });
+      if (rs.exitCode === 0 && rs.stdout.trim().length > 0) {
+        const legacy = rematerializeCodeReview(rs.stdout);
+        if (legacy !== null) return legacy;
+      }
+      // fail-closed: structured path failed -> blocking synthetic (never a PASS).
+      return `VERDICT: FAIL\nFINDINGS:\n- [Critical] structured reviewer produced no valid verdict`;
+    }
+  }
+
   argv.push("-p", prompt, "--output-format", "text");
 
   // Mirror the bash subcall: cwd-agnostic (the prompt carries the diff), caveman

@@ -77,6 +77,10 @@ tmp/
 HANDOFF.md
 # Internal strategy / roadmap / next-steps / MOAT specs -- hidden from the public repo.
 artifacts/ROADMAP-*.md
+artifacts/STRATEGY.md
+artifacts/AUTONOMOUS-SESSION-*.md
+artifacts/FOUNDER-HANDOFF-*.md
+artifacts/V8-SESSION-STATE.md
 artifacts/v7-e2e-saas/MOAT-*.md
 artifacts/v7-e2e-saas/DESIGN-*.md
 # Internal build/test/e2e output + screenshots under artifacts/ -- scratch, not
@@ -94,3 +98,5 @@ artifacts/live-preview-screens/
 artifacts/observability/screenshot.png
 artifacts/paolo/
 artifacts/v781-e2e/
+artifacts/E2E-CLIENT-FIX-RESULTS.md
+artifacts/V8-SESSION-STATE.md

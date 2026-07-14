@@ -4,9 +4,16 @@
 #
 # Print the license of every direct (non-dev) dependency listed in the root
 # package.json and loki-ts/package.json. Verifies each is in the permissive
-# allowlist (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC). Prints a
+# allowlist (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0). Prints a
 # verdict line (LICENSE-AUDIT: PASS or LICENSE-AUDIT: REVIEW) and exits 0 on
 # PASS, 1 on REVIEW.
+#
+# MPL-2.0 note: Mozilla Public License 2.0 is OSI-approved, file-level ("weak")
+# copyleft -- using a package under it as an UNMODIFIED dependency imposes no
+# obligation on the rest of the codebase (only modifications to the MPL-licensed
+# files themselves must stay MPL). The only MPL-2.0 deps here are @resvg/resvg-js
+# and @resvg/resvg-wasm, used unmodified for SVG rasterization in the cockpit, so
+# they are safe to allow for a proprietary/BUSL-licensed project.
 #
 # No source files are modified. Stock macOS / Ubuntu CI tooling only.
 
@@ -20,7 +27,7 @@ PACKAGE_FILES=(
 
 # Permissive license allowlist (case-insensitive substring match against
 # the SPDX identifier returned by npm view).
-ALLOWED_PATTERN='^(MIT|Apache-2\.0|BSD-2-Clause|BSD-3-Clause|ISC)$'
+ALLOWED_PATTERN='^(MIT|Apache-2\.0|BSD-2-Clause|BSD-3-Clause|ISC|MPL-2\.0)$'
 
 # Require jq to parse package.json (available on stock macOS via brew and
 # on Ubuntu CI runners by default).

@@ -64,6 +64,7 @@ Code Review Command
 
 - [/review-local-changes](./review-local-changes.md) - Local Changes Review
 - [/review-pr](./review-pr.md) - Pull Request Review
+- [/traiage-review](./traiage-review.md) - Pick the top most important files from huge changeset for human reviewer, to decrease amount of files that need to review before approving it.
 
 ## Review Agents
 
@@ -132,6 +133,15 @@ Code Review Command
 - Previous bug patterns
 - Architectural drift
 - Technical debt indicators
+
+### Change Triage Agents
+
+The [traiage-review](./traiage-review.md) skill uses four additional agents that run in parallel to prioritize which changed files need human review:
+
+- **change-story-agent** - Builds the change "story" (intent, architecture, design decisions, risks, solutions) plus key facts
+- **change-impact-agent** - Rates files by blast radius, impact, exposure, and uncertainty
+- **change-failure-agent** - Rates files by failure severity and detectability
+- **change-expectation-agent** - Flags files sensitive to misunderstood requirements/side effects and lists declarative files
 
 ## CI/CD Integration
 

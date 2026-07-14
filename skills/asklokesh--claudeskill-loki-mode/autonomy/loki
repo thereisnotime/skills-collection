@@ -2348,6 +2348,44 @@ cmd_start() {
         fi
     fi
 
+    # Shared-checkout concurrency guard (client bug: N `loki start ... --detach`
+    # in ONE working dir with a SHARED .loki/ collide on non-namespaced worktree
+    # paths + branches, producing missing worktrees and log spam). Issue-mode
+    # namespaces pids PER SESSION, so the global loki.pid check below never trips
+    # for DIFFERENT issues -- there was no guard on concurrent runs per checkout.
+    # Detect a LIVE sibling loki running in THIS checkout via per-run pid markers
+    # (crash-safe: dead markers are pruned via kill -0, so no deadlock). A run
+    # that isolates its state (a distinct LOKI_DIR, i.e. NOT the default .loki) is
+    # exempt -- that IS the safe per-issue pattern. Escape hatch:
+    # LOKI_ALLOW_SHARED_CHECKOUT=1.
+    local _co_loki_dir="${LOKI_DIR:-.loki}"
+    if [ "${LOKI_ALLOW_SHARED_CHECKOUT:-0}" != "1" ] \
+       && { [ -z "${LOKI_DIR:-}" ] || [ "$(cd "${LOKI_DIR}" 2>/dev/null && pwd)" = "$(cd .loki 2>/dev/null && pwd)" ]; }; then
+        local _co_runs_dir="$_co_loki_dir/checkout-runs"
+        mkdir -p "$_co_runs_dir" 2>/dev/null || true
+        local _co_marker _co_pid _co_live=""
+        for _co_marker in "$_co_runs_dir"/*; do
+            [ -f "$_co_marker" ] || continue
+            _co_pid=$(cat "$_co_marker" 2>/dev/null | tr -dc '0-9')
+            if [ -n "$_co_pid" ] && [ "$_co_pid" != "$$" ] && kill -0 "$_co_pid" 2>/dev/null; then
+                _co_live="$_co_pid"; break
+            fi
+            # Prune a dead marker.
+            [ -n "$_co_pid" ] && rm -f "$_co_marker" 2>/dev/null || true
+        done
+        if [ -n "$_co_live" ]; then
+            echo -e "${RED}Error: another loki run (pid $_co_live) is active in this checkout ($(pwd)).${NC}" >&2
+            echo -e "${YELLOW}Running several issues at once from ONE checkout + shared .loki/ collides on worktrees and branches.${NC}" >&2
+            echo -e "${YELLOW}Give each issue its own worktree AND state dir, e.g.:${NC}" >&2
+            echo -e "${YELLOW}  git worktree add ../repo-issue-N -b loki/issue-N && (cd ../repo-issue-N && LOKI_DIR=\"\$PWD/.loki\" loki start owner/repo#N --pr --detach)${NC}" >&2
+            echo -e "${YELLOW}See 'skills/github-integration.md' (Multiple issues at once). Override with LOKI_ALLOW_SHARED_CHECKOUT=1.${NC}" >&2
+            exit 1
+        fi
+        # Register our own marker for the duration of this run (best-effort;
+        # pruned by the next start if we die, and by 'loki stop').
+        echo "$$" > "$_co_runs_dir/$$" 2>/dev/null || true
+    fi
+
     # v7.5.12 Gap B: Stale-PID detection. Hard-kill (Ctrl+C followed by SIGKILL or
     # `loki stop`) can leave .loki/loki.pid + .loki/session.lock orphaned. The
     # next `loki start` then refuses to launch -- or worse, run.sh's downstream
@@ -8019,6 +8057,16 @@ fi
 INNER_SCRIPT_EOF
         chmod +x "$run_script"
 
+        # Propagate the nested-agent signal into the detached run. CLAUDECODE (set
+        # by Claude Code / the Loki Mode skill) is NOT in the curated env list the
+        # inner script inherits, so run.sh's nested guard would never see it once
+        # detached. Forward it as LOKI_NESTED_AGENT (which run.sh honors) so the
+        # testing/docs worktree sub-streams stay OFF when nested even after the
+        # nohup fork. Already-set LOKI_NESTED_AGENT wins.
+        local _loki_nested_pass="${LOKI_NESTED_AGENT:-}"
+        if [ -z "$_loki_nested_pass" ] && [ -n "${CLAUDECODE:-}" ]; then
+            _loki_nested_pass=1
+        fi
         # Pass all variables safely via environment
         LOKI_RUN_DIR="$(pwd)" \
         LOKI_CMD="$loki_cmd" \
@@ -8031,6 +8079,7 @@ INNER_SCRIPT_EOF
         LOKI_AUTO_MERGE="$auto_merge" \
         LOKI_PR_TITLE="${title:-Implementation for issue ${issue_ref}}" \
         LOKI_ISSUE_NUMBER="${number:-}" \
+        LOKI_NESTED_AGENT="$_loki_nested_pass" \
         nohup bash "$run_script" > "$log_file" 2>&1 &
 
         local bg_pid=$!

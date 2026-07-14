@@ -194,6 +194,28 @@ describe("ce-code-review contract", () => {
     expect(template).toMatch(/personas never produce/i)
   })
 
+  test("subagent template and schema require load-bearing line provenance in evidence", async () => {
+    const template = await readRepoFile(
+      "skills/ce-code-review/references/subagent-template.md",
+    )
+    const schemaRaw = await readRepoFile(
+      "skills/ce-code-review/references/findings-schema.json",
+    )
+    const schema = JSON.parse(schemaRaw)
+    const evidenceDescription = schema.properties.findings.items.properties.evidence.description as string
+
+    expect(template).toMatch(/Load-bearing line provenance/i)
+    expect(template).toMatch(/provenance: <shortsha>/i)
+    expect(template).toMatch(/omit provenance when the finding is fully justified from the diff/i)
+    expect(template).toMatch(/must not replace the quote-the-line/i)
+    expect(template).toMatch(/Do not dump full-file blame/i)
+    expect(template).toMatch(/pr-remote.*branch-remote.*reviewed head ref/is)
+
+    expect(evidenceDescription).toMatch(/additional concise provenance line/i)
+    expect(evidenceDescription).toMatch(/never dump full-file blame/i)
+    expect(evidenceDescription).toMatch(/omit when the finding is justified from the diff alone/i)
+  })
+
   test("subagent template points to action-class rubric without safe_auto", async () => {
     const template = await readRepoFile(
       "skills/ce-code-review/references/subagent-template.md",
@@ -301,6 +323,10 @@ describe("ce-code-review contract", () => {
     expect(validatorTemplate).toContain('"validated": true | false')
     expect(validatorTemplate).toMatch(/introduced by THIS diff/i)
     expect(validatorTemplate).toMatch(/handled elsewhere/i)
+    // Load-bearing provenance: prefer short-hash in reason; soft miss when omitted
+    expect(validatorTemplate).toMatch(/short-hash provenance/i)
+    expect(validatorTemplate).toMatch(/soft quality miss/i)
+    expect(validatorTemplate).toMatch(/provenance:/i)
   })
 
   test("Stage 5c applies safe fixes in default mode, report-only in mode:agent, no deny-list", async () => {

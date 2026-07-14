@@ -21,6 +21,7 @@ const universalBrainstorming = readRepoFile(
   "skills/ce-brainstorm/references/universal-brainstorming.md",
 )
 const ceWork = readRepoFile("skills/ce-work/SKILL.md")
+const ceWorkDocs = readRepoFile("docs/skills/ce-work.md")
 const ceWorkEngines = readRepoFile(
   "skills/ce-work/references/execution-engines.md",
 )
@@ -240,6 +241,17 @@ describe("unified plan artifact contract", () => {
     expect(ceWork).toMatch(/legacy aliases `mode:caller-owned-tail`/i)
     expect(ceWork).toMatch(/strip that token/i)
     expect(ceWork).toContain("after any mode token is stripped")
+  })
+
+  test("ce-work surfaces its caller-owned mode in discovery metadata and public docs", () => {
+    expect(ceWork).toMatch(/description:.*outer orchestrators pass `mode:return-to-caller <plan path>`/i)
+    expect(ceWork).toMatch(/argument-hint:.*mode:return-to-caller <plan path> for outer orchestrators/i)
+    expect(ceWorkDocs).toContain("## Use Beneath an Outer Orchestrator")
+    expect(ceWorkDocs).toContain("standalone_shipping_skipped: true")
+    expect(ceWorkDocs).toMatch(/does not run the standalone shipping tail/i)
+    // Do not claim return-to-caller skips all simplification — Phase 2 Simplify as You Go still runs.
+    expect(ceWorkDocs).toMatch(/Mid-implementation "Simplify as You Go" still runs/i)
+    expect(ceWorkDocs).toMatch(/skips the standalone shipping tail \(final simplify, review, PR, CI\)/i)
   })
 
   test("ce-code-review discovery/extraction covers HTML and Product Contract requirements", () => {

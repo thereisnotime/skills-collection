@@ -51,6 +51,54 @@
 _loki_done_recog_invoke() {
     local prompt="$1"
     command -v claude >/dev/null 2>&1 || return 1
+
+    # STRUCTURED VERDICT (v8.x): when the CLI supports --json-schema, force valid
+    # JSON so parse_object never has to brace-slice prose. --json-schema takes
+    # INLINE content, not a path (CLI 2.1.207 rejects a path). On any miss (flag
+    # unsupported, empty, no structured_output) fall through to the plain -p call
+    # below; parse_object then handles it and defaults to inconclusive (safe).
+    # Opt out LOKI_REVIEW_JSON_SCHEMA=off.
+    local _dr_schema_dir _dr_schema
+    _dr_schema_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+    _dr_schema="${_dr_schema_dir}/loki-ts/data/done-recognition-schema.json"
+    if [ "${LOKI_REVIEW_JSON_SCHEMA:-on}" != "off" ] && [ -f "$_dr_schema" ] \
+       && type loki_claude_flag_supported >/dev/null 2>&1 \
+       && loki_claude_flag_supported "--json-schema"; then
+        local _dr_schema_content _dr_json _dr_obj
+        _dr_schema_content="$(cat "$_dr_schema" 2>/dev/null)" || _dr_schema_content=""
+        if [ -n "$_dr_schema_content" ]; then
+            if command -v timeout >/dev/null 2>&1; then
+                _dr_json=$(CAVEMAN_DEFAULT_MODE=off timeout "${LOKI_DONE_RECOG_TIMEOUT}" \
+                    claude --dangerously-skip-permissions -p "$prompt" \
+                    --json-schema "$_dr_schema_content" --output-format json 2>/dev/null) || _dr_json=""
+            else
+                _dr_json=$(CAVEMAN_DEFAULT_MODE=off \
+                    claude --dangerously-skip-permissions -p "$prompt" \
+                    --json-schema "$_dr_schema_content" --output-format json 2>/dev/null) || _dr_json=""
+            fi
+            if [ -n "$_dr_json" ]; then
+                _dr_obj=$(printf '%s' "$_dr_json" | python3 -c 'import sys,json
+try:
+    e=json.load(sys.stdin)
+    p=e.get("structured_output")
+    if not isinstance(p,dict):
+        r=e.get("result")
+        p=json.loads(r) if isinstance(r,str) else None
+    if isinstance(p,dict) and "requirements" in p:
+        sys.stdout.write(json.dumps(p))
+    else:
+        sys.exit(1)
+except Exception:
+    sys.exit(1)' 2>/dev/null) || _dr_obj=""
+                if [ -n "$_dr_obj" ]; then
+                    printf '%s' "$_dr_obj"
+                    return 0
+                fi
+            fi
+        fi
+        # fall through to the plain text call (parse_object handles it, inconclusive-safe)
+    fi
+
     local rc=0
     local out=""
     if command -v timeout >/dev/null 2>&1; then

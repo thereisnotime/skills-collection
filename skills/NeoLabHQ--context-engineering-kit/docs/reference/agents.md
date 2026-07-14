@@ -14,6 +14,10 @@ Specialized agents for comprehensive code quality analysis. [More info](../plugi
 - `historical-context-reviewer` - Analyzes changes in relation to codebase history and patterns.
 - `security-auditor` - Identifies security vulnerabilities and potential attack vectors.
 - `test-coverage-reviewer` - Evaluates test coverage and suggests missing test cases.
+- `change-story-agent` - Builds the change "story" (intent, architecture, design decisions, risks, solutions) plus key facts for triage review.
+- `change-impact-agent` - Rates changed files by blast radius, impact, exposure, and uncertainty.
+- `change-failure-agent` - Rates changed files by failure severity and detectability.
+- `change-expectation-agent` - Flags files sensitive to misunderstood requirements or side effects and lists declarative files.
 
 ### Spec-Driven Development (SDD)
 

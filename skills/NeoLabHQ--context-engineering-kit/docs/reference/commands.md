@@ -13,12 +13,13 @@ Reflection and self-improvement commands based on Self-Refine and Reflexion pape
 - `/reflexion:critique` - Comprehensive multi-perspective review using specialized judges with debate and consensus building.
 
 
-### Code Review
+### Review
 
 Comprehensive code review commands using specialized agents. [More info](../plugins/review/README.md).
 
 - `/review-local-changes` - Comprehensive review of local uncommitted changes using specialized agents with code improvement suggestions.
 - `/review-pr` - Comprehensive pull request review using specialized agents.
+- `/traiage-review` - Prioritizes which changed files from huge changeset need human reviewer attention. Launches four triage agents (change-story, change-impact, change-failure, change-expectation) in parallel plus a random-sample step to build a shortlist of the riskiest files. Supports both local staged/unstaged review and branch-diff review against the detected default branch.
 
 ### Git
 

@@ -63,6 +63,7 @@ Comprehensive code review using multiple specialized agents for thorough quality
 * Multi-agent review (bug hunter, security auditor, test coverage reviewer, etc.)
 * Local changes review
 * Pull request review
+* Triage changeset files list to pick the top most important files for human reviewer, to decrease amount of files that need to review before approving it.
 
 **When to use:** Before committing changes or creating pull requests.
 

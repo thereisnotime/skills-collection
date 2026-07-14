@@ -273,6 +273,15 @@ function findingSchemaPath(): string {
   return resolvePath(import.meta.dir, "..", "..", "data", "finding-schema.json");
 }
 
+// v8.x FIX: `claude --json-schema` takes the schema JSON as INLINE CONTENT, not
+// a file path. Live-verified on CLI 2.1.207: passing a path errors with
+// "--json-schema is not valid JSON: Unrecognized token '/'" -> the dispatch
+// threw / fell back, so the structured council was silently non-functional.
+// Both dispatch sites pass this content. Parity with autonomy/lib/voter-agents.sh.
+function findingSchemaContent(): string {
+  return readFileSync(findingSchemaPath(), "utf8");
+}
+
 // Single-shot Claude invocation that declares all 3 base voters and asks for
 // a schema-validated multi-finding response. Throws on any failure so the
 // caller (councilEvaluate) can fall through to the existing heuristic.
@@ -302,7 +311,7 @@ export async function dispatchClaudeAgents(
   }
 
   const agentsJson = buildVoterAgentsJson(cec);
-  const schemaPath = findingSchemaPath();
+  const schemaContent = findingSchemaContent();
 
   // Minimal prompt: the agents declare the per-voter detail; the top-level
   // prompt tells Claude to produce the multi-finding wrapper.
@@ -325,7 +334,7 @@ export async function dispatchClaudeAgents(
     "--agents",
     JSON.stringify(agentsJson),
     "--json-schema",
-    schemaPath,
+    schemaContent,
   ];
   // EMBED 3 (v7.33.0): --disallowedTools on the council voter argv. A reviewer
   // / voter agent should not casually mutate the working tree (a parallel agent
@@ -416,7 +425,7 @@ export async function dispatchDevilsAdvocate(
   const agentsJson: Record<string, AgentSpec> = {
     [VOTER_SLUGS.DEVILS_ADVOCATE]: daAgent,
   };
-  const schemaPath = findingSchemaPath();
+  const schemaContent = findingSchemaContent();
 
   const topPrompt = [
     `Iteration ${cec.iteration} anti-sycophancy re-review.`,
@@ -434,7 +443,7 @@ export async function dispatchDevilsAdvocate(
     "--agents",
     JSON.stringify(agentsJson),
     "--json-schema",
-    schemaPath,
+    schemaContent,
   ];
   if (
     process.env["LOKI_REVIEW_TOOL_GUARD"] !== "0" &&

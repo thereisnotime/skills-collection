@@ -2,7 +2,7 @@
 # autonomy/lib/voter-agents.sh -- Phase C (v7.5.20) bash side.
 #
 # Builds the JSON declaration of the council voter agents and orchestrates a
-# single `claude --agents <json> --json-schema <path>` dispatch per iteration.
+# single `claude --agents <json> --json-schema <inline-content>` dispatch per iteration.
 # Replaces the ad-hoc per-voter heuristic loop in council_aggregate_votes when
 # the locally installed Claude CLI supports both flags.
 #
@@ -176,7 +176,7 @@ loki_finding_schema_path() {
 #      --json-schema in `claude --help`. Either missing -> return 1 (fallback).
 #   2. Build the agents JSON via loki_voter_agents_json.
 #   3. Invoke `claude --dangerously-skip-permissions -p <prompt>
-#                    --agents <json> --json-schema <path>` and capture stdout.
+#                    --agents <json> --json-schema <inline-content>` and capture stdout.
 #      Any non-zero exit or empty stdout -> return 1 (fallback).
 #   4. Parse the response via python3 (no jq dependency): extract
 #      findings[].{role, vote, reason, confidence}. On parse failure -> 1.
@@ -236,6 +236,16 @@ loki_council_dispatch_agents() {
     local schema_path
     schema_path=$(loki_finding_schema_path) || return 1
 
+    # v8.x FIX: `claude --json-schema` takes the schema JSON as INLINE CONTENT,
+    # not a file path. Live-verified on CLI 2.1.207: passing a path errors with
+    # "--json-schema is not valid JSON: Unrecognized token '/'" -> rc!=0 ->
+    # fail-closed to the heuristic path, so this structured dispatch was SILENTLY
+    # DEAD (never actually schema-constrained the council). Read the file and pass
+    # its content. Fail-closed if unreadable/empty (return 1 -> heuristic path).
+    local schema_content
+    schema_content=$(cat "$schema_path" 2>/dev/null) || return 1
+    [ -n "$schema_content" ] || return 1
+
     # 3. Invoke claude. Guard against absent binary or non-zero exit.
     command -v claude >/dev/null 2>&1 || return 1
 
@@ -274,7 +284,7 @@ loki_council_dispatch_agents() {
                       env CAVEMAN_DEFAULT_MODE=off claude --dangerously-skip-permissions \
                       -p "$prompt" \
                       --agents "$agents_json" \
-                      --json-schema "$schema_path" 2>"$stderr_log") || rc=$?
+                      --json-schema "$schema_content" 2>"$stderr_log") || rc=$?
     if [ "$rc" -ne 0 ] || [ -z "$response" ]; then
         return 1
     fi

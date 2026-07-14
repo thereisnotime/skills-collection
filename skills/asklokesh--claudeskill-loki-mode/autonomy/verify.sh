@@ -427,6 +427,14 @@ _verify_zero_tests_executed() {
 verify_gate_tests() {
     local tree="$1"
     local timeout_s="${LOKI_GATE_TIMEOUT:-300}"
+    # Bounded-exec prefix: "timeout <secs>" / "gtimeout <secs>", or EMPTY when
+    # neither is on PATH (bare macOS, or a shadowed PATH). A bare `timeout ...`
+    # would exit 127 (command not found) and be misread as a test FAILURE ->
+    # spurious BLOCKED verdict. Degrade to running without a wall-clock cap
+    # instead. Mirrors run.sh's with_timeout discipline.
+    local _vt_bin _vt
+    _vt_bin="$(_verify_runtime_timeout_bin)"
+    if [ -n "$_vt_bin" ]; then _vt="$_vt_bin $timeout_s"; else _vt=""; fi
     local runner="none"
     local rc=0
     local out=""
@@ -434,13 +442,13 @@ verify_gate_tests() {
     if [ -f "$tree/package.json" ]; then
         if grep -q '"vitest"' "$tree/package.json" 2>/dev/null; then
             runner="vitest"
-            out="$(cd "$tree" && timeout "$timeout_s" npx vitest run 2>&1)" || rc=$?
+            out="$(cd "$tree" && $_vt npx vitest run 2>&1)" || rc=$?
         elif grep -q '"jest"' "$tree/package.json" 2>/dev/null; then
             runner="jest"
-            out="$(cd "$tree" && timeout "$timeout_s" npx jest --passWithNoTests --forceExit 2>&1)" || rc=$?
+            out="$(cd "$tree" && $_vt npx jest --passWithNoTests --forceExit 2>&1)" || rc=$?
         elif grep -q '"mocha"' "$tree/package.json" 2>/dev/null; then
             runner="mocha"
-            out="$(cd "$tree" && timeout "$timeout_s" npx mocha 2>&1)" || rc=$?
+            out="$(cd "$tree" && $_vt npx mocha 2>&1)" || rc=$?
         fi
     fi
 
@@ -480,7 +488,7 @@ verify_gate_tests() {
         if [ "$has_python" = "true" ]; then
             if command -v pytest >/dev/null 2>&1; then
                 runner="pytest"
-                out="$(cd "$tree" && timeout "$timeout_s" pytest --tb=short 2>&1)" || rc=$?
+                out="$(cd "$tree" && $_vt pytest --tb=short 2>&1)" || rc=$?
             elif command -v python3 >/dev/null 2>&1; then
                 # #139 parity: pytest ABSENT but a Python suite exists -> run it with
                 # stdlib unittest (zero third-party deps) instead of going blindly
@@ -490,7 +498,7 @@ verify_gate_tests() {
                 # a "Ran 0 tests" line detected by the zero-test guard on the run.sh
                 # mirror) so this never green-washes an empty suite.
                 runner="unittest"
-                out="$(cd "$tree" && timeout "$timeout_s" python3 -m unittest discover -p 'test_*.py' 2>&1)" || rc=$?
+                out="$(cd "$tree" && $_vt python3 -m unittest discover -p 'test_*.py' 2>&1)" || rc=$?
             else
                 # Applicable but cannot run -> inconclusive (Entanglement 2).
                 _verify_add_gate "tests" "inconclusive" "pytest" "python project detected but no pytest/python3 on PATH" "true"
@@ -502,7 +510,7 @@ verify_gate_tests() {
     if [ "$runner" = "none" ] && [ -f "$tree/go.mod" ]; then
         if command -v go >/dev/null 2>&1; then
             runner="go-test"
-            out="$(cd "$tree" && timeout "$timeout_s" go test ./... 2>&1)" || rc=$?
+            out="$(cd "$tree" && $_vt go test ./... 2>&1)" || rc=$?
         else
             _verify_add_gate "tests" "inconclusive" "go-test" "go project detected but go not on PATH" "true"
             return 0
@@ -512,7 +520,7 @@ verify_gate_tests() {
     if [ "$runner" = "none" ] && [ -f "$tree/Cargo.toml" ]; then
         if command -v cargo >/dev/null 2>&1; then
             runner="cargo-test"
-            out="$(cd "$tree" && timeout "$timeout_s" cargo test 2>&1)" || rc=$?
+            out="$(cd "$tree" && $_vt cargo test 2>&1)" || rc=$?
         else
             _verify_add_gate "tests" "inconclusive" "cargo-test" "rust project detected but cargo not on PATH" "true"
             return 0
@@ -550,7 +558,13 @@ verify_gate_tests() {
             runner="node-test"
             # Pass matched files explicitly (node --test globbing is
             # Node-version-sensitive); quote each so paths with spaces survive.
-            out="$(cd "$tree" && timeout "$timeout_s" node --test "${_nt_files[@]}" 2>&1)" || rc=$?
+            # Force --test-reporter=tap: Node 20+ defaults to the human "spec"
+            # reporter (Node 26 emits it even under capture), whose "i pass N" /
+            # check-mark lines the count parser + zero-tests detector below do NOT
+            # match; they expect TAP "# pass N" / "ok N - ". TAP is stable since
+            # Node 18, so forcing it restores a version-independent format with no
+            # parser change. Parity with autonomy/run.sh:9662.
+            out="$(cd "$tree" && $_vt node --test --test-reporter=tap "${_nt_files[@]}" 2>&1)" || rc=$?
         fi
     fi
 
@@ -561,6 +575,22 @@ verify_gate_tests() {
 
     if [ "$rc" -eq 124 ]; then
         _verify_add_gate "tests" "inconclusive" "$runner" "test run timed out after ${timeout_s}s" "true"
+        return 0
+    fi
+
+    # #82 (Python 3.12+): `python3 -m unittest` exits 5 (NOT 0) when it discovers
+    # ZERO tests -- e.g. a suite of pytest-style bare `def test_*` functions that
+    # unittest (TestCase-only) cannot collect. That non-zero exit would otherwise
+    # fall into the fail branch below and record tests=fail -> BLOCKED, when the
+    # honest classification is "applicable but ran no real tests" = inconclusive
+    # -> CONCERNS. Route the unittest zero-discovery case through the same guard
+    # the rc==0 path uses (its unittest arm matches "Ran 0 tests"/"NO TESTS RAN"
+    # but was unreachable behind rc==0). Scoped to unittest so pytest/go/cargo/node
+    # non-zero exits still correctly record fail.
+    if [ "$rc" -eq 5 ] && [ "$runner" = "unittest" ] \
+       && _verify_zero_tests_executed "$runner" "$out" "${_nt_files[@]:-}"; then
+        _verify_add_gate "tests" "inconclusive" "$runner" \
+            "runner ran but discovered zero tests (source_without_runnable_tests)" "true"
         return 0
     fi
 

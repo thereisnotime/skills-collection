@@ -817,8 +817,27 @@ fi
 PARALLEL_MODE=${LOKI_PARALLEL_MODE:-false}
 MAX_WORKTREES=${LOKI_MAX_WORKTREES:-5}
 MAX_PARALLEL_SESSIONS=${LOKI_MAX_PARALLEL_SESSIONS:-3}
-PARALLEL_TESTING=${LOKI_PARALLEL_TESTING:-true}
-PARALLEL_DOCS=${LOKI_PARALLEL_DOCS:-true}
+# Nested-agent guard: the fixed testing/docs sub-streams each spawn a FURTHER
+# nested `claude` session in a NON-namespaced worktree (`<project>-testing`,
+# `<project>-docs`). When Loki itself runs inside another agent session (Claude
+# Code sets CLAUDECODE; the Loki Mode skill, or a user driving the CLI as a
+# background process from an agent), those nested spawns fight over the shared
+# checkout/worktree paths and flood the log -- the reported "N issues in one dir"
+# failure. So default the sub-streams OFF when nested; the core issue work still
+# runs. Explicit LOKI_PARALLEL_TESTING/DOCS=true overrides (opt back in). This
+# does NOT disable the user's own --parallel/--pr issue work, only the auxiliary
+# testing/docs fan-out that is unsafe to nest.
+_loki_nested_agent=false
+if [ -n "${CLAUDECODE:-}" ] || [ -n "${LOKI_NESTED_AGENT:-}" ]; then
+    _loki_nested_agent=true
+fi
+if [ "$_loki_nested_agent" = "true" ]; then
+    PARALLEL_TESTING=${LOKI_PARALLEL_TESTING:-false}
+    PARALLEL_DOCS=${LOKI_PARALLEL_DOCS:-false}
+else
+    PARALLEL_TESTING=${LOKI_PARALLEL_TESTING:-true}
+    PARALLEL_DOCS=${LOKI_PARALLEL_DOCS:-true}
+fi
 
 # Dynamic resource-aware session concurrency (Release 3, slice 3).
 # DEFAULT OFF: when LOKI_DYNAMIC_CONCURRENCY is unset, effective_session_cap()
@@ -4423,6 +4442,7 @@ process_pending_merges() {
     local failed=0
 
     for signal_file in "$signals_dir"/MERGE_REQUESTED_*; do
+        case "$signal_file" in *.ack) continue ;; esac
         [ -f "$signal_file" ] || continue
         local stream_name
         stream_name=$(basename "$signal_file" | sed 's/MERGE_REQUESTED_//')
@@ -4465,12 +4485,28 @@ check_merge_queue() {
     fi
 
     for signal in "$signals_dir"/MERGE_REQUESTED_*; do
+        # Skip our own acknowledgement markers (*.ack) so they are not treated
+        # as signals themselves.
+        case "$signal" in *.ack) continue ;; esac
         if [ -f "$signal" ]; then
             local feature=$(basename "$signal" | sed 's/MERGE_REQUESTED_//')
-            log_info "Merge requested: $feature"
 
             if [ "$AUTO_MERGE" = "true" ]; then
+                # Auto-merge consumes the signal (merge_feature rm's it), so the
+                # log line fires exactly once per completed feature.
+                log_info "Merge requested: $feature"
                 merge_feature "$feature"
+            else
+                # Auto-merge is OFF (e.g. `--pr` without `--ship`): the PR is left
+                # for a human to merge, so the signal is INTENTIONALLY not consumed.
+                # Log ONCE (guarded by a sibling .ack marker) instead of re-logging
+                # the same "Merge requested" line every orchestrator pass -- that
+                # re-log was a 90-minute "looks stuck" spam while real work was
+                # already done. The signal itself is preserved untouched.
+                if [ ! -f "${signal}.ack" ]; then
+                    log_info "Merge requested: $feature (PR ready; auto-merge off -- merge the PR, or use --ship to auto-merge)"
+                    : > "${signal}.ack" 2>/dev/null || true
+                fi
             fi
         fi
     done
@@ -4585,8 +4621,9 @@ merge_feature() {
         fi
     fi
 
-    # Remove signal
-    rm -f "$TARGET_DIR/.loki/signals/MERGE_REQUESTED_$feature"
+    # Remove signal (and its log-once .ack marker, if any)
+    rm -f "$TARGET_DIR/.loki/signals/MERGE_REQUESTED_$feature" \
+          "$TARGET_DIR/.loki/signals/MERGE_REQUESTED_$feature.ack"
 
     # Remove worktree
     remove_worktree "feature-$clean_feature"
@@ -5911,8 +5948,15 @@ compute_codebase_signature() {
           # truncating the output and misaligning the path<->hash pairing. Drop
           # them; their removal from the list is itself the detected change.
           gitc_deleted=$(git ls-files --deleted -z 2>/dev/null | tr '\0' '\n')
+          # Exclude .loki/ AND Loki's own session-end artifacts (HANDOFF.md,
+          # USAGE.md) written+committed to the repo ROOT by the completion path
+          # (LOKI_HANDOFF / commit_session_changes, both default-on). Those are
+          # runtime OUTPUT of the session, not user codebase; counting them would
+          # make the next PRD-reuse check see a spurious "codebase changed" and
+          # flip reuse->update (the signature is persisted per-iteration BEFORE
+          # the after-loop HANDOFF write, so it can never account for them).
           gitc_paths=$( { git ls-files -z 2>/dev/null; git ls-files --others --exclude-standard -z 2>/dev/null; } \
-              | tr '\0' '\n' | grep -vE '(^|/)\.loki(/|$)' | LC_ALL=C sort -u )
+              | tr '\0' '\n' | grep -vE '(^|/)\.loki(/|$)|^HANDOFF\.md$|^USAGE\.md$' | LC_ALL=C sort -u )
           if [ -n "$gitc_deleted" ]; then
               gitc_paths=$(printf '%s\n' "$gitc_paths" | grep -vxF -f <(printf '%s\n' "$gitc_deleted") || true)
           fi
@@ -5933,6 +5977,7 @@ compute_codebase_signature() {
                          -o -name build -o -name .next -o -name target -o -name vendor \
                          -o -name __pycache__ -o -name .venv -o -name venv \) -prune -o \
               -type f -print 2>/dev/null \
+              | grep -vE '^\./(HANDOFF|USAGE)\.md$' \
               | while IFS= read -r f; do
                     local sz
                     sz=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo 0)
@@ -9658,8 +9703,16 @@ sys.stdout.write(t.strip())
             local output
             # Pass matched files explicitly (node --test globbing is
             # Node-version-sensitive); quote each so paths with spaces survive.
+            # Force --test-reporter=tap: Node 20+ made the human "spec" reporter
+            # the default for a TTY and Node 26 emits it even under capture
+            # ("i pass N" / check+cross marks) instead of the TAP "# pass N" /
+            # "ok N - " lines that BOTH the count parser below AND
+            # _loki_zero_tests_executed rely on. TAP has been stable since Node 18,
+            # so forcing it restores a deterministic, version-independent format
+            # without touching any parser. Older node ignores nothing here (tap is
+            # a valid built-in reporter on every supported version).
             output=$(cd "${TARGET_DIR:-.}" && timeout "${LOKI_GATE_TIMEOUT:-300}" \
-                         node --test "${_nt_files[@]}" 2>&1) || test_passed=false
+                         node --test --test-reporter=tap "${_nt_files[@]}" 2>&1) || test_passed=false
             # tail -14 so node's TAP summary block (# tests / # pass N / # fail N,
             # ~10 lines) survives truncation for the best-effort count parse below.
             details="node --test: $(echo "$output" | tail -14 | tr '\n' ' ')"
@@ -10287,8 +10340,30 @@ auto_generate_docs_if_needed() {
     # Synchronous so docs exist before the gate scores. Provider-agnostic:
     # 'loki docs generate' picks the run's provider and falls back to
     # template-based docs when no provider CLI is available.
-    "$loki_bin" docs generate "$project_dir" >/dev/null 2>&1 || \
-        log_warn "Auto-documentation: generation did not complete (gate will score on what exists)"
+    #
+    # BOUNDED: 'loki docs generate' spawns a provider (claude) call that can hang
+    # with no cap. This runs AFTER completion, before the detached --pr push/PR
+    # step, so a hang here silently blocks the whole PR from ever being created
+    # (observed: a verified build stuck ~55 min in this step, work committed but
+    # never pushed). Wrap it in a timeout; docs are non-gating, so on timeout we
+    # warn and continue to the gate (which scores whatever docs exist).
+    local _doc_to="${LOKI_DOCS_TIMEOUT:-${LOKI_GATE_TIMEOUT:-300}}"
+    local _doc_cmd=()
+    if command -v gtimeout >/dev/null 2>&1; then
+        _doc_cmd=(gtimeout "${_doc_to}s")
+    elif command -v timeout >/dev/null 2>&1; then
+        _doc_cmd=(timeout "${_doc_to}s")
+    fi
+    if "${_doc_cmd[@]}" "$loki_bin" docs generate "$project_dir" >/dev/null 2>&1; then
+        :
+    else
+        local _doc_rc=$?
+        if [ "$_doc_rc" -eq 124 ]; then
+            log_warn "Auto-documentation: timed out after ${_doc_to}s (gate will score on what exists); continuing"
+        else
+            log_warn "Auto-documentation: generation did not complete (gate will score on what exists)"
+        fi
+    fi
 }
 
 # ============================================================================
@@ -10994,6 +11069,39 @@ _dispatch_reviewer() {
             # then deletes its flag and emits nothing). Set inline, not via
             # the helper, so the carve-out holds even when the helper is
             # out of scope. No-op when caveman is absent.
+            # STRUCTURED VERDICT (v8.x): when the CLI supports --json-schema,
+            # force valid JSON and re-materialize the LEGACY VERDICT/FINDINGS text
+            # so every downstream consumer (_classify_verdict,
+            # _severity_is_blocking, _count_nonblocking_findings, mergeability,
+            # DA arm, aggregate.json) stays byte-identical. Fail-closed: any
+            # failure falls through to the text path below (which itself may leave
+            # an empty file -> NO_VERDICT -> inconclusive block). NEVER a PASS on a
+            # miss. --json-schema takes INLINE content, not a path (CLI 2.1.207
+            # rejects a path). Opt out with LOKI_REVIEW_JSON_SCHEMA=off.
+            local _cr_root _cr_here _cr_schema _cr_remat
+            _cr_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+            _cr_here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            _cr_schema="${_cr_root}/loki-ts/data/code-review-schema.json"
+            _cr_remat="${_cr_here}/lib/cr-rematerialize.py"
+            if [ "${LOKI_REVIEW_JSON_SCHEMA:-on}" != "off" ] \
+               && [ -f "$_cr_schema" ] && [ -f "$_cr_remat" ] \
+               && type loki_claude_flag_supported >/dev/null 2>&1 \
+               && loki_claude_flag_supported "--json-schema"; then
+                local _cr_schema_content _cr_json _cr_rc=0
+                _cr_schema_content="$(cat "$_cr_schema" 2>/dev/null)" || _cr_schema_content=""
+                if [ -n "$_cr_schema_content" ]; then
+                    _cr_json="$(CAVEMAN_DEFAULT_MODE=off \
+                        claude "${_rv_argv[@]}" -p "$prompt_text" \
+                            --json-schema "$_cr_schema_content" \
+                            --output-format json 2>/dev/null)" || _cr_rc=$?
+                    if [ "$_cr_rc" -eq 0 ] && [ -n "$_cr_json" ] \
+                       && _LOKI_CR_JSON="$_cr_json" _LOKI_CR_OUT="$review_output" \
+                          python3 "$_cr_remat"; then
+                        return 0
+                    fi
+                fi
+                # fall through to the text path below (fail-closed)
+            fi
             CAVEMAN_DEFAULT_MODE=off \
             claude "${_rv_argv[@]}" -p "$prompt_text" \
                 --output-format text > "$review_output" 2>/dev/null
@@ -11130,6 +11238,69 @@ run_code_review() {
         ':(exclude)__pycache__/' ':(exclude)**/__pycache__/**' \
         ':(exclude)vendor/' ':(exclude)**/vendor/**')
 
+    # Client fix (code_review NO_OUTPUT on oversized diffs): the hardcoded excludes
+    # above miss dirs that are git-TRACKED but listed in the target repo's
+    # .gitignore -- e.g. a dir committed before the ignore rule was added. The
+    # `git add -A` temp index below stages those tracked files, so an 11MB
+    # tracked-but-ignored dir bloats the review diff, overflows the reviewer
+    # prompt, and every reviewer returns NO_OUTPUT. Filter them out DYNAMICALLY:
+    # list the tracked files the repo's own .gitignore would ignore (check-ignore
+    # --no-index evaluates the rules even for already-tracked paths) and exclude
+    # each at the EXACT depth of its containing directory -- NOT a collapsed
+    # top-level prefix. Excluding the top-level prefix would drop sibling REAL
+    # changes (e.g. ignoring loki-ts/dist/ must NOT exclude all of loki-ts/), and
+    # because the empty-diff guard below reuses this same pathspec, that
+    # over-exclusion could blind the guard and let a real change PASS unreviewed
+    # (council-caught fail-closed hole). Nested paths are pruned to the shallowest
+    # ignored dir so a/b and a/b/c collapse to a/b (one exclude, still precise).
+    # Capped so a pathological repo cannot build a giant argv. Opt out
+    # LOKI_REVIEW_GITIGNORE_FILTER=0. No-op (byte-identical diff) when nothing is
+    # tracked-but-ignored.
+    if [ "${LOKI_REVIEW_GITIGNORE_FILTER:-1}" != "0" ]; then
+        local _gi_cap="${LOKI_REVIEW_GITIGNORE_MAX_EXCLUDES:-200}"
+        local _gi_dirs _gi_count=0 _gi_d _gi_prev=""
+        # tracked-and-ignored files -> the DIRNAME of each (exact depth), sorted so
+        # a parent dir sorts before its children for the nested-prune below. A file
+        # ignored at repo root (dirname ".") is excluded by its own exact path, not
+        # a directory.
+        _gi_dirs="$( (cd "${TARGET_DIR:-.}" && \
+            git ls-files -z 2>/dev/null | git check-ignore --no-index --stdin -z 2>/dev/null) \
+            | tr '\0' '\n' | grep -v '^$' \
+            | while IFS= read -r _f; do d="$(dirname "$_f")"; [ "$d" = "." ] && printf '%s\n' "$_f" || printf '%s\n' "$d"; done \
+            | sort -u || true )"
+        if [ -n "$_gi_dirs" ]; then
+            while IFS= read -r _gi_d; do
+                [ -n "$_gi_d" ] || continue
+                # nested-prune: if this path is under the previously-kept dir, skip
+                # it (the parent exclude already covers it). Relies on the sort so a
+                # parent precedes its children.
+                if [ -n "$_gi_prev" ] && case "$_gi_d/" in "$_gi_prev"/*) true ;; *) false ;; esac; then
+                    continue
+                fi
+                if [ "$_gi_count" -ge "$_gi_cap" ]; then
+                    log_warn "Code review: gitignore-exclude cap ($_gi_cap) reached; some tracked-but-ignored paths remain in the diff. Raise LOKI_REVIEW_GITIGNORE_MAX_EXCLUDES or 'git rm --cached' them."
+                    break
+                fi
+                # Exact-path exclude (a leading-path pathspec matches that path and
+                # everything under it; it does NOT match siblings). No '**/' variant
+                # -- that would re-introduce the over-broad match this fix removes.
+                # A trailing '/' anchors a DIRECTORY; a root-level ignored FILE
+                # (dirname was ".", so _gi_d is the file itself) must be excluded by
+                # its EXACT path with no '/', else the pathspec matches nothing and
+                # the ignored file leaks back into the diff (council note: safe
+                # direction, but this makes it exact). Decide by what is on disk.
+                if [ -d "${TARGET_DIR:-.}/${_gi_d}" ]; then
+                    _review_pathspec+=(":(exclude)${_gi_d}/")
+                else
+                    _review_pathspec+=(":(exclude)${_gi_d}")
+                fi
+                _gi_prev="$_gi_d"
+                _gi_count=$((_gi_count + 1))
+            done <<< "$_gi_dirs"
+            [ "$_gi_count" -gt 0 ] && log_info "Code review: excluded $_gi_count tracked-but-gitignored dir(s) from the review diff (e.g. $(printf '%s' "$_gi_dirs" | head -3 | tr '\n' ' '))"
+        fi
+    fi
+
     # Plan #16 (A-2): make the review diff base robust to shallow/fresh history,
     # and surface NEW (untracked) files -- the whole greenfield build is new
     # files, which `git diff <base>` (tracked-only) never shows.
@@ -11171,6 +11342,28 @@ run_code_review() {
         diff_content=$(GIT_INDEX_FILE="$_rev_idx" git -C "${TARGET_DIR:-.}" diff --cached "$_review_base" "${_review_pathspec[@]}" 2>/dev/null || echo "")
         changed_files=$(GIT_INDEX_FILE="$_rev_idx" git -C "${TARGET_DIR:-.}" diff --cached --name-only "$_review_base" "${_review_pathspec[@]}" 2>/dev/null || echo "")
         rm -f "$_rev_idx" 2>/dev/null || true
+    fi
+
+    # Client fix (fail LOUD on oversized diff): measure the review diff and, if it
+    # exceeds LOKI_REVIEW_MAX_DIFF_BYTES (default 400KB ~ the reviewer prompt
+    # ceiling), emit an EXPLICIT, actionable warning + a telemetry event instead
+    # of letting the reviewers silently overflow to NO_OUTPUT. We still RUN the
+    # review (a large-but-parseable diff may work); the all-NO_OUTPUT block below
+    # references this so the block is self-explanatory. Names the biggest tracked
+    # dirs so the operator sees the culprit without repo archaeology.
+    local _review_diff_bytes=0
+    _review_diff_bytes=$(printf '%s' "$diff_content" | wc -c | tr -d ' ')
+    local _review_max_bytes="${LOKI_REVIEW_MAX_DIFF_BYTES:-400000}"
+    if [ "${_review_diff_bytes:-0}" -gt "$_review_max_bytes" ] 2>/dev/null; then
+        # biggest contributors: top changed dirs by line count in the diff
+        local _big_dirs
+        _big_dirs=$(printf '%s\n' "$changed_files" | sed 's#/.*##' | grep -v '^$' | sort | uniq -c | sort -rn | head -3 | awk '{print $2" ("$1" files)"}' | tr '\n' ' ')
+        log_warn "Code review: review diff is ${_review_diff_bytes} bytes (limit ${_review_max_bytes}). This can overflow reviewer prompts and force NO_OUTPUT. Biggest dirs: ${_big_dirs:-unknown}. Remedy: 'git rm -r --cached <stale-tracked-dir>' if it is gitignored, or raise LOKI_REVIEW_MAX_DIFF_BYTES."
+        emit_event_json "code_review_diff_oversized" \
+            "review_id=$review_id" \
+            "diff_bytes=$_review_diff_bytes" \
+            "limit_bytes=$_review_max_bytes" \
+            "iteration=${ITERATION_COUNT:-0}" 2>/dev/null || true
     fi
 
     if [ -z "$diff_content" ]; then
@@ -11515,6 +11708,15 @@ BUILD_PROMPT
         unset LOKI_REVIEW_PROMPT_NAME LOKI_REVIEW_PROMPT_FOCUS LOKI_REVIEW_PROMPT_CHECKS
         unset LOKI_REVIEW_PROMPT_DIFF_FILE LOKI_REVIEW_PROMPT_FILES_FILE LOKI_REVIEW_PROMPT_OUT
 
+        # Client fix (log the actual prompt/diff size per reviewer): so a
+        # NO_OUTPUT post-mortem is a one-line log read, not repo archaeology.
+        # Record the prompt byte size (and the shared diff size) both to the log
+        # and to a per-review sizes.json for the dashboard/telemetry.
+        local _prompt_bytes=0
+        [ -f "$review_prompt_file" ] && _prompt_bytes=$(wc -c < "$review_prompt_file" 2>/dev/null | tr -d ' ')
+        log_info "Reviewer $reviewer_name: prompt ${_prompt_bytes:-0} bytes (review diff ${_review_diff_bytes:-0} bytes)"
+        printf '%s\t%s\n' "$reviewer_name" "${_prompt_bytes:-0}" >> "$review_dir/$review_id/sizes.tsv" 2>/dev/null || true
+
         log_step "Dispatching reviewer: $reviewer_name"
 
         # Launch blind review in background (shared dispatch helper).
@@ -11638,6 +11840,12 @@ BUILD_PROMPT
         review_inconclusive=true
         log_error "CODE REVIEW INCONCLUSIVE: only $real_verdict_count of $reviewer_count reviewers returned a usable verdict (no_output=$no_output_count)"
         log_error "  A partial review drops dissent; refusing to pass the gate without every reviewer's verdict."
+        # Client fix: make the block self-explanatory. When the diff was oversized,
+        # NO_OUTPUT is almost certainly a prompt overflow -- say so + the remedy,
+        # instead of leaving the operator to guess (the reported failure mode).
+        if [ "${_review_diff_bytes:-0}" -gt "${_review_max_bytes:-400000}" ] 2>/dev/null; then
+            log_error "  LIKELY CAUSE: the review diff is ${_review_diff_bytes} bytes (> ${_review_max_bytes} limit), which overflows reviewer prompts -> empty output. Check for a large tracked-but-gitignored dir: 'git ls-files | git check-ignore --no-index --stdin' then 'git rm -r --cached <dir>'. Per-reviewer prompt sizes: $review_dir/$review_id/sizes.tsv"
+        fi
         if [ "${LOKI_REVIEW_RETRY:-1}" = "1" ] && [ "${_LOKI_REVIEW_RETRYING:-0}" != "1" ]; then
             log_warn "  Retrying code review once (LOKI_REVIEW_RETRY=1)..."
             _LOKI_REVIEW_RETRYING=1 run_code_review

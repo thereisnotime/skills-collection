@@ -15,8 +15,11 @@ Usage:
 Modes:
   (default)       full markdown transcript: timestamped speaker headers, upload/
                   output file inventories per message, tool_use blocks rendered
-                  per tool type, tool_result folded into <details>, web_search
-                  citations collected into a "Sources cited" list.
+                  per tool type, tool_result folded into Obsidian collapsible
+                  callouts (> [!info]-), web_search citations collected into a
+                  "Sources cited" list. Obsidian is the default because its Live
+                  Preview cannot render HTML <details>.
+  --format markdown  use HTML <details> instead of Obsidian callouts.
   --list-files    inventory every downloadable file (uploads / images / sandbox
                   outputs) with the endpoint family each needs.
   --extract-file  reconstruct a sandbox-created file's FINAL content by replaying
@@ -60,7 +63,9 @@ Two payload shapes:
 """
 import argparse
 import json
+import re
 import sys
+from urllib.parse import urlparse
 
 
 class ExtractionError(RuntimeError):
@@ -283,11 +288,31 @@ FILE_TEXT_KEYS = ('extracted_content', 'preview_contents', 'text', 'content')
 FILE_META_KEYS = frozenset({
     'file_name', 'file_kind', 'file_uuid', 'uuid', 'id', 'path', 'size_bytes',
     'created_at', 'type', 'preview_url', 'thumbnail_url', 'document_asset_uuid',
-    'extracted_content_file_uuid',
+    'extracted_content_file_uuid', 'success',
+    'thumbnail_asset', 'preview_asset',
 })
 
 
-def file_text(f):
+def image_file_url(f, base_url=''):
+    """Return an absolute or relative URL for an image file's preview asset."""
+    if not isinstance(f, dict) or f.get('file_kind') != 'image':
+        return ''
+    asset = f.get('preview_asset') or f.get('thumbnail_asset') or {}
+    url = asset.get('url', '')
+    if url and base_url and not url.startswith('http'):
+        url = base_url.rstrip('/') + url
+    return url
+
+
+def image_file_markdown(f, base_url=''):
+    """Markdown image reference for an image file, or '' if not renderable."""
+    url = image_file_url(f, base_url)
+    if not url:
+        return ''
+    return f'![{f.get("file_name", "?")}]({url})'
+
+
+def file_text(f, base_url=''):
     """The file's text content, if the payload carries it.
 
     Unknown shapes must DUMP, never drop — the same rule as result_item_text(), for
@@ -300,6 +325,8 @@ def file_text(f):
     """
     if not isinstance(f, dict):
         return ''
+    if f.get('file_kind') == 'image':
+        return image_file_markdown(f, base_url)
     # EVERY body key, not the first one that hits. Returning on the first match while
     # the budget counted them all — and while account() credited the file its full
     # budget on any non-empty body — let a second body key vanish at 100%. Same
@@ -333,14 +360,19 @@ def message_files(m):
     return (m.get('files') or []) + (m.get('attachments') or [])
 
 
-def render_files(files, label):
+def render_files(files, label, base_url=''):
     if not files:
         return []
     parts = ['{} **{} files ({})**: {}'.format(
         '📎' if label == 'uploaded' else '📦', label, len(files),
         ', '.join(f'`{f.get("file_name", "?")}`' for f in files if isinstance(f, dict)))]
     for f in files:
-        body = file_text(f)
+        if f.get('file_kind') == 'image':
+            md = image_file_markdown(f, base_url)
+            if md:
+                parts.append(md)
+            continue
+        body = file_text(f, base_url)
         if body:
             parts.append(
                 f'<details><summary>📄 {f.get("file_name", "?")} ({len(body)} chars)</summary>\n\n'
@@ -348,12 +380,12 @@ def render_files(files, label):
     return parts
 
 
-def render_msg(m, snapshot=False):
+def render_msg(m, snapshot=False, base_url=''):
     who = 'human' if m.get('sender') == 'human' else 'assistant'
     parts = [f'## {who} ({m.get("created_at", "")})']
     files = message_files(m)
     if files and who == 'human':
-        parts += render_files(files, 'uploaded')
+        parts += render_files(files, 'uploaded', base_url)
     blocks = message_blocks(m)
     parts.extend(x for x in (render_block(b, snapshot) for b in blocks) if x)
     top_text = m.get('text')
@@ -366,7 +398,7 @@ def render_msg(m, snapshot=False):
         # only in top-level text. Preserve both without duplicating a text block.
         parts.append(top_text)
     if files and who == 'assistant':
-        parts += render_files(files, 'produced')
+        parts += render_files(files, 'produced', base_url)
     # Message-level fields no branch above rendered. `compaction_summary` is a real one
     # on real payloads and nothing here had ever heard of it; there will be others. A
     # field living at message level is invisible to any content[]-only audit, so if it
@@ -554,7 +586,7 @@ def unrendered_fields(b, rendered):
     return leftovers
 
 
-def fidelity_report(conv):
+def fidelity_report(conv, source_url=''):
     """Did everything in the payload actually reach the transcript?
 
     The failure this guards against is SILENT: a renderer that meets a shape it
@@ -582,6 +614,13 @@ def fidelity_report(conv):
     tool input — claiming "the platform stripped this, unrecoverable" about a
     conversation they can re-fetch in full would be a fabricated provenance claim.
     """
+    base_url = ''
+    if source_url:
+        try:
+            p = urlparse(source_url)
+            base_url = f'{p.scheme}://{p.netloc}'
+        except Exception:
+            pass
     snapshot = bool(conv.get('conversation_uuid'))
     all_msgs = conv.get('chat_messages') or []
     msgs = active_path(conv)
@@ -622,7 +661,7 @@ def fidelity_report(conv):
 
     for i, m in enumerate(msgs):
         blocks = message_blocks(m)
-        msg_md = render_msg(m, snapshot)     # measured, never assumed
+        msg_md = render_msg(m, snapshot, base_url)     # measured, never assumed
 
         for f in message_files(m):
             # Budget from the raw object, tally from the rendered message. Using
@@ -630,7 +669,7 @@ def fidelity_report(conv):
             # with the renderer's blind spots by construction.
             src = file_source_chars(f)
             if src:
-                body = file_text(f)
+                body = file_text(f, base_url)
                 account(f'msg[{i}].file', 'attachment', f.get('file_name', '?'),
                         src, body if body and body in msg_md else '')
 
@@ -814,14 +853,71 @@ def citation_sources(conv):
     return '\n'.join(lines) + '\n'
 
 
-def render_transcript(conv, source_url='', report=None):
+def obsidian_callout(summary, body):
+    """Wrap content in an Obsidian collapsible callout.
+
+    Every line inside the callout must start with '> ' so Obsidian treats the
+    whole block as part of the callout. Code fences, nested markdown, and
+    blank lines are preserved by prefixing each line individually.
+    """
+    lines = [f'> [!info]- {summary}', '>']
+    for raw in body.splitlines():
+        lines.append(f'> {raw}' if raw else '>')
+    return '\n'.join(lines)
+
+
+def details_to_obsidian_callouts(md):
+    """Convert the markdown's HTML <details> blocks into Obsidian callouts.
+
+    Obsidian Live Preview does not render HTML <details>, so the collapsible tool
+    outputs/thinking/files come out as flat noise there. This rewrites each
+    <details><summary>…</summary> … </details> block as a `> [!info]-` callout.
+
+    It runs AFTER the fidelity gate, which audits the verbatim <details> markdown
+    where every payload string is preserved — so this is a cosmetic post-pass that
+    touches no payload string and cannot affect the retention proof.
+    """
+    lines = md.splitlines()
+    out = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        m = re.match(r'<details><summary>(.*)</summary>', line)
+        if not m:
+            out.append(line)
+            i += 1
+            continue
+        summary = m.group(1)
+        i += 1
+        if i < len(lines) and lines[i].strip() == '':
+            i += 1  # consume optional blank line after the opening tag
+        body_lines = []
+        while i < len(lines) and lines[i].strip() != '</details>':
+            body_lines.append(lines[i])
+            i += 1
+        if i < len(lines) and lines[i].strip() == '</details>':
+            i += 1  # consume the closing tag
+        while body_lines and body_lines[-1].strip() == '':
+            body_lines.pop()  # drop trailing blank lines inside the body
+        out.append(obsidian_callout(summary, '\n'.join(body_lines)))
+    return '\n'.join(out)
+
+
+def render_transcript(conv, source_url='', report=None, toc=False):
+    base_url = ''
+    if source_url:
+        try:
+            p = urlparse(source_url)
+            base_url = f'{p.scheme}://{p.netloc}'
+        except Exception:
+            pass
     # The disclosure is computed here when the caller didn't supply it, so that no
     # code path can produce a transcript that quietly omits it. Making the banner
     # depend on an optional argument would mean the one function that hides the
     # holes is the easiest one to call — precisely the silent-by-default shape this
     # script exists to eliminate.
     if report is None:
-        report = fidelity_report(conv)
+        report = fidelity_report(conv, source_url)
     snapshot = report.get('snapshot', bool(conv.get('conversation_uuid')))
     msgs = active_path(conv)
     # A share payload leaves `name` null and puts the real title in snapshot_name.
@@ -839,7 +935,18 @@ def render_transcript(conv, source_url='', report=None):
     if extra:
         head += ['', extra]
     head += ['', '---', '']
-    body = '\n\n---\n\n'.join(render_msg(m, snapshot) for m in msgs)
+    if toc:
+        toc_lines = ['## Table of contents', '']
+        for i, m in enumerate(msgs, 1):
+            who = 'human' if m.get('sender') == 'human' else 'assistant'
+            ts = m.get('created_at', '')
+            toc_lines.append(f'{i}. [{who} ({ts})](#turn-{i})')
+        head += toc_lines + ['', '---', '']
+    body_parts = []
+    for i, m in enumerate(msgs, 1):
+        anchor = f'<a id="turn-{i}"></a>\n' if toc else ''
+        body_parts.append(anchor + render_msg(m, snapshot, base_url))
+    body = '\n\n---\n\n'.join(body_parts)
     return '\n'.join(head) + body + '\n' + citation_sources(conv)
 
 
@@ -907,6 +1014,14 @@ def main(argv=None):
     ap.add_argument('--allow-lossy', action='store_true',
                     help='write the transcript even if blocks failed to render '
                          '(default: refuse, because that loss is otherwise silent)')
+    ap.add_argument('--format', choices=['markdown', 'obsidian'], default='obsidian',
+                    help='output format: obsidian (default, collapsible > [!info]- callouts) or '
+                         'markdown (HTML <details>). Obsidian is the default because its Live '
+                         'Preview cannot render HTML <details>. Applied only after the fidelity gate '
+                         'passes on the <details> markdown, so it never affects the retention proof.')
+    ap.add_argument('--toc', action='store_true',
+                    help='prepend a linked table of contents and add per-message anchors so '
+                         'long conversations are navigable')
     args = ap.parse_args(argv)
 
     try:
@@ -933,8 +1048,8 @@ def main(argv=None):
             print(f'ERROR: {exc}', file=sys.stderr)
             return 1
     else:
-        report = fidelity_report(conv)
-        out = render_transcript(conv, args.source_url, report)
+        report = fidelity_report(conv, args.source_url)
+        out = render_transcript(conv, args.source_url, report, toc=args.toc)
 
         # Floors first. An empty or truncated payload is the LIMIT CASE of the very
         # loss this gate exists for — rubber-stamping it at "100%" would be the gate
@@ -1015,6 +1130,14 @@ def main(argv=None):
             print(f"known gap: {len(report['stripped_blocks'])} tool blocks were emptied by the "
                   f"platform ({', '.join(names) or 'unnamed'}) — disclosed in the transcript header, "
                   f"NOT recoverable from a shared link", file=sys.stderr)
+
+        # Obsidian conversion happens ONLY here — after the fidelity gate has run on the
+        # verbatim <details> markdown and passed. Converting to > [!info]- callouts is a
+        # cosmetic post-pass that touches no payload string, so it cannot affect the
+        # retention proof above. (Kept out of the --extract-file branch on purpose: that
+        # emits raw file content, not a transcript.)
+        if args.format == 'obsidian':
+            out = details_to_obsidian_callouts(out)
 
     if args.output:
         open(args.output, 'w', encoding='utf-8').write(out)
