@@ -17,7 +17,7 @@ tags: [cache, invalidation, correctness, freshness, git, stale-data]
 
 ## Context
 
-We cached a question-agnostic "project profile" (stack, deps, license, conventions, topology) keyed by git `<root-sha>/<head-sha>`, and reused it only when the working tree was "clean enough." The cardinal rule: the cache is an optimization that must **never** serve a stale profile that changes a skill's output. "Clean enough" was implemented as a delta check — reuse the entry unless a **profile-input** path is dirty (`git status --porcelain`). The whole correctness of the scheme rests on the *profile-input set* being complete.
+We cached a question-agnostic "project profile" (stack, deps, license, conventions, topology) keyed by git `<root-sha>/<inputs-digest>` (content-addressed over profile-input blobs at HEAD; earlier revisions used `<head-sha>`), and reused it only when the working tree was "clean enough." The cardinal rule: the cache is an optimization that must **never** serve a stale profile that changes a skill's output. "Clean enough" was implemented as a delta check — reuse the entry unless a **profile-input** path is dirty (`git status --porcelain`). The whole correctness of the scheme rests on the *profile-input set* being complete.
 
 The first version's input set was a hand-picked, JS/Python/Go/Ruby-centric allowlist of manifest filenames. Adversarial review found whole ecosystems missing — `.NET` (`*.csproj`, `*.sln`), Swift/iOS (`Package.swift`, `Podfile`), Deno, modern Python (`uv.lock`, `pdm.lock`), C/C++, Gradle version catalogs. In any of those repos, editing a manifest at an unchanged HEAD would **not** invalidate, and the cache would serve a profile with the old stack/deps — a silent cardinal-rule break.
 

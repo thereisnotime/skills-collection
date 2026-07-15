@@ -70,6 +70,10 @@ After applying fixes, the skill runs typecheck and lint over the project and run
 
 The reviewer agents are dispatched on the platform's mid-tier model. Code review of a known diff doesn't need top-tier reasoning. On platforms where the model override is unavailable, the skill omits the override rather than failing the dispatch.
 
+### 5. Honors caller-passed structure pins
+
+When a caller (`/ce-work` or `/lfg`) passes a plan path whose labeled `session-settled:` KTDs name structural constraints, `ce-simplify-code` treats those as pins: a deliberately duplicated block stays duplicated, an intentional wrapper stays. A settled structural decision the user made on purpose isn't collapsed just because it looks reducible in isolation.
+
 ---
 
 ## Quick Example

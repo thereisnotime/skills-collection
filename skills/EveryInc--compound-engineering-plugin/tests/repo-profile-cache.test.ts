@@ -65,7 +65,12 @@ const VALID_PROFILE = {
 
 /** Write a profile JSON file and `put` it; return the cache path. */
 function putProfile(dir: string, profile: object = VALID_PROFILE): string {
-  const profileFile = path.join(dir, "profile.json")
+  // Keep the profile file outside the repo so later `git add -A` commits in
+  // the same fixture cannot pick it up and change the path-shaped digest.
+  const profileFile = path.join(
+    mkdtempSync(path.join(tmpdir(), "repo-profile-put-")),
+    "profile.json",
+  )
   writeFileSync(profileFile, JSON.stringify(profile))
   const res = run(dir, "put", profileFile)
   expect(res.code).toBe(0)
@@ -95,6 +100,154 @@ describe("repo-profile-cache helper", () => {
     expect(res.code).toBe(0)
     expect(res.stdout.startsWith("HIT\n")).toBe(true)
     expect(getHitProfile(res.stdout)).toEqual(VALID_PROFILE)
+  })
+
+  test("put path is keyed by inputs-digest (64-hex), not HEAD", () => {
+    const dir = makeRepo()
+    const cachePath = putProfile(dir)
+    expect(cachePath).toContain("/compound-engineering/repo-profile/")
+    const digestComponent = cachePath.split("/repo-profile/")[1].split("/")[1]
+    expect(digestComponent).toMatch(/^[0-9a-f]{64}\.json$/)
+    const head = git(dir, "rev-parse", "HEAD").trim()
+    expect(digestComponent).not.toBe(`${head}.json`)
+  })
+
+  test("content edit to existing non-input file at new HEAD → HIT", () => {
+    const dir = makeRepo()
+    mkdirSync(path.join(dir, "src"))
+    writeFileSync(path.join(dir, "src", "app.js"), "console.log(1)\n")
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "add src")
+    putProfile(dir)
+    writeFileSync(path.join(dir, "src", "app.js"), "console.log(2)\n")
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "edit src content only")
+    const res = run(dir, "get")
+    expect(res.stdout.startsWith("HIT\n")).toBe(true)
+    expect(getHitProfile(res.stdout)).toEqual(VALID_PROFILE)
+  })
+
+  test("new non-input path at new HEAD → MISS (tree-shape in digest)", () => {
+    const dir = makeRepo()
+    putProfile(dir)
+    mkdirSync(path.join(dir, "src", "db", "migrations"), { recursive: true })
+    writeFileSync(path.join(dir, "src", "db", "migrations", "001.sql"), "SELECT 1;\n")
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "add migrations layout")
+    expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
+  })
+
+  test("advancing a submodule gitlink → MISS", () => {
+    const dir = makeRepo()
+    const shaA = git(dir, "rev-parse", "HEAD").trim()
+    writeFileSync(
+      path.join(dir, ".gitmodules"),
+      '[submodule "vendor/x"]\n\tpath = vendor/x\n\turl = https://example.com/x.git\n',
+    )
+    git(dir, "add", ".gitmodules")
+    const link = spawnSync(
+      "git",
+      ["update-index", "--add", "--cacheinfo", `160000,${shaA},vendor/x`],
+      { cwd: dir, encoding: "utf8" },
+    )
+    expect(link.status).toBe(0)
+    git(dir, "commit", "-q", "-m", "add submodule gitlink")
+    putProfile(dir)
+    const shaB = git(dir, "rev-parse", "HEAD").trim()
+    const adv = spawnSync(
+      "git",
+      ["update-index", "--cacheinfo", `160000,${shaB},vendor/x`],
+      { cwd: dir, encoding: "utf8" },
+    )
+    expect(adv.status).toBe(0)
+    git(dir, "commit", "-q", "-m", "advance submodule")
+    expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
+  })
+
+  test("dirty uncommitted submodule pointer advance → MISS", () => {
+    const dir = makeRepo()
+    const shaA = git(dir, "rev-parse", "HEAD").trim()
+    writeFileSync(
+      path.join(dir, ".gitmodules"),
+      '[submodule "vendor/x"]\n\tpath = vendor/x\n\turl = https://example.com/x.git\n',
+    )
+    git(dir, "add", ".gitmodules")
+    expect(
+      spawnSync(
+        "git",
+        ["update-index", "--add", "--cacheinfo", `160000,${shaA},vendor/x`],
+        { cwd: dir, encoding: "utf8" },
+      ).status,
+    ).toBe(0)
+    git(dir, "commit", "-q", "-m", "add submodule gitlink")
+    putProfile(dir)
+    const shaB = git(dir, "rev-parse", "HEAD").trim()
+    expect(
+      spawnSync(
+        "git",
+        ["update-index", "--cacheinfo", `160000,${shaB},vendor/x`],
+        { cwd: dir, encoding: "utf8" },
+      ).status,
+    ).toBe(0)
+    // Staged but uncommitted gitlink advance — must not HIT.
+    expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
+  })
+
+  test("editing symlink target of a profile input → MISS", () => {
+    const dir = makeRepo()
+    mkdirSync(path.join(dir, "docs"))
+    writeFileSync(path.join(dir, "docs", "README.md"), "# docs readme v1\n")
+    spawnSync("rm", ["-f", path.join(dir, "README.md")])
+    spawnSync("ln", ["-s", "docs/README.md", path.join(dir, "README.md")])
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "symlink root README")
+    putProfile(dir)
+    writeFileSync(path.join(dir, "docs", "README.md"), "# docs readme v2\n")
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "edit symlink target only")
+    expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
+  })
+
+  test("editing final target of a symlink chain → MISS", () => {
+    const dir = makeRepo()
+    mkdirSync(path.join(dir, "docs"))
+    writeFileSync(path.join(dir, "docs", "README.md"), "# final v1\n")
+    spawnSync("ln", ["-s", "README.md", path.join(dir, "docs", "link.md")])
+    spawnSync("rm", ["-f", path.join(dir, "README.md")])
+    spawnSync("ln", ["-s", "docs/link.md", path.join(dir, "README.md")])
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "symlink chain README")
+    putProfile(dir)
+    writeFileSync(path.join(dir, "docs", "README.md"), "# final v2\n")
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "edit chain final target")
+    expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
+  })
+
+  test("dirty symlink target of a profile input → MISS", () => {
+    const dir = makeRepo()
+    mkdirSync(path.join(dir, "docs"))
+    writeFileSync(path.join(dir, "docs", "README.md"), "# docs readme v1\n")
+    spawnSync("rm", ["-f", path.join(dir, "README.md")])
+    spawnSync("ln", ["-s", "docs/README.md", path.join(dir, "README.md")])
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "symlink root README")
+    putProfile(dir)
+    writeFileSync(path.join(dir, "docs", "README.md"), "# dirty target\n")
+    expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
+  })
+
+  test("input-changing commit at new HEAD → MISS (new inputs digest)", () => {
+    const dir = makeRepo()
+    putProfile(dir)
+    writeFileSync(
+      path.join(dir, "package.json"),
+      '{"name":"x","version":"2.0.0"}\n',
+    )
+    git(dir, "add", "-A")
+    git(dir, "commit", "-q", "-m", "bump package")
+    const res = run(dir, "get")
+    expect(res.stdout.startsWith("MISS\n")).toBe(true)
   })
 
   test("dirty NON-input file (untracked source) stays HIT", () => {
@@ -296,6 +449,15 @@ describe("repo-profile-cache helper — review-driven invalidation cases", () =>
     expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
     writeFileSync(path.join(dir, "package.json"), orig) // revert → clean again
     expect(run(dir, "get").stdout.startsWith("HIT\n")).toBe(true)
+  })
+
+  test("cached doc with mismatched inputs_digest → MISS", () => {
+    const dir = makeRepo()
+    const cachePath = putProfile(dir)
+    const doc = JSON.parse(readFileSync(cachePath, "utf8"))
+    doc.inputs_digest = "0".repeat(64)
+    writeFileSync(cachePath, JSON.stringify(doc))
+    expect(run(dir, "get").stdout.startsWith("MISS\n")).toBe(true)
   })
 
   test("cached doc with a non-object profile → MISS (get-side shape guard)", () => {

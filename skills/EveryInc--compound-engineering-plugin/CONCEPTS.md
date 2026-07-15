@@ -79,6 +79,14 @@ A bulk evidence artifact — verbatim quotes with source pointers, gathered by a
 ### Load stub
 The inline remnant left in a Skill when load-bearing content moves to a reference file: a load instruction that names what the reference contains and the failure mode of skipping it, while keeping no detail an agent could improvise from — making the load structurally necessary rather than advisory.
 
+### Detached job
+A delegated worker process launched into its own session so it outlives the shell tool call that started it, with its state — status word, log, identity, and result — kept in a durable job directory the orchestrator polls between turns instead of awaiting in place.
+
+The launching call returns as soon as the job exists; supervision (idle and hard limits, process-tree reaping) runs inside the detached worker, while the caller keeps its own aggregate deadline and proceeds without the job when that passes. A job publishes exactly one terminal record, atomically, and nothing in the detached path may prompt for input.
+
+### Model identity receipt
+The serving backend's own report of which model actually handled a delegated run, recorded alongside the requested model so the two can disagree visibly. A run's model identity is verified only by such a receipt — never by the request parameters or the model's own text — and outputs without one are labeled as requested-but-unverified; logic that weights cross-model agreement follows the receipt, not the request.
+
 ## Review and workflow vocabulary
 
 ### Reviewer persona
@@ -92,6 +100,12 @@ The classification of a review finding by how safely its proposed fix can be app
 
 ### Headless mode
 An explicit opt-in mode that runs a Skill unattended, with no user prompts — it produces a written report as its deliverable and conservatively defers genuinely ambiguous decisions rather than guessing.
+
+### Session-settled decision
+A decision examined and chosen by the user in the invoking conversation — a surfaced tradeoff or alternative followed by the user's choice — carried through the Pipeline as a provenance-labeled constraint (annotation stem `session-settled:`, classes `user-directed` and `user-approved`) that downstream skills augment but never re-ask, and contradict only on evidence. An unexamined assertion is a directive, not a settled decision, and receives exactly one in-pipeline challenge; agents never label their own unexamined proposals.
+
+### Settlement test
+The classification judgment a writer skill (ce-plan, ce-brainstorm) applies to conversation-carried decisions: settled if the decision survived examination in the conversation record, a directive if merely asserted, unlabeled if only ever agent-inferred. The test's outcome rules are protocol; the classification itself is agent judgment.
 
 ### Feedback source
 A configured origin of customer or user feedback — a Slack channel, a GitHub Issues repo, an email inbox — declared once in the shared local config under a generic key so any Skill can read the list. Each source entry has its own identity and ingestion cursor; the Skill that ingests from it owns the per-item state, not the source declaration.

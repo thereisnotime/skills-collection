@@ -58,7 +58,8 @@ Scale the panel to the risk and size of the change. For a small, low-risk change
 | Security and privacy | Authentication, authorization, untrusted input, secrets, sensitive data, isolation, or destructive actions | Trace trust boundaries and sensitive-data flow; require concrete guards and recovery evidence for destructive behavior. |
 | Data and concurrency | Schemas, migrations, transactions, caches, queues, events, shared state, async work, locks, or ordering | Check atomicity, races, duplicate delivery, producer/consumer names and payloads, runtime registration, and orphan channels. |
 | API and compatibility | Public interfaces, protocols, serialization, configuration contracts, SDKs, plugins, or mixed versions | Trace every consumer and confirm that removed signatures, aliases, re-exports, adapters, and compatibility paths match the supported contract. |
-| Test and oracle | Critical behavior with weak proof, complex regressions, changed test infrastructure, mocks, snapshots, time, or randomness | Ask whether each test would fail for the intended defect and whether doubles hide the integration behavior under review. |
+| Target architecture and migration | An approved plan or target architecture, replacement, refactor, cutover, deprecation, or compatibility cleanup | Map planned decisions to code; prove the target state is complete; find unexplained deviations, dual paths, old implementations, aliases, shims, re-exports, adapters, flags, and unmigrated callers that preserve superseded architecture. |
+| Test, oracle, and business behavior | Critical behavior with weak proof, complex regressions, changed test infrastructure, mocks, snapshots, time, or randomness | Map critical requirements and business invariants to observable outcomes. Reject tests of language semantics, framework defaults, library behavior, or external-dependency internals. Prefer reproducible E2E for critical user journeys, then integration or contract tests at the narrowest real risk boundary. Accept unit tests only for isolated domain algorithms or state transitions with a strong oracle and an explicit reason a higher-level test would add less confidence. |
 | Performance and reliability | Hot paths, I/O, resource ownership, retries, timeouts, load, availability, or distributed coordination | Look for unbounded work, amplification, measurement gaps, resource leaks, retry storms, and unsafe degradation. |
 | UI and accessibility | Rendering, interaction, keyboard or screen-reader behavior, responsive layouts, localization, or visual state | Verify keyboard flow, focus behavior, accessible names, reduced-motion preferences, meaningful copy, localization, and rendered behavior. |
 | Operations and release | Deployment order, feature controls, environment changes, observability, rollback, recovery, or support procedures | Prove safe rollout and rollback, configuration validation, useful signals, and recovery steps in the intended environment. |
@@ -96,7 +97,7 @@ Each subagent returns a compact report:
 
 ### 1. Establish the Delivery Contract
 
-- [ ] Resolve the exact change set, comparison base, user request, acceptance criteria, any approved technical approach, explicit non-goals, invariants, assumptions, and release boundary; mark unsupported assumptions `UNKNOWN`.
+- [ ] Resolve the exact change set, comparison base, user request, acceptance criteria, approved plan or target architecture, allowed transitional compatibility, explicit non-goals, invariants, assumptions, and release boundary; mark unsupported assumptions `UNKNOWN`.
 - [ ] Read all applicable repository instructions and inspect uncommitted work before running commands or interpreting conventions.
 - [ ] Separate in-scope defects from pre-existing adjacent issues; report the latter as observations only when they create immediate delivery risk.
 - [ ] Classify risk based on trust boundaries, money, destructive actions, data migration, public contracts, concurrency, distributed coordination, and rollback difficulty.
@@ -109,7 +110,7 @@ Each subagent returns a compact report:
 - [ ] Map every acceptance criterion to concrete changed code, configuration, data, documentation, and a verification method; mark each `PASS`, `FAIL`, or `UNPROVEN`.
 - [ ] Inspect changed files together with relevant definitions, callers, consumers, interfaces, tests, migrations, and runtime registration.
 - [ ] Verify that the implemented behavior serves the real user or system goal rather than only completing an internal mechanism.
-- [ ] When an approved technical approach exists, compare it with the implementation; accept a deviation only when its rationale is evidenced and it preserves the goal, constraints, and acceptance criteria.
+- [ ] Map every material decision and step in an approved plan or target architecture to the implementation; treat omissions as unmet unless explicitly superseded, and accept deviations only when their rationale is evidenced and preserves the goal, constraints, and acceptance criteria.
 - [ ] Trace each critical scenario through actor trigger -> entrypoint -> runtime discovery or wiring -> usage context -> observable outcome.
 - [ ] Confirm that new components, routes, commands, handlers, jobs, events, or configuration are actually registered and discoverable at runtime.
 - [ ] Check algorithm boundaries, loops, collection semantics, state transitions, duplicate handling, ordering, numeric behavior, and empty or maximum inputs.
@@ -124,21 +125,21 @@ Each subagent returns a compact report:
 - [ ] Verify migrations, backfills, defaults, indexes, deployment ordering, and mixed-version behavior when persisted or distributed state changes.
 - [ ] Check resource ownership for files, streams, sessions, connections, processes, subscriptions, and temporary artifacts on success and failure paths.
 - [ ] Confirm that dependency direction, module boundaries, orchestration, and side-effect ownership remain coherent; flag read-named operations that write state and leaf functions that mix unrelated effects, while allowing explicit orchestration to coordinate them.
-- [ ] When code is replaced, verify that the old implementation, signatures, aliases, re-exports, adapters, and files are removed and every caller is migrated unless the supported contract requires compatibility.
+- [ ] When code is replaced, verify that the old implementation, signatures, aliases, re-exports, shims, adapters, flags, dual-read or dual-write paths, and files are removed and every caller is migrated; retain compatibility only when an evidenced supported contract requires it, with ownership and a bounded removal condition.
 - [ ] Check duplication, hardcoded operational values, misleading names, and unnecessary abstractions.
 - [ ] Challenge custom machinery when an existing platform or declared dependency already provides the required capability with lower risk.
 - [ ] Research only external claims that affect the verdict, using official sources matching the installed or proposed version.
 
 ### 4. Verify Tests, Documentation, and Operations
 
-- [ ] Evaluate whether tests prove local product behavior and important failures rather than merely executing framework or library behavior.
-- [ ] Check coverage of critical happy paths, invalid input, authorization, boundaries, error paths, integration seams, regressions, and data integrity.
-- [ ] Inspect assertion quality, over-mocking, snapshot-only proof, flaky dependencies, shared state, time or randomness, and order dependence.
+- [ ] Reject tests whose subject is language semantics, framework plumbing or defaults, library behavior, or external-dependency internals. Test only repository-owned business behavior and owned boundary contracts; at dependency boundaries verify the product's configuration, adaptation, validation, error translation, fallback, and observable outcome without re-proving vendor behavior.
+- [ ] Prefer reproducible E2E tests for business-critical user journeys; otherwise use integration or contract tests at the narrowest boundary that still crosses the changed risk seam. Accept a unit test only for isolated domain logic with a strong oracle and record why a higher-level test would be less useful or less deterministic.
+- [ ] Check that every test would fail for its intended defect; inspect assertion quality, critical happy and failure paths, authorization, boundaries, data integrity, over-mocking, snapshot-only proof, flaky dependencies, shared state, time or randomness, and order dependence.
 - [ ] Discover verification commands in this order: repository docs, tool configuration, package or build manifests, then justified fallback; run the narrowest relevant checks first and record each command's source.
 - [ ] Run the repository's required build, lint, type, test, migration, and smoke gates with non-interactive CI-safe options in their intended environment.
 - [ ] Preserve command, exit status, relevant output, and limitations; do not hide, normalize away, or reinterpret a failing check.
 - [ ] Verify user-visible behavior with the appropriate runtime or browser tool when acceptance cannot be proven statically; for UI changes exercise keyboard and focus flow, accessible names, reduced motion, responsive states, copy, and localization when applicable.
-- [ ] Confirm that public behavior, APIs, configuration, environment examples, migrations, runbooks, and operator steps are documented when changed.
+- [ ] Confirm that affected documentation, API and configuration references, examples, migrations, runbooks, operator steps, and code comments are current, mutually consistent, and non-contradictory with implementation and requirements; comments must explain enduring intent or constraints rather than restate code.
 - [ ] Check logs, metrics, traces, health signals, feature controls, deployment order, rollback, and recovery where the change creates operational risk.
 - [ ] Distinguish a missing verification environment from a product failure; use `UNPROVEN` and explain the exact evidence still required.
 
@@ -157,6 +158,9 @@ Each subagent returns a compact report:
 - [ ] Return hat selection and coverage, the acceptance matrix, verified findings, commands and tools used, limitations, verdict rationale, and residual risks without modifying the delivery.
 
 ## Output Contract
+
+Before returning, account for every checkbox: mark it complete only when its action and required evidence are complete; `N/A`, skipped, unavailable, or delegated items remain incomplete and must be explained. Apply the skill's existing verdict, decision, and approval rules to every incomplete item.
+Prepend this accounting header to every skill-specific report template: **Checklist: X/Y complete**<br>**Incomplete: None | section/item — reason; outcome impact; exact next action**; list every incomplete item.
 
 ```markdown
 # Delivery Review

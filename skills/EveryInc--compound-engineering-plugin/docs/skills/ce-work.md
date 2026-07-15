@@ -88,6 +88,10 @@ Every PR description includes a `Post-Deploy Monitoring & Validation` section: l
 
 Not every invocation has a plan. `ce-work` accepts a bare prompt and triages by complexity: trivial work (a couple of files, no behavioral change) goes straight to implementation; small/medium work builds a task list; large or sensitive work surfaces a recommendation to use `/ce-brainstorm` or `/ce-plan` first. The triage is what makes `ce-work` reasonable for direct invocation on small work, without forcing the full chain for everything.
 
+### 9. Session-settled decisions are not-yours-to-improve
+
+A KTD carrying a `session-settled:` label records a decision the user examined and chose for a reason — `ce-work` implements it as specified instead of "improving" it. The restraint is scoped tightly to labeled KTDs; judgment on everything the plan leaves open is unchanged, and real defects inside a settled approach still surface at full strength. A discovery that a settled decision genuinely can't work is a blocker return, never a silently-accepted residual; non-blocking proceed-and-flag conflicts ride the return envelope as `settled_decision_conflicts`.
+
 ---
 
 ## Quick Example
@@ -96,7 +100,7 @@ A plan with four implementation units arrives. `ce-work` reads it, picks up an `
 
 The Parallel Safety Check finds no file overlap across the four units and worktree isolation is available — so all four dispatch in parallel, each on its own branch. They complete; the orchestrator merges them in dependency order; tests pass after each merge. The idempotency check catches that one unit's verification was already satisfied by a prior session and marks it complete without reimplementation.
 
-The diff isn't on a sensitive surface and isn't large/diffuse, so harness-native review handles it; the two suggested findings are addressed inline. Final validation passes; the operational validation plan is drafted; and `ce-commit-push-pr` opens the PR with summary, testing notes, the operational section, and a Compound Engineered badge. The plan itself is left untouched — it's a decision artifact, and whether it shipped is derived from git, not recorded in the doc.
+The diff isn't on a sensitive surface and isn't large/diffuse, so harness-native review handles it; the two suggested findings are addressed inline. Final validation passes; the operational validation plan is drafted; and `ce-work` invokes `ce-commit-push-pr` with `branding:on`, so the PR includes summary, testing notes, the operational section, and generic Compound Engineering branding. The plan itself is left untouched — it's a decision artifact, and whether it shipped is derived from git, not recorded in the doc.
 
 ---
 

@@ -30,6 +30,7 @@ Without an explicit pipeline, autonomous runs tend to skip planning, treat revie
 
 `lfg` makes the sequence explicit and gated:
 
+- Step 1 composes a transient settled-decisions brief from the conversation — each decision with its class, rejected alternative, and reason, topically scoped to the feature — and passes it to `/ce-plan` so decisions the user already made are carried, not re-asked; the brief is skipped entirely when nothing is settled
 - `/ce-plan` must produce an implementation-ready code plan before work starts
 - `/ce-work` runs in return-to-caller mode so the pipeline regains control after implementation
 - Behavior-changing implementation must return verification evidence from `/ce-work`; if evidence is missing, `lfg` retries `/ce-work` once for evidence completion and then stops blocked rather than shipping blind
@@ -37,8 +38,9 @@ Without an explicit pipeline, autonomous runs tend to skip planning, treat revie
 - `/ce-code-review` reports findings, then `lfg` applies eligible fixes and commits them
 - Residual review findings are made durable in the PR body or a fallback tracked file
 - `/ce-test-browser` runs in pipeline mode
-- `/ce-commit-push-pr` ships remaining changes when a remote exists
+- `/ce-commit-push-pr mode:pipeline branding:on` ships remaining changes when a remote exists and explicitly marks the CE provenance
 - CI is watched for up to three repair iterations on an open PR
+- An invalidating settlement conflict surfaced by planning or review halts the pipeline before shipping rather than quietly overriding what was agreed; non-halting flagged conflicts become durable residuals that reach the PR body
 
 The pipeline also has a local-only path: if the repository has no git remote, it commits locally and skips push, PR creation, and CI watch instead of retrying impossible network steps.
 

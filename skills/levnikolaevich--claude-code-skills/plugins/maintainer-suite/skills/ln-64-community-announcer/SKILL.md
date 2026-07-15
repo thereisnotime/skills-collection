@@ -25,13 +25,13 @@ Do not expose repository tokens, category node IDs, or other credentials in the 
 ## Checklist
 
 - [ ] Resolve the target repository from the authenticated hosting client and verify write access.
-- [ ] Discover the repository ID, default branch, Discussions availability, and Announcements category ID through the API.
+- [ ] Discover the repository ID, default branch, Discussions availability, and a repository-approved suitable category through the API.
 - [ ] Stop with `BLOCKED` when Discussions or a suitable category is unavailable; do not silently publish elsewhere.
 - [ ] Identify the announcement subject from the user's request, a release, or a bounded commit range.
 - [ ] Read repository communication guidance when present, but do not require a community strategy file.
-- [ ] Read the current README, installation instructions, affected manifests, release notes, and relevant source diffs.
-- [ ] Inspect recent commits and the latest three comparable announcements for cadence, repeated claims, and house style.
-- [ ] Use the public remote state as the source for already-published changes; do not announce an unpushed local diff as available.
+- [ ] Read the current authoritative documentation, installation instructions, affected manifests, release notes, and relevant source diffs when present.
+- [ ] Inspect recent commits and up to three available comparable announcements for cadence, repeated claims, and house style; do not require prior announcements in a new or low-volume repository.
+- [ ] Use the target remote state as the source for already-published changes; do not announce an unpushed local diff as available.
 - [ ] Separate what shipped, what changed for users, migration needs, and future intent.
 
 ## Classification and Style
@@ -50,7 +50,7 @@ Do not expose repository tokens, category node IDs, or other credentials in the 
 - [ ] Write a specific title that names the outcome rather than saying only "update" or "announcement".
 - [ ] Open with the user problem or the most important shipped outcome.
 - [ ] Explain why the change was made using evidence from commits, docs, or release notes.
-- [ ] Summarize highlights in outcome language and name exact plugins or skills where useful.
+- [ ] Summarize highlights in outcome language and name exact products, packages, plugins, skills, or components where useful.
 - [ ] Include verified installation or update commands when the reader must act.
 - [ ] Add an `IMPORTANT` migration block for breaking changes, including clear before-and-after steps.
 - [ ] Link to canonical documentation at the default branch or immutable release tag as appropriate.
@@ -60,10 +60,10 @@ Do not expose repository tokens, category node IDs, or other credentials in the 
 
 ## Fact Check
 
-- [ ] Verify every command against the current README and stable marketplace identifier.
-- [ ] Verify every plugin, skill, file path, category, version, tag, and link against the remote repository.
+- [ ] Verify every command against current authoritative documentation and any stable package, plugin, or marketplace identifier it uses.
+- [ ] Verify every named product, package, plugin, skill, component, file path, category, version, tag, and link against the remote repository.
 - [ ] Recompute every count from the target commit; avoid counts when they add no user value.
-- [ ] Confirm feature descriptions against the actual changed `SKILL.md` or manifest, not commit-title shorthand.
+- [ ] Confirm feature descriptions against the actual changed source, documentation, or manifest, not commit-title shorthand.
 - [ ] Confirm removed capabilities and compatibility limits are stated explicitly.
 - [ ] Do not invent adoption, download, search-volume, performance, compatibility, or roadmap claims.
 - [ ] Label estimates, interpretations, and future intent instead of presenting them as shipped facts.
@@ -91,6 +91,9 @@ Do not expose repository tokens, category node IDs, or other credentials in the 
 - `BLOCKED` — required source evidence, permissions, category, or publication verification is unavailable.
 
 ## Output Contract
+
+Before returning, account for every checkbox: mark it complete only when its action and required evidence are complete; `N/A`, skipped, unavailable, or delegated items remain incomplete and must be explained. Apply the skill's existing verdict, decision, and approval rules to every incomplete item.
+Prepend this accounting header to every skill-specific report template: **Checklist: X/Y complete**<br>**Incomplete: None | section/item — reason; outcome impact; exact next action**; list every incomplete item.
 
 Before approval, return classification, evidence range, selected category, title, full Markdown body, fact-check summary, and `DRAFT READY`.
 

@@ -111,7 +111,7 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     // producer side: the watch subcommand emits the sentinel and can wake on each precedence reason
     expect(script).toContain("def cmd_watch")
     expect(script).toContain("BABYSIT_WAKE")
-    for (const reason of ["terminal", "blocked-external", "actionable", "needs-human", "merge-ready"]) {
+    for (const reason of ["terminal", "blocked-external", "actionable", "feedback-candidate", "needs-human", "merge-ready"]) {
       expect(script, `watch must be able to wake on '${reason}'`).toContain(reason)
     }
   })
@@ -189,6 +189,15 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     expect(babysit, "a mid-watch status ask must be answered from a fresh snapshot").toMatch(
       /asks for status before a wake.*fresh `snapshot`/s,
     )
+  })
+
+  test("live updates report PR state without leaking routine watcher mechanics", async () => {
+    // Regression guard: progress narration led with a wake race and re-arm details instead of the
+    // user-relevant outcome (feedback already addressed; CI still running).
+    const babysit = await readRepoFile(BABYSIT)
+    expect(babysit).toContain("PR state first in live updates")
+    expect(babysit).toMatch(/wake, snapshot, re-arm, or head as internal implementation detail/)
+    expect(babysit).toMatch(/only when they explain a failure or required user action/)
   })
 
   test("authority boundary: babysit never merges; readiness is reported as the user's call", async () => {
