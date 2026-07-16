@@ -1,6 +1,6 @@
 {
   "name": "stripe",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Payments and business tools",
   "author": {
     "name": "Stripe",
@@ -9,7 +9,14 @@
   "homepage": "https://stripe.com",
   "repository": "https://github.com/stripe/ai",
   "license": "MIT",
-  "keywords": ["paymments", "subscriptions", "cards", "invoices", "marketplace", "platform"],
+  "keywords": [
+    "paymments",
+    "subscriptions",
+    "cards",
+    "invoices",
+    "marketplace",
+    "platform"
+  ],
   "skills": "./skills/",
   "apps": "./.app.json",
   "interface": {

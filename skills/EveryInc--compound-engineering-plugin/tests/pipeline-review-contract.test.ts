@@ -456,6 +456,9 @@ describe("ce-doc-review contract", () => {
     // Cross-persona agreement promotion (replaces +0.10 boost)
     expect(synthesis).toContain("Cross-Persona Agreement Promotion")
     expect(synthesis).toContain("one anchor step")
+    expect(synthesis).toContain("`independence_verified` is `true`")
+    expect(synthesis).toContain("cannot use the twin fingerprint exception")
+    expect(synthesis).toContain("Cursor default/Auto")
 
     // R29 and R30 round-2 rules
     expect(synthesis).toContain("R29 Rejected-Finding Suppression")
@@ -576,6 +579,20 @@ describe("ce-doc-review contract", () => {
     expect(bulkPreview).toContain("Applying (N):")
     expect(bulkPreview).toContain("Appending to Open Questions (N):")
     expect(bulkPreview).toContain("Skipping (N):")
+
+    // The preview and question are two ordered user-facing events. The
+    // portable contract names the capability before non-exhaustive adapters.
+    const previewEvent = bulkPreview.indexOf("Preview event")
+    const questionCapability = bulkPreview.indexOf(
+      "agent-callable blocking-question capability"
+    )
+    const adapters = bulkPreview.indexOf("Non-exhaustive adapters")
+    expect(previewEvent).toBeGreaterThan(-1)
+    expect(questionCapability).toBeGreaterThan(previewEvent)
+    expect(adapters).toBeGreaterThan(questionCapability)
+    expect(bulkPreview).toContain("user-visible assistant text")
+    expect(bulkPreview).toMatch(/(?:thinking|reasoning).*does not count/)
+    expect(bulkPreview).toContain("do not invoke the blocking-question capability")
 
     // No Acknowledge bucket in bulk preview either
     expect(bulkPreview).not.toContain("Acknowledging (N):")

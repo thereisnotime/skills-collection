@@ -1,4 +1,4 @@
-import { readFile, access } from "fs/promises"
+import { readFile } from "fs/promises"
 import path from "path"
 import { describe, expect, test } from "bun:test"
 
@@ -9,7 +9,12 @@ const PLUGIN_ROOT = path.join(process.cwd(), "skills")
 // References in Skills"). All copies must stay identical.
 const RUNNER_ASSETS = ["scripts/peer-job-runner.py"]
 
-const CONSUMER_SKILLS = ["ce-doc-review", "ce-code-review"]
+const CONSUMER_SKILLS = ["ce-doc-review", "ce-code-review", "ce-pov"]
+const PEER_WORKERS = [
+  "ce-doc-review/scripts/cross-model-doc-review.sh",
+  "ce-code-review/scripts/cross-model-adversarial-review.sh",
+  "ce-pov/scripts/cross-model-pov.sh",
+]
 
 describe("peer-job-runner shared-asset parity", () => {
   for (const asset of RUNNER_ASSETS) {
@@ -17,7 +22,6 @@ describe("peer-job-runner shared-asset parity", () => {
       const contents = await Promise.all(
         CONSUMER_SKILLS.map(async (skill) => {
           const p = path.join(PLUGIN_ROOT, skill, asset)
-          await access(p) // fails the test if a consumer is missing the copy
           return readFile(p, "utf8")
         }),
       )
@@ -26,4 +30,20 @@ describe("peer-job-runner shared-asset parity", () => {
       }
     })
   }
+
+  test("peer-worker heartbeat lifecycle is identical and exits with its parent", async () => {
+    const kernels = await Promise.all(
+      PEER_WORKERS.map(async (worker) => {
+        const body = await readFile(path.join(PLUGIN_ROOT, worker), "utf8")
+        expect(body).toContain('wait "$_HEARTBEAT_PID" 2>/dev/null || true')
+        const match = body.match(/start_heartbeat\(\) \{[\s\S]*?\n\}\n(?=\nrun_codex_cmd\(\))/)
+        expect(match).not.toBeNull()
+        return match![0]
+      }),
+    )
+    expect(kernels[1]).toBe(kernels[0])
+    expect(kernels[2]).toBe(kernels[0])
+    expect(kernels[0]).toContain('parent_pid="$$"')
+    expect(kernels[0]).toContain('while kill -0 "$parent_pid" 2>/dev/null')
+  })
 })

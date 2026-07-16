@@ -16,10 +16,10 @@ function fetchFile(dir: string, name: string, obj: unknown): string {
   return p
 }
 
-function snapshot(stateDir: string, fetch: string): any {
+function snapshot(stateDir: string, fetch: string, extra: string[] = []): any {
   const r = spawnSync(
     "python3",
-    [SCRIPT, "snapshot", "--pr", "1", "--repo", "o/r", "--state-dir", stateDir, "--fetch-file", fetch],
+    [SCRIPT, "snapshot", "--pr", "1", "--repo", "o/r", "--state-dir", stateDir, "--fetch-file", fetch, ...extra],
     { encoding: "utf8" },
   )
   expect(r.status, r.stderr).toBe(0)
@@ -41,10 +41,25 @@ function watch(stateDir: string, fetch: string, extra: string[] = []): any {
     "python3",
     [SCRIPT, "watch", "--pr", "1", "--repo", "o/r", "--state-dir", stateDir, "--fetch-file", fetch,
       "--interval", "0.1", "--max-runtime", "1", ...extra],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 5000 },
   )
   expect(r.status, r.stderr).toBe(0)
   return JSON.parse(r.stdout.trim().split("\n").pop()!) // the wake sentinel is the final line
+}
+
+function wakeReason(snapshotValue: unknown, settleSeconds = 0): string | null {
+  const r = spawnSync(
+    "python3",
+    [
+      "-c",
+      `import json; from importlib.machinery import SourceFileLoader; ` +
+        `m=SourceFileLoader('prs', ${JSON.stringify(SCRIPT)}).load_module(); ` +
+        `print(json.dumps(m._wake_reason(json.loads(${JSON.stringify(JSON.stringify(snapshotValue))}), ${settleSeconds})))`,
+    ],
+    { encoding: "utf8" },
+  )
+  expect(r.status, r.stderr).toBe(0)
+  return JSON.parse(r.stdout.trim())
 }
 
 function extractFeedback(view: unknown): any[] {
@@ -56,6 +71,67 @@ function extractFeedback(view: unknown): any[] {
         `m=SourceFileLoader('prs', ${JSON.stringify(SCRIPT)}).load_module(); ` +
         `print(json.dumps(m._extract_feedback(json.loads(${JSON.stringify(JSON.stringify(view))}))))`,
     ],
+    { encoding: "utf8" },
+  )
+  expect(r.status, r.stderr).toBe(0)
+  return JSON.parse(r.stdout.trim())
+}
+
+function probeChain(options: {
+  pr?: number
+  url?: string
+  baseRef?: string
+  headRef?: string
+  stackView: { status: number; stdout?: unknown; stderr?: string }
+  graphql: { status: number; stdout?: unknown; stderr?: string }
+  defaultBranch?: { status: number; stdout?: unknown; stderr?: string }
+  openPrs?: unknown[]
+}): { chain: any; calls: string[] } {
+  const payload = {
+    pr: options.pr ?? 42,
+    url: options.url ?? "https://github.com/o/r/pull/42",
+    base_ref: options.baseRef ?? "main",
+    head_ref: options.headRef ?? "feature",
+    stack_view: options.stackView,
+    graphql: options.graphql,
+    default_branch: options.defaultBranch ?? { status: 0, stdout: "main\n" },
+    open_prs: options.openPrs ?? [],
+  }
+  const python = `
+import json
+from importlib.machinery import SourceFileLoader
+
+m = SourceFileLoader("prs", ${JSON.stringify(SCRIPT)}).load_module()
+p = json.loads(${JSON.stringify(JSON.stringify(payload))})
+calls = []
+
+class Result:
+    pass
+
+def fake(cmd):
+    calls.append(" ".join(cmd))
+    if cmd[:4] == ["gh", "stack", "view", "--json"]:
+        cfg = p["stack_view"]
+    elif cmd[:3] == ["gh", "api", "graphql"]:
+        cfg = p["graphql"]
+    elif cmd[:2] == ["gh", "api"]:
+        cfg = p["default_branch"]
+    else:
+        cfg = {"status": 0, "stdout": p["open_prs"]}
+    result = Result()
+    result.returncode = cfg["status"]
+    value = cfg.get("stdout")
+    result.stdout = value if isinstance(value, str) else json.dumps(value)
+    result.stderr = cfg.get("stderr", "")
+    return result
+
+m._run = fake
+chain = m.fetch_pr_chain(p["pr"], "o/r", p["url"], p["base_ref"], p["head_ref"], "o", "r", None)
+print(json.dumps({"chain": chain, "calls": calls}))
+`
+  const r = spawnSync(
+    "python3",
+    ["-c", python],
     { encoding: "utf8" },
   )
   expect(r.status, r.stderr).toBe(0)
@@ -161,6 +237,187 @@ describe("ce-babysit-pr pr-snapshot engine", () => {
     expect(d.checks_terminal).toBe(true)
     expect(d.merge_state_status).toBe("CLEAN")
     expect(d.open_needs_human).toBe(0)
+  })
+
+  test("gh stack view is the first probe and a target match supplies managed freshness without GraphQL", () => {
+    const { chain, calls } = probeChain({
+      stackView: {
+        status: 0,
+        stdout: {
+          trunk: "main",
+          currentBranch: "feature",
+          branches: [
+            { name: "parent", needsRebase: false, pr: { number: 41, url: "https://github.com/o/r/pull/41", state: "OPEN" } },
+            { name: "feature", isCurrent: true, needsRebase: true, pr: { number: 42, url: "https://GITHUB.COM/O/R/pull/42/", state: "OPEN" } },
+            { name: "child", needsRebase: false, pr: { number: 43, url: "https://github.com/o/r/pull/43", state: "OPEN", isDraft: true } },
+          ],
+        },
+      },
+      graphql: { status: 1, stderr: "must not run" },
+    })
+    expect(calls[0]).toBe("gh stack view --json")
+    expect(calls.some((call) => call.includes("api graphql"))).toBe(false)
+    expect(chain.manager_status).toBe("confirmed")
+    expect(chain.manager_source).toBe("gh-stack")
+    expect(chain.relationship_status).toBe("dependent")
+    expect(chain.target_position).toBe(2)
+    expect(chain.target_needs_rebase).toBe(true)
+    expect(chain.entries[2].isDraft).toBe(true)
+    expect(chain.dependent_prs[0].isDraft).toBe(true)
+  })
+
+  test("a successful view of another local stack falls back to GraphQL instead of misclassifying the target", () => {
+    const { chain, calls } = probeChain({
+      stackView: {
+        status: 0,
+        stdout: { trunk: "main", currentBranch: "other", branches: [{ name: "other", pr: { number: 7 } }] },
+      },
+      graphql: {
+        status: 0,
+        stdout: {
+          data: { repository: { pullRequest: {
+            stackEntry: { position: 2 },
+            stack: {
+              id: "STACK_1", number: 99, size: 3, baseRefName: "main",
+              entries: { nodes: [
+                { position: 1, pullRequest: { number: 41, url: "https://github.com/o/r/pull/41", state: "OPEN", headRefName: "parent" } },
+                { position: 2, pullRequest: { number: 42, url: "https://github.com/o/r/pull/42", state: "OPEN", headRefName: "feature" } },
+                { position: 3, pullRequest: { number: 43, url: "https://github.com/o/r/pull/43", state: "OPEN", headRefName: "child" } },
+              ] },
+            },
+          } } },
+        },
+      },
+    })
+    expect(calls.some((call) => call.includes("api graphql"))).toBe(true)
+    expect(chain.manager_status).toBe("confirmed")
+    expect(chain.manager_source).toBe("graphql")
+    expect(chain.target_position).toBe(2)
+    expect(chain.target_needs_rebase).toBeNull()
+  })
+
+  test("a local stack entry with the target number in another repository falls back to GraphQL", () => {
+    const { chain, calls } = probeChain({
+      stackView: {
+        status: 0,
+        stdout: {
+          trunk: "main",
+          currentBranch: "feature",
+          branches: [
+            {
+              name: "feature",
+              isCurrent: true,
+              needsRebase: true,
+              pr: { number: 42, url: "https://github.com/another/repository/pull/42", state: "OPEN" },
+            },
+          ],
+        },
+      },
+      graphql: {
+        status: 0,
+        stdout: {
+          data: { repository: {
+            defaultBranchRef: { name: "main" },
+            pullRequest: {
+              stackEntry: { position: 1 },
+              stack: {
+                id: "STACK_2", number: 100, size: 1, baseRefName: "main",
+                entries: { nodes: [
+                  { position: 1, pullRequest: { number: 42, url: "https://github.com/o/r/pull/42", state: "OPEN", headRefName: "feature" } },
+                ] },
+              },
+            },
+          } },
+        },
+      },
+    })
+    expect(calls.some((call) => call.includes("api graphql"))).toBe(true)
+    expect(chain.manager_status).toBe("confirmed")
+    expect(chain.manager_source).toBe("graphql")
+    expect(chain.target_needs_rebase).toBeNull()
+  })
+
+  test("successful null GraphQL stack classifies an ordinary manual dependency chain", () => {
+    const { chain, calls } = probeChain({
+      baseRef: "parent",
+      headRef: "feature",
+      stackView: { status: 1, stderr: "no current stack" },
+      graphql: { status: 0, stdout: { data: { repository: {
+        defaultBranchRef: { name: "main" },
+        pullRequest: { stackEntry: null, stack: null },
+      } } } },
+      openPrs: [
+        { number: 41, url: "https://github.com/o/r/pull/41", state: "MERGED", baseRefName: "main", headRefName: "parent" },
+        { number: 42, url: "https://github.com/o/r/pull/42", state: "OPEN", baseRefName: "parent", headRefName: "feature" },
+        { number: 43, url: "https://github.com/o/r/pull/43", state: "OPEN", baseRefName: "feature", headRefName: "child" },
+      ],
+    })
+    expect(chain.manager_status).toBe("absent")
+    expect(calls.some((call) => call.includes("gh pr list") && call.includes("--state all") && call.includes("--head parent"))).toBe(true)
+    expect(calls.some((call) => call.includes("gh pr list") && call.includes("--state open") && call.includes("--base feature"))).toBe(true)
+    expect(chain.relationship_status).toBe("dependent")
+    expect(chain.parent_prs.map((pr: any) => pr.number)).toEqual([41])
+    expect(chain.dependent_prs.map((pr: any) => pr.number)).toEqual([43])
+  })
+
+  test("a PR based on the default branch ignores unrelated PRs whose head has the default-branch name", () => {
+    const { chain, calls } = probeChain({
+      baseRef: "main",
+      headRef: "feature",
+      stackView: { status: 1, stderr: "no current stack" },
+      graphql: { status: 0, stdout: { data: { repository: {
+        defaultBranchRef: { name: "main" },
+        pullRequest: { stackEntry: null, stack: null },
+      } } } },
+      openPrs: [
+        { number: 500, url: "https://github.com/o/r/pull/500", state: "OPEN", baseRefName: "main", headRefName: "main" },
+        { number: 320, url: "https://github.com/o/r/pull/320", state: "OPEN", baseRefName: "main", headRefName: "main" },
+      ],
+    })
+    expect(calls.some((call) => call.includes("gh pr list") && call.includes("--head main"))).toBe(false)
+    expect(calls.some((call) => call.includes("gh pr list") && call.includes("--base feature"))).toBe(true)
+    expect(chain.manager_status).toBe("absent")
+    expect(chain.relationship_status).toBe("independent")
+    expect(chain.parent_prs).toEqual([])
+    expect(chain.dependent_prs).toEqual([])
+  })
+
+  test("manager probe failure remains unknown and never collapses to absent", () => {
+    const { chain, calls } = probeChain({
+      stackView: { status: 1, stderr: "no current stack" },
+      graphql: { status: 1, stderr: "gh: HTTP 401: Bad credentials" },
+    })
+    expect(chain.manager_status).toBe("probe-error")
+    expect(chain.manager_status).not.toBe("absent")
+    expect(calls.filter((call) => call.startsWith("gh api ")).length).toBe(1)
+  })
+
+  test("unavailable stack fields fall back to the default branch and manual-chain classification", () => {
+    const { chain, calls } = probeChain({
+      baseRef: "parent",
+      headRef: "feature",
+      stackView: { status: 1, stderr: "no current stack" },
+      graphql: { status: 1, stderr: "gh: Field 'stackEntry' doesn't exist on type 'PullRequest'" },
+      defaultBranch: { status: 0, stdout: "main\n" },
+      openPrs: [
+        { number: 41, url: "https://github.com/o/r/pull/41", state: "OPEN", baseRefName: "main", headRefName: "parent" },
+        { number: 43, url: "https://github.com/o/r/pull/43", state: "OPEN", baseRefName: "feature", headRefName: "child" },
+      ],
+    })
+    expect(calls).toContain("gh api repos/o/r --jq .default_branch")
+    expect(chain.manager_status).toBe("absent")
+    expect(chain.relationship_status).toBe("dependent")
+    expect(chain.parent_prs.map((pr: any) => pr.number)).toEqual([41])
+    expect(chain.dependent_prs.map((pr: any) => pr.number)).toEqual([43])
+  })
+
+  test("stack fields unavailable with no default-branch fallback remains a manager probe error", () => {
+    const { chain } = probeChain({
+      stackView: { status: 1, stderr: "no current stack" },
+      graphql: { status: 1, stderr: "GraphQL: Cannot query field \"stack\" on type \"PullRequest\"." },
+      defaultBranch: { status: 1, stderr: "network unavailable" },
+    })
+    expect(chain.manager_status).toBe("probe-error")
   })
 
   test("colliding check keys are disambiguated (both failing checks surface, neither shadows)", () => {
@@ -377,6 +634,52 @@ describe("ce-babysit-pr pr-snapshot engine", () => {
     expect(JSON.parse(r.stdout).session_seconds).toBeLessThan(10)
   })
 
+  test("an invocation session start carries into a new managed-stack layer state dir", () => {
+    const started = new Date(Date.now() - 3_600_000).toISOString()
+    const d = snapshot(
+      path.join(dir, "next-layer"),
+      fetchFile(dir, "next-layer.json", FAILING),
+      ["--session-started-at", started],
+    )
+
+    expect(new Date(d.session_started_at).getTime()).toBe(new Date(started).getTime())
+    expect(d.session_seconds).toBeGreaterThan(3_500)
+  })
+
+  test("re-arming watch preserves the invocation budget instead of resetting it", () => {
+    const sd = path.join(dir, "watch-budget")
+    const started = new Date(Date.now() - 10_000).toISOString()
+    const waiting = {
+      ...FAILING,
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    }
+    snapshot(sd, fetchFile(dir, "watch-budget-snapshot.json", waiting), ["--session-started-at", started])
+
+    const wake = watch(
+      sd,
+      fetchFile(dir, "watch-budget-watch.json", waiting),
+      ["--session-started-at", started],
+    )
+
+    expect(wake.reason).toBe("max-runtime")
+  }, 15000)
+
+  test("watch --reset-session resets once, not on every poll", () => {
+    const waiting = {
+      ...FAILING,
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    }
+    const wake = watch(
+      path.join(dir, "watch-reset-once"),
+      fetchFile(dir, "watch-reset-once.json", waiting),
+      ["--reset-session"],
+    )
+
+    expect(wake.reason).toBe("max-runtime")
+  }, 10000)
+
   test("clearing a fork approval gate is movement (resets the settle clock so merge-ready waits for check-runs)", () => {
     const sd = path.join(dir, "appr")
     const gated = { ...FAILING, merge_state_status: "CLEAN", review_decision: "APPROVED", checks: [], threads: [], awaiting_approval: 1 }
@@ -554,6 +857,97 @@ describe("ce-babysit-pr pr-snapshot engine", () => {
     // same clean state with a zero settle window -> merge-ready wake
     expect(watch(path.join(dir, "w4"), cf, ["--settle-seconds", "0"]).reason).toBe("merge-ready")
   }, 15000) // spawns 4 watch subprocesses incl. a max-runtime timeout -> explicit timeout over Bun's 5s default
+
+  test("watch: managed target freshness blocks ordinary CLEAN merge-ready", () => {
+    const GREEN = { key: "CI/test", name: "test", status: "COMPLETED", conclusion: "SUCCESS", details_url: "u" }
+    const managedStale = {
+      ...FAILING,
+      merge_state_status: "CLEAN",
+      review_decision: "APPROVED",
+      checks: [GREEN],
+      threads: [],
+      pr_chain: {
+        manager_status: "confirmed",
+        manager_source: "gh-stack",
+        relationship_status: "dependent",
+        target_needs_rebase: true,
+        upstack_needs_rebase: [],
+      },
+    }
+    expect(wakeReason(snapshot(path.join(dir, "stack-stale"), fetchFile(dir, "stack-stale.json", managedStale)))).toBe("stack-blocked")
+  }, 15000)
+
+  test("watch: unknown managed freshness blocks ready, while stale upstack alone still permits ready-as-next", () => {
+    const GREEN = { key: "CI/test", name: "test", status: "COMPLETED", conclusion: "SUCCESS", details_url: "u" }
+    const base = {
+      ...FAILING,
+      merge_state_status: "CLEAN",
+      review_decision: "APPROVED",
+      checks: [GREEN],
+      threads: [],
+    }
+    const unknown = {
+      ...base,
+      pr_chain: {
+        manager_status: "confirmed",
+        manager_source: "graphql",
+        relationship_status: "dependent",
+        target_needs_rebase: null,
+        upstack_needs_rebase: [],
+      },
+    }
+    expect(wakeReason(snapshot(path.join(dir, "stack-unknown"), fetchFile(dir, "stack-unknown.json", unknown)))).toBe("stack-blocked")
+
+    const readyAsNext = {
+      ...base,
+      pr_chain: {
+        manager_status: "confirmed",
+        manager_source: "gh-stack",
+        relationship_status: "dependent",
+        target_needs_rebase: false,
+        upstack_needs_rebase: [{ number: 43, position: 3 }],
+      },
+    }
+    expect(wakeReason(snapshot(path.join(dir, "stack-up"), fetchFile(dir, "stack-up.json", readyAsNext)))).toBe("merge-ready")
+  }, 15000)
+
+  test("watch: manager probe error is a residual, not an unmanaged merge-ready fallback", () => {
+    const GREEN = { key: "CI/test", name: "test", status: "COMPLETED", conclusion: "SUCCESS", details_url: "u" }
+    const probeError = {
+      ...FAILING,
+      merge_state_status: "CLEAN",
+      review_decision: "APPROVED",
+      checks: [GREEN],
+      threads: [],
+      pr_chain: {
+        manager_status: "probe-error",
+        manager_source: null,
+        relationship_status: "independent",
+        target_needs_rebase: null,
+        upstack_needs_rebase: [],
+      },
+    }
+    expect(wakeReason(snapshot(path.join(dir, "stack-error"), fetchFile(dir, "stack-error.json", probeError)))).toBe("stack-blocked")
+  }, 15000)
+
+  test("watch: unresolved ordinary relationship classification also blocks an independent-readiness claim", () => {
+    const GREEN = { key: "CI/test", name: "test", status: "COMPLETED", conclusion: "SUCCESS", details_url: "u" }
+    const relationshipError = {
+      ...FAILING,
+      merge_state_status: "CLEAN",
+      review_decision: "APPROVED",
+      checks: [GREEN],
+      threads: [],
+      pr_chain: {
+        manager_status: "absent",
+        manager_source: null,
+        relationship_status: "probe-error",
+        target_needs_rebase: null,
+        upstack_needs_rebase: [],
+      },
+    }
+    expect(wakeReason(snapshot(path.join(dir, "relationship-error"), fetchFile(dir, "relationship-error.json", relationshipError)))).toBe("stack-blocked")
+  }, 15000)
 
   test("watch: labels a comments-only wake as a feedback candidate while CI is running", () => {
     const RUNNING = { key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }

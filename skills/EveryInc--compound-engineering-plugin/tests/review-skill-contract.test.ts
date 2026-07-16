@@ -6,6 +6,117 @@ async function readRepoFile(relativePath: string): Promise<string> {
   return readFile(path.join(process.cwd(), relativePath), "utf8")
 }
 
+const STRICT_SCHEMA_KEYWORDS = new Set([
+  "$comment",
+  "$id",
+  "$ref",
+  "$schema",
+  "additionalItems",
+  "additionalProperties",
+  "allOf",
+  "anyOf",
+  "const",
+  "contains",
+  "contentEncoding",
+  "contentMediaType",
+  "default",
+  "definitions",
+  "dependencies",
+  "description",
+  "else",
+  "enum",
+  "examples",
+  "exclusiveMaximum",
+  "exclusiveMinimum",
+  "format",
+  "if",
+  "items",
+  "maxItems",
+  "maxLength",
+  "maxProperties",
+  "maximum",
+  "minItems",
+  "minLength",
+  "minProperties",
+  "minimum",
+  "multipleOf",
+  "not",
+  "oneOf",
+  "pattern",
+  "patternProperties",
+  "properties",
+  "propertyNames",
+  "readOnly",
+  "required",
+  "then",
+  "title",
+  "type",
+  "uniqueItems",
+  "writeOnly",
+])
+
+function extensionSchemaKeywords(schema: unknown, location = "$."): string[] {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return []
+
+  const record = schema as Record<string, unknown>
+  const extensions = Object.keys(record)
+    .filter((key) => !STRICT_SCHEMA_KEYWORDS.has(key))
+    .map((key) => `${location}${key}`)
+
+  for (const container of ["properties", "patternProperties", "definitions"] as const) {
+    const children = record[container]
+    if (children && typeof children === "object" && !Array.isArray(children)) {
+      for (const [name, child] of Object.entries(children)) {
+        extensions.push(...extensionSchemaKeywords(child, `${location}${container}.${name}.`))
+      }
+    }
+  }
+
+  for (const keyword of [
+    "additionalItems",
+    "additionalProperties",
+    "contains",
+    "else",
+    "if",
+    "not",
+    "propertyNames",
+    "then",
+  ] as const) {
+    if (typeof record[keyword] === "object") {
+      extensions.push(...extensionSchemaKeywords(record[keyword], `${location}${keyword}.`))
+    }
+  }
+
+  const items = record.items
+  if (Array.isArray(items)) {
+    items.forEach((item, index) => {
+      extensions.push(...extensionSchemaKeywords(item, `${location}items[${index}].`))
+    })
+  } else if (items) {
+    extensions.push(...extensionSchemaKeywords(items, `${location}items.`))
+  }
+
+  for (const keyword of ["allOf", "anyOf", "oneOf"] as const) {
+    const alternatives = record[keyword]
+    if (Array.isArray(alternatives)) {
+      alternatives.forEach((alternative, index) => {
+        extensions.push(...extensionSchemaKeywords(alternative, `${location}${keyword}[${index}].`))
+      })
+    }
+  }
+
+  const dependencies = record.dependencies
+  if (dependencies && typeof dependencies === "object" && !Array.isArray(dependencies)) {
+    for (const [name, dependency] of Object.entries(dependencies)) {
+      if (!Array.isArray(dependency)) {
+        extensions.push(...extensionSchemaKeywords(dependency, `${location}dependencies.${name}.`))
+      }
+    }
+  }
+
+  return extensions
+}
+
 function personaPromptPath(personaName: string): string {
   return `skills/ce-code-review/references/personas/${personaName}.md`
 }
@@ -114,10 +225,6 @@ describe("ce-code-review contract", () => {
       "skills/ce-code-review/references/findings-schema.json",
     )
     const schema = JSON.parse(rawSchema) as {
-      _meta: {
-        confidence_thresholds: { suppress: string; report: string }
-        confidence_anchors: Record<string, string>
-      }
       properties: {
         findings: {
           items: {
@@ -152,19 +259,18 @@ describe("ce-code-review contract", () => {
     expect(schema.properties.findings.items.properties.confidence.type).toBe("integer")
     expect(schema.properties.findings.items.properties.confidence.enum).toEqual([0, 25, 50, 75, 100])
 
-    // Threshold: anchor 75 (P0 escape at anchor 50)
-    expect(schema._meta.confidence_thresholds.suppress).toContain("anchor 75")
-    expect(schema._meta.confidence_thresholds.suppress).toContain("anchor 50")
-    expect(schema._meta.confidence_thresholds.suppress).toMatch(/P0/)
+  })
 
-    // Behavioral anchors documented for personas
-    expect(schema._meta.confidence_anchors).toBeDefined()
-    expect(schema._meta.confidence_anchors["0"]).toBeDefined()
-    expect(schema._meta.confidence_anchors["25"]).toBeDefined()
-    expect(schema._meta.confidence_anchors["50"]).toBeDefined()
-    expect(schema._meta.confidence_anchors["75"]).toBeDefined()
-    expect(schema._meta.confidence_anchors["100"]).toBeDefined()
-
+  test("keeps extension keywords out of draft-07 cross-model schemas", async () => {
+    for (const schemaPath of [
+      "skills/ce-code-review/references/findings-schema.json",
+      "skills/ce-doc-review/references/findings-schema.json",
+      "skills/ce-pov/references/pov-schema.json",
+    ]) {
+      const schema = JSON.parse(await readRepoFile(schemaPath))
+      expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
+      expect(extensionSchemaKeywords(schema)).toEqual([])
+    }
   })
 
   test("subagent template carries verbatim 5-anchor rubric and lint-ignore suppression", async () => {
@@ -887,13 +993,13 @@ describe("cross-model peer skip legibility", () => {
     },
   ]
 
-  // A route "succeeded" (and so suppresses the cross-provider fallback) only
+  // A fixed route succeeded only
   // when it returned a reviewer-shaped object with a top-level `findings` array
   // — not merely any valid JSON. Accepting an error/envelope object (e.g. a grok
-  // 402 usage-exhausted body) would suppress the fallback and then be dropped at
-  // normalize, yielding no fold-in. The two workers must agree on this gate.
+  // 402 usage-exhausted body) must be dropped at normalize rather than published
+  // as a fold-in. The two workers must agree on this gate.
   for (const worker of pairs.map((p) => p.worker)) {
-    test(`${worker} gates fallback on a findings-shaped return, not any valid JSON`, async () => {
+    test(`${worker} gates fixed-route success on a findings-shaped return, not any valid JSON`, async () => {
       const src = await readRepoFile(worker)
       expect(src).toMatch(/out_missing_or_invalid\(\)/)
       expect(src).toContain('(.findings|type)=="array"')
@@ -924,6 +1030,15 @@ describe("cross-model peer skip legibility", () => {
     })
   }
 
+  for (const reference of pairs.map((p) => p.reference)) {
+    test(`${reference} keeps Cursor harness identity separate from serving family`, async () => {
+      const src = await readRepoFile(reference)
+      expect(src).toContain("XHOST_HARNESS=cursor; XHOST_FAMILY=unknown")
+      expect(src).not.toContain("XHOST_FAMILY=cursor")
+      expect(src).toContain("Never infer serving family from the Cursor brand")
+    })
+  }
+
   // The provider runs under `set -m` in its OWN process group so the worker can
   // group-reap it without killing itself. On a clean worker exit the runner's
   // final sweep only kills the worker's pgid, and a survivor the provider left
@@ -932,16 +1047,41 @@ describe("cross-model peer skip legibility", () => {
   for (const worker of pairs.map((p) => p.worker)) {
     test(`${worker} reaps the provider process group after waiting on it`, async () => {
       const src = await readRepoFile(worker)
-      // run_codex_cmd: `wait "$pid" ... || true`, then the group sweep.
-      expect(src).toMatch(
-        /wait "\$pid" 2>\/dev\/null \|\| true\n(?:\s*#[^\n]*\n)*\s*reap "\$pid"/,
-      )
-      // run_timeout_cmd: `wait "$pid" ... || log ...`, then the group sweep.
-      expect(src).toMatch(
-        /wait "\$pid" 2>\/dev\/null \|\| log[^\n]*\n\s*reap "\$pid"/,
-      )
+      // Both run paths preserve the clean-exit status before sweeping the
+      // provider group; timed-out/nonzero output must not be publishable.
+      const guardedWaits = src.match(
+        /if wait "\$pid" 2>\/dev\/null; then RUN_SUCCEEDED=true\n\s*else log "peer exited non-zero or timed out"; fi\n(?:\s*#[^\n]*\n)*\s*reap "\$pid"/g,
+      ) ?? []
+      expect(guardedWaits).toHaveLength(2)
     })
   }
+
+  test("code-review promotion requires a verified independent serving family", async () => {
+    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    expect(skill).toContain("top-level `independence_verified` is `true`")
+    expect(skill).toContain("cannot trigger promotion")
+    expect(skill).toContain("unverified Cursor default/Auto")
+  })
+
+  test("review-skill behavioral eval specs exercise the fixed-route U8 contract", async () => {
+    const evalPaths = [
+      "skills/ce-code-review/references/cross-model-eval.md",
+      "skills/ce-doc-review/references/cross-model-eval.md",
+    ]
+
+    for (const evalPath of evalPaths) {
+      const src = await readRepoFile(evalPath)
+      expect(src).toContain("CROSS_MODEL_FIXED_ROUTE")
+      expect(src).toContain("independence_verified: true")
+      expect(src).toMatch(/new disclosure and sanction|newly disclosed and sanctioned/i)
+      expect(src).toMatch(/never changes? recipients? internally|no worker-internal recipient fallback/i)
+    }
+
+    const docReviewEval = await readRepoFile("skills/ce-doc-review/references/cross-model-eval.md")
+    const wholeDocCase = docReviewEval.match(/10\. \*\*Whole-document sweep[\s\S]*?(?=\n11\. \*\*)/)?.[0]
+    expect(wholeDocCase).toContain("`independence_verified: true`")
+    expect(wholeDocCase).toMatch(/false or\s+absent independence[\s\S]*without promotion/)
+  })
 })
 
 describe("testing-reviewer contract", () => {

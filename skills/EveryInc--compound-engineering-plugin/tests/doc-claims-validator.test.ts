@@ -57,6 +57,14 @@ let sharedSha: string
 let localOnlySha: string
 let upstreamOnlySha: string
 
+function mixedShaPrefix(sha: string): string {
+  for (let length = 7; length <= sha.length; length++) {
+    const prefix = sha.slice(0, length)
+    if (/\d/.test(prefix) && /[a-f]/.test(prefix)) return prefix
+  }
+  throw new Error(`commit SHA has no mixed digit/letter prefix: ${sha}`)
+}
+
 beforeAll(() => {
   repo = mkdtempSync(path.join(tmpdir(), "doc-claims-repo-"))
   sh(repo, "git", ["init", "-b", "main"])
@@ -123,7 +131,7 @@ describe("validate-doc-claims script", () => {
       test("passes a clean doc citing an existing path and a shared SHA", () => {
         const docPath = writeRepoDoc(
           "The fix lives in `src/real-file.ts` and landed in commit " +
-            `${sharedSha.slice(0, 12)}.\n` +
+            `${mixedShaPrefix(sharedSha)}.\n` +
             "See [the existing doc](existing-doc.md) for background.\n",
         )
         const result = runValidator(skillDir, docPath)
@@ -192,23 +200,25 @@ describe("validate-doc-claims script", () => {
       })
 
       test("flags a HEAD-only SHA as rewritable on merge", () => {
+        const sha = mixedShaPrefix(localOnlySha)
         const docPath = writeRepoDoc(
-          `Landed in ${localOnlySha.slice(0, 12)} on this branch.\n`,
+          `Landed in ${sha} on this branch.\n`,
         )
         const result = runValidator(skillDir, docPath)
         expect(result.code).toBe(1)
-        expect(result.stdout).toContain(`FLAG sha ${localOnlySha.slice(0, 12)}`)
+        expect(result.stdout).toContain(`FLAG sha ${sha}`)
         expect(result.stdout).toContain("local-only commit")
       })
 
       test("flags an upstream-only SHA as predating-the-merge (the stale-branch bug)", () => {
+        const sha = mixedShaPrefix(upstreamOnlySha)
         const docPath = writeRepoDoc(
-          `Fixed by ${upstreamOnlySha.slice(0, 12)} which merged upstream.\n`,
+          `Fixed by ${sha} which merged upstream.\n`,
         )
         const result = runValidator(skillDir, docPath)
         expect(result.code).toBe(1)
         expect(result.stdout).toContain(
-          `FLAG sha ${upstreamOnlySha.slice(0, 12)}`,
+          `FLAG sha ${sha}`,
         )
         expect(result.stdout).toContain("predates the merge")
       })

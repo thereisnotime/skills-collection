@@ -28,6 +28,7 @@ The needed capability is generic — *run a background process and be woken when
 - `pr-snapshot watch --interval` is the poll cadence: ~2-3 min while active; widen to ~5-10 min when quiet — the detector is cheap, but each poll is a `gh` call, so respect rate limits.
 - `--settle-seconds` (default 300) is the quiet window before a `merge-ready` wake, so the agent is roused to declare-ready only once the PR has actually cooled off, not every poll. Leave it unset on the normal arm — the script's default is the initial policy; the only invocation that sets it is the post-rejection re-arm in SKILL.md Step 3's merge-ready wake protocol.
 - A push/mutation moves the head — re-arm `watch` (active cadence) so it reads the new state.
+- Every re-arm preserves the invocation-wide session budget: pass `--session-started-at "$RUN_STARTED_AT"`; never reset the clock merely because a watcher restarted.
 - Honor GitHub rate-limit reset headers; back off on `403`/`429`.
 - After any mutation, re-snapshot at the *start of the next tick*, not mid-tick.
 
@@ -35,7 +36,7 @@ The needed capability is generic — *run a background process and be woken when
 
 An orchestrator (`lfg`) drives ticks in-line and needs the loop to terminate. Run ticks back-to-back until the stop below. **To wait for CI to progress between ticks, use the harness's native non-blocking wait — never a bare foreground `sleep`** (blocked on Claude Code, discouraged elsewhere): Claude Code's `Monitor` until-loop; Grok's `get_command_or_subagent_output(timeout_ms=…)` or a `monitor`; Cursor's `Await` on a backgrounded `gh pr checks --watch`. If the harness has no non-blocking wait, do one tick and return control to the orchestrator rather than busy-spinning. Loop until:
 
-- **CI is clean** (`all_checks_ok` — every check terminal, **none failing**, and at least one observed) **and** the actionable backlog is empty — success. A terminal-but-**red** check `ce-debug` left as a residual (`has_failing_checks` true) or an empty rollup (`checks_present` false — Actions has not created check-runs yet, not that CI passed) is **not** success: keep ticking until they clear/materialize or the time budget expires, then return with residuals or `no-checks-observed`; or
+- **Report success only when** `all_checks_ok` is true (every check terminal, **none failing**, and at least one observed), the actionable backlog is empty, and `stack_blocker` is null. A terminal-but-**red** check `ce-debug` left as a residual (`has_failing_checks` true), an empty rollup (`checks_present` false — Actions has not created check-runs yet, not that CI passed), or manager-stale/probe-error chain state is **not** success: keep ticking until it clears or the time budget expires, then return with residuals or `no-checks-observed`; or
 - a **budget** is hit: default **3 CI fix rounds** per head-lineage (mirrors `lfg`'s historical cap) and an overall time cap (~30-45 min). On budget-exhaust, the still-red checks and any `needs-human` items become residuals.
 
 Never wait on the merge-ready settle window or human review in pipeline mode — those are interactive stops. A check stuck `IN_PROGRESS` past the time cap ends the run with a "CI still running" residual rather than blocking forever.
@@ -76,6 +77,17 @@ State lives at `/tmp/compound-engineering/ce-babysit-pr/<host>-<owner>-<repo>-<p
   "review_decision": "APPROVED",
   "mergeable": "MERGEABLE",
   "merge_state_status": "CLEAN",
+  "pr_chain": {
+    "manager_status": "confirmed|absent|probe-error",
+    "manager_source": "gh-stack|graphql|null",
+    "relationship_status": "dependent|independent|probe-error",
+    "target_position": 2,
+    "target_needs_rebase": false,
+    "upstack_needs_rebase": [],
+    "entries": [],
+    "parent_prs": [],
+    "dependent_prs": []
+  },
   "last_change_at": "<iso8601>",
   "last_action": "<short string>",
   "trajectory": {
@@ -89,7 +101,7 @@ State lives at `/tmp/compound-engineering/ce-babysit-pr/<host>-<owner>-<repo>-<p
 }
 ```
 
-A `check_key` is `"<workflow>/<name>"` (or `"<name>"` when there is no workflow) — stable across polls for the same head, which is all the dedup needs (see below). Each `snapshot` emits `changed_this_tick`, `quiet_seconds`, `session_seconds`, and the derived `trajectory` facts (see **Non-convergence** above). The `trajectory` sub-state is deterministic bookkeeping the script maintains; the leaves reason over the emitted facts.
+A `check_key` is `"<workflow>/<name>"` (or `"<name>"` when there is no workflow) — stable across polls for the same head, which is all the dedup needs (see below). Each `snapshot` emits `changed_this_tick`, `quiet_seconds`, `session_started_at`, `session_seconds`, `pr_chain`, `stack_blocker`, and the derived `trajectory` facts (see **Non-convergence** above). Capture the first snapshot's `session_started_at` as `RUN_STARTED_AT`; every subsequent snapshot or watch invocation passes `--session-started-at "$RUN_STARTED_AT"`. The chain probe is CLI-first: accept `gh stack view --json` only when it contains the target PR, then use the GraphQL fallback. Only a stack-field schema-unavailable response with a successful read-only default-branch lookup degrades to `absent`; auth, transport, rate-limit, malformed, other GraphQL, and failed default-branch probes stay `probe-error`. Ordinary open-PR base/head relationships classify manual dependencies only when no manager is confirmed. The `trajectory` sub-state is deterministic bookkeeping the script maintains; the leaves reason over the emitted facts.
 
 ## Claim → act → confirm (the dedup protocol)
 
@@ -103,7 +115,7 @@ The rule that makes ticks idempotent *and* crash-safe: **the snapshot never mark
 
 ## Merge-readiness and the settle window
 
-Do not re-derive "required checks" — GitHub already computes it. Use `mergeable == "MERGEABLE"` and `merge_state_status == "CLEAN"` (branch protection satisfied: required checks green, required review approved, no conflicts). `UNSTABLE` means mergeable but a non-required check is red; `BLOCKED` means a required gate is unmet. The snapshot also emits `has_failing_checks` so you can act on a red check even while `merge_state_status` is `UNSTABLE`.
+Do not re-derive "required checks" — GitHub already computes it. Use `mergeable == "MERGEABLE"` and `merge_state_status == "CLEAN"` for GitHub gates, then apply chain currency separately. A managed target is ready only when `target_needs_rebase == false`; true or unknown emits `stack_blocker`. A manual dependency can be ready relative to its parent but is not independently landable while that parent remains open. `UNSTABLE` means mergeable but a non-required check is red; `BLOCKED` means a required gate is unmet. The snapshot also emits `has_failing_checks` so you can act on a red check even while `merge_state_status` is `UNSTABLE`.
 
 The settle window guards the most damaging false positive: "CI went green, told the user to merge, then feedback landed."
 
@@ -116,13 +128,21 @@ The settle window guards the most damaging false positive: "CI went green, told 
 - **Lock.** The script takes a file lock around each state read/write. It cannot span the agent's mutations (which happen between script calls), so it is necessary but not sufficient.
 - **Pre-mutation revalidation.** The delegated skills re-check remote before they write, but a second babysitter or a human can still act between your snapshot and your action. Treat the snapshot as a hint, never as a guarantee the world is unchanged at mutation time.
 
+## Managed-stack continuation
+
+Sequential babysitting is available only while a fresh probe positively reports `manager_status == "confirmed"` for the active PR. It uses one active PR target and one watcher, never a watcher per stack layer. On an authorized transition, stop the old watcher, re-read `gh stack view --json`, require the next PR to be the manager's immediate open entry and either non-draft or explicitly included by the user, check out that branch, and initialize its own state directory/watch. The next layer carries the same `RUN_STARTED_AT`, so one invocation-wide budget covers the entire accepted traversal rather than restarting per PR. Recheck downstack settledness only at transitions, immediately before mutation, and at readiness; if a lower layer has become unsettled, return to the lowest unsettled layer rather than writing to both concurrently. Loss of manager confirmation ends continuation.
+
+The one-time semantic-scope offer and draft/human boundaries live inline in SKILL.md because they are routing decisions, not detector mechanics. A manual dependency chain never enters this continuation path; it remains target-local even when its base/head relationships have the same shape.
+
 ## Edge cases
 
-- **Behind base** (`merge_state_status == "BEHIND"`): when the repo requires up-to-date branches (or the base moved materially), `gh pr update-branch` — a **merge of base into head**, never a rebase. It re-triggers CI + review, so at most once per tick and only when it unblocks merge.
-- **Merge conflict mid-flight** (`mergeable == "CONFLICTING"`): merge base into head locally and split like the fix-authority boundary — **mechanical** conflicts (lockfiles, changelog/generated files, non-overlapping additions) resolve + commit + push; a **semantic** conflict (both sides changed the same logic, so resolving decides intended behavior) aborts the merge and surfaces as `needs-human` with `decision_context`. **Never rebase or force-push** — rewriting a PR head branch is destructive; a base-into-head merge is the only safe mechanism.
+- **Managed stack:** `target_needs_rebase` true/unknown becomes `stack-blocked`; do not use `gh pr update-branch` or a local base merge. After an authorized target push, retain the pushed SHA, re-confirm that local `gh stack view --json` still owns the target/current branch, require a clean worktree, fetch the target branch, and verify its local and remote-tracking heads remain at the pushed SHA. Select the first open dependent immediately above the target, then run `gh stack rebase <first-dependent-branch> --upstack --no-trunk --remote <tracking-remote>` followed by `gh stack push --remote <tracking-remote>`; if there is no dependent, skip the cascade. Starting at the dependent excludes the target from the rebase, and verify the target local head is still unchanged before pushing. The rebase confines the cascade to inter-branch propagation; the push uses `--force-with-lease --atomic`, so all changed remote branches update or none do. This manager-owned continuation is implicit in babysitting a managed layer. On a rebase conflict, run `gh stack rebase --abort` and leave a `needs-human`/upstack residual; on target movement or push rejection, leave the residual and never retry with raw force. If local CLI membership cannot be re-confirmed, do not import or guess at the stack.
+- **Manual dependency chain:** keep the requested PR as the target, qualify readiness relative to its parent, and report downstream impact. Ordinary target-local base merges remain allowed. Never rebase, rewrite, or restack its dependent branches; a target push may make them stale, which is a residual only.
+- **Independent PR behind/conflicting:** use `gh pr update-branch` when needed, or resolve only mechanical conflicts via a base merge. Semantic conflicts become `needs-human`. Never rebase or force-push.
+- **Manager/relationship probe error:** continue review and CI streams, but perform no branch-currency mutation and do not declare ready until classification succeeds.
 - **External head change / force-push:** the head SHA moved under the loop. The snapshot clears SHA-scoped CI state automatically; just re-snapshot. Never clobber unrelated pushed work.
 - **PR closed or merged externally:** detected as `pr_state != "OPEN"` on any tick → clean exit with a final status.
-- **needs-human feedback:** `ce-resolve-pr-feedback` leaves those threads open and returns them as escalations; record each with `mark ... --disposition needs-human`, keep doing independent CI work, and surface them. Never auto-decline or auto-resolve a thread you did not fix. A parked `needs-human` is a **standing residual** (SKILL.md Step 3): it blocks *declaring* merge-ready but does **not** end the watch — keep handling new CI and later review rounds around it. Only a true stop (terminal / looks-ready / the budget cap) ends the loop, not a count of accumulated escalations.
+- **needs-human feedback:** `ce-resolve-pr-feedback` leaves those threads open and returns them as escalations; record each with `mark ... --disposition needs-human`, keep doing independent CI work, and surface them. Never auto-decline or auto-resolve a thread you did not fix. A parked `needs-human` is a **standing residual** (SKILL.md Step 3): it blocks *declaring* merge-ready but does **not** end the watch — keep handling new CI and later review rounds around it. Only a true stop (terminal / looks-ready / the budget cap) ends the active layer, not a count of accumulated escalations; an authorized confirmed-managed-stack run may transition after a looks-ready layer as defined inline in SKILL.md.
 - **No push access / fork PR:** a delegated push will fail. Detect that from the delegated skill's result, report it, and stop — the loop cannot make progress it has no permission to make.
 - **CI that never completes:** a check stuck `IN_PROGRESS` for a long time will keep the loop from settling. When the session budget (`session_seconds` cap) is reached, hand back with "CI still running after <N>" rather than looping forever.
 - **Rate limits / transient API errors:** honor the reset time, back off, resume. The claim→confirm protocol protects against replay.

@@ -7,52 +7,36 @@ import argparse
 import json
 import os
 import re
-import sqlite3
 import sys
-from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Optional
-from urllib.parse import quote
+from typing import Optional
 
 # Multi-home discovery lives in the bundled `_core` package — the single source
 # of truth is daymade-claude-code/_conversation_core/, copied here into
 # scripts/_core/ by sync_core.py. Make this script's own dir importable
 # regardless of how it is invoked, then import.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _core.homes import discover_claude_homes, home_label  # noqa: E402
-
-
-MAX_PREFIX_BYTES = 2 * 1024 * 1024
-MAX_PREFIX_LINES = 5000
-CODEX_REQUIRED_COLUMNS = {"id", "cwd", "updated_at", "source", "archived"}
-NOISE_PREFIXES = (
-    "# agents.md instructions for ",
-    "<app-context",
-    "<collaboration_mode",
-    "<command-message",
-    "<command-name",
-    "<codex_internal_context",
-    "<environment_context",
-    "<local-command-caveat",
-    "<local-command-stdout",
-    "<permissions instructions",
-    "<recommended_plugins",
-    "<system-reminder",
+from _core.claude import scan_claude_session  # noqa: E402
+from _core.homes import home_label  # noqa: E402
+from _core.parse import (  # noqa: E402
+    format_timestamp,
+    iso_timestamp,
+    parse_date_boundary,
+    range_overlaps_window,
+    workspace_matches,
 )
-AUTOMATED_TITLE_RE = re.compile(
-    r"^(?:reply|respond|return|print)\s+(?:with\s+)?exactly\b", re.IGNORECASE
+from _core.model import Conversation, ProviderResult  # noqa: E402
+from _core.sources import (  # noqa: E402
+    HistorySource,
+    HistorySourceConfigError,
+    discover_claude_sources,
 )
-WINDOWS_DRIVE_RE = re.compile(r"^(?:[/\\]{2}\?[/\\])?[A-Za-z]:[/\\]")
-SESSION_ID_RE = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-    re.IGNORECASE,
+from _core.text import (  # noqa: E402
+    is_automated_title,
+    iter_jsonl,
 )
-ATTACHMENT_IMAGE_RE = re.compile(
-    r"^(?:<image\b|\[Image\s+#\d+\])", re.IGNORECASE
-)
-FILE_SUFFIX_RE = re.compile(r"\.[A-Za-z0-9]{1,16}$")
-SLASH_COMMAND_RE = re.compile(r"^/[A-Za-z0-9_:-]+(?:[ \t].*)?$")
+from _core.codex import collect_codex  # noqa: E402
 
 
 def configure_utf8_streams() -> None:
@@ -61,257 +45,6 @@ def configure_utf8_streams() -> None:
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure:
             reconfigure(encoding="utf-8", errors="replace")
-
-
-@dataclass
-class Conversation:
-    provider: str
-    session_id: str
-    title: str
-    cwd: str
-    updated_at: Optional[float]
-    created_at: Optional[float]
-    archived: bool
-    kind: str
-    path: str
-    metadata_source: str
-    timestamp_source: str
-
-    def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
-        data["updated_at"] = (
-            iso_timestamp(self.updated_at) if self.updated_at is not None else None
-        )
-        data["created_at"] = (
-            iso_timestamp(self.created_at) if self.created_at is not None else None
-        )
-        return data
-
-
-@dataclass
-class ProviderResult:
-    provider: str
-    backend: str
-    home: str
-    conversations: list[Conversation] = field(default_factory=list)
-    excluded_subagents: int = 0
-    excluded_archived: int = 0
-    excluded_automated: int = 0
-    warnings: list[str] = field(default_factory=list)
-
-    @property
-    def total(self) -> int:
-        return len(self.conversations)
-
-
-@dataclass
-class CodexDatabase:
-    path: Path
-    columns: set[str]
-    max_updated_ms: int
-
-
-def looks_like_windows_path(value: str) -> bool:
-    return bool(WINDOWS_DRIVE_RE.match(value)) or value.startswith("\\\\")
-
-
-def looks_like_attachment_prefix(value: str) -> bool:
-    """Recognize attachment metadata without guessing from prompt length."""
-    stripped = value.strip()
-    if ATTACHMENT_IMAGE_RE.match(stripped):
-        return True
-    if "\n" in stripped:
-        return False
-    candidate = stripped.strip("`'\"")
-    path_like = candidate.startswith(("/", "~/")) or looks_like_windows_path(
-        candidate
-    )
-    return path_like and bool(FILE_SUFFIX_RE.search(candidate))
-
-
-def strip_structural_metadata_lines(value: str) -> tuple[str, bool]:
-    """Remove attachment and slash-command wrapper lines around a request."""
-    lines = [line.strip() for line in value.splitlines() if line.strip()]
-    removed_attachment = False
-    while lines:
-        if looks_like_attachment_prefix(lines[0]):
-            removed_attachment = True
-            lines.pop(0)
-            continue
-        if SLASH_COMMAND_RE.fullmatch(lines[0]):
-            lines.pop(0)
-            continue
-        break
-    while lines and SLASH_COMMAND_RE.fullmatch(lines[-1]):
-        lines.pop()
-    return "\n".join(lines).strip(), removed_attachment
-
-
-def normalize_workspace(value: str) -> str:
-    """Normalize a persisted cwd without guessing Windows/WSL equivalence."""
-    value = os.path.expandvars(os.path.expanduser(str(value).strip()))
-    if looks_like_windows_path(value):
-        normalized = value.replace("\\", "/")
-        if normalized.startswith("//?/"):
-            normalized = normalized[4:]
-        normalized = re.sub(r"/+", "/", normalized).rstrip("/")
-        return normalized.casefold()
-    normalized = os.path.abspath(os.path.normpath(value)).rstrip(os.sep)
-    if sys.platform == "darwin":
-        return normalized.casefold()
-    return os.path.normcase(normalized)
-
-
-def workspace_matches(candidate: str, target: Optional[str], recursive: bool) -> bool:
-    if target is None:
-        return True
-    normalized_candidate = normalize_workspace(candidate)
-    normalized_target = normalize_workspace(target)
-    if normalized_candidate == normalized_target:
-        return True
-    if not recursive:
-        return False
-    separator = "/" if "/" in normalized_target else os.sep
-    return normalized_candidate.startswith(normalized_target.rstrip(separator) + separator)
-
-
-def parse_timestamp(value: Any) -> Optional[float]:
-    if value is None or value == "":
-        return None
-    if isinstance(value, (int, float)):
-        numeric = float(value)
-        if numeric <= 0:
-            return None
-        return numeric / 1000 if numeric > 10_000_000_000 else numeric
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            numeric = float(text)
-            if numeric <= 0:
-                return None
-            return numeric / 1000 if numeric > 10_000_000_000 else numeric
-        except ValueError:
-            pass
-        try:
-            return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
-        except ValueError:
-            return None
-    return None
-
-
-def timezone_offset_colon(value: str) -> str:
-    if len(value) == 5 and value[0] in "+-":
-        return value[:3] + ":" + value[3:]
-    return value
-
-
-def format_timestamp(value: float) -> str:
-    local = datetime.fromtimestamp(value).astimezone()
-    return local.strftime("%Y-%m-%d %H:%M ") + timezone_offset_colon(
-        local.strftime("%z")
-    )
-
-
-def iso_timestamp(value: float) -> str:
-    return datetime.fromtimestamp(value).astimezone().isoformat(timespec="seconds")
-
-
-def iter_jsonl(path: Path, *, bounded: bool = False) -> Iterator[dict[str, Any]]:
-    consumed = 0
-    lines = 0
-    try:
-        with path.open("r", encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                consumed += len(line.encode("utf-8", errors="replace"))
-                lines += 1
-                if bounded and (consumed > MAX_PREFIX_BYTES or lines > MAX_PREFIX_LINES):
-                    return
-                try:
-                    value = json.loads(line)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-                if isinstance(value, dict):
-                    yield value
-    except (OSError, UnicodeError):
-        return
-
-
-def extract_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if not isinstance(content, list):
-        return ""
-    parts: list[str] = []
-    for item in content:
-        if not isinstance(item, dict):
-            continue
-        if item.get("type") in {"text", "input_text"} and isinstance(
-            item.get("text"), str
-        ):
-            parts.append(item["text"])
-    return " ".join(parts)
-
-
-def is_noise_text(text: str) -> bool:
-    lowered = text.lstrip().casefold()
-    return not lowered or any(lowered.startswith(prefix) for prefix in NOISE_PREFIXES)
-
-
-def clean_title(text: str, max_chars: int) -> str:
-    separator_parts = re.split(r"(?:^|\n)\s*-{4,}\s*(?:\n|$)", text)
-    if len(separator_parts) > 1:
-        raw_candidates = [part.strip() for part in separator_parts if part.strip()]
-        processed_candidates = [
-            strip_structural_metadata_lines(part) for part in raw_candidates
-        ]
-        attachment_requests = [
-            candidate
-            for candidate, removed_attachment in processed_candidates
-            if candidate and removed_attachment
-        ]
-        candidates = [candidate for candidate, _ in processed_candidates if candidate]
-        candidates = candidates or raw_candidates
-        if attachment_requests:
-            text = attachment_requests[-1]
-        elif candidates:
-            prefix = candidates[0]
-            tail = candidates[-1]
-            text = tail if len(tail) >= 20 else prefix
-    text = re.sub(r"^<image\b[^>]*>\s*", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"</?image>\s*", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"^\[Image\s+#\d+\]\s*", "", text, flags=re.IGNORECASE)
-    home = str(Path.home())
-    for home_variant in {home, home.replace("\\", "/"), home.replace("/", "\\")}:
-        if home_variant:
-            text = text.replace(home_variant, "~")
-    text = re.sub(r"[\r\n\t]+", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 1].rstrip() + "…"
-
-
-def is_automated_title(title: str) -> bool:
-    return bool(AUTOMATED_TITLE_RE.match(title.strip()))
-
-
-def first_meaningful_title(
-    candidates: Iterable[Any], max_chars: int
-) -> Optional[str]:
-    short_candidate: Optional[str] = None
-    for candidate in candidates:
-        if not isinstance(candidate, str):
-            continue
-        cleaned = clean_title(candidate, max_chars)
-        if is_noise_text(cleaned):
-            continue
-        if len(cleaned) >= 4:
-            return cleaned
-        if cleaned and short_candidate is None:
-            short_candidate = cleaned
-    return short_candidate
 
 
 def encode_claude_workspace(value: str) -> set[str]:
@@ -340,63 +73,39 @@ def claude_session_files(project_dir: Path, include_subagents: bool) -> list[Pat
     return files
 
 
-def parse_claude_session(path: Path, max_chars: int) -> Conversation:
-    session_id = path.stem
-    cwd = ""
-    created_at: Optional[float] = None
-    prompt_candidates: list[str] = []
-    for record in iter_jsonl(path, bounded=True):
-        if isinstance(record.get("sessionId"), str):
-            session_id = record["sessionId"]
-        if not cwd and isinstance(record.get("cwd"), str):
-            cwd = record["cwd"]
-        if created_at is None:
-            created_at = parse_timestamp(record.get("timestamp"))
-        if record.get("type") != "user" or record.get("isMeta") is True:
-            continue
-        message = record.get("message")
-        if not isinstance(message, dict) or message.get("role") != "user":
-            continue
-        text = extract_text(message.get("content"))
-        if text:
-            prompt_candidates.append(text)
-            title = first_meaningful_title(prompt_candidates, max_chars)
-            if title and len(title) >= 4:
-                break
-    title = first_meaningful_title(prompt_candidates, max_chars)
-    if not title:
-        title = f"(untitled: {session_id})"
-    try:
-        updated_at = path.stat().st_mtime
-        timestamp_source = "file-mtime"
-    except OSError:
-        updated_at = created_at
-        timestamp_source = "session-record"
+def parse_claude_session(
+    path: Path, max_chars: int, source: HistorySource
+) -> Conversation:
+    summary = scan_claude_session(path, max_chars)
     return Conversation(
         provider="claude",
-        session_id=session_id,
-        title=title,
-        cwd=cwd,
-        updated_at=updated_at,
-        created_at=created_at,
+        session_id=summary.session_id,
+        title=summary.title,
+        cwd=summary.cwd,
+        updated_at=summary.updated_at,
+        created_at=summary.created_at,
         archived=False,
         kind="subagent" if path.name.startswith("agent-") else "main",
         path=str(path),
         metadata_source="session-jsonl",
-        timestamp_source=timestamp_source,
+        timestamp_source=(
+            "session-record-minmax" if summary.timestamp_count else "unknown"
+        ),
+        source_kind=source.kind,
+        source_labels=[source.display_label],
     )
 
 
 def peek_claude_project_cwd(project_dir: Path) -> str:
     try:
         files = sorted(
-            (path for path in project_dir.glob("*.jsonl") if not path.name.startswith("agent-")),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
+            path
+            for path in project_dir.glob("*.jsonl")
+            if not path.name.startswith("agent-")
         )
     except OSError:
         return ""
-    for path in files[:3]:
+    for path in files:
         for record in iter_jsonl(path, bounded=True):
             if isinstance(record.get("cwd"), str) and record["cwd"]:
                 return record["cwd"]
@@ -448,9 +157,10 @@ def discover_claude_project_dirs(
     return matched
 
 
-def collect_claude(args: argparse.Namespace, home: Path) -> ProviderResult:
+def collect_claude(args: argparse.Namespace, source: HistorySource) -> ProviderResult:
+    home = source.home
     result = ProviderResult(
-        provider="claude", backend="session-jsonl", home=str(home)
+        provider="claude", backend="session-jsonl", home=source.display_label
     )
     project_dirs = discover_claude_project_dirs(
         home / "projects",
@@ -468,7 +178,7 @@ def collect_claude(args: argparse.Namespace, home: Path) -> ProviderResult:
             except OSError:
                 pass
         for path in claude_session_files(project_dir, args.include_subagents):
-            conversation = parse_claude_session(path, args.max_title_chars)
+            conversation = parse_claude_session(path, args.max_title_chars, source)
             if not args.all_projects and conversation.cwd and not workspace_matches(
                 conversation.cwd, args.cwd, args.recursive
             ):
@@ -481,328 +191,6 @@ def collect_claude(args: argparse.Namespace, home: Path) -> ProviderResult:
                 continue
             result.conversations.append(conversation)
     result.conversations.sort(
-        key=lambda item: item.updated_at if item.updated_at is not None else float("-inf"),
-        reverse=True,
-    )
-    return result
-
-
-def sqlite_uri(path: Path) -> str:
-    return "file:" + quote(path.resolve().as_posix(), safe="/:@") + "?mode=ro"
-
-
-def inspect_codex_database(path: Path) -> CodexDatabase:
-    connection = sqlite3.connect(sqlite_uri(path), uri=True, timeout=1.0)
-    try:
-        connection.execute("PRAGMA query_only = ON")
-        columns = {
-            str(row[1]) for row in connection.execute("PRAGMA table_info(threads)")
-        }
-        if not CODEX_REQUIRED_COLUMNS.issubset(columns):
-            missing = ", ".join(sorted(CODEX_REQUIRED_COLUMNS - columns))
-            raise ValueError(f"threads schema is missing: {missing}")
-        updated_expression = (
-            "COALESCE(MAX(CASE WHEN updated_at_ms > 0 THEN updated_at_ms "
-            "ELSE updated_at * 1000 END), 0)"
-            if "updated_at_ms" in columns
-            else "COALESCE(MAX(updated_at) * 1000, 0)"
-        )
-        value = connection.execute(
-            f"SELECT {updated_expression} FROM threads"
-        ).fetchone()[0]
-        return CodexDatabase(path=path, columns=columns, max_updated_ms=int(value or 0))
-    finally:
-        connection.close()
-
-
-def discover_codex_database(home: Path, warnings: list[str]) -> Optional[CodexDatabase]:
-    candidates: set[Path] = set()
-    for directory in (home, home / "sqlite"):
-        if not directory.is_dir():
-            continue
-        candidates.update(directory.glob("state_*.sqlite"))
-    compatible: list[CodexDatabase] = []
-    for path in sorted(candidates):
-        try:
-            compatible.append(inspect_codex_database(path))
-        except (OSError, sqlite3.Error, ValueError) as error:
-            warnings.append(f"Ignoring incompatible Codex database {path}: {error}")
-    if not compatible:
-        if candidates:
-            warnings.append(
-                "No compatible Codex state database; scanning raw rollout JSONL instead."
-            )
-        return None
-    return max(
-        compatible,
-        key=lambda item: (item.max_updated_ms, item.path.stat().st_mtime_ns),
-    )
-
-
-def nested_key_exists(value: Any, wanted: str) -> bool:
-    if isinstance(value, str):
-        stripped = value.lstrip()
-        if stripped.startswith("{") or stripped.startswith("["):
-            try:
-                value = json.loads(value)
-            except json.JSONDecodeError:
-                return False
-        else:
-            return False
-    if isinstance(value, dict):
-        return wanted in value or any(
-            nested_key_exists(item, wanted) for item in value.values()
-        )
-    if isinstance(value, list):
-        return any(nested_key_exists(item, wanted) for item in value)
-    return False
-
-
-def codex_row_is_subagent(row: sqlite3.Row) -> bool:
-    role = row["agent_role"]
-    thread_source = row["thread_source"]
-    source = row["source"]
-    return bool(role) or str(thread_source or "").casefold() == "subagent" or nested_key_exists(
-        source, "subagent"
-    )
-
-
-def choose_row_title(row: sqlite3.Row, max_chars: int) -> str:
-    title = first_meaningful_title(
-        (row["title"], row["first_user_message"], row["preview"]), max_chars
-    )
-    return title or f"(untitled: {row['id']})"
-
-
-def value_or_none(row: sqlite3.Row, key: str) -> Any:
-    try:
-        return row[key]
-    except (IndexError, KeyError):
-        return None
-
-
-def dynamic_select(columns: set[str], names: Iterable[str]) -> str:
-    return ", ".join(
-        name if name in columns else f"NULL AS {name}" for name in names
-    )
-
-
-def collect_codex_from_database(
-    args: argparse.Namespace, home: Path, database: CodexDatabase, result: ProviderResult
-) -> None:
-    fields = (
-        "id",
-        "title",
-        "first_user_message",
-        "preview",
-        "cwd",
-        "created_at",
-        "created_at_ms",
-        "updated_at",
-        "updated_at_ms",
-        "source",
-        "thread_source",
-        "agent_role",
-        "archived",
-        "rollout_path",
-    )
-    query = f"SELECT {dynamic_select(database.columns, fields)} FROM threads"
-    connection = sqlite3.connect(sqlite_uri(database.path), uri=True, timeout=1.0)
-    connection.row_factory = sqlite3.Row
-    try:
-        connection.execute("PRAGMA query_only = ON")
-        rows = connection.execute(query)
-        for row in rows:
-            cwd = str(row["cwd"] or "")
-            if not args.all_projects and not workspace_matches(
-                cwd, args.cwd, args.recursive
-            ):
-                continue
-            archived = bool(row["archived"] or False)
-            if archived and not args.include_archived:
-                result.excluded_archived += 1
-                continue
-            subagent = codex_row_is_subagent(row)
-            if subagent and not args.include_subagents:
-                result.excluded_subagents += 1
-                continue
-            title = choose_row_title(row, args.max_title_chars)
-            if is_automated_title(title) and not args.include_automated:
-                result.excluded_automated += 1
-                continue
-            updated_at = parse_timestamp(value_or_none(row, "updated_at_ms"))
-            if updated_at is None:
-                updated_at = parse_timestamp(value_or_none(row, "updated_at"))
-            created_at = parse_timestamp(value_or_none(row, "created_at_ms"))
-            if created_at is None:
-                created_at = parse_timestamp(value_or_none(row, "created_at"))
-            result.conversations.append(
-                Conversation(
-                    provider="codex",
-                    session_id=str(row["id"]),
-                    title=title,
-                    cwd=cwd,
-                    updated_at=updated_at,
-                    created_at=created_at,
-                    archived=archived,
-                    kind="subagent" if subagent else "main",
-                    path=str(row["rollout_path"] or ""),
-                    metadata_source="state-db",
-                    timestamp_source="state-db",
-                )
-            )
-    finally:
-        connection.close()
-
-
-def load_codex_session_index(home: Path, max_chars: int) -> dict[str, str]:
-    titles: dict[str, str] = {}
-    path = home / "session_index.jsonl"
-    if not path.is_file():
-        return titles
-    for record in iter_jsonl(path):
-        session_id = record.get("id")
-        title = first_meaningful_title((record.get("thread_name"),), max_chars)
-        if isinstance(session_id, str) and title:
-            titles[session_id] = title
-    return titles
-
-
-def codex_meta_from_rollout(path: Path) -> Optional[dict[str, Any]]:
-    for record in iter_jsonl(path, bounded=True):
-        if record.get("type") == "session_meta" and isinstance(
-            record.get("payload"), dict
-        ):
-            return record["payload"]
-    return None
-
-
-def codex_session_id(meta: dict[str, Any], path: Path) -> Optional[str]:
-    """Read the authoritative ID, with a UUID filename fallback when unambiguous."""
-    value = meta.get("id")
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    match = SESSION_ID_RE.search(path.name)
-    return match.group(0) if match else None
-
-
-def codex_prompt_from_rollout(path: Path, max_chars: int) -> Optional[str]:
-    short_candidate: Optional[str] = None
-    for record in iter_jsonl(path, bounded=True):
-        candidate = ""
-        if record.get("type") == "response_item":
-            payload = record.get("payload")
-            if (
-                isinstance(payload, dict)
-                and payload.get("type") == "message"
-                and payload.get("role") == "user"
-            ):
-                candidate = extract_text(payload.get("content"))
-        elif record.get("type") == "event_msg":
-            payload = record.get("payload")
-            if isinstance(payload, dict) and payload.get("type") == "user_message":
-                candidate = str(payload.get("message") or "")
-        if not candidate:
-            continue
-        title = first_meaningful_title((candidate,), max_chars)
-        if not title:
-            continue
-        if len(title) >= 4:
-            return title
-        short_candidate = short_candidate or title
-    return short_candidate
-
-
-def collect_codex_from_rollouts(
-    args: argparse.Namespace, home: Path, result: ProviderResult
-) -> None:
-    titles = load_codex_session_index(home, args.max_title_chars)
-    files: list[tuple[Path, bool]] = []
-    sessions_dir = home / "sessions"
-    if sessions_dir.is_dir():
-        files.extend((path, False) for path in sessions_dir.rglob("rollout-*.jsonl"))
-    archived_dir = home / "archived_sessions"
-    if archived_dir.is_dir():
-        files.extend((path, True) for path in archived_dir.rglob("rollout-*.jsonl"))
-    if not files:
-        result.warnings.append(f"No Codex rollout files found under {home}")
-        return
-    for path, archived in files:
-        meta = codex_meta_from_rollout(path)
-        if meta is None:
-            result.warnings.append(f"Skipping rollout without session_meta: {path}")
-            continue
-        session_id = codex_session_id(meta, path)
-        if session_id is None:
-            result.warnings.append(f"Skipping rollout without a session ID: {path}")
-            continue
-        cwd = str(meta.get("cwd") or "")
-        if not args.all_projects and not workspace_matches(cwd, args.cwd, args.recursive):
-            continue
-        if archived and not args.include_archived:
-            result.excluded_archived += 1
-            continue
-        subagent = nested_key_exists(meta.get("source"), "subagent")
-        if subagent and not args.include_subagents:
-            result.excluded_subagents += 1
-            continue
-        title = titles.get(session_id)
-        if not title:
-            title = codex_prompt_from_rollout(path, args.max_title_chars)
-        title = title or f"(untitled: {session_id})"
-        if is_automated_title(title) and not args.include_automated:
-            result.excluded_automated += 1
-            continue
-        try:
-            updated_at = path.stat().st_mtime
-            timestamp_source = "file-mtime"
-        except OSError:
-            updated_at = parse_timestamp(meta.get("timestamp"))
-            timestamp_source = "session-meta"
-        result.conversations.append(
-            Conversation(
-                provider="codex",
-                session_id=session_id,
-                title=title,
-                cwd=cwd,
-                updated_at=updated_at,
-                created_at=parse_timestamp(meta.get("timestamp")),
-                archived=archived,
-                kind="subagent" if subagent else "main",
-                path=str(path),
-                metadata_source="rollout-jsonl",
-                timestamp_source=timestamp_source,
-            )
-        )
-
-
-def collect_codex(args: argparse.Namespace, home: Path) -> ProviderResult:
-    result = ProviderResult(provider="codex", backend="none", home=str(home))
-    if not home.is_dir():
-        result.warnings.append(f"Codex home directory not found: {home}")
-        return result
-    database = discover_codex_database(home, result.warnings)
-    if database is not None:
-        relative = os.path.relpath(database.path, home).replace(os.sep, "/")
-        result.backend = f"sqlite:{relative}"
-        try:
-            collect_codex_from_database(args, home, database, result)
-        except sqlite3.Error as error:
-            result.warnings.append(
-                f"Codex database query failed ({error}); scanning raw rollout JSONL instead."
-            )
-            result.backend = "rollout-jsonl"
-            result.conversations.clear()
-            result.excluded_subagents = 0
-            result.excluded_archived = 0
-            result.excluded_automated = 0
-            collect_codex_from_rollouts(args, home, result)
-    else:
-        result.backend = "rollout-jsonl"
-        collect_codex_from_rollouts(args, home, result)
-    deduplicated = {item.session_id: item for item in result.conversations}
-    result.conversations = sorted(
-        deduplicated.values(),
         key=lambda item: item.updated_at if item.updated_at is not None else float("-inf"),
         reverse=True,
     )
@@ -834,6 +222,10 @@ def conversation_flags(item: Conversation, language: str) -> str:
     return ", ".join(values) if values else "—"
 
 
+def conversation_source(item: Conversation) -> str:
+    return ", ".join(item.source_labels) if item.source_labels else "—"
+
+
 def render_provider_markdown(
     result: ProviderResult, args: argparse.Namespace, language: str
 ) -> list[str]:
@@ -848,6 +240,7 @@ def render_provider_markdown(
         )
         updated_label, title_label = "最近更新", "主题"
         id_label, flags_label, project_label = "会话 ID", "标记", "项目"
+        source_label = "来源"
     else:
         lines = [f"## {provider_name} — {result.total} conversations", ""]
         lines.append(
@@ -858,11 +251,14 @@ def render_provider_markdown(
         )
         updated_label, title_label = "Updated", "Title"
         id_label, flags_label, project_label = "Session ID", "Flags", "Project"
+        source_label = "Source"
     lines.append("")
     include_project = args.all_projects or args.recursive
     headers = [updated_label, title_label, id_label]
     if include_project:
         headers.append(project_label)
+    if result.provider == "claude":
+        headers.append(source_label)
     headers.append(flags_label)
     lines.append("| " + " | ".join(headers) + " |")
     lines.append("|" + "---|" * len(headers))
@@ -875,11 +271,16 @@ def render_provider_markdown(
         ]
         if include_project:
             row.append(f"`{markdown_escape(display_project(item.cwd))}`")
+        if result.provider == "claude":
+            row.append(markdown_escape(conversation_source(item)))
         row.append(conversation_flags(item, language))
         lines.append("| " + " | ".join(row) + " |")
     if not shown:
         empty = "未找到匹配的对话。" if language == "zh" else "No matching conversations found."
-        lines.append(f"| — | {empty} | — |" + (" — |" if include_project else "") + " — |")
+        extra_columns = int(include_project) + int(result.provider == "claude")
+        lines.append(
+            f"| — | {empty} | — |" + (" — |" * extra_columns) + " — |"
+        )
     if result.warnings:
         lines.append("")
         heading = "诊断" if language == "zh" else "Diagnostics"
@@ -973,7 +374,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--language", choices=("auto", "en", "zh"), default="auto"
     )
     parser.add_argument("--claude-home", help="Override the Claude configuration root")
+    parser.add_argument(
+        "--history-sources",
+        metavar="FILE",
+        help=(
+            "History source registry (default: ~/.claude/history-sources.json "
+            "when present). Incompatible with --claude-home."
+        ),
+    )
     parser.add_argument("--codex-home", help="Override the Codex configuration root")
+    parser.add_argument(
+        "--from-date",
+        help="Inclusive start: YYYY-MM-DD (local day) or timezone-qualified ISO datetime",
+    )
+    parser.add_argument(
+        "--to-date",
+        help="Inclusive end: YYYY-MM-DD (local day) or timezone-qualified ISO datetime",
+    )
     parser.add_argument(
         "--max-title-chars", type=int, default=120, help="Maximum title length"
     )
@@ -983,26 +400,68 @@ def build_parser() -> argparse.ArgumentParser:
 def merge_claude_results(results: list[ProviderResult]) -> ProviderResult:
     """Merge per-home Claude results into one, de-duplicating by session id.
 
-    A conversation shared across profile homes (the profile dirs link back to
-    one physical file) appears once; the copy with the newest ``updated_at``
-    wins. Exclusion counts and warnings are summed/combined, and ``home`` becomes
-    a comma-joined list of the profile labels the sessions came from.
+    A conversation shared across active homes and archives appears once. The
+    title/path come from the copy with the greatest internal maximum timestamp;
+    a tie prefers the active copy. The displayed session range is the union of
+    every copy, and every matching source label remains attached as provenance.
     """
     real = [r for r in results if r is not None]
     if not real:
         return ProviderResult(provider="claude", backend="session-jsonl", home="")
-    if len(real) == 1:
-        return real[0]
     by_id: dict[str, Conversation] = {}
     for r in real:
         for conv in r.conversations:
             existing = by_id.get(conv.session_id)
-            if existing is None or (conv.updated_at or 0) > (existing.updated_at or 0):
+            if existing is None:
                 by_id[conv.session_id] = conv
+                continue
+            labels = list(dict.fromkeys(existing.source_labels + conv.source_labels))
+            existing_time = (
+                existing.updated_at
+                if existing.updated_at is not None
+                else float("-inf")
+            )
+            candidate_time = (
+                conv.updated_at if conv.updated_at is not None else float("-inf")
+            )
+            candidate_wins = candidate_time > existing_time or (
+                candidate_time == existing_time
+                and conv.source_kind == "active"
+                and existing.source_kind != "active"
+            )
+            created_values = [
+                value
+                for value in (existing.created_at, conv.created_at)
+                if value is not None
+            ]
+            updated_values = [
+                value
+                for value in (existing.updated_at, conv.updated_at)
+                if value is not None
+            ]
+            union_created = min(created_values) if created_values else None
+            union_updated = max(updated_values) if updated_values else None
+            union_timestamp_source = (
+                "session-record-minmax"
+                if "session-record-minmax"
+                in {existing.timestamp_source, conv.timestamp_source}
+                else "unknown"
+            )
+            if candidate_wins:
+                conv.source_labels = labels
+                conv.created_at = union_created
+                conv.updated_at = union_updated
+                conv.timestamp_source = union_timestamp_source
+                by_id[conv.session_id] = conv
+            else:
+                existing.source_labels = labels
+                existing.created_at = union_created
+                existing.updated_at = union_updated
+                existing.timestamp_source = union_timestamp_source
     return ProviderResult(
         provider=real[0].provider,
         backend=real[0].backend,
-        home=", ".join(home_label(r.home) for r in real if r.home),
+        home=", ".join(dict.fromkeys(r.home for r in real if r.home)),
         conversations=sorted(
             by_id.values(), key=lambda c: (c.updated_at or 0), reverse=True
         ),
@@ -1011,6 +470,35 @@ def merge_claude_results(results: list[ProviderResult]) -> ProviderResult:
         excluded_automated=sum(r.excluded_automated for r in real),
         warnings=[w for r in real for w in r.warnings],
     )
+
+
+def apply_date_filter(
+    result: ProviderResult,
+    from_timestamp: Optional[float],
+    to_timestamp: Optional[float],
+) -> ProviderResult:
+    if from_timestamp is None and to_timestamp is None:
+        return result
+    kept: list[Conversation] = []
+    unknown = 0
+    for conversation in result.conversations:
+        if conversation.created_at is None or conversation.updated_at is None:
+            unknown += 1
+            continue
+        if range_overlaps_window(
+            conversation.created_at,
+            conversation.updated_at,
+            from_timestamp,
+            to_timestamp,
+        ):
+            kept.append(conversation)
+    result.conversations = kept
+    if unknown:
+        result.warnings.append(
+            f"Excluded {unknown} conversation(s) without an internal timestamp "
+            "because a date filter is active. File mtime was not used as a fallback."
+        )
+    return result
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -1023,32 +511,72 @@ def main(argv: Optional[list[str]] = None) -> int:
         parser.error("--max-title-chars must be at least 20")
     if args.all_projects and args.cwd:
         parser.error("--cwd cannot be combined with --all-projects")
+    if args.claude_home and args.history_sources:
+        parser.error("--claude-home cannot be combined with --history-sources")
     if not args.all_projects:
         args.cwd = args.cwd or os.getcwd()
-    claude_home = Path(
-        args.claude_home
-        or os.environ.get("CLAUDE_CONFIG_DIR")
-        or (Path.home() / ".claude")
-    ).expanduser()
+    try:
+        from_timestamp = (
+            parse_date_boundary(args.from_date) if args.from_date else None
+        )
+        to_timestamp = (
+            parse_date_boundary(args.to_date, end=True) if args.to_date else None
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    if (
+        from_timestamp is not None
+        and to_timestamp is not None
+        and from_timestamp > to_timestamp
+    ):
+        parser.error("--from-date must not be later than --to-date")
     codex_home = Path(
         args.codex_home or os.environ.get("CODEX_HOME") or (Path.home() / ".codex")
     ).expanduser()
 
     results: list[ProviderResult] = []
     if args.source in {"all", "claude"}:
-        # An explicit --claude-home / CLAUDE_CONFIG_DIR pins a single home (the
-        # test fixtures rely on this). With neither set, search every config
-        # home so a conversation held under a per-model profile is not missed,
-        # then merge the per-home results into one de-duplicated list.
-        if args.claude_home or os.environ.get("CLAUDE_CONFIG_DIR"):
-            claude_homes = [claude_home]
-        else:
-            claude_homes = discover_claude_homes() or [claude_home]
+        try:
+            if args.claude_home:
+                explicit_home = Path(args.claude_home).expanduser()
+                claude_sources = [
+                    HistorySource(
+                        provider="claude",
+                        kind="active",
+                        label=home_label(explicit_home),
+                        home=explicit_home,
+                    )
+                ]
+                source_warnings: list[str] = []
+            else:
+                claude_sources, source_warnings = discover_claude_sources(
+                    manifest_path=args.history_sources
+                )
+                if not claude_sources:
+                    default_home = Path.home() / ".claude"
+                    claude_sources = [
+                        HistorySource(
+                            provider="claude",
+                            kind="active",
+                            label="main",
+                            home=default_home,
+                        )
+                    ]
+        except HistorySourceConfigError as error:
+            parser.error(str(error))
+        claude_result = merge_claude_results(
+            [collect_claude(args, source) for source in claude_sources]
+        )
+        claude_result.warnings = source_warnings + claude_result.warnings
         results.append(
-            merge_claude_results([collect_claude(args, h) for h in claude_homes])
+            apply_date_filter(claude_result, from_timestamp, to_timestamp)
         )
     if args.source in {"all", "codex"}:
-        results.append(collect_codex(args, codex_home))
+        results.append(
+            apply_date_filter(
+                collect_codex(args, codex_home), from_timestamp, to_timestamp
+            )
+        )
 
     output = render_json(results, args) if args.format == "json" else render_markdown(results, args)
     sys.stdout.write(output)

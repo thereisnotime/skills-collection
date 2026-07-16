@@ -4,32 +4,56 @@ Each practice below maps to a specific way work actually gets lost. They are che
 ceremony; adopt the ones whose failure mode you're exposed to.
 
 ## Contents
-- Parallel work: worktrees, not stash-juggling
+- Parallel / multi-branch work: commit before you switch (not stash, not worktree)
 - Push work-in-progress branches early
 - Confirm the branch before every commit
+- Relocate your work when a parallel session switched the shared tree under you
 - Audit before rebase / branch-delete
 - Snapshot before any history rewrite
 - Version / lockfile collisions between parallel branches
 - Commit-scope hygiene (don't sweep unrelated staged work)
 - Set a wider reflog safety window once
 
-## Parallel work: worktrees, not stash-juggling
+## Parallel / multi-branch work: commit before you switch (not stash, not worktree)
 
 **Failure mode:** the classic disaster is `git stash` → switch branch → work → `git stash` again →
 rebase → switch back. Each `stash` that gets superseded or dropped orphans a commit; after a busy
 session you can have dozens of dangling stash states that `git stash list` no longer shows, one
-`gc` from gone.
+`gc` from gone. The root cause is always the same — **uncommitted work**: a stash that can be
+dropped, or edits a `switch` strands.
 
-**Prevention:** give each parallel line of work its own checkout with `git worktree`:
+**Prevention:** never carry uncommitted work across a branch switch. Commit each line of work to
+its own branch *before* moving, and push that branch early — a committed, pushed branch cannot be
+stashed away or stranded:
 
 ```bash
-git worktree add ../repo-featureB featureB     # a second working dir on branch featureB
-# work in ../repo-featureB with zero stashing; the main checkout stays on your primary branch
-git worktree remove ../repo-featureB           # when done
+# instead of `git stash` before switching:
+git switch -c <branch-for-this-work>              # a branch for this line of work
+git add <the paths for THIS work> && git commit -m "wip: ..."
+git push -u origin <branch-for-this-work>         # early; re-push as you go
+git switch <other-branch>                         # nothing left behind — no stash to drop
 ```
 
-Nothing to stash means nothing to drop. This also stops the "another agent switched my branch
-underneath me" problem — each agent/task gets its own worktree.
+Then bring the work back to wherever you need it **live in the working tree** by merging — not by
+fishing it out of a stash and not from a second checkout:
+
+```bash
+git switch <target-branch>
+git merge <branch-for-this-work>                  # the work is now in THIS working tree too
+```
+
+**Deliberately avoided here — two tempting shortcuts that both cause the loss this skill exists to prevent:**
+
+- **`git stash` + switch juggling** — orphans stashes (the failure mode above). Commit instead; a
+  commit on a branch never silently disappears from `git stash list`.
+- **`git worktree`** — a second checkout is one more place to leave work in and forget, it does
+  **not** copy gitignored dependencies (`node_modules`, `.venv`), so tools/tests run there fail on
+  the missing deps, and it can hand back a stale checkout of an older commit. A shared working tree
+  with disciplined *commit-then-switch* is safer and simpler than juggling worktrees.
+
+The safety comes from **committing early**, not from a second checkout. Once every line of work is
+a pushed commit, `git log HEAD --branches --tags --not --remotes` (the at-risk check) only ever
+lists what you haven't pushed yet — push it and it goes empty.
 
 ## Push work-in-progress branches early
 
@@ -60,6 +84,46 @@ git branch --show-current      # is this where this change belongs?
 
 If you commit to the wrong branch anyway, it's recoverable: `git log` the sha, `git branch
 correct-branch <sha>`, then remove it from the wrong branch — but confirming up front is free.
+
+## Relocate your work when a parallel session switched the shared tree under you
+
+**Failure mode:** two agents share one working tree. While you were editing, a *parallel* session
+ran `git switch` and moved the shared tree onto **its** feature branch — so your uncommitted changes
+now sit on top of that branch, mixed with the other session's own uncommitted edits. You never
+switched, so "commit before you switch" never got a chance to fire. A naive `git add -A && git
+commit` here buries your work inside the other branch's PR (wrong attribution, wrong review) and can
+sweep in their file; committing onto their branch also couples your change to their merge.
+
+**Fix — carry your uncommitted work onto a branch off the base, commit only your paths, then put the
+tree back exactly where the other session left it:**
+
+```bash
+# 1. See what the hijacked branch is, and prove YOUR files are safe to carry across the switch.
+git rev-parse --abbrev-ref HEAD                     # you're on their branch, not main
+git log --oneline origin/main..HEAD                 # their extra commits — confirm they're unrelated
+git diff --quiet origin/main HEAD -- <your-file>    # exit 0 = your file is byte-identical on both
+                                                    #   bases, so your edit carries with NO conflict
+
+# 2. Create your branch off the base; the uncommitted edits ride along (no stash, no worktree).
+git checkout origin/main -b fix/your-work
+
+# 3. Commit ONLY your explicit paths — never `git add -A`; the other session's file is still here.
+git add <your-path-1> <your-path-2>
+git diff --cached --name-only                        # verify: only yours, not their file
+git commit -m "…"                                    # then push / PR / merge as normal
+
+# 4. Restore the other session's state: put the shared tree back on their branch.
+git checkout <their-branch>                           # their uncommitted file carries back untouched
+git branch -d fix/your-work                           # safe once merged (the branch tracked origin/main)
+```
+
+**Why this and not the alternatives:** `git stash` to move your edits risks the orphaned-stash loss
+this skill exists to prevent; a `git worktree` won't have your gitignored deps. Step 1's `git diff
+--quiet` is the load-bearing safety check — it proves your files are identical between the hijacked
+branch's tip and the base, which is exactly the condition under which `checkout … -b` carries your
+uncommitted edits with no conflict (if it reports a difference, stop and resolve it deliberately
+rather than forcing the switch). Step 4 is correctness, not just courtesy: the parallel session
+expects to find its own branch checked out with its work intact, exactly as it left it.
 
 ## Audit before rebase / branch-delete
 

@@ -321,6 +321,58 @@ SKILL.md 中的若干行级规则来自下面这些真实事故。规则本身�
 
 → 对应规则:[knowledge-skill-grounding.md](knowledge-skill-grounding.md) 全篇(权威源阶梯 / 证据边界 / 示例冒烟 / grep 全目录 / 受众声明 / Windows 清单 / 审核菜单 / 验证器自证伪)+ `scripts/selftest_validators.py`
 
+### Case 10: 真实数据 happy-path 测过，仍漏掉控制流 / 跨上下文 bug（2026-07）
+
+给一个新写的 Codex 会话解析器做了自认为充分的验证——真实会话全 CLI 模式跑通（list / query / session / all-projects / 默认提取）、空 / 垃圾 / 最小 / 字段全 None 的边界输入不崩、关键函数单测——然后 merge。一个 workflow-backed 对抗审查（fan-out finder + 独立 verifier）却抓出 2 个我**自己引入**、上述测试全没碰到的 bug：
+
+- **控制流 / 不可达分支**：给 end-reason 分类新加了 `in_progress` 分支、排在 `error_cascade` 之前；而 cascade 也以 tool_output/patch 结尾，于是 `error_cascade` 成了永不触发的死代码。happy-path 输入根本不会走到「那条被改得再也点不着的分支」，所以测不出。
+- **跨上下文**：`get_git_state` 跑在调用目录、而非被 resume 会话的 cwd。真实数据测试全在同一个 cwd 下，从没喂过「从 A 项目 resume B 项目的会话」这个跨上下文组合，那条路径就没被走过。
+
+**教训**：**真实数据 happy-path 覆盖 ≠ 代码路径覆盖。** happy-path 测试再「充分」（真数据 + 全模式 + 边界），能活下来的恰恰是你的输入没走过的路径——一条被改动变得不可达的分支、一个你没喂的跨上下文组合；它们本质上是 happy-path 的**补集**，靠「再多跑几组真实数据」逮不到，只有一道**专门构造失败输入 / 想清楚分支可达性**的对抗 pass 能补上。这就是 §6.5「别只做一层」的具体代价：**你自己的 happy-path 测试再勤，替代不了对抗那一层。** 同次对抗的 finding 仍按 6.4 过滤——2 条被驳回（一个假「回归」、一个把故意的设计差异当重复），肯定与否定都要亲验。
+
+→ 对应规则：Phase 6.5「多层验证互补」+ 6.4「findings 是假设」；Phase 3「跑通不报错 ≠ 验证过了」在控制流覆盖上的延伸
+
+### Case 11: 语料蒸馏型 skill 的完整性靠独立审计，不靠作者自审（2026-07）
+
+从一份大型私有语料蒸馏一个 taste/方法论 SSOT skill。作者(同一个模型)**两次宣布"内容完整"、两次都在下一轮又冒出遗漏**——先自查补 12 处、再补 4 处，仍不放心。最后派一个**独立子代理**(全新 context,读全部源语料 + 当前 skill,对抗性列缺什么),一次抓出 **15 处真遗漏**(含一条承重操作机制:skill 反复要求"传参考截图"却从没写怎么传)。通用结论:
+
+- **压缩即丢失,而自审用的是同一把压缩尺**:作者的"完整"判断,和造成遗漏的,是同一个模型、同一个盲区;自查(含自己 grep)会系统性放过同型缺口。
+- **改现有 skill 有 regression 门禁(`audit_skill_regression`),从大语料新建却没有对应的完整性门**——这是方法论的一个洞。
+- **修法 = 独立视角**:派一个不共享作者上下文的子代理,喂它全部一手源 + 成品 skill,要求"假设不完整,逐条对源挑缺失、带出处引用、按承重度分级"。它跳出作者盲区;且"漏"和"AI 味"不同——完整性有客观锚(源里有没有),适合子代理,不像 AI 味必须靠人耳(与「不用 sub-agent 测 AI 味」不冲突)。
+
+→ 对应规则:语料蒸馏 / conversation-mining 型 skill 发布前必过一道**独立完整性审计**(子代理读全源 + 成品,对抗列 gap);与「不盲信自己的 grep」(Case 8)、discipline #4「preserve before compress」同源——那两条管改 skill,这条管从语料新建。
+
+### Case 12: description 优化循环会产出"空洞退化"结果,先用已知正例验 harness（2026-07）
+
+跑 description 触发优化循环(`run_loop`)5 轮,**每轮 recall=0% / precision=100% / 分数一字不差**,脚本照样选出一个"best_description"(其实就是第 1 轮的原始描述)。差点当成"已优化验证"应用上去。真相:
+
+- **precision=100% 是零预测的空值**:一次正例都没触发(recall=0),分母为零、毫无意义;各轮同分 = harness 根本没在区分描述。
+- **是 harness 坏了、不是描述坏了**:根因是触发被已装竞品截胡(见 Case 13),harness 反映不出来 → 输出全是噪音。
+- **通用铁律「验新功能的 harness 先跑通已知良好 baseline」在此适用**:信优化器的"best"之前,先喂一条**铁定该触发**的 query 看 recall 是否 >0;recall=0 或各轮同分,停,别应用任何"best"。
+
+→ 对应规则:Description Optimization 段加 caveat——`run_loop` 输出前先过 known-good baseline;recall=0/各轮同分 = harness 是隐藏变量,其"best_description"不可信,改手工写 + 真实探针验证。
+
+### Case 13: 触发和"已装 skill 群"抢,散文未必赢;按竞品归属决策（2026-07）
+
+新 skill 内容优秀、已激活,但**自动触发在真实机器上抢不过**:三条真实 query 分别被三个不同第三方 skill 截胡(一个信息图 skill、一个 CLI 委派 skill、一个数据可视化 skill)。改 4 版描述 + 点名 SUPERSEDES 都没扭转。通用结论:
+
+- **Coexistence 章节只讲"刻意 fork/hardened 版"重叠,漏了更常见一类**:新 skill 和一堆早已安装、同域的 skill 抢同一触发槽位,静默落败。
+- **早探,别等交付才发现**:建好后立刻用几条真实 query 走 `claude -p` 探——它真赢了吗?并**点名**输给谁(不同 query 可能输给不同竞品)。
+- **散文赢不了拥挤槽位是常态**(即"散文是建议、结构才是强制");解法阶梯:改名 → 描述 tiebreaker → 手动调用 → SessionStart 路由 hook(结构性强制,但改全局配置,须用户明确同意)。
+- **决策规则看竞品归属**:竞品是第三方 → 接受手动调用 / 装路由 hook;竞品是你自己写的 → 合并/收敛进一个,别养两个抢触发。
+
+→ 对应规则:Coexistence & Precedence 扩一小节「和已装 skill 群的触发竞争」:早探 + 点名竞品 + 散文未必赢 + 归属决策 + 路由 hook 需 consent。
+
+### Case 14: 触发验证的代理陷阱——调 Skill 工具 ≠ 知识被用;hook 会干扰探针（2026-07）
+
+手写触发探针验"新 skill 会不会被调用",探针"**看到第一个 Skill 调用就早退**"——被一个 UserPromptSubmit hook 注入的无关 skill 抢先触发、据此误报"未触发"。改成"收集整轮所有 Skill 调用"才拿到真结论。更深一层:
+
+- **hook 会在模型选择前注入 skill**:早退式探针把 hook 注入的第一个 skill 当成"模型的选择",误判;要收集整轮。
+- **调 Skill 工具只是代理指标**:真正要验的是"skill 知识有没有进产物 / 产物对不对",不是"有没有调那个工具";有时模型没显式调 Skill、却已把内容读进 context。
+- **自己写的验证探针也会成隐藏变量**(同 Case 8「不盲信自己的评分脚本」)——探针的 bug 会让你在错误结论上继续调优。
+
+→ 对应规则:Description Optimization / triggering 段加 caveat——`claude -p` 验触发收集整轮全部 skill 调用(防 hook 注入干扰);Skill 调用是代理、真信号是产物体现 skill 内容。
+
 ## 来源
 
 | 来源 | 本文档引用的独有贡献 |
@@ -328,4 +380,4 @@ SKILL.md 中的若干行级规则来自下面这些真实事故。规则本身�
 | Anthropic Official | Evaluation-driven development、conciseness imperative（已由 SKILL.md 覆盖，本文不重复） |
 | skill-creator SKILL.md | 完整工作流和工具链（本文引用但不复制，请直接参考 SKILL.md） |
 | 社区经验 | 激活率数据（20%→90%）、Encoded Preference > Capability Uplift |
-| 实战教训 | 并行研究 agent、失败记录的价值、竞争 skill 删除、量化迭代对比、Counter Review 流程、benchmark 有水分需抽查内容、baseline 揭示 skill 事实错误、诚实增量分布、现有 skill old-vs-new 完整性门禁 + 不盲信自己的评分脚本（Case 8） |
+| 实战教训 | 并行研究 agent、失败记录的价值、竞争 skill 删除、量化迭代对比、Counter Review 流程、benchmark 有水分需抽查内容、baseline 揭示 skill 事实错误、诚实增量分布、现有 skill old-vs-new 完整性门禁 + 不盲信自己的评分脚本（Case 8）、语料蒸馏型 skill 需独立完整性审计（Case 11）、run_loop 空洞退化输出需先验 harness baseline（Case 12）、和已装 skill 群的触发竞争 + 竞品归属决策（Case 13）、触发验证的代理陷阱 + hook 干扰探针（Case 14） |
