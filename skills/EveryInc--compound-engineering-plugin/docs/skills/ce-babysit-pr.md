@@ -40,6 +40,8 @@ Babysitting a PR by hand — or with a naive loop — fails in predictable ways:
 - **Delegation, not reimplementation** — `/ce-resolve-pr-feedback` for comments, `/ce-debug` for real CI failures (dispatched once per new failure signature, never every poll). The only inline CI logic is cheap flaky-vs-real classification to decide *which* skill to call.
 - **A settle window** — "looks ready" requires GitHub to report the PR mergeable (`mergeStateStatus == CLEAN`) and no open threads **and** the PR unchanged for a minimum elapsed quiet time, so a late reviewer resets the clock instead of being missed. It is a cooling-off signal, not a merge guarantee.
 - **A self-sustaining in-session watch (the default)** — a token-free background change-detector (`pr-snapshot watch`) wakes the agent *in-session* only when something actionable changes, so the loop keeps every decision the conversation made. Where the harness has no background-and-wake capability, it falls back to checkpoint (one tick + the exact resume command).
+- **One authoritative watcher** — a newer invocation cancels any older invocation still preflighting, but takes active ownership only after its own first snapshot succeeds; it then promptly stops the prior watcher. Wakes carry a persisted generation, so delayed notifications from a superseded process are coalesced against a fresh snapshot without resetting the session or settle clocks.
+- **A fully paginated source of truth** — `pr-snapshot` follows the review-thread connection through its final page. One-shot diagnostic queries such as `reviewThreads(first:50)` never override that canonical snapshot.
 - **A high-level final summary** — outcome first, grouped and counted, no receipts.
 
 ---
@@ -123,7 +125,7 @@ It complements:
 | `<PR number or URL>` | That PR |
 | `watch` / `checkpoint` | Force the execution mode |
 
-`scripts/pr-snapshot` is the deterministic snapshot + state helper: it fetches both event streams, reads/writes state atomically under a lock, and emits the per-tick actionable set with `quiet_seconds` for the settle window. Its `watch` subcommand is the token-free change-detector that backs the in-session loop — it polls the same fetch→diff and prints a single `BABYSIT_WAKE` sentinel only when there's an actionable change or a stop condition. `references/watch-loop.md` documents how the watch sustains itself, the state schema, dedup identities, settle window, and edge cases.
+`scripts/pr-snapshot` is the deterministic snapshot + state helper: it fully paginates review threads, fetches both event streams, reads/writes state atomically under a lock, and emits the per-tick actionable set with `quiet_seconds` for the settle window. Its `watch` subcommand is the token-free change-detector that backs the in-session loop. Watch ownership is latest-valid-wins: a successfully prefetched replacement records a new `watch_generation`, terminates its predecessor, and becomes the only process allowed to persist polls or emit `BABYSIT_WAKE`. Queued wakes from older generations are stale hints to refresh, not independent work, and handoff preserves the original session and settle clocks. `references/watch-loop.md` documents how the watch sustains itself, the state schema, dedup identities, settle window, and edge cases.
 
 ---
 

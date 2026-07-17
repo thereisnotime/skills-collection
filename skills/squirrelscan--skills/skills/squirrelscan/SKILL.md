@@ -1,17 +1,17 @@
 ---
 name: squirrelscan
-description: squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (249+ rules) and scores site health, via the squirrel CLI. Use when the user wants to check, audit, or improve a website's SEO, ranking, speed, or health, and for anything squirrelscan itself, installing or updating the CLI, login and API keys, running audits, publishing and sharing reports, cloud credits, MCP server setup, configuration, or troubleshooting.
+description: squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (260+ rules) and scores site health, via the squirrel CLI. Use when the user wants to check, audit, or improve a website's SEO, ranking, speed, or health, and for anything squirrelscan itself, installing or updating the CLI, login and API keys, running audits, publishing and sharing reports, cloud credits, MCP server setup, configuration, or troubleshooting.
 license: See LICENSE file in repository root
 compatibility: Requires squirrel CLI installed and accessible in PATH (or guides the user to install it)
 metadata:
   author: squirrelscan
-  version: "1.0"
+  version: "1.1"
 allowed-tools: Bash(squirrel:*) Read
 ---
 
 # squirrelscan CLI
 
-squirrelscan is a website audit tool built for AI agents. It answers "what's wrong with this website and how do I fix it": it crawls a site like a search engine, analyzes every page against 249+ rules in 21 categories (SEO, performance, security, accessibility, content, structured data, agent readiness, and more), and returns a health score plus concrete, fixable issues. Use it whenever a user wants their site checked, ranked better, faster, or healthier, before/after a deploy, or in CI.
+squirrelscan is a website audit tool built for AI agents. It answers "what's wrong with this website and how do I fix it": it crawls a site like a search engine, analyzes every page against 260+ rules in 21 categories (SEO, performance, security, accessibility, content, structured data, agent readiness, and more), and returns a health score plus concrete, fixable issues. Use it whenever a user wants their site checked, ranked better, faster, or healthier, before/after a deploy, or in CI.
 
 It ships as a single CLI binary, `squirrel`, for macOS, Windows, and Linux. This skill covers operating it: installing, authenticating, running audits, publishing reports, cloud features, and MCP integration. For the full fix-the-website workflow (audit, map issues to code, fix, re-audit), use the companion `audit-website` skill.
 
@@ -157,7 +157,17 @@ Docs: https://docs.squirrelscan.com/developers/mcp
 
 ### Agent feedback
 
-Call the `send_feedback` tool any time something in a session surprises you: what worked, what was confusing, missing report data, or awkward tool ergonomics. It takes `category` (`what_worked`, `confusing`, `missing_data`, `tool_ergonomics`, `other`), `message`, and optional `run_id`/`website_id`. It works with any authenticated credentials, including read-only API keys, and is available on the hosted MCP surface now (not yet on `squirrel mcp` local stdio). Use it instead of `squirrel feedback` when you're an agent reporting mid-session, not a human filing a support request.
+Call the `send_feedback` tool any time something in a session surprises you. It takes `category`, `message`, and optional `run_id`/`website_id`. Pick the category that fits:
+
+- `bug_report` — a defect in squirrelscan itself: a wrong or missing rule result, a crash, a broken tool. Include the site, rule id, and what you expected.
+- `feature_request` — something squirrelscan should do but doesn't.
+- `what_worked` — something worked well and you want the team to know.
+- `confusing` — a response or behavior was unclear.
+- `missing_data` — a report or tool response lacked something you needed.
+- `tool_ergonomics` — awkward tool shape, arguments, or naming.
+- `other` — anything else.
+
+Feedback lands directly in the team's review queue with your org attached. It works with any authenticated credentials, including read-only API keys, and is available on the hosted MCP surface now (not yet on `squirrel mcp` local stdio). Use it instead of `squirrel feedback` when you're an agent reporting mid-session; humans can use `squirrel feedback` or [squirrelscan.com/support](https://squirrelscan.com/support).
 
 ## Configuration
 
@@ -191,4 +201,4 @@ squirrel skills update     # update installed agent skills
 - **Session expired / 401**: run `squirrel auth login` again, or check `SQUIRRELSCAN_API_KEY`.
 - **Slow or stuck crawl**: add `--verbose` to see progress; large sites can take minutes.
 - **Invalid URL**: include the protocol: `https://example.com`, not `example.com`.
-- **Anything else**: run `squirrel self doctor`, then `squirrel feedback` to report it.
+- **Anything else**: run `squirrel self doctor`, then report it — agents via the `send_feedback` MCP tool (`bug_report` category), humans via `squirrel feedback` or [squirrelscan.com/support](https://squirrelscan.com/support).

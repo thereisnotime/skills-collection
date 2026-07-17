@@ -60,6 +60,9 @@ Guidance generalized from several Learnings into a broader rule. Higher-leverage
 ### Explainer
 A dense, visual teaching artifact written for the developer personally — explaining a concept, a change, an idea, or a window of their own recent work — so the human keeps learning when agents do the writing. The complement of a Learning: a Learning teaches the repo's future work; an explainer teaches the human.
 
+### Session handoff
+An immutable continuity artifact that lets a fresh agent recover the objective, decisions, current state, and unfinished work without the prior session transcript. CE-created handoffs use managed temporary Markdown by default and point to authoritative project artifacts rather than replacing them. A receiving agent may also resume from any user-selected source with sufficient continuity context; selection supplies context but no authority to continue automatically.
+
 ### Check-in
 The active-recall step that can follow an explainer in the same session: the developer predicts or answers first and the explanation confirms or corrects — predict-then-reveal for changes, checked exercises for concepts. Skippable when the material does not warrant retention work.
 

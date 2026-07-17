@@ -479,7 +479,7 @@ async def scrape_video(
         visual_interval: Seconds between frame captures (default: 5.0)
         visual_min_gap: Minimum seconds between kept frames (default: 2.0)
         visual_similarity: Similarity threshold to skip duplicate frames 0.0-1.0 (default: 0.95)
-        vision_ocr: Use vision model for OCR on extracted frames
+        vision_ocr: Use the configured vision provider for OCR on extracted frames
         start_time: Start time for extraction (seconds, MM:SS, or HH:MM:SS). Single video only.
         end_time: End time for extraction (seconds, MM:SS, or HH:MM:SS). Single video only.
         setup: Auto-detect GPU and install visual extraction deps (PyTorch, easyocr, etc.)
@@ -794,7 +794,7 @@ async def extract_config_patterns(
 
 
 @safe_tool_decorator(
-    description="Scrape content from new source types: jupyter, html, openapi, asciidoc, pptx, confluence, notion, rss, manpage, chat. A generic entry point that delegates to the appropriate CLI scraper module."
+    description="Scrape content from new source types: jupyter, html, openapi, asciidoc, pptx, word, confluence, notion, rss, manpage, chat. A generic entry point that delegates to the appropriate CLI scraper module."
 )
 async def scrape_generic(
     source_type: str,
@@ -805,16 +805,16 @@ async def scrape_generic(
     """
     Scrape content from various source types and build a skill.
 
-    A generic scraper that supports 10 new source types. It delegates to the
+    A generic scraper that supports 11 new source types. It delegates to the
     corresponding CLI scraper module (e.g., skill_seekers.cli.jupyter_scraper).
 
-    File-based types (jupyter, html, openapi, asciidoc, pptx, manpage, chat)
+    File-based types (jupyter, html, openapi, asciidoc, pptx, word, manpage, chat)
     typically use the 'path' parameter. URL-based types (confluence, notion, rss)
     typically use the 'url' parameter.
 
     Args:
         source_type: Source type to scrape. One of: jupyter, html, openapi,
-            asciidoc, pptx, confluence, notion, rss, manpage, chat.
+            asciidoc, pptx, word, confluence, notion, rss, manpage, chat.
         name: Skill name for the output
         path: File or directory path (for file-based sources like jupyter, html, pptx)
         url: URL (for URL-based sources like confluence, notion, rss)

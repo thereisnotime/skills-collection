@@ -47,6 +47,14 @@ Run this command in your project:
 
 You can also install through the [Cursor marketplace](https://cursor.com/marketplace/stripe).
 
+### Grok Build
+
+Run this command in your project:
+
+```bash
+grok plugin install stripe --trust
+```
+
 ## Manual installation
 
 > Manually installed skills don’t auto-update. Run `npx skills update -y` to get the latest versions.

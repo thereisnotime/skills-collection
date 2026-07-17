@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.16.0] — 2026-07-15
+
+### Added
+- **"load-bearing" (metaphor) to Tier 1 word table** — LLMs, especially Claude, use "load-bearing" as a portable label for any dependency the argument rests on: "load-bearing assumption," "load-bearing claim," "load-bearing test," "load-bearing invariant." Added to both the SKILL.md Tier 1 table and the detector engine as a `TIER1_PHRASES` entry. Matches the hyphenated compound only — unhyphenated "load bearing" is ordinary English ("the load bearing down on the bridge"). Construction carve-out: literal uses before a structural noun (`wall`, `beam`, `column`, `joist`, `truss`, `member`, `footing`, `slab`, `stud`, `partition`, `masonry`, `lintel`, `pier`, `rafter`, `girder`, `capacity`) are exempt, including with one material or position adjective in between (`load-bearing structural wall`). Abstract-capable nouns (`structure`, `element`, `frame`, `foundation`) are excluded from the carve-out on purpose, so the metaphor still fires on them. Known gap: predicative use ("the wall is load-bearing") still flags — carve-out design tracked in #56. Replacement: essential, critical, necessary — or say what breaks if you remove it. Sources: [Marek Šuppa — "Load-bearing" is becoming LLM speak](https://mareksuppa.com/til/load-bearing/); [Yaniv Bernstein (LinkedIn)](https://www.linkedin.com/posts/ybernstein_opus-47-has-dropped-a-new-ai-slop-writing-activity-7452530977479774208-kbQA); [Developers Digest](https://www.developersdigest.tech/blog/stop-claude-saying-load-bearing).
+
+---
+
 ## [3.15.0] — 2026-07-08
 
 ### Added

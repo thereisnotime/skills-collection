@@ -117,6 +117,29 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     }
   })
 
+  test("watch ownership is latest-valid-wins and stale wake generations are coalesced", async () => {
+    const [babysit, watchLoop, script] = await Promise.all([
+      readRepoFile(BABYSIT),
+      readRepoFile("skills/ce-babysit-pr/references/watch-loop.md"),
+      readRepoFile(PR_SNAPSHOT),
+    ])
+    for (const text of [babysit, watchLoop]) {
+      expect(text).toContain("watch_generation")
+      expect(text).toMatch(/successful[^.]{0,100}(fetch|snapshot)[^.]{0,160}supersed/i)
+      expect(text).toMatch(/newer invocation[^.]{0,160}(cancel|stop)[^.]{0,160}(preflight|first fetch)/i)
+      expect(text).toMatch(/stale[^.]{0,120}wake[^.]{0,160}(coalesc|ignore|discard)/i)
+    }
+    expect(script).toContain('"watch_generation"')
+    expect(script).toContain("_reserve_watch_candidate")
+    expect(script).toContain("_terminate_replaced_watch")
+  })
+
+  test("the paginated snapshot is canonical for review-thread state", async () => {
+    const babysit = await readRepoFile(BABYSIT)
+    expect(babysit).toMatch(/fresh `snapshot`[^.]{0,160}(canonical|source of truth)/i)
+    expect(babysit).toContain("`hasNextPage == false`")
+  })
+
   test("babysit reconciles every passed comment so the loop can settle (never-settle fix)", async () => {
     // Regression guard: marking only the comments ce-resolve explicitly 'handled' left its
     // silently-dropped bot wrappers actionable forever, so counts.comments never reached 0.

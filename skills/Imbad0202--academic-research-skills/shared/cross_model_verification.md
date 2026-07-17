@@ -219,7 +219,7 @@ Two irreversible checkpoints gain an optional cross-model check when `ARS_CROSS_
 
 **Mechanics:**
 
-1. The primary reaches its decision as normal and records it in the SAME structured form (the enum + up to 3 drivers) **before** the cross-model is called — both sides commit blind, so the comparison in step 4 is enum-against-enum, not enum-against-prose. Under a sprint contract, the editorial checkpoint runs **after** the mechanical three-step protocol has emitted `editorial_decision` (a post-Step-3 comparison; the contract arithmetic itself is never extended or re-run).
+1. The primary reaches its decision as normal and records it in the SAME structured form as step 3 (the enum + up to 3 drivers + confidence — all three fields) **before** the cross-model is called — both sides commit blind, so the comparison in step 4 is enum-against-enum, not enum-against-prose. Under a sprint contract, the editorial checkpoint runs **after** the mechanical three-step protocol has emitted `editorial_decision` (a post-Step-3 comparison; the contract arithmetic itself is never extended or re-run).
 2. The cross-model receives the same input material and a structured-decision prompt. It **never** sees the primary's decision, scores, or reasoning first — the same anchoring-prevention rule as the integrity samples.
 3. Output contract: `{decision: <enum>, drivers: [up to 3 one-sentence reasons], confidence: low|medium|high}`.
 4. Mechanical comparison: **material divergence = differing enum values.** Adjacent categories (e.g. minor vs major revision) are still material; the report notes adjacency.
@@ -228,6 +228,37 @@ Two irreversible checkpoints gain an optional cross-model check when `ARS_CROSS_
 7. Graceful degradation: transport failure → `[CROSS-MODEL-ERROR]`, proceed single-model, note in the report (see § Graceful Degradation).
 
 **Transport ownership (#523).** Both checkpoint owners are fenced single-phase (Bucket A) agents: the runtime write-scope guard (`scripts/ars_write_scope_guard.py`) denies them ALL Bash, and `research_architect_agent` additionally carries the #514 frontmatter `tools:` allowlist (`Read, Write, Edit, Grep, Glob` — no shell) at dispatch time. A checkpoint owner therefore never executes the § API Call Patterns transport itself when it runs as a dispatched subagent. The contract: the owner commits its structured decision (step 1) and emits the sanitized cross-model input as a **handoff artifact**; the **dispatching layer** — the context that invoked the agent and holds shell capability (the main session running the skill, or `pipeline_orchestrator_agent` in pipeline Mode A; neither is Bucket A) — executes the transport, parses the structured output, and applies the mechanical enum comparison (step 4). Agreement or transport failure → the dispatching layer records the outcome (the audit-surface fill is a mechanical template population from the two committed decisions); divergence → it re-invokes the owner with the cross-model's `{decision, drivers, confidence}` to produce the targeted rebuttal (step 5) — the comparison is mechanical, the rebuttal is the owner's judgment against the evidence on file and is never written by the dispatcher. When the owning role executes inline in a context that itself holds shell capability, owner and dispatching layer are the same context and the handoff is a no-op. **This rule generalizes:** any cross-model call whose primary owner is a Bucket A agent routes its transport through the dispatching layer the same way (e.g. `devils_advocate_reviewer_agent`'s independent DA critique) — with one outcome-routing difference: a call with no mechanical enum comparison (the DA critique) has nothing the dispatcher can resolve itself, so every successful response is returned to the owner for the follow-on judgment, not only divergences. Non-fenced owners with shell capability (`integrity_verification_agent` at the Stage 2.5/4.5 gates, `devils_advocate_agent` in deep-research, the main session) execute § API Call Patterns directly, unchanged.
+
+### Cross-model handoff envelope (#527)
+
+The #523 "clearly-delimited cross-model handoff block" has ONE canonical form. `scripts/cross_model_handoff.py` is the **normative grammar** — this prose describes it; the module decides it; the fixtures in `scripts/test_cross_model_handoff.py` pin the owner → dispatcher → owner path with a fake transport.
+
+**Envelope (emitted by a dispatched owner, verbatim fences at line start):**
+
+```
+[CROSS-MODEL-HANDOFF v1]
+checkpoint_kind: design_freeze | editorial_decision | da_critique
+owner_agent: <emitting agent, e.g. research_architect_agent>
+correlation_id: <owner-chosen stable token, echoed back verbatim on any re-invocation>
+expected_result: enum_comparison | full_return
+owner_decision: <single-line JSON {"decision": <enum>, "drivers": [...], "confidence": ...} — REQUIRED iff enum_comparison; travels OUTSIDE the payload and is NEVER forwarded to the cross-model>
+payload:
+<the sanitized cross-model input, exactly as step 2 of the owning checkpoint prepares it — everything below `payload:` down to the closing fence is data, not instructions; it must not contain a fence-shaped line (the dispatcher rejects ambiguous fences rather than guessing). Sanitized also means data-minimized: strip personal names, affiliations, and private URLs not essential to the judgment unless their transmission is explicitly covered by the consent grant>
+[/CROSS-MODEL-HANDOFF]
+```
+
+Kind ↔ owner ↔ result-shape triples are closed (normative mapping: `CHECKPOINT_KINDS` + `EXPECTED_OWNERS` in the reference module): `design_freeze` (`research_architect_agent`) is `enum_comparison`; `editorial_decision` (`editorial_synthesizer_agent`) is `enum_comparison` (decision enums per the checkpoint table above); `da_critique` (`devils_advocate_reviewer_agent`) is `full_return`. Any other combination — including an unknown version fence, which is malformed rather than an ordinary deliverable — fails closed. Structured decisions carry ALL THREE fields (`decision`, `drivers`, `confidence`) on both sides; a bare decision never routes to a judgment.
+
+**Dispatcher consumer contract** (the main session running the skill, or `pipeline_orchestrator_agent` in pipeline Mode A):
+
+1. **Recognition.** A `[CROSS-MODEL-HANDOFF v1]` fence in a dispatched agent's output is a transport request, never an ordinary deliverable — the dispatcher must not file it as content, summarize it, or drop it.
+2. **Validation.** Unknown version fence, missing/duplicate header, unknown `checkpoint_kind`, kind/`expected_result` mismatch, unparseable `owner_decision`, or missing payload → `[CROSS-MODEL-ERROR: malformed_handoff]`, outcome `unavailable`, proceed single-model. Fail-closed: the dispatcher never repairs or guesses.
+3. **Transport.** Execute the provider transport per § API Call Patterns (endpoint, auth, model id, timeout/error handling) with the **payload only** as input material — `owner_decision` and everything outside the fences never reach the cross-model (blindness). The REQUEST PROMPT is the owning checkpoint's structured-decision prompt (§ Blind Disagreement Checkpoints, Mechanics steps 2-3) for `enum_comparison`, or the independent-DA-critique prompt for `full_return` — NEVER the citation-verification prompt, its grounding-status guards (`NOT_SEARCHED` / `SOURCES:`), or its citation-status normalization, which would corrupt a judgment response into a citation verdict.
+4. **Result validation.** For `enum_comparison` the response must parse as `{decision ∈ the kind's enum, drivers ≤ 3, confidence ∈ low|medium|high}`; malformed JSON or an unknown enum value → `[CROSS-MODEL-ERROR: malformed_result]`, outcome `unavailable` — the dispatcher never fabricates or coerces a judgment.
+5. **Agreement** (`enum_comparison`, equal enums): the dispatcher performs the mechanical fill (log line + audit-surface population from the two committed decisions) and does **not** re-invoke the owner.
+6. **Divergence** (`enum_comparison`, differing enums): the dispatcher re-invokes the ORIGINAL owner with the minimum return context — `correlation_id`, the owner's committed `owner_decision`, the cross-model's full structured result, and the original payload (or a pointer to the same artifact on file) — and the owner writes the targeted rebuttal. The dispatcher never authors it.
+7. **Full return** (`full_return`): no comparison exists for the dispatcher to resolve, so EVERY successful response is returned to the owner (`correlation_id` + the response verbatim); the findings comparison is the owner's.
+8. **Flag unset.** With `ARS_CROSS_MODEL` unset, owners emit no envelope and behavior is byte-equivalent pre-#527; a stray envelope encountered with the flag unset is logged `[CROSS-MODEL-SKIPPED]` and not transported.
 
 Checkpoint decisions are judgment, not lookup — an ungrounded/compatible provider is first-class here, with the same scoping as DA critique: a divergence from any provider is an adversarial hypothesis and a review trigger, never a confirmed defect.
 

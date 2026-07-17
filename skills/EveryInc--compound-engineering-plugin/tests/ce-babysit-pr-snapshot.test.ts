@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach } from "bun:test"
-import { spawnSync } from "node:child_process"
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs"
+import { spawn, spawnSync } from "node:child_process"
+import { existsSync, mkdtempSync, writeFileSync, readFileSync, renameSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
@@ -45,6 +45,37 @@ function watch(stateDir: string, fetch: string, extra: string[] = []): any {
   )
   expect(r.status, r.stderr).toBe(0)
   return JSON.parse(r.stdout.trim().split("\n").pop()!) // the wake sentinel is the final line
+}
+
+function startWatch(stateDir: string, fetch: string, extra: string[] = []) {
+  const child = spawn(
+    "python3",
+    [SCRIPT, "watch", "--pr", "1", "--repo", "o/r", "--state-dir", stateDir, "--fetch-file", fetch,
+      "--interval", "0.05", "--max-runtime", "5", ...extra],
+    { stdio: ["ignore", "pipe", "pipe"] },
+  )
+  let stdout = ""
+  let stderr = ""
+  child.stdout.on("data", (chunk) => { stdout += chunk })
+  child.stderr.on("data", (chunk) => { stderr += chunk })
+  const result = new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
+    child.on("close", (code) => resolve({ code, stdout, stderr }))
+  })
+  return { child, result }
+}
+
+async function waitForWatchGeneration(stateDir: string, previous: string | null = null): Promise<string> {
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    try {
+      const generation = JSON.parse(readFileSync(path.join(stateDir, "state.json"), "utf8")).watch_generation
+      if (typeof generation === "string" && generation !== previous) return generation
+    } catch {
+      // The first watcher may still be creating state.json.
+    }
+    await Bun.sleep(20)
+  }
+  throw new Error(`watch generation did not advance from ${previous}`)
 }
 
 function wakeReason(snapshotValue: unknown, settleSeconds = 0): string | null {
@@ -857,6 +888,454 @@ describe("ce-babysit-pr pr-snapshot engine", () => {
     // same clean state with a zero settle window -> merge-ready wake
     expect(watch(path.join(dir, "w4"), cf, ["--settle-seconds", "0"]).reason).toBe("merge-ready")
   }, 15000) // spawns 4 watch subprocesses incl. a max-runtime timeout -> explicit timeout over Bun's 5s default
+
+  test("watch: a newer valid watcher supersedes the old watcher and owns the only wake", async () => {
+    const sd = path.join(dir, "watch-owner")
+    const running = {
+      ...FAILING,
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    }
+    const fetch = fetchFile(dir, "watch-owner.json", running)
+    snapshot(sd, fetch)
+    const beforeTakeover = JSON.parse(readFileSync(path.join(sd, "state.json"), "utf8"))
+
+    const oldWatch = startWatch(sd, fetch)
+    const oldGeneration = await waitForWatchGeneration(sd)
+    const newWatch = startWatch(sd, fetch)
+    await waitForWatchGeneration(sd, oldGeneration)
+    const afterTakeover = JSON.parse(readFileSync(path.join(sd, "state.json"), "utf8"))
+    expect(afterTakeover.started_at).toBe(beforeTakeover.started_at)
+    expect(afterTakeover.last_change_at).toBe(beforeTakeover.last_change_at)
+
+    const nextFetch = `${fetch}.next`
+    writeFileSync(nextFetch, JSON.stringify({
+      ...running,
+      threads: [{ thread_id: "T-new", last_comment_id: "C1", last_comment_at: "t1" }],
+    }))
+    renameSync(nextFetch, fetch)
+
+    const [oldResult, newResult] = await Promise.all([oldWatch.result, newWatch.result])
+    expect(oldResult.code, oldResult.stderr).toBe(0)
+    expect(newResult.code, newResult.stderr).toBe(0)
+
+    const wakes = [oldResult.stdout, newResult.stdout]
+      .flatMap((output) => output.trim() ? output.trim().split("\n") : [])
+      .map((line) => JSON.parse(line))
+      .filter((event) => event.event === "BABYSIT_WAKE")
+    expect(wakes).toHaveLength(1)
+    expect(wakes[0].reason).toBe("actionable")
+    expect(wakes[0].watch_generation).toEqual(expect.any(String))
+    expect(oldResult.stdout).toBe("")
+
+    const persisted = JSON.parse(readFileSync(path.join(sd, "state.json"), "utf8"))
+    expect(persisted.watch_generation).toBe(wakes[0].watch_generation)
+    expect(snapshot(sd, fetch).watch_generation).toBe(wakes[0].watch_generation)
+  }, 15000)
+
+  test("watch: a replacement that fails preflight leaves the existing watcher active", async () => {
+    const sd = path.join(dir, "watch-preflight")
+    const running = {
+      ...FAILING,
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    }
+    const fetch = fetchFile(dir, "watch-preflight.json", running)
+    snapshot(sd, fetch)
+
+    const existingWatch = startWatch(sd, fetch)
+    const activeGeneration = await waitForWatchGeneration(sd)
+
+    const invalidFetch = path.join(dir, "invalid-watch-preflight.json")
+    writeFileSync(invalidFetch, "not json")
+    const failedReplacement = startWatch(sd, invalidFetch)
+    const failedResult = await failedReplacement.result
+    expect(failedResult.code).not.toBe(0)
+    expect(JSON.parse(readFileSync(path.join(sd, "state.json"), "utf8")).watch_generation).toBe(activeGeneration)
+
+    const nextFetch = `${fetch}.next`
+    writeFileSync(nextFetch, JSON.stringify({
+      ...running,
+      threads: [{ thread_id: "T-after-failure", last_comment_id: "C1", last_comment_at: "t1" }],
+    }))
+    renameSync(nextFetch, fetch)
+
+    const existingResult = await existingWatch.result
+    expect(existingResult.code, existingResult.stderr).toBe(0)
+    const wake = JSON.parse(existingResult.stdout.trim())
+    expect(wake.reason).toBe("actionable")
+    expect(wake.watch_generation).toBe(activeGeneration)
+  }, 15000)
+
+  test("watch: an existing stop file wakes before reservation or preflight", () => {
+    const sd = path.join(dir, "watch-stopped-before-arm")
+    const fetch = fetchFile(dir, "watch-stopped-before-arm.json", {
+      ...FAILING,
+      head_sha: "incumbent-head",
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    })
+    snapshot(sd, fetch)
+    const statePath = path.join(sd, "state.json")
+    const incumbent = JSON.parse(readFileSync(statePath, "utf8"))
+    incumbent.watch_generation = "incumbent-generation"
+    incumbent.watch_pid = 999999
+    incumbent.watch_process_identity = "incumbent-identity"
+    const before = JSON.stringify(incumbent)
+    writeFileSync(statePath, before)
+
+    const stopFile = path.join(dir, "watch-stopped-before-arm.stop")
+    writeFileSync(stopFile, "stop")
+    const missingFetch = path.join(dir, "watch-stopped-before-arm-must-not-fetch.json")
+    const r = spawnSync(
+      "python3",
+      [SCRIPT, "watch", "--pr", "1", "--repo", "o/r", "--state-dir", sd,
+        "--fetch-file", missingFetch, "--stop-file", stopFile],
+      { encoding: "utf8", timeout: 5000 },
+    )
+
+    expect(r.status, r.stderr).toBe(0)
+    expect(JSON.parse(r.stdout.trim())).toMatchObject({
+      event: "BABYSIT_WAKE",
+      reason: "stop-signal",
+      watch_generation: "incumbent-generation",
+    })
+    expect(readFileSync(statePath, "utf8")).toBe(before)
+    expect(existsSync(path.join(sd, "watch-candidate.json"))).toBe(false)
+  })
+
+  test("watch: a newer invocation supersedes an older candidate with a slow preflight", async () => {
+    const sd = path.join(dir, "watch-candidate-order")
+    const running = {
+      ...FAILING,
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    }
+    const initial = fetchFile(dir, "watch-candidate-initial.json", running)
+    snapshot(sd, initial)
+
+    const slowFetch = path.join(dir, "watch-candidate-slow.fifo")
+    const mkfifo = spawnSync("mkfifo", [slowFetch], { encoding: "utf8" })
+    expect(mkfifo.status, mkfifo.stderr).toBe(0)
+    const olderCandidate = startWatch(sd, slowFetch)
+    await Bun.sleep(200) // the older invocation is blocked in its first fetch
+
+    const fastFetch = fetchFile(dir, "watch-candidate-fast.json", running)
+    const newerCandidate = startWatch(sd, fastFetch)
+    const activeGeneration = await waitForWatchGeneration(sd)
+    const olderStopped = await Promise.race([
+      olderCandidate.result.then(() => true),
+      Bun.sleep(1000).then(() => false),
+    ])
+    if (!olderStopped) {
+      olderCandidate.child.kill("SIGKILL")
+      newerCandidate.child.kill("SIGTERM")
+      await Promise.all([olderCandidate.result, newerCandidate.result])
+    }
+    expect(olderStopped).toBe(true)
+
+    const nextFetch = `${fastFetch}.next`
+    writeFileSync(nextFetch, JSON.stringify({
+      ...running,
+      threads: [{ thread_id: "T-candidate", last_comment_id: "C1", last_comment_at: "t1" }],
+    }))
+    renameSync(nextFetch, fastFetch)
+    const newerResult = await newerCandidate.result
+    expect(newerResult.code, newerResult.stderr).toBe(0)
+    const wake = JSON.parse(newerResult.stdout.trim())
+    expect(wake.watch_generation).toBe(activeGeneration)
+  }, 15000)
+
+  test("watch: takeover interrupts an old watcher blocked in its next fetch", async () => {
+    const sd = path.join(dir, "watch-blocked-fetch")
+    const running = {
+      ...FAILING,
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    }
+    const oldFetch = fetchFile(dir, "watch-blocked-old.json", running)
+    snapshot(sd, oldFetch)
+
+    const oldWatch = startWatch(sd, oldFetch, ["--interval", "0.2"])
+    const oldGeneration = await waitForWatchGeneration(sd)
+    const fifo = `${oldFetch}.fifo`
+    const mkfifo = spawnSync("mkfifo", [fifo], { encoding: "utf8" })
+    expect(mkfifo.status, mkfifo.stderr).toBe(0)
+    renameSync(fifo, oldFetch)
+    await Bun.sleep(300) // the old generation is now blocked opening the FIFO for its next fetch
+
+    const replacementFetch = fetchFile(dir, "watch-blocked-new.json", running)
+    const replacement = startWatch(sd, replacementFetch)
+    await waitForWatchGeneration(sd, oldGeneration)
+
+    const stoppedPromptly = await Promise.race([
+      oldWatch.result.then(() => true),
+      Bun.sleep(1000).then(() => false),
+    ])
+    if (!stoppedPromptly) oldWatch.child.kill("SIGKILL")
+    expect(stoppedPromptly).toBe(true)
+    replacement.child.kill("SIGTERM")
+    await replacement.result
+  }, 15000)
+
+  test("watch: an in-flight poll cannot persist after its generation becomes stale", async () => {
+    const sd = path.join(dir, "watch-stale-poll")
+    const running = {
+      ...FAILING,
+      head_sha: "current-head",
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    }
+    const fetch = fetchFile(dir, "watch-stale-poll.json", running)
+    snapshot(sd, fetch)
+    const oldWatch = startWatch(sd, fetch, ["--interval", "0.2"])
+    await waitForWatchGeneration(sd)
+
+    const fifo = `${fetch}.fifo`
+    const mkfifo = spawnSync("mkfifo", [fifo], { encoding: "utf8" })
+    expect(mkfifo.status, mkfifo.stderr).toBe(0)
+    renameSync(fifo, fetch)
+    await Bun.sleep(300)
+
+    const statePath = path.join(sd, "state.json")
+    const replacementState = JSON.parse(readFileSync(statePath, "utf8"))
+    replacementState.watch_generation = "replacement-generation"
+    const nextState = `${statePath}.next`
+    writeFileSync(nextState, JSON.stringify(replacementState))
+    renameSync(nextState, statePath)
+    writeFileSync(fetch, JSON.stringify({ ...running, head_sha: "stale-head" }))
+
+    const result = await oldWatch.result
+    expect(result.code, result.stderr).toBe(0)
+    const persisted = JSON.parse(readFileSync(statePath, "utf8"))
+    expect(persisted.watch_generation).toBe("replacement-generation")
+    expect(persisted.head_sha).toBe("current-head")
+  }, 15000)
+
+  test("watch: preflight stays read-only until activation fences incumbent persistence", () => {
+    const sd = path.join(dir, "watch-preflight-fence")
+    const base = fetchFile(dir, "watch-preflight-fence-base.json", {
+      ...FAILING,
+      head_sha: "base-head",
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    })
+    const incumbent = fetchFile(dir, "watch-preflight-fence-incumbent.json", {
+      ...FAILING,
+      head_sha: "incumbent-head",
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    })
+    const successor = fetchFile(dir, "watch-preflight-fence-successor.json", {
+      ...FAILING,
+      head_sha: "successor-head",
+      threads: [],
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+    })
+    snapshot(sd, base)
+    const statePath = path.join(sd, "state.json")
+    const active = JSON.parse(readFileSync(statePath, "utf8"))
+    active.watch_generation = "incumbent-generation"
+    writeFileSync(statePath, JSON.stringify(active))
+
+    const python = `
+import json, subprocess, time
+from importlib.machinery import SourceFileLoader
+from types import SimpleNamespace
+m = SourceFileLoader("prs", ${JSON.stringify(SCRIPT)}).load_module()
+state_dir = ${JSON.stringify(sd)}
+state_path = ${JSON.stringify(statePath)}
+args = SimpleNamespace(state_dir=state_dir, pr=1, repo="o/r",
+                       fetch_file=${JSON.stringify(successor)}, reset_session=False,
+                       session_started_at=None)
+generation = "successor-generation"
+m._reserve_watch_candidate(args, generation)
+cur = m._fetch_snapshot(args)
+assert json.load(open(state_path))["head_sha"] == "base-head", "preflight mutated persisted state"
+
+original_diff = m.diff
+child = None
+def diff_with_incumbent_race(state, current, now=None, advance_trajectory=True):
+    global child
+    child_code = '''
+from importlib.machinery import SourceFileLoader
+from types import SimpleNamespace
+m = SourceFileLoader("prs_child", ${JSON.stringify(SCRIPT)}).load_module()
+args = SimpleNamespace(state_dir=${JSON.stringify(sd)}, pr=1, repo="o/r",
+                       fetch_file=${JSON.stringify(incumbent)}, reset_session=False,
+                       session_started_at=None)
+try:
+    m._run_snapshot(args, m._now(), advance_trajectory=False,
+                    watch_generation="incumbent-generation")
+except m._WatchSuperseded:
+    pass
+else:
+    raise SystemExit("stale incumbent persist was not rejected")
+'''
+    child = subprocess.Popen(["python3", "-c", child_code], stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True)
+    time.sleep(0.2)
+    assert child.poll() is None, "incumbent was not blocked by atomic activation"
+    return original_diff(state, current, now, advance_trajectory=advance_trajectory)
+
+m.diff = diff_with_incumbent_race
+previous, actionable = m._activate_watch(args, generation, m._now(), cur)
+stdout, stderr = child.communicate(timeout=5)
+assert child.returncode == 0, stderr
+persisted = json.load(open(state_path))
+print(json.dumps({"generation": persisted["watch_generation"], "head": persisted["head_sha"]}))
+`
+    const r = spawnSync("python3", ["-c", python], { encoding: "utf8", timeout: 10000 })
+    expect(r.status, r.stderr).toBe(0)
+    expect(JSON.parse(r.stdout)).toEqual({ generation: "successor-generation", head: "successor-head" })
+  })
+
+  test("watch: PID identity must still match before a replaced watcher is signaled", () => {
+    const python = `
+import json
+from importlib.machinery import SourceFileLoader
+m = SourceFileLoader("prs", ${JSON.stringify(SCRIPT)}).load_module()
+signals = []
+m.os.kill = lambda pid, sig: signals.append([pid, sig])
+m._process_identity = lambda pid: {123: "different", 124: None, 125: "same"}.get(pid)
+for pid, identity in ((123, "old"), (124, "old"), (125, "same")):
+    m._terminate_replaced_watch({"pid": pid, "process_identity": identity})
+print(json.dumps(signals))
+`
+    const r = spawnSync("python3", ["-c", python], { encoding: "utf8" })
+    expect(r.status, r.stderr).toBe(0)
+    expect(JSON.parse(r.stdout)).toEqual([[125, 15]])
+  })
+
+  test("watch: takeover interrupts and reaps an active fetch subprocess", () => {
+    const childPid = path.join(dir, "watch-fetch-child.pid")
+    const python = `
+import os, signal, subprocess, threading, time
+from importlib.machinery import SourceFileLoader
+from types import SimpleNamespace
+m = SourceFileLoader("prs", ${JSON.stringify(SCRIPT)}).load_module()
+pid_file = ${JSON.stringify(childPid)}
+def fake_snapshot(args, now, advance_trajectory=True, watch_generation=None):
+    subprocess.run(["sh", "-c", "echo $$ > " + pid_file + "; exec sleep 30"], check=True)
+    return {"counts": {}, "pr_state": "OPEN", "session_seconds": 0}
+def stop_when_child_starts():
+    deadline = time.time() + 5
+    while time.time() < deadline and not os.path.exists(pid_file):
+        time.sleep(0.01)
+    os.kill(os.getpid(), signal.SIGTERM)
+m._run_snapshot = fake_snapshot
+m._fetch_snapshot = lambda args: {}
+m._reserve_watch_candidate = lambda args, generation: {}
+m._clear_watch_candidate = lambda args, generation: None
+m._activate_watch = lambda args, generation, now, cur: (
+    {}, {"counts": {}, "pr_state": "OPEN", "session_seconds": 0})
+m._terminate_replaced_watch = lambda previous: None
+m._watch_is_current = lambda args, generation: True
+m._wake_reason = lambda actionable, settle_seconds: None
+threading.Thread(target=stop_when_child_starts, daemon=True).start()
+args = SimpleNamespace(reset_session=False, stop_file=None, settle_seconds=300, max_runtime=0,
+                       interval=0.01, state_dir=${JSON.stringify(dir)}, pr=1, repo="o/r")
+started = time.time()
+m.cmd_watch(args)
+pid = int(open(pid_file).read())
+alive = True
+try:
+    os.kill(pid, 0)
+except ProcessLookupError:
+    alive = False
+print(f"{alive} {time.time() - started:.3f}")
+`
+    const r = spawnSync("python3", ["-c", python], { encoding: "utf8", timeout: 5000 })
+    expect(r.status, r.stderr).toBe(0)
+    const [alive, elapsed] = r.stdout.trim().split(" ")
+    expect(alive).toBe("False")
+    expect(Number(elapsed)).toBeLessThan(2)
+  })
+
+  test("watch: stale teardown ignores a late takeover SIGTERM and ordinary teardown restores it", () => {
+    const python = `
+import json, os, signal, threading, time
+from importlib.machinery import SourceFileLoader
+from types import SimpleNamespace
+m = SourceFileLoader("prs", ${JSON.stringify(SCRIPT)}).load_module()
+args = SimpleNamespace(reset_session=False, stop_file=None, settle_seconds=300, max_runtime=0,
+                       interval=0.01, state_dir=${JSON.stringify(dir)}, pr=1, repo="o/r")
+actionable = {"counts": {}, "pr_state": "OPEN", "session_seconds": 0}
+m._reserve_watch_candidate = lambda args, generation: {}
+m._clear_watch_candidate = lambda args, generation: None
+m._fetch_snapshot = lambda args: {}
+m._activate_watch = lambda args, generation, now, cur: ({}, actionable)
+m._terminate_replaced_watch = lambda previous: None
+m._emit_wake_if_current = lambda *args, **kwargs: True
+
+real_signal = signal.signal
+signal_calls = 0
+final_handler_installed = threading.Event()
+def track_signal(signum, handler):
+    global signal_calls
+    result = real_signal(signum, handler)
+    if signum == signal.SIGTERM:
+        signal_calls += 1
+        if signal_calls == 2:
+            final_handler_installed.set()
+            time.sleep(0.2)
+    return result
+def send_late_takeover_signal():
+    if not final_handler_installed.wait(2):
+        os._exit(2)
+    os.kill(os.getpid(), signal.SIGTERM)
+
+m.signal.signal = track_signal
+m._watch_is_current = lambda args, generation: False
+sender = threading.Thread(target=send_late_takeover_signal)
+sender.start()
+m.cmd_watch(args)
+sender.join(timeout=2)
+assert not sender.is_alive()
+
+m.signal.signal = real_signal
+def caller_handler(_signum, _frame):
+    pass
+real_signal(signal.SIGTERM, caller_handler)
+m._watch_is_current = lambda args, generation: True
+m._wake_reason = lambda actionable, settle_seconds: "actionable"
+m.cmd_watch(args)
+print(json.dumps({"ordinary_restored": signal.getsignal(signal.SIGTERM) is caller_handler}))
+`
+    const r = spawnSync("python3", ["-c", python], { encoding: "utf8", timeout: 5000 })
+    expect(r.status, r.stderr).toBe(0)
+    expect(JSON.parse(r.stdout)).toEqual({ ordinary_restored: true })
+  })
+
+  test("fetch_threads follows every GraphQL page before returning unresolved threads", () => {
+    const python = `
+import json
+from importlib.machinery import SourceFileLoader
+m = SourceFileLoader("prs", ${JSON.stringify(SCRIPT)}).load_module()
+calls = []
+class Result: pass
+def fake(args, label):
+    calls.append(args)
+    second = any(arg == "cursor=page-2" for arg in args)
+    node = {"id": "T2" if second else "T1", "isResolved": False, "path": "x", "line": 1,
+            "comments": {"nodes": [{"id": "C2" if second else "C1", "createdAt": "t2" if second else "t1", "lastEditedAt": None}]}}
+    page = {"nodes": [node], "pageInfo": {"hasNextPage": not second, "endCursor": None if second else "page-2"}}
+    result = Result()
+    result.returncode = 0
+    result.stderr = ""
+    result.stdout = json.dumps({"data": {"repository": {"pullRequest": {"reviewThreads": page}}}})
+    return result
+m._run_checked = fake
+threads = m.fetch_threads(1, "o", "r")
+print(json.dumps({"ids": [t["thread_id"] for t in threads], "calls": calls}))
+`
+    const r = spawnSync("python3", ["-c", python], { encoding: "utf8" })
+    expect(r.status, r.stderr).toBe(0)
+    const result = JSON.parse(r.stdout)
+    expect(result.ids).toEqual(["T1", "T2"])
+    expect(result.calls).toHaveLength(2)
+    expect(result.calls[1]).toContain("cursor=page-2")
+  })
 
   test("watch: managed target freshness blocks ordinary CLEAN merge-ready", () => {
     const GREEN = { key: "CI/test", name: "test", status: "COMPLETED", conclusion: "SUCCESS", details_url: "u" }

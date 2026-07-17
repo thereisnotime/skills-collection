@@ -2,6 +2,14 @@
 
 综合 Anthropic 官方最佳实践、skill-creator 工作流、社区经验和实战教训的完整方法论。
 
+## Contents
+
+- Phase 1 先手动解决问题 · Phase 2 并行调研 · Phase 3 真实数据验证（3.1 完整性 / 3.2 记录失败 / 3.3 隔离复现+反证+权威源）
+- Phase 4 写作补充（4.1 不能做什么 / 4.2 失败过什么 / 4.3 安全 / 4.4 console 示例 / 4.5 脚本健壮性 / 4.6 三资产分流）
+- Phase 5 测试迭代（5.1 删竞争旧 skill / 5.2 量化对比 / 5.3 grep 断言误判 / 5.4 baseline 揭示事实错误 / 5.5 增量为 0 / 5.6 完整性两道闸）
+- Phase 6 Counter Review（6.1 视角 / 6.2 final gate / 6.3 常见发现 / 6.4 findings 过滤 / 6.5 多层验证）
+- Phase 7 & 8 Description + Packaging · Phase 9 实战案例库（Case 1-16）· 来源
+
 本文档只包含 SKILL.md 中**没有覆盖**的内容。SKILL.md 已经详细描述的流程（Prior Art 8 渠道表、决策矩阵、Inline vs Fork、测试用例格式、描述优化循环等）不在此重复——请直接参考 SKILL.md 对应章节。
 
 ## Phase 1: 先手动解决问题，不要上来就建 skill
@@ -107,14 +115,17 @@ SKILL.md 的 "Skill Writing Guide" 已覆盖 frontmatter、progressive disclosur
 **打包形态的坑：**
 - **单文件 `uv run --script`（PEP-723 内联依赖）无法中途模块化**：它是 import-coupled 的，把一个 2600+ 行的单文件脚本拆成 package 会破坏全部测试、引发上百轮反复（建目录 / 改名 / 删 / `git stash` 冲突 / 后台 refactor 也失败），最终只能 revert。脚本变大时：要么一开始就改依赖模型（建真正的 package + pyproject），要么保持单文件、配一个「各段行号索引」的导航注释块，**别中途拆**。
 
-### 4.6 双资产分流：知识进 references，会被重写的代码进 scripts
+### 4.6 三资产分流：知识进 references，会被重写的代码进 scripts，认可产物的模式进原则
 
-从对话 / 实战 session 蒸馏 skill 时，盘点**两类资产**——它们的归宿不同：
+从对话 / 实战 session 蒸馏 skill 时，盘点**三类资产**——它们的归宿不同：
 
 - **知识**（端点、参数、坑、判断规则）→ SKILL.md 指引或 `references/`
 - **session 不得不写的代码**（helper 脚本、注入片段、渲染器、模板）→ `scripts/` 候选：这个 session 写过一次，未来每次调用都得重写
+- **用户认可产物里反复出现的模式**（≥3 个认可样例共有的风格 / 结构 / 语言惯例）→ **原则层**（principles reference 的决策规则），样例本身只进语料库当索引与校准材料
 
-只提取知识的蒸馏，会产出「解释了一切、却让每个未来 session 重写同一批 helper」的 skill。一个抽象复盘是：蒸馏交付了精修 references，却遗漏源对话中可复用的代码，根因是框架里只有知识→references 通道、没有代码→scripts 通道。判据（收尾自问）：*这次对话写了什么代码，是未来每次调用必然重写的？* 参数化、脱敏、进 `scripts/`，文档改为指针——**脚本管执行、文档管理解**。
+只提取知识的蒸馏，会产出「解释了一切、却让每个未来 session 重写同一批 helper」的 skill——根因是框架里只有知识→references 通道、没有代码→scripts 通道。判据（收尾自问）：*这次对话写了什么代码，是未来每次调用必然重写的？* 参数化、脱敏、进 `scripts/`，文档改为指针——**脚本管执行、文档管理解**。
+
+第三通道有对称的失败形态（Case 15）：只把认可样例**登记**进语料库（名字 × 路径 × 组件清单），不改变 skill 的任何决策规则——**登记 ≠ 提炼**。判据同构：*这批认可产物里，什么模式是未来每次生成都该遵守、却还只活在样例里的？* 量化提取、归纳成带证据的规则、写进原则层——**语料库管校准素材，原则管下次怎么做**。完整操作序见 `workflows/artifact-corpus-distillation/workflow.md`。
 
 ## Phase 5: 测试迭代补充
 
@@ -373,6 +384,18 @@ SKILL.md 中的若干行级规则来自下面这些真实事故。规则本身�
 
 → 对应规则:Description Optimization / triggering 段加 caveat——`claude -p` 验触发收集整轮全部 skill 调用(防 hook 注入干扰);Skill 调用是代理、真信号是产物体现 skill 内容。
 
+### Case 15: 登记 ≠ 提炼——收录 8 张认可样例后被用户点破「你不能只加示例」（2026-07，已去除项目指纹）
+
+用户给一个报告页生成 skill(已去除项目指纹)贴出 13 张他认可的 HTML 页说「你来学到底什么是我想要的」。第一轮把 8 张新样例**登记**进语料库（register × 路径 × 组件清单 +17 个组件词条），regression audit 全绿、版本照 bump——看起来完成了。用户一句点破：「**你不能只加示例吧。你得去提取出来我真正的喜好是什么，然后把它放到 Skill 里来。**」复盘：登记不改变 skill 下一次运行的任何决策，语料库行只有配合「动手前读最近 register 样例」的触发才有一点被动价值。第二轮才是真提炼：脚本横向抽全部 13 张的 CSS 变量 / 字体 / 尺寸 / 交互计数 / 标题文案层 → 按层归纳（认知 / 语言 / 结构 / 视觉语义 / 量化参数 / 交互 / 诚实）→ 写进原则文件的决策规则层。量化还**修正了既有原则**：「皮随 register 变」太宽泛——13 张报告页基底全是暖纸族、无一例外，真正随受众变的只有 accent 色相；「一个 accent 极少量点缀」实测是红金绿蓝四色语义系统。随后的独立完整性审计（纪律 #5）又抓出 7 条同类型盲区，含一条对当轮新规则的系统性修正（决策页标题必须停在问题句，否则替拍板人预答）。
+
+→ 对应规则:SKILL.md「Distill User Preferences from an Approved-Artifact Corpus」路由段 + `workflows/artifact-corpus-distillation/workflow.md`;§4.6 第三通道（登记≠提炼判据）。
+
+### Case 16: 多 session 并发编辑同一 skill repo——Write 被拒、HEAD 一小时内移动两次（2026-07，已去除项目指纹）
+
+优化同一个报告页 skill 时另有兄弟 session 同仓工作:①刚做完 pre-edit snapshot、正要写语料库文件,Write 被拒（file has been modified since read）——另一 session 恰好提交了改同一文件同一段的收口 commit;②重建 baseline 后干到一半,HEAD 又因兄弟 session 提交另一个 skill 而移动。三个教训:**工作树快照做 baseline 在并发下天然过期**,repo 干净时用 `git archive <sha>` + `--baseline-origin git-ref:<sha>`;**Write 被拒不是重试信号**,先 `git show <新commit> --stat` 看对方改了什么、把对方意图并进自己的版本再写（那次对方的收口句与本轮重写意图一致,直接吸收）;**commit 前查 HEAD**,移动了就对新 ref 重跑 compare——verify 反正会拒绝过期 review,自己先抓省一轮。连带定了版本节奏:同 session 连续多轮改同一 skill,收敛成一次 bump,除非中间态已被消费。
+
+→ 对应规则:SKILL.md「Concurrent sessions on the same skill repo」五条。
+
 ## 来源
 
 | 来源 | 本文档引用的独有贡献 |
@@ -380,4 +403,4 @@ SKILL.md 中的若干行级规则来自下面这些真实事故。规则本身�
 | Anthropic Official | Evaluation-driven development、conciseness imperative（已由 SKILL.md 覆盖，本文不重复） |
 | skill-creator SKILL.md | 完整工作流和工具链（本文引用但不复制，请直接参考 SKILL.md） |
 | 社区经验 | 激活率数据（20%→90%）、Encoded Preference > Capability Uplift |
-| 实战教训 | 并行研究 agent、失败记录的价值、竞争 skill 删除、量化迭代对比、Counter Review 流程、benchmark 有水分需抽查内容、baseline 揭示 skill 事实错误、诚实增量分布、现有 skill old-vs-new 完整性门禁 + 不盲信自己的评分脚本（Case 8）、语料蒸馏型 skill 需独立完整性审计（Case 11）、run_loop 空洞退化输出需先验 harness baseline（Case 12）、和已装 skill 群的触发竞争 + 竞品归属决策（Case 13）、触发验证的代理陷阱 + hook 干扰探针（Case 14） |
+| 实战教训 | 并行研究 agent、失败记录的价值、竞争 skill 删除、量化迭代对比、Counter Review 流程、benchmark 有水分需抽查内容、baseline 揭示 skill 事实错误、诚实增量分布、现有 skill old-vs-new 完整性门禁 + 不盲信自己的评分脚本（Case 8）、语料蒸馏型 skill 需独立完整性审计（Case 11）、run_loop 空洞退化输出需先验 harness baseline（Case 12）、和已装 skill 群的触发竞争 + 竞品归属决策（Case 13）、触发验证的代理陷阱 + hook 干扰探针（Case 14）、认可产物语料的登记≠提炼（Case 15）、多 session 并发编辑同仓的 baseline/写入/提交纪律（Case 16） |

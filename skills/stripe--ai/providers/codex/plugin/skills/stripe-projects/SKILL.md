@@ -124,6 +124,37 @@ The CLI manages all state under `.projects/` and generates `.env` files. Don’t
 
 Only inspect `.projects/` or `.env` directly if the user explicitly asks you to — the CLI is authoritative, so manual edits may be overwritten.
 
+## Project Variables
+
+Use project variables when the user wants to store an environment variable that doesn’t come from a provisioned provider resource, such as an app URL, feature flag, or self-managed API key.
+
+Create or update a project variable for the active environment:
+
+```bash
+stripe projects variables set <name> --env-key <ENV_KEY> --value <value>
+```
+
+A successful `variables set` syncs the active environment output file immediately. If the user doesn’t provide the value, run the command without `--value` only in interactive mode so the CLI can prompt securely. Never print secret values in your response.
+
+Bind an existing project variable to the active environment:
+
+```bash
+stripe projects env add <name> --variable --env-key <ENV_KEY>
+```
+
+Remove a variable binding from the active environment without deleting the stored variable:
+
+```bash
+stripe projects env remove <name> --variable
+```
+
+List and delete project variables:
+
+```bash
+stripe projects variables list --json
+stripe projects variables delete <name> --yes
+```
+
 ## Error Handling
 
 | Error code | Cause | Recovery |
