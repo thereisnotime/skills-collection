@@ -1,7 +1,7 @@
 {
   "name": "read-only-gh-pr-review",
   "description": "Review GitHub pull requests with strict read-only CLI constraints.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": {
     "name": "jawwadfirdousi"
   },

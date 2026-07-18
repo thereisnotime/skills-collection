@@ -62,9 +62,26 @@ Review backend pull requests end-to-end using local code analysis and GitHub CLI
    - Cover security, correctness, data integrity, API compatibility, performance, and test sufficiency before style concerns.
 8. Produce actionable review output.
    - Report only issues that are likely defects, regressions, or maintainability risks.
+   - Every issue must pass the Evidence and Verification rules below before it is reported.
    - Include exact `file:line`, impact, and concrete fix guidance.
    - End with residual risk and missing validation/testing assumptions.
    - Return findings in chat only; do not write any comment or review back to GitHub.
+
+## Evidence and Verification
+
+Every reported issue must separate verified facts from assumptions. Never present an assumption as a fact.
+
+- **Fact**: behavior you verified by reading the actual code, diff, or command output. Cite `file:line` for every fact.
+- **Assumption**: anything inferred but not verified—runtime behavior, unseen configuration, external service behavior, data volumes, deployment topology, caller behavior outside the diff.
+
+Rules:
+
+- Before reporting an issue, trace the full code path: callers, dependencies, and existing guards. Do not report an issue that a guard or validation elsewhere already prevents; find and read that code first.
+- Do not report an issue based only on the diff hunk when the surrounding file or callers are available to read.
+- Label every assumption a finding depends on, and state how to confirm it.
+- If a suspicion cannot be verified with available evidence, either report it as a question with the assumption labeled explicitly, or drop it. Do not report it as a defect.
+- Never fabricate line numbers, symbols, code snippets, or behavior. Quote real code only.
+- If evidence is incomplete (file truncated, command failed, ref unavailable), say so in the finding instead of filling gaps with guesses.
 
 ## Response Format
 
@@ -73,7 +90,6 @@ Use this section order:
 1. `Critical Issues (Must Fix)`
 2. `Important Issues (Should Fix)`
 3. `Suggestions (Consider)`
-4. `Good Practices Noted`
 
 For each issue, use:
 
@@ -81,10 +97,14 @@ For each issue, use:
 Issue: <brief description>
 Location: <file:line>
 Severity: <Critical|High|Medium|Low>
-Problematic Code: <snippet or precise behavior>
+Facts: <verified behavior with file:line evidence>
+Assumptions: <unverified inferences this finding depends on, and how to confirm them; "None" if fully verified>
+Problematic Code: <snippet quoted from the actual code>
 Suggestion: <specific fix>
 Example: <optional patch-style snippet>
 ```
+
+Findings with `Assumptions: None` are confirmed defects. Findings that depend on assumptions must be phrased conditionally (e.g., "If X is not enforced upstream, then...").
 
 ## GitHub CLI API Equivalents
 
@@ -96,3 +116,4 @@ Use command mappings in `references/github-cli-map.md`.
 - Explain impact and rationale.
 - Assume positive intent.
 - Prefer concise, high-confidence feedback.
+- State uncertainty plainly; a labeled assumption is better than a confident guess.

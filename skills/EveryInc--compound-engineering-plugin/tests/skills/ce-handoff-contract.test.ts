@@ -29,8 +29,9 @@ describe("ce-handoff portable runtime contract", () => {
   })
 
   test("defines the managed store and immutable v1 frontmatter", () => {
-    expect(skill).toContain("/tmp/compound-engineering/ce-handoff/")
-    expect(skill).toContain("<repo-namespace>/<topic>.md")
+    expect(skill).toContain('HANDOFF_DIR="$SCRATCH_ROOT/ce-handoff/<repo-namespace>"')
+    expect(skill).toContain('SCRATCH_ROOT="/tmp/compound-engineering-$(id -u)"')
+    expect(skill).toContain("$HANDOFF_DIR/<topic>.md")
     expect(skill).toContain("ce-handoff/v1")
     for (const key of ["created_at", "title", "summary", "keywords", "cwd"]) {
       expect(skill).toContain(`\`${key}\``)
@@ -72,7 +73,7 @@ describe("ce-handoff portable runtime contract", () => {
   })
 
   test("uses existing capabilities and honors user-directed destinations", () => {
-    expect(skill).not.toMatch(/scripts\//)
+    expect(skill).not.toMatch(/scripts\/(?!scratch-root\.py)/)
     expect(skill).toMatch(/Write or publish.*existing capabilities/i)
     expect(skill).toMatch(/another path, folder, format, or publication destination.*honor it/i)
     expect(skill).toMatch(/appropriate available capability.*installed publishing skill/i)

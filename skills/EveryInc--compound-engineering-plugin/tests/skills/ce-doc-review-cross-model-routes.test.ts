@@ -257,11 +257,13 @@ printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"resid
     expect(cmd).toContain("gpt-5.6-sol")
   })
 
-  test("claude: all tools disabled + bare (no project context) + dontAsk + effort high", () => {
+  test("claude: all tools disabled + safe mode + dontAsk + effort high", () => {
     const cmd = emitAdapter("claude")
     expect(cmd).toContain("--permission-mode dontAsk")
     expect(cmd).toContain("--tools") // allowlist deny-all ("" disables every built-in)
-    expect(cmd).toContain("--bare") // skip CLAUDE.md/MCP/hooks/plugins auto-discovery
+    expect(cmd).toContain("--safe-mode")
+    expect(cmd).toContain("--disable-slash-commands")
+    expect(cmd).not.toContain("--bare")
     expect(cmd).toContain("--effort high")
     expect(cmd).toContain("--model opus")
   })
@@ -455,6 +457,49 @@ describe("cross-model-doc-review skip paths (R11, R16) — non-blocking, no file
     )
     expect(r.code).toBe(0)
     expect(r.stderr).toContain("peer skip evidence (stderr): schema invalid")
+  })
+
+  test("surfaces structured Claude auth errors even when the envelope is long", () => {
+    const payload = JSON.stringify({
+      result: "Not logged in · Please run /login",
+      filler: "x".repeat(1000),
+      api_error_status: null,
+      terminal_reason: "api_error",
+    })
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '${payload}'\nexit 1\n`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      env,
+    )
+    expect(r.stderr).toContain("Not logged in")
+    expect(r.stderr).toContain("terminal_reason=api_error")
+  })
+
+  test("ancillary structured fields do not hide an unrecognized human-readable diagnostic", () => {
+    const payload = JSON.stringify({
+      diagnostic: "Provider rejected the request for this account",
+      terminal_reason: "api_error",
+    })
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '${payload}'\nexit 1\n`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      env,
+    )
+
+    expect(r.stderr).toContain("Provider rejected the request for this account")
+    expect(r.stderr).toContain("terminal_reason=api_error")
   })
 })
 

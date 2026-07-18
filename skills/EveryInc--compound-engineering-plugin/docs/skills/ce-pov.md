@@ -74,13 +74,15 @@ The skill classifies the decision as a one-way or two-way door and sizes the wor
 
 Adoption verdicts preserve the same five grades (Adopt / Trial / Hold / Reject / Not-our-problem) and fixed schema. Document takes lead with a bottom line, strengths, and risks. Approach-set positions choose and explain one supplied option, or say "Either is viable" with the material tradeoffs rather than forcing a scoreboard winner.
 
-### 8. Offer-first cross-model panels
+### 8. Independent, bounded cross-model panels
 
-A peer never replaces ce-pov's own judgment. Name one or more providers to cross-check directly, use `oracle` to fan out to as many as two reachable different-model peers, or accept a proactive offer on a decision with meaningful correction cost. Named peers are honored exactly and are not capped. Before any project context leaves the host, ce-pov names what will be sent and every provider/intermediary that may receive it.
+A peer never replaces ce-pov's own judgment. Name one or more providers to cross-check directly, ask in ordinary language for independent opinions from other models, use `oracle` as shorthand to fan out to as many as two reachable different-model peers, or accept a proactive offer on a decision with meaningful correction cost. Named peers are honored exactly and are not capped. The skill announces the selected peers and proceeds read-only; it asks only when a retry introduces an unexpected recipient/intermediary or an active instruction requires separate approval.
 
-Peers inspect the repository root read-only by default. A caller can narrow that scope; the same normalized boundary reaches every peer and ce-pov says whether each adapter enforces it or relies on cooperative compliance. Every round binds to one repository snapshot. Before reconciliation ce-pov verifies disputed, decision-changing project claims and gives every voice the same classified evidence delta (`verified`, `contradicted`, or `unverifiable`).
+Peers inspect the shared working tree directly. When a proposal or document already exists in the project, ce-pov points peers to it instead of constructing duplicate review packets. The initial independent round includes the subject but withholds ce-pov's conclusion and every other voice's judgment. A critique request includes the position being challenged because that position is then the subject.
 
-When voices materially disagree, they get at most two fresh reconcile exchanges with the full original subject plus one another's positions, reasoning, and succinct sourced evidence. Each peer explicitly reports whether it `moved` or `held`. ce-pov remains the decision-maker, not a vote counter. It reports convergence honestly; on a stalemate it identifies whether the gap is factual or judgment-based and either recommends on a real basis or lays out an honest toss-up. A failed or timed-out peer never blocks the solo POV.
+When voices materially disagree, they get up to two reconciliation exchanges by default. Before each exchange ce-pov verifies disputed, decision-changing project claims and gives every voice the same evidence delta (`verified`, `contradicted`, or `unverifiable`) plus the already-formed positions. Each peer reports whether it `moved` or `held`. A user-supplied pass or round limit overrides the default.
+
+At the effective limit, automatic dispatch stops and ce-pov exposes the convergence or stalemate. It recommends a specific bounded extension only when it can name the unresolved question, new evidence or framing, and why another exchange could move a position; continuing requires user approval unless a larger limit was supplied in advance. ce-pov remains the decision-maker, not a vote counter, and a failed or timed-out peer never blocks the solo POV.
 
 Target names distinguish models from harnesses. **Cursor** means `cursor-agent` using its configured default/Auto model; **Composer** means a Composer model through Cursor; **Grok** prefers the Grok CLI and can use a sanctioned Grok-via-Cursor route. Cursor Auto is labeled unverified unless a serving-model receipt exists and does not count as independent cross-model corroboration without that proof.
 
@@ -166,7 +168,7 @@ Skip `ce-pov` when:
 | `<a selection question>` | Picks from a bounded field; routes to `/ce-ideate` if the field can't be bounded |
 | `<a document or supplied approach set>` | Returns a holistic take or a project-grounded position in that subject's shape |
 | `compare/cross-check with <peers>` | Forms ce-pov's own POV, then consults every named peer |
-| `oracle` | Cross-checks with up to two reachable different-model peers |
+| `oracle` | Runs a blind initial cross-check with up to two reachable different-model peers, then bounded evidence-based reconciliation when needed |
 
 `Cursor` selects Cursor's configured default/Auto model; `Composer` selects a Composer model through Cursor. These names are intentionally not aliases.
 

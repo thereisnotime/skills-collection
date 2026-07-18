@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Portable agent skills in awesome-agent-skills plugin format.",
-    "version": "0.1.1"
+    "version": "0.1.2"
   },
   "plugins": [
     {

@@ -59,7 +59,7 @@ describe("analyze_riffrec_zip safe_extract zip-slip guard", () => {
   })
 })
 
-// --- Byte-identity parity (modeled on repo-profile-cache-parity.test.ts) ---
+// --- Byte-identity parity for duplicated skill assets ---
 // The analyzer script has no cross-skill import mechanism (see AGENTS.md "File
 // References in Skills"), so it is byte-duplicated into every consuming skill.
 // All copies must stay identical.

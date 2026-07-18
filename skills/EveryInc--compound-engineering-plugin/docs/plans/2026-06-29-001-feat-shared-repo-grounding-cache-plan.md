@@ -10,6 +10,8 @@ execution: code
 
 # Shared Repo-Grounding Profile Cache - Plan
 
+> **Retired:** The implemented cache was removed after a direct behavioral comparison showed lean task-specific grounding was faster and at least as useful. See `docs/solutions/skill-design/cross-skill-shared-cache-primitive.md`. The remainder of this plan is historical.
+
 > Stacked on PR #1020 (branch `tmchow/ce-pov`); this work is on `tmchow/repo-grounding-cache`.
 
 ## Goal Capsule

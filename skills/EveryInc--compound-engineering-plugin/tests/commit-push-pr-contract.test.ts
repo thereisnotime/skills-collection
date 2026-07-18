@@ -7,6 +7,50 @@ async function readRepoFile(relativePath: string): Promise<string> {
 }
 
 describe("ce-commit-push-pr contract", () => {
+  test("reconciles the complete branch scope before composition", async () => {
+    const content = await readRepoFile(
+      "skills/ce-commit-push-pr/references/pr-description-writing.md",
+    )
+
+    expect(content).not.toContain("Read every commit")
+    const sizingSection = content.match(
+      /## Step A: Size the description([\s\S]+?)## Step B:/,
+    )?.[1]
+    expect(sizingSection).toContain(
+      "complete oneline commit list and final three-dot diff",
+    )
+    expect(sizingSection).toContain("scope map")
+    expect(sizingSection).toContain("umbrella outcome")
+    expect(sizingSection).toContain("consult the fuller messages only")
+    const titleSection = content.match(
+      /## Step B: Compose the title([\s\S]+?)## Step B1:/,
+    )?.[1]
+    expect(titleSection).toContain("scope map")
+    expect(titleSection).toContain("umbrella outcome")
+    const auditSection = content.match(
+      /## Step E: Pre-apply coverage audit([\s\S]+)\s*$/,
+    )?.[1]
+    expect(auditSection).toContain("scope map")
+    expect(auditSection).toContain("every material outcome")
+  })
+
+  test("repository PR-body contracts set structure without replacing editorial guidance", async () => {
+    const content = await readRepoFile(
+      "skills/ce-commit-push-pr/references/pr-description-writing.md",
+    )
+
+    const contractIndex = content.indexOf("## Project PR-body contract")
+    expect(contractIndex).toBeGreaterThan(-1)
+    expect(contractIndex).toBeLessThan(content.indexOf("## Step Pre-A"))
+    expect(content).toMatch(/template as a minimum.+exact\/template-only body/is)
+    expect(content).toContain("add no sections beyond those the project permits")
+    expect(content).toMatch(/structural floor.+sizes the content within it/is)
+    expect(content).toMatch(/Step C:[\s\S]+preserve that structure.+sections it permits/i)
+    expect(content).toMatch(/project PR-body contract supplies a heading or location for the opening.+place it there without inventing or renaming a heading/is)
+    expect(content).toMatch(/Otherwise, the opening goes under `## Summary`.+bare paragraph/is)
+    expect(content).toMatch(/Step E:[\s\S]+except for headings, fields, checklists, or boilerplate.+requires/i)
+  })
+
   test("existing PR rewrites carry the old body into composition", async () => {
     const content = await readRepoFile("skills/ce-commit-push-pr/SKILL.md")
 

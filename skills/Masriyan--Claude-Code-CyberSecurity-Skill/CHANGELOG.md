@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Skill 02** — `cvss_calculator.py`: `round_up()` used ordinary round-half-up instead of the CVSS spec's mandatory ceiling rounding, systematically under-scoring vulnerabilities whose raw score wasn't an exact tenth (verified wrong on CVE-2021-3156: computed 7.7 instead of the correct 7.8)
+- **Skill 02** — `dependency_auditor.py`: OSV/GHSA `database_specific.severity` value `"MODERATE"` was never mapped to this tool's `MEDIUM` bucket, so those findings silently vanished from `severity_counts` and any `--severity` filtering
+
+---
+
 ## [3.0.0] — 2026-06-23
 
 ### Major Expansion — Four New Domains + Full Refresh of the Original 15

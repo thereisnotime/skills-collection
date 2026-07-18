@@ -179,6 +179,15 @@ describe("peer-job-runner lifecycle", () => {
     expect(statSync(dir).mode & 0o777).toBe(0o700)
   }, 20000)
 
+  test("repairs an existing owner-owned root that is not private", () => {
+    const root = makeRoot()
+    chmodSync(root, 0o755)
+    const stub = writeStub("exit 0\n")
+    const result = startJob(root, FAST, [stub]).res
+    expect(result.code).toBe(0)
+    expect(statSync(root).mode & 0o777).toBe(0o700)
+  })
+
   test("detach survival: worker outlives the launching spawnSync and keeps writing", () => {
     const root = makeRoot()
     const stub = writeStub(
@@ -339,11 +348,15 @@ describe("peer-job-runner lifecycle", () => {
     const skillDir = path.join(root, "ce-doc-review")
     const oldRun = path.join(skillDir, "old-run")
     mkdirSync(path.join(oldRun, "jobs"), { recursive: true })
+    // The owner-private root is the trust boundary. Existing descendants may
+    // reflect the caller's umask without becoming visible through that root.
+    for (const dir of [skillDir, oldRun, path.join(oldRun, "jobs")]) chmodSync(dir, 0o755)
     writeFileSync(path.join(oldRun, "stale.txt"), "x")
     const past = new Date(Date.now() - 25 * 3600 * 1000)
     utimesSync(oldRun, past, past)
     const recentRun = path.join(skillDir, "recent-run")
     mkdirSync(path.join(recentRun, "jobs"), { recursive: true })
+    for (const dir of [recentRun, path.join(recentRun, "jobs")]) chmodSync(dir, 0o755)
 
     const resultPath = path.join(mkTempRoot("peer-res-"), "r.json")
     const stub = writeStub(`printf ok > "$1"\nexit 0\n`)

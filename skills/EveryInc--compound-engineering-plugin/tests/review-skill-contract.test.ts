@@ -121,6 +121,16 @@ function personaPromptPath(personaName: string): string {
   return `skills/ce-code-review/references/personas/${personaName}.md`
 }
 
+async function readCodeReviewRuntimeContract(): Promise<string> {
+  const parts = await Promise.all([
+    readRepoFile("skills/ce-code-review/SKILL.md"),
+    readRepoFile("skills/ce-code-review/references/persona-catalog.md"),
+    readRepoFile("skills/ce-code-review/references/dispatch-reviewers.md"),
+    readRepoFile("skills/ce-code-review/references/finish-review.md"),
+  ])
+  return parts.join("\n")
+}
+
 describe("ce-code-review contract", () => {
   test("documents explicit modes and orchestration boundaries", async () => {
     const content = await readRepoFile("skills/ce-code-review/SKILL.md")
@@ -129,8 +139,10 @@ describe("ce-code-review contract", () => {
     expect(content).toContain("mode:autofix` is no longer supported")
     expect(content).toContain("mode:report-only")
     expect(content).toContain("mode:agent")
+    expect(content).toContain("apply:local")
     expect(content).toContain("mode:headless")
-    expect(content).toContain("/tmp/compound-engineering/ce-code-review/<run-id>/")
+    expect(content).toContain('SCRATCH_ROOT="/tmp/compound-engineering-$(id -u)"')
+    expect(content).toContain('RUN_DIR="$SCRATCH_ROOT/ce-code-review/$RUN_ID"')
     expect(content).toMatch(/Never push, open PRs, or file tickets/i)
     expect(content).toContain("run artifact")
     expect(content).toMatch(/check out the PR branch/i)
@@ -139,7 +151,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("keeps plan requirements completeness compatible with current and legacy unit formats", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     expect(content).toContain("current numeric subsections")
     expect(content).toContain("`### U1.`")
@@ -149,11 +161,11 @@ describe("ce-code-review contract", () => {
   })
 
   test("documents agent mode contract for programmatic callers", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     // mode:agent is report-only (skips Stage 5c apply); same reviewer pipeline as default
     expect(content).toContain("## Operating principles")
-    expect(content).toMatch(/`mode:agent` is \*\*report-only\*\*/i)
+    expect(content).toMatch(/Default and `mode:agent` are \*\*report-only\*\*/i)
     expect(content).toMatch(/does not change reviewer selection, merge logic, or scope rules/i)
 
     // No blocking prompts (cross-platform)
@@ -164,9 +176,10 @@ describe("ce-code-review contract", () => {
     expect(content).toContain('"status": "complete"')
     expect(content).toContain("review.json")
 
-    // mode:agent never mutates; default mode applies safe fixes (this test owns the mutate-contract assertions)
+    // Report-only is the default; mutation requires separate, explicit authority.
     expect(content).toMatch(/never mutates the tree/i)
-    expect(content).toMatch(/default \(interactive\).{0,4}mode the review applies/i)
+    expect(content).toMatch(/default.{0,40}report-only/i)
+    expect(content).toMatch(/explicit (user )?request.{0,40}(apply|fix)|explicit.{0,40}(apply|fix).{0,40}request/i)
 
     // Never checkout — explicit mutations only
     expect(content).toMatch(/Never run `gh pr checkout`/i)
@@ -185,9 +198,9 @@ describe("ce-code-review contract", () => {
   test("documents policy-driven routing and actionable handoff", async () => {
     const content = await readRepoFile("skills/ce-code-review/SKILL.md")
 
-    // Action Routing: autofix_class is signal only; mode:agent never mutates, default applies
+    // Action Routing: autofix_class is signal only; apply authority is separate.
     expect(content).toContain("## Action Routing")
-    expect(content).toMatch(/this skill does not mutate the checkout/i)
+    expect(content).toMatch(/does not grant apply permission/i)
     expect(content).toContain("references/action-class-rubric.md")
 
     // No post-review triage — report is the complete handoff
@@ -259,6 +272,18 @@ describe("ce-code-review contract", () => {
     expect(schema.properties.findings.items.properties.confidence.type).toBe("integer")
     expect(schema.properties.findings.items.properties.confidence.enum).toEqual([0, 25, 50, 75, 100])
 
+  })
+
+  test("hydrates compact reviewer returns before final output", async () => {
+    const finish = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
+
+    expect(finish).toMatch(/build a source-detail map keyed by reviewer plus the helper fingerprint/i)
+    expect(finish).toMatch(/semantic duplicate[\s\S]{0,180}original source-map keys/i)
+    expect(finish).toMatch(/Hydrate every retained primary and pre-existing finding/i)
+    expect(finish).toMatch(/non-empty `why_it_matters` string and non-empty `evidence` array/i)
+    expect(finish).toMatch(/never emit a partial finding/i)
   })
 
   test("keeps extension keywords out of draft-07 cross-model schemas", async () => {
@@ -346,7 +371,9 @@ describe("ce-code-review contract", () => {
   })
 
   test("Stage 4 spawning restates model-override imperative at point of action", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/dispatch-reviewers.md",
+    )
 
     // Model tiering subsection still enumerates the three session-model exceptions
     expect(content).toMatch(/correctness-reviewer.*security-reviewer.*adversarial-reviewer/s)
@@ -354,96 +381,93 @@ describe("ce-code-review contract", () => {
     // Imperative lives inside the Spawning subsection, not only in the rationale block.
     // Extract the Spawning subsection and assert the model-override directive appears there
     // with cross-platform dispatch primitives named at the call site.
-    const spawningMatch = content.match(/#### Spawning\n([\s\S]*?)(?=\n####|\n### )/)
-    expect(spawningMatch).not.toBeNull()
-    const spawning = spawningMatch![1]
-
-    expect(spawning).toMatch(/Model override at dispatch time/)
-    expect(spawning).toContain("platform's balanced mid-tier model")
-    expect(spawning).toContain("omit the override")
-    expect(spawning).toContain("Agent")
-    expect(spawning).toContain("spawn_agent")
-    expect(spawning).toContain("subagent")
-    expect(spawning).toMatch(/Bounded parallel dispatch/)
-    expect(spawning).toMatch(/active-subagent limit/)
-    expect(spawning).toMatch(/spawn errors as backpressure, not reviewer failure/)
-    expect(spawning).toMatch(/fill freed slots/)
+    expect(content).toMatch(/Model override at dispatch time/)
+    expect(content).toContain("platform's balanced mid-tier model")
+    expect(content).toContain("omit the override")
+    expect(content).toContain("Agent")
+    expect(content).toContain("spawn_agent")
+    expect(content).toContain("subagent")
+    expect(content).toMatch(/Bounded foreground dispatch/)
+    expect(content).toMatch(/active-agent\/thread\/concurrency-limit spawn errors as backpressure/)
+    expect(content).toMatch(/background execution off/)
+    expect(content).not.toMatch(/parallel dispatch|bounded parallel scheduler/i)
     // Exceptions are restated at point of action so the agent does not have to recall them
-    // from the Model tiering subsection above during a 12-agent parallel dispatch.
-    expect(spawning).toContain("correctness-reviewer")
-    expect(spawning).toContain("security-reviewer")
-    expect(spawning).toContain("adversarial-reviewer")
+    // from the Model tiering subsection above while advancing the foreground queue.
+    expect(content).toContain("correctness-reviewer")
+    expect(content).toContain("security-reviewer")
+    expect(content).toContain("adversarial-reviewer")
   })
 
   test("Stage 5 synthesis uses anchor gate and one-anchor promotion", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
+    const mechanics = await readRepoFile(
+      "skills/ce-code-review/scripts/findings-mechanics.py",
+    )
 
-    // Confidence value constraint is integer enum
-    expect(content).toMatch(/confidence:\s*integer in \{0, 25, 50, 75, 100\}/)
+    // Deterministic mechanics live in the helper, while the skill keeps the route inline.
+    expect(content).toContain("scripts/findings-mechanics.py")
+    expect(content).toMatch(/^SKILL_DIR="<absolute path[^\n]+>";$/m)
+    expect(mechanics).toContain("CONFIDENCES = (0, 25, 50, 75, 100)")
 
     // Confidence gate at anchor 75 with P0 exception at 50
-    expect(content).toMatch(/suppress remaining findings below anchor 75/i)
-    expect(content).toMatch(/P0 findings at anchor 50\+ survive/)
-
-    // Confidence gate runs AFTER dedup, promotion, and demotion so anchor-50 findings
-    // can be promoted by cross-reviewer agreement or rerouted to soft buckets first.
-    // This is a load-bearing ordering — if the gate runs early, promotion/demotion become unreachable.
-    expect(content).toMatch(/gate runs late deliberately/i)
+    expect(mechanics).toContain('finding["confidence"] < 75')
+    expect(mechanics).toContain('finding["severity"] != "P0"')
 
     // One-anchor promotion replaces +0.10 boost
-    expect(content).toMatch(/one anchor step.*50 -> 75.*75 -> 100/)
+    expect(mechanics).toContain("{50: 75, 75: 100, 100: 100}")
     expect(content).not.toContain("boost the merged confidence by 0.10")
 
-    // Sort by anchor descending, not "confidence (descending)"
-    expect(content).toMatch(/anchor \(descending\)/)
+    // Stable numbering is a helper responsibility.
+    expect(mechanics).toMatch(/enumerate\(survivors, 1\)/)
   })
 
   test("Stage 5b validation pass dispatches conditionally and bounds parallelism", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
     const validatorTemplate = await readRepoFile(
-      "skills/ce-code-review/references/validator-template.md",
+      "skills/ce-code-review/references/validator-batch-template.md",
     )
 
     // Stage 5b exists between Stage 5 and Stage 6
     expect(content).toContain("### Stage 5b: Validation pass")
 
-    // Stage 5b runs whenever at least one finding survives; same in default and agent
-    expect(content).toContain("Same rule for default and `mode:agent`")
-    expect(content).toMatch(/do \*\*not\*\* skip the stage/i)
+    // Cross-model corroboration is the only validator shortcut.
+    expect(content).toMatch(/ordinary reviewer plus an `adversarial-<provider>` reviewer/i)
+    expect(content).toMatch(/Same-model corroboration never licenses this shortcut/i)
 
-    // Per-finding bounded dispatch (not batched)
-    expect(content).toMatch(/per.finding bounded dispatch/i)
-    expect(content).toMatch(/Independence is the point/i)
-    expect(content).toMatch(/same bounded scheduler from Stage 4/i)
-    expect(content).toMatch(/active-subagent limit/i)
-
-    // Budget cap of 15 — validate highest-severity first; P0/P1 are never dropped for budget
-    expect(content).toMatch(/exceeds 15 findings/i)
-    expect(content).toMatch(/highest-severity 15/i)
-    expect(content).toMatch(/Never drop a P0 or P1 from validation/i)
-    expect(content).toMatch(/raise the cap to (cover|include) all of them/i)
+    // Remaining findings use one bounded foreground batch.
+    expect(content).toMatch(/deterministic validator batch/i)
+    expect(content).toMatch(/Eight findings is the normal cap/i)
+    expect(content).toMatch(/expand that same batch.*include every surviving P0\/P1/i)
+    expect(content).toMatch(/never split the work into another batch/i)
+    expect(content).toMatch(/Run the validator batch foreground/i)
+    expect(content).toMatch(/Cost, elapsed time, confidence.*never licenses an additional skip/i)
 
     // Validator template exists and is read-only
-    expect(validatorTemplate).toContain("independent validator")
-    expect(validatorTemplate).toContain("operationally read-only")
+    expect(validatorTemplate).toMatch(/validator is independent|independent validation gate/i)
+    expect(validatorTemplate).toMatch(/Eight findings is the normal cap/i)
+    expect(validatorTemplate).toMatch(/expand that same batch.*every surviving P0\/P1/i)
+    expect(validatorTemplate).toMatch(/read-only tools|Do not edit, commit, push, or mutate files/i)
     expect(validatorTemplate).toContain('"validated": true | false')
-    expect(validatorTemplate).toMatch(/introduced by THIS diff/i)
-    expect(validatorTemplate).toMatch(/handled elsewhere/i)
-    // Load-bearing provenance: prefer short-hash in reason; soft miss when omitted
-    expect(validatorTemplate).toMatch(/short-hash provenance/i)
-    expect(validatorTemplate).toMatch(/soft quality miss/i)
-    expect(validatorTemplate).toMatch(/provenance:/i)
+    expect(validatorTemplate).toMatch(/predates and is unaffected by this diff/i)
+    expect(validatorTemplate).toMatch(/surrounding code handles it/i)
+    expect(validatorTemplate).toMatch(/one verdict for every input # exactly once/i)
+    expect(validatorTemplate).toMatch(/Do not invent new findings/i)
   })
 
-  test("Stage 5c applies safe fixes in default mode, report-only in mode:agent, no deny-list", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+  test("Stage 5c requires explicit local-apply authority and mode:agent is always report-only", async () => {
+    const content = await readCodeReviewRuntimeContract()
     const template = await readRepoFile(
       "skills/ce-code-review/references/review-output-template.md",
     )
 
-    // New act stage, default-mode only; mode:agent stays report-only
+    // Act stage is separately authorized; bare and mode:agent invocations stay report-only.
     expect(content).toContain("### Stage 5c: Act on findings")
-    expect(content).toMatch(/Skip entirely in `mode:agent`/i)
+    expect(content).toMatch(/Skip unless local apply was explicitly authorized/i)
+    expect(content).toMatch(/bare `\/ce-code-review`.{0,80}does not apply/i)
     expect(content).toMatch(/`mode:agent` does not apply fixes/i)
 
     // Bias to act, push back if wrong, no deny-list
@@ -458,15 +482,70 @@ describe("ce-code-review contract", () => {
     expect(content).toMatch(/Never push, open a PR, or file tickets/i)
 
     // Applied reporting (skill + template)
-    expect(content).toMatch(/Applied \(default mode only\)/i)
+    expect(content).toMatch(/Applied \(explicit local apply only\)/i)
     expect(template).toContain("### Applied")
 
-    // No apply mode revived
-    expect(content).toMatch(/there is no apply \*?mode\*?/i)
+    // Apply is an authority token, not an output mode.
+    expect(content).toMatch(/`apply:local` is authority, not an output mode/i)
+  })
+
+  test("right-sizes generic reviewers with explicit domain gates", async () => {
+    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const catalog = await readRepoFile(
+      "skills/ce-code-review/references/persona-catalog.md",
+    )
+    const docs = await readRepoFile("docs/skills/ce-code-review.md")
+
+    expect(content).toContain("**Core (always-on):** `correctness-reviewer`.")
+    expect(content).toMatch(/project-standards-reviewer.*only when Stage 3b finds/i)
+    expect(content).toMatch(/testing-reviewer.*test files|test files.*testing-reviewer/i)
+    expect(content).toMatch(/testing-reviewer[\s\S]*meaningful runtime behavior without corresponding test work/i)
+    expect(content).toMatch(/Production-file presence alone[\s\S]*non-behavioral edits do not select/i)
+    expect(content).toMatch(/maintainability-reviewer.*(large|structural|refactor)/i)
+    expect(content).toMatch(/agent-native-reviewer.*agent-facing/i)
+    expect(content).toMatch(/learnings-researcher.*docs\/solutions/i)
+
+    expect(catalog).toContain("## Core and standards gate")
+    expect(catalog).toContain("## Generic conditional")
+    expect(catalog).toMatch(/testing.*test files/i)
+    expect(catalog).toMatch(/testing[\s\S]*meaningful runtime behavior changed without corresponding test work/i)
+    expect(catalog).toMatch(/production-file presence alone is insufficient/i)
+    expect(catalog).toMatch(/agent-native.*agent-facing/i)
+
+    expect(docs).toMatch(/testing for changed tests\/harnesses or meaningful runtime behavior with no corresponding test work/i)
+    expect(docs).toMatch(/Production-file presence alone and non-behavioral edits do not select testing/i)
+  })
+
+  test("keeps the fast pass visible only for urgent preliminary findings", async () => {
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/dispatch-reviewers.md",
+    )
+
+    expect(content).toMatch(/fast pass.{0,120}P0\/P1/i)
+    expect(content).toMatch(/P2\/P3.{0,80}final report/i)
+    expect(content).toMatch(/(never|do \*\*not\*\*) assign stable `#`/i)
+    expect(content).toMatch(/immediately before the first foreground reviewer dispatch/i)
+    expect(content).not.toMatch(/While local reviewers run, do the inline fast pass/i)
+  })
+
+  test("allows project standards inside the lite roster without disabling it", async () => {
+    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+
+    expect(content).toMatch(
+      /Stage 3b standards discovery completed successfully \(with applicable paths or a confirmed empty result\)/i,
+    )
+    expect(content).toMatch(
+      /No conditional persona other than `project-standards` was selected in Stage 3/i,
+    )
+    expect(content).toMatch(
+      /Lite roster:[\s\S]{0,200}`project-standards-reviewer` only when Stage 3b found applicable paths/i,
+    )
   })
 
   test("findings presentation is action-shaped and enforces hard constraints, mirrors the template", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
     const template = await readRepoFile(
       "skills/ce-code-review/references/review-output-template.md",
     )
@@ -534,6 +613,7 @@ describe("ce-code-review contract", () => {
 
   test("remote scope modes forbid workspace inspection on wrong tree", async () => {
     const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const stage2c = skill.split("### Stage 3:")[0].split("### Stage 2c:")[1]
     const diffScope = await readRepoFile(
       "skills/ce-code-review/references/diff-scope.md",
     )
@@ -546,6 +626,9 @@ describe("ce-code-review contract", () => {
     expect(skill).toMatch(/local-aligned.*local tree diff/i)
     expect(skill).not.toMatch(/append.*`DIFF:`.*unpushed/i)
     expect(skill).toMatch(/Do \*\*not\*\* call `gh pr diff` or append remote hunks/)
+    expect(stage2c).toMatch(
+      /pr-remote.*branch-remote.*targeted probe.*`git show`.*reviewed head ref.*supplied diff hunks.*never inspect workspace paths/is,
+    )
 
     expect(diffScope).toContain("branch-remote")
     expect(diffScope).toContain("pr-remote")
@@ -554,30 +637,36 @@ describe("ce-code-review contract", () => {
   })
 
   test("mode-aware demotion routes weak general-quality findings to soft buckets", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
+    const stage5 = content.split("### Stage 5b:")[0].split("### Stage 5:")[1]
 
-    // Mode-aware demotion step exists (sub-step within Stage 5; numbering may shift if steps reorder)
-    expect(content).toMatch(/Mode-aware demotion of weak general-quality findings/i)
-
-    // Conservative scope: testing + maintainability personas only
-    expect(content).toContain("`testing` or `maintainability`")
-
-    // Severity P2 or P3 only (P0/P1 always stay primary)
-    expect(content).toMatch(/Severity is P2 or P3/)
-
-    // autofix_class is advisory
-    expect(content).toMatch(/`autofix_class` is `advisory`/)
+    expect(content).toMatch(/Soft-bucket demotion/i)
+    expect(content).toMatch(/single-reviewer P2\/P3 advisory from `testing`/)
+    expect(content).toMatch(/from `maintainability`, `reliability`, or an adversarial reviewer/)
+    expect(content).toMatch(/Inspect both surviving `findings` and `suppressed_findings`/)
 
     // Route demoted findings to soft buckets
     expect(content).toMatch(/`testing_gaps`/)
     expect(content).toMatch(/`residual_risks`/)
 
-    // Demotion entry uses title-only (compact return omits why_it_matters)
-    expect(content).toMatch(/append `<file:line> -- <title>` to/)
-    expect(content).toMatch(/compact return omits/i)
-
     // Coverage section reports demotion count
     expect(content).toMatch(/mode-aware demotion/)
+
+    // Confidence-gated candidates remain non-primary after soft-bucket inspection
+    expect(content).toMatch(/Suppressed candidates routed here remain absent from primary `findings`/)
+    expect(content).toMatch(/discard all other `suppressed_findings`/)
+
+    // Settlement reconciliation owns suppressed preferences before the remainder is discarded.
+    expect(stage5).toMatch(/Settled decisions[\s\S]*surviving `findings` and `suppressed_findings`/)
+    expect(stage5).toMatch(/include it in the synthetic rerun[\s\S]*helper preserves it in the primary report/)
+    expect(stage5.indexOf("**Settled decisions.**")).toBeLessThan(
+      stage5.indexOf("**Soft-bucket demotion before validation.**"),
+    )
+    expect(stage5).toMatch(
+      /Soft-bucket demotion[\s\S]*Keep every `settled_conflict`-stamped finding primary/,
+    )
   })
 
   test("personas use anchored rubric language and no float references remain", async () => {
@@ -662,10 +751,10 @@ describe("ce-code-review contract", () => {
 
   test("JSON-pipeline prompt assets stay frontmatter-free while template permits artifact write", async () => {
     // The ce-code-review subagent template instructs each persona to write its full
-    // analysis to /tmp/compound-engineering/ce-code-review/{run_id}/{reviewer}.json.
+    // analysis to the absolute {run_dir}/{reviewer}.json supplied by the orchestrator.
     // Prompt assets no longer carry tool frontmatter; the caller/template owns
     // artifact-write permission in the generic subagent dispatch.
-    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const skill = await readCodeReviewRuntimeContract()
     const template = await readRepoFile(
       "skills/ce-code-review/references/subagent-template.md",
     )
@@ -846,17 +935,21 @@ describe("ce-code-review contract", () => {
   })
 
   test("ce-code-review uses stable sequential finding numbers across grouped output", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
+    const mechanics = await readRepoFile(
+      "skills/ce-code-review/scripts/findings-mechanics.py",
+    )
     const template = await readRepoFile(
       "skills/ce-code-review/references/review-output-template.md",
     )
     const fixture = await readRepoFile("tests/fixtures/ce-code-review-stable-numbering.md")
 
     const stage5 = content.split("### Stage 5b:")[0].split("### Stage 5:")[1]
-    expect(stage5).toMatch(/Sort and number/)
-    expect(stage5).toMatch(/Do not restart numbering inside each severity table, triage group, or autofix\/routing bucket/)
-    expect(stage5).toMatch(/reuse the same stable `#`/)
-    expect(stage5).toMatch(/downstream workflows/)
+    expect(stage5).toMatch(/stable `#` numbering/)
+    expect(stage5).toMatch(/reuse the (same |helper's )?stable `#`/i)
+    expect(mechanics).toMatch(/enumerate\(survivors, 1\)/)
 
     const stage6 = content.split("### Headless output format")[0].split("### Stage 6: Synthesize and present")[1]
     expect(stage6).toContain("Finding numbers come from the stable assignment in Stage 5")
@@ -910,15 +1003,15 @@ describe("ce-code-review contract", () => {
   })
 
   test("Stage 5 builds triage groups without mutating findings", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
     const stage5 = content.split("### Stage 5b:")[0].split("### Stage 5:")[1]
 
     expect(stage5).toMatch(/Build thematic triage groups/)
     // Grouping is distinct from dedup and never alters the merged finding set
     expect(stage5).toMatch(/distinct from deduplication/)
-    expect(stage5).toMatch(/never change a finding's severity, confidence, route, owner, or stable `#`/)
-    // Stable numbering extends across groups, same as severity tables
-    expect(stage5).toMatch(/Do not restart numbering inside each severity table, triage group, or autofix\/routing bucket/)
+    expect(stage5).toMatch(/never merge findings or change severity, confidence, route, owner, or stable `#`/)
     // auto triggers on distinct concerns (mirrors plan Requirements grouping), not item count
     expect(stage5).toMatch(/the trigger is distinct concerns, not item count/)
     expect(stage5).toMatch(/prefer no groups over decorative single-item groups/)
@@ -926,12 +1019,14 @@ describe("ce-code-review contract", () => {
   })
 
   test("triage groups are pruned after validation drops and after apply", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
 
     // Stage 5b: groups never reference findings dropped by validation
     const stage5b = content.split("### Stage 5c:")[0].split("### Stage 5b:")[1]
     expect(stage5b).toMatch(/Prune triage groups after drops/)
-    expect(stage5b).toMatch(/must never reference a `#` that was rejected or dropped/)
+    expect(stage5b).toMatch(/record the batch, per-finding verdicts, failures, and degraded blockers/)
 
     // Stage 5c: groups describe remaining work — applied findings leave the groups
     const stage5c = content.split("### Stage 6:")[0].split("### Stage 5c:")[1]
@@ -940,7 +1035,9 @@ describe("ce-code-review contract", () => {
   })
 
   test("triage groups render as a stable-numbered pipe table and JSON field", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/finish-review.md",
+    )
     const template = await readRepoFile(
       "skills/ce-code-review/references/review-output-template.md",
     )
@@ -1057,10 +1154,13 @@ describe("cross-model peer skip legibility", () => {
   }
 
   test("code-review promotion requires a verified independent serving family", async () => {
-    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
-    expect(skill).toContain("top-level `independence_verified` is `true`")
-    expect(skill).toContain("cannot trigger promotion")
-    expect(skill).toContain("unverified Cursor default/Auto")
+    const skill = await readCodeReviewRuntimeContract()
+    const mechanics = await readRepoFile(
+      "skills/ce-code-review/scripts/findings-mechanics.py",
+    )
+    expect(skill).toMatch(/`independence_verified:?\s*true`/)
+    expect(mechanics).toContain('source.get("independence_verified") is True')
+    expect(mechanics).toContain('name.startswith("adversarial-")')
   })
 
   test("review-skill behavioral eval specs exercise the fixed-route U8 contract", async () => {

@@ -15,7 +15,7 @@ The skill is prose-first and uses the active agent's available capabilities. It 
 | What does it do? | Creates an immutable session snapshot, or discovers and orients from a user-selected continuity source |
 | When to use it | Before ending a useful agent session, or when a new agent needs to recover prior context |
 | What does bare `/ce-handoff` do? | Always creates a new handoff |
-| Where does it write? | By default, `/tmp/compound-engineering/ce-handoff/<repo-namespace>/<topic>.md`; an explicit user path, format, or publication destination overrides the default |
+| Where does it write? | By default, `/tmp/compound-engineering-<effective-uid>/ce-handoff/<repo-namespace>/<topic>.md`; an explicit user path, format, or publication destination overrides the default |
 | What do I paste into the next session? | `/ce-handoff resume <path-or-URL>` |
 | What happens after resume? | The agent summarizes the recovered context, suggests one or more next actions, and waits for the user |
 
@@ -64,7 +64,7 @@ Both create a new handoff. The bare form always means create.
 Creation ends with the exact command needed in the receiving session:
 
 ```text
-/ce-handoff resume /tmp/compound-engineering/ce-handoff/.../auth-migration.md
+/ce-handoff resume /tmp/compound-engineering-<effective-uid>/ce-handoff/.../auth-migration.md
 ```
 
 Before the command, the creation response briefly summarizes what the handoff captured so the user can confirm its substance without opening the file. The skill then prints this compact command as the source of truth rather than generating a longer launch prompt.

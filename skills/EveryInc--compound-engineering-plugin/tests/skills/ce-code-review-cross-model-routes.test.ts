@@ -395,6 +395,39 @@ describe("cross-model-adversarial-review skip paths — non-blocking, no file", 
     expect(r.code).toBe(0)
     expect(r.stderr).toContain("peer skip evidence (stderr): schema invalid")
   })
+
+  test("surfaces structured Claude auth errors even when the envelope is long", () => {
+    const payload = JSON.stringify({
+      result: "Not logged in · Please run /login",
+      filler: "x".repeat(1000),
+      api_error_status: null,
+      terminal_reason: "api_error",
+    })
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '${payload}'\nexit 1\n`,
+    )
+    const runDir = makeRunDir()
+    const r = run(["codex", "claude", "HEAD", runDir], runDir, env)
+    expect(r.stderr).toContain("Not logged in")
+    expect(r.stderr).toContain("terminal_reason=api_error")
+  })
+
+  test("ancillary structured fields do not hide an unrecognized human-readable diagnostic", () => {
+    const payload = JSON.stringify({
+      diagnostic: "Provider rejected the request for this account",
+      terminal_reason: "api_error",
+    })
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '${payload}'\nexit 1\n`,
+    )
+    const runDir = makeRunDir()
+    const r = run(["codex", "claude", "HEAD", runDir], runDir, env)
+
+    expect(r.stderr).toContain("Provider rejected the request for this account")
+    expect(r.stderr).toContain("terminal_reason=api_error")
+  })
 })
 
 describe("cross-model-adversarial-review normalization", () => {

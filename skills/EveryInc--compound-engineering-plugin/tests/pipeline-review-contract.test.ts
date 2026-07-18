@@ -676,9 +676,10 @@ describe("ce-compound Phase 1 artifact contract", () => {
 
     // A run identifier scopes the per-subagent artifact files
     expect(content).toContain("RUN_ID")
-    // Run dir under the shared cross-invocation scratch namespace
-    expect(content).toContain("/tmp/compound-engineering/ce-compound/")
-    expect(content).toContain('mkdir -p "/tmp/compound-engineering/ce-compound/')
+    // Run dir under the validated owner-private scratch namespace
+    expect(content).toContain('SCRATCH_ROOT="/tmp/compound-engineering-$(id -u)"')
+    expect(content).toContain('RUN_DIR="$SCRATCH_ROOT/ce-compound/$RUN_ID"')
+    expect(content).toContain('(umask 077; mkdir -p "$RUN_DIR")')
   })
 
   test("Phase 1 subagents write full output to the run-artifact path", async () => {
@@ -690,7 +691,7 @@ describe("ce-compound Phase 1 artifact contract", () => {
     )
 
     // Subagents are instructed to write their full structured output to the run dir
-    expect(phase1).toContain("/tmp/compound-engineering/ce-compound/")
+    expect(phase1).toContain("{run_dir}")
     // ...and return a compact confirmation containing the artifact path
     expect(phase1.toLowerCase()).toContain("artifact path")
     // Inline return is required whenever the write did not succeed (not only when
@@ -708,7 +709,7 @@ describe("ce-compound Phase 1 artifact contract", () => {
     )
 
     // Orchestrator reads the per-subagent artifact files
-    expect(phase2).toContain("/tmp/compound-engineering/ce-compound/")
+    expect(phase2).toContain("{run_dir}")
     // Inline return is the documented fallback when the artifact is absent
     expect(phase2.toLowerCase()).toContain("fall back")
   })

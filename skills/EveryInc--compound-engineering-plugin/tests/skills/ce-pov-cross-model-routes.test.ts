@@ -98,7 +98,9 @@ describe("ce-pov cross-model route safety", () => {
     expect(emit("codex")).toContain("-s read-only")
     expect(emit("codex")).toContain("-C <read-root>")
     expect(emit("claude")).toContain("--permission-mode dontAsk")
-    expect(emit("claude")).toContain("--bare")
+    expect(emit("claude")).toContain("--safe-mode")
+    expect(emit("claude")).toContain("--disable-slash-commands")
+    expect(emit("claude")).not.toContain("--bare")
     expect(emit("grok-cli")).toContain("--cwd <read-root>")
     expect(emit("grok-cli")).toContain("--deny Edit")
     expect(emit("grok-cli")).toContain("--deny Write")
@@ -279,6 +281,39 @@ describe("ce-pov output gate and receipts", () => {
     expect(result.stderr).toContain("peer skip evidence")
     expect(result.stderr).toContain("quota exhausted")
     expect(readdirSync(scratchParent)).toEqual([])
+  })
+
+  test("structured Claude errors preserve the actionable result before the envelope tail", () => {
+    const envelope = JSON.stringify({
+      type: "result",
+      is_error: true,
+      api_error_status: null,
+      result: "Not logged in - Please run /login",
+      padding: "x".repeat(1000),
+      terminal_reason: "api_error",
+    })
+    const { env } = sandbox(["claude"], `#!/bin/sh\ncat >/dev/null\nprintf '%s' '${envelope}'\nexit 1\n`)
+    const dir = runDir()
+    const result = run(["codex", "claude", payload(), dir], dir, env)
+
+    expect(result.files).not.toContain("pov-claude.json")
+    expect(result.stderr).toContain("Not logged in - Please run /login")
+    expect(result.stderr).toContain("terminal_reason=api_error")
+  })
+
+  test("ancillary structured fields do not hide an unrecognized human-readable diagnostic", () => {
+    const envelope = JSON.stringify({
+      type: "result",
+      diagnostic: "Provider rejected the request for this account",
+      terminal_reason: "api_error",
+    })
+    const { env } = sandbox(["claude"], `#!/bin/sh\ncat >/dev/null\nprintf '%s' '${envelope}'\nexit 1\n`)
+    const dir = runDir()
+    const result = run(["codex", "claude", payload(), dir], dir, env)
+
+    expect(result.files).not.toContain("pov-claude.json")
+    expect(result.stderr).toContain("Provider rejected the request for this account")
+    expect(result.stderr).toContain("terminal_reason=api_error")
   })
 
   test("schema-valid output from a timed-out peer is discarded and scratch is cleaned", () => {

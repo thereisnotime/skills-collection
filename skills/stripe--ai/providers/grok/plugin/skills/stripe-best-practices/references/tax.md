@@ -8,6 +8,7 @@
 - Choosing a product tax code
 - Diagnose zero tax
 - Per-integration setup
+- Connect platforms and marketplaces
 - Threshold and nexus monitoring
 - Registration safety
 - If jurisdictions are unknown
@@ -39,12 +40,12 @@ After enabling `automatic_tax`, don’t assume the setup is complete: tax is onl
 A product tax code (PTC) tells Stripe how to tax a product.
 
 - Never invent, guess, or hardcode a `txcd_` from memory. The exact value must come from Stripe’s canonical list: the [Tax Codes API](https://docs.stripe.com/api/tax_codes.md) or the [tax code guide](https://docs.stripe.com/tax/tax-codes.md).
-- Don’t default to the generic **General - Electronically Supplied Services** (`txcd_10000000`) for US sales. It’s too broad for US state-level taxability; pick a specific digital or SaaS code. See [tax codes for AI and digital products](https://docs.stripe.com/tax/ai.md).
+- Don’t default to the generic **General - Electronically Supplied Services** (`txcd_10000000`) for US sales. It’s too broad for US state-level taxability; pick a specific digital or SaaS code. See [tax codes for digital products](https://docs.stripe.com/tax/digital-products.md) and [tax codes for AI services](https://docs.stripe.com/tax/ai.md).
 - Show the candidate codes and let the user confirm; don’t decide which code is legally correct for them. (Tax code goes on the Product, `tax_behavior` on the Price. See [product tax codes and tax behavior](https://docs.stripe.com/tax/products-prices-tax-codes-tax-behavior.md).)
 
 ## Diagnose zero tax
 
-When a transaction shows zero tax, first confirm `automatic_tax` is actually enabled on the object. If it isn’t, Stripe doesn’t calculate tax at all. If it is, read the `taxability_reason` on the line item’s `taxes` to see why.
+When a transaction shows zero tax, first confirm `automatic_tax` is actually enabled on the object. If it isn’t, Stripe doesn’t calculate tax at all. If it is, read the `taxability_reason` on the line item’s `taxes` to see why. On a Checkout Session, that breakdown isn’t returned by default: retrieve the session with `expand[]=line_items.data.taxes`.
 
 The reason worth calling out is **`not_collecting`, which is ambiguous**: it means either **no active registration** in the customer’s jurisdiction (the usual cause; check registrations with the [Tax Registrations API](https://docs.stripe.com/api/tax/registrations.md)) **or** a **Nontaxable product tax code** (`txcd_00000000`) on the product. `taxability_reason` can’t tell the two apart, so check the product’s tax code and rule out the Nontaxable code before concluding it’s a registration gap.
 
@@ -54,11 +55,22 @@ For the other reasons (exempt products or customers, reverse charge, unsupported
 
 Every integration needs a resolvable customer address and an active registration in that jurisdiction. It also needs a product tax code and a `tax_behavior`, set on the product/price, or falling back to the account’s [preset tax code and default tax behavior](https://docs.stripe.com/tax/products-prices-tax-codes-tax-behavior.md).
 
-- **Checkout Sessions**: set `automatic_tax: { enabled: true }`. Checkout handles the address it needs for tax by default; don’t force `billing_address_collection: 'required'` (unnecessary for tax, and it adds checkout friction). See [tax on Checkout](https://docs.stripe.com/tax/checkout.md).
+- **Checkout Sessions**: set `automatic_tax: { enabled: true }`. For a new customer, Checkout collects the address it needs, so don’t force `billing_address_collection: 'required'` (unnecessary for tax, and it adds checkout friction). For an existing or returning customer, Checkout uses their saved address by default; to tax the address entered at checkout instead, set `customer_update: { address: 'auto' }` and make sure Checkout actually collects a fresh address (a collected shipping address, or `billing_address_collection: 'required'` when you don’t collect shipping), or it keeps using the saved one. See [tax on Checkout](https://docs.stripe.com/tax/checkout.md).
 - **Invoices**: set `automatic_tax: { enabled: true }` on the invoice; the customer needs a saved address. See the [Invoices API](https://docs.stripe.com/api/invoices.md).
 - **Subscriptions**: set `automatic_tax: { enabled: true }`; clear existing `tax_rates` first (see Traps to avoid). See the [Subscriptions API](https://docs.stripe.com/api/subscriptions.md).
 - **Payment Links**: set `automatic_tax: { enabled: true }`.
-- **Custom PaymentIntents**: there’s no `automatic_tax` field. Use the [Tax Calculations API](https://docs.stripe.com/api/tax/calculations.md) with the customer’s address, then create the PaymentIntent from the calculation. The PaymentIntent has no tax toggle, so this path is often missed.
+- **Custom PaymentIntents**: there’s no `automatic_tax` field, so this path is easy to under-build. Create a [tax calculation](https://docs.stripe.com/api/tax/calculations.md) with the customer’s address, set the PaymentIntent `amount` to the calculation total, and link the calculation to the PaymentIntent. You must also record a tax transaction from the calculation after payment, or the sale never appears in tax reports: the [simplified integration](https://docs.stripe.com/tax/payment-intent/simplified.md) records the transaction and refund reversals automatically once the calculation is linked, while the [custom integration](https://docs.stripe.com/tax/payment-intent/custom.md) records them yourself for line-item control.
+
+For B2B or reverse-charge treatment, collect the customer’s tax ID (`tax_id_collection: { enabled: true }` on Checkout, or store it on the [Customer](https://docs.stripe.com/billing/customer/tax-ids.md)). Without a valid tax ID, Stripe Tax treats a cross-border B2B sale as B2C and charges tax. See [collect tax IDs](https://docs.stripe.com/tax/checkout/tax-ids.md).
+
+## Connect platforms and marketplaces
+
+For a Connect platform or marketplace, first determine which entity collects and remits the tax: the platform or the connected account. This is a legal determination, so route the final call to the user’s tax advisor rather than inferring it from whether they call themselves a platform or a marketplace. The practical signal is who the [merchant of record](https://docs.stripe.com/connect/merchant-of-record.md) is, which follows the charge type: direct charges make the connected account the merchant of record, and destination charges usually make it the platform. Marketplace-facilitator rules can override this, so have the advisor confirm. See [Stripe Tax with Connect](https://docs.stripe.com/tax/connect.md) for the decision.
+
+Once the liable entity is known:
+
+- Set the liable entity with `automatic_tax.liability` on Checkout, Invoices, Subscriptions, or Payment Links: `{ type: 'self' }` for the platform, or `{ type: 'account', account: '<id>' }` for the connected account. Destination and separate charges support both; a platform-liable direct charge uses the gated `{ type: 'application' }`. Custom PaymentIntents have no `automatic_tax` field, so follow the PaymentIntents path in the guides instead. Pick the guide by outcome: connected account collects, [tax for platforms](https://docs.stripe.com/tax/tax-for-platforms.md); platform collects, [tax for marketplaces](https://docs.stripe.com/tax/tax-for-marketplaces.md).
+- Registrations and tax settings belong to the liable entity. When the connected account is liable, confirm its [tax settings](https://docs.stripe.com/tax/settings-api.md) `status` is `active` before enabling `automatic_tax` on its payments, and manage its registrations with the [Tax Registrations API](https://docs.stripe.com/api/tax/registrations.md) using the `Stripe-Account` header (or Connect embedded components).
 
 ## Threshold and nexus monitoring
 
@@ -77,6 +89,8 @@ Guide, don’t advise. Never tell a user where they must register or whether the
 - **Register themselves, then record it in Stripe**: the user registers with the tax authority, then records it with the [Tax Registrations API](https://docs.stripe.com/api/tax/registrations.md) or the Dashboard. See [Register for tax](https://docs.stripe.com/tax/registering.md).
 - **Ask Stripe to register (US only)**: for remote, out-of-state sellers with no physical presence in the state; no public API, requires a Tax Complete subscription, and doesn’t support in-state registrations. See [Use Stripe to register](https://docs.stripe.com/tax/use-stripe-to-register.md).
 - **Register outside the US with Taxually**: no public API; done through the Taxually app. See [Register outside the US with Taxually](https://docs.stripe.com/tax/use-taxually-to-register.md).
+
+**Reporting and filing.** Stripe Tax calculates and collects tax but doesn’t file returns unless the user is on a filing product. Point users to the Dashboard [tax reports and exports](https://docs.stripe.com/tax/reports.md) to reconcile and remit; filing runs through Stripe (US) or Taxually (non-US).
 
 ## If jurisdictions are unknown
 

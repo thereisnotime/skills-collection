@@ -15,7 +15,8 @@ Subcommands:
   snapshot --pr N [--repo O/R] --state-dir DIR [--fetch-file F]
            Fetch (or load F), diff against on-disk state, persist the
            observed state atomically, emit the actionable set as JSON.
-  mark     --state-dir DIR (--thread ID --disposition needs-human|dispatched
+  mark     --state-dir DIR --invocation-id ID --session-started-at TIME
+           --invocation-budget-seconds N (--thread ID --disposition needs-human|dispatched
            | --comment ID --disposition needs-human|dispatched | --check KEY)
            Record that the agent acted on an item. A `dispatched` thread is
            re-emitted when a later reviewer comment moves its last-comment
@@ -56,8 +57,8 @@ RELATIONSHIP_DEPENDENT = "dependent"
 RELATIONSHIP_INDEPENDENT = "independent"
 RELATIONSHIP_PROBE_ERROR = "probe-error"
 
-# A present in-progress review signal (👀) blocks a merge-ready read — but never terminally: after
-# this much quiet a stale/never-cleared signal is ignored so the PR can still be called ready.
+# First judgment point for an incomplete review lifecycle. The agent may extend once to 1800s when
+# concrete prior-round timing supports it; the skill contract owns that semantic decision.
 REVIEW_INPROGRESS_MAX_WAIT = 900
 
 # Trajectory check-history states (persisted, compared by ==).
@@ -72,9 +73,21 @@ STREAM_REVIEW = "review"
 # unseen for this many ticks.
 CHECK_HISTORY_TTL = 30
 
+# One invocation is a bounded monitoring shift, not the lifetime of the PR. Eight hours covers a
+# maximum-length GitHub-hosted Actions job (six hours) plus reaction and settle time. Callers may
+# choose another fixed value on the first snapshot; later commands must present the same value.
+DEFAULT_INVOCATION_BUDGET_SECONDS = 8 * 60 * 60
+
 
 class _WatchSuperseded(Exception):
     """Internal control flow: this watch lost ownership and must unwind immediately."""
+
+
+class _InvocationSuperseded(Exception):
+    """Internal control flow: this watch belongs to an invocation that was replaced."""
+
+    def __init__(self, current_invocation_id):
+        self.current_invocation_id = current_invocation_id
 
 
 def _now():
@@ -136,6 +149,35 @@ def _resolve_repo_ref(repo, url):
 def _host_args(host):
     """`gh api --hostname` selector so GHE calls hit the PR's host, not the default github.com."""
     return ["--hostname", host] if host else []
+
+
+def _eyes_reaction_identities(reaction_pages):
+    """Stable identities for current PR-body eyes reactors from paginated REST results."""
+    if not isinstance(reaction_pages, list):
+        return []
+    reactions = [reaction for page in reaction_pages for reaction in page] \
+        if reaction_pages and all(isinstance(page, list) for page in reaction_pages) else reaction_pages
+    identities = []
+    for reaction in reactions:
+        if not isinstance(reaction, dict) or reaction.get("content") not in (None, "eyes"):
+            continue
+        user = reaction.get("user") or {}
+        identity = user.get("node_id") or user.get("id") or user.get("login")
+        # Deleted-user reactions have no user identity. The reaction identity still lets an
+        # add/remove or same-count substitution move the lifecycle instead of becoming invisible.
+        identity = identity or reaction.get("node_id") or reaction.get("id")
+        if identity is not None:
+            identities.append(str(identity))
+    return sorted(set(identities))
+
+
+def fetch_eyes_reactors(pr, owner, name, host=None):
+    """Fetch every current PR-body eyes reactor; `gh pr view` exposes only their count."""
+    r = _run_checked([
+        "gh", "api", *_host_args(host), "--paginate", "--slurp",
+        f"repos/{owner}/{name}/issues/{pr}/reactions?content=eyes&per_page=100",
+    ], "gh api reactions")
+    return _eyes_reaction_identities(json.loads(r.stdout))
 
 
 def _stack_schema_unavailable(stderr):
@@ -379,7 +421,7 @@ def fetch(pr, repo):
     repo_args = ["--repo", repo] if repo else []
     view = _run_checked(["gh", "pr", "view", str(pr), *repo_args, "--json",
                          "state,mergeable,mergeStateStatus,reviewDecision,headRefOid,baseRefName,headRefName,url,number,"
-                         "statusCheckRollup,author,comments,reviews,reactionGroups"],
+                         "statusCheckRollup,author,comments,reviews"],
                         "gh pr view")
     v = json.loads(view.stdout)
 
@@ -406,15 +448,16 @@ def fetch(pr, repo):
                 "details_url": c.get("detailsUrl"),
             })
 
+    owner, name, host = _resolve_repo_ref(repo, v.get("url"))
+
     # In-progress review signal: an 👀 (EYES) reaction on the PR body is how several review bots
     # (Codex among them) announce a review is *underway* — a present in-progress signal means the PR
     # is NOT settled, regardless of quiet time. A present signal is meaningful; absence tells us
     # nothing (many reviewers give no signal), so this only ever *delays* a merge-ready read.
-    review_in_progress = any(
-        g.get("content") == "EYES" and (g.get("users") or {}).get("totalCount", 0) > 0
-        for g in v.get("reactionGroups") or [])
+    review_signal_identities = fetch_eyes_reactors(v.get("number") or pr, owner, name, host)
+    review_signal_count = len(review_signal_identities)
+    review_in_progress = review_signal_count > 0
 
-    owner, name, host = _resolve_repo_ref(repo, v.get("url"))
     head = v.get("headRefOid")
     return {
         "pr_state": v.get("state"),
@@ -425,6 +468,8 @@ def fetch(pr, repo):
         "url": v.get("url"),
         "checks": checks,
         "review_in_progress": review_in_progress,
+        "review_signal_count": review_signal_count,
+        "review_signal_identities": review_signal_identities,
         "threads": fetch_threads(pr, owner, name, host),
         # Non-thread feedback: top-level PR comments + review submission bodies. ce-resolve-pr-feedback
         # handles these too, so a Changes-Requested review body or an actionable top-level comment with
@@ -526,11 +571,16 @@ query($owner:String!,$repo:String!,$pr:Int!,$cursor:String){
 
 def _empty_state(pr, repo, url, now):
     owner, name = _split_repo(repo)
+    created_at = _iso(now)
     return {
         "pr": {"owner": owner, "repo": name, "number": pr, "url": url},
-        "head_sha": None, "tick": 0, "started_at": _iso(now),
+        "head_sha": None, "tick": 0, "state_created_at": created_at,
+        "started_at": created_at, "invocation_id": None, "invocation_budget_seconds": None,
         "checks": {}, "threads": {}, "ci_dispatched": {},
         "review_decision": None, "mergeable": None, "merge_state_status": None,
+        "review_in_progress": False, "review_signal_count": 0, "review_signal_identities": [],
+        "review_signal_seen_on_head": False,
+        "review_signal_first_seen_at": None, "review_signal_last_changed_at": None,
         "pr_chain": _default_pr_chain(),
         "last_change_at": None, "last_action": None, "stop_reason": None,
         "watch_generation": None, "watch_pid": None, "watch_process_identity": None,
@@ -751,10 +801,45 @@ def diff(state, cur, now=None, advance_trajectory=True):
     prior_threads = state.get("threads", {})
     prior_feedback = state.get("feedback", {})
     prior_change_sig = _change_sig(state)
+    prior_review_in_progress = bool(state.get("review_in_progress", False))
+    prior_review_signal_count = state.get("review_signal_count")
+    if prior_review_signal_count is None:
+        prior_review_signal_count = 1 if prior_review_in_progress else 0
+    review_in_progress = bool(cur.get("review_in_progress", False))
+    review_signal_count = cur.get("review_signal_count")
+    if review_signal_count is None:
+        review_signal_count = 1 if review_in_progress else 0
+    prior_review_signal_identities = state.get("review_signal_identities")
+    if not isinstance(prior_review_signal_identities, list):
+        prior_review_signal_identities = None
+    else:
+        prior_review_signal_identities = sorted(set(map(str, prior_review_signal_identities)))
+    review_signal_identities = cur.get("review_signal_identities")
+    if not isinstance(review_signal_identities, list):
+        review_signal_identities = None
+    else:
+        review_signal_identities = sorted(set(map(str, review_signal_identities)))
+        review_signal_count = len(review_signal_identities)
+    review_in_progress = review_signal_count > 0
 
     if head_changed:
         # SHA-scoped state is meaningless on a new head.
         state["ci_dispatched"] = {}
+        state["review_signal_seen_on_head"] = review_in_progress
+        state["review_signal_first_seen_at"] = _iso(now) if review_in_progress else None
+        state["review_signal_last_changed_at"] = _iso(now) if review_in_progress else None
+    else:
+        # Preserve a signal seen on this head after it disappears; the agent owns completion judgment,
+        # while this structural fact distinguishes an incomplete lifecycle from "no signal ever."
+        if (prior_review_in_progress or review_in_progress) and not state.get("review_signal_seen_on_head", False):
+            state["review_signal_seen_on_head"] = True
+            legacy_seen_at = state.get("last_change_at") if prior_review_in_progress else None
+            state["review_signal_first_seen_at"] = legacy_seen_at or _iso(now)
+        signal_changed = (review_signal_identities != prior_review_signal_identities
+                          if review_signal_identities is not None else
+                          review_signal_count != prior_review_signal_count)
+        if signal_changed:
+            state["review_signal_last_changed_at"] = _iso(now)
 
     # --- CI: a failing check on the current head is actionable until the agent
     # marks it dispatched (recorded in ci_dispatched[head]) or the head moves.
@@ -820,7 +905,9 @@ def diff(state, cur, now=None, advance_trajectory=True):
     state["review_decision"] = cur["review_decision"]
     state["mergeable"] = cur["mergeable"]
     state["merge_state_status"] = cur["merge_state_status"]
-    state["review_in_progress"] = cur.get("review_in_progress", False)
+    state["review_in_progress"] = review_in_progress
+    state["review_signal_count"] = review_signal_count
+    state["review_signal_identities"] = review_signal_identities
     state["awaiting_approval"] = cur.get("awaiting_approval", 0)
     state["pr_chain"] = cur.get("pr_chain") or _default_pr_chain()
 
@@ -858,6 +945,7 @@ def diff(state, cur, now=None, advance_trajectory=True):
     all_checks_ok = checks_terminal and not has_failing and bool(cur["checks"]) and awaiting_approval == 0
     blocked_external = (awaiting_approval > 0 and not has_failing and checks_terminal
                         and not actionable_threads and not actionable_feedback)
+    invocation_elapsed = _elapsed(state.get("started_at"), now)
 
     return {
         "pr_state": cur["pr_state"],
@@ -871,7 +959,12 @@ def diff(state, cur, now=None, advance_trajectory=True):
         "checks_terminal": checks_terminal,
         "checks_present": bool(cur["checks"]),
         "all_checks_ok": all_checks_ok,
-        "review_in_progress": cur.get("review_in_progress", False),
+        "review_in_progress": review_in_progress,
+        "review_signal_count": review_signal_count,
+        "review_signal_identities": review_signal_identities,
+        "review_signal_seen_on_head": bool(state.get("review_signal_seen_on_head", False)),
+        "review_signal_first_seen_at": state.get("review_signal_first_seen_at"),
+        "review_signal_last_changed_at": state.get("review_signal_last_changed_at"),
         "checks_awaiting_approval": awaiting_approval,
         "blocked_external": blocked_external,
         "pr_chain": state["pr_chain"],
@@ -883,8 +976,19 @@ def diff(state, cur, now=None, advance_trajectory=True):
                    "comments": len(actionable_feedback), "needs_human": open_needs_human},
         "changed_this_tick": changed_this_tick,
         "quiet_seconds": quiet_seconds,
+        "invocation_id": state.get("invocation_id"),
+        "invocation_started_at": state.get("started_at"),
+        "invocation_elapsed_seconds": invocation_elapsed,
+        "invocation_budget_seconds": state.get("invocation_budget_seconds"),
+        "invocation_remaining_seconds": max(
+            0,
+            (state.get("invocation_budget_seconds") or 0) - invocation_elapsed,
+        ),
+        "persisted_state_created_at": state.get("state_created_at"),
+        "persisted_state_age_seconds": _elapsed(state.get("state_created_at"), now),
+        # Compatibility aliases for callers migrating from the original single-clock contract.
         "session_started_at": state.get("started_at"),
-        "session_seconds": _elapsed(state.get("started_at"), now),
+        "session_seconds": invocation_elapsed,
         "watch_generation": state.get("watch_generation"),
         "tick": state["tick"],
         "trajectory": trajectory,
@@ -898,6 +1002,8 @@ def _change_sig(state):
     feedback = {fid: v.get("disposition") for fid, v in state.get("feedback", {}).items()}
     return (checks, threads, feedback, state.get("review_decision"), state.get("mergeable"),
             state.get("merge_state_status"), state.get("review_in_progress"),
+            state.get("review_signal_count"),
+            tuple(state.get("review_signal_identities") or []),
             json.dumps(state.get("pr_chain") or _default_pr_chain(), sort_keys=True),
             # awaiting-approval clearing is movement: a fork gate lifting must reset the settle clock
             # so merge-ready waits for the now-imminent check-runs instead of firing on an empty rollup.
@@ -920,9 +1026,15 @@ def _stack_blocker(chain):
     return None
 
 
+def _parse_iso8601(value):
+    if isinstance(value, str) and value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
+
+
 def _elapsed(iso_str, now):
     try:
-        return int((now - datetime.fromisoformat(iso_str)).total_seconds())
+        return int((now - _parse_iso8601(iso_str)).total_seconds())
     except (ValueError, TypeError):
         return 0
 
@@ -930,7 +1042,7 @@ def _elapsed(iso_str, now):
 def _session_started_at(value):
     """Parse one invocation-wide, timezone-aware budget anchor for reuse across state dirs."""
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = _parse_iso8601(value)
     except (ValueError, TypeError):
         raise argparse.ArgumentTypeError("must be an ISO-8601 timestamp")
     if parsed.tzinfo is None:
@@ -951,6 +1063,9 @@ def locked_state(state_dir, pr, repo, now):
                 state = json.load(f)
         else:
             state = _empty_state(pr, repo, None, now)
+        # Older state used `started_at` for both durable-state age and the active budget. Preserve
+        # that original value as the state birth time before a new invocation replaces the clock.
+        state.setdefault("state_created_at", state.get("started_at") or _iso(now))
         box = {"state": state}
         yield box
         tmp = tempfile.NamedTemporaryFile("w", dir=state_dir, delete=False)
@@ -970,33 +1085,96 @@ def _fetch_snapshot(args):
     return fetch(args.pr, args.repo)
 
 
+def _apply_invocation(box, args, now):
+    """Start explicitly, or reuse the one fixed clock named by an explicit invocation token."""
+    state = box["state"]
+    start_requested = bool(getattr(args, "start_invocation", False)
+                           or getattr(args, "reset_session", False))
+    continue_requested = bool(getattr(args, "continue_invocation", False))
+    invocation_id = getattr(args, "invocation_id", None)
+    requested_started_at = getattr(args, "session_started_at", None)
+    requested_budget = getattr(args, "invocation_budget_seconds", None)
+
+    if start_requested:
+        invocation_id = uuid.uuid4().hex
+        requested_started_at = _iso(now)
+        requested_budget = requested_budget or DEFAULT_INVOCATION_BUDGET_SECONDS
+        state["invocation_id"] = invocation_id
+        state["started_at"] = requested_started_at
+        state["invocation_budget_seconds"] = requested_budget
+        args.invocation_id = invocation_id
+        args.session_started_at = requested_started_at
+        args.invocation_budget_seconds = requested_budget
+        args._started_new_invocation = True
+        return
+
+    if not invocation_id:
+        raise SystemExit("pass --start-invocation on the first snapshot or --invocation-id to resume it")
+
+    if continue_requested:
+        if not requested_started_at or not requested_budget:
+            raise SystemExit("--continue-invocation requires its fixed start and budget")
+        if state.get("invocation_id") == invocation_id:
+            try:
+                same_anchor = (_parse_iso8601(state.get("started_at"))
+                               == _parse_iso8601(requested_started_at))
+            except (ValueError, TypeError):
+                same_anchor = False
+            if not same_anchor or state.get("invocation_budget_seconds") != requested_budget:
+                raise SystemExit("continuation cannot renew or extend an existing invocation")
+            return
+        state["invocation_id"] = invocation_id
+        state["started_at"] = requested_started_at
+        state["invocation_budget_seconds"] = requested_budget
+        return
+
+    persisted_id = state.get("invocation_id")
+    persisted_started_at = state.get("started_at")
+    persisted_budget = state.get("invocation_budget_seconds")
+    if persisted_id != invocation_id:
+        raise SystemExit("invocation token does not match persisted state; start or continue explicitly")
+    try:
+        anchors_match = (_parse_iso8601(persisted_started_at)
+                         == _parse_iso8601(requested_started_at))
+    except (ValueError, TypeError):
+        anchors_match = False
+    if not anchors_match:
+        raise SystemExit("invocation token does not match the persisted budget anchor")
+    if persisted_budget != requested_budget:
+        raise SystemExit("invocation token does not match the persisted fixed budget")
+
+
 def _apply_snapshot(box, args, cur, now, advance_trajectory):
     """Apply one fetched snapshot to a caller-owned locked state box."""
     if box["state"].get("pr", {}).get("url") is None and cur.get("url"):
         box["state"]["pr"]["url"] = cur["url"]
-    if getattr(args, "session_started_at", None):
-        # Carry one invocation-wide clock through watch re-arms and managed-stack layer state dirs.
-        box["state"]["started_at"] = args.session_started_at
-    elif getattr(args, "reset_session", False):
-        # A fresh babysit invocation starts the budget clock now. Without this, `started_at`
-        # persists from state creation, so resuming against day-old state would read
-        # session_seconds as huge and hand back before doing any work.
-        box["state"]["started_at"] = _iso(now)
+    _apply_invocation(box, args, now)
     return diff(box["state"], cur, now, advance_trajectory=advance_trajectory)
 
 
 def _run_snapshot(args, now, advance_trajectory=True, watch_generation=None):
     """One fetch -> diff -> persist. Returns the actionable/state dict."""
     cur = _fetch_snapshot(args)
+    if (getattr(args, "start_invocation", False)
+            or getattr(args, "reset_session", False)):
+        # A new invocation starts after preflight I/O; a slow first fetch must not consume its budget.
+        now = _now()
     with locked_state(args.state_dir, args.pr, args.repo, now) as box:
         if watch_generation is not None and box["state"].get("watch_generation") != watch_generation:
             raise _WatchSuperseded()
+        if (watch_generation is not None
+                and box["state"].get("invocation_id") != getattr(args, "invocation_id", None)):
+            raise _InvocationSuperseded(box["state"].get("invocation_id"))
         actionable, box["state"] = _apply_snapshot(box, args, cur, now, advance_trajectory)
     return actionable
 
 
 def cmd_snapshot(args):
-    print(json.dumps(_run_snapshot(args, _now()), indent=2))
+    result = _run_snapshot(args, _now())
+    if (getattr(args, "_started_new_invocation", False)
+            and _elapsed(result.get("invocation_started_at"), _now()) > 60):
+        raise SystemExit("new invocation unexpectedly inherited more than 60 seconds of elapsed time")
+    print(json.dumps(result, indent=2))
 
 
 def _wake_reason(a, settle_seconds):
@@ -1021,12 +1199,10 @@ def _wake_reason(a, settle_seconds):
         # a dispatched check left terminally red (counts.ci is 0 — nothing new to dispatch) is a
         # blocker to hand back, not a reason to idle to max-runtime.
         return "blocked-failing"
-    # merge-ready candidate: green + settled AND no review in flight. An 👀-style in-progress signal
-    # means a review is underway, so the PR is NOT ready no matter how long it has been quiet — time
-    # is one component of "settled", not the gate. Honor the signal only up to a generous bound so a
-    # stale reaction that never clears cannot block ready forever (absence never blocks; presence
-    # only delays). Only wake once quiet has actually elapsed, so a stable green PR is not roused
-    # every poll while it cools off.
+    # merge-ready candidate: green + settled with no fresh review movement. A live 👀 blocks the
+    # ordinary 300s settle, but wakes the agent after 900 quiet seconds for the semantic stale-review
+    # judgment. The agent may extend once to 1800s by re-arming with that settle value; the detector
+    # never decides whether the reviewer is genuinely slow or stuck.
     review_blocking = a.get("review_in_progress") and a.get("quiet_seconds", 0) < REVIEW_INPROGRESS_MAX_WAIT
     # Interactive merge-ready does NOT require `all_checks_ok`'s "at least one observed check": a repo
     # with no configured checks has a CLEAN/MERGEABLE PR that should be callable ready. (That guard
@@ -1174,15 +1350,25 @@ def _watch_is_current(args, generation):
 
 def _emit_wake_if_current(args, generation, reason, **fields):
     """Serialize the final ownership check with takeover so an old generation cannot emit after
-    the new generation has become current. A wake emitted just before takeover is valid at emission
-    and will be recognized as stale against the next fresh snapshot."""
+    the new generation has become current. Invocation replacement also supersedes every ordinary
+    wake from the old budget, even when the replacement kept the same watch generation."""
     state_path = os.path.join(args.state_dir, "state.json")
     with _watch_lock(args.state_dir, exclusive=False):
         if not os.path.exists(state_path):
             return False
         with open(state_path) as f:
-            if json.load(f).get("watch_generation") != generation:
-                return False
+            state = json.load(f)
+        if state.get("watch_generation") != generation:
+            return False
+        current_invocation_id = state.get("invocation_id")
+        watcher_invocation_id = getattr(args, "invocation_id", None)
+        if current_invocation_id != watcher_invocation_id and reason != "invocation-superseded":
+            _emit_wake(
+                "invocation-superseded", watch_generation=generation,
+                superseded_invocation_id=watcher_invocation_id,
+                current_invocation_id=current_invocation_id,
+            )
+            return True
         _emit_wake(reason, watch_generation=generation, **fields)
         return True
 
@@ -1245,7 +1431,6 @@ def cmd_watch(args):
         if previous is None:
             superseded = True
             return
-        args.reset_session = False
         _terminate_replaced_watch(previous)
         interrupt_immediately = True
         if stop_requested.is_set():
@@ -1261,17 +1446,37 @@ def cmd_watch(args):
             if args.stop_file and os.path.exists(args.stop_file):
                 _emit_wake_if_current(args, generation, "stop-signal")
                 return
+            now = _now()
+            invocation_elapsed = _elapsed(actionable.get("invocation_started_at"), now)
+            budget = actionable.get("invocation_budget_seconds") or 0
+            actionable["invocation_elapsed_seconds"] = invocation_elapsed
+            actionable["invocation_remaining_seconds"] = max(0, budget - invocation_elapsed)
+            actionable["persisted_state_age_seconds"] = _elapsed(
+                actionable.get("persisted_state_created_at"), now)
             reason = _wake_reason(actionable, args.settle_seconds)
+            if reason in ("terminal", "merge-ready"):
+                _emit_wake_if_current(args, generation, reason, url=actionable.get("url"),
+                                      pr_state=actionable.get("pr_state"), counts=actionable.get("counts"))
+                return
+            if budget and invocation_elapsed >= budget:
+                _emit_wake_if_current(
+                    args, generation, "max-runtime", url=actionable.get("url"),
+                    invocation_id=actionable.get("invocation_id"),
+                    invocation_started_at=actionable.get("invocation_started_at"),
+                    invocation_elapsed_seconds=actionable.get("invocation_elapsed_seconds"),
+                    invocation_budget_seconds=budget,
+                    persisted_state_age_seconds=actionable.get("persisted_state_age_seconds"),
+                )
+                return
             if reason in ("needs-human", "blocked-failing", "blocked-external", "stack-blocked") and _blocker_sig(actionable) <= armed:
                 reason = None   # already-surfaced residual — keep watching, do not re-wake or terminate
             if reason:
                 _emit_wake_if_current(args, generation, reason, url=actionable.get("url"),
                                       pr_state=actionable.get("pr_state"), counts=actionable.get("counts"))
                 return
-            if args.max_runtime and actionable.get("session_seconds", 0) >= args.max_runtime:
-                _emit_wake_if_current(args, generation, "max-runtime", url=actionable.get("url"))
-                return
-            if stop_requested.wait(args.interval):
+            remaining = max(0, budget - invocation_elapsed) if budget else args.interval
+            wait_seconds = min(args.interval, remaining)
+            if stop_requested.wait(wait_seconds):
                 return
             if not _watch_is_current(args, generation):
                 superseded = True
@@ -1280,6 +1485,14 @@ def cmd_watch(args):
                                        watch_generation=generation)
     except _WatchSuperseded:
         superseded = True
+        return
+    except _InvocationSuperseded as exc:
+        superseded = True
+        _emit_wake_if_current(
+            args, generation, "invocation-superseded",
+            superseded_invocation_id=getattr(args, "invocation_id", None),
+            current_invocation_id=exc.current_invocation_id,
+        )
         return
     finally:
         interrupt_immediately = False
@@ -1313,6 +1526,7 @@ def _mark_thread_baseline(item_id, args, state):
 def cmd_mark(args):
     now = _now()
     with locked_state(args.state_dir, args.pr, args.repo, now) as box:
+        _apply_invocation(box, args, now)
         state = box["state"]
         if args.check:
             head = state.get("head_sha")
@@ -1354,15 +1568,30 @@ def main():
     s.add_argument("--state-dir", required=True)
     s.add_argument("--fetch-file", default=None)
     sg = s.add_mutually_exclusive_group()
-    sg.add_argument("--reset-session", action="store_true")  # start the budget clock (a fresh invocation)
-    sg.add_argument("--session-started-at", type=_session_started_at,
-                    help="carry a prior invocation's ISO-8601 budget anchor")
+    sg.add_argument("--start-invocation", action="store_true",
+                    help="mint one new fixed budget (first snapshot only)")
+    sg.add_argument("--reset-session", action="store_true",
+                    help=argparse.SUPPRESS)  # deprecated alias for --start-invocation
+    sg.add_argument("--continue-invocation", action="store_true",
+                    help="carry the current fixed budget into a managed-stack layer state dir")
+    s.add_argument("--invocation-id", default=None,
+                   help="token emitted by the first snapshot; required on every resume")
+    s.add_argument("--session-started-at", type=_session_started_at,
+                   help="fixed anchor emitted by the first snapshot; required for a new state dir")
+    s.add_argument("--invocation-budget-seconds", type=float,
+                   help=f"fixed total budget; first snapshot default {DEFAULT_INVOCATION_BUDGET_SECONDS}")
     s.set_defaults(func=cmd_snapshot)
 
     m = sub.add_parser("mark")
     m.add_argument("--pr", type=int, default=0)
     m.add_argument("--repo", default=None)
     m.add_argument("--state-dir", required=True)
+    m.add_argument("--invocation-id", required=True,
+                   help="token emitted by the invocation's first snapshot")
+    m.add_argument("--session-started-at", type=_session_started_at, required=True,
+                   help="fixed anchor emitted by the invocation's first snapshot")
+    m.add_argument("--invocation-budget-seconds", type=float, required=True,
+                   help="fixed budget emitted by the invocation's first snapshot")
     m.add_argument("--thread", default=None)
     # `open` re-actionizes a parked thread — the explicit re-open the SKILL prose relies on when a
     # parked stream's context materially changes (a human pushed, the check universe moved).
@@ -1378,17 +1607,33 @@ def main():
     w.add_argument("--repo", default=None)
     w.add_argument("--state-dir", required=True)
     w.add_argument("--interval", type=float, default=150.0, help="poll cadence seconds")
-    w.add_argument("--max-runtime", type=float, default=14400.0, help="hard stop seconds (0 = unbounded)")
     w.add_argument("--settle-seconds", type=float, default=300.0, help="quiet window before a merge-ready wake")
     w.add_argument("--stop-file", default=None, help="path whose existence stops the watch")
     w.add_argument("--fetch-file", default=None)
-    wg = w.add_mutually_exclusive_group()
-    wg.add_argument("--reset-session", action="store_true")
-    wg.add_argument("--session-started-at", type=_session_started_at,
-                    help="carry the invocation-wide ISO-8601 budget anchor")
+    w.add_argument("--invocation-id", required=True,
+                   help="token emitted by the invocation's first snapshot")
+    w.add_argument("--session-started-at", type=_session_started_at, required=True,
+                   help="fixed anchor emitted by the first snapshot")
+    w.add_argument("--invocation-budget-seconds", type=float, required=True,
+                   help="fixed budget emitted by the invocation's first snapshot")
     w.set_defaults(func=cmd_watch)
 
     args = p.parse_args()
+    if (args.cmd in ("snapshot", "watch")
+            and args.invocation_budget_seconds is not None
+            and args.invocation_budget_seconds <= 0):
+        p.error("--invocation-budget-seconds must be positive")
+    if args.cmd == "snapshot":
+        starting = args.start_invocation or args.reset_session
+        continuing = args.continue_invocation
+        if starting and (args.invocation_id or args.session_started_at):
+            p.error("the first snapshot cannot combine --start-invocation with resume fields")
+        if continuing and not (args.invocation_id and args.session_started_at
+                               and args.invocation_budget_seconds):
+            p.error("--continue-invocation requires --invocation-id, --session-started-at, and --invocation-budget-seconds")
+        if not starting and not continuing and not (args.invocation_id and args.session_started_at
+                                                     and args.invocation_budget_seconds):
+            p.error("snapshot requires --start-invocation or --invocation-id")
     args.func(args)
 
 

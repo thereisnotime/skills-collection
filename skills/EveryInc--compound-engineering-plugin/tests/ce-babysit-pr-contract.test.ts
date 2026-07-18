@@ -112,7 +112,7 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     // producer side: the watch subcommand emits the sentinel and can wake on each precedence reason
     expect(script).toContain("def cmd_watch")
     expect(script).toContain("BABYSIT_WAKE")
-    for (const reason of ["terminal", "blocked-external", "actionable", "feedback-candidate", "stack-blocked", "needs-human", "merge-ready"]) {
+    for (const reason of ["terminal", "blocked-external", "actionable", "feedback-candidate", "stack-blocked", "needs-human", "merge-ready", "invocation-superseded"]) {
       expect(script, `watch must be able to wake on '${reason}'`).toContain(reason)
     }
   })
@@ -128,6 +128,7 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
       expect(text).toMatch(/successful[^.]{0,100}(fetch|snapshot)[^.]{0,160}supersed/i)
       expect(text).toMatch(/newer invocation[^.]{0,160}(cancel|stop)[^.]{0,160}(preflight|first fetch)/i)
       expect(text).toMatch(/stale[^.]{0,120}wake[^.]{0,160}(coalesc|ignore|discard)/i)
+      expect(text).toMatch(/invocation-superseded[^.]{0,180}(end|stop)[^.]{0,120}(old )?(loop|watch)/i)
     }
     expect(script).toContain('"watch_generation"')
     expect(script).toContain("_reserve_watch_candidate")
@@ -193,13 +194,18 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     expect(babysit).not.toMatch(/whenever the repo uses review bots/i)
   })
 
-  test("settle policy: ~600s exists only as the re-arm after a rejected merge-ready wake", async () => {
-    const babysit = await readRepoFile(BABYSIT)
-    // Every 600s mention must live inside the wake protocol's rejection branch.
-    const paragraphs = babysit.split("\n\n").filter((p) => p.includes("600"))
-    expect(paragraphs.length, "the generous settle must be documented exactly once").toBe(1)
-    expect(paragraphs[0]).toMatch(/reject the wake/i)
-    expect(paragraphs[0], "600s must be framed as the post-rejection re-arm").toMatch(/re-arm/i)
+  test("settle policy: an incomplete review lifecycle gets a 15-minute floor and 30-minute ceiling", async () => {
+    const [babysit, script] = await Promise.all([readRepoFile(BABYSIT), readRepoFile(PR_SNAPSHOT)])
+    expect(babysit).toContain("incomplete review lifecycle")
+    expect(babysit).toContain("15 minutes")
+    expect(babysit).toContain("30 minutes")
+    expect(babysit).toMatch(/trajectory.*extend/i)
+    expect(babysit).toMatch(/never.*shorten/i)
+    expect(babysit).toMatch(/must not re-arm.*same unchanged signal/i)
+    expect(babysit).toMatch(/unattributed lifecycle incomplete/i)
+    expect(babysit).toMatch(/reviewer when identifiable.*observed signal/i)
+    expect(babysit).toMatch(/only uncleared condition.*incomplete lifecycle.*15 quiet minutes.*30-minute terminal ceiling/i)
+    expect(script).toContain("review_signal_seen_on_head")
     // A done signal on the current head must end the wait, not start another settle period.
     expect(babysit).toContain("never extends the wait")
     expect(babysit).toContain("no further settle period")
@@ -300,16 +306,48 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     expect(watchLoop).toMatch(/one active (PR )?(target|watcher)/i)
   })
 
-  test("managed-stack continuation preserves one invocation-wide session budget", async () => {
+  test("managed-stack continuation preserves one fixed invocation budget", async () => {
     const [babysit, watchLoop] = await Promise.all([
       readRepoFile(BABYSIT),
       readRepoFile("skills/ce-babysit-pr/references/watch-loop.md"),
     ])
 
     for (const text of [babysit, watchLoop]) {
+      expect(text).toContain("--invocation-id \"$RUN_INVOCATION_ID\"")
       expect(text).toContain("--session-started-at \"$RUN_STARTED_AT\"")
-      expect(text).toMatch(/invocation-wide[^.]{0,220}(budget|session)/i)
-      expect(text).toMatch(/(next|new)[^.]{0,180}(layer|state dir)[^.]{0,220}(same|preserve|carry)[^.]{0,120}RUN_STARTED_AT/i)
+      expect(text).toContain("--invocation-budget-seconds \"$RUN_BUDGET_SECONDS\"")
+      expect(text).toMatch(/(one|same|fixed)[^.]{0,220}(invocation )?budget/i)
+      expect(text).toMatch(/(layer|state dir)[^.]{0,260}(same|fixed|continue-invocation)[^.]{0,180}(invocation|budget)/i)
+    }
+  })
+
+  test("mark writes are fenced by the active invocation tuple", async () => {
+    const [babysit, watchLoop, script] = await Promise.all([
+      readRepoFile(BABYSIT),
+      readRepoFile("skills/ce-babysit-pr/references/watch-loop.md"),
+      readRepoFile(PR_SNAPSHOT),
+    ])
+    for (const text of [babysit, watchLoop]) {
+      expect(text).toMatch(/mark[\s\S]{0,500}(invocation ID|RUN_INVOCATION_ID)[\s\S]{0,500}(start anchor|RUN_STARTED_AT)[\s\S]{0,500}(budget|RUN_BUDGET_SECONDS)/i)
+    }
+    expect(script).toMatch(/m\.add_argument\("--invocation-id", required=True/)
+    expect(script).toMatch(/def cmd_mark\(args\):[\s\S]{0,180}_apply_invocation\(box, args, now\)/)
+  })
+
+  test("blocked approval watching stays inside the invocation budget", async () => {
+    const babysit = await readRepoFile(BABYSIT)
+    expect(babysit).toContain("within this invocation's remaining fixed budget")
+    expect(babysit).toContain("never promise or mint a longer approval-watch window after invocation entry")
+    expect(babysit).not.toContain("hard-capped at 24h")
+  })
+
+  test("deadline precedence preserves stop results without starting another work round", async () => {
+    const [babysit, watchLoop] = await Promise.all([
+      readRepoFile(BABYSIT),
+      readRepoFile("skills/ce-babysit-pr/references/watch-loop.md"),
+    ])
+    for (const text of [babysit, watchLoop]) {
+      expect(text).toMatch(/deadline[\s\S]{0,300}terminal[\s\S]{0,200}merge-ready[\s\S]{0,300}max-runtime/i)
     }
   })
 
