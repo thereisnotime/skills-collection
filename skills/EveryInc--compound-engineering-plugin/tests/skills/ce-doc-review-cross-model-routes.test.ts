@@ -249,11 +249,11 @@ printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"resid
     expect(r.stderr).toContain("peer exited non-zero or timed out")
   })
 
-  test("codex: read-only sandbox + skip-git-repo-check + high reasoning", () => {
+  test("codex: read-only sandbox + skip-git-repo-check + medium reasoning", () => {
     const cmd = emitAdapter("codex")
     expect(cmd).toContain("-s read-only")
     expect(cmd).toContain("--skip-git-repo-check")
-    expect(cmd).toContain('model_reasoning_effort="high"')
+    expect(cmd).toContain('model_reasoning_effort="medium"')
     expect(cmd).toContain("gpt-5.6-sol")
   })
 

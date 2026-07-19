@@ -16,6 +16,7 @@ async function readRepoFile(relativePath: string): Promise<string> {
 }
 
 const BABYSIT = "skills/ce-babysit-pr/SKILL.md"
+const WATCH_LOOP = "skills/ce-babysit-pr/references/watch-loop.md"
 const CEDEBUG_PIPELINE = "skills/ce-debug/references/pipeline-mode.md"
 const CERESOLVE = "skills/ce-resolve-pr-feedback/SKILL.md"
 const CERESOLVE_FULL_MODE = "skills/ce-resolve-pr-feedback/references/full-mode.md"
@@ -112,8 +113,27 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     // producer side: the watch subcommand emits the sentinel and can wake on each precedence reason
     expect(script).toContain("def cmd_watch")
     expect(script).toContain("BABYSIT_WAKE")
-    for (const reason of ["terminal", "blocked-external", "actionable", "feedback-candidate", "stack-blocked", "needs-human", "merge-ready", "invocation-superseded"]) {
+    for (const reason of ["terminal", "blocked-external", "actionable", "feedback-candidate", "stack-blocked", "needs-human", "branch-currency", "merge-ready", "invocation-superseded"]) {
       expect(script, `watch must be able to wake on '${reason}'`).toContain(reason)
+    }
+  })
+
+  test("branch-currency wakes only after review and failing-CI attention, before merge-ready", async () => {
+    const script = await readRepoFile(PR_SNAPSHOT)
+    const wake = script.slice(script.indexOf("def _wake_reason"), script.indexOf("def _emit_wake"))
+    const orderedReturns = [
+      'return "actionable"',
+      'return "feedback-candidate"',
+      'return "blocked-failing"',
+      'return "branch-currency"',
+      'return "merge-ready"',
+    ]
+    let prior = -1
+    for (const statement of orderedReturns) {
+      const current = wake.indexOf(statement)
+      expect(current, `${statement} must be present in _wake_reason`).toBeGreaterThan(-1)
+      expect(current, `${statement} must preserve branch-currency wake precedence`).toBeGreaterThan(prior)
+      prior = current
     }
   })
 
@@ -263,7 +283,7 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
 
   test("managed and manual dependency chains have distinct currency and readiness contracts", async () => {
     const babysit = await readRepoFile(BABYSIT)
-    expect(babysit).toMatch(/managed stack[\s\S]{0,1200}do not run `gh pr update-branch`/i)
+    expect(babysit).toMatch(/managed stack[\s\S]{0,1600}pre-existing target staleness[^.]{0,180}never this route/i)
     expect(babysit).toMatch(/ready as the next PR in the stack/i)
     expect(babysit).toMatch(/manual dependency chain/i)
     expect(babysit).toMatch(/relative to (its|the) parent/i)
@@ -287,6 +307,23 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
     }
     expect(babysit).toMatch(/after (an|any) authorized target-head push[\s\S]{0,1600}gh stack rebase <first-dependent-branch> --upstack --no-trunk/i)
     expect(babysit).toMatch(/manager-owned[\s\S]{0,200}(implicit|babysit)[\s\S]{0,200}author/i)
+  })
+
+  test("managed-stack mutation pauses before delegation when atomic propagation is unproven", async () => {
+    const babysit = await readRepoFile(BABYSIT)
+    const terminal = babysit.indexOf("1. **Terminal check first.**")
+    const gate = babysit.indexOf("**Managed-stack atomicity gate.**")
+    const feedback = babysit.indexOf("3. **Feedback before CI.**")
+    const gateBlock = babysit.slice(gate, feedback)
+
+    expect(terminal).toBeGreaterThan(-1)
+    expect(gate).toBeGreaterThan(-1)
+    expect(terminal).toBeLessThan(gate)
+    expect(gate).toBeLessThan(feedback)
+    expect(gateBlock).toMatch(/atomicity cannot be proven[^.]{0,160}true stop[^.]{0,120}every mode/i)
+    expect(gateBlock).toContain("do not invoke a delegate, run another tick, or arm/re-arm a watcher")
+    expect(gateBlock).toMatch(/interactive\/self-sustaining[^.]{0,120}hands control back[^.]{0,160}pipeline mode[^.]{0,120}terminates/i)
+    expect(gateBlock).toMatch(/normally bare `\/ce-babysit-pr`[\s\S]{0,180}current branch no longer identifies that PR/i)
   })
 
   test("sequential babysitting is a confirmed-managed-stack-only, one-watcher scope", async () => {
@@ -354,12 +391,96 @@ describe("ce-babysit-pr cross-skill contract parity", () => {
   test("pipeline success requires clean chain currency in both loaded contracts", async () => {
     const [babysit, watchLoop] = await Promise.all([
       readRepoFile(BABYSIT),
-      readRepoFile("skills/ce-babysit-pr/references/watch-loop.md"),
+      readRepoFile(WATCH_LOOP),
     ])
+    const pipelineStart = babysit.indexOf("2. **Bounded stop, not merge-ready.**")
+    const pipelineEnd = babysit.indexOf("3. **Native residual surfacing", pipelineStart)
+    const pipelineDelta = babysit.slice(pipelineStart, pipelineEnd)
 
     for (const text of [babysit, watchLoop]) {
-      expect(text).toMatch(/success only when[^.]{0,260}`all_checks_ok`[^.]{0,260}`stack_blocker`[^.]{0,80}(null|clear)/i)
+      expect(text).toMatch(/success only when[^.]{0,320}`all_checks_ok`[^.]{0,320}`stack_blocker`[^.]{0,80}(null|clear)/i)
+      expect(text).toMatch(/success only when[^.]{0,640}`mergeability_certain`[^.]{0,160}`merge_state_status == "CLEAN"`[^.]{0,240}`branch_currency_blocker`[^.]{0,100}(null|clear)/i)
     }
+    expect(pipelineStart).toBeGreaterThan(-1)
+    expect(pipelineEnd).toBeGreaterThan(pipelineStart)
+    expect(pipelineDelta).toMatch(/`all_checks_ok`[\s\S]{0,260}`mergeability_certain`[\s\S]{0,160}`merge_state_status == "CLEAN"`[\s\S]{0,260}`stack_blocker`[\s\S]{0,160}`branch_currency_blocker`[^.]{0,80}(null|clear)/i)
+    expect(pipelineDelta).toMatch(/open\/claimed\/parked current currency item[^.]{0,240}residual/i)
+  })
+
+  test("branch-currency mutation is claimed, invocation-fenced, and reconciled before retry", async () => {
+    const [babysit, watchLoop] = await Promise.all([readRepoFile(BABYSIT), readRepoFile(WATCH_LOOP)])
+    for (const text of [babysit, watchLoop]) {
+      expect(text).toContain("--currency-key")
+      expect(text).toContain("--currency-disposition claimed")
+      expect(text).toContain("--currency-outcome mutation-observed")
+      expect(text).toContain("--currency-outcome proven-no-mutation")
+      expect(text).toContain("--currency-outcome ambiguous")
+      expect(text).toMatch(/claimed[^.]{0,180}reconciliation-only/i)
+      expect(text).toMatch(/exactly one retry[^.]{0,260}(proven|conclusive)[^.]{0,180}no[- ]mutation[^.]{0,180}backoff/i)
+      expect(text).toMatch(/ambiguous[^.]{0,220}never[^.]{0,160}(retry|resubmit)/i)
+    }
+    expect(babysit).toMatch(/stale invocation[^.]{0,220}(reject|invalidate)/i)
+    expect(babysit).toMatch(/SKILL_DIR=[^\n]+;[^\n]+STATE_DIR=[^\n]+;[^\n]+RUN_INVOCATION_ID=[^\n]+;[^\n]+RUN_STARTED_AT=[^\n]+;[^\n]+RUN_BUDGET_SECONDS=[^\n]+;\n\s*python3[^\n]+--currency-disposition claimed/i)
+    expect(watchLoop).toMatch(/max-runtime[^.]{0,160}(claim|mutation)/i)
+  })
+
+  test("behind maintenance uses positive host capability and exact observed OIDs", async () => {
+    const [babysit, watchLoop] = await Promise.all([readRepoFile(BABYSIT), readRepoFile(WATCH_LOOP)])
+    const behindStart = babysit.indexOf('- **`BEHIND`: host-owned update only.**')
+    const behindEnd = babysit.indexOf('- **`DIRTY`: exact-base local repair only.**', behindStart)
+    const behindBlock = babysit.slice(behindStart, behindEnd)
+    for (const text of [babysit, watchLoop]) {
+      expect(text).toContain("host_branch_update_capability == true")
+      expect(text).toMatch(/(denied|false)[\s\S]{0,160}(unknown)[\s\S]{0,260}needs-human/i)
+      expect(text).toMatch(/host[^.]{0,120}(update|operation)[^.]{0,180}(once|one time)/i)
+      expect(text).toMatch(/confirm[^.]{0,220}(contains|ancestor)[^.]{0,160}(observed )?base OID/i)
+      expect(text).toMatch(/host[^.]{0,160}(accept|mutation-observed)[^.]{0,180}(not|isn't)[^.]{0,120}(complet|confirm|success)/i)
+      expect(text).toMatch(/host_branch_update_capability[^.]{0,260}(not|never)[^.]{0,140}(Git push|direct push|push authority)/i)
+      expect(text).toContain("expected_head_sha")
+      expect(text).toMatch(/expected_head_sha[^.]{0,180}(observed|claimed)[^.]{0,100}head/i)
+      expect(text).toMatch(/422[^.]{0,180}(mismatch|stale|reconcile)/i)
+    }
+    expect(babysit).toMatch(/BEHIND[\s\S]{0,1000}revalidate[^.]{0,240}head[^.]{0,160}base OIDs/i)
+    expect(behindStart).toBeGreaterThan(-1)
+    expect(behindEnd).toBeGreaterThan(behindStart)
+    expect(behindBlock).toMatch(/confirm the exact claimed observation[^.]{0,180}fresh snapshot[^.]{0,180}ancestry evidence[^.]{0,180}observed base OID/i)
+    expect(behindBlock).toMatch(/claimed item's own `branch_currency_blocker`[^.]{0,120}need not be null beforehand/i)
+  })
+
+  test("dirty maintenance proves push authority, previews exact-base conflicts, and parks semantic choices", async () => {
+    const [babysit, watchLoop] = await Promise.all([readRepoFile(BABYSIT), readRepoFile(WATCH_LOOP)])
+    for (const text of [babysit, watchLoop]) {
+      expect(text).toMatch(/DIRTY[\s\S]{0,500}host_branch_update_capability[^.]{0,120}(irrelevant|does not apply)/i)
+      expect(text).toMatch(/ordinary direct[- ]push authority[^.]{0,180}(exact )?head ref/i)
+      expect(text).toMatch(/(without mutating[^.]{0,220}ordinary direct-push authority|ordinary direct push authority[^.]{0,220}without mutating)/i)
+      expect(text).toMatch(/verified clean PR-head checkout/i)
+      expect(text).toMatch(/conflicted paths[^.]{0,140}stage blob identities[^.]{0,160}(exclude|excluding|not include)[^.]{0,80}base OID/i)
+      expect(text).toMatch(/mechanical[^.]{0,240}positive intent evidence[^.]{0,240}no reasonable (alternate|alternative) behavior/i)
+      expect(text).toMatch(/two plausible (resolutions|behaviors)[\s\S]{0,320}(abort|needs-human|park)/i)
+      expect(text).toMatch(/(stale|unauthorized|incomplete|unbounded)[\s\S]{0,280}(abort|needs-human|park)/i)
+      expect(text).toContain("--currency-inspected-fingerprint")
+      expect(text).toContain("--semantic-conflict-fingerprint")
+      expect(text).toMatch(/mark[^.]{0,120}mutation-observed[^.]{0,160}(local )?merge (starts|begins)/i)
+      expect(text).toMatch(/normal push/i)
+      expect(text).toMatch(/remote head movement alone[^.]{0,180}(not|isn't)[^.]{0,100}(proof|confirmation|success)/i)
+      expect(text).toMatch(/confirm[^.]{0,220}(equals|contains)[^.]{0,180}(validated )?merge commit/i)
+      expect(text).toMatch(/(never|do not)[^.]{0,100}rebase[^.]{0,120}(force-push|force push)/i)
+    }
+    expect(babysit).toMatch(/exact observed base OID[^.]{0,180}non-mutating merge preview/i)
+  })
+
+  test("semantic currency parks are fingerprinted before a new mutation and scope stays target-local", async () => {
+    const [babysit, watchLoop] = await Promise.all([readRepoFile(BABYSIT), readRepoFile(WATCH_LOOP)])
+    for (const text of [babysit, watchLoop]) {
+      expect(text).toMatch(/parked_semantic_fingerprints[\s\S]{0,500}--currency-inspected-fingerprint/i)
+      expect(text).toMatch(/unchanged[^.]{0,160}(park|needs-human)[^.]{0,160}(changed|different)[^.]{0,180}(reopen|retire)/i)
+      expect(text).toMatch(/manual dependenc/i)
+      expect(text).toContain("target-local")
+      expect(text).toMatch(/never[^.]{0,140}(rewrite|mutate)[^.]{0,100}dependent/i)
+      expect(text).toMatch(/(managed|probe-error)[^.]{0,220}(exclude|no branch-currency mutation|perform no branch-currency mutation)/i)
+      expect(text).toMatch(/interrupted (local )?merge[^.]{0,220}(reconcile|abort)/i)
+    }
+    expect(watchLoop).toMatch(/root[^.]{0,180}(dependent|child)[^.]{0,180}(allow|eligible)/i)
   })
 
   test("bounded-class sweep contract: babysit routes it, ce-resolve classifies/enumerates/bounds it", async () => {

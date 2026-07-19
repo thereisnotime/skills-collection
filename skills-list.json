@@ -10617,12 +10617,12 @@
     },
     {
       "name": "ce-babysit-pr",
-      "description": "\"Babysits or watches an open GitHub PR until merge-ready, continuously reacting to new review comments and CI failures throughout the PR's life. Use when asked to 'babysit the PR', 'watch the PR', mon",
+      "description": "\"Babysits or watches an open GitHub PR until merge-ready, continuously reacting to review comments, CI failures, and routine base movement throughout the PR's life. Use when asked to 'babysit the PR',",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
-      "lines": 230,
-      "words": 9750,
-      "code_blocks": 4,
+      "lines": 241,
+      "words": 10425,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ]
@@ -57570,7 +57570,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -58161,7 +58161,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.37.0",
+      "version": "1.38.0",
       "license": "MIT"
     },
     {
@@ -58367,7 +58367,7 @@
         "gitignore",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -58620,7 +58620,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -59327,7 +59327,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -59766,7 +59766,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -59956,7 +59956,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -61065,7 +61065,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -61259,7 +61259,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -64217,7 +64217,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -65117,7 +65117,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -65146,7 +65146,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -65936,7 +65936,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -66586,7 +66586,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -67190,7 +67190,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -67279,7 +67279,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -69304,7 +69304,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -69601,13 +69601,13 @@
       "description": "'Optimize Clerk costs and understand pricing.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clerk-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/clerk-cost-tuning/SKILL.md",
-      "lines": 211,
-      "words": 804,
+      "lines": 213,
+      "words": 857,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -69636,7 +69636,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -69843,7 +69843,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -71825,7 +71825,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -72768,7 +72768,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -74347,7 +74347,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -75057,7 +75057,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -76308,8 +76308,8 @@
       "description": "\"Manage the freshie ecosystem inventory database \\u2014 a CMDB tracking\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/freshie-inventory/SKILL.md",
       "remote_path": "skills/.curated/freshie-inventory/SKILL.md",
-      "lines": 415,
-      "words": 1906,
+      "lines": 420,
+      "words": 1951,
       "code_blocks": 18,
       "languages": [
         "bash"
@@ -77188,7 +77188,7 @@
       "languages": [
         "bash"
       ],
-      "version": "0.21.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -78571,7 +78571,7 @@
         "prisma",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -78656,7 +78656,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -81303,7 +81303,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -81420,7 +81420,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.20.0",
+      "version": "2.20.0",
       "license": "MIT"
     },
     {
@@ -81449,7 +81449,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -81696,7 +81696,7 @@
       "words": 658,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -81878,7 +81878,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -82088,7 +82088,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -82938,7 +82938,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -83179,7 +83179,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -84225,7 +84225,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -84470,7 +84470,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -90900,7 +90900,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.20.0",
+      "version": "2.20.0",
       "license": "MIT"
     },
     {
@@ -95254,7 +95254,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95270,7 +95270,7 @@
         "gitignore",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95285,7 +95285,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95301,7 +95301,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95316,7 +95316,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95330,7 +95330,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95345,7 +95345,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95360,7 +95360,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95374,7 +95374,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95389,7 +95389,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95404,7 +95404,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95418,7 +95418,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95426,13 +95426,13 @@
       "description": "'Optimize Clerk costs and understand pricing.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clerk-pack/skills/clerk-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/clerk-pack/skills/clerk-cost-tuning/SKILL.md",
-      "lines": 211,
-      "words": 804,
+      "lines": 213,
+      "words": 857,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95446,7 +95446,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95461,7 +95461,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95477,7 +95477,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95493,7 +95493,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95508,7 +95508,7 @@
         "prisma",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95523,7 +95523,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95540,7 +95540,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95556,7 +95556,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95571,7 +95571,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95586,7 +95586,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95601,7 +95601,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -117737,7 +117737,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -117845,7 +117845,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -117862,7 +117862,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -117909,7 +117909,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -117924,7 +117924,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -117985,7 +117985,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -118045,7 +118045,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -118106,7 +118106,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -118121,7 +118121,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -118150,7 +118150,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.52.0",
+      "version": "1.53.0",
       "license": "MIT"
     },
     {
@@ -123464,7 +123464,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.37.0",
+      "version": "1.38.0",
       "license": "MIT"
     },
     {
@@ -132179,8 +132179,8 @@
       "description": "\"Manage the freshie ecosystem inventory database \\u2014 a CMDB tracking\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/database/freshie-inventory-manager/skills/freshie-inventory/SKILL.md",
       "remote_path": "plugins/database/freshie-inventory-manager/skills/freshie-inventory/SKILL.md",
-      "lines": 415,
-      "words": 1906,
+      "lines": 420,
+      "words": 1951,
       "code_blocks": 18,
       "languages": [
         "bash"
@@ -140416,7 +140416,7 @@
       "languages": [
         "bash"
       ],
-      "version": "0.21.0",
+      "version": "1.21.0",
       "license": "MIT"
     },
     {
@@ -143362,7 +143362,7 @@
       "words": 658,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.26.0",
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -148928,8 +148928,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 233,
-      "words": 2273,
+      "lines": 239,
+      "words": 2346,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -149286,9 +149286,9 @@
       "description": "Set up multiple isolated Claude Code CLI profiles so students and power users can run different LLM providers (Kimi K3, Kimi K2.7 highspeed, GLM, DeepSeek, StepFun, Anthropic) in separate terminal win",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 237,
-      "words": 1640,
-      "code_blocks": 6,
+      "lines": 263,
+      "words": 2115,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "json"
