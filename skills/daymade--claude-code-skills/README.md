@@ -888,8 +888,9 @@ config homes and the long-term archives registered in
 - **Cross-project sweep**: `--all-projects` searches every project when the project is unknown; `--codex` also covers Codex rollout history; `--exclude-session` skips self-matches
 - **Copy-safe union**: Search distinct records from every copy of a session ID without double-counting identical records
 - **Internal-time search**: Filter matching records by JSONL timestamps, never file mtime
-- **Structured search**: Cover messages, thinking, tools, results, queues, attachments, and summaries
-- **Content recovery**: Extract files from Write tool calls with deduplication
+- **Structured search**: Cover messages, thinking, tools, results, queues, attachments, summaries, and original file-history paths
+- **Exact checkpoint recovery**: Union same-session copies and companion roots, then restore captured bytes after Write/Edit/shell changes, including binaries and pre-deletion checkpoints
+- **Fail-visible fidelity**: Label Write-only checkpoints as lower fidelity and abort when exact metadata points to missing bytes instead of silently guessing
 - **Statistics analysis**: Message counts, tool usage breakdown, file operations
 - **Batch operations**: Process multiple sessions with keyword filtering
 - **Streaming processing**: Handle large session files (>100MB) efficiently
@@ -905,6 +906,11 @@ python3 scripts/analyze_sessions.py search /path/to/project \
 
 # Recover deleted files from the exact path printed by search
 python3 scripts/recover_content.py <printed-session-path> -k DeletedComponent -o ./recovered/
+
+# Search every project for multiple vanished job artifacts
+python3 scripts/analyze_sessions.py search --all-projects \
+  artifact-a.html artifact-b.html \
+  --exclude-session <current-session-id>
 
 # Get session statistics
 python3 scripts/analyze_sessions.py stats /path/to/session.jsonl --show-files
@@ -2120,6 +2126,7 @@ Falsification-first methodology for network, streaming, and protocol-layer bugs 
 - Client-side proxy / VPN / TUN misrouting (e.g. `ERR_CONNECTION_CLOSED`, `SSL_ERROR_SYSCALL`, fake TUN DNS IPs, CNAME-based rule overrides)
 - Certificate-verification errors (`UNKNOWN_CERTIFICATE_VERIFICATION_ERROR`, wrong-site certificate)
 - Any "works sometimes / fails after N seconds" pattern
+- LAN-layer mysteries: unknown devices on the local network, devices silenced by a subnet change, hosts "dead" on one segment but alive on another
 - Multi-hop systems (client → CDN → LB → reverse proxy → app → upstream) where a symptom could plausibly come from several layers
 
 **Key features:**
@@ -3442,11 +3449,11 @@ We recommend using [CC-Switch](https://github.com/farion1231/cc-switch) to manag
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to:
+This is a curated marketplace of our own skills — see [CONTRIBUTING.md](./CONTRIBUTING.md) for the full policy. In short:
 
-1. Open issues for bugs or feature requests
-2. Submit pull requests with improvements
-3. Share feedback on skill quality
+1. **Bug reports and bug-fix PRs are welcome** — open an issue first, then a scoped fix
+2. **New-skill PRs are not accepted** — publish your own marketplace instead (the format is open)
+3. Feedback on skill quality is always appreciated
 
 ### Skill Quality Standards
 

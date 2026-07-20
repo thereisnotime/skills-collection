@@ -20,7 +20,7 @@ const CLAUDE_TO_DROID_TOOLS: Record<string, string> = {
   task: "Task",
   todowrite: "TodoWrite",
   todoread: "TodoWrite",
-  question: "AskUser",
+  askuserquestion: "AskUser",
 }
 
 const VALID_DROID_TOOLS = new Set([
@@ -106,7 +106,7 @@ function mapAgentTools(agent: ClaudeAgent): string[] | undefined {
 
   const mentionedTools = new Set<string>()
   for (const [claudeTool, droidTool] of Object.entries(CLAUDE_TO_DROID_TOOLS)) {
-    if (bodyLower.includes(claudeTool)) {
+    if (new RegExp(`\\b${claudeTool}\\b`).test(bodyLower)) {
       mentionedTools.add(droidTool)
     }
   }

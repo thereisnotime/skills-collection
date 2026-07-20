@@ -17,6 +17,24 @@
 
 ---
 
+## Example invocations
+
+```text
+# Test routes affected by the current branch; the user owns the dev server
+/ce-test-browser
+
+# Derive routes from a PR or branch already checked out locally; test its running server
+/ce-test-browser 847
+/ce-test-browser feature/new-dashboard
+
+# Connect manual mode to an existing server on a custom port
+/ce-test-browser --port 5000
+```
+
+PR and branch arguments select the diff used to derive routes; they do not switch the local checkout. Check out the target code and start its server before invoking the skill. When no server is running, the skill stops with the correct command to start one.
+
+---
+
 ## The Problem
 
 End-to-end browser testing is fragmented across tools and easy to skip:

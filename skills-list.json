@@ -629,7 +629,7 @@
       "path": "samber--cc-skills-golang/skills/golang-benchmark/SKILL.md",
       "remote_path": "skills/golang-benchmark/SKILL.md",
       "lines": 199,
-      "words": 1651,
+      "words": 1656,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -10621,7 +10621,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 241,
-      "words": 10425,
+      "words": 10468,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -10835,7 +10835,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
       "lines": 542,
-      "words": 7249,
+      "words": 7356,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -11542,8 +11542,8 @@
       "description": "\"Transforms research findings into polished APA 7.0 academic reports; activated in Phase 4 and Phase 6\"",
       "path": "Imbad0202--academic-research-skills/agents/report_compiler_agent.md",
       "remote_path": "agents/report_compiler_agent.md",
-      "lines": 341,
-      "words": 3256,
+      "lines": 342,
+      "words": 3505,
       "code_blocks": 8,
       "languages": [
         "json"
@@ -11566,8 +11566,8 @@
       "description": "\"Integrates findings across sources, resolves evidence conflicts, and maps knowledge gaps\"",
       "path": "Imbad0202--academic-research-skills/agents/synthesis_agent.md",
       "remote_path": "agents/synthesis_agent.md",
-      "lines": 356,
-      "words": 3524,
+      "lines": 357,
+      "words": 3773,
       "code_blocks": 6,
       "languages": [
         "json",
@@ -11602,8 +11602,8 @@
       "description": "\"L3 claim-faithfulness audit \u2014 judges every cited claim against the retrieved reference text, surfaces uncited assertions and constraint violations, and feeds the Stage 4\u21925 formatter hard gate\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/claim_ref_alignment_audit_agent.md",
       "remote_path": "academic-pipeline/agents/claim_ref_alignment_audit_agent.md",
-      "lines": 381,
-      "words": 5345,
+      "lines": 383,
+      "words": 5583,
       "code_blocks": 3,
       "languages": []
     },
@@ -11624,8 +11624,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 976,
-      "words": 14772,
+      "lines": 980,
+      "words": 15544,
       "code_blocks": 18,
       "languages": []
     },
@@ -11669,8 +11669,8 @@
       "description": "\"Writes the full paper draft section by section from the structured outline and Paper Configuration Record\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
-      "lines": 601,
-      "words": 6555,
+      "lines": 602,
+      "words": 6804,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -11758,7 +11758,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
       "lines": 952,
-      "words": 7979,
+      "words": 8080,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -11980,8 +11980,8 @@
       "description": "\"Transforms research findings into polished APA 7.0 academic reports; activated in Phase 4 and Phase 6\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/report_compiler_agent.md",
       "remote_path": "deep-research/agents/report_compiler_agent.md",
-      "lines": 341,
-      "words": 3256,
+      "lines": 342,
+      "words": 3505,
       "code_blocks": 8,
       "languages": [
         "json"
@@ -12040,8 +12040,8 @@
       "description": "\"Integrates findings across sources, resolves evidence conflicts, and maps knowledge gaps\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/synthesis_agent.md",
       "remote_path": "deep-research/agents/synthesis_agent.md",
-      "lines": 356,
-      "words": 3524,
+      "lines": 357,
+      "words": 3773,
       "code_blocks": 6,
       "languages": [
         "json",
@@ -20547,8 +20547,8 @@
       "description": "Framework (OSS). Guide for creating and writing Expo native modules and views using the Expo Modules API (Swift, Kotlin, TypeScript). Covers module definition DSL, native views, shared objects, config",
       "path": "expo--skills/plugins/expo/skills/expo-module/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-module/SKILL.md",
-      "lines": 142,
-      "words": 716,
+      "lines": 144,
+      "words": 771,
       "code_blocks": 5,
       "languages": [
         "json",
@@ -20676,6 +20676,18 @@
         "json",
         "tsx"
       ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "expo-migrate-module",
+      "description": "Framework (OSS). Migrate an existing Apple/Swift Expo native module from the Expo Modules API 1.0 definition DSL to the 2.0 macro API (sometimes called v2) while preserving its JavaScript and TypeScri",
+      "path": "expo--skills/plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
+      "remote_path": "plugins/expo-experiments/skills/expo-migrate-module/SKILL.md",
+      "lines": 106,
+      "words": 1064,
+      "code_blocks": 0,
+      "languages": [],
       "version": "1.0.0",
       "license": "MIT"
     }
@@ -22981,7 +22993,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/maplibre.md",
       "remote_path": "skills/remotion-markup/maplibre.md",
       "lines": 459,
-      "words": 1376,
+      "words": 1385,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -23072,7 +23084,7 @@
       "path": "remotion-dev--skills/skills/remotion-markup/mapbox.md",
       "remote_path": "skills/remotion-markup/mapbox.md",
       "lines": 443,
-      "words": 1418,
+      "words": 1427,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -23226,8 +23238,8 @@
       "description": "Interpolation and timing in Remotion\u2014prefer interpolate with B\u00e9zier easing; springs as a specialized option",
       "path": "remotion-dev--skills/skills/remotion-markup/timing.md",
       "remote_path": "skills/remotion-markup/timing.md",
-      "lines": 162,
-      "words": 775,
+      "lines": 153,
+      "words": 729,
       "code_blocks": 9,
       "languages": [
         "ts",
@@ -23295,6 +23307,18 @@
       "languages": [
         "bash",
         "tsx"
+      ]
+    },
+    {
+      "name": "remotion-upgrade",
+      "description": "Upgrade Remotion, its related packages, compatible Mediabunny packages, and installed Remotion Agent Skills. Use when asked to upgrade or update a Remotion project.",
+      "path": "remotion-dev--skills/skills/remotion-upgrade/SKILL.md",
+      "remote_path": "skills/remotion-upgrade/SKILL.md",
+      "lines": 31,
+      "words": 225,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -23368,8 +23392,8 @@
       "description": "Best practices for Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
-      "lines": 39,
-      "words": 180,
+      "lines": 43,
+      "words": 198,
       "code_blocks": 0,
       "languages": []
     },
@@ -23477,18 +23501,6 @@
       "languages": []
     },
     {
-      "name": "remotion-create",
-      "description": "Creating a new Remotion video",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/remotion-create/SKILL.md",
-      "lines": 50,
-      "words": 193,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
       "name": "tailwind",
       "description": "Using TailwindCSS in Remotion.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/tailwind.md",
@@ -23497,6 +23509,18 @@
       "words": 52,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "remotion-create",
+      "description": "Creating a new Remotion video",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-create/REFERENCE.md",
+      "lines": 50,
+      "words": 193,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "transparent-videos",
@@ -23515,8 +23539,8 @@
     {
       "name": "remotion-render",
       "description": "Best practices for rendering videos",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/remotion-render/SKILL.md",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-render/REFERENCE.md",
       "lines": 29,
       "words": 59,
       "code_blocks": 2,
@@ -23552,7 +23576,7 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/maplibre.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/maplibre.md",
       "lines": 459,
-      "words": 1376,
+      "words": 1385,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -23625,25 +23649,12 @@
       ]
     },
     {
-      "name": "remotion-markup",
-      "description": "Best practices for writing Remotion React Markup",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/remotion-markup/SKILL.md",
-      "lines": 282,
-      "words": 1124,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "tsx"
-      ]
-    },
-    {
       "name": "maps-mapbox",
       "description": "Make deterministic Remotion map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, flyovers, map markers, labels, camera movement, or Mapbox styles.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/mapbox.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/mapbox.md",
       "lines": 443,
-      "words": 1418,
+      "words": 1427,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -23755,6 +23766,19 @@
       ]
     },
     {
+      "name": "remotion-markup",
+      "description": "Best practices for writing Remotion React Markup",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
+      "lines": 282,
+      "words": 1124,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
       "name": "transitions",
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/transitions.md",
@@ -23797,8 +23821,8 @@
       "description": "Interpolation and timing in Remotion\u2014prefer interpolate with B\u00e9zier easing; springs as a specialized option",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/timing.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/timing.md",
-      "lines": 162,
-      "words": 775,
+      "lines": 153,
+      "words": 729,
       "code_blocks": 9,
       "languages": [
         "ts",
@@ -23869,6 +23893,18 @@
       ]
     },
     {
+      "name": "remotion-upgrade",
+      "description": "Upgrade Remotion, its related packages, compatible Mediabunny packages, and installed Remotion Agent Skills. Use when asked to upgrade or update a Remotion project.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
+      "lines": 31,
+      "words": 225,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "get-video-duration",
       "description": "Getting the duration of a video file in seconds with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-video-duration.md",
@@ -23881,16 +23917,6 @@
       ]
     },
     {
-      "name": "mediabunny",
-      "description": "Multimedia handling with the Mediabunny library",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/mediabunny/SKILL.md",
-      "lines": 22,
-      "words": 95,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "get-video-dimensions",
       "description": "Getting the width and height of a video file with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-video-dimensions.md",
@@ -23901,6 +23927,16 @@
       "languages": [
         "tsx"
       ]
+    },
+    {
+      "name": "mediabunny",
+      "description": "Multimedia handling with the Mediabunny library",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/mediabunny/REFERENCE.md",
+      "lines": 22,
+      "words": 95,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "get-audio-duration",
@@ -23917,8 +23953,8 @@
     {
       "name": "remotion-interactivity",
       "description": "Best practices for writing Remotion animations that stay intuitive for agents and editable in Remotion Studio Visual Mode.",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/remotion-interactivity/SKILL.md",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "lines": 19,
       "words": 91,
       "code_blocks": 0,
@@ -23927,8 +23963,8 @@
     {
       "name": "remotion-docs",
       "description": "Search and fetch Remotion documentation pages",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-docs/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/remotion-docs/SKILL.md",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-docs/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-docs/REFERENCE.md",
       "lines": 48,
       "words": 150,
       "code_blocks": 2,
@@ -23963,8 +23999,8 @@
     {
       "name": "remotion-captions",
       "description": "Dealing with captions in Remotion",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/remotion-captions/SKILL.md",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-captions/REFERENCE.md",
       "lines": 37,
       "words": 120,
       "code_blocks": 2,
@@ -24008,22 +24044,22 @@
       ]
     },
     {
-      "name": "remotion-saas",
-      "description": "Building video apps with Remotion - framework, rendering and Player advice",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/SKILL.md",
-      "remote_path": "skills/remotion-best-practices/remotion-saas/SKILL.md",
-      "lines": 35,
-      "words": 167,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "framework",
       "description": "Choose a framework for a Remotion-based app.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/framework.md",
       "remote_path": "skills/remotion-best-practices/remotion-saas/framework.md",
       "lines": 22,
       "words": 122,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "remotion-saas",
+      "description": "Building video apps with Remotion - framework, rendering and Player advice",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-saas/REFERENCE.md",
+      "lines": 35,
+      "words": 167,
       "code_blocks": 0,
       "languages": []
     }
@@ -54786,7 +54822,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
       "lines": 126,
-      "words": 1636,
+      "words": 1642,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54798,7 +54834,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
       "lines": 127,
-      "words": 1669,
+      "words": 1675,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54810,7 +54846,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "lines": 125,
-      "words": 1701,
+      "words": 1707,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54822,7 +54858,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
       "lines": 122,
-      "words": 1581,
+      "words": 1587,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54834,7 +54870,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "lines": 107,
-      "words": 1302,
+      "words": 1308,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54846,7 +54882,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "lines": 107,
-      "words": 1287,
+      "words": 1293,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54858,7 +54894,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
       "lines": 109,
-      "words": 1305,
+      "words": 1311,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54870,7 +54906,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-64-community-announcer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-64-community-announcer/SKILL.md",
       "lines": 105,
-      "words": 1204,
+      "words": 1210,
       "code_blocks": 0,
       "languages": []
     },
@@ -54880,7 +54916,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "lines": 105,
-      "words": 1157,
+      "words": 1163,
       "code_blocks": 0,
       "languages": []
     },
@@ -54890,7 +54926,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
       "lines": 107,
-      "words": 1279,
+      "words": 1285,
       "code_blocks": 0,
       "languages": []
     },
@@ -54900,7 +54936,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
       "lines": 104,
-      "words": 1231,
+      "words": 1237,
       "code_blocks": 0,
       "languages": []
     },
@@ -54910,7 +54946,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "lines": 140,
-      "words": 2294,
+      "words": 2300,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54918,11 +54954,11 @@
     },
     {
       "name": "ln-12-delivery-reviewer",
-      "description": "\"Reviews completed code and delivery evidence before acceptance or release. Use to find defects and verify readiness; not for plan review, implementation, or repair.\"",
+      "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "lines": 201,
-      "words": 3056,
+      "words": 3350,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -54934,7 +54970,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
       "lines": 121,
-      "words": 1575,
+      "words": 1581,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54945,8 +54981,8 @@
       "description": "\"Audits whether an existing test suite proves important product behavior with strong, isolated tests. Use when test confidence is uncertain; not to design or implement new tests.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
-      "lines": 123,
-      "words": 1647,
+      "lines": 124,
+      "words": 1707,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54958,7 +54994,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
       "lines": 127,
-      "words": 1642,
+      "words": 1648,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54970,7 +55006,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
       "lines": 123,
-      "words": 1616,
+      "words": 1622,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -54982,7 +55018,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
       "lines": 129,
-      "words": 1794,
+      "words": 1800,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -148410,10 +148446,12 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 369,
-      "words": 2324,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 488,
+      "words": 3373,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "github-contributor",
@@ -148550,9 +148588,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/llm-eval-harness/SKILL.md",
       "remote_path": "llm-eval-harness/SKILL.md",
-      "lines": 207,
-      "words": 1574,
-      "code_blocks": 7,
+      "lines": 291,
+      "words": 2262,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "json"
@@ -148720,8 +148758,8 @@
       "description": "This skill should be used when establishing comprehensive QA testing processes for any software project. Use when creating test strategies, writing test cases following Google Testing Standards, execu",
       "path": "daymade--claude-code-skills/qa-expert/SKILL.md",
       "remote_path": "qa-expert/SKILL.md",
-      "lines": 290,
-      "words": 1401,
+      "lines": 289,
+      "words": 1390,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -148879,8 +148917,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 376,
-      "words": 4176,
+      "lines": 379,
+      "words": 4531,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -148928,9 +148966,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 239,
-      "words": 2346,
-      "code_blocks": 5,
+      "lines": 412,
+      "words": 4496,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ]
@@ -149039,8 +149077,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 594,
-      "words": 3972,
+      "lines": 596,
+      "words": 3992,
       "code_blocks": 29,
       "languages": [
         "bash",
@@ -149088,8 +149126,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1455,
-      "words": 16269,
+      "lines": 1489,
+      "words": 17155,
       "code_blocks": 48,
       "languages": [
         "bash",
@@ -149210,9 +149248,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-history-files-finder/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-history-files-finder/SKILL.md",
-      "lines": 410,
-      "words": 2124,
-      "code_blocks": 16,
+      "lines": 483,
+      "words": 2760,
+      "code_blocks": 17,
       "languages": [
         "bash",
         "text"
@@ -149377,8 +149415,8 @@
       "description": "Gangtise (\u5c97\u5e95\u65af\u6295\u7814) OpenAPI skill suite installer and diagnostic tool. One-click install 19 official skills (data, research, utility), configure accessKey/secretAccessKey, run health diagnostics. Trigger",
       "path": "daymade--claude-code-skills/daymade-financial/gangtise-copilot/SKILL.md",
       "remote_path": "daymade-financial/gangtise-copilot/SKILL.md",
-      "lines": 369,
-      "words": 2829,
+      "lines": 370,
+      "words": 2838,
       "code_blocks": 16,
       "languages": [
         "bash",

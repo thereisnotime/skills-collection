@@ -19,6 +19,18 @@ The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /c
 
 ---
 
+## Example invocations
+
+```text
+# Review a specific requirements or plan document interactively
+/ce-doc-review docs/plans/notification-mute.md
+
+# Let the skill find the most recent planning document
+/ce-doc-review
+```
+
+---
+
 ## The Problem
 
 Document review is harder than code review in specific ways:

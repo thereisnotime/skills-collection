@@ -19,6 +19,24 @@ The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /c
 
 ---
 
+## Example invocations
+
+```text
+# Deep-review the current branch; relevant plan and session context are discovered automatically
+/ce-code-review
+
+# Review a specific PR without checking it out
+/ce-code-review https://github.com/acme/widgets/pull/1234
+
+# Review the current branch and fix verified findings in this checkout
+/ce-code-review review this branch and fix eligible findings locally
+
+# Ask for a lighter pass when the full multi-agent review is unnecessary
+/ce-code-review give this branch a quick review
+```
+
+---
+
 ## The Problem
 
 Generalist code review prompts collapse in predictable ways:
