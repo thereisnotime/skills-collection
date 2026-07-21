@@ -27,6 +27,10 @@ export async function executeSearch(
       integration: 'cli',
     };
 
+    if (options.highlights !== undefined) {
+      searchParams.highlights = options.highlights;
+    }
+
     // Add sources if specified
     if (options.sources && options.sources.length > 0) {
       searchParams.sources = options.sources.map((source) => ({

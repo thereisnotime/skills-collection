@@ -8,7 +8,7 @@
 PYTHON := venv/bin/python
 DEPS_STAMP := venv/.deps-stamp
 
-.PHONY: help deps generate readme add-category move-category remove-category add-resource move-resource update-resource sync-form install-hooks test ticker ticker-data ticker-svg recently-added clean
+.PHONY: help deps generate readme add-category move-category remove-category add-resource move-resource update-resource submit-resource sync-form install-hooks test ticker ticker-data ticker-svg recently-added clean
 
 venv: ## Set up the venv
 	python3 -m venv venv
@@ -56,7 +56,7 @@ remove-category: $(DEPS_STAMP) ## Remove a category/sub-category (CATEGORY=, [SU
 	$(PYTHON) generate_readme.py
 
 # Add a single resource to the CSV: mint its opaque ID, validate the Category against
-# config.yaml, dedupe by link, append, then regenerate README.md. DISPLAY_NAME,
+# config.yaml, dedupe by link, append, then regenerate the board (README + carousel). DISPLAY_NAME,
 # CATEGORY, and LINK are required; AUTHOR/AUTHOR_LINK/SUBCATEGORY/DESCRIPTION optional.
 #   make add-resource DISPLAY_NAME="cctop" CATEGORY="Session Monitors" \
 #       LINK="https://github.com/stefanprodan/cctop" AUTHOR="stefanprodan" \
@@ -64,27 +64,39 @@ remove-category: $(DEPS_STAMP) ## Remove a category/sub-category (CATEGORY=, [SU
 add-resource: $(DEPS_STAMP) ## Add one resource to the CSV (DISPLAY_NAME=, CATEGORY=, LINK=; optional AUTHOR=, AUTHOR_LINK=, SUBCATEGORY=, DESCRIPTION=).
 	@test -n "$(DISPLAY_NAME)" -a -n "$(CATEGORY)" -a -n "$(LINK)" || { echo 'usage: make add-resource DISPLAY_NAME="Name" CATEGORY="Category" LINK="https://..." [AUTHOR="..."] [AUTHOR_LINK="https://..."] [SUBCATEGORY="..."] [DESCRIPTION="..."]'; exit 2; }
 	$(PYTHON) resources/add_resource.py --display-name "$(DISPLAY_NAME)" --category "$(CATEGORY)" --link "$(LINK)" $(if $(AUTHOR),--author-name "$(AUTHOR)") $(if $(AUTHOR_LINK),--author-link "$(AUTHOR_LINK)") $(if $(SUBCATEGORY),--subcategory "$(SUBCATEGORY)") $(if $(DESCRIPTION),--description "$(DESCRIPTION)")
-	$(PYTHON) generate_readme.py
+	$(MAKE) generate
 
 # Re-file an existing resource: change its Category (and optionally Sub-Category) in
-# place, identified by ID= or LINK=, then regenerate README.md. Only that one CSV row
+# place, identified by ID= or LINK=, then regenerate the board (README + carousel). Only that one CSV row
 # changes; the moved row keeps its ID, dates, and description.
 #   make move-resource ID=obs-9bb175c8 CATEGORY="Observability & Monitoring" SUBCATEGORY="Observability"
 #   make move-resource LINK="https://github.com/o/r" CATEGORY="Skills"
 move-resource: $(DEPS_STAMP) ## Re-file a resource to a new Category/Sub-Category (ID= or LINK=, CATEGORY=; optional SUBCATEGORY=).
 	@test -n "$(CATEGORY)" -a \( -n "$(ID)" -o -n "$(LINK)" \) || { echo 'usage: make move-resource (ID="..." | LINK="https://...") CATEGORY="Category" [SUBCATEGORY="..."]'; exit 2; }
 	$(PYTHON) resources/move_resource.py $(if $(ID),--id "$(ID)") $(if $(LINK),--link "$(LINK)") --category "$(CATEGORY)" $(if $(SUBCATEGORY),--subcategory "$(SUBCATEGORY)")
-	$(PYTHON) generate_readme.py
+	$(MAKE) generate
 
 # Update an existing resource's content fields in place (link, name, author,
-# description) by ID= or LINK=, then regenerate README.md. Category moves are
+# description) by ID= or LINK=, then regenerate the board (README + carousel). Category moves are
 # `make move-resource`. Only that one CSV row changes.
 #   make update-resource ID=2abd5dee NEW_LINK="https://github.com/ccusage/ccusage"
 #   make update-resource LINK="https://github.com/o/r" DESCRIPTION="..." AUTHOR="..."
 update-resource: $(DEPS_STAMP) ## Edit a resource's fields in place (ID= or LINK=; any of NEW_LINK=, DISPLAY_NAME=, AUTHOR=, AUTHOR_LINK=, DESCRIPTION=).
 	@test -n "$(ID)$(LINK)" || { echo 'usage: make update-resource (ID="..." | LINK="https://...") [NEW_LINK="..."] [DISPLAY_NAME="..."] [AUTHOR="..."] [AUTHOR_LINK="..."] [DESCRIPTION="..."]'; exit 2; }
 	$(PYTHON) resources/update_resource.py $(if $(ID),--id "$(ID)") $(if $(LINK),--link "$(LINK)") $(if $(NEW_LINK),--new-link "$(NEW_LINK)") $(if $(DISPLAY_NAME),--display-name "$(DISPLAY_NAME)") $(if $(AUTHOR),--author-name "$(AUTHOR)") $(if $(AUTHOR_LINK),--author-link "$(AUTHOR_LINK)") $(if $(DESCRIPTION),--description "$(DESCRIPTION)")
-	$(PYTHON) generate_readme.py
+	$(MAKE) generate
+
+# Open a resource-submission ISSUE from the CLI that enters validation: composes the
+# recommend-resource form body and creates the issue via gh WITH the resource-submission
+# + validation-pending labels, so validate-new-issue.yml runs on `opened` (the same path
+# a form submission takes). Applying those labels needs triage access, so this is a
+# maintainer/agent path. Does NOT touch the CSV/README. For a description with
+# backticks or $, pass DESCRIPTION_FILE=<path> instead of DESCRIPTION=.
+#   make submit-resource DISPLAY_NAME="X" CATEGORY="Cat" LINK="https://..." \
+#       AUTHOR="octocat" AUTHOR_LINK="https://github.com/octocat" DESCRIPTION="..." [DRY_RUN=1]
+submit-resource: $(DEPS_STAMP) ## Open a resource-submission issue via gh that enters validation (DISPLAY_NAME=, CATEGORY=, LINK=; AUTHOR=, AUTHOR_LINK=, DESCRIPTION= or DESCRIPTION_FILE=; optional SUBCATEGORY=, REPO=, DRY_RUN=1).
+	@test -n "$(DISPLAY_NAME)" -a -n "$(CATEGORY)" -a -n "$(LINK)" || { echo 'usage: make submit-resource DISPLAY_NAME="Name" CATEGORY="Category" LINK="https://..." AUTHOR="..." AUTHOR_LINK="https://..." (DESCRIPTION="..." | DESCRIPTION_FILE=path) [SUBCATEGORY="..."] [REPO=owner/repo] [DRY_RUN=1]'; exit 2; }
+	$(PYTHON) resources/submit_resource_issue.py --display-name "$(DISPLAY_NAME)" --category "$(CATEGORY)" --link "$(LINK)" $(if $(AUTHOR),--author-name "$(AUTHOR)") $(if $(AUTHOR_LINK),--author-link "$(AUTHOR_LINK)") $(if $(DESCRIPTION),--description "$(DESCRIPTION)") $(if $(DESCRIPTION_FILE),--description-file "$(DESCRIPTION_FILE)") $(if $(SUBCATEGORY),--subcategory "$(SUBCATEGORY)") $(if $(REPO),--repo "$(REPO)") $(if $(DRY_RUN),--dry-run)
 
 sync-form: $(DEPS_STAMP) ## Regenerate the recommend-resource category dropdown from config.yaml.
 	$(PYTHON) scripts/sync_issue_form.py
@@ -106,7 +118,6 @@ ticker: ticker-data ticker-svg ## Refresh ticker data and regenerate the SVG.
 recently-added: $(DEPS_STAMP) ## Render the "Recently Added" carousel SVGs (dark+light) from the CSV into assets/.
 	$(PYTHON) ticker/generate_recently_added_svg.py
 
-clean: ## Remove Python caches (prunes __INTERNAL__ and venv; never touches tracked files).
-	find . -path ./venv -prune -o -path ./__INTERNAL__ -prune -o -path ./.git -prune -o -name '__pycache__' -type d -print -exec rm -rf {} +
-	find . -path ./venv -prune -o -path ./__INTERNAL__ -prune -o -path ./.git -prune -o -name '*.py[co]' -type f -print -exec rm -f {} +
+clean: ## Remove Python caches (__pycache__, .pyc, pytest/mypy caches); never descends into __INTERNAL__, venv, or .git.
+	find . \( -path ./venv -o -path ./.git -o -path ./__INTERNAL__ \) -prune -o \( -name '__pycache__' -o -name '*.py[co]' \) -exec rm -rf {} +
 	rm -rf .pytest_cache .mypy_cache

@@ -943,6 +943,14 @@ function createSearchCommand(): Command {
       'Exclude URLs invalid for other Firecrawl endpoints',
       false
     )
+    .option(
+      '--highlights',
+      'Return query-relevant highlights for each search result'
+    )
+    .option(
+      '--no-highlights',
+      'Keep the original search snippets instead of returning highlights'
+    )
     .option('--scrape', 'Enable scraping of search results', false)
     .option(
       '--scrape-formats <formats>',
@@ -1022,6 +1030,7 @@ function createSearchCommand(): Command {
         country: options.country,
         timeout: options.timeout,
         ignoreInvalidUrls: options.ignoreInvalidUrls,
+        highlights: options.highlights,
         scrape: options.scrape,
         scrapeFormats,
         onlyMainContent: options.onlyMainContent,

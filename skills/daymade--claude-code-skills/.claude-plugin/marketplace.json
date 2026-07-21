@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Professional Claude Code skills marketplace — production-ready skills spanning GitHub and git operations (including current-base contributor PR review), document conversion and generation (Markdown, PDF, PPTX, DOCX), diagram and UI-design extraction, the full audio pipeline (ASR transcription, TTS, transcript correction, meeting minutes), financial and investment-research data, web scraping and content capture, security/PII tooling and secure repomix packaging, macOS and iOS development, CLI demo and terminal automation, prompt and skill engineering, deep research and fact-checking, QA and LLM-evaluation infrastructure, internationalization, network/Tailscale and remote-desktop diagnostics, and Claude Code operations (fast local conversation discovery across Claude Code and Codex, session recovery, CLAUDE.md optimization, statusline, multi-provider profile isolation, troubleshooting, marketplace development, repo health-check). Suite plugins (daymade-audio, daymade-claude-code, daymade-docs, daymade-financial, daymade-skill) bundle related skills under shared namespaces, including the StepFun StepAudio 2.5 audio family. See the Available Skills list in the README for the authoritative per-skill breakdown.",
-    "version": "1.85.0"
+    "version": "1.86.0"
   },
   "plugins": [
     {
@@ -100,10 +100,10 @@
     },
     {
       "name": "daymade-claude-code",
-      "description": "Claude Code operations suite that bundles archive-aware local conversation discovery across Claude Code and Codex, internal-timestamp full-event session search and recovery, interrupted-work continuation, plugin/skill troubleshooting, CLAUDE.md progressive disclosure optimization, statusline configuration, exported .txt repair, full claude.ai conversation extraction with tool-call rendering and file download, plugin marketplace development, multi-provider profile isolation for running Kimi/GLM/DeepSeek/StepFun/Anthropic in separate windows, local source sync for Claude/Codex skill installs, and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
+      "description": "Claude Code operations suite that bundles archive-aware local conversation discovery across Claude Code and Codex, internal-timestamp full-event session search and recovery, interrupted-work continuation, plugin/skill troubleshooting, CLAUDE.md progressive disclosure optimization, statusline configuration, exported .txt repair, full claude.ai conversation extraction with tool-call rendering and file download, plugin marketplace development, multi-provider profile isolation for running Kimi/GLM/DeepSeek/StepFun/Anthropic in separate windows, local source sync for Claude/Codex skill installs, personal-memory migration into tool-agnostic AGENTS.md reference docs, and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "1.18.0",
+      "version": "1.21.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -120,7 +120,8 @@
         "terminal-screenshot",
         "usage-analyst",
         "web-conversation-export",
-        "conversation-file-download"
+        "conversation-file-download",
+        "memory-migration"
       ],
       "skills": [
         "./local-conversation-history",
@@ -135,15 +136,17 @@
         "./terminal-screenshot",
         "./claude-usage-analyst",
         "./claude-switch-models-setup",
-        "./read-claude-web-conversation"
+        "./read-claude-web-conversation",
+        "./claude-migrate-memory-to-doc",
+        "./claude-code-hooks"
       ]
     },
     {
       "name": "daymade-docs",
-      "description": "Documentation suite plugin that exposes document conversion, Mermaid diagram generation, PDF/PPT creation, and documentation cleanup skills under one shared namespace",
+      "description": "Documentation suite plugin that exposes document conversion, Mermaid diagram generation, PDF/PPT/DOCX creation, and documentation cleanup skills under one shared namespace",
       "source": "./daymade-docs",
       "strict": false,
-      "version": "1.3.0",
+      "version": "1.4.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -152,6 +155,8 @@
         "mermaid",
         "pdf",
         "pptx",
+        "docx",
+        "word",
         "meeting-minutes",
         "scan",
         "photo-to-pdf"
@@ -161,6 +166,7 @@
         "./mermaid-tools",
         "./pdf-creator",
         "./ppt-creator",
+        "./docx-creator",
         "./docs-cleaner",
         "./pdf-to-html",
         "./photo-to-scanned-pdf"
@@ -484,10 +490,10 @@
     },
     {
       "name": "llm-eval-harness",
-      "description": "Evaluate any LLM behind an OpenAI- or Anthropic-compatible endpoint across four dimensions — speed (TTFT + thinking-aware tokens/sec), concurrency/stability (success rate, p50/p90, breaking point), Anthropic protocol compliance (thinking-block trigger rate), and quality regression against your own accumulated use cases (blind-judge precision). Use to benchmark a model, verify a tokens-per-second claim, compare models head-to-head, or vet a newly released model before adopting it.",
+      "description": "Test/evaluate any LLM behind an OpenAI- or Anthropic-compatible endpoint: availability (max_tokens-aware), request fidelity (does system prompt/tools/history REACH the model, or does the gateway silently drop it), speed (TTFT+tok/s), concurrency (before a workshop), Anthropic protocol compliance, quality regression, vendor bug reports, deployment gates, resident canaries. Reach for this BEFORE hand-rolling a curl loop against any LLM endpoint — that instinct is the trap: it skips the N=10 sampling, Connection:close, and env-var key handling this bakes in. Use when someone tests/benchmarks/测评/压测 a model/endpoint, onboards a provider, decides whether to switch or temporarily fail over to an alternate channel (e.g. outage or quota exhaustion), writes a supported-models list, debugs \"model ignores system prompt\", or verifies a tok/s claim. Triggers on \"benchmark this model\", \"测一下这个模型/渠道/API\", \"接入新模型先测一下\", \"system prompt 不生效\", \"这个渠道能不能用/稳不稳\", \"临时切换过去顶一阵子\" — even without \"eval\", even wrapped in business narrative.",
       "source": "./llm-eval-harness",
       "strict": false,
-      "version": "1.1.0",
+      "version": "1.3.0",
       "category": "developer-tools",
       "keywords": [
         "llm",
@@ -1155,6 +1161,23 @@
         "openclaw",
         "relay",
         "thinking-levels"
+      ]
+    },
+    {
+      "name": "design-style-picker",
+      "description": "Batch-generate and compare visual design directions so a user can choose the style they actually want. Use when the user says they cannot describe an abstract visual style, asks for many style options, wants to choose from generated UI/design-system images, rejects outputs as too colorful/too dead/too generic, or needs an existing UI/design system evolved without discarding current assets.",
+      "source": "./design-style-picker",
+      "strict": false,
+      "version": "1.0.0",
+      "category": "design",
+      "keywords": [
+        "design",
+        "style",
+        "ui",
+        "visual-direction",
+        "moodboard",
+        "设计",
+        "风格"
       ]
     }
   ]

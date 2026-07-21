@@ -10644,8 +10644,8 @@
       "description": "'Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, think through scope, decide what to build, or needs collaborative product fr",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 326,
-      "words": 6741,
+      "lines": 341,
+      "words": 7079,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10752,8 +10752,8 @@
       "description": "\"Run the full autonomous shipping pipeline end-to-end, hands-off with no check-ins: plan, implement, review and fix, commit, push a branch, open a PR, and watch CI to green. Use only when the user exp",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 88,
-      "words": 2199,
+      "lines": 115,
+      "words": 3014,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10776,8 +10776,8 @@
       "description": "\"Create a durable, visual teaching artifact \u2014 plus an optional check-in (predict-then-reveal for diffs, corrected exercises) that makes it stick \u2014 for something worth learning: a concept, a diff, an i",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
-      "lines": 102,
-      "words": 1963,
+      "lines": 103,
+      "words": 2268,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10800,8 +10800,8 @@
       "description": "Review requirements, plans, or specs with role-specific lenses. Use when the user wants to improve an existing planning document.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
-      "lines": 252,
-      "words": 3155,
+      "lines": 254,
+      "words": 3249,
       "code_blocks": 3,
       "languages": []
     },
@@ -10810,8 +10810,8 @@
       "description": "\"Generate and evaluate grounded ideas. Use when the user asks for ideas, improvements, surprising options, or AI-generated directions before choosing one to develop; use ce-brainstorm to refine the us",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
-      "lines": 403,
-      "words": 7407,
+      "lines": 408,
+      "words": 7882,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10834,8 +10834,8 @@
       "description": "\"Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked for review; report-only by default, with explicit local apply available for user-directed fix workflow",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 542,
-      "words": 7356,
+      "lines": 543,
+      "words": 7410,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -10848,7 +10848,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 817,
-      "words": 14971,
+      "words": 14975,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -10859,9 +10859,9 @@
       "description": "Execute a plan or concrete work prompt end-to-end. Use when implementing from docs/plans, a spec path, or a clear build request; use ce-debug for open-ended bugs. Standalone use owns the shipping tail",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
-      "lines": 439,
-      "words": 6477,
-      "code_blocks": 6,
+      "lines": 407,
+      "words": 6563,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ]
@@ -10903,8 +10903,8 @@
       "description": "\"Check Compound Engineering health and repo-local config.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 125,
-      "words": 750,
+      "lines": 130,
+      "words": 890,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -13265,12 +13265,12 @@
     },
     {
       "name": "torchdrug",
-      "description": "PyTorch-native graph neural networks for molecules and proteins. Use when building custom GNN architectures for drug discovery, protein modeling, or knowledge graph reasoning. Best for custom model de",
+      "description": "Build and troubleshoot TorchDrug 0.2.1 workflows for molecular graphs, property prediction, self-supervised pretraining, molecule generation, retrosynthesis, protein representation learning, and knowl",
       "path": "K-Dense-AI--claude-scientific-skills/skills/torchdrug/SKILL.md",
       "remote_path": "skills/torchdrug/SKILL.md",
-      "lines": 460,
-      "words": 1761,
-      "code_blocks": 5,
+      "lines": 242,
+      "words": 1003,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "python"
@@ -13983,15 +13983,15 @@
     },
     {
       "name": "venue-templates",
-      "description": "Access comprehensive LaTeX templates, formatting requirements, and submission guidelines for major scientific publication venues (Nature, Science, PLOS, IEEE, ACM), academic conferences (NeurIPS, ICML",
+      "description": "Prepare journal manuscripts, conference papers, research posters, and grant documents using venue-specific formatting guidance and bundled LaTeX scaffolds. Use when selecting an official template, che",
       "path": "K-Dense-AI--claude-scientific-skills/skills/venue-templates/SKILL.md",
       "remote_path": "skills/venue-templates/SKILL.md",
-      "lines": 688,
-      "words": 3016,
-      "code_blocks": 16,
+      "lines": 270,
+      "words": 1462,
+      "code_blocks": 6,
       "languages": [
         "bash",
-        "markdown"
+        "text"
       ],
       "license": "MIT license"
     },
@@ -25128,6 +25128,18 @@
       ]
     },
     {
+      "name": "stripe-docs",
+      "description": ">-",
+      "path": "stripe--ai/skills/stripe-docs/SKILL.md",
+      "remote_path": "skills/stripe-docs/SKILL.md",
+      "lines": 43,
+      "words": 132,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/skills/upgrade-stripe/SKILL.md",
@@ -25209,6 +25221,18 @@
       ]
     },
     {
+      "name": "stripe-docs",
+      "description": ">-",
+      "path": "stripe--ai/providers/grok/plugin/skills/stripe-docs/SKILL.md",
+      "remote_path": "providers/grok/plugin/skills/stripe-docs/SKILL.md",
+      "lines": 43,
+      "words": 132,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/providers/grok/plugin/skills/upgrade-stripe/SKILL.md",
@@ -25262,6 +25286,18 @@
       "lines": 170,
       "words": 1003,
       "code_blocks": 12,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-docs",
+      "description": ">-",
+      "path": "stripe--ai/providers/cursor/plugin/skills/stripe-docs/SKILL.md",
+      "remote_path": "providers/cursor/plugin/skills/stripe-docs/SKILL.md",
+      "lines": 43,
+      "words": 132,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -25330,6 +25366,18 @@
       "lines": 170,
       "words": 1003,
       "code_blocks": 12,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-docs",
+      "description": ">-",
+      "path": "stripe--ai/providers/codex/plugin/skills/stripe-docs/SKILL.md",
+      "remote_path": "providers/codex/plugin/skills/stripe-docs/SKILL.md",
+      "lines": 43,
+      "words": 132,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -25408,6 +25456,18 @@
       "lines": 170,
       "words": 1003,
       "code_blocks": 12,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-docs",
+      "description": ">-",
+      "path": "stripe--ai/providers/claude/plugin/skills/stripe-docs/SKILL.md",
+      "remote_path": "providers/claude/plugin/skills/stripe-docs/SKILL.md",
+      "lines": 43,
+      "words": 132,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -149078,7 +149138,7 @@
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
       "lines": 596,
-      "words": 3992,
+      "words": 3981,
       "code_blocks": 29,
       "languages": [
         "bash",
@@ -149087,11 +149147,11 @@
     },
     {
       "name": "transcript-fixer",
-      "description": "Corrects speech-to-text transcription errors using dictionary rules and AI-powered analysis. Builds personalized correction databases that learn from each fix, auto-loads person-name ASR variants from",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 545,
-      "words": 7405,
+      "lines": 553,
+      "words": 7587,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -149126,8 +149186,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1489,
-      "words": 17155,
+      "lines": 1507,
+      "words": 18069,
       "code_blocks": 48,
       "languages": [
         "bash",
@@ -149385,6 +149445,18 @@
       ]
     },
     {
+      "name": "claude-code-hooks",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
+      "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
+      "lines": 190,
+      "words": 1674,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "financial-data-collector",
       "description": "\"Collect real financial data for any US publicly traded company from free public sources (yfinance). Output structured JSON consumable by downstream financial skills (DCF modeling, comps analysis, ear",
       "path": "daymade--claude-code-skills/daymade-financial/financial-data-collector/SKILL.md",
@@ -149458,6 +149530,18 @@
       "lines": 187,
       "words": 930,
       "code_blocks": 8,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "docx-creator",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-docs/docx-creator/SKILL.md",
+      "remote_path": "daymade-docs/docx-creator/SKILL.md",
+      "lines": 160,
+      "words": 1282,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -152602,8 +152686,8 @@
       "description": "Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction.",
       "path": "affaan-m--everything-claude-code/skills/strategic-compact/SKILL.md",
       "remote_path": "skills/strategic-compact/SKILL.md",
-      "lines": 139,
-      "words": 972,
+      "lines": 143,
+      "words": 1082,
       "code_blocks": 1,
       "languages": [
         "json"
@@ -156005,8 +156089,8 @@
       "description": "Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction.",
       "path": "affaan-m--everything-claude-code/.agents/skills/strategic-compact/SKILL.md",
       "remote_path": ".agents/skills/strategic-compact/SKILL.md",
-      "lines": 104,
-      "words": 679,
+      "lines": 108,
+      "words": 789,
       "code_blocks": 1,
       "languages": [
         "json"

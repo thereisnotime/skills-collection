@@ -84,6 +84,23 @@ describe('executeSearch', () => {
       });
     });
 
+    it('should allow highlights to be disabled', async () => {
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
+
+      await executeSearch({
+        query: 'test query',
+        highlights: false,
+      });
+
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
+        expect.objectContaining({
+          highlights: false,
+          query: 'test query',
+        })
+      );
+    });
+
     it('should pass apiUrl to getClient when provided', async () => {
       mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
