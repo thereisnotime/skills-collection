@@ -10584,8 +10584,8 @@
       "description": "\"Hands-off, diff-scoped browser QA of the active branch: maps user flows, drives a real browser, autonomously fixes small breakages with regression tests and commits, judges experience against product",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-dogfood/SKILL.md",
       "remote_path": "skills/ce-dogfood/SKILL.md",
-      "lines": 199,
-      "words": 2930,
+      "lines": 201,
+      "words": 2983,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -10620,8 +10620,8 @@
       "description": "\"Babysits or watches an open GitHub PR until merge-ready, continuously reacting to review comments, CI failures, and routine base movement throughout the PR's life. Use when asked to 'babysit the PR',",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
-      "lines": 241,
-      "words": 10468,
+      "lines": 243,
+      "words": 10726,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -10645,7 +10645,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
       "lines": 341,
-      "words": 7079,
+      "words": 7101,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10693,7 +10693,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
       "lines": 313,
-      "words": 5166,
+      "words": 5234,
       "code_blocks": 2,
       "languages": []
     },
@@ -10714,8 +10714,8 @@
       "description": "Create a session handoff for another agent, or resume, find, and read any user-selected continuity source. Use when work or conversation must continue without access to the current session history.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-handoff/SKILL.md",
       "remote_path": "skills/ce-handoff/SKILL.md",
-      "lines": 135,
-      "words": 1704,
+      "lines": 137,
+      "words": 1752,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -10725,11 +10725,11 @@
     },
     {
       "name": "ce-sweep",
-      "description": "\"Sweep configured feedback sources (Slack, GitHub Issues; email experimental) for new items: acknowledge at source, analyze recordings, verify fixes merged to main, and emit an /lfg-ready plan. First ",
+      "description": "\"Sweep configured feedback sources (Slack, GitHub Issues; email experimental) for new items: acknowledge at source, analyze recordings, verify fixes merged to main, and emit an `lfg`-ready plan. First",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-sweep/SKILL.md",
       "remote_path": "skills/ce-sweep/SKILL.md",
-      "lines": 165,
-      "words": 2039,
+      "lines": 167,
+      "words": 2082,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -10752,8 +10752,8 @@
       "description": "\"Run the full autonomous shipping pipeline end-to-end, hands-off with no check-ins: plan, implement, review and fix, commit, push a branch, open a PR, and watch CI to green. Use only when the user exp",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 115,
-      "words": 3014,
+      "lines": 130,
+      "words": 3650,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10764,8 +10764,8 @@
       "description": "Document a recently solved problem or durable project vocabulary in docs/solutions/ or CONCEPTS.md. Use when capturing a learning after work.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 756,
-      "words": 9656,
+      "lines": 760,
+      "words": 9744,
       "code_blocks": 18,
       "languages": [
         "bash"
@@ -10776,8 +10776,8 @@
       "description": "\"Create a durable, visual teaching artifact \u2014 plus an optional check-in (predict-then-reveal for diffs, corrected exercises) that makes it stick \u2014 for something worth learning: a concept, a diff, an i",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
-      "lines": 103,
-      "words": 2268,
+      "lines": 105,
+      "words": 2314,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10788,8 +10788,8 @@
       "description": "Commit, push, and open a PR. Use when asked to ship/open a PR, or for PR-description-only flows like writing, rewriting, or describing a PR body.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
-      "lines": 155,
-      "words": 3194,
+      "lines": 157,
+      "words": 3240,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -10835,7 +10835,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
       "lines": 543,
-      "words": 7410,
+      "words": 7464,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -10848,7 +10848,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 817,
-      "words": 14975,
+      "words": 15015,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -10903,8 +10903,8 @@
       "description": "\"Check Compound Engineering health and repo-local config.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 130,
-      "words": 890,
+      "lines": 132,
+      "words": 928,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -10916,8 +10916,8 @@
       "description": "\"Give a decisive, project-grounded point of view in the subject's own shape: a graded verdict on an external-adoption question, a holistic take on a document, or a position on a user-supplied approach",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
-      "lines": 134,
-      "words": 2891,
+      "lines": 135,
+      "words": 3107,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11624,8 +11624,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 980,
-      "words": 15544,
+      "lines": 983,
+      "words": 15907,
       "code_blocks": 18,
       "languages": []
     },
@@ -11645,8 +11645,8 @@
       "description": "\"Verifies all references, citations, and data for factual accuracy before submission and after revision\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
-      "lines": 731,
-      "words": 7531,
+      "lines": 745,
+      "words": 7841,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -11669,8 +11669,8 @@
       "description": "\"Writes the full paper draft section by section from the structured outline and Paper Configuration Record\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
-      "lines": 602,
-      "words": 6804,
+      "lines": 617,
+      "words": 7143,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -12694,11 +12694,11 @@
     },
     {
       "name": "scientific-schematics",
-      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.1 Pro Preview for quality review. Only regenerates if quality is below threshold fo",
+      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-schematics/SKILL.md",
       "remote_path": "skills/scientific-schematics/SKILL.md",
       "lines": 619,
-      "words": 3136,
+      "words": 3126,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -13515,7 +13515,7 @@
     },
     {
       "name": "infographics",
-      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3 Pro for quality review. Integrates research-lookup and web search for accurate data. Supports ",
+      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-skills/skills/infographics/SKILL.md",
       "remote_path": "skills/infographics/SKILL.md",
       "lines": 566,
@@ -15791,8 +15791,8 @@
       "description": "Use this agent to build \"story\" of this change, that will be used to review it by human reviewer. Story must explain what this change tries to achive, what risks it introduces and how it solve them.",
       "path": "NeoLabHQ--context-engineering-kit/plugins/review/agents/change-story-agent.md",
       "remote_path": "plugins/review/agents/change-story-agent.md",
-      "lines": 78,
-      "words": 701,
+      "lines": 81,
+      "words": 775,
       "code_blocks": 0,
       "languages": []
     },
@@ -15801,8 +15801,8 @@
       "description": "Use this agent to rate each changed file based on 4 criteria and output final list of 10 files that require most attention.",
       "path": "NeoLabHQ--context-engineering-kit/plugins/review/agents/change-impact-agent.md",
       "remote_path": "plugins/review/agents/change-impact-agent.md",
-      "lines": 70,
-      "words": 724,
+      "lines": 73,
+      "words": 798,
       "code_blocks": 0,
       "languages": []
     },
@@ -15811,8 +15811,8 @@
       "description": "Use this agent to rate each changed file based on 2 criteria and output final list of 10 files that require most attention.",
       "path": "NeoLabHQ--context-engineering-kit/plugins/review/agents/change-failure-agent.md",
       "remote_path": "plugins/review/agents/change-failure-agent.md",
-      "lines": 67,
-      "words": 633,
+      "lines": 70,
+      "words": 707,
       "code_blocks": 0,
       "languages": []
     },
@@ -15821,8 +15821,8 @@
       "description": "Use this agent to rate each changed file based on 2 criteria and output final list of files that require most attention.",
       "path": "NeoLabHQ--context-engineering-kit/plugins/review/agents/change-expectation-agent.md",
       "remote_path": "plugins/review/agents/change-expectation-agent.md",
-      "lines": 68,
-      "words": 633,
+      "lines": 71,
+      "words": 707,
       "code_blocks": 0,
       "languages": []
     },
@@ -15891,9 +15891,9 @@
       "description": "This skill should be used when need prioritize what changed code in repository human must review.",
       "path": "NeoLabHQ--context-engineering-kit/plugins/review/skills/traiage-review/SKILL.md",
       "remote_path": "plugins/review/skills/traiage-review/SKILL.md",
-      "lines": 161,
-      "words": 1169,
-      "code_blocks": 5,
+      "lines": 199,
+      "words": 1426,
+      "code_blocks": 7,
       "languages": [
         "md",
         "python"
@@ -148506,8 +148506,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 488,
-      "words": 3373,
+      "lines": 509,
+      "words": 3624,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -148648,8 +148648,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/llm-eval-harness/SKILL.md",
       "remote_path": "llm-eval-harness/SKILL.md",
-      "lines": 291,
-      "words": 2262,
+      "lines": 328,
+      "words": 2747,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -149381,12 +149381,12 @@
     },
     {
       "name": "claude-switch-models-setup",
-      "description": "Set up multiple isolated Claude Code CLI profiles so students and power users can run different LLM providers (Kimi K3, Kimi K2.7 highspeed, GLM, DeepSeek, StepFun, Anthropic) in separate terminal win",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 263,
-      "words": 2115,
-      "code_blocks": 7,
+      "lines": 365,
+      "words": 3264,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json"
@@ -149449,8 +149449,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 190,
-      "words": 1674,
+      "lines": 226,
+      "words": 2081,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -166220,12 +166220,24 @@
       "description": "End-to-end pipeline for publishing Claude Code lab meetings. Accepts optional args: date (YYYYMMDD, \"yesterday\", \"today\") and lab number (e.g. \"04\"). Examples: \"yesterday 04\", \"20260420 05\", \"04\" (tod",
       "path": "glebis--claude-skills/agency-docs-updater/SKILL.md",
       "remote_path": "agency-docs-updater/SKILL.md",
-      "lines": 275,
-      "words": 1649,
-      "code_blocks": 11,
+      "lines": 288,
+      "words": 1819,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "python"
+      ]
+    },
+    {
+      "name": "pre-session-portrait",
+      "description": "Build a compressed, visualizable \"portrait\" of a consulting/coaching client before a session, so the paid hour is spent solving, not scoping. Runs a 7-lens JTBD-inspired interview (where / how / what ",
+      "path": "glebis--claude-skills/pre-session-portrait/SKILL.md",
+      "remote_path": "pre-session-portrait/SKILL.md",
+      "lines": 81,
+      "words": 952,
+      "code_blocks": 1,
+      "languages": [
+        "yaml"
       ]
     },
     {
@@ -166512,7 +166524,7 @@
       "path": "glebis--claude-skills/cull/SKILL.md",
       "remote_path": "cull/SKILL.md",
       "lines": 112,
-      "words": 996,
+      "words": 1030,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -166668,6 +166680,16 @@
       "lines": 42,
       "words": 520,
       "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
       "languages": []
     },
     {

@@ -24,8 +24,11 @@ Detect the review mode from the instruction you received:
   - `git diff HEAD` — unstaged changes
   - `git diff --cached` — staged changes
   - `git status` — overview of changed files
+- **Commit mode** — instruction says to review the diff introduced by a specific commit whose concrete hash is provided in the instruction (never the literal `HEAD` or `latest` — the orchestrator resolves that first). Use:
+  - `git show <commit-hash>` or `git diff <commit-hash>^!` (equivalently `git diff <commit-hash>^ <commit-hash>`) — full commit diff
+  - `git show --name-only --pretty=format: <commit-hash>` — file names only
 
-Use only read-only git commands. The `origin/<default-branch>` value is provided in the instruction (e.g. `origin/main`).
+Use only read-only git commands. The `origin/<default-branch>` value is provided in the instruction (e.g. `origin/main`). In commit mode the concrete `<commit-hash>` is provided in the instruction.
 
 ## Process
 
