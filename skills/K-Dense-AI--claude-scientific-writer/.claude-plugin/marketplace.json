@@ -2,7 +2,7 @@
   "name": "claude-scientific-writer",
   "metadata": {
     "description": "Skills and setup for scientific writing (papers, grants, posters, clinical reports) using the scientific-writer toolkit.",
-    "version": "2.16.0",
+    "version": "2.17.1",
     "homepage": "https://github.com/K-Dense-AI/claude-scientific-writer"
   },
   "owner": {
@@ -27,10 +27,8 @@
         "./skills/literature-review",
         "./skills/market-research-reports",
         "./skills/markitdown",
-        "./skills/paper-2-web",
         "./skills/parallel-web",
         "./skills/peer-review",
-        "./skills/poster-presentation",
         "./skills/pptx-posters",
         "./skills/research-grants",
         "./skills/research-lookup",

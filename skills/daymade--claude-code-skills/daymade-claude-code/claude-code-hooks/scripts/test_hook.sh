@@ -52,9 +52,57 @@ run "grep-search"    '{"tool_name":"Bash","tool_input":{"command":"grep TRIGGER 
 run "comment"        '{"tool_name":"Bash","tool_input":{"command":"echo hi # TRIGGER bad"}}' 0
 run "unrelated"      '{"tool_name":"Bash","tool_input":{"command":"ls -la /tmp"}}' 0
 run "non-bash-tool"  '{"tool_name":"Read","tool_input":{"file_path":"/x/TRIGGER.txt"}}' 0
+#
+# ── FAILURE-DIRECTION ROWS — add these whenever the hook derives state from the
+#    command text (a path, a repo, a target). They assert the hook still behaves
+#    when it CANNOT resolve what it parsed. Omit them and a fail-open bug looks
+#    exactly like a clean pass (pitfall #10):
+# run "trigger behind cd ~"  '{"tool_name":"Bash","tool_input":{"command":"cd ~/somewhere && TRIGGER -x"}}' 2
+# run "trigger behind cd abs" '{"tool_name":"Bash","tool_input":{"command":"cd /tmp && TRIGGER -x"}}' 2
+# run "unresolvable path"    '{"tool_name":"Bash","tool_input":{"command":"cd ~/no-such-dir && TRIGGER -x"}}' 2
+#
+# ── HUMAN-GATE ROWS — if the hook releases via a confirmation dialog / tty YES,
+#    force both channels to decline so the run stays headless, and assert it
+#    BLOCKS. Requires the hook to read its channels from overridable names
+#    (see Pattern B "Make the gate testable"):
+#      GIT_GUARD_OSASCRIPT=false GIT_GUARD_TTY=/dev/null bash test_hook.sh <hook>
+#    Never provide an env var that *grants* approval — that recreates the retired
+#    static-escape-hatch anti-pattern.
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# ── EVENT SHAPES OTHER THAN PreToolUse (the payload differs per event) ────────
+# A hook reads a DIFFERENT field depending on which event it's registered for.
+# Feed the wrong shape and the hook can't find any text, exits 0 silently, and
+# EVERY case looks like it passed. Verified shapes (2026-07-22):
+#
+#   Stop / SubagentStop — hook reads the assistant's final message:
+#     run "stop-trigger" '{"last_assistant_message":"...text under test..."}' 2
+#     (fallback path: '{"transcript_path":"/abs/path.jsonl"}' where the file has a
+#      line {"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}};
+#      also honors {"stop_hook_active":true} as an early no-op exit)
+#
+#   UserPromptSubmit — hook reads the user's prompt:
+#     run "prompt-trigger" '{"prompt":"...text under test..."}' 2
+#
+#   PostToolUse — same as PreToolUse plus the result:
+#     run "post" '{"tool_name":"Bash","tool_input":{"command":"x"},"tool_response":{...}}' 2
+#
+# Build the JSON with single quotes as above. Writing '{\"a\":1}' inside single
+# quotes emits LITERAL backslash-quote — invalid JSON — and the hook exits 0 on
+# the parse failure, which reads as "passed". (Cost a real debugging round.)
 # ──────────────────────────────────────────────────────────────────────────────
 
 echo ""
 echo "=== $pass pass / $fail fail ==="
-if [ "$fail" = "0" ]; then echo "ALL PASS — safe to register"; exit 0
-else echo "FAILURES — fix before registering"; exit 1; fi
+# Harness-sanity check: if NOTHING triggered, suspect the harness before the hook.
+# A wrong event shape / malformed JSON makes the hook exit 0 on every case, which
+# is indistinguishable from "no false blocks" unless you assert a known-good
+# trigger. That's why the trigger rows above are the baseline, not decoration.
+if [ "$fail" != "0" ]; then
+  echo "FAILURES — fix before registering"
+  echo "HINT: if EVERY trigger row failed with exit=0, the hook probably never"
+  echo "      saw your text — check the event shape / JSON quoting above before"
+  echo "      touching the hook's logic."
+  exit 1
+fi
+echo "ALL PASS — safe to register"; exit 0

@@ -40,7 +40,7 @@ Scientific Writer can be used in three ways:
 
 1. **🌟 Claude Code Plugin (Recommended)** - Use directly in your IDE
    - One-command setup: `/claude-scientific-writer:scientific-writer-init`
-   - All 25 skills available immediately
+   - All 26 selected skills available immediately
    - No CLI required
    - See: [Plugin Installation Guide](../README.md#-use-as-a-claude-code-plugin-recommended)
 
@@ -188,5 +188,5 @@ If you can't find what you're looking for:
 
 ---
 
-**Last Updated**: July 4, 2026 (v2.15.1)
+**Last Updated**: July 22, 2026 (v2.17.1)
 

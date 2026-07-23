@@ -33,6 +33,9 @@ const ceWorkDocs = readRepoFile("docs/skills/ce-work.md")
 const ceWorkEngines = readRepoFile(
   "skills/ce-work/references/execution-engines.md",
 )
+const crossModelExecution = readRepoFile(
+  "skills/ce-work/references/cross-model-execution.md",
+)
 const planMarkdownRendering = readRepoFile(
   "skills/ce-plan/references/markdown-rendering.md",
 )
@@ -691,6 +694,115 @@ describe("session-settled decision contract", () => {
     expect(brainstormSynthesisSummary).toContain("Carrying forward:")
     expect(planDeepeningWorkflow).toContain(
       "never removes the annotation or inverts the decision",
+    )
+  })
+})
+
+describe("cross-layer ownership contract", () => {
+  test("both section contracts carry the one-owner rule and the duplication named-test clause", () => {
+    for (const doc of [planSections, brainstormSections]) {
+      expect(doc).toMatch(/One owner per rule; cite, don't restate\./)
+      expect(doc).toMatch(/Unlinked sibling\s+restatement/)
+      expect(doc).toMatch(/Bind external authorities; don't summarize them\./)
+      expect(doc).toMatch(/a rule stated in full\s+in more than one section/)
+    }
+  })
+
+  test("plan-sections registers KTD-IDs with the R/U grammar and typed authority order", () => {
+    expect(planSections).toContain("KTD-IDs (Key Technical Decisions")
+    expect(planSections).toContain("`KTD1.`")
+    expect(planSections).toContain("KTD-IDs on implementation-ready plans")
+    expect(planSections).toContain("no mass renumbering")
+    // Typed authority: R wins product behavior; KTD wins mechanism; units override neither.
+    expect(planSections).toMatch(/R wins on product\s+behavior/)
+    expect(planSections).toMatch(/KTD wins on implementation mechanism/)
+    expect(planSections).toMatch(/a unit overrides neither/)
+    // No mirror KTDs.
+    expect(planSections).toMatch(/Do \*\*not\*\* create a KTD that merely mirrors/)
+    expect(planMarkdownRendering).toContain("`KTD<N>.` plain prefix")
+  })
+
+  test("brainstorm Key Decisions are a provenance index with Governs links, not a second statement", () => {
+    expect(brainstormSections).toMatch(/provenance index entry/)
+    expect(brainstormSections).toContain("`Governs R5, R7`")
+    expect(brainstormSections).toMatch(
+      /must not create a KTD that merely mirrors\s+the\s+product decision/,
+    )
+    expect(brainstormSections).not.toContain(
+      "inherits these labels into plan KTDs",
+    )
+  })
+
+  test("synthesis routes settled product decisions and planning decisions to their distinct owners", () => {
+    expect(planSynthesisSummary).toMatch(
+      /settled product decisions.*labeled Product Contract Key Decisions.*exact `Governs R…` links/s,
+    )
+    expect(planSynthesisSummary).toMatch(
+      /settled planning(?:\/how)? decisions.*labeled Key Technical Decisions/s,
+    )
+  })
+
+  test("ce-plan preservation protects meaning + IDs and sanctions restructuring with its own note class", () => {
+    expect(planSkill).toContain("Meaning-preserving restructuring is sanctioned")
+    expect(planSkill).toContain("restructured, no scope change")
+    expect(planSkill).toContain(
+      "Preserve Product Contract meaning and stable IDs under Phase 0.3 step 3",
+    )
+    expect(planSkill).not.toContain("Preserve Product Contract IDs and content")
+    expect(planSkill).toContain(
+      "re-point every affected `Governs R…`, `Covers R…`, and inline `per R…` citation",
+    )
+    expect(planSkill).toContain(
+      "no pre-restructure catch-all link silently excludes a split-out requirement",
+    )
+    expect(planSkill).toContain("do **not** mirror it into a KTD")
+    // Unit Approach owns only unit-local content.
+    expect(planSkill).toContain("Unit-local content only")
+    // Settlement channel: KTD<N> for planning decisions, governed Rs for product decisions.
+    expect(planSkill).toContain("reverse-resolved through its `Governs R…` links")
+  })
+
+  test("ce-work packets reverse-resolve Product Key Decisions so settlement labels survive bounded reads", () => {
+    expect(ceWork).toContain("`Governs R…` links name the unit's cited R-IDs")
+    expect(ceWork).toContain("A KTD or Product Contract Key Decision carrying")
+  })
+
+  test("every executor handoff reverse-resolves labeled Product Contract Key Decisions", () => {
+    const planHandoff = readRepoFile("skills/ce-plan/references/plan-handoff.md")
+    const handoffs = [
+      sliceSection(
+        planSkill,
+        "- **Run it as a `/goal`**",
+        "- **Decide on the review's open items**",
+      ),
+      sliceSection(
+        planHandoff,
+        "- **Run it as a `/goal`**",
+        "- **Decide on the review's open items**",
+      ),
+      sliceSection(
+        ceWorkEngines,
+        "Copyable goal-mode prompt",
+        "Copyable dynamic-workflow prompt",
+      ),
+      sliceSection(
+        crossModelExecution,
+        "3. **Prepare one bounded unit packet.**",
+        "4. **Start one fixed author.**",
+      ),
+    ]
+
+    for (const handoff of handoffs) {
+      expect(handoff).toMatch(
+        /Product Contract Key Decision.*exact `Governs R…` links.*cited R-IDs/s,
+      )
+    }
+  })
+
+  test("deepening strengthens at the owning entry and never restates owned rules into siblings", () => {
+    expect(planDeepeningWorkflow).toContain("Strengthen at the owning entry.")
+    expect(planDeepeningWorkflow).toContain(
+      "Restate a rule a cited R or KTD already owns into a sibling section",
     )
   })
 })

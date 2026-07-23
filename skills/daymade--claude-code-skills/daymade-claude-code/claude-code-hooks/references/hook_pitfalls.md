@@ -36,9 +36,17 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
   (`gsub(/&&|\|\||;|\|/,"\n")`). awk doesn't understand shell quoting, so the `|`
   *inside the quoted regex* is treated as a pipe, the string splits, and
   `TRIGGER` lands at a segment head → looks like a command.
-- **Fix:** parse with `shlex.split()` (quotes honored — the regex stays one
-  token) and check **command position**, not mere presence. See the walker in
+- **Fix:** tokenize with the **`shlex.shlex` class** (`punctuation_chars=True`,
+  `whitespace_split=True`) — NOT the `shlex.split()` function, which leaves
+  `ls|TRIGGER x` as `['ls|TRIGGER', 'x']` and hides the trigger from a
+  command-position check entirely. Both forms honor quotes (the regex stays one
+  token); only the class also splits unspaced separators. Then check **command
+  position**, not mere presence — walker in
   [hook_patterns.md](hook_patterns.md#the-shlex-command-position-walker).
+- **Caveat — `whitespace_split=True` also swallows newlines.** If your commands
+  can be multiline (`cd x\ngit add\ngit push`), tokenizing the whole string
+  collapses every line into one segment and hides everything but the first line's
+  head. Split on newlines as text *first*; see #11.
 - **Why this is the worst class of bug:** *误杀健康输入比漏报更糟* — a guard that
   blocks healthy input trains the operator (human or model) to bypass it
   reflexively, and a reflexively-bypassed guard protects nothing. When choosing
@@ -67,6 +75,19 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
 - **Fix (detection):** a SessionStart health check that `bash -n`s every hook and
   checks symlinks (Pattern C) surfaces this class at startup instead of after
   hours of misdiagnosis.
+- **Fix (escape hatch) — you cannot Bash your way out of a broken Bash guard.**
+  Every repair you'd reach for (`rm` the symlink, re-`ln -s`, edit `settings.json`
+  with sed) is itself a Bash call, and a corrupted PreToolUse Bash hook inspects
+  those too. Routes that do **not** go through the Bash tool, cheapest first:
+  1. **Edit `settings.json` with the Edit/Write tool** (file tools don't fire the
+     Bash matcher) and delete the hook's entry — instant disarm, no shell needed.
+  2. **Start a session with a different config home**: `CLAUDE_CONFIG_DIR=<other>`
+     — a profile whose settings never registered the broken hook. (Set it when
+     launching the CLI, i.e. outside the poisoned session.)
+  3. **Fix from outside**: any terminal not running under the agent, since the hook
+     only exists on the agent's tool path, not on your shell's.
+  This is also the argument for the SSOT+symlink layout: repair is one `ln -s` you
+  can run from an ordinary terminal, not surgery on a live config.
 
 ---
 
@@ -209,6 +230,110 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
 
 ---
 
+## 10. A path parsed from command text keeps its literal `~` — guard fails **open**
+
+**Symptom.** The guard never fires for commands that `cd` somewhere first. No error,
+no log line, no misbehavior you can see — it just silently allows. In the case that
+surfaced it, two sibling hooks shared one parsing helper and degraded *differently*:
+a PostToolUse context-injector kept emitting its own fallback string
+(`"cannot read HEAD — not a git repo or bad path"`) for weeks, which everyone read as
+"that hook is noisy again"; the PreToolUse scope guard beside it gave **no signal at
+all** — it simply stopped guarding. Same root cause, one visible-but-dismissed
+symptom and one invisible.
+
+**Cause.** Tilde expansion is done by the **shell**, before a command ever runs. A
+hook that determines its target by *parsing the command text* (`cd X && git commit`,
+`git -C X commit`) never goes through a shell, so it receives the literal string
+`~/repo`. Then:
+
+```bash
+git -C "~/repo" log -1        # fatal: cannot change to '~/repo': No such file or directory
+git -C "~/repo" diff --cached --name-only   # → empty, exit non-zero, swallowed by 2>/dev/null
+```
+
+The headcheck degraded to a visible-but-ignorable message. The scope guard did
+something worse: empty staged list → "zero files, so zero cross-domain files" →
+**allow**. Rule 5's failure direction, in the wild.
+
+**Fix.** Expand in the parser, once, at the shared source. (The helper here is a `.sh` file whose parsing core is an embedded `python3` block — Pattern A's shape — so the fix is Python even though the file is shell:)
+
+```python
+repo_dir = os.path.expanduser(repo_dir) if repo_dir else repo_dir
+```
+
+`expanduser` is the identity function for anything not starting with `~`, and
+`expanduser('') == ''` — so the `if repo_dir else` guard above is belt-and-braces, not
+required; `repo_dir = os.path.expanduser(repo_dir)` alone is correct. Keep whichever
+reads better in your parser; the load-bearing part is that the expansion happens
+**inside the parser**, so every caller inherits it.
+
+**The shared-library twist — this is the part that bites twice.** The parser was a
+common helper (`lib-git-commit-detect.sh`) used by three hooks. Fixing it fixed all
+three at once, which is why the SSOT structure is right — but it also means
+**"I verified the fix" must mean "I verified every caller."** In the real incident
+the author fixed the library, verified two callers (a commit-form guard and the PostToolUse context-injector),
+declared it done — and the *third* caller, the scope guard, went unverified. It was
+both the one that fails open and the only one of the three that actually blocks. It
+took the user asking "so did you fix it?" for the gap to surface. When you patch a
+shared helper, enumerate its callers (`grep -l '<lib-name>' *.sh`) and put every one
+of them in the test table.
+
+**Generalization (not git-specific).** Any hook that reconstructs state by *reading
+the command instead of running it* inherits the whole class: `~` unexpanded, `$VARS`
+uninterpolated, `$(cmd)` unexecuted, globs unmatched, relative paths resolved against
+the wrong cwd. If your hook takes a path out of command text and hands it to a real
+command, expand what the shell would have expanded — or decide, per rule 5, that an
+unresolvable path means **block**.
+
+## 11. Newline-blind segmentation misses the multiline command (fixtures pass, real corpus barely fires)
+
+- **Symptom:** the hook passes every synthetic fixture (`git push origin main`,
+  `cd x && git push`) yet fires far less than expected on real transcripts — in one
+  incident its replayed trigger rate was **0** where the targeted population should
+  have shown ~5%.
+- **Cause:** the git operations this kind of guard targets are usually written as
+  *multiline* blocks — `cd /repo\ngit add -A\ngit commit -m x\ngit push`. A
+  segmenter built on `shlex.shlex(..., whitespace_split=True)` — the very tokenizer
+  #2 recommends for quoting-safety — treats the **newline as ordinary whitespace and
+  drops it**, so the lines collapse into ONE token stream with no separator token,
+  yielding a single segment whose head is `cd`. The `git push` further down is no
+  longer at a segment head, and the command-position check (#2) never sees it.
+  Single-line fixtures cannot expose this: they have no newline to swallow.
+- **Fix — two stages, and the order matters.** First split on **newlines only, as
+  text** (`cmd.split("\n")`). Then, *within each line*, use #2's `shlex` tokenizer
+  to segment on `;`/`&&`/`|` and walk for command position. This defeats the common
+  #2 trap: a `|` inside `grep -E "a|git push|b"`, or an `&&` inside a *single-line*
+  `git commit -m "… && git push"`, stays inside one `shlex` token, so no phantom
+  `git push` segment is manufactured. Do **not** instead do the whole job with one
+  quote-blind split like `re.split(r"[\n;]|&&|\|\||[|&]", cmd)`: that cuts those same
+  separators *inside* quotes — pitfall #2, the worst bug in this file — and orphans
+  the inner text from its `git commit` head, defeating #7's exemption.
+- **Name its residual, don't hide it.** The text `cmd.split("\n")` is itself
+  quote-blind about *newlines*: a newline **inside** a quoted string or a heredoc
+  body still fragments. The clean witness is a heredoc — `git commit -F - <<'MSG'`
+  whose body contains a bare `git push` line splits that line off and reads it as a
+  command it isn't. (A multiline `-m "…\ngit push"` message fragments too, but its
+  torn line has an unbalanced quote, so whether it over- or under-fires depends on how
+  you handle the `shlex` `ValueError` — a witness for the same residual, less clean.)
+  So the two-stage is not "#2-proof", only *less* exposed than the one-shot regex.
+  Whether that residual is acceptable follows the same **bias-to-under** call as #2:
+  for a **fail-open reminder** an extra over-fire costs nothing — declare it and move
+  on; for a **fail-closed blocker** it re-creates #2's false-block, so you must lift
+  #7's `git commit`/heredoc exemption to the **whole-command** level *before*
+  splitting, or parse with a real shell grammar.
+- **Why you only catch it with real data:** this is the `合成 fixture 全绿 ≠ 正确`
+  trap — the fixtures you invent share the blind spot that wrote the bug (you think
+  in one-liners; production is multiline). So replay the hook over a **real corpus**
+  before shipping. And when a replay returns "0 / clean", treat the **harness
+  itself** as a suspect too: a random-sample replay can read 0 purely because the
+  sample was diluted (measure the *population that can possibly fire*, not a uniform
+  sample), and a mutation test can report "survived" because the mutation never
+  applied. Both are the same failure as the hook's own — the instrument lying in the
+  safe-looking direction. Confirm the harness can report "dirty" on an input you have
+  *independently proven* should fire, before you believe any "clean".
+
+---
+
 ## Meta-principle: the ordering of these fixes
 
 When a guard is misbehaving, check in this order — cheapest and most common first:
@@ -220,3 +345,21 @@ When a guard is misbehaving, check in this order — cheapest and most common fi
    (and you recently edited an embedded `python3 -c "…"` block, code or
    comments)? → quote/backtick corruption (#9) — `bash -n` cannot see this one,
    only a real-JSON test of that exact case will.
+6. Did it stop mid-run with **`Failed with non-blocking status code: No stderr
+   output`**, in a hook whose contract is always-exit-0? → `set -e` + `pipefail`
+   killing it on a legitimately-empty `grep`/`wc` (#8). Distinct symptom, distinct
+   fix: drop `-e`, or `||`-guard every such pipeline.
+7. Did your **own test command** get blocked while you were testing the guard you
+   just registered? → self-block (#7); move the cases into a script file so the
+   outer command doesn't carry the trigger.
+8. Does it work when you run the command **in place**, but never fire when the
+   command `cd`s somewhere first (or uses `~`, a variable, a glob)? → the guard is
+   parsing command text and got an unexpanded string (#10). Note this one has **no
+   symptom of its own** when the hook fails open — you find it by testing the
+   `cd ~/elsewhere && …` shape explicitly, not by waiting for something to look wrong.
+9. Does it pass every fixture but **barely fire on a real corpus** — and the missed
+   commands are **multiline / newline-separated** (as opposed to #10's single-line
+   `cd ~/x && …` with an unexpanded `~`)? → newline-blind segmentation (#11): the
+   tokenizer drops the newline in real multiline commands, so the head is `cd`. Also
+   suspect the replay/mutation **harness** itself — make it report "dirty" on a
+   known-positive before trusting its "clean".
