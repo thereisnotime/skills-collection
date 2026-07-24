@@ -3,17 +3,11 @@
 CONTRIBUTING.md: unicode em-dash (U+2014), unicode en-dash (U+2013), and
 ASCII ` -- ` (double-hyphen with spaces).
 
-Respects code fences and inline backticks (where the chars may appear as
-pedagogical references or CLI examples). Exit nonzero on violations.
-
-Allowlist (intentional content):
-  - tests/test_discourse_research.py: em-dash fixtures + assertions
-    verifying strip_em_dashes behaviour.
-  - scripts/discourse_research.py: em-dash chars are DICT KEYS in
-    EM_DASH_REPLACEMENTS (the pattern we want to MATCH, not replace).
+Respects code fences and inline backticks, where the chars may appear as
+pedagogical references or CLI examples. Exit nonzero on violations.
 
 Usage:
-    python3 scripts/lint_prose.py [--root <path>]
+    python3 scripts/lint_prose.py [--root <path>] [--format text|json]
 
 Returns 0 on clean, 1 on violations (with file:line:context output).
 """
@@ -21,25 +15,18 @@ Returns 0 on clean, 1 on violations (with file:line:context output).
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
 
 FORBIDDEN = {
-    "—": "U+2014 em-dash",
-    "–": "U+2013 en-dash",
-    " -- ": "ASCII double-hyphen with spaces",
+    "\u2014": "U+2014 em-dash",
+    "\u2013": "U+2013 en-dash",
+    "\x20--\x20": "ASCII double-hyphen with spaces",
 }
 
-# Files where the chars appear ONLY inside backticks (pedagogical uses
-# documenting the rule itself) and the prose linter has no need to scan.
-# The smarter check would respect inline-backtick boundaries, but a few
-# files have so many that the per-file allowlist is clearer.
 FILE_ALLOWLIST = {
-    "tests/test_discourse_research.py",   # fixtures + assertions
-    "tests/test_lint_prose.py",           # v1.8.5: intentional violation fixtures
-    "scripts/discourse_research.py",      # dict keys
-    "scripts/lint_prose.py",              # this file itself: dict keys + pattern data
     "skills/blog/references/synthesis-contract.md",  # pedagogical inside backticks
 }
 
@@ -83,15 +70,7 @@ def lint_file(path: Path) -> list[tuple[int, str, str, str]]:
     # string, not just the type, so a 4-backtick fence is closed only by
     # 4+ backticks; an inner ``` line does not close the outer ````.
     fence_open: str | None = None
-    in_frontmatter = False
     for i, line in enumerate(text.splitlines(), 1):
-        if i == 1 and line.strip() == "---":
-            in_frontmatter = True
-            continue
-        if in_frontmatter:
-            if line.strip() == "---":
-                in_frontmatter = False
-            continue
         stripped = line.lstrip()
         if fence_open is None:
             m = re.match(r"(`{3,}|~{3,})", stripped)
@@ -118,9 +97,7 @@ def gather_targets(root: Path) -> list[Path]:
         if d.is_dir():
             targets.extend(d.rglob("*.md"))
             targets.extend(d.rglob("*.py"))
-    for name in ("README.md", "SECURITY.md", "CONTRIBUTING.md", "CHANGELOG.md",
-                 "CLAUDE.md", "CONTRIBUTORS.md", "PRIVACY.md", "TODO.md",
-                 "NOTICE"):
+    for name in ("README.md", "CHANGELOG.md", "CLAUDE.md", "NOTICE"):
         p = root / name
         if p.exists() and p.is_file():
             targets.append(p)
@@ -130,9 +107,11 @@ def gather_targets(root: Path) -> list[Path]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--root", default=".", help="Repository root")
+    parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format")
     args = parser.parse_args()
     root = Path(args.root).resolve()
     total = 0
+    records = []
     for path in gather_targets(root):
         rel = path.relative_to(root)
         rel_str = str(rel).replace("\\", "/")
@@ -146,12 +125,21 @@ def main() -> int:
             continue
         for line_no, char, name, text in lint_file(path):
             total += 1
-            print(f"{rel_str}:{line_no}: {name}  {text[:120]}")
+            record = {"path": rel_str, "line": line_no, "char": char, "description": name, "text": text[:120]}
+            records.append(record)
+            if args.format == "text":
+                print(f"{rel_str}:{line_no}: {name}  {text[:120]}")
     if total > 0:
-        print(f"\nFAIL: {total} prose-hygiene violations (CONTRIBUTING.md rule).")
-        print("Replace with: '. ', ', ', ': ', '; ', '()', or ' - ' (hyphen).")
+        if args.format == "json":
+            print(json.dumps({"ok": False, "count": total, "violations": records}, indent=2))
+        else:
+            print(f"\nFAIL: {total} prose-hygiene violations (CONTRIBUTING.md rule).")
+            print("Replace with: '. ', ', ', ': ', '; ', '()', or ' - ' (hyphen).")
         return 1
-    print("OK: zero prose-hygiene violations.")
+    if args.format == "json":
+        print(json.dumps({"ok": True, "count": 0, "violations": []}, indent=2))
+    else:
+        print("OK: zero prose-hygiene violations.")
     return 0
 
 

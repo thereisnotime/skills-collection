@@ -13,11 +13,11 @@
 <!-- e.g. Closes #123, Refs #456 -->
 
 ## Test plan
-- [ ] Existing tests pass (`python -m pytest tests/ -v`)
+- [ ] Existing tests pass (`python3 -m pytest tests/ -v`)
 - [ ] New tests added for new behavior
 - [ ] `claude plugin validate .` passes
 - [ ] Manual testing completed for any user-facing flows
-- [ ] No new em-dashes (`—`, `–`, ` -- `) in prose; matches project style
+- [ ] No new U+2014, U+2013, or ` -- ` in prose; matches project style
 
 ## Documentation
 - [ ] Docs updated (`README.md`, `CHANGELOG.md`, relevant `SKILL.md`, `docs/`)
@@ -31,4 +31,4 @@
 - [ ] Trust boundaries documented in SECURITY.md if new untrusted-data surfaces introduced
 
 ## Contributor reference
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for development setup, code style, and PR guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR guidelines.

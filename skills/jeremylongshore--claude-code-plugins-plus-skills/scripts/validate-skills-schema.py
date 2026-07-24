@@ -189,8 +189,19 @@ except ImportError:
 #                       already-documented behavior (repo CLAUDE.md + 000-docs/681);
 #                       not an architectural change — ALWAYS_REQUIRED, tiers, and
 #                       error-vs-warning semantics are unchanged. Closes claude-41c2.2.
+# 3.16.0 (2026-07-23) — VALID_TOOLS expanded from 13 names to the full 43-tool
+#                       set from code.claude.com/docs/en/tools-reference. Adds
+#                       Agent (was missing — gate treated it as unknown) and
+#                       demotes Task to LEGACY_TOOL_ALIASES with a warn (renamed
+#                       to Agent in v2.1.63; SDK still emits Task in places).
+#                       Spec-compliance bug fix (NON-NEGOTIABLE #6) — advisory
+#                       severity only; ALWAYS_REQUIRED / tiers / error-vs-warning
+#                       unchanged. Source: IEP plan golden-imagining-planet Phase A.
+# 3.16.1 (2026-07-23) — security lane (advisory only): load-time shell
+#                       substitution (!`cmd` / ```!) + disallowed-tools entry
+#                       validation (mirrors allowed-tools). Residual of closed #1113.
 # See 000-docs/SCHEMA_CHANGELOG.md.
-SCHEMA_VERSION = "3.15.2"
+SCHEMA_VERSION = "3.16.1"
 
 # Validation tiers
 TIER_STANDARD = "standard"
@@ -198,21 +209,64 @@ TIER_MARKETPLACE = "marketplace"
 # Backward-compat alias; --enterprise still resolves to TIER_MARKETPLACE
 TIER_ENTERPRISE = TIER_MARKETPLACE
 
-# Valid tools per Claude Code spec (2026)
+# Canonical built-in tool names from code.claude.com/docs/en/tools-reference
+# (captured 2026-07-23). These are the exact strings used in permission rules,
+# subagent tool lists, and hook matchers. Count = 43.
+# Previously this set had 13 names and omitted `Agent` while listing the
+# retired alias `Task` — which made the marketplace gate reject correct
+# declarations and silently bless the legacy name (IEP plan golden-imagining-planet,
+# Phase A).
 VALID_TOOLS = {
-    "Read",
-    "Write",
-    "Edit",
+    "Agent",
+    "Artifact",
+    "AskUserQuestion",
     "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EndConversation",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
     "Glob",
     "Grep",
+    "ListMcpResourcesTool",
+    "LSP",
+    "Monitor",
+    "NotebookEdit",
+    "PowerShell",
+    "PushNotification",
+    "Read",
+    "ReadMcpResourceTool",
+    "RemoteTrigger",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "SendUserFile",
+    "ShareOnboardingGuide",
+    "Skill",
+    "TaskCreate",
+    "TaskGet",
+    "TaskList",
+    "TaskOutput",
+    "TaskStop",
+    "TaskUpdate",
+    "TodoWrite",
+    "ToolSearch",
+    "WaitForMcpServers",
     "WebFetch",
     "WebSearch",
-    "Task",
-    "TodoWrite",
-    "NotebookEdit",
-    "AskUserQuestion",
-    "Skill",
+    "Workflow",
+    "Write",
+}
+
+# Retired names that still appear in the wild. Accept with a warning; prefer
+# the canonical name. SDK system:init still emits "Task" in some tool lists
+# even though tool_use events use "Agent" (v2.1.63+ rename).
+LEGACY_TOOL_ALIASES = {
+    "Task": "Agent",
 }
 
 # === Two-tier field definitions (Anthropic spec alignment, 2026-04-28) ===
@@ -2370,6 +2424,13 @@ def validate_tool_permission(tool: str) -> Tuple[bool, str]:
         if not inner:
             return False, f"Empty scope in allowed-tools entry: {tool}"
 
+    if base_tool in LEGACY_TOOL_ALIASES:
+        canonical = LEGACY_TOOL_ALIASES[base_tool]
+        return True, (
+            f"Legacy tool alias '{base_tool}' in entry '{tool}' — prefer '{canonical}' "
+            f"(Task was renamed to Agent in Claude Code v2.1.63; both still accepted)"
+        )
+
     if base_tool not in VALID_TOOLS:
         suggestion = difflib.get_close_matches(base_tool, sorted(VALID_TOOLS), n=1, cutoff=0.75)
         if suggestion:
@@ -2856,7 +2917,17 @@ def validate_frontmatter(path: Path, fm: dict, tier: str = TIER_STANDARD) -> Tup
                 f"[frontmatter] 'disallowed-tools' must be a list of strings or a "
                 f"space/comma-separated string, got: {type(dt_val).__name__}"
             )
-        elif "allowed-tools" in fm:
+        else:
+            # Entry-level validation, mirroring allowed-tools (schema 3.16.1).
+            # A misspelling or retired name in a deny list matched nothing silently.
+            for tool in parse_allowed_tools(dt_val):
+                valid, msg = validate_tool_permission(tool)
+                if not valid:
+                    warnings.append(f"[frontmatter] disallowed-tools: {msg}")
+                elif msg:
+                    warnings.append(f"[frontmatter] disallowed-tools: {msg}")
+
+        if isinstance(dt_val, (list, str)) and "allowed-tools" in fm:
             allowed_set = set(parse_allowed_tools(fm.get("allowed-tools")))
             disallowed_set = set(parse_allowed_tools(dt_val))
             tool_overlap = allowed_set & disallowed_set
@@ -2978,8 +3049,42 @@ def validate_frontmatter(path: Path, fm: dict, tier: str = TIER_STANDARD) -> Tup
     return errors, warnings, infos
 
 
+# Load-time shell substitution, the two documented forms:
+#   !`command`   inline substitution
+#   ```!         a fenced block whose body is executed
+RE_INLINE_SHELL = re.compile(r"!`([^`\n]+)`")
+RE_SHELL_FENCE = re.compile(r"^\s*```!")
+RE_ANY_FENCE = re.compile(r"^\s*(```|~~~)")
+
+
+def _load_time_shell_hits(body: str, line_offset: int = 0) -> List[str]:
+    """Locations of load-time shell substitution, as 'L<line>: <snippet>'.
+
+    Occurrences inside an ordinary code fence are excluded (skills that
+    document the syntax). The ```! fence is itself the executable form, so
+    it is always counted. `line_offset` shifts reported lines into file
+    coordinates when frontmatter was already stripped.
+    """
+    hits: List[str] = []
+    in_fence = False
+    for i, line in enumerate(body.splitlines(), start=1 + line_offset):
+        if RE_SHELL_FENCE.match(line):
+            hits.append(f"L{i}: ```! block")
+            in_fence = not in_fence
+            continue
+        if RE_ANY_FENCE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for m in RE_INLINE_SHELL.finditer(line):
+            cmd = m.group(1).strip()
+            hits.append(f"L{i}: !`{cmd[:40]}{'…' if len(cmd) > 40 else ''}`")
+    return hits
+
+
 def validate_body(
-    path: Path, body: str, tier: str = TIER_STANDARD, fm: dict = None
+    path: Path, body: str, tier: str = TIER_STANDARD, fm: dict = None, line_offset: int = 0
 ) -> Tuple[List[str], List[str], List[str]]:
     """
     Validate SKILL.md body content.
@@ -2991,6 +3096,20 @@ def validate_body(
     if fm is None:
         fm = {}
     lines = body.splitlines()
+
+    # === LOAD-TIME SHELL EXECUTION (schema 3.16.1) — advisory only ===
+    # Preprocessing, not a tool call; allowed-tools does not gate it.
+    shell_hits = _load_time_shell_hits(body, line_offset)
+    if shell_hits:
+        where = ", ".join(shell_hits[:3]) + (f" (+{len(shell_hits) - 3} more)" if len(shell_hits) > 3 else "")
+        target = fm.get("shell")
+        target_note = f"; `shell: {target}` selects the interpreter" if target else ""
+        warnings.append(
+            f"[security] SKILL.md runs {len(shell_hits)} shell substitution(s) at LOAD time, before Claude "
+            f"reads the body: {where}. This is preprocessing — it is not a tool call, allowed-tools does not "
+            f"gate it, and the output is not re-scanned{target_note}. Review it as executable code. The "
+            f"documented kill switch is the `disableSkillShellExecution` setting."
+        )
 
     # === LENGTH CHECKS ===
 
@@ -3706,7 +3825,7 @@ TIER2_ORCHESTRATION_SMELLS = (
     "invokes other skills as primary",
 )
 TIER2_BASE_TOOL_PATTERN = re.compile(
-    r"\b(Read|Write|Edit|Bash|Glob|Grep|WebFetch|WebSearch|Task|TodoWrite|NotebookEdit|AskUserQuestion|Skill)\b"
+    r"\b(Agent|Artifact|AskUserQuestion|Bash|CronCreate|CronDelete|CronList|Edit|EndConversation|EnterPlanMode|EnterWorktree|ExitPlanMode|ExitWorktree|Glob|Grep|ListMcpResourcesTool|LSP|Monitor|NotebookEdit|PowerShell|PushNotification|Read|ReadMcpResourceTool|RemoteTrigger|ReportFindings|ScheduleWakeup|SendMessage|SendUserFile|ShareOnboardingGuide|Skill|Task|TaskCreate|TaskGet|TaskList|TaskOutput|TaskStop|TaskUpdate|TodoWrite|ToolSearch|WaitForMcpServers|WebFetch|WebSearch|Workflow|Write)\b"
 )
 TIER2_LITERAL_FALSE_PATTERN = re.compile(r"^\s*(if false|if \[ false \]|elif false)\b", re.MULTILINE)
 

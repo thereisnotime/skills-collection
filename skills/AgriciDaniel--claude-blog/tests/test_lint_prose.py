@@ -4,7 +4,7 @@ The v1.8.4 release shipped lint_prose.py to CI with zero behavioral test
 coverage (6TH-AUDIT-005). This test suite exercises the linter's core
 state machine: code-fence toggling, inline backtick masking, YAML
 frontmatter handling, allowlist application, and the violation set
-(em-dash U+2014, en-dash U+2013, ASCII ' -- ').
+(em-dash U+2014, en-dash U+2013, ASCII space-double-hyphen-space).
 
 Stdlib + pytest only. No network.
 """
@@ -12,6 +12,7 @@ Stdlib + pytest only. No network.
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -30,9 +31,9 @@ def _import_linter():
     return mod
 
 
-def _run_cli(root: Path) -> subprocess.CompletedProcess[str]:
+def _run_cli(root: Path, *extra: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(LINTER), "--root", str(root)],
+        [sys.executable, str(LINTER), "--root", str(root), *extra],
         capture_output=True, text=True, check=False,
     )
 
@@ -53,29 +54,29 @@ def test_clean_file_has_zero_violations(tmp_path: Path):
 def test_em_dash_in_prose_flagged(tmp_path: Path):
     mod = _import_linter()
     f = tmp_path / "doc.md"
-    f.write_text("# Title\n\nThis is bad — really bad.\n", encoding="utf-8")
+    f.write_text("# Title\n\nThis is bad \u2014 really bad.\n", encoding="utf-8")
     violations = mod.lint_file(f)
     assert len(violations) == 1
-    assert violations[0][1] == "—"
+    assert violations[0][1] == "\u2014"
     assert violations[0][0] == 3  # line 3
 
 
 def test_en_dash_in_prose_flagged(tmp_path: Path):
     mod = _import_linter()
     f = tmp_path / "doc.md"
-    f.write_text("Range 1–40 not allowed.\n", encoding="utf-8")
+    f.write_text("Range 1\u201340 not allowed.\n", encoding="utf-8")
     violations = mod.lint_file(f)
     assert len(violations) == 1
-    assert violations[0][1] == "–"
+    assert violations[0][1] == "\u2013"
 
 
 def test_ascii_double_hyphen_in_prose_flagged(tmp_path: Path):
     mod = _import_linter()
     f = tmp_path / "doc.md"
-    f.write_text("Bad use -- like this.\n", encoding="utf-8")
+    f.write_text("Bad use" + "\x20--\x20" + "like this.\n", encoding="utf-8")
     violations = mod.lint_file(f)
     assert len(violations) == 1
-    assert violations[0][1] == " -- "
+    assert violations[0][1] == "\x20--\x20"
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +90,7 @@ def test_em_dash_inside_triple_backtick_fence_not_flagged(tmp_path: Path):
     f.write_text(
         "# Title\n\n"
         "```\n"
-        "code with — em-dash inside\n"
+        "code with \u2014 em-dash inside\n"
         "```\n",
         encoding="utf-8",
     )
@@ -99,7 +100,7 @@ def test_em_dash_inside_triple_backtick_fence_not_flagged(tmp_path: Path):
 def test_em_dash_inside_inline_backtick_not_flagged(tmp_path: Path):
     mod = _import_linter()
     f = tmp_path / "doc.md"
-    f.write_text("The `—` character is forbidden in prose.\n", encoding="utf-8")
+    f.write_text("The `\u2014` character is forbidden in prose.\n", encoding="utf-8")
     assert mod.lint_file(f) == []
 
 
@@ -108,7 +109,7 @@ def test_em_dash_outside_backtick_on_same_line_still_flagged(tmp_path: Path):
     still flag the outside one."""
     mod = _import_linter()
     f = tmp_path / "doc.md"
-    f.write_text("Use `—` (em-dash) sparingly — actually, never.\n",
+    f.write_text("Use `\u2014` (em-dash) sparingly \u2014 actually, never.\n",
                  encoding="utf-8")
     violations = mod.lint_file(f)
     assert len(violations) == 1, f"expected 1, got {violations}"
@@ -120,7 +121,7 @@ def test_tilde_fence_also_recognized(tmp_path: Path):
     f = tmp_path / "doc.md"
     f.write_text(
         "~~~\n"
-        "em-dash — inside tilde fence\n"
+        "em-dash \u2014 inside tilde fence\n"
         "~~~\n",
         encoding="utf-8",
     )
@@ -133,7 +134,7 @@ def test_tilde_fence_also_recognized(tmp_path: Path):
 
 
 def test_frontmatter_delimiters_not_misparsed_as_violations(tmp_path: Path):
-    """`---` in YAML frontmatter must not trip the ASCII ' -- ' check
+    """`---` in YAML frontmatter must not trip the ASCII double-hyphen check
     (frontmatter delimiter is 3 dashes, no surrounding spaces)."""
     mod = _import_linter()
     f = tmp_path / "doc.md"
@@ -149,35 +150,32 @@ def test_frontmatter_delimiters_not_misparsed_as_violations(tmp_path: Path):
     assert mod.lint_file(f) == []
 
 
-def test_frontmatter_body_skipped_entirely(tmp_path: Path):
-    """Content inside frontmatter is not subject to prose rules
-    (frontmatter is structured data, not prose)."""
+def test_frontmatter_scalar_fields_are_linted(tmp_path: Path):
+    """Scalar frontmatter prose is subject to prose rules."""
     mod = _import_linter()
     f = tmp_path / "doc.md"
     f.write_text(
         "---\n"
-        "description: this is — fine in frontmatter\n"
+        "description: this is \u2014 fine in frontmatter\n"
         "---\n"
         "\n"
         "Body text.\n",
         encoding="utf-8",
     )
-    assert mod.lint_file(f) == []
+    violations = mod.lint_file(f)
+    assert len(violations) == 1
+    assert violations[0][0] == 2
 
 
-def test_allowlisted_file_skipped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """A file in FILE_ALLOWLIST must produce zero output even if it
-    contains forbidden characters."""
-    mod = _import_linter()
-    # Create the allowed dir structure
+def test_test_files_are_not_whole_file_allowlisted(tmp_path: Path):
+    """Intentional fixtures must encode forbidden characters, not bypass files."""
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_discourse_research.py").write_text(
-        '"""\nintentional — em-dash\n"""\n', encoding="utf-8"
+        '"""\nintentional \u2014 em-dash\n"""\n', encoding="utf-8"
     )
     result = _run_cli(tmp_path)
-    # The allowlisted file should NOT appear in output.
-    assert "test_discourse_research.py" not in result.stdout
-    assert result.returncode == 0
+    assert "test_discourse_research.py" in result.stdout
+    assert result.returncode == 1
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +196,7 @@ def test_cli_clean_repo_returns_zero(tmp_path: Path):
 def test_cli_dirty_repo_returns_one(tmp_path: Path):
     (tmp_path / "scripts").mkdir()
     (tmp_path / "scripts" / "bad.py").write_text(
-        '"""Bad: em-dash — in docstring."""\n', encoding="utf-8"
+        '"""Bad: em-dash \u2014 in docstring."""\n', encoding="utf-8"
     )
     result = _run_cli(tmp_path)
     assert result.returncode == 1
@@ -210,12 +208,22 @@ def test_cli_reports_file_and_line(tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "doc.md").write_text(
         "Line one is clean.\n"
-        "Line two has — em-dash.\n",
+        "Line two has \u2014 em-dash.\n",
         encoding="utf-8",
     )
     result = _run_cli(tmp_path)
     assert result.returncode == 1
     assert "docs/doc.md:2" in result.stdout
+
+
+def test_cli_json_output(tmp_path: Path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "doc.md").write_text("Bad \u2014 prose.\n", encoding="utf-8")
+    result = _run_cli(tmp_path, "--format", "json")
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["violations"][0]["path"] == "docs/doc.md"
 
 
 # ---------------------------------------------------------------------------
@@ -229,20 +237,20 @@ def test_crlf_line_endings_handled(tmp_path: Path):
     mod = _import_linter()
     f = tmp_path / "doc.md"
     # Encode literal em-dash via utf-8 to avoid bytes-literal ASCII restriction.
-    f.write_bytes(b"# Title\r\n\r\nProse " + "—".encode("utf-8") + b" em-dash\r\n")
+    f.write_bytes(b"# Title\r\n\r\nProse " + "\u2014".encode("utf-8") + b" em-dash\r\n")
     violations = mod.lint_file(f)
     assert len(violations) == 1
 
 
 def test_double_backtick_span_masks_inner_chars(tmp_path: Path):
-    """6TH-AUDIT-007 regression: ``content with ` and — em-dash`` is a
+    """6TH-AUDIT-007 regression: ``content with ` and \u2014 em-dash`` is a
     valid markdown double-backtick code span. The em-dash inside must
     not be flagged. v1.8.4 single-backtick regex matched the empty span
     between two opening backticks, leaving the em-dash exposed."""
     mod = _import_linter()
     f = tmp_path / "doc.md"
     f.write_text(
-        "Use `` `code with — em-dash` `` in prose.\n",
+        "Use `` `code with \u2014 em-dash` `` in prose.\n",
         encoding="utf-8",
     )
     assert mod.lint_file(f) == [], (
@@ -258,13 +266,13 @@ def test_nested_fence_delimiters_tracked_independently(tmp_path: Path):
     f = tmp_path / "doc.md"
     f.write_text(
         "~~~\n"
-        "outer fence body — em-dash here is hidden\n"
+        "outer fence body \u2014 em-dash here is hidden\n"
         "```\n"
-        "inner pseudo-fence — em-dash also hidden\n"
+        "inner pseudo-fence \u2014 em-dash also hidden\n"
         "```\n"
-        "still inside outer — em-dash hidden\n"
+        "still inside outer \u2014 em-dash hidden\n"
         "~~~\n"
-        "Now outside; em-dash here IS flagged: —\n",
+        "Now outside; em-dash here IS flagged: \u2014\n",
         encoding="utf-8",
     )
     violations = mod.lint_file(f)
@@ -283,13 +291,13 @@ def test_four_backtick_fence_preserves_inner_three_backticks(tmp_path: Path):
     f = tmp_path / "doc.md"
     f.write_text(
         "````\n"
-        "outer 4-backtick fence — em-dash hidden\n"
+        "outer 4-backtick fence \u2014 em-dash hidden\n"
         "```\n"
-        "inner 3-backtick content — also hidden (still inside outer)\n"
+        "inner 3-backtick content \u2014 also hidden (still inside outer)\n"
         "```\n"
-        "still inside outer — hidden\n"
+        "still inside outer \u2014 hidden\n"
         "````\n"
-        "Now outside; em-dash flagged: —\n",
+        "Now outside; em-dash flagged: \u2014\n",
         encoding="utf-8",
     )
     violations = mod.lint_file(f)
@@ -308,7 +316,7 @@ def test_unclosed_fence_at_eof_does_not_crash(tmp_path: Path):
     f.write_text(
         "Some prose.\n"
         "```\n"
-        "unclosed code with — em-dash\n"
+        "unclosed code with \u2014 em-dash\n"
         "(no closing fence)\n",
         encoding="utf-8",
     )

@@ -288,6 +288,34 @@ def test_discourse_research_sanitizes_brackets_in_title(tmp_path: Path) -> None:
     )
 
 
+def test_discourse_research_escapes_raw_html_text(tmp_path: Path) -> None:
+    """SERP title, snippet, and platform text must not render raw HTML."""
+    import datetime as dt
+    today = dt.date.today()
+    recent = (today - dt.timedelta(days=2)).isoformat()
+    inp = tmp_path / "raw_html.json"
+    payload = json.dumps([{
+        "platform": "web<script>alert(1)</script>",
+        "url": "https://safe.example/source",
+        "title": "Title <b>bad</b> & more",
+        "snippet": "config <img src=x onerror=alert(1)> & details",
+        "date": recent,
+    }])
+    inp.write_text(payload, encoding="utf-8")
+    result = _run([
+        sys.executable, str(DISCOURSE),
+        "--input", str(inp), "--topic", "raw html regression",
+        "--format", "json",
+    ])
+    assert result.returncode == 0, f"stderr={result.stderr!r}"
+    md = json.loads(result.stdout)["markdown"]
+    assert "<b>bad</b>" not in md
+    assert "<img src=x" not in md
+    assert "<script>alert(1)</script>" not in md
+    assert "Title &lt;b&gt;bad&lt;/b&gt; &amp; more" in md
+    assert "config &lt;img src=x onerror=alert(1)&gt; &amp; details" in md
+
+
 def test_skill_md_documents_untrusted_data_contract(tmp_path: Path) -> None:
     """DOCUMENTATION-PRESENCE regression guard for skills/blog/SKILL.md.
 
@@ -433,7 +461,7 @@ def test_orchestrator_has_untrusted_data_contract() -> None:
 
 def test_security_md_documents_t12() -> None:
     """SECURITY.md must include the T12 trust boundary (project-root auto-load)."""
-    sec = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    sec = (ROOT / ".github" / "SECURITY.md").read_text(encoding="utf-8")
     assert "T12" in sec, "SECURITY.md missing T12 trust boundary"
     assert "BRAND.md" in sec and "DISCOURSE.md" in sec, (
         "SECURITY.md T12 section missing references to BRAND.md / DISCOURSE.md"

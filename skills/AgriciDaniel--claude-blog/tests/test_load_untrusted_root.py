@@ -143,7 +143,7 @@ def test_fence_content_no_warning_on_clean_content(tmp_path: Path):
 def test_cli_emits_fenced_block_for_BRAND_md(tmp_path: Path):
     f = tmp_path / "BRAND.md"
     f.write_text("audience: developers\nvoice: terse\n", encoding="utf-8")
-    result = _run([sys.executable, str(HELPER), str(f)])
+    result = _run([sys.executable, str(HELPER), "--root", str(tmp_path), str(f)])
     assert result.returncode == 0, f"stderr={result.stderr!r}"
     assert "BEGIN UNTRUSTED PROJECT-ROOT CONTEXT (BRAND.md)" in result.stdout
     assert "END UNTRUSTED PROJECT-ROOT CONTEXT (BRAND.md)" in result.stdout
@@ -179,7 +179,7 @@ def test_cli_refuses_path_traversal_attempts(tmp_path: Path):
         str(tmp_path) + "/../" + "BRAND.md",
     ]
     for hostile in traversal_inputs:
-        result = _run([sys.executable, str(HELPER), hostile])
+        result = _run([sys.executable, str(HELPER), "--root", str(tmp_path), hostile])
         assert result.returncode != 0, (
             f"helper must refuse traversal input: {hostile!r}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
@@ -191,7 +191,7 @@ def test_cli_refuses_symlink(tmp_path: Path):
     real.write_text("data", encoding="utf-8")
     link = tmp_path / "BRAND.md"
     os.symlink(real, link)
-    result = _run([sys.executable, str(HELPER), str(link)])
+    result = _run([sys.executable, str(HELPER), "--root", str(tmp_path), str(link)])
     assert result.returncode != 0
     assert "symlink" in result.stderr.lower()
 
@@ -200,7 +200,7 @@ def test_cli_refuses_oversize(tmp_path: Path):
     f = tmp_path / "BRAND.md"
     # 11 MB; helper cap is 10 MB.
     f.write_bytes(b"x" * (11 * 1024 * 1024))
-    result = _run([sys.executable, str(HELPER), str(f)])
+    result = _run([sys.executable, str(HELPER), "--root", str(tmp_path), str(f)])
     assert result.returncode != 0
     assert "size cap" in result.stderr.lower()
 
@@ -213,7 +213,7 @@ def test_cli_nonces_unique_across_invocations(tmp_path: Path):
     f.write_text("audience: developers\n", encoding="utf-8")
     nonces = []
     for _ in range(3):
-        result = _run([sys.executable, str(HELPER), str(f)])
+        result = _run([sys.executable, str(HELPER), "--root", str(tmp_path), str(f)])
         assert result.returncode == 0
         m = re.search(r"\[nonce: ([0-9a-f]{32})\]", result.stdout)
         assert m, "nonce missing"
@@ -221,6 +221,27 @@ def test_cli_nonces_unique_across_invocations(tmp_path: Path):
     assert len(set(nonces)) == 3, (
         f"nonces re-used across invocations: {nonces}"
     )
+
+
+def test_cli_refuses_allowed_basename_outside_root(tmp_path: Path):
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "BRAND.md"
+    outside.write_text("outside\n", encoding="utf-8")
+    result = _run([sys.executable, str(HELPER), "--root", str(root), str(outside)])
+    assert result.returncode != 0
+    assert "outside project root" in result.stderr.lower()
+
+
+def test_cli_json_output_contains_metadata(tmp_path: Path):
+    f = tmp_path / "BRAND.md"
+    f.write_text("audience: developers\n", encoding="utf-8")
+    result = _run([sys.executable, str(HELPER), "--root", str(tmp_path), "--json", str(f)])
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["basename"] == "BRAND.md"
+    assert re.fullmatch(r"[0-9a-f]{32}", payload["nonce"])
+    assert "BEGIN UNTRUSTED" in payload["fenced"]
 
 
 # ---------------------------------------------------------------------------

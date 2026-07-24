@@ -9,10 +9,60 @@ set -euo pipefail
 
 # Declared outside main() so the EXIT trap can access it after main() returns
 TEMP_DIR=""
+readonly CLAUDE_BLOG_VERSION="2.1.1"
+
+copy_tree() {
+    local src="$1"
+    local dest="$2"
+    [ -d "${src}" ] || return 0
+    mkdir -p "${dest}"
+    while IFS= read -r -d '' rel_path; do
+        mkdir -p "${dest}/$(dirname "${rel_path}")"
+        cp "${src}/${rel_path}" "${dest}/${rel_path}"
+    done < <(
+        cd "${src}" &&
+            find . -type d -name '__pycache__' -prune -o -type f ! -name '*.pyc' -print0
+    )
+}
+
+count_files() {
+    local path="$1"
+    [ -d "${path}" ] || {
+        echo 0
+        return
+    }
+    find "${path}" -type d -name '__pycache__' -prune -o -type f ! -name '*.pyc' -print | wc -l | tr -d ' '
+}
+
+record_install() {
+    local manifest="$1"
+    local path="$2"
+    printf '%s\n' "${path}" >>"${manifest}"
+}
+
+print_commands() {
+    local skill_md="$1"
+    if [ ! -f "${skill_md}" ]; then
+        return
+    fi
+    awk -F'|' '
+        /^\| `\/blog / {
+            cmd=$2
+            desc=$3
+            gsub(/`/, "", cmd)
+            gsub(/\\\|/, "|", cmd)
+            gsub(/^[ \t]+|[ \t]+$/, "", cmd)
+            gsub(/^[ \t]+|[ \t]+$/, "", desc)
+            printf "    %-38s %s\n", cmd, desc
+        }
+    ' "${skill_md}"
+}
 
 main() {
     local SKILL_DIR="${HOME}/.claude/skills"
     local AGENT_DIR="${HOME}/.claude/agents"
+    local CLAUDE_DIR="${HOME}/.claude"
+    local MANIFEST="${CLAUDE_DIR}/claude-blog-manifest.txt"
     local SCRIPT_DIR
 
     echo ""
@@ -21,16 +71,28 @@ main() {
     echo "  ║  Blog Content Engine for Claude Code ║"
     echo "  ╚══════════════════════════════════════╝"
     echo ""
+    echo "  Release: ${CLAUDE_BLOG_VERSION}"
+    echo ""
 
     # Determine source directory (local clone or piped from curl)
     if [ -f "${BASH_SOURCE[0]:-}" ] && [ -d "$(dirname "${BASH_SOURCE[0]}")/skills/blog" ]; then
         SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     else
-        echo "→ Cloning claude-blog..."
+        local repo="${CLAUDE_BLOG_REPO:-AgriciDaniel/claude-blog}"
+        local ref="${CLAUDE_BLOG_REF:-main}"
+        local url="${CLAUDE_BLOG_URL:-https://github.com/${repo}.git}"
+        echo "→ Cloning claude-blog from ${repo} (${ref})..."
         TEMP_DIR="$(mktemp -d)"
         trap 'rm -rf "${TEMP_DIR}"' EXIT
-        git clone --depth 1 https://github.com/AgriciDaniel/claude-blog.git "${TEMP_DIR}/claude-blog" 2>/dev/null
+        if ! git clone --depth 1 --branch "${ref}" "${url}" "${TEMP_DIR}/claude-blog" 2>/dev/null; then
+            git clone "${url}" "${TEMP_DIR}/claude-blog" 2>/dev/null
+            git -C "${TEMP_DIR}/claude-blog" checkout --detach "${ref}" >/dev/null 2>&1
+        fi
         SCRIPT_DIR="${TEMP_DIR}/claude-blog"
+        echo "  + checked out $(git -C "${SCRIPT_DIR}" rev-parse --short HEAD)"
+        if [ "${ref}" = "main" ]; then
+            echo "  Tip: set CLAUDE_BLOG_REF to a tag or commit SHA for a pinned install."
+        fi
     fi
 
     # Check prerequisites
@@ -38,33 +100,50 @@ main() {
         echo "WARNING: python3 not found. The scripts require Python 3.11+."
         echo "         Install with: sudo apt install python3"
         echo ""
+    elif ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1; then
+        local python3_version
+        python3_version="$(python3 -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])' 2>/dev/null || echo unknown)"
+        echo "WARNING: python3 ${python3_version} found. The scripts require Python 3.11+."
+        echo "         Install Python 3.11+ before running scoring, preflight, render, hero, and lint helpers."
+        echo ""
     fi
 
     # Create directories
     echo "→ Creating directories..."
+    mkdir -p "${CLAUDE_DIR}"
     mkdir -p "${SKILL_DIR}/blog/references"
     mkdir -p "${SKILL_DIR}/blog/templates"
     mkdir -p "${SKILL_DIR}/blog/scripts"
     mkdir -p "${AGENT_DIR}"
+    : >"${MANIFEST}.tmp"
 
     # Copy main skill
     echo "→ Installing main skill: blog..."
     cp "${SCRIPT_DIR}/skills/blog/SKILL.md" "${SKILL_DIR}/blog/SKILL.md"
+    record_install "${MANIFEST}.tmp" "${SKILL_DIR}/blog"
 
     # Copy references
     echo "→ Installing reference files..."
-    if ls "${SCRIPT_DIR}/skills/blog/references/"*.md &>/dev/null; then
-        cp "${SCRIPT_DIR}/skills/blog/references/"*.md "${SKILL_DIR}/blog/references/"
-    fi
+    copy_tree "${SCRIPT_DIR}/skills/blog/references" "${SKILL_DIR}/blog/references"
 
     # Copy templates
-    if ls "${SCRIPT_DIR}/skills/blog/templates/"*.md &>/dev/null; then
+    if [ -d "${SCRIPT_DIR}/skills/blog/templates" ]; then
         echo "→ Installing content templates..."
-        cp "${SCRIPT_DIR}/skills/blog/templates/"*.md "${SKILL_DIR}/blog/templates/"
+        copy_tree "${SCRIPT_DIR}/skills/blog/templates" "${SKILL_DIR}/blog/templates"
+    fi
+
+    # Ship the reviewed Google update ledger with the main skill. The source
+    # stays at data/google-updates.json in the repository; standalone installs
+    # receive it under the self-contained blog skill directory.
+    if [ -f "${SCRIPT_DIR}/data/google-updates.json" ]; then
+        echo "→ Installing Google update ledger..."
+        mkdir -p "${SKILL_DIR}/blog/data"
+        cp "${SCRIPT_DIR}/data/google-updates.json" "${SKILL_DIR}/blog/data/google-updates.json"
     fi
 
     # Copy sub-skills (auto-discovers all skill directories)
     echo "→ Installing sub-skills..."
+    local sub_skill_count=0
     for skill_dir in "${SCRIPT_DIR}/skills/"*/; do
         skill_name="$(basename "${skill_dir}")"
         [ "$skill_name" = "blog" ] && continue
@@ -81,17 +160,14 @@ main() {
         if [ -f "${skill_dir}SKILL.md" ]; then
             cp "${skill_dir}SKILL.md" "${SKILL_DIR}/${skill_name}/SKILL.md"
             echo "  + ${skill_name}"
+            record_install "${MANIFEST}.tmp" "${SKILL_DIR}/${skill_name}"
+            sub_skill_count=$((sub_skill_count + 1))
         fi
-        # Copy references/ if present
-        if [ -d "${skill_dir}references" ]; then
-            mkdir -p "${SKILL_DIR}/${skill_name}/references"
-            cp "${skill_dir}references/"* "${SKILL_DIR}/${skill_name}/references/" 2>/dev/null || true
-        fi
-        # Copy scripts/ if present
-        if [ -d "${skill_dir}scripts" ]; then
-            mkdir -p "${SKILL_DIR}/${skill_name}/scripts"
-            cp "${skill_dir}scripts/"* "${SKILL_DIR}/${skill_name}/scripts/" 2>/dev/null || true
-            chmod +x "${SKILL_DIR}/${skill_name}/scripts/"*.py 2>/dev/null || true
+        for payload_dir in references scripts assets templates; do
+            copy_tree "${skill_dir}${payload_dir}" "${SKILL_DIR}/${skill_name}/${payload_dir}"
+        done
+        if [ -d "${SKILL_DIR}/${skill_name}/scripts" ]; then
+            find "${SKILL_DIR}/${skill_name}/scripts" -type f -name '*.py' -exec chmod +x {} +
         fi
     done
 
@@ -100,11 +176,14 @@ main() {
 
     # Copy agents
     echo "→ Installing agents..."
+    local agent_count=0
     for agent_file in "${SCRIPT_DIR}/agents/"*.md; do
         if [ -f "${agent_file}" ]; then
             agent_name="$(basename "${agent_file}")"
             cp "${agent_file}" "${AGENT_DIR}/${agent_name}"
+            record_install "${MANIFEST}.tmp" "${AGENT_DIR}/${agent_name}"
             echo "  + ${agent_name%.md}"
+            agent_count=$((agent_count + 1))
         fi
     done
 
@@ -118,6 +197,7 @@ main() {
     mkdir -p "${SKILL_DIR}/blog/scripts"
     mkdir -p "${HOME}/.claude/scripts"
     local script_name
+    local root_script_count=0
     for script_path in "${SCRIPT_DIR}/scripts/"*.py; do
         [ -f "${script_path}" ] || continue
         script_name="$(basename "${script_path}")"
@@ -125,12 +205,15 @@ main() {
         # blog-skill scripts dir (legacy callers of analyze_blog.py).
         cp "${script_path}" "${HOME}/.claude/scripts/${script_name}"
         chmod +x "${HOME}/.claude/scripts/${script_name}"
+        record_install "${MANIFEST}.tmp" "${HOME}/.claude/scripts/${script_name}"
         if [ "${script_name}" = "analyze_blog.py" ]; then
             cp "${script_path}" "${SKILL_DIR}/blog/scripts/${script_name}"
             chmod +x "${SKILL_DIR}/blog/scripts/${script_name}"
         fi
         echo "  + scripts/${script_name}"
+        root_script_count=$((root_script_count + 1))
     done
+    mv "${MANIFEST}.tmp" "${MANIFEST}"
 
     # Install Python dependencies (closes audit VULN-507/804: capture stderr
     # to a logfile instead of swallowing it. Operator can diagnose failures.)
@@ -155,33 +238,14 @@ main() {
     echo "  ╚══════════════════════════════════════╝"
     echo ""
     echo "  Installed:"
-    echo "    Main skill:   blog/ (orchestrator + 20 references + 12 templates)"
-    echo "    Sub-skills:   30 (29 user-invokable + 1 internal blog-chart)"
-    echo "    Agents:       5 specialists"
-    echo "    Scripts:      9 root-level (analyze_blog, blog_preflight, blog_render,"
-    echo "                  cognitive_load, discourse_research, generate_hero,"
-    echo "                  load_untrusted_root, lint_prose, sync_flow) + per-skill scripts"
+    echo "    Main skill:   blog/ (orchestrator + $(count_files "${SKILL_DIR}/blog/references") references + $(count_files "${SKILL_DIR}/blog/templates") templates)"
+    echo "    Sub-skills:   ${sub_skill_count} installed"
+    echo "    Agents:       ${agent_count} specialists"
+    echo "    Scripts:      ${root_script_count} root-level + per-skill scripts"
+    echo "    Manifest:     ${MANIFEST}"
     echo ""
     echo "  Commands available:"
-    echo "    /blog write <topic>        Write a new blog post"
-    echo "    /blog rewrite <file>       Optimize an existing blog post"
-    echo "    /blog analyze <file>       Audit blog quality (0-100 score)"
-    echo "    /blog brief <topic>        Generate a content brief"
-    echo "    /blog calendar             Generate an editorial calendar"
-    echo "    /blog strategy <niche>     Blog strategy and topic ideation"
-    echo "    /blog outline <topic>      SERP-informed outline generation"
-    echo "    /blog seo-check <file>     Post-writing SEO validation"
-    echo "    /blog schema <file>        Generate JSON-LD schema markup"
-    echo "    /blog repurpose <file>     Repurpose for other platforms"
-    echo "    /blog geo <file>           AI citation optimization audit"
-    echo "    /blog image <idea>         AI image generation via Gemini"
-    echo "    /blog audit [directory]    Full-site blog health assessment"
-    echo "    /blog cannibalization      Detect keyword overlap across posts"
-    echo "    /blog factcheck            Verify statistics against sources"
-    echo "    /blog persona              Manage writing personas"
-    echo "    /blog taxonomy             Tag/category CMS management"
-    echo "    /blog notebooklm <query>   Query NotebookLM for research"
-    echo "    /blog audio <file>         Generate audio narration via Gemini TTS"
+    print_commands "${SCRIPT_DIR}/skills/blog/SKILL.md"
     echo ""
     echo "  Optional: AI Features (same API key for both)"
     echo "    /blog image setup             Configure Gemini image generation"

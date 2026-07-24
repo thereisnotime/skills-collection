@@ -28,7 +28,10 @@ import os
 import re
 import stat
 import sys
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
 
@@ -43,6 +46,35 @@ _LOSSY_FALLBACK_PATTERNS = {
     "footnote": re.compile(r"\[\^[^\]]+\]"),
     "definition_list": re.compile(r"^[^\n:]+\n:\s+", re.MULTILINE),
     "fenced_code_with_language": re.compile(r"^```[a-zA-Z0-9_+-]+", re.MULTILINE),
+}
+SAFE_LINK_SCHEMES = frozenset({"http", "https", "mailto"})
+SAFE_MEDIA_SCHEMES = frozenset({"http", "https"})
+DANGEROUS_SCHEMES = frozenset({"javascript", "data", "file", "vbscript"})
+VOID_TAGS = frozenset({"br", "hr", "img"})
+DROP_CONTENT_TAGS = frozenset({"script", "style", "iframe", "object", "embed", "template"})
+ALLOWED_TAGS = frozenset({
+    "a", "abbr", "blockquote", "br", "code", "dd", "del", "details", "div",
+    "dl", "dt", "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5",
+    "h6", "hr", "img", "li", "ol", "p", "pre", "span", "strong", "sub",
+    "summary", "sup", "table", "tbody", "td", "th", "thead", "tr", "ul",
+    "svg", "g", "path", "rect", "circle", "line", "polyline", "polygon",
+    "text", "tspan", "title", "desc",
+})
+GLOBAL_ATTRS = frozenset({"class", "id", "role", "aria-label"})
+ALLOWED_ATTRS = {
+    "a": frozenset({"href", "title", "rel", "target"}),
+    "img": frozenset({"src", "alt", "title", "width", "height", "loading", "decoding"}),
+    "svg": frozenset({"viewbox", "width", "height", "xmlns", "fill", "stroke"}),
+    "path": frozenset({"d", "fill", "stroke", "stroke-width"}),
+    "rect": frozenset({"x", "y", "width", "height", "rx", "ry", "fill", "stroke"}),
+    "circle": frozenset({"cx", "cy", "r", "fill", "stroke"}),
+    "line": frozenset({"x1", "x2", "y1", "y2", "stroke", "stroke-width"}),
+    "polyline": frozenset({"points", "fill", "stroke", "stroke-width"}),
+    "polygon": frozenset({"points", "fill", "stroke", "stroke-width"}),
+    "text": frozenset({"x", "y", "fill", "font-size", "text-anchor"}),
+    "tspan": frozenset({"x", "y", "dx", "dy", "fill", "font-size"}),
+    "td": frozenset({"colspan", "rowspan"}),
+    "th": frozenset({"colspan", "rowspan", "scope"}),
 }
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -134,6 +166,105 @@ def _slugify(text: str) -> str:
     return s.strip("-") or "post"
 
 
+def _is_safe_url(value: str, *, media: bool = False) -> bool:
+    """Return True when a URL is safe for an HTML attribute."""
+    value = html_lib.unescape(value).strip()
+    if not value:
+        return False
+    parsed = urllib.parse.urlparse(value)
+    scheme = parsed.scheme.lower()
+    if scheme in DANGEROUS_SCHEMES:
+        return False
+    if not scheme:
+        return not value.startswith(("//", "\\"))
+    if media:
+        return scheme in SAFE_MEDIA_SCHEMES
+    return scheme in SAFE_LINK_SCHEMES
+
+
+def _safe_attr(value: object) -> str:
+    return html_lib.escape(str(value), quote=True)
+
+
+class _BodySanitizer(HTMLParser):
+    """Small allowlist sanitizer for markdown-rendered body HTML."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.out: list[str] = []
+        self.drop_depth = 0
+
+    def _clean_attrs(self, tag: str, attrs: list[tuple[str, str | None]]) -> str:
+        allowed = ALLOWED_ATTRS.get(tag, frozenset()) | GLOBAL_ATTRS
+        clean: list[str] = []
+        for raw_name, raw_value in attrs:
+            name = raw_name.lower()
+            if name.startswith("on") or name not in allowed:
+                continue
+            if raw_value is None:
+                continue
+            value = raw_value.strip()
+            if name in {"href", "src"} and not _is_safe_url(value, media=(name == "src")):
+                continue
+            clean.append(f'{name}="{_safe_attr(value)}"')
+        return (" " + " ".join(clean)) if clean else ""
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if tag in DROP_CONTENT_TAGS:
+            self.drop_depth += 1
+            return
+        if self.drop_depth:
+            return
+        if tag not in ALLOWED_TAGS:
+            return
+        attr_text = self._clean_attrs(tag, attrs)
+        self.out.append(f"<{tag}{attr_text}>")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if self.drop_depth or tag not in ALLOWED_TAGS:
+            return
+        attr_text = self._clean_attrs(tag, attrs)
+        self.out.append(f"<{tag}{attr_text}>")
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag in DROP_CONTENT_TAGS and self.drop_depth:
+            self.drop_depth -= 1
+            return
+        if self.drop_depth or tag not in ALLOWED_TAGS or tag in VOID_TAGS:
+            return
+        self.out.append(f"</{tag}>")
+
+    def handle_data(self, data: str) -> None:
+        if not self.drop_depth:
+            self.out.append(html_lib.escape(data, quote=False))
+
+    def handle_entityref(self, name: str) -> None:
+        if not self.drop_depth:
+            self.out.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        if not self.drop_depth:
+            self.out.append(f"&#{name};")
+
+
+def _sanitize_body_html(raw_html: str) -> str:
+    sanitizer = _BodySanitizer()
+    sanitizer.feed(raw_html)
+    sanitizer.close()
+    return "".join(sanitizer.out)
+
+
+def _validate_hero_filename(name: str) -> str:
+    if "/" in name or "\\" in name or Path(name).name != name:
+        raise ValueError("hero filename must be a basename in the output directory")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+\.(?:png|jpg|jpeg|webp)", name, re.IGNORECASE):
+        raise ValueError("hero filename must be hero.<png|jpg|jpeg|webp> style raster asset")
+    return name
+
+
 def _parse_frontmatter(raw: str) -> tuple[dict, str]:
     """Minimal YAML frontmatter parser. Supports flat key: value and simple lists."""
     if not raw.startswith("---"):
@@ -170,9 +301,9 @@ def _markdown_to_html(body: str) -> str:
     emphasis, lists, blockquotes, hr, images)."""
     try:
         import markdown  # type: ignore
-        return markdown.markdown(body, extensions=["extra", "sane_lists"])
+        return _sanitize_body_html(markdown.markdown(body, extensions=["extra", "sane_lists"]))
     except ImportError:
-        return _stdlib_markdown(body)
+        return _sanitize_body_html(_stdlib_markdown(body))
 
 
 def _stdlib_markdown(body: str) -> str:
@@ -257,12 +388,27 @@ def _stdlib_markdown(body: str) -> str:
 def _inline(text: str) -> str:
     """Inline markdown: code, bold, italic, links, images. Operates on
     text where the outer block (heading/paragraph/li) is already established."""
-    # Escape HTML first
-    text = html_lib.escape(text, quote=False)
+    # Escape HTML first, including quotes so attribute replacements cannot break out.
+    text = html_lib.escape(text, quote=True)
+
+    def image_repl(match: re.Match[str]) -> str:
+        alt = match.group(1)
+        url = html_lib.unescape(match.group(2))
+        if not _is_safe_url(url, media=True):
+            return alt
+        return f'<img src="{_safe_attr(url)}" alt="{_safe_attr(html_lib.unescape(alt))}">'
+
+    def link_repl(match: re.Match[str]) -> str:
+        label = match.group(1)
+        url = html_lib.unescape(match.group(2))
+        if not _is_safe_url(url):
+            return label
+        return f'<a href="{_safe_attr(url)}">{label}</a>'
+
     # Images: ![alt](url)
-    text = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r'<img src="\2" alt="\1">', text)
+    text = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", image_repl, text)
     # Links: [text](url)
-    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link_repl, text)
     # Inline code: `code`
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
     # Bold: **text**
@@ -362,6 +508,7 @@ def _warn_if_stdlib_fallback_is_lossy(body: str) -> None:
 
 
 def _render_html(md_path: Path, out_dir: Path, hero_filename: str) -> Path:
+    hero_filename = _validate_hero_filename(hero_filename)
     raw = _read_md_safely(md_path)
     fm, body = _parse_frontmatter(raw)
     _validate_frontmatter(fm, body)
@@ -395,29 +542,33 @@ def _render_html(md_path: Path, out_dir: Path, hero_filename: str) -> Path:
     og_image = canonical.rstrip("/") + "/" + hero_filename if canonical else hero_filename
 
     rendered = HTML_TEMPLATE.format(
-        lang=fm.get("lang", "en"),
-        title_escaped=html_lib.escape(title),
-        description_escaped=html_lib.escape(fm.get("description", "")),
-        canonical_tag=f'<link rel="canonical" href="{html_lib.escape(canonical)}">' if canonical else "",
-        author_escaped=html_lib.escape(fm.get("author", "Anonymous")),
-        og_url_tag=f'<meta property="og:url" content="{html_lib.escape(canonical)}">' if canonical else "",
-        og_image=html_lib.escape(og_image),
-        og_image_alt_escaped=html_lib.escape(fm.get("og_image_alt", title)),
-        site_name_escaped=html_lib.escape(site_name or "Blog"),
-        published_iso=fm.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-        published_human=fm.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+        lang=_safe_attr(fm.get("lang", "en")),
+        title_escaped=_safe_attr(title),
+        description_escaped=_safe_attr(fm.get("description", "")),
+        canonical_tag=f'<link rel="canonical" href="{_safe_attr(canonical)}">' if canonical else "",
+        author_escaped=_safe_attr(fm.get("author", "Anonymous")),
+        og_url_tag=f'<meta property="og:url" content="{_safe_attr(canonical)}">' if canonical else "",
+        og_image=_safe_attr(og_image),
+        og_image_alt_escaped=_safe_attr(fm.get("og_image_alt", title)),
+        site_name_escaped=_safe_attr(site_name or "Blog"),
+        published_iso=_safe_attr(fm.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))),
+        published_human=_safe_attr(fm.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))),
         reading_time_min=reading_time,
         word_count=word_count,
-        kicker_escaped=html_lib.escape(fm.get("kicker") or (fm.get("tags")[0].title() if isinstance(fm.get("tags"), list) and fm.get("tags") else "Article")),
-        hero_filename=html_lib.escape(hero_filename),
+        kicker_escaped=_safe_attr(fm.get("kicker") or (fm.get("tags")[0].title() if isinstance(fm.get("tags"), list) and fm.get("tags") else "Article")),
+        hero_filename=_safe_attr(hero_filename),
         body_html=body_html,
-        site_url_or_dash=html_lib.escape(site_url or "#"),
+        site_url_or_dash=_safe_attr(site_url or "#"),
         json_ld=_build_json_ld(fm, word_count, og_image),
         css=CSS,
     )
 
-    slug = fm.get("slug") or _slugify(title)
-    out_html = out_dir / f"{slug}.html"
+    slug = _slugify(str(fm.get("slug") or title))
+    out_root = out_dir.resolve()
+    out_html = (out_root / f"{slug}.html").resolve(strict=False)
+    out_html.relative_to(out_root)
+    if out_html.exists() and out_html.is_symlink():
+        raise ValueError(f"refusing to overwrite symlink: {out_html}")
     out_html.write_text(rendered, encoding="utf-8")
     return out_html
 
@@ -425,6 +576,21 @@ def _render_html(md_path: Path, out_dir: Path, hero_filename: str) -> Path:
 def _render_pdf(html_path: Path, out_pdf: Path, engine: str) -> bool:
     """Render html_path to out_pdf via the chosen engine. Returns True on
     success, False on failure (no exception raised; caller decides)."""
+    asset_root = html_path.parent.resolve()
+
+    def _local_asset_allowed(url: str) -> bool:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme in ("http", "https"):
+            return False
+        if parsed.scheme == "file":
+            try:
+                path = Path(urllib.request.url2pathname(parsed.path)).resolve()
+                path.relative_to(asset_root)
+                return not path.is_symlink()
+            except ValueError:
+                return False
+        return parsed.scheme in ("", "about", "data")
+
     if engine in ("auto", "playwright"):
         sync_playwright = None
         try:
@@ -439,7 +605,13 @@ def _render_pdf(html_path: Path, out_pdf: Path, engine: str) -> bool:
                 with sync_playwright() as p:
                     browser = p.chromium.launch()
                     page = browser.new_page()
-                    page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
+                    def route_guard(route):
+                        if _local_asset_allowed(route.request.url):
+                            route.continue_()
+                        else:
+                            route.abort()
+                    page.route("**/*", route_guard)
+                    page.goto(html_path.resolve().as_uri(), wait_until="networkidle")
                     page.pdf(path=str(out_pdf), format="A4", print_background=True)
                     browser.close()
                 return True
@@ -449,8 +621,12 @@ def _render_pdf(html_path: Path, out_pdf: Path, engine: str) -> bool:
                     return False
     if engine in ("auto", "weasyprint"):
         try:
-            from weasyprint import HTML  # type: ignore
-            HTML(filename=str(html_path)).write_pdf(str(out_pdf))
+            from weasyprint import HTML, default_url_fetcher  # type: ignore
+            def fetcher(url: str, *args, **kwargs):
+                if not _local_asset_allowed(url):
+                    raise ValueError(f"blocked external PDF asset: {url}")
+                return default_url_fetcher(url, *args, **kwargs)
+            HTML(filename=str(html_path), url_fetcher=fetcher).write_pdf(str(out_pdf))
             return True
         except Exception as e:
             print(f"[render] weasyprint failed: {e}", file=sys.stderr)
@@ -473,7 +649,11 @@ def main() -> int:
     if not md_path.is_file() and not md_path.is_symlink():
         print(f"ERROR: {md_path} not a file", file=sys.stderr)
         return 1
-    out_dir = Path(args.out_dir).resolve()
+    raw_out_dir = Path(args.out_dir)
+    if raw_out_dir.exists() and raw_out_dir.is_symlink():
+        print(f"ERROR: refusing symlink output directory: {raw_out_dir}", file=sys.stderr)
+        return 1
+    out_dir = raw_out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -487,6 +667,11 @@ def main() -> int:
         pdf_path = html_path.with_suffix(".pdf")
         if _render_pdf(html_path, pdf_path, args.pdf_engine):
             result["pdf"] = str(pdf_path)
+        else:
+            print("ERROR: PDF render requested but no PDF artifact was produced", file=sys.stderr)
+            if args.json:
+                print(json.dumps(result))
+            return 1
 
     if args.json:
         print(json.dumps(result))

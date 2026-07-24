@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Sync FLOW operational references from GitHub into the blog-flow skill.
 
 Ports the seo-flow sync pattern with blog-specific changes:
@@ -48,6 +49,21 @@ STATIC_FILES = [
 ]
 
 LOCK_REL = pathlib.Path("skills") / "blog-flow" / "references" / "flow-prompts.lock"
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects so the host allowlist applies to every response."""
+
+    def http_error_301(self, req, fp, code, msg, headers):
+        return None
+
+    http_error_302 = http_error_301
+    http_error_303 = http_error_301
+    http_error_307 = http_error_301
+    http_error_308 = http_error_301
+
+
+_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirectHandler())
 
 
 def _validate_github_url(url):
@@ -131,7 +147,9 @@ def api_get(path, ref, headers):
     _validate_github_url(url)
     request = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with _NO_REDIRECT_OPENER.open(request, timeout=15) as response:
+            final_url = response.geturl()
+            _validate_github_url(final_url)
             data = response.read(_SIZE_LIMIT + 1)
             if len(data) > _SIZE_LIMIT:
                 raise ValueError(

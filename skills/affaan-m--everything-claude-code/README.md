@@ -80,42 +80,19 @@ ECC v2.0.0 adds the public Hermes operator story on top of that reusable layer: 
 </tr>
 </table>
 
-<sub>**OSS stays free.** This repo is MIT-licensed forever. ECC Pro is the hosted GitHub App for private repos. <a href="https://github.com/sponsors/affaan-m">Sponsors</a> and <a href="https://ecc.tools/pricing">Pro subscribers</a> fund the work — that's why a single maintainer ships weekly across 7 harnesses.</sub>
+<sub>**OSS stays free.** This repo is MIT-licensed forever. ECC Pro is the hosted GitHub App for private repos. <a href="https://github.com/sponsors/affaan-m">Sponsors</a> and <a href="https://ecc.tools/pricing">Pro subscribers</a> fund the work. That's why a single maintainer ships weekly across 7 harnesses.</sub>
 
 <div align="center">
 
-<sub><strong>Business sponsors</strong></sub>
+<sub><strong>Partners &amp; sponsors</strong></sub>
 
-<table>
-<tr>
-<td align="center" width="220">
-  <a href="https://www.coderabbit.ai">
-    <img src="assets/images/sponsors/coderabbit.png" width="96" alt="CodeRabbit logo" /><br />
-    <strong>CodeRabbit</strong>
-  </a>
-</td>
-<td align="center" width="220">
-  <a href="https://www.greptile.com/go/ecc">
-    <img src="assets/images/sponsors/greptile.png" width="96" alt="Greptile logo" /><br />
-    <strong>Greptile</strong>
-  </a>
-</td>
-<td align="center" width="220">
-  <a href="https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=ECC">
-    <img src="assets/images/sponsors/atlascloud.png" width="96" alt="Atlas Cloud logo" /><br />
-    <strong>Atlas Cloud</strong>
-  </a>
-</td>
-<td align="center" width="220">
-  <a href="https://compute.itomarkets.com">
-    <img src="assets/images/sponsors/ito.svg" width="96" alt="Itô Markets logo" /><br />
-    <strong>Itô</strong>
-  </a>
-</td>
-</tr>
-</table>
-
-<sub><strong>Run or self-host any open-source model.</strong> Itô is ECC's preferred compute sponsor: <a href="https://compute.itomarkets.com">open the Itô dashboard to sign in and rent or manage GPUs</a>. Any GPU provider works. ECC only provides this link; it does not provision compute or serving. Managed inference through Itô is not live yet.</sub>
+<p align="center" aria-label="Partners and sponsors">
+  <a href="https://www.coderabbit.ai" title="CodeRabbit"><img src="assets/images/sponsors/coderabbit.png" height="54" alt="CodeRabbit" /></a>&nbsp;&nbsp;&nbsp;
+  <a href="https://www.greptile.com/go/ecc" title="Greptile"><img src="assets/images/sponsors/greptile.png" height="54" alt="Greptile" /></a>&nbsp;&nbsp;&nbsp;
+  <a href="https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=ECC" title="Atlas Cloud"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/images/sponsors/atlascloud-dark.svg" /><img src="assets/images/sponsors/atlascloud.svg" width="154" alt="Atlas Cloud" /></picture></a>&nbsp;&nbsp;&nbsp;
+  <a href="https://www.moonshot.ai" title="Moonshot AI — Kimi"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/images/sponsors/moonshot-dark.png" /><img src="assets/images/sponsors/moonshot.png" width="132" alt="Moonshot AI — Kimi" /></picture></a>&nbsp;&nbsp;&nbsp;
+  <a href="https://compute.itomarkets.com" title="Itô Markets"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/images/sponsors/ito-dark.svg" /><img src="assets/images/sponsors/ito.svg" width="190" alt="Itô Markets" /></picture></a>
+</p>
 
 <sub><strong>Community sponsors:</strong> <a href="https://github.com/mikejmorgan-ai">Mike Morgan</a> · <a href="https://github.com/jasonwu513">@jasonwu513</a> · <a href="https://github.com/1anter">@1anter</a> · <a href="https://github.com/massimotodaro">@massimotodaro</a> · <a href="https://github.com/meadmccabe">@meadmccabe</a></sub>
 
@@ -447,7 +424,7 @@ If you stacked methods, clean up in this order:
 /plugin list ecc@ecc
 ```
 
-**That's it!** You now have access to 67 agents, 278 skills, and 94 legacy command shims.
+**That's it!** You now have access to 67 agents, 279 skills, and 94 legacy command shims.
 
 ### Dashboard GUI
 
@@ -1196,7 +1173,31 @@ claude
 
 If your gateway remaps model names, configure that in Claude Code rather than in ECC. ECC's hooks, skills, commands, and rules are model-provider agnostic once the `claude` CLI is already working.
 
-Run or self-host any open-source model behind that gateway using separate compute and serving setup. If you need GPU capacity, [Itô](https://compute.itomarkets.com) is ECC's preferred compute sponsor; any GPU provider works. ECC only links to the Itô dashboard for sign-in and GPU rental or management—it does not provision compute or serving. Managed inference through Itô is not live yet.
+Run or self-host any open-source model behind that gateway using separate compute and serving setup. If you need GPU capacity, [Itô](https://compute.itomarkets.com) is ECC's preferred compute sponsor; any GPU provider works. That sponsorship link is passive: it does not invoke an RFQ, reserve capacity, provision compute, or configure serving. Separately, the opt-in `ecc ito find` bridge invokes the explicitly configured canonical Itô CLI and submits a live authenticated RFQ; it does not reserve capacity. Managed inference through Itô is not live yet.
+
+### Itô compute CLI bridge
+
+`ecc ito` delegates to the separately installed canonical Itô client; ECC does
+not maintain a second API client or browser handoff. The available operations
+are `ecc ito auth`, `ecc ito find`, `ecc ito status`, and the separately gated
+`ecc ito evals`. The matching MCP tools remain `ito_auth`, `ito_find`, and
+`ito_status`; node qualification is CLI-only.
+
+The `ito-compute-cli` package is currently unpublished. Build it locally from the Itô runtime repo (private while the desk hardens;
+design partners get access) under `cli/ito-compute-cli`, run `npm ci` and `npm run check`, then set
+`ECC_ITO_CLI_EXECUTABLE` to that build's absolute `dist/bin/ito.js` path.
+Inject `ITO_API_KEY` from 1Password or the launching environment. ECC does not
+discover this credential-bearing client through `PATH`. See the [`ito-compute`
+skill](skills/ito-compute/SKILL.md) for the full RFQ authority and MCP setup
+contract.
+
+`find` submits a live authenticated RFQ. It does not reserve capacity.
+`evals` requires both `ITO_ENABLE_SIXTYTWO_LIVE=1` and `--live-sixtytwo`, a
+separately installed `sixtytwo-cli==0.3.33`, an explicit node list, and an
+existing absolute configuration directory. It cannot rent, launch, recover,
+repair, or purchase.
+ECC exposes no quote lock, purchase, workload, or inference path, and it never
+replaces a missing client or failed live call with a local result.
 
 Official references:
 - [Claude Code LLM gateway docs](https://docs.anthropic.com/en/docs/claude-code/llm-gateway)
@@ -1544,7 +1545,7 @@ The configuration is automatically detected from `.opencode/opencode.json`.
 |---------|---------------------|----------|--------|
 | Agents | PASS: 67 agents     | PASS: 12 agents | **Claude Code leads** |
 | Commands | PASS: 94 commands   | PASS: 35 commands | **Claude Code leads** |
-| Skills | PASS: 278 skills    | PASS: 37 skills | **Claude Code leads** |
+| Skills | PASS: 279 skills    | PASS: 37 skills | **Claude Code leads** |
 | Hooks | PASS: 8 event types | PASS: 11 events | **OpenCode has more!** |
 | Rules | PASS: 29 rules      | PASS: 13 instructions | **Claude Code leads** |
 | MCP Servers | PASS: 14 servers    | PASS: Full | **Full parity** |
@@ -1705,7 +1706,7 @@ ECC is the **first plugin to maximize every major AI coding tool**. Here's how e
 |---------|-----------------------|------------|-----------|----------|----------------|
 | **Agents** | 67                    | Shared (AGENTS.md) | Shared (AGENTS.md) | 12 | N/A |
 | **Commands** | 94                    | Shared | Instruction-based | 35 | 5 prompts |
-| **Skills** | 278                   | Shared | 10 (native format) | 37 | Via instructions |
+| **Skills** | 279                   | Shared | 10 (native format) | 37 | Via instructions |
 | **Hook Events** | 8 types               | 15 types | None yet | 11 types | None |
 | **Hook Scripts** | 20+ scripts           | 16 scripts (DRY adapter) | N/A | Plugin hooks | N/A |
 | **Rules** | 34 (common + lang)    | 34 (YAML frontmatter) | Instruction-based | 13 instructions | 1 always-on file |
@@ -1848,7 +1849,7 @@ ECC takes supply-chain and agent safety seriously.
 
 ## Sponsors
 
-Featured sponsors are at the top of this README — full list and tiers in [SPONSORS.md](SPONSORS.md). [Become a sponsor](https://github.com/sponsors/affaan-m).
+Business sponsors: [CodeRabbit](https://www.coderabbit.ai) · [Greptile](https://www.greptile.com/go/ecc) · [Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=ECC) · [Moonshot AI (Kimi)](https://www.moonshot.ai) · [Itô Markets](https://itomarkets.com). Logos are at the top of this README; the full roster and tiers are in [SPONSORS.md](SPONSORS.md). [Become a sponsor](https://github.com/sponsors/affaan-m).
 
 ---
 

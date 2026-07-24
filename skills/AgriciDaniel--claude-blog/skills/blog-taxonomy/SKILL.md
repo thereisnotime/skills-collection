@@ -53,6 +53,7 @@ Group related candidates into clusters:
 ### Step 4: Deduplicate and Rank
 
 - Fuzzy match on slugified names (Levenshtein distance <= 2)
+- Do not auto-merge short slugs under 5 characters using Levenshtein alone; require token overlap or manual review
 - Score each candidate: `(frequency * 2) + (heading_presence * 5) + (emphasis * 1)`
 - Return top 5-10 ranked suggestions
 
@@ -136,7 +137,8 @@ mutation {
 **List all tags in use** (GraphQL):
 ```graphql
 {
-  articles(first: 250) {
+  articles(first: 250, after: $cursor) {
+    pageInfo { hasNextPage endCursor }
     edges {
       node { id title tags }
     }
@@ -145,6 +147,9 @@ mutation {
 ```
 
 Auth header: `X-Shopify-Access-Token: {token}`
+
+Pagination: loop while `pageInfo.hasNextPage` is true, passing `endCursor` as
+the next `$cursor`.
 
 Note: REST API marked legacy Oct 2024. GraphQL required for new apps since Apr 2025.
 
@@ -176,7 +181,11 @@ Body: {"data": {"name": "Tag Name", "slug": "tag-name"}}
 Authorization: Bearer {api_token}
 ```
 
-Strapi v4+ uses the `data` wrapper. Check your content type schema for field names.
+Pagination: increment `pagination[page]` until all pages are exhausted.
+
+Strapi v4 responses use the `data` wrapper with `attributes`; Strapi v5 uses
+a flatter response shape. Detect the version or normalize both shapes before
+deduplication. Check your content type schema for field names.
 
 ### Sanity Adapter
 
@@ -187,10 +196,13 @@ Strapi v4+ uses the `data` wrapper. Check your content type schema for field nam
 
 **Create tag** (Mutations API):
 ```
-POST https://{project_id}.api.sanity.io/v2024-01-01/data/mutate/{dataset}
+POST https://{project_id}.api.sanity.io/{SANITY_API_VERSION}/data/mutate/{dataset}
 Body: {"mutations": [{"create": {"_type": "tag", "name": "Tag", "slug": {"current": "tag"}}}]}
 Authorization: Bearer {token}
 ```
+
+Default `SANITY_API_VERSION` to a current tested API date supplied by the
+project environment; do not hard-code it in generated requests.
 
 ## Taxonomy Audit Workflow
 
@@ -204,9 +216,9 @@ Scan all posts in the target directory (or fetch from CMS). Build a map:
 
 | Check | Threshold | Action |
 |-------|-----------|--------|
-| Thin tag archives | < 5 posts per tag | Recommend noindex or merge |
+| Thin tag archives | < 5 posts per tag | Review for merge or noindex after traffic, intent, and link checks |
 | Orphan tags | 0 posts | Recommend deletion |
-| Tag bloat | > 50 total tags | Recommend consolidation |
+| Tag bloat | More than `max(50, post_count * 0.25)` total tags, adjusted for taxonomy purpose | Recommend consolidation |
 | Category depth | > 3 levels | Recommend flattening |
 | Uncategorized posts | No category assigned | Assign to appropriate category |
 | Duplicate slugs | Same slug, different name | Merge into canonical version |
@@ -215,8 +227,8 @@ Scan all posts in the target directory (or fetch from CMS). Build a map:
 
 Group findings by priority:
 - **Critical**: orphan tags creating empty archive pages (crawl waste)
-- **High**: thin tags with < 3 posts (poor user experience, weak SEO signal)
-- **Medium**: tag bloat over 50 (diluted taxonomy, harder to navigate)
+- **High**: thin tags with < 5 posts after traffic, intent, and link checks
+- **Medium**: tag bloat above the scaled threshold (diluted taxonomy, harder to navigate)
 - **Low**: naming inconsistencies (mixed case, hyphen vs space)
 
 ### Output Format
@@ -233,7 +245,7 @@ Group findings by priority:
 ### Recommendations
 1. Merge [tag-a] and [tag-b] (same topic, [n] combined posts)
 2. Delete orphan tags: [list]
-3. Add noindex to tag archives with < 5 posts
+3. Merge or noindex tag archives with < 5 posts only after traffic, intent, and link checks
 ```
 
 ## Site-Wide Guidelines
@@ -249,18 +261,27 @@ Group findings by priority:
 | Variable | Purpose | Example |
 |----------|---------|---------|
 | CMS_TYPE | Platform identifier | wordpress, shopify, ghost, strapi, sanity |
-| CMS_URL | Base URL of the CMS | https://example.com |
-| CMS_API_KEY | Authentication credential | Application password, API token, or key |
+| CMS_URL | HTTPS base URL of the CMS | https://example.com |
+| CMS_ALLOWED_HOSTS | Optional comma-separated allowlist for CMS hosts | example.com,admin.example.com |
+| CMS_USERNAME | WordPress username when using Application Passwords | editor@example.com |
+| CMS_API_KEY | Authentication credential | WordPress app password, API token, or key |
+| SANITY_API_VERSION | Sanity API date for mutations | v2026-07-01 |
 
 These must be set in the shell environment. Never store credentials in files or
 commit them to version control. The skill reads them via `$CMS_TYPE`, `$CMS_URL`,
-and `$CMS_API_KEY` at runtime.
+`$CMS_USERNAME`, `$CMS_API_KEY`, and optional platform-specific variables at runtime.
+
+Security rule for CMS calls: require HTTPS, allow only `http` and `https`
+parsing paths but send authenticated requests over HTTPS only, resolve DNS and
+block loopback/private/link-local/reserved IPs, validate redirects with the same
+checks or disable redirects, cap timeouts at 10 seconds, and enforce
+`CMS_ALLOWED_HOSTS` when set.
 
 ## Error Handling
 
-- **Missing environment variables**: If CMS_TYPE, CMS_URL, or CMS_API_KEY is unset, report which variable is missing and provide the expected format
-- **Invalid credentials**: If the CMS API returns 401/403, report "Authentication failed - check CMS_API_KEY" and do not retry
+- **Missing environment variables**: If CMS_TYPE, CMS_URL, or CMS_API_KEY is unset, or if WordPress lacks CMS_USERNAME, report which variable is missing and provide the expected format
+- **Invalid credentials**: If the CMS API returns 401/403, report "Authentication failed - check CMS_USERNAME/CMS_API_KEY" and do not retry
 - **Connection timeouts**: If the CMS endpoint is unreachable after 10 seconds, report the timeout and suggest checking CMS_URL
 - **Duplicate tag slugs**: If a tag already exists on the CMS, skip creation and note "Tag already exists: [name]"
-- **Rate limits**: If the CMS API returns 429, wait and retry once. Report if the limit persists
+- **Rate limits**: If the CMS API returns 429, honor `Retry-After` when present; otherwise use exponential backoff and retry once. Report if the limit persists
 - **Unsupported CMS**: If CMS_TYPE is not one of the 5 supported platforms, list the valid options and exit

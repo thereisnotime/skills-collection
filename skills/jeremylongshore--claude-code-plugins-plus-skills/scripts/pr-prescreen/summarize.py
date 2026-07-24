@@ -1,11 +1,12 @@
-"""PR pre-screen — LLM summary layer (advisory, DeepSeek by default).
+"""PR pre-screen — LLM summary layer (advisory, MiniMax by default).
 
 Reads the classifier output produced by classify.py and asks an
-OpenAI-compatible chat API (DeepSeek by default) for a ≤5-line human
+OpenAI-compatible chat API (MiniMax-M3 by default) for a ≤5-line human
 summary. Returns the original classifier output with an added
-"summary_lines" key on success, or a "summary_lines" key set to a
-single fallback line + an "llm_status" key indicating why the LLM call
-was skipped or failed.
+"summary_lines" key on success. When the optional LLM is unavailable,
+the output keeps only the machine-readable "llm_status" diagnostic;
+reviewer-facing consumers already render the deterministic classifier
+summary and must not repeat provider failures as notification noise.
 
 Constraints:
 - Single attempt. No retries. 5-second wall-clock deadline.
@@ -15,13 +16,13 @@ Constraints:
 - Prompt is fixed; the only user-controlled content is the JSON we ship
   in a fenced code block clearly demarcated from the system prompt.
 - No SDK. Plain stdlib HTTP via urllib so this runs on any GHA runner
-  without extra installs. DeepSeek's API is OpenAI-compatible, so the
+  without extra installs. MiniMax's API is OpenAI-compatible, so the
   request/response shape is identical to any other OpenAI-style host.
 
 Env vars:
-  DEEPSEEK_API_KEY  — required for live calls. Missing → fallback.
-  LLM_API_URL       — optional override (default: DeepSeek chat endpoint).
-  LLM_MODEL         — optional override (default: deepseek-chat).
+  MINIMAX_API_KEY   — required for live calls. Missing → fallback.
+  LLM_API_URL       — optional override (default: MiniMax chat endpoint).
+  LLM_MODEL         — optional override (default: MiniMax-M3).
   LLM_TIMEOUT       — optional override in seconds (default: 5).
 """
 
@@ -34,8 +35,8 @@ import urllib.error
 import urllib.request
 
 
-DEFAULT_API_URL = "https://api.deepseek.com/chat/completions"
-DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_API_URL = "https://api.minimax.io/v1/chat/completions"
+DEFAULT_MODEL = "MiniMax-M3"
 DEFAULT_TIMEOUT = 5.0
 
 
@@ -107,19 +108,6 @@ def call_llm(classifier_output: dict, *, api_key: str, api_url: str, model: str,
     return content
 
 
-def _fallback_summary(classifier_output: dict, reason: str) -> str:
-    verdict = classifier_output.get("verdict", "PASS")
-    summary = classifier_output.get("summary", "")
-    icon = {"PASS": "✅", "CHANGES_REQUESTED": "⚠️", "HARD_BLOCK": "🛑"}.get(verdict, "•")
-    return (
-        f"{icon} {verdict}\n"
-        f"{summary}\n"
-        f"LLM screener unavailable: {reason}.\n"
-        "Falling back to deterministic validator output only.\n"
-        "See per-skill table below for full detail."
-    )
-
-
 def normalise_summary_lines(text: str) -> str:
     """Trim to 5 lines, strip stray markdown fences, no trailing whitespace."""
     lines = [l.rstrip() for l in text.splitlines() if l.strip()]
@@ -135,11 +123,13 @@ def normalise_summary_lines(text: str) -> str:
 
 
 def summarize(classifier_output: dict) -> dict:
-    """Augment classifier output with an LLM summary or fallback explanation."""
+    """Augment classifier output with an LLM summary or a quiet status diagnostic."""
     out = dict(classifier_output)
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    # Never propagate a caller-supplied/stale summary into notifications when
+    # this invocation cannot produce a successful LLM result.
+    out.pop("summary_lines", None)
+    api_key = os.environ.get("MINIMAX_API_KEY", "").strip()
     if not api_key:
-        out["summary_lines"] = _fallback_summary(out, "DEEPSEEK_API_KEY not set")
         out["llm_status"] = "skipped: no api key"
         return out
 
@@ -153,7 +143,6 @@ def summarize(classifier_output: dict) -> dict:
     try:
         raw = call_llm(out, api_key=api_key, api_url=api_url, model=model, timeout=timeout)
     except urllib.error.HTTPError as exc:
-        out["summary_lines"] = _fallback_summary(out, f"LLM HTTP {exc.code}")
         out["llm_status"] = f"failed: http {exc.code}"
         return out
     except Exception as exc:
@@ -163,7 +152,6 @@ def summarize(classifier_output: dict) -> dict:
         # deterministic fallback, not propagate and kill the workflow.
         # Also avoids the Python 3.11 TimeoutError-builtin issue on
         # older runners.
-        out["summary_lines"] = _fallback_summary(out, str(exc) or exc.__class__.__name__)
         out["llm_status"] = f"failed: {exc.__class__.__name__}"
         return out
 

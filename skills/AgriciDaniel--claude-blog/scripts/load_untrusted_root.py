@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import errno
+import json
 import os
 import re
 import secrets
@@ -109,13 +110,16 @@ def _read_safely(path: Path, max_bytes: int) -> str:
             )
         with os.fdopen(fd, "r", encoding="utf-8") as f:
             fd = -1
-            return f.read(max_bytes + 1)
+            data = f.read(max_bytes + 1)
     finally:
         if fd != -1:
             try:
                 os.close(fd)
             except OSError:
                 pass
+    if len(data.encode("utf-8")) > max_bytes:
+        raise ValueError(f"exceeds size cap after read ({max_bytes}): {path}")
+    return data
 
 
 def generate_nonce() -> str:
@@ -205,28 +209,52 @@ def main() -> int:
         help="Path to BRAND.md, VOICE.md, or DISCOURSE.md at the project root",
     )
     parser.add_argument(
+        "--root",
+        default=".",
+        help="Project root that must contain the requested file (default: cwd).",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit JSON metadata plus fenced text")
+    parser.add_argument(
         "--allow-any-basename",
         action="store_true",
-        help="Skip the BRAND/VOICE/DISCOURSE basename check (for testing).",
+        help="Testing only: requires CLAUDE_BLOG_TEST_ALLOW_ANY_BASENAME=1.",
     )
     args = parser.parse_args()
     # Do NOT resolve() the path: resolve() silently follows symlinks, which
     # defeats the symlink-refusal in _read_safely. Use the as-given path.
     path = Path(args.path)
+    root = Path(args.root).resolve()
+    if args.allow_any_basename and os.environ.get("CLAUDE_BLOG_TEST_ALLOW_ANY_BASENAME") != "1":
+        print("Error: --allow-any-basename is only available when CLAUDE_BLOG_TEST_ALLOW_ANY_BASENAME=1", file=sys.stderr)
+        return 2
     if not args.allow_any_basename and path.name not in ALLOWED_BASENAMES:
-        print(
-            f"Error: basename {path.name!r} not in allowlist "
-            f"{sorted(ALLOWED_BASENAMES)}. Pass --allow-any-basename to "
-            f"override (testing only).",
-            file=sys.stderr,
-        )
+        print(f"Error: basename {path.name!r} not in allowlist {sorted(ALLOWED_BASENAMES)}.", file=sys.stderr)
         return 2
     try:
-        content = _read_safely(path, MAX_INPUT_BYTES)
+        candidate = path if path.is_absolute() else Path.cwd() / path
+        confined = candidate.parent.resolve() / candidate.name
+        confined.relative_to(root)
+    except ValueError:
+        print(f"Error: path {path} is outside project root {root}", file=sys.stderr)
+        return 2
+    try:
+        content = _read_safely(confined, MAX_INPUT_BYTES)
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 2
-    print(fence_content(path, content))
+    nonce = generate_nonce()
+    fenced = fence_content(confined, content, nonce=nonce)
+    if args.json:
+        print(json.dumps({
+            "path": str(confined),
+            "root": str(root),
+            "basename": confined.name,
+            "nonce": nonce,
+            "warnings": scan_for_injection(content),
+            "fenced": fenced,
+        }, indent=2))
+    else:
+        print(fenced)
     return 0
 
 

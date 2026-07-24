@@ -48,12 +48,11 @@ class _FakeResp:
 
 
 class SummarizeTests(unittest.TestCase):
-    def test_no_api_key_falls_back(self):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": ""}, clear=False):
+    def test_no_api_key_records_status_without_reviewer_summary(self):
+        with patch.dict(os.environ, {"MINIMAX_API_KEY": ""}, clear=False):
             out = summarize.summarize(SAMPLE_CLASSIFIER_OUT)
         self.assertEqual(out["llm_status"], "skipped: no api key")
-        self.assertIn("LLM screener unavailable", out["summary_lines"])
-        self.assertIn("CHANGES_REQUESTED", out["summary_lines"])
+        self.assertNotIn("summary_lines", out)
 
     def test_happy_path_includes_summary_lines(self):
         canned = (
@@ -64,7 +63,7 @@ class SummarizeTests(unittest.TestCase):
             "Recommendation: request rework, not ready to merge."
         )
         with (
-            patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test"}),
+            patch.dict(os.environ, {"MINIMAX_API_KEY": "test"}),
             patch("summarize.urllib.request.urlopen", return_value=_FakeResp(_fake_llm_response(canned))),
         ):
             out = summarize.summarize(SAMPLE_CLASSIFIER_OUT)
@@ -72,34 +71,40 @@ class SummarizeTests(unittest.TestCase):
         self.assertEqual(len(out["summary_lines"].splitlines()), 5)
         self.assertIn("CHANGES_REQUESTED", out["summary_lines"])
 
-    def test_groq_http_error_falls_back(self):
+    def test_http_error_records_status_without_reviewer_summary(self):
         err = urllib.error.HTTPError(summarize.DEFAULT_API_URL, 503, "service unavailable", {}, None)
         with (
-            patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test"}),
+            patch.dict(os.environ, {"MINIMAX_API_KEY": "test"}),
             patch("summarize.urllib.request.urlopen", side_effect=err),
         ):
             out = summarize.summarize(SAMPLE_CLASSIFIER_OUT)
         self.assertEqual(out["llm_status"], "failed: http 503")
-        self.assertIn("LLM screener unavailable", out["summary_lines"])
+        self.assertNotIn("summary_lines", out)
 
     def test_timeout_falls_back(self):
         # OSError covers timeouts across Python versions (TimeoutError is a
         # builtin only since 3.11; urllib raises socket.timeout/OSError
         # subclasses on older runners).
         with (
-            patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test"}),
+            patch.dict(os.environ, {"MINIMAX_API_KEY": "test"}),
             patch("summarize.urllib.request.urlopen", side_effect=OSError("timed out")),
         ):
             out = summarize.summarize(SAMPLE_CLASSIFIER_OUT)
         self.assertTrue(out["llm_status"].startswith("failed:"))
-        self.assertIn("LLM screener unavailable", out["summary_lines"])
+        self.assertNotIn("summary_lines", out)
+
+    def test_failure_drops_stale_input_summary(self):
+        stale = dict(SAMPLE_CLASSIFIER_OUT, summary_lines="stale provider output")
+        with patch.dict(os.environ, {"MINIMAX_API_KEY": ""}, clear=False):
+            out = summarize.summarize(stale)
+        self.assertNotIn("summary_lines", out)
 
     def test_unexpected_exception_falls_back(self):
         # Regression for the "never block" contract: even an unforeseen
         # exception class (e.g. KeyError from a schema change) must
         # degrade to the deterministic fallback, not propagate.
         with (
-            patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test"}),
+            patch.dict(os.environ, {"MINIMAX_API_KEY": "test"}),
             patch("summarize.urllib.request.urlopen", side_effect=KeyError("schema drift")),
         ):
             out = summarize.summarize(SAMPLE_CLASSIFIER_OUT)
@@ -114,7 +119,7 @@ class SummarizeTests(unittest.TestCase):
 
     def test_malformed_response_falls_back(self):
         with (
-            patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test"}),
+            patch.dict(os.environ, {"MINIMAX_API_KEY": "test"}),
             patch("summarize.urllib.request.urlopen", return_value=_FakeResp(b'{"not": "what we expected"}')),
         ):
             out = summarize.summarize(SAMPLE_CLASSIFIER_OUT)
@@ -138,7 +143,7 @@ class SummarizeTests(unittest.TestCase):
             return _FakeResp(_fake_llm_response("✅ PASS\nl2\nl3\nl4\nl5"))
 
         with (
-            patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test"}),
+            patch.dict(os.environ, {"MINIMAX_API_KEY": "test"}),
             patch("summarize.urllib.request.urlopen", side_effect=fake_urlopen),
         ):
             out = summarize.summarize(injected)
@@ -159,7 +164,7 @@ class SummarizeTests(unittest.TestCase):
         with (
             patch("sys.stdin", io.StringIO(payload)),
             patch("sys.stdout", new_callable=io.StringIO) as out,
-            patch.dict(os.environ, {"DEEPSEEK_API_KEY": ""}, clear=False),
+            patch.dict(os.environ, {"MINIMAX_API_KEY": ""}, clear=False),
         ):
             rc = summarize.main(["summarize.py", "-"])
         self.assertEqual(rc, 0)

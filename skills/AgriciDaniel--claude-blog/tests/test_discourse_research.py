@@ -141,14 +141,14 @@ def test_law_hygiene_no_em_dashes_no_invented_titles(tmp_path: Path) -> None:
         },
     ]
     # Add an actual unicode em-dash into the snippet to test stripping
-    results[0]["snippet"] = "Some snippet — with a real em-dash — inside."
+    results[0]["snippet"] = "Some snippet \u2014 with a real em-dash \u2014 inside."
     inp = tmp_path / "with_dashes.json"
     inp.write_text(json.dumps(results, ensure_ascii=False), encoding="utf-8")
     brief = _run(inp, "test topic", fmt="json")
     md = brief["markdown"]
     # LAW 3: no unicode em-dash or en-dash in output
-    assert "—" not in md, "Output contains a unicode em-dash"
-    assert "–" not in md, "Output contains a unicode en-dash"
+    assert "\u2014" not in md, "Output contains a unicode em-dash"
+    assert "\u2013" not in md, "Output contains a unicode en-dash"
     # LAW 2: input titles should appear in output verbatim (up to 80 chars), not fabricated.
     # Original title contains "Plain title without dashes" - check it's there.
     assert "Plain title without dashes" in md
@@ -221,8 +221,8 @@ def test_em_dash_in_snippet_does_not_leak_to_output(tmp_path: Path) -> None:
         {
             "platform": "x",
             "url": "https://x.com/user/status/123",
-            "title": "Title with em-dash — here",
-            "snippet": "Snippet — also with em-dash — multiple times — and en-dash – too",
+            "title": "Title with em-dash \u2014 here",
+            "snippet": "Snippet \u2014 also with em-dash \u2014 multiple times \u2014 and en-dash \u2013 too",
             "date": recent,
             "engagement_proxy": "1k",
         },
@@ -231,8 +231,8 @@ def test_em_dash_in_snippet_does_not_leak_to_output(tmp_path: Path) -> None:
     inp.write_text(json.dumps(results, ensure_ascii=False), encoding="utf-8")
     brief = _run(inp, "law 3 hardening", fmt="json")
     md = brief["markdown"]
-    assert "—" not in md, f"em-dash leaked: {md!r}"
-    assert "–" not in md, f"en-dash leaked: {md!r}"
+    assert "\u2014" not in md, f"em-dash leaked: {md!r}"
+    assert "\u2013" not in md, f"en-dash leaked: {md!r}"
 
 
 # ---------------------------------------------------------------------------

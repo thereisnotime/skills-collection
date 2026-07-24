@@ -1,149 +1,94 @@
-# Publishing Workflow: Private to Public
+# Publishing Workflow
 
-This skill ships from two repos:
+This guide is for maintainers publishing releases from the public
+[`AgriciDaniel/claude-blog`](https://github.com/AgriciDaniel/claude-blog)
+repository. Contributors should open a pull request rather than pushing
+directly to `main`.
 
-| Repo | Role | Visibility | Audience |
-|---|---|---|---|
-| `AI-Marketing-Hub/claude-blog` (origin) | Working repo. All in-development changes land here first. | Private | AI Marketing Hub Pro community + maintainers |
-| `AgriciDaniel/claude-blog` (public-mirror) | Release mirror. Receives reviewed, approved versions of work. | Public | Open-source community, no membership required |
+## Standard Release Flow
 
-The two repos share git history. The private mirror runs ahead of public; public catches up on approved releases.
-
----
-
-## Standard release flow
-
-1. **Work in `origin`** (the private repo, `AI-Marketing-Hub/claude-blog`).
-   - Make changes locally on `main` or feature branches.
-   - Push to `origin` freely. Iteration here is cheap and not visible to non-members.
-
-2. **Run the v1.9.0 Blog Delivery Contract** end-to-end on any draft destined for the public mirror. The contract enforces:
-   - All 5 gates pass (`scripts/blog_preflight.py --strict`).
-   - `blog-reviewer` agent returns `BLOCKING: false`.
-   - Score >= 90 and zero P0 issues.
-
-3. **Pre-release sanity check** (run locally before pushing to public):
+1. Prepare the release on a feature branch.
+2. Confirm that the version and dated changelog entry agree.
+3. Run the complete local validation set:
 
    ```bash
-   python3 -m pytest tests/                        # all 160 tests pass
-   python3 scripts/lint_prose.py --root .          # zero prose-hygiene violations
-   claude plugin validate .                        # marketplace manifest valid
+   python3 -m pytest tests/ -q
+   python3 scripts/lint_prose.py --root .
+   python3 scripts/consistency_check.py --root .
+   python3 scripts/validate_public_release.py --root .
+   claude plugin validate .
+   git diff --check
    ```
 
-4. **Version + CHANGELOG**:
-   - Bump version coherently across all 14 surfaces. `tests/test_version_coherence.py` enforces this.
-     - `pyproject.toml`
-     - `.claude-plugin/plugin.json`
-     - `CITATION.cff` (also update `date-released`)
-     - All 11 sub-skill `SKILL.md` files with `version:` frontmatter
-   - Move the `## [Unreleased]` block in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` and start a fresh empty Unreleased.
+4. Open a pull request against `main` and wait for all CI checks to pass.
+5. Review the final diff for generated files, dependency locks, installer
+   hashes, canonical repository references, and release-version coherence.
+6. Merge the reviewed commit without bypassing failed checks.
+7. Create a signed annotated tag from the merged `main` commit.
+8. Publish the GitHub release from that existing tag.
 
-5. **Pro-community review** in the [AI Marketing Hub Pro Skool](https://www.skool.com/ai-marketing-hub-pro). Post the release notes and collect feedback. This is the "approval gate" before the public push.
+## Version And Changelog
 
-6. **Push to public** (only after explicit approval):
+Keep the release version coherent across the canonical version surfaces:
 
-   ```bash
-   git push public-mirror main
-   git push public-mirror --tags         # if you cut a tag
-   ```
+- `.claude-plugin/plugin.json`
+- `pyproject.toml`
+- `CITATION.cff`, including `date-released`
+- `skills/blog/SKILL.md`
+- Any sub-skill `metadata.version` values
 
-   Tags are recommended for the public mirror so users can pin a release version. See "Tag and release" below.
+Move completed changes from `## [Unreleased]` into a dated
+`## [X.Y.Z] - YYYY-MM-DD` section. Release notes should describe user-visible
+behavior, compatibility, dependency changes, security fixes, and known
+limitations. Historical issue and pull-request links may remain when they help
+users trace a fix.
 
-7. **Post-release**:
-   - Append a session note to `~/Documents/Obsidian Vault/sessions/` per global rule.
-   - Update the public README if the dual-version callout needs adjusting (most edits don't).
+## Tag And GitHub Release
 
----
-
-## Tag and release
-
-For the public mirror to show a clean release on the GitHub Releases tab:
+Run these commands only after the release pull request is merged and `main` is
+green:
 
 ```bash
-# 1. Tag the commit (annotated tag with release notes)
-git tag -a vX.Y.Z -m "Release vX.Y.Z: <one-line summary>"
+git switch main
+git pull --ff-only origin main
+git tag -s vX.Y.Z -m "claude-blog vX.Y.Z"
+git verify-tag vX.Y.Z
+git push origin refs/tags/vX.Y.Z
 
-# 2. Push the tag to BOTH remotes
-git push origin vX.Y.Z          # private
-git push public-mirror vX.Y.Z   # public
-
-# 3. Create the GitHub release on the public mirror only
 gh release create vX.Y.Z \
   --repo AgriciDaniel/claude-blog \
-  --title "vX.Y.Z" \
-  --notes-file <(awk '/^## \[X.Y.Z\]/,/^## \[/' CHANGELOG.md | head -n -1)
+  --verify-tag \
+  --fail-on-no-commits \
+  --generate-notes \
+  --title "claude-blog vX.Y.Z"
 ```
 
-The private mirror does not need a corresponding GitHub release; community members consume via git pull. Tagging both keeps `git describe` and `git checkout vX.Y.Z` consistent across mirrors.
+`--verify-tag` prevents GitHub CLI from silently creating a different tag.
+Never move or replace a published release tag. If a release needs correction,
+publish a new patch version.
 
----
+## Public Release Review
 
-## Remote configuration (one-time)
+Before tagging, confirm:
 
-Anyone cloning this repo for development should set up both remotes:
+- Installer commands, raw URLs, canonical repository metadata, and marketplace
+  instructions point to the public project.
+- Installer hashes match the committed installer files.
+- No credentials, local paths, audit workspaces, unpublished customer
+  information, or maintainer-only operational notes are tracked.
+- Dependency requirements agree with their hash-pinned locks.
+- The Google update ledger contains primary-source records only; unverified
+  observations cannot affect scoring.
+- Release notes describe AI citation scores as internal readiness heuristics,
+  not calibrated probabilities or inclusion guarantees.
 
-```bash
-# If you cloned from the private mirror:
-git remote -v
-# origin    https://github.com/AI-Marketing-Hub/claude-blog.git (fetch)
-# origin    https://github.com/AI-Marketing-Hub/claude-blog.git (push)
+## Release Artifacts
 
-# Add the public mirror as a second remote:
-git remote add public-mirror https://github.com/AgriciDaniel/claude-blog.git
-git remote -v
-# origin          https://github.com/AI-Marketing-Hub/claude-blog.git (fetch)
-# origin          https://github.com/AI-Marketing-Hub/claude-blog.git (push)
-# public-mirror   https://github.com/AgriciDaniel/claude-blog.git (fetch)
-# public-mirror   https://github.com/AgriciDaniel/claude-blog.git (push)
-```
+The source tag and GitHub release are the canonical release artifacts. Keep
+local audit output, temporary environments, generated screenshots, and
+project-specific `BRAND.md`, `VOICE.md`, or `DISCOURSE.md` files out of the
+release unless a documented workflow explicitly requires them.
 
-`git push` (no args) defaults to `origin` (the private repo). Pushing to public requires the explicit `git push public-mirror main` command, which is the approval gate by construction.
-
----
-
-## When the public mirror is ahead of private
-
-This shouldn't happen normally, but if a hotfix lands on the public mirror first (e.g., a critical security patch contributed by an open-source user), pull it into the private repo:
-
-```bash
-git fetch public-mirror main
-git merge public-mirror/main
-git push origin main
-```
-
-Resolve any conflicts before pushing. Tag the merged state on both mirrors with the next patch version.
-
----
-
-## What does NOT need to sync
-
-Some artifacts are intentionally local-only and should not be pushed to either remote:
-
-- `audit-results.md` (per-audit session evidence, already in `.gitignore`)
-- `~/Desktop/claude-blog-audit-YYYY-MM-DD/` proof folders (live outside the repo)
-- `.env*` and `BRAND.md` / `VOICE.md` / `DISCOURSE.md` at the repo root (user-specific context)
-
-The `.gitignore` already excludes these.
-
----
-
-## What this workflow is NOT
-
-- Not an automated mirror. Public pushes are manual and gated on approval.
-- Not a fork relationship at the GitHub metadata level. The two repos share history but neither is registered as a fork of the other (which would require a destructive re-creation).
-- Not a substitute for branch protection. If you want PR-only merges to `main`, configure branch protection on the private repo via GitHub Settings.
-
----
-
-## Quick reference card
-
-```
-origin            -> AI-Marketing-Hub/claude-blog (private, working repo)
-public-mirror     -> AgriciDaniel/claude-blog     (public, release mirror)
-
-git push origin main                    # publish to private (frequent)
-git push public-mirror main             # publish to public  (release gate)
-git push --tags public-mirror           # publish tags to public
-```
-
-Standing rule: never push to `public-mirror` without explicit approval from the maintainer + a clean Blog Delivery Contract pass.
+If publishing fails after the tag is pushed but before the GitHub release is
+created, investigate the failure before retrying. Do not retag a different
+commit with the same version.

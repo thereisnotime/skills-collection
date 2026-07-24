@@ -9,9 +9,9 @@ Adapted from cognitive-load theory (Sweller 1988) and the impeccable plugin's
 UI cognitive-load model (Paul Bakaus, Apache 2.0, github.com/pbakaus/impeccable).
 
 Usage:
-    python cognitive_load.py <file>                    # Default JSON output
-    python cognitive_load.py <file> --format markdown  # Markdown heatmap
-    python cognitive_load.py <file> --jargon <path>    # Custom jargon list
+    python3 cognitive_load.py <file>                    # Default JSON output
+    python3 cognitive_load.py <file> --format markdown  # Markdown heatmap
+    python3 cognitive_load.py <file> --jargon <path>    # Custom jargon list
 
 Signals measured per H2 section:
     - new_entity_density:    Capitalized multi-word phrases not seen in prior sections, per 100 words
@@ -217,7 +217,8 @@ def count_jargon_introductions(text: str, jargon: set[str], seen: set[str]) -> i
     lower = text.lower()
     introductions = 0
     for term in jargon:
-        if term in lower and term not in seen:
+        pattern = r"(?<![a-z0-9])" + re.escape(term.lower()) + r"(?![a-z0-9])"
+        if re.search(pattern, lower) and term not in seen:
             introductions += 1
             seen.add(term)
     return introductions
@@ -432,13 +433,16 @@ def _read_safely(path: Path, max_bytes: int, label: str) -> str:
             )
         with os.fdopen(fd, "r", encoding="utf-8") as f:
             fd = -1
-            return f.read(max_bytes + 1)
+            data = f.read(max_bytes + 1)
     finally:
         if fd != -1:
             try:
                 os.close(fd)
             except OSError:
                 pass
+    if len(data.encode("utf-8")) > max_bytes:
+        raise ValueError(f"{label} exceeds size cap after read ({max_bytes}): {path}")
+    return data
 
 
 def _validate_input_path(path: Path, max_bytes: int, label: str) -> Path:

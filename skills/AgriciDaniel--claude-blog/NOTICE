@@ -96,4 +96,4 @@ README) carries an HTML-comment header crediting Daniel Agrici / FLOW / CC BY 4.
 
 For details on how each adaptation maps source to target, including the exact
 methodology elements adopted and the rationale for non-ported elements, see
-CONTRIBUTORS.md in the root of this repository.
+docs/CONTRIBUTORS.md in this repository.

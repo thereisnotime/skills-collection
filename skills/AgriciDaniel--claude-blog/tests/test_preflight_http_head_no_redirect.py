@@ -8,6 +8,8 @@ no-redirect opener in this fix refuses on the first hop.
 from __future__ import annotations
 
 import importlib.util
+import json
+import socket
 import sys
 from pathlib import Path
 
@@ -67,3 +69,84 @@ def test_no_redirect_handler_returns_none_on_30x(preflight_module):
     ):
         result = getattr(handler, method)(None, None, code, "msg", {})
         assert result is None, f"expected None from {method}, got {result!r}"
+
+
+def test_http_head_refuses_private_resolved_ip(preflight_module, monkeypatch):
+    called = False
+
+    def fake_getaddrinfo(host, port, proto=0):
+        return [(socket.AF_INET, socket.SOCK_STREAM, proto, "", ("169.254.169.254", port))]
+
+    def fake_open(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("network opener must not be called for private IP")
+
+    monkeypatch.setattr(preflight_module.socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(preflight_module._PREFLIGHT_NO_REDIRECT_OPENER, "open", fake_open)
+
+    assert preflight_module._http_head("http://metadata.example/latest") == 0
+    assert called is False
+
+
+def test_allowlist_does_not_bypass_url_safety(preflight_module, tmp_path, monkeypatch):
+    """Draft allowlist may skip reachability only after URL safety passes."""
+    (tmp_path / "post.md").write_text("---\ntitle: x\n---\nbody\n", encoding="utf-8")
+    (tmp_path / "post.pdf").write_bytes(b"%PDF-1.4\n")
+    (tmp_path / "hero.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    (tmp_path / "preflight-allowlist.json").write_text(
+        json.dumps({"hosts": ["metadata.example"]}),
+        encoding="utf-8",
+    )
+    (tmp_path / "post.html").write_text(
+        '<!DOCTYPE html><html><head>'
+        '<link rel="canonical" href="https://example.com/post">'
+        '<meta property="og:image" content="hero.png">'
+        '<script type="application/ld+json">'
+        '{"@type":"BlogPosting","headline":"x","image":"hero.png",'
+        '"datePublished":"2026-07-09","author":{"name":"x"},"wordCount":1}'
+        '</script></head><body><article>'
+        '<a href="http://metadata.example/latest">x</a>'
+        'word</article></body></html>',
+        encoding="utf-8",
+    )
+
+    def fake_getaddrinfo(host, port, proto=0):
+        return [(socket.AF_INET, socket.SOCK_STREAM, proto, "", ("169.254.169.254", port))]
+
+    monkeypatch.setattr(preflight_module.socket, "getaddrinfo", fake_getaddrinfo)
+
+    result = preflight_module.gate_5_asset_link_integrity(tmp_path)
+    assert result["passed"] is False
+    assert any("URL safety policy" in v for v in result["violations"])
+
+
+def test_http_head_pins_validated_dns_during_open(preflight_module, monkeypatch):
+    public_info = [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 80))]
+    private_info = [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("169.254.169.254", 80))]
+    dns_calls = 0
+
+    def fake_getaddrinfo(host, port, proto=0, *args, **kwargs):
+        nonlocal dns_calls
+        dns_calls += 1
+        return public_info if dns_calls == 1 else private_info
+
+    class FakeResp:
+        status = 200
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+
+    def fake_open(req, timeout=None):
+        pinned = preflight_module.socket.getaddrinfo(
+            "rebind.example", 80, proto=socket.IPPROTO_TCP
+        )
+        assert pinned == public_info
+        return FakeResp()
+
+    monkeypatch.setattr(preflight_module.socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(preflight_module._PREFLIGHT_NO_REDIRECT_OPENER, "open", fake_open)
+
+    assert preflight_module._http_head("http://rebind.example/path") == 200
+    assert preflight_module.socket.getaddrinfo is fake_getaddrinfo

@@ -1,94 +1,85 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1548"
-     preserveAspectRatio="xMidYMid meet" width="100%" font-family="JetBrains Mono, monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 760" width="100%"
+     preserveAspectRatio="xMidYMid meet" role="img"
+     aria-label="claude-blog FLOW framework as four quadrants around a central FLOW badge: Find, Leverage, Optimize, Win">
+<title>claude-blog — FLOW framework</title>
+<desc>Four phase cards arranged in a 2 by 2 quadrant around a central FLOW badge. Each phase card shows a letter, name, purpose, and prompt chips.</desc>
 <defs>
   <style type="text/css"><![CDATA[
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
-    .bg            { fill: #1F1B16; }
-    .bg-soft       { fill: #1F1B16; }
-    .box           { fill: #26221C; stroke: #4A3D32; stroke-width: 1; }
-    .box-focal     { fill: #2D2218; stroke: #D97757; stroke-width: 1.4; }
-    .box-future    { fill: #221E18; stroke: #3A312A; stroke-width: 1; stroke-dasharray: 4 3; }
-    .box-soft      { fill: #232019; stroke: #3A312A; stroke-width: 1; }
-    .label-h       { font-family: 'JetBrains Mono', monospace; fill: #F5F4ED; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
-    .label         { font-family: 'JetBrains Mono', monospace; fill: #F5F4ED; font-size: 14px; font-weight: 600; }
-    .label-sub     { font-family: 'JetBrains Mono', monospace; fill: #9C8B7E; font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; }
-    .label-tiny    { font-family: 'JetBrains Mono', monospace; fill: #6F5F54; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
-    .label-radial  { font-family: 'JetBrains Mono', monospace; fill: #E0D2C4; font-size: 13px; font-weight: 600; letter-spacing: 0.6px; }
-    .label-accent  { font-family: 'JetBrains Mono', monospace; fill: #D97757; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
-    .conn          { stroke: #6F5F54; stroke-width: 1; fill: none; }
-    .conn-soft     { stroke: #4A3D32; stroke-width: 1; fill: none; }
-    .conn-dashed   { stroke: #4A3D32; stroke-width: 1; fill: none; stroke-dasharray: 4 3; }
-    .accent-fill   { fill: #D97757; }
-    .accent-bright { fill: #F5B095; }
-    .corner-mark   { font-family: 'JetBrains Mono', monospace; fill: #5A5750; font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; }
+    .t { font-family:'Inter',system-ui,-apple-system,sans-serif; }
+    .b { font-family:'Poppins','Inter',system-ui,sans-serif; font-weight:700; }
+    .fl { transform-box:fill-box; transform-origin:center; }
+    .fl1{ animation: floaty 6.6s ease-in-out infinite; }
+    @keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+    @media (prefers-reduced-motion: reduce){ .fl1{animation:none} }
   ]]></style>
-  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-    <path d="M 0 0 L 10 5 L 0 10 z" fill="#6F5F54"/>
-  </marker>
+  <filter id="sh" x="-40%" y="-40%" width="180%" height="200%">
+    <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#26313f" flood-opacity="0.12"/>
+  </filter>
 </defs>
-<rect x="0.5" y="0.5" width="1499" height="1547" rx="10" fill="#2A2520" stroke="#3A312A" stroke-width="1"/>
 
-  <path d="M 0 10 Q 0 0 10 0 L 1490 0 Q 1500 0 1500 10 L 1500 48 L 0 48 Z" fill="#2A2520"/>
-  <line x1="0" y1="48" x2="1500" y2="48" stroke="#3A312A" stroke-width="1"/>
-  <text x="20" y="29.0" font-family="JetBrains Mono, monospace" font-size="15" fill="#E0D2C4" font-weight="600">claude-blog.app — 04 · FLOW framework · B</text>
-  <circle cx="1416"   cy="24.0" r="9" fill="#fbbf24" stroke="#3A312A" stroke-width="0.7"/>
-  <circle cx="1444"   cy="24.0" r="9" fill="#10b981"  stroke="#3A312A" stroke-width="0.7"/>
-  <circle cx="1472" cy="24.0" r="9" fill="#ef4444"    stroke="#3A312A" stroke-width="0.7"/>
+<rect x="0" y="0" width="1600" height="760" fill="#F6F5F0"/>
 
-<g transform="translate(0, 48)">
-  <rect class="bg" width="1500" height="1500"/>
-  <circle cx="750.0" cy="750.0" r="580" fill="none" stroke="#6F3922" stroke-width="1" stroke-dasharray="3 3" opacity="0.25"/>
-<circle cx="750.0" cy="750.0" r="340" fill="none" stroke="#6F3922" stroke-width="1" stroke-dasharray="3 3" opacity="0.30"/>
-<path d="M 537.8679656440357 537.8679656440357 L 304.5227278524751 304.52272785247504" class="conn-dashed" opacity="0.25"/>
-<path d="M 962.1320343559643 537.8679656440357 L 1195.477272147525 304.5227278524751" class="conn-dashed" opacity="0.25"/>
-<path d="M 962.1320343559643 962.1320343559643 L 1195.477272147525 1195.477272147525" class="conn-dashed" opacity="0.25"/>
-<path d="M 537.8679656440357 962.1320343559643 L 304.5227278524751 1195.477272147525" class="conn-dashed" opacity="0.25"/>
-<path d="M 686.7 370.0 L 518.8 263.9" class="conn-soft" opacity="0.6"/>
-<path d="M 750.0 370.0 L 750.0 196.0" class="conn-soft" opacity="0.6"/>
-<path d="M 813.3 370.0 L 981.2 263.9" class="conn-soft" opacity="0.6"/>
-<path d="M 1115.3 710.0 L 1245.7 503.7" class="conn-soft" opacity="0.6"/>
-<path d="M 1115.3 790.0 L 1245.7 996.3" class="conn-soft" opacity="0.6"/>
-<path d="M 813.3 1130.0 L 981.2 1236.1" class="conn-soft" opacity="0.6"/>
-<path d="M 750.0 1130.0 L 750.0 1304.0" class="conn-soft" opacity="0.6"/>
-<path d="M 686.7 1130.0 L 518.8 1236.1" class="conn-soft" opacity="0.6"/>
-<path d="M 384.7 790.0 L 254.3 996.3" class="conn-soft" opacity="0.6"/>
-<path d="M 384.7 710.0 L 254.3 503.7" class="conn-soft" opacity="0.6"/>
-<rect x="640.0" y="370.0" width="220" height="80" rx="4" class="box"></rect>
-<text x="750.0" y="405.0" class="label-accent" text-anchor="middle">find</text>
-<text x="750.0" y="425.0" class="label" text-anchor="middle">discover topics</text>
-<rect x="980.0" y="710.0" width="220" height="80" rx="4" class="box"></rect>
-<text x="1090.0" y="745.0" class="label-accent" text-anchor="middle">leverage</text>
-<text x="1090.0" y="765.0" class="label" text-anchor="middle">amplify assets</text>
-<rect x="640.0" y="1050.0" width="220" height="80" rx="4" class="box"></rect>
-<text x="750.0" y="1085.0" class="label-accent" text-anchor="middle">optimize</text>
-<text x="750.0" y="1105.0" class="label" text-anchor="middle">improve content</text>
-<rect x="300.0" y="710.0" width="220" height="80" rx="4" class="box"></rect>
-<text x="410.0" y="745.0" class="label-accent" text-anchor="middle">win</text>
-<text x="410.0" y="765.0" class="label" text-anchor="middle">convert readers</text>
-<rect x="362.70649358418325" y="211.8903961418224" width="230" height="52" rx="4" class="box"></rect>
-<text x="477.70649358418325" y="242.8903961418224" class="label" text-anchor="middle">topic-discovery</text>
-<rect x="635.0" y="144.0" width="230" height="52" rx="4" class="box"></rect>
-<text x="750.0" y="175.0" class="label" text-anchor="middle">intent-mapping</text>
-<rect x="907.2935064158166" y="211.8903961418224" width="230" height="52" rx="4" class="box"></rect>
-<text x="1022.2935064158166" y="242.8903961418224" class="label" text-anchor="middle">gap-analysis</text>
-<rect x="1147.1096038581777" y="451.7064935841833" width="230" height="52" rx="4" class="box"></rect>
-<text x="1262.1096038581777" y="482.7064935841833" class="label" text-anchor="middle">asset-audit</text>
-<rect x="1147.1096038581777" y="996.2935064158166" width="230" height="52" rx="4" class="box"></rect>
-<text x="1262.1096038581777" y="1027.2935064158166" class="label" text-anchor="middle">repurpose-map</text>
-<rect x="907.2935064158166" y="1236.1096038581777" width="230" height="52" rx="4" class="box"></rect>
-<text x="1022.2935064158166" y="1267.1096038581777" class="label" text-anchor="middle">serp-realignment</text>
-<rect x="635.0" y="1304.0" width="230" height="52" rx="4" class="box"></rect>
-<text x="750.0" y="1335.0" class="label" text-anchor="middle">freshness-pass</text>
-<rect x="362.70649358418325" y="1236.1096038581777" width="230" height="52" rx="4" class="box"></rect>
-<text x="477.70649358418325" y="1267.1096038581777" class="label" text-anchor="middle">internal-loop</text>
-<rect x="122.8903961418223" y="996.2935064158166" width="230" height="52" rx="4" class="box"></rect>
-<text x="237.8903961418223" y="1027.2935064158166" class="label" text-anchor="middle">bofu-cta</text>
-<rect x="122.89039614182241" y="451.7064935841833" width="230" height="52" rx="4" class="box"></rect>
-<text x="237.8903961418224" y="482.7064935841833" class="label" text-anchor="middle">dual-surface-score</text>
-<rect x="570.0" y="695.0" width="360" height="110" rx="4" class="box-focal"><animate attributeName="opacity" values="0.85;1;0.85" dur="4.2s" repeatCount="indefinite"/></rect>
-<text x="750.0" y="745.0" class="label-accent" text-anchor="middle">FLOW framework</text>
-<text x="750.0" y="765.0" class="label" text-anchor="middle">4 phases · 30 prompts</text>
-  <text x="1480" y="1488" class="corner-mark" text-anchor="end">04 · FLOW framework · B</text>
+<!-- header -->
+<text x="96" y="92" class="t" font-size="15" letter-spacing="4" fill="#8A93A0">FLOW FRAMEWORK</text>
+<text x="94" y="140" class="b" font-size="34" fill="#1E242B">Four phases, one loop.</text>
+
+<!-- connectors from center badge to cards -->
+<g stroke="#C7CBD2" stroke-width="2.6" stroke-linecap="round">
+  <line x1="726" y1="446" x2="700" y2="430"/>
+  <line x1="874" y1="446" x2="900" y2="430"/>
+  <line x1="726" y1="504" x2="700" y2="520"/>
+  <line x1="874" y1="504" x2="900" y2="520"/>
+</g>
+
+<!-- TL Find -->
+<g filter="url(#sh)"><rect x="170" y="250" width="530" height="180" rx="24" fill="#FFFFFF"/></g>
+<rect x="198" y="280" width="60" height="60" rx="16" fill="#4C86EF"/>
+<text x="228" y="322" text-anchor="middle" class="b" font-size="32" fill="#FFFFFF">F</text>
+<text x="280" y="308" class="b" font-size="23" fill="#1E242B">Find</text>
+<text x="280" y="334" class="t" font-size="14" fill="#6B7480">discover the right topics</text>
+<g class="t" font-size="13.5" fill="#2E63C8">
+  <rect x="198" y="366" width="150" height="28" rx="14" fill="#EAF0FE"/><text x="214" y="385">topic-discovery</text>
+  <rect x="356" y="366" width="140" height="28" rx="14" fill="#EAF0FE"/><text x="372" y="385">intent-mapping</text>
+  <rect x="504" y="366" width="126" height="28" rx="14" fill="#EAF0FE"/><text x="520" y="385">gap-analysis</text>
+</g>
+
+<!-- TR Leverage -->
+<g filter="url(#sh)"><rect x="900" y="250" width="530" height="180" rx="24" fill="#FFFFFF"/></g>
+<rect x="928" y="280" width="60" height="60" rx="16" fill="#E8503C"/>
+<text x="958" y="322" text-anchor="middle" class="b" font-size="32" fill="#FFFFFF">L</text>
+<text x="1010" y="308" class="b" font-size="23" fill="#1E242B">Leverage</text>
+<text x="1010" y="334" class="t" font-size="14" fill="#6B7480">amplify existing assets</text>
+<g class="t" font-size="13.5" fill="#C43D2B">
+  <rect x="928" y="366" width="126" height="28" rx="14" fill="#FDEBE8"/><text x="944" y="385">asset-audit</text>
+  <rect x="1062" y="366" width="150" height="28" rx="14" fill="#FDEBE8"/><text x="1078" y="385">repurpose-map</text>
+</g>
+
+<!-- center FLOW badge -->
+<g filter="url(#sh)"><rect x="725" y="440" width="150" height="70" rx="18" fill="#FFFFFF"/></g>
+<g><circle cx="770" cy="462" r="4.5" fill="#4C86EF"/><circle cx="786" cy="462" r="4.5" fill="#E8503C"/><circle cx="802" cy="462" r="4.5" fill="#F5B62A"/><circle cx="818" cy="462" r="4.5" fill="#33A457"/></g>
+<text x="800" y="494" text-anchor="middle" class="b" font-size="20" fill="#1E242B">FLOW</text>
+
+<!-- BL Optimize -->
+<g filter="url(#sh)"><rect x="170" y="520" width="530" height="180" rx="24" fill="#FFFFFF"/></g>
+<rect x="198" y="550" width="60" height="60" rx="16" fill="#F5B62A"/>
+<text x="228" y="592" text-anchor="middle" class="b" font-size="32" fill="#FFFFFF">O</text>
+<text x="280" y="578" class="b" font-size="23" fill="#1E242B">Optimize</text>
+<text x="280" y="604" class="t" font-size="14" fill="#6B7480">improve what already exists</text>
+<g class="t" font-size="13.5" fill="#A6790E">
+  <rect x="198" y="636" width="164" height="28" rx="14" fill="#FEF4DE"/><text x="214" y="655">serp-realignment</text>
+  <rect x="370" y="636" width="146" height="28" rx="14" fill="#FEF4DE"/><text x="386" y="655">freshness-pass</text>
+  <rect x="524" y="636" width="130" height="28" rx="14" fill="#FEF4DE"/><text x="540" y="655">internal-loop</text>
+</g>
+
+<!-- BR Win -->
+<g filter="url(#sh)"><rect x="900" y="520" width="530" height="180" rx="24" fill="#FFFFFF"/></g>
+<rect x="928" y="550" width="60" height="60" rx="16" fill="#33A457"/>
+<text x="958" y="592" text-anchor="middle" class="b" font-size="32" fill="#FFFFFF">W</text>
+<text x="1010" y="578" class="b" font-size="23" fill="#1E242B">Win</text>
+<text x="1010" y="604" class="t" font-size="14" fill="#6B7480">convert the reader</text>
+<g class="t" font-size="13.5" fill="#248347">
+  <rect x="928" y="636" width="112" height="28" rx="14" fill="#E7F6EC"/><text x="944" y="655">bofu-cta</text>
+  <rect x="1048" y="636" width="176" height="28" rx="14" fill="#E7F6EC"/><text x="1064" y="655">dual-surface-score</text>
 </g>
 </svg>

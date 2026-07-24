@@ -12,8 +12,10 @@ ecosystem for blog content creation, optimization, and management.
 | pip | Latest | Python dependency management |
 
 Claude Code must be installed and configured before installing `claude-blog`.
-Python is only required for the `analyze_blog.py` quality scoring script; all
-other commands work without it.
+Python 3.11+ is required for quality scoring and helper workflows including
+`analyze_blog.py`, `blog_preflight.py`, `blog_render.py`, `generate_hero.py`,
+`lint_prose.py`, and related script checks. Commands that do not invoke those
+helpers may still run without Python, but production installs should include it.
 
 ---
 
@@ -28,8 +30,11 @@ curl -sL https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install
 ### Windows (PowerShell)
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.ps1)
+irm https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.ps1 -OutFile install.ps1
+pwsh -File ./install.ps1
 ```
+
+> Downloading the script and running it as a file (rather than piping it straight into the shell) lets you inspect it first and avoids a heuristic antivirus false positive some scanners raise on `iex (irm ...)` one-liners. See [SECURITY.md](../.github/SECURITY.md#antivirus-false-positives).
 
 Both installers automatically copy all skills, agents, references, templates,
 and scripts to the correct Claude Code configuration directories.
@@ -47,11 +52,12 @@ chmod +x install.sh
 
 ### Install Python Dependencies
 
-The installer on Linux/macOS does not auto-install Python packages. Run this
-after the main install:
+The installers try to install Python packages from `requirements.txt` when
+Python and pip are available. If dependency installation is skipped or fails,
+run this after the main install:
 
 ```bash
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 #### Reproducible install via uv (v1.9.1+)
@@ -149,7 +155,9 @@ If you prefer not to run the installer, copy files to these paths manually.
 │   ├── blog-localize/SKILL.md         # v1.7.0
 │   ├── blog-locale-audit/SKILL.md     # v1.7.0
 │   ├── blog-brand/SKILL.md            # v1.8.0
-│   └── blog-discourse/SKILL.md        # v1.8.0
+│   ├── blog-discourse/SKILL.md        # v1.8.0
+│   ├── blog-style/SKILL.md            # v1.10.0
+│   └── blog-decay/SKILL.md            # v1.10.0
 └── agents/
     ├── blog-researcher.md
     ├── blog-writer.md
@@ -175,28 +183,39 @@ mkdir -p ~/.claude/agents
 cp skills/blog/SKILL.md ~/.claude/skills/blog/SKILL.md
 
 # References
-cp skills/blog/references/*.md ~/.claude/skills/blog/references/
+cp -R skills/blog/references/. ~/.claude/skills/blog/references/
 
 # Templates
-cp skills/blog/templates/*.md ~/.claude/skills/blog/templates/
+cp -R skills/blog/templates/. ~/.claude/skills/blog/templates/
 
-# Sub-skills
+# Sub-skills plus their payload directories
 for d in skills/blog-*/; do
     name=$(basename "$d")
-    cp "$d/SKILL.md" ~/.claude/skills/$name/SKILL.md
+    cp "$d/SKILL.md" "${HOME}/.claude/skills/$name/SKILL.md"
+    for payload in references scripts assets templates; do
+        if [ -d "$d/$payload" ]; then
+            mkdir -p "${HOME}/.claude/skills/$name/$payload"
+            cp -R "$d/$payload"/. "${HOME}/.claude/skills/$name/$payload/"
+        fi
+    done
+    if [ -d "${HOME}/.claude/skills/$name/scripts" ]; then
+        find "${HOME}/.claude/skills/$name/scripts" -type f -name '*.py' -exec chmod +x {} +
+    fi
 done
 
 # Agents
 cp agents/*.md ~/.claude/agents/
 
-# Scripts
-cp scripts/analyze_blog.py ~/.claude/skills/blog/scripts/
-chmod +x ~/.claude/skills/blog/scripts/analyze_blog.py
-
-# Blog-image references and scripts
-cp skills/blog-image/references/*.md ~/.claude/skills/blog-image/references/
-cp skills/blog-image/scripts/*.py ~/.claude/skills/blog-image/scripts/
-chmod +x ~/.claude/skills/blog-image/scripts/*.py
+# Root scripts
+for f in scripts/*.py; do
+    name=$(basename "$f")
+    cp "$f" "${HOME}/.claude/scripts/$name"
+    chmod +x "${HOME}/.claude/scripts/$name"
+    if [ "$name" = "analyze_blog.py" ]; then
+        cp "$f" ~/.claude/skills/blog/scripts/analyze_blog.py
+        chmod +x ~/.claude/skills/blog/scripts/analyze_blog.py
+    fi
+done
 ```
 
 ---
@@ -239,13 +258,13 @@ After installation, verify everything is in place:
 # Main skill
 ls ~/.claude/skills/blog/SKILL.md
 
-# Sub-skills (should list 29 directories: 28 user-facing slash commands + 1 internal blog-chart)
+# Blog-* directories should list 31; total is 32 skill directories (1 orchestrator + 31 sub-skills); 30 user-facing commands
 ls ~/.claude/skills/blog-*/SKILL.md | wc -l
 
 # Agents (should list 5: blog-researcher, blog-writer, blog-seo, blog-reviewer, blog-translator)
 ls ~/.claude/agents/blog-*.md | wc -l
 
-# References (should list 21 .md files)
+# References (should list 22 .md files)
 ls ~/.claude/skills/blog/references/*.md | wc -l
 
 # Python script
@@ -323,23 +342,25 @@ chmod +x uninstall.sh
 
 This removes:
 
-- `~/.claude/skills/blog/` (main skill, references, templates, scripts)
-- `~/.claude/skills/blog-*/` (all 29 sub-skills: write, rewrite, analyze, brief, calendar, strategy, outline, seo-check, schema, repurpose, geo, audit, chart [internal], image, cannibalization, factcheck, persona, taxonomy, notebooklm, audio, google, cluster, flow, multilingual, translate, localize, locale-audit, brand, discourse)
-- `~/.claude/scripts/` (9 root-level scripts: analyze_blog, blog_preflight, blog_render, cognitive_load, discourse_research, generate_hero, load_untrusted_root, lint_prose, sync_flow)
+- `~/.claude/skills/blog/` and `~/.claude/skills/blog-*/` (32 skill directories: 1 orchestrator + 31 sub-skills; 30 user-facing commands; `blog-chart` is internal-only)
+- `~/.claude/scripts/` (17 root-level scripts: ai_citation_score, analyze_blog, blog_hygiene, blog_preflight, blog_render, cognitive_load, consistency_check, content_decay, dependency_smoke, discourse_research, generate_hero, lint_prose, load_untrusted_root, quality_gate, style_learn, sync_flow, validate_public_release)
 - `~/.claude/agents/blog-*.md` (all 5 agents: blog-researcher, blog-writer, blog-seo, blog-reviewer, blog-translator)
+
+Shared Google credentials under `~/.config/claude-seo/` are owned by the user
+and may be used by other skills. Both uninstallers leave them intact.
 
 ### Manual Uninstall
 
 ```bash
-# Main skill + all sub-skills (auto-discovers blog-* via glob)
+# Main skill + all blog-* skill directories (auto-discovers blog-* via glob)
 rm -rf ~/.claude/skills/blog
 rm -rf ~/.claude/skills/blog-*
 
 # All 5 agents
 rm -f ~/.claude/agents/blog-{researcher,writer,seo,reviewer,translator}.md
 
-# All 9 root-level scripts (only if no other plugin uses ~/.claude/scripts/)
-rm -f ~/.claude/scripts/{analyze_blog,blog_preflight,blog_render,cognitive_load,discourse_research,generate_hero,load_untrusted_root,lint_prose,sync_flow}.py
+# All 17 root-level scripts (only if no other plugin uses ~/.claude/scripts/)
+rm -f ~/.claude/scripts/{ai_citation_score,analyze_blog,blog_hygiene,blog_preflight,blog_render,cognitive_load,consistency_check,content_decay,dependency_smoke,discourse_research,generate_hero,lint_prose,load_untrusted_root,quality_gate,style_learn,sync_flow,validate_public_release}.py
 ```
 
 ### Clean Up Python Dependencies (Optional)

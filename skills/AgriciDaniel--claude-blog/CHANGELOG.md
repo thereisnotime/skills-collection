@@ -9,6 +9,152 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _No unreleased changes._
 
+## [2.1.1] - 2026-07-23
+
+Public distribution normalization and a collision-safe patch release.
+
+### Changed
+
+- Normalized public repository, installer, marketplace, documentation, and
+  issue-routing surfaces to `AgriciDaniel/claude-blog`.
+- Bumped the public candidate to v2.1.1 so its release tag does not collide
+  with the separately prepared private v2.1.0 release.
+
+### Fixed
+
+- Replaced private Discussions, security-advisory, and documentation links in
+  the public issue template with their public canonical destinations.
+- Recomputed installer digests from canonical raw LF bytes while preserving
+  checkout-independent verification for PowerShell.
+- Declared Pillow for presentation workflows and completed the development
+  dependency set used by rendering, image, PageSpeed, and Search Console tests.
+- Made plugin validation deterministic on pull requests and protected branches
+  by installing an exact Claude Code CLI version in CI.
+
+## [2.1.0] - 2026-07-23
+
+Google policy alignment, dependency maintenance, community-backlog fixes, and
+public release safeguards.
+
+### Added
+
+- Added a primary-source Google update ledger, repository consistency checker,
+  and read-only public-release validator.
+- Added hash-locked, offline CI initialization checks for google-genai,
+  Patchright, and preflight capability discovery.
+- Added regression coverage for optional-module discovery, PageSpeed responses,
+  installer hashes, dependency locks, documentation safety, and release
+  payload completeness.
+
+### Changed
+
+- Reframed AI citation scoring as an internal readiness heuristic and removed
+  fixed passage lengths, FAQ insertion, metadata-only freshness, and
+  purported AI-authorship signals as Google requirements.
+- Updated canonicalization, structured data, Search Console, Discover,
+  Googlebot, core-update recovery, and generative Search guidance from current
+  first-party sources.
+- Updated `google-genai` to the tested 2.14.0 release and Patchright to 1.61.2
+  with regenerated hash locks.
+- Updated installation and publishing documentation for public distribution,
+  corrected the marketplace slug, and shipped the Google update ledger in
+  standalone installs.
+
+### Fixed
+
+- Hardened optional dotted-module discovery for missing parents and modules
+  whose import specification is unset.
+- Stopped the Windows uninstaller from deleting shared Google credentials
+  owned by the user or other skills.
+- Removed the remaining active PowerShell pipe-to-execution instruction and
+  synchronized installer digests with the release files.
+
+## [2.0.0] - 2026-07-15
+
+Version aligned to v2 to match the AI Marketing Hub skill family (Ads, SEO, Obsidian). No breaking changes; this carries the prompt-hygiene pass previously staged as 1.12.1.
+
+- Removed CAPS emphasis words (MUST, NEVER, ALWAYS, CRITICAL) used as emphasis across skills and agents.
+- Trimmed five over-long skill descriptions.
+
+## [1.12.0] - 2026-07-10
+
+Independent `grand-audit-2` re-audit, bundled brain, and targeted security, currency, and drift remediation.
+
+### Added
+
+- Vendored the Claude Blog Brain at `brain/`, a self-contained, evidence-gated, market-ready SSS+ Obsidian brain. It is not part of the plugin payload; all skill tooling remains scoped to `skills/`.
+- Added 10 regression tests, bringing the root suite from 242 to 252 tests.
+
+### Security
+
+- Completed the independent `grand-audit-2` re-audit and remediated security, currency, and drift across 54 files.
+- Revalidated SSRF protections, enforced symlink no-follow and path-traversal confinement, applied allowlist-before-safety validation ordering, and expanded XSS escaping.
+
+### Changed
+
+- Scoped Google Indexing API submissions to `JobPosting` and livestream pages only.
+- Refreshed model IDs for current availability and trimmed `skills/blog/SKILL.md` below its token budget.
+- Unified FAQ rich-result guidance around Google's full retirement on 2026-05-07.
+
+## [1.11.0] - 2026-07-08
+
+Full-repo audit remediation plus a knowledge and currency refresh. A multi-agent audit surfaced 672 findings across every sub-skill, agent, script, reference, and template; the high-value fixes ship here. This release also rebuilds the README on a new visual system and closes several community-reported issues.
+
+### Security
+- SSRF hardening across every URL-fetching path: `generate_hero.py` (no-redirect fetch, private, loopback, link-local, and reserved-IP refusal, response-size cap, API-key redaction in logs), `blog_preflight.py` Gate 5 (DNS and IP validation, exact-host allowlist instead of substring matching), `nlp_analyze.py`, and the URL-reading sub-skills.
+- XSS-safe rendering: `blog_render.py` sanitizes raw HTML and escapes attributes quote-safely, blocks `javascript:`, `data:`, and `file:` URLs, and route-blocks external fetches during PDF and screenshot rendering. Audio embeds, `google_report.py`, and video-embed markup now escape untrusted fields.
+- Path-traversal and symlink confinement on script file writes (slug sanitization, realpath containment, symlink refusal) across renderers, analyzers, and output helpers.
+- Delivery contract hardened: the review nonce moved out of the draft folder, broken images and links now block instead of warn, first failure halts, and the repair iteration counter only counts real repair attempts. The `bypass: true` frontmatter escape hatch was removed.
+- Agent least-privilege: removed `WebFetch` from `blog-seo` and aligned researcher, writer, and translator to Task, not Bash, delegation.
+
+### 2026 currency
+- Reframed FAQPage guidance to Google's current AI-optimization stance (no special markup required for AI features) and removed unsupported FAQPage AI-citation claims.
+- Corrected the "E-E-A-T applies to all competitive queries" overclaim, the Google-Extended crawler mislabeling, and stale rich-result deprecation timelines.
+- Updated model references to GA Gemini image IDs (`gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image`) and Gemini 3.1 TTS, corrected token caps and cost estimates, aligned the nano-banana MCP tool schema, and bumped Google Ads API version guidance.
+
+### Quality and consistency
+- Standardized scoring on one 30/25/15/15/15 rubric (Content, SEO, E-E-A-T, Technical, AI Citation) across write, rewrite, analyze, audit, templates, and tests.
+- Fixed dozens of broken `references/` and `templates/` paths in sub-skill instructions.
+- Added the two missing helper scripts referenced by sub-skills: `discourse_research.py` and `sync_flow.py`.
+- Added a deterministic chart CLI at `skills/blog-chart/scripts/generate_chart_svg.py` (escaped, accessible, reduced-motion aware).
+- Added `scripts/blog_hygiene.py`: optional, judgment-free post-render hygiene (lazy-load images, auto Table of Contents on long posts). Non-blocking and dry-run by default.
+
+### Community-reported fixes
+- Trimmed the plugin description under the 500-character registry cap so organization installs no longer fail, and added `tests/test_plugin_manifest.py` as a guard.
+- `blog_preflight.py` no longer crashes in Gate 1 when the optional `google` package is absent (`_has_module` now catches `ModuleNotFoundError`).
+- Reworked the Windows install to download then run (`irm ... -OutFile install.ps1; pwsh -File ./install.ps1`) instead of piping to the shell. Safer, and it avoids a heuristic antivirus false positive. Added an "Antivirus false positives" section to `SECURITY.md`.
+
+### Packaging and installers
+- Defaulted installers to the canonical release repository with
+  `CLAUDE_BLOG_REF` pinned-install support and `CLAUDE_BLOG_REPO` and
+  `CLAUDE_BLOG_URL` overrides for forks.
+- Recursive, allowlisted skill payload copies so nested FLOW prompts, Google report templates, and per-skill references, scripts, assets, and templates install together.
+- Unix install manifest and package-scoped uninstall that leaves shared `~/.config/claude-seo` credentials intact.
+- Stronger CI skill validation for frontmatter allowlists, `allowed-tools` rejection, and line and token caps.
+
+### Documentation and visuals
+- Rebuilt the README on a new self-contained SVG visual system (cover, architecture, 5-gate delivery contract, sub-skill map, FLOW), keeping the animated command and write demos. Retired the diagram regenerator and pruned superseded variants.
+- Reconciled component counts across docs to ground truth: 32 skill directories (1 orchestrator plus 31 sub-skills), 30 user-facing commands, 5 agents, 14 root scripts, 22 references, 12 templates, and 242 tests.
+- Fixed a home-path username leak in `docs/DEMO.md`, gitignored `.raw/`, and corrected SKILL.md to COMMANDS.md command coherence.
+
+### Tests
+- Suite grew to 242 tests (from 217), adding SSRF, XSS, and path-traversal exploit fixtures, plugin-manifest and hygiene coverage, and command and version coherence guards. All green, prose lint clean, plugin validation passing.
+
+## [1.10.0] - 2026-07-06
+
+### Knowledge refresh
+- Modernized 2026 Google, E-E-A-T, GEO, and schema knowledge across 8 reference docs to mid-2026 against a verified primary-source substrate: zero-click 68% US, AI Overview CTR partial rebound (cited pages get +120% clicks per impression), FAQ rich results retired so Article schema is now the priority, AI Mode 1B users but only about 0.34% of query volume, the full 2026 algorithm timeline (Mar and May core, Mar and Jun spam), and QRG unchanged since 2025-09-11.
+
+### Added (Phase 2)
+- AI Citation Probability Scoring (`scripts/ai_citation_score.py`): 0-100 per-engine (AI Overview, Perplexity, ChatGPT) citation likelihood, surfaced through blog-geo.
+- Writing Style Learning (`/blog style learn`, `skills/blog-style`): author voice profile from 5 to 10 posts.
+- Content Decay Detection (`/blog decay`, `skills/blog-decay`): flags 20%+ quarter-over-quarter traffic decline from GSC exports with refresh, consolidate, or prune actions.
+- Pre-commit quality gate (`scripts/quality_gate.py` + `.pre-commit-config.yaml`): blocks commits of blog posts scoring below 70.
+
+### Changed
+- Applied 13 Dependabot dependency bumps (pyproject dev deps, blog-google, blog-audio, and blog-notebooklm requirements, CI action SHAs).
+- Component counts refreshed across docs: 32 sub-skills, 13 root scripts, 217 tests.
+
 ## [1.9.1] - 2026-05-18
 
 ### Security hardening pass (11 commits)
@@ -189,7 +335,7 @@ Code quality (LOW findings closed)
   v1.8.5 fence tracking used `startswith("```")` which closed
   prematurely on inner ``` lines.
 - `.github/workflows/ci.yml`: `version-coherence` job heredoc replaced
-  with `python -m pytest tests/test_version_coherence.py -v`. Local
+  with `python3 -m pytest tests/test_version_coherence.py -v`. Local
   pytest and CI now share a single source of truth (7TH-AUDIT-012).
 
 CI guards (HIGH finding closed)
@@ -1232,15 +1378,14 @@ This release closes all of them across 10 focused commits.
 - Independent code-reviewer agent caught 5 issues post-commit (build-system
   missing, bare-filename crash, PS 5.1 incompatibility, weak test, missing
   ValueError handler) -> hotfix commit applied.
-- Codex GPT-5.5 high-reasoning council used 4 times for plan validation;
-  each returned APPROVE-WITH-CHANGES with substantive corrections that
+- External plan validation was used 4 times, with substantive corrections that
   materially improved the plan.
 
 ### Open follow-ups (not release-blocking)
 - `blog-write/SKILL.md` Phase 5 extraction: currently 535 lines, ideal
   is < 500. Extract Phase 5 to a reference file in next iteration.
-- `sentence-transformers` upper bound `<5.0.0` is one major behind current
-  5.4.1; re-evaluate when next minor lands.
+- Re-evaluate the `sentence-transformers` upper bound periodically as the
+  5.x line stabilizes.
 - E-E-A-T overlap consolidation across `eeat-signals.md`, `geo-optimization.md`,
   `quality-scoring.md` (architectural).
 

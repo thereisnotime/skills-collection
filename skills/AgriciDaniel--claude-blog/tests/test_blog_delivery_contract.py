@@ -241,6 +241,26 @@ def test_xss_via_jsonld_is_escaped(tmp_path: Path) -> None:
     )
 
 
+def test_markdown_body_html_is_sanitized(tmp_path: Path) -> None:
+    rc, _stdout, stderr, htmls = _render(
+        tmp_path,
+        '<script>alert(1)</script>\n'
+        '<p onclick="alert(2)">Safe text</p>\n'
+        '<img src="https://example.com/x.jpg" alt="bad" onerror="alert(4)">\n'
+        '[bad](javascript:alert(3))\n'
+        '![bad](data:text/html,evil)\n',
+    )
+    assert rc == 0, f"render failed: {stderr}"
+    rendered = htmls[0].read_text(encoding="utf-8")
+    assert "<script>alert" not in rendered.lower()
+    assert "alert(1)" not in rendered.lower()
+    assert "onclick" not in rendered.lower()
+    assert "javascript:" not in rendered.lower()
+    assert "data:text/html" not in rendered.lower()
+    assert "onerror" not in rendered.lower()
+    assert "alert(4)" not in rendered.lower()
+
+
 def test_empty_md_is_rejected(tmp_path: Path) -> None:
     """F1 regression: empty markdown source must NOT produce empty HTML."""
     md = tmp_path / "empty.md"
@@ -316,6 +336,7 @@ def test_preflight_gate_5_flags_non_http_scheme_as_violation(tmp_path: Path) -> 
     (tmp_path / "post.md").write_text(_VALID_FRONTMATTER + "body\n", encoding="utf-8")
     (tmp_path / "post.html").write_text(
         '<!DOCTYPE html><html><head>'
+        '<link rel="canonical" href="https://example.com/post">'
         '<meta property="og:image" content="hero.png">'
         '<script type="application/ld+json">'
         '{"@type":"BlogPosting","headline":"x","image":"x","datePublished":"x",'
@@ -326,6 +347,7 @@ def test_preflight_gate_5_flags_non_http_scheme_as_violation(tmp_path: Path) -> 
         'word</article></body></html>',
         encoding="utf-8",
     )
+    (tmp_path / "post.pdf").write_bytes(b"%PDF-1.4\n")
     (tmp_path / "hero.png").write_bytes(b"\x89PNG\r\n\x1a\n")
     (tmp_path / "review.md").write_text("BLOCKING: false (test)", encoding="utf-8")
     result = subprocess.run(
@@ -336,6 +358,69 @@ def test_preflight_gate_5_flags_non_http_scheme_as_violation(tmp_path: Path) -> 
     assert "non-http(s) URL scheme" in result.stdout
     assert "file:///etc/passwd" in result.stdout
     assert "javascript:" in result.stdout
+
+
+def test_preflight_gate_2_rejects_symlink_artifact(tmp_path: Path) -> None:
+    real = tmp_path / "real.md"
+    real.write_text(_VALID_FRONTMATTER + "body\n", encoding="utf-8")
+    link = tmp_path / "post.md"
+    try:
+        link.symlink_to(real)
+    except OSError:
+        pytest.skip("symlinks not supported on this filesystem")
+    (tmp_path / "post.html").write_text("<html></html>", encoding="utf-8")
+    (tmp_path / "post.pdf").write_bytes(b"%PDF-1.4\n")
+    (tmp_path / "hero.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    result = subprocess.run(
+        [sys.executable, str(PREFLIGHT_PATH), "--draft", str(tmp_path),
+         "--gate", "2", "--no-strict"],
+        capture_output=True, text=True, check=False,
+    )
+    assert "FAIL" in result.stdout and "Gate 2" in result.stdout
+    assert "symlink artifact" in result.stdout
+
+
+def test_preflight_gate_1_rejects_symlink_capabilities_output(tmp_path: Path) -> None:
+    target = tmp_path / "capabilities-target.json"
+    target.write_text("keep\n", encoding="utf-8")
+    link = tmp_path / "capabilities.json"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks not supported on this filesystem")
+
+    result = subprocess.run(
+        [sys.executable, str(PREFLIGHT_PATH), "--draft", str(tmp_path),
+         "--gate", "1", "--no-strict"],
+        capture_output=True, text=True, check=False,
+    )
+    assert "FAIL" in result.stdout and "Gate 1" in result.stdout
+    assert "capabilities.json write refused" in result.stdout
+    assert target.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_preflight_rejects_symlink_report_output(tmp_path: Path) -> None:
+    (tmp_path / "post.md").write_text(_VALID_FRONTMATTER + "body\n", encoding="utf-8")
+    (tmp_path / "post.html").write_text("<html></html>", encoding="utf-8")
+    (tmp_path / "post.pdf").write_bytes(b"%PDF-1.4\n")
+    (tmp_path / "hero.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    target = tmp_path / "report-target.json"
+    target.write_text("keep\n", encoding="utf-8")
+    link = tmp_path / "preflight-report.json"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks not supported on this filesystem")
+
+    result = subprocess.run(
+        [sys.executable, str(PREFLIGHT_PATH), "--draft", str(tmp_path),
+         "--gate", "2", "--no-strict"],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 1
+    assert "preflight-report.json write refused" in result.stderr
+    assert target.read_text(encoding="utf-8") == "keep\n"
 
 
 # ---------------------------------------------------------------------------

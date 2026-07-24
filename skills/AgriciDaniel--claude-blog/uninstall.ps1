@@ -46,9 +46,11 @@ function Main {
     # Remove root-level scripts copied to ~/.claude/scripts/ by install.ps1
     # (v1.8.6: install.ps1 now copies all scripts/*.py to that location).
     $ClaudeScriptsDir = Join-Path $env:USERPROFILE ".claude\scripts"
-    $helperScripts = @("analyze_blog.py", "blog_preflight.py", "blog_render.py",
+    $helperScripts = @("analyze_blog.py", "blog_preflight.py", "blog_render.py", "blog_hygiene.py",
                         "cognitive_load.py", "discourse_research.py", "generate_hero.py",
-                        "load_untrusted_root.py", "lint_prose.py", "sync_flow.py")
+                        "load_untrusted_root.py", "lint_prose.py", "sync_flow.py",
+                        "ai_citation_score.py", "content_decay.py", "quality_gate.py", "style_learn.py",
+                        "consistency_check.py", "dependency_smoke.py", "validate_public_release.py")
     foreach ($s in $helperScripts) {
         $scriptPath = Join-Path $ClaudeScriptsDir $s
         if (Test-Path $scriptPath) {
@@ -60,19 +62,9 @@ function Main {
         Remove-Item $ClaudeScriptsDir -Force -ErrorAction SilentlyContinue
     }
 
-    # Purge credential artifacts from cross-skill data dirs (audit follow-up
-    # to VULN-805 in cybersec audit: cookies/tokens left behind post-uninstall
-    # is a meaningful exposure window).
-    $credPaths = @(
-        (Join-Path (Join-Path (Join-Path $env:USERPROFILE ".config") "claude-seo") "oauth-token.json"),
-        (Join-Path (Join-Path (Join-Path $env:USERPROFILE ".config") "claude-seo") "google-api.json")
-    )
-    foreach ($credPath in $credPaths) {
-        if (Test-Path $credPath) {
-            Remove-Item -Force $credPath -ErrorAction SilentlyContinue
-            Write-Color Green "  Removed credential: $credPath"
-        }
-    }
+    # Shared Google credentials may be used by other installed skills.
+    # claude-blog does not own them, so uninstall must leave them intact.
+    Write-Color Yellow "  Shared Google credentials under ~/.config/claude-seo were left intact."
 
     Write-Host ""
     Write-Color Cyan "=== claude-blog uninstalled ==="

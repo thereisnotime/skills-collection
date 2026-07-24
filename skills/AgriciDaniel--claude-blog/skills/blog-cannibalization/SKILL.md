@@ -45,10 +45,15 @@ For each file, read and extract keyword signals from:
 - **Meta description** if present in frontmatter
 
 Primary keyword extraction method:
-1. Tokenize title and H1 into 1-gram, 2-gram, and 3-gram phrases
-2. Score each phrase by frequency across title + H2s + first paragraph
-3. Select the top-scoring 2-3 word phrase as the primary keyword
-4. Record secondary keywords from H2 headings
+1. Tokenize title, H1, H2s, meta description, and first paragraph into 1-gram,
+   2-gram, and 3-gram phrases.
+2. Normalize deterministically: lowercase, remove locale-aware stop words,
+   lemmatize or stem consistently, preserve product names, and keep intent
+   modifiers such as "best", "pricing", "vs", "review", "template", and year.
+3. Score sections separately: title/H1 highest, meta description and H2s medium,
+   first paragraph supporting.
+4. Select the top-scoring 2-3 word phrase as the primary keyword and record
+   secondary keywords from H2 headings.
 
 ### Step 3: Cluster by Similarity
 
@@ -56,8 +61,10 @@ Group posts into clusters using these matching rules (in priority order):
 
 1. **Exact match** - identical primary keyword across 2+ posts
 2. **Stem match** - same root word (e.g., "optimize" vs "optimization")
-3. **Semantic overlap** - Claude determines that two keywords target the same
-   search intent (e.g., "best CRM software" vs "top CRM tools 2026")
+3. **Semantic overlap** - Assign explicit intent labels such as informational,
+   commercial, transactional, comparison, or troubleshooting. Include confidence
+   and a one-sentence rationale, or use an embeddings workflow with a documented
+   threshold.
 4. **Subset match** - one keyword contains another (e.g., "email marketing"
    vs "email marketing for startups")
 
@@ -71,14 +78,18 @@ Display the results table and per-cluster recommendations.
 
 ## API Mode Workflow (DataForSEO)
 
-Requires the `--api` flag. Uses WebFetch to call DataForSEO endpoints.
+Requires the `--api` flag and a dedicated local CLI wrapper that reads
+`DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` from the environment and emits
+JSON. Do not use WebFetch for DataForSEO POST calls and never expose Basic auth
+headers, login, password, or encoded credentials in prompts or reports. If no
+wrapper exists in the project, report `SKIPPED: DataForSEO wrapper unavailable`
+and run local mode.
 
 ### Endpoints Used
 
 **Page Intersection** - find keywords where multiple URLs rank:
 ```
 POST https://api.dataforseo.com/v3/dataforseo_labs/google/page_intersection/live
-Authorization: Basic <base64(login:password)>
 
 {
   "pages": {
@@ -101,6 +112,9 @@ POST https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live
   "location_code": 2840
 }
 ```
+
+The wrapper sends DataForSEO auth headers from environment variables and never
+prints them.
 
 ### API Analysis Steps
 
@@ -182,8 +196,15 @@ When pages serve different intents but keyword targeting overlaps.
 ### CANONICAL
 When one post is clearly the authority and the other is a lesser duplicate.
 - Add `rel="canonical"` on the weaker page pointing to the authority
-- Consider noindexing the weaker page if it adds no unique value
+- Do not combine canonical and noindex casually. Use noindex only when removal
+  from search is intended
 - Link from the weaker page to the authority page
+
+### NOINDEX
+When a page should be removed from search results but still exist for users.
+- Confirm the page has no meaningful unique search demand or business value
+- Keep it crawlable until the noindex directive is observed
+- Do not use as the default duplicate-content fix
 
 ### NO ACTION
 When intent is genuinely different despite surface-level keyword similarity.
@@ -196,5 +217,7 @@ When intent is genuinely different despite surface-level keyword similarity.
 - **No blog files found**: If the directory contains no .md, .mdx, or .html files, report "No blog files found in [directory]" and suggest checking the path
 - **DataForSEO credentials missing**: In API mode, if credentials are not configured, fall back to local mode automatically and notify the user
 - **API rate limits**: DataForSEO has per-minute rate limits. If a 429 response is received, wait and retry once. If it persists, switch to local mode for remaining URLs
-- **WebFetch failures**: If a source URL is unreachable, skip it and note "Unable to verify - source unavailable" in the report
+- **API request failures**: If DataForSEO returns an error, retry once within
+  rate limits. If it still fails, switch to local mode for remaining URLs and
+  report the failed endpoint without credentials
 - **Single-post directory**: If only one blog post exists, report "Cannibalization analysis requires at least 2 posts" and exit gracefully

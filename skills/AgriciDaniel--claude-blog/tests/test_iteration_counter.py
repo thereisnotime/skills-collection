@@ -39,10 +39,16 @@ def _run_preflight(draft: Path, *extra) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
 
 
-def test_first_run_creates_counter_at_one(tmp_path):
+def test_normal_run_does_not_create_counter(tmp_path):
     draft = _make_minimal_draft(tmp_path)
     assert not (draft / ".iteration-count").exists()
     _run_preflight(draft)
+    assert not (draft / ".iteration-count").exists()
+
+
+def test_first_repair_attempt_creates_counter_at_one(tmp_path):
+    draft = _make_minimal_draft(tmp_path)
+    _run_preflight(draft, "--repair-attempt")
     counter_file = draft / ".iteration-count"
     assert counter_file.exists()
     assert counter_file.read_text(encoding="utf-8").strip() == "1"
@@ -51,15 +57,15 @@ def test_first_run_creates_counter_at_one(tmp_path):
 def test_three_runs_accumulate_to_three(tmp_path):
     draft = _make_minimal_draft(tmp_path)
     for _ in range(3):
-        _run_preflight(draft)
+        _run_preflight(draft, "--repair-attempt")
     assert (draft / ".iteration-count").read_text(encoding="utf-8").strip() == "3"
 
 
 def test_fourth_run_exits_with_code_two(tmp_path):
     draft = _make_minimal_draft(tmp_path)
     for _ in range(3):
-        _run_preflight(draft)
-    result = _run_preflight(draft)
+        _run_preflight(draft, "--repair-attempt")
+    result = _run_preflight(draft, "--repair-attempt")
     assert result.returncode == 2, (
         f"expected exit 2 (iteration cap), got {result.returncode}\n"
         f"stdout: {result.stdout}\nstderr: {result.stderr}"
@@ -70,9 +76,9 @@ def test_fourth_run_exits_with_code_two(tmp_path):
 def test_reset_iterations_flag_resets_counter(tmp_path):
     draft = _make_minimal_draft(tmp_path)
     for _ in range(3):
-        _run_preflight(draft)
+        _run_preflight(draft, "--repair-attempt")
     # 4th would refuse; --reset-iterations clears and allows a fresh run.
-    result = _run_preflight(draft, "--reset-iterations")
+    result = _run_preflight(draft, "--reset-iterations", "--repair-attempt")
     assert result.returncode != 2, (
         f"--reset-iterations should allow a fresh run, got exit {result.returncode}"
     )
@@ -88,13 +94,13 @@ def test_corrupted_counter_file_resets_to_one(tmp_path):
     """
     draft = _make_minimal_draft(tmp_path)
     (draft / ".iteration-count").write_text("not-an-int", encoding="utf-8")
-    result = _run_preflight(draft)
+    result = _run_preflight(draft, "--repair-attempt")
     assert result.returncode != 2
     assert (draft / ".iteration-count").read_text(encoding="utf-8").strip() == "1"
 
 
 def test_counter_not_incremented_on_reset_run(tmp_path):
-    """--reset-iterations + same-invocation run leaves counter at 1, not 2."""
+    """--reset-iterations without repair leaves counter at 0."""
     draft = _make_minimal_draft(tmp_path)
     _run_preflight(draft, "--reset-iterations")
-    assert (draft / ".iteration-count").read_text(encoding="utf-8").strip() == "1"
+    assert (draft / ".iteration-count").read_text(encoding="utf-8").strip() == "0"
