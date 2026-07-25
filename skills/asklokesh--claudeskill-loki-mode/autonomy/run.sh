@@ -9794,8 +9794,13 @@ TREOF
         return 0
     fi
 
-    # Sanitize details for JSON
-    details=$(echo "$details" | tr '"' "'" | tr '\n' ' ' | head -c 500)
+    # Sanitize details for JSON. A test runner's output can carry ANSI color
+    # escapes and other C0 control characters (jest/vitest colorize by default);
+    # embedding them raw produces an INVALID receipt (json.load -> "Invalid
+    # control character"), which reads downstream as an empty/absent field -- a
+    # corrupt Evidence Receipt, worse than none. Convert newlines to spaces
+    # first, then delete every remaining control char (\000-\037, incl. ESC).
+    details=$(echo "$details" | tr '"' "'" | tr '\n' ' ' | tr -d '\000-\037' | head -c 500)
 
     # Evidence Receipt provenance (v7.85.0): record the deterministic FACTS a
     # non-forgeable receipt needs -- the command that ran, its exit code, and a
@@ -10316,10 +10321,24 @@ auto_generate_docs_if_needed() {
 
     local project_dir="${TARGET_DIR:-.}"
     local manifest="$project_dir/.loki/docs/docs-manifest.json"
+    # A timed-out attempt never writes the manifest (the provider call was killed
+    # mid-write), so "manifest absent" stayed true forever and this re-fired the
+    # full ~300s generation EVERY iteration with no progress (observed: ~20 min
+    # burned across 4 iterations on one build, zero gate benefit -- doc_coverage
+    # already passes on the partial docs a timed-out attempt leaves behind, since
+    # it scores README/API.md presence, not the manifest). This marker records a
+    # timeout attempt separately from the manifest so a killed run is remembered
+    # and not retried every iteration; a genuine completed manifest still drives
+    # the normal staleness (>10 commits behind) regen path unchanged.
+    local timeout_marker="$project_dir/.loki/docs/.last-attempt-timed-out"
     local needs_gen=false
 
     if [ ! -f "$manifest" ]; then
-        needs_gen=true
+        if [ -f "$timeout_marker" ]; then
+            needs_gen=false
+        else
+            needs_gen=true
+        fi
     else
         # Regenerate only when the existing docs are substantially stale.
         local doc_sha
@@ -10329,6 +10348,9 @@ auto_generate_docs_if_needed() {
             behind=$(git -C "$project_dir" rev-list --count "$doc_sha..HEAD" 2>/dev/null || echo "0")
             [ "$behind" -gt 10 ] && needs_gen=true
         fi
+        # A fresh manifest supersedes any earlier timeout; allow future staleness
+        # regen to fire normally instead of being permanently suppressed.
+        [ "$needs_gen" = "true" ] && rm -f "$timeout_marker"
     fi
 
     [ "$needs_gen" = "true" ] || return 0
@@ -10360,6 +10382,8 @@ auto_generate_docs_if_needed() {
         local _doc_rc=$?
         if [ "$_doc_rc" -eq 124 ]; then
             log_warn "Auto-documentation: timed out after ${_doc_to}s (gate will score on what exists); continuing"
+            mkdir -p "$project_dir/.loki/docs" 2>/dev/null
+            touch "$timeout_marker" 2>/dev/null
         else
             log_warn "Auto-documentation: generation did not complete (gate will score on what exists)"
         fi

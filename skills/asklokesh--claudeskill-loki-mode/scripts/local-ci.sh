@@ -977,7 +977,9 @@ run_check "npm audit (production deps, high+)" "
   trap 'rm -rf \$AUDIT_TMP' EXIT
   cp package.json \$AUDIT_TMP/
   cd \$AUDIT_TMP && npm install --silent --no-audit --no-fund >/dev/null 2>&1
-  npm audit --omit=dev --audit-level=high
+  # audit-check.sh mirrors --audit-level=high but waives documented, not-reachable
+  # advisories (see the script header). A NEW high advisory still fails the gate.
+  bash \"$REPO_ROOT/scripts/audit-check.sh\"
 "
 
 # ---------------------------------------------------------------------------

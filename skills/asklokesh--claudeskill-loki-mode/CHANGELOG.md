@@ -5,6 +5,40 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v7.129.5
+
+### Fixed: corrupt Evidence Receipt when a test runner emits colored output
+
+`enforce_test_coverage` embedded a test runner's raw output into the receipt's
+`test-results.json` after stripping only quotes and newlines. jest, vitest and
+other runners colorize output by default, so the `details`/`summary` field
+carried ANSI escape sequences and other C0 control characters. Those are invalid
+inside a JSON string, so `json.load` on the receipt raised "Invalid control
+character" -- and every downstream reader that swallows the parse error saw the
+field (and often the whole receipt) as empty. A silently corrupt Evidence
+Receipt is worse than none: it is the honesty core reading as blank.
+
+The sanitizer now also deletes every remaining control character (`\000-\037`,
+including ESC) after converting newlines to spaces, so the receipt is always
+valid JSON regardless of runner coloring. Affects any jest/vitest/colored-output
+project; present since the receipt was introduced.
+
+## v7.129.4
+
+### Fixed: auto-doc-gen re-firing every iteration after a timeout
+
+A timed-out `loki docs generate` call never writes docs-manifest.json (the
+provider call is killed mid-write), so `needs_gen` stayed true forever and the
+full ~300s generation re-fired on every iteration with zero progress. Observed
+live: ~20 minutes burned across 4 iterations on one real build, with no gate
+benefit (doc_coverage already passes on the partial docs a timed-out attempt
+leaves behind).
+
+`auto_generate_docs_if_needed` (autonomy/run.sh) now writes a separate
+`.last-attempt-timed-out` marker so a killed attempt is remembered and not
+retried every iteration. A genuine completed manifest still drives the existing
+staleness-based regeneration path unchanged, and clears any stale marker.
+
 ## v7.129.3
 
 ### Fixed: code_review gate on oversized / tracked-but-gitignored diffs

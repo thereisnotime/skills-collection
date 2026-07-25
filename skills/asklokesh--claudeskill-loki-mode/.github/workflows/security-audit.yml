@@ -36,16 +36,13 @@ jobs:
         run: npm install
 
       - name: npm audit (production deps, high+)
-        run: |
-          set +e
-          npm audit --omit=dev --audit-level=high
-          ec=$?
-          set -e
-          if [ "$ec" -ne 0 ]; then
-            echo "::error::npm audit reported high or critical vulnerabilities"
-            exit "$ec"
-          fi
-          echo "npm audit clean at high+ severity"
+        # audit-check.sh mirrors `npm audit --omit=dev --audit-level=high` but
+        # waives documented, not-reachable advisories (see the script header for
+        # each accepted GHSA + its rationale). A NEW high advisory that is not on
+        # the allowlist still fails this gate -- it is a targeted exception, never
+        # a blanket suppression. Kept in lockstep with scripts/local-ci.sh (both
+        # call the same script) so the local pre-push gate and this CI gate agree.
+        run: bash scripts/audit-check.sh
 
   bun-audit:
     name: bun audit (best-effort)
