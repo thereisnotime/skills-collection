@@ -2189,8 +2189,12 @@ program
   )
   .option('-g, --global', 'Install globally (user-level)')
   .option(
+    '--project',
+    'For "mcp", install into project scope (stored API keys are never written to project files)'
+  )
+  .option(
     '-a, --agent <agent>',
-    'Limit to a specific agent; for "mcp", use "all" to update every launch integration'
+    'Limit to a specific agent; required for environment-backed MCP setup, or use "all" to update every launch integration'
   )
   .option(
     '-y, --yes',

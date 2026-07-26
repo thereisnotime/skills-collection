@@ -37,10 +37,9 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
   *inside the quoted regex* is treated as a pipe, the string splits, and
   `TRIGGER` lands at a segment head → looks like a command.
 - **Fix:** tokenize with the **`shlex.shlex` class** (`punctuation_chars=True`,
-  `whitespace_split=True`) — NOT the `shlex.split()` function, which leaves
-  `ls|TRIGGER x` as `['ls|TRIGGER', 'x']` and hides the trigger from a
-  command-position check entirely. Both forms honor quotes (the regex stays one
-  token); only the class also splits unspaced separators. Then check **command
+  `whitespace_split=True`) — NOT the `shlex.split()` function (the `ls|TRIGGER x`
+  divergence is measured in [hook_patterns.md](hook_patterns.md#the-shlex-command-position-walker),
+  whose code comments carry it verbatim). Then check **command
   position**, not mere presence — walker in
   [hook_patterns.md](hook_patterns.md#the-shlex-command-position-walker).
 - **Caveat — `whitespace_split=True` also swallows newlines.** If your commands
@@ -97,10 +96,11 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
   set an env var to wave itself through.
 - **Cause:** the release valve was a static `GUARD_OK=1` / `SCOPE_OK=1` env var.
   Anything the model can add to its own command is not a gate.
-- **Fix:** a **human-confirmation gate** the model physically can't drive — a
-  native macOS `osascript` dialog (can't click) and/or a typed `YES` on
-  `/dev/tty` (can't type into the user's terminal); refuse/cancel/timeout = hard
-  NO; log every bypass. Pattern B in [hook_patterns.md](hook_patterns.md#pattern-b--pretooluse-with-a-human-confirmation-release-gate).
+- **Fix:** a **human-confirmation gate** the model physically can't drive —
+  full two-channel pattern (native dialog / typed YES, hard-NO semantics,
+  audit log, testability) in
+  [hook_patterns.md](hook_patterns.md#pattern-b--pretooluse-with-a-human-confirmation-release-gate)
+  and the rule-of-thumb form in SKILL.md rule 4.
   (Both `WORKTREE_GUARD_OK` and `GIT_COMMIT_SCOPE_OK` were retired to this in
   2026-07.)
 - **Nuance — an ack marker that's a real acknowledgement, not a free pass:** the
@@ -145,9 +145,8 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
 - **Cause:** the hook is already live in the session, so any Bash command you
   issue that contains the trigger token is inspected (and blocked) before it runs.
 - **Fix:** put the test cases in a **script file** and run `bash test_hook.sh` —
-  the outer command (`bash test_hook.sh`) doesn't contain the trigger, so it isn't
-  self-blocked; the triggers live inside the file where the PreToolUse hook
-  doesn't see them. This is what `scripts/test_hook.sh` is for.
+  the outer command carries no trigger, so it isn't self-blocked (mechanism in
+  SKILL.md rule 2 and the harness header comment).
 - **The same trap bites your own `git commit`.** A commit message that merely
   *mentions* the trigger — e.g. a fix whose message quotes `foo|TRIGGER` as an
   example — is parsed by the live hook and blocked: the heredoc message text
@@ -174,9 +173,15 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
   dubious-ownership / bad-`cd`-path context. pipefail propagates the left
   command's non-zero exit through the pipe, `set -e` kills the whole script, and
   the `2>/dev/null` already swallowed the stderr.
-- **Fix:** every command feeding a substitution needs a `|| <fallback>` — the
-  pipe included: `STAGED=$(git diff … | wc -l || echo '?')`. (2026-07-21 in
-  git-commit-headcheck.)
+- **Fix:** every command feeding a substitution needs a `|| <fallback>` — the pipe
+  included, and the `||` goes **OUTSIDE** the `$(…)`: `STAGED=$(git diff … | wc -l
+  | tr -d ' ') || STAGED='?'`. Put it inside (`… | wc -l || echo '?'`) and `wc`
+  still prints `0` when git fails, yielding the malformed two-line value `0\n?`.
+  (2026-07-21 in git-commit-headcheck.)
+- **Alternative shape — keep `-e` and trap the contract:** `set -euo pipefail` +
+  `trap 'exit 0' ERR` converts every failure to exit 0 while `-e` keeps guarding
+  the plumbing (git-commit-headcheck's production form; the choice between this
+  and dropping `-e` is SKILL.md's "-e or trap" bullet).
 - **Why it's insidious:** it only fires in *edge* contexts (bad path, not-a-repo),
   so it passes every test in a healthy repo and breaks in the field — same class
   as #1 (stdin) and #3 (poisoning): a promise broken, hard to locate. If your hook
@@ -315,7 +320,13 @@ unresolvable path means **block**.
   command it isn't. (A multiline `-m "…\ngit push"` message fragments too, but its
   torn line has an unbalanced quote, so whether it over- or under-fires depends on how
   you handle the `shlex` `ValueError` — a witness for the same residual, less clean.)
-  So the two-stage is not "#2-proof", only *less* exposed than the one-shot regex.
+  **2026-07-26 refinement (production qlmanage-guard, three review rounds with
+  100+ executed probes):** split shell-aware instead — `split_shell_lines`
+  (walker section / Pattern A) tracks quote state, backslash continuations, and
+  `$'…'` ANSI-C escapes, which removes the *quoted-string* half of the residual
+  (the `gh pr create -b "…\nTRIGGER…"` shape — more common than heredocs in real
+  tool calls). What remains is heredoc bodies only: they are not quote syntax,
+  so no quote-state machine can see them.
   Whether that residual is acceptable follows the same **bias-to-under** call as #2:
   for a **fail-open reminder** an extra over-fire costs nothing — declare it and move
   on; for a **fail-closed blocker** it re-creates #2's false-block, so you must lift
@@ -413,19 +424,17 @@ unresolvable path means **block**.
   optional paragraph, let a heredoc swallow a section: the exit code stays
   exactly 2, and every row still passes. The suite is structurally blind to the
   only thing that hook produces.
-- **Fix:** add content assertions alongside the exit-code rows. Use the `says`
-  helper shipped in [scripts/test_hook.sh](../scripts/test_hook.sh) rather than
-  re-typing one here — a copy in prose drifts from the one people actually run
-  (this entry shipped with a copy that had no pass/fail counters, so a failing
-  content row printed FAIL and the suite still ended "ALL PASS"). It captures
-  stderr, matches a **fixed string** (a BRE `[skill]` is a character class, so
-  bracket-tagged output makes the row vacuously true), and counts into the same
-  gate as the exit-code rows. Assert **both polarities across two fixtures**:
-  present for the input it targets, absent for the lookalike it skips — a lone
-  `want=no` passes vacuously when the hook prints nothing at all.
+- **Fix:** add content assertions alongside the exit-code rows, with the `says`
+  helper shipped in [scripts/test_hook.sh](../scripts/test_hook.sh) — its header
+  comment carries the full doctrine (both polarities across two fixtures,
+  fixed-string matching because a BRE `[skill]` is a character class, and the
+  mutation pass that proves each row can die), which SKILL.md's harness section
+  repeats at rule length. Use the shipped helper rather than re-typing one — a
+  copy in prose drifts from the one people actually run (this entry shipped with
+  a copy that had no pass/fail counters, so a failing content row printed FAIL
+  and the suite still ended "ALL PASS").
 - **Then prove the assertions are not vacuous — mutate and confirm they die.**
-  A passing suite carries **zero information** until you have seen it fail for
-  the right reason. Copy the hook, inject the specific bug each assertion claims
+  Copy the hook, inject the specific bug each assertion claims
   to catch (invert the branch condition, delete the fact-check, revert to the
   display-string match), and confirm *that* assertion goes red — and ideally only
   that one. Real case: four separate mutations each killed exactly their intended
@@ -511,7 +520,6 @@ unresolvable path means **block**.
 ---
 
 ## 17. A Stop guard that reports only the first violation loses the rest (the retry round is a full pass-through)
-
 - **Symptom:** a Stop hook correctly blocks on finding X in the model's reply;
   the model fixes X and stops again — and the reply still contains violation Y
   from the same original turn, never reported, never caught.
@@ -532,6 +540,177 @@ unresolvable path means **block**.
   the first and ended the turn with the second intact. Found by an independent
   reviewer, fixed by collecting all matches (cap 5); regression row
   "多命中一次报全" pins it.
+
+---
+
+## 18. A blocked compound command silently discards the innocent segments' side effects
+
+- **Symptom:** you fixed something and ran the gated command in the SAME Bash
+  call (`fix_thing && gated_command`); the guard blocked it; next round the
+  SAME error reappears — as if your fix never happened. You re-diagnose,
+  "discover" the fix is missing, and only then realize why.
+- **Cause:** a PreToolUse block prevents the **whole** command from running —
+  including innocent segments (a heredoc updating a file, a map write, an edit)
+  chained before or after the gated one. The block error names the gated
+  segment, so all attention goes there; the innocent write's silent absence
+  leaves no signal of its own.
+- **Fix — two habits, one on each side of the block:** when *building*
+  commands, put state-changing steps (file writes, edits, map updates) in their
+  **own** Bash call, never bundled with a command a guard might block; when
+  *recovering* from a block, re-verify every write you *assumed* had landed
+  before the block (`grep` for the change) — "the error named the other
+  segment" is exactly the situation where your side effect is gone. Real case
+  (2026-07-25, twice in one session): a needle-fix heredoc bundled with the
+  validation command; the tooling guard blocked the bundle; the validator
+  re-reported byte-identical errors because the fix never landed — diagnosed
+  only on the second identical failure.
+
+---
+
+## 19. A block whose remediation demands cross-call memory re-fires all session
+
+- **Symptom:** the hook blocks, its message teaches the correct form, you
+  comply — and get blocked again for the same reason. And again. (One session
+  measured **10** blocks for the identical cause, plus 3 sibling failures —
+  including a feature branch created in the *wrong repository*.)
+- **Cause:** the remediation the hook demands is a **habit change that must be
+  remembered across tool calls** — e.g. "always prefix this command family with
+  `cd <tool-root>`" — and three things conspire against that memory, none of
+  which is carelessness: **attention resets per call** (the model re-reads the
+  lesson and re-forgets it each time, because at the moment of action the goal
+  is the task, not the form); **shell state does not persist** (env vars and
+  functions are re-initialized from the profile each call — so a remediation
+  that relies on an exported variable dies with the call; only settings.json's
+  `env` block or the shell profile makes one stick); and **environment drift in
+  `cd` behavior** — the documented contract is that the working directory
+  *does* persist between calls, yet harnesses/profiles deviate in practice, and
+  a `cd` that *does* stick creates its own failure mode (the next command then
+  runs in the wrong repo entirely — the sibling failure in the incident below:
+  a feature branch created in the wrong repository, which could only happen
+  *because* the directory persisted). The hook is correct every time, and it
+  does not matter: the remediation's success depends on memory surviving
+  boundaries it often doesn't survive, so the block re-fires until the session
+  ends or the environment changes. (2026-07-25, one session: **10** identical
+  blocks + those 3 sibling failures.)
+- **Fix — pick the guard's answer deliberately, knowing the class:** (a) put
+  the corrective *in the environment* instead of the message (a wrapper script
+  that doesn't care about cwd, a `PYTHONPATH` or variable set in settings.json's
+  `env` block or the shell profile — an ad-hoc exported var dies with the call,
+  per the Cause above) so the habit is no longer required — strongest, because
+  it removes the dependency; (b) convert the block to a fail-open reminder for
+  habit-class rules (a noisy PreToolUse block trains bypass exactly as #2
+  warns); (c) accept and *measure* the repetition as the cost of enforcement —
+  10 blocks can mean "guard working, loudly", but then say so in the header so
+  nobody "fixes" it. What does not work: making the block message clearer. It
+  was clear every one of the 10 times.
+
+---
+
+## 20. Agent deliveries counted as turn boundaries truncate the detection window
+
+- **Symptom:** a turn-scoped transcript hook (one that judges "did X happen
+  THIS turn") goes **quiet** even though unremediated work is sitting right
+  there — or its review-tracking never registers completed reviews. Nothing
+  errors; the reports just stop matching reality.
+- **Cause:** agent deliveries (teammate messages / completion receipts) arrive
+  as `type: "user"` records in the transcript. A turn-boundary rule that treats
+  every user message as a new turn lets **every delivery start a new "turn"** —
+  work done *before* the delivery falls outside the window. Real audit
+  (2026-07-26): the last turn-start in a long session sat 6 lines from the
+  transcript tail — the entire audit's edits and pushes were outside the window,
+  so a compounding-artifact hook reported nothing. The twin blind spot in the
+  same incident: the review channel itself was built on one schema
+  (`agentId: <hex>` in tool_results) while the environment used another
+  (`agent_id: <name>@session-<uuid>` + `teammate_id` deliveries), so no review
+  ever registered either — false quiet and false fire coexisting in one hook.
+- **Fix:** treat deliveries as events *inside* the turn, not as boundaries.
+  Exclude them by wrapper form — content starting `"Another Claude session sent
+  a message:"` / `<teammate-message` — in **both** content branches (string and
+  list), and audit every other system record the same way (isMeta injections,
+  interrupt receipts — compounding-edit-review's `is_turn_start` is the working
+  example; its selftest ⑰ pins "teammate must not truncate the window"). And
+  validate the *channel* per environment: parse a real transcript from every
+  profile/mode you run in — fixture-testing a single schema is how the twin
+  blind spot shipped (rule 7's observability form, SKILL.md).
+
+---
+
+## 21. Prefix-based resolution must anchor on a typed tail
+
+- **Symptom:** the hook resolves an entity by glob/prefix (a file, a name, a
+  token family) and silently picks the WRONG one — a verdict meant for agent A
+  lands on agent B, and the decision is inverted: a delegated write-and-push
+  gets the "independent review" stamp, or a genuine review reads as delegation.
+  Nothing looks wrong because each file in isolation is valid.
+- **Cause:** prefix matching ignores that names are **prefixes of other names**.
+  Real case (2026-07-26, reproduced both directions): a review-detection hook
+  resolved agent transcripts with `agent-a<name>-*.jsonl` — the agent pair
+  `r4-final-reviewer` and `r4-final-reviewer-2` (which really coexisted in the
+  session) both matched, and "newest by mtime" made the review read the wrong
+  agent's file. Sibling shapes in the same audit: a bundle-arity blind spot
+  (`-mn` = `-m n`, not `-n`), a flag-family table (`-am"msg"` attached value),
+  and a trailing-separator reset (a state machine whose `first` slot is
+  re-zeroed by a trailing `;` or comment line, losing the last real segment).
+- **Fix — anchor the typed tail, never the bare prefix:** for filenames,
+  require the delimiter + a typed suffix (`agent-a<name>-[0-9a-f]{8,}.jsonl`,
+  not `agent-a<name>-*`); for flag families, enumerate the family (`-aXXX`
+  bundled counts as `-a`) AND model arity (after a valued flag, the next thing
+  is data); for segment state machines, keep the last NON-EMPTY segment's head
+  (`last_first`), never the current slot after a trailing separator. Then pin
+  the colliding pair in a fixture — a singleton passing proves nothing about
+  resolution (compounding-edit-review's selftest grew exactly these).
+
+---
+
+## 22. A hook fleet on every tool call is a fork multiplier — the irrelevant path must cost zero forks
+
+- **Symptom:** the machine runs hot and the battery drops fast under several
+  parallel agent sessions; a spawn-rate recorder shows a sustained 40–130+
+  forks/sec all day, and `syspolicyd` (Gatekeeper) tops the all-day
+  CPU-integrated ranking with NO single runaway process. Nothing is "broken" —
+  every process has a legitimate owner. Treating this as "normal because it's
+  owned" is the mistake: an unthrottled loop and a runaway are structurally
+  identical to the system underneath.
+- **Cause:** each PreToolUse Bash hook that opens with `INPUT=$(cat)` plus one
+  or more `printf … | python3 -c …` parses costs 2–3 forks **even when the
+  command is irrelevant to that guard**. With ~13 hooks on the Bash matcher ×
+  several parallel agent sessions × sub-second tool-call cadence, that alone
+  is 40–200 forks/sec of pure guard overhead, and every `exec` also bills
+  `syspolicyd` a Gatekeeper evaluation — which is how a distributed,
+  by-design load lands on one system daemon's CPU total. The fleet is fine;
+  the per-call cost of the *irrelevant* path is the bug.
+- **Fix — the 0-fork fast path, with semantics preserved per guard type:**
+  1. Replace `INPUT=$(cat)` with the builtin `IFS= read -rd '' INPUT || true`
+     (stdin can only be read once — hand the captured var to the existing
+     code, do not leave a later `$(cat)` to read EOF).
+  2. Coarse-filter with a **builtin** `case`/`[[ == ]]` on the raw JSON and
+     `exit 0` before paying for python3/jq. The filter must be *broader* than
+     the hook's decision domain and **never flag-level**: shell normalization
+     (`--no-\verify`, `-n` short forms, `VAR=val` prefixes) produces real
+     flags that byte-matching cannot see — filter only on "is this command
+     even about X" (e.g. `*git*`; `*openrouter*|*claude.ai*` for a domain
+     guard, matched against the SAME case-sensitivity as the real check).
+  3. **Fail-closed guards need a legitimate-payload gate on the fast path.**
+     A bare coarse filter exits 0 on malformed input that the original
+     fail-closed parse layer would have blocked — measured: `'not json'`
+     sailed through the first cut of this fix and the guard's contract
+     silently changed from block-unknown to allow-unknown. Only let inputs
+     carrying the payload marker (`*tool_name*`) take the fast exit; empty
+     or marker-less input MUST fall through to the original parser. Record
+     the accepted residual blind spot (a JSON `\uXXXX`-escaped keyword
+     defeats any raw-byte filter; the real harness never emits one) in a
+     comment, or it will be "found" again as a new bug.
+  4. Verify per hook with the six-case suite — irrelevant / blocking /
+     allowed / empty / malformed / keyword-present-but-irrelevant — plus a
+     `python3`-stubbed `PATH` for fail-closed guards (their contract is
+     exit 2 exactly there). Measure the floor: `bash` startup + builtin
+     `case` ≈ 6.6 ms/call; the guards that used to cost 45–57 ms per
+     irrelevant call now cost ~6, and that is the entire win — the
+     blocking path is intentionally unchanged.
+- **Why not a dispatcher instead:** merging N guards into one process saves
+  the same forks but couples their blast radius (one corrupted shared file
+  poisons every Bash call) and breaks per-guard SSOT/test ownership. Slim
+  each guard; keep the fleet.
 
 ---
 
@@ -576,13 +755,45 @@ When a guard is misbehaving, check in this order — cheapest and most common fi
     content assertions, then mutate to prove they can die.
 12. Does it report a file **nobody wrote** — especially one containing a literal
     `$VAR`? → it is reading command text as if every redirect in it executed (#15).
-13. Does it fire **again right after you did exactly what it asked**? → its
-    condition is a temporal comparison that the remediation itself moves (#16).
+13. Does a **Stop hook** fire **again right after you did exactly what it asked**
+    (the turn ends, work happens, and the NEXT stop re-fires on the same grounds)?
+    → its condition is a temporal comparison that the remediation itself moves (#16).
     Not a tuning problem: change the predicate's *shape* — move the gate to the
     action with PreToolUse, or test an existence fact keyed on the thing that
     needed remediating — and add the after-remediation row pair that a
-    point-in-time suite structurally cannot have.
+    point-in-time suite structurally cannot have. (Same "recurring fire" symptom
+    as 15/16 below — split by hook type and by what you check first.)
 14. Did it catch the first violation and **silently never mention the second one
     from the same reply**? → first-only reporting (#17): the honored retry round
     is a full pass-through, so collect every finding before printing and assert
     both hits in a two-violations fixture.
+15. Did the **same block error return after you "fixed" it** — and your fix was
+    bundled into the same command as the gated one? → innocent-segment
+    side effects swallowed (#18): separate state changes from gated commands
+    into their own Bash call, and after any block re-verify writes you assumed
+    had landed. (Cheapest check in the recurrence family — one grep — so run it
+    before 13/16's deeper reads.)
+16. Does a **PreToolUse hook** block you **repeatedly for the same thing despite
+    complying** each time (the block arrives before the command even runs)?
+    → the remediation demands cross-call memory (#19): it's a class
+    property, not carelessness — fix the environment, downgrade to a reminder,
+    or accept-and-measure; a clearer message was never the missing piece.
+17. Does a turn-scoped hook see **neither the work nor the review** that should
+    bound it — quiet when it should fire, or firing when the review already
+    happened? → the window/channel logic is eating system records: agent
+    deliveries counted as turn starts truncate the detection window (#20), and
+    environment-schema drift blinds the review channel (rule 7's observability
+    form — verify the predicate can see R in EVERY environment, not just the
+    one you fixture-tested).
+18. Does a resolution step hand you the **wrong entity** — a verdict meant for
+    A landing on B, or a decision inverted (delegation stamped as review /
+    review read as delegation)? → prefix resolution without a typed tail (#21):
+    globs must anchor on delimiter+type (name-hex.jsonl, not name-*), flag
+    families need enumeration + arity, and segment state machines need the last
+    NON-EMPTY head — and only a fixture containing the colliding pair proves
+    resolution, a singleton proves nothing.
+19. Is the **machine itself** hot under parallel agent sessions — spawn rate
+    sustained at 40+/s, `syspolicyd` atop the all-day CPU ranking, and NO
+    runaway process anywhere? → fork multiplier (#22): the fleet's per-call
+    irrelevant path is the load. Slim every guard's fast path to zero forks;
+    do not "fix" it by deleting guards.

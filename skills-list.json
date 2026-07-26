@@ -11728,8 +11728,8 @@
       "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Simulates 5 independent reviewers (EIC + 3 peer reviewers + Devil's Advocate) with field-specific expertise. Supports full revi",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 451,
-      "words": 3897,
+      "lines": 452,
+      "words": 3963,
       "code_blocks": 4,
       "languages": []
     },
@@ -11965,8 +11965,8 @@
       "description": "\"Peer Reviewer 3; evaluates cross-disciplinary relevance, broader impact, and alternative interpretations\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
-      "lines": 354,
-      "words": 2940,
+      "lines": 358,
+      "words": 3111,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -11989,8 +11989,8 @@
       "description": "\"Peer Reviewer 1; assesses methodological soundness, research design validity, and statistical rigor\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
-      "lines": 319,
-      "words": 2612,
+      "lines": 323,
+      "words": 2783,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12002,7 +12002,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "lines": 439,
-      "words": 5268,
+      "words": 5420,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12013,8 +12013,8 @@
       "description": "\"Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
-      "lines": 339,
-      "words": 2938,
+      "lines": 343,
+      "words": 3109,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12025,8 +12025,8 @@
       "description": "\"Challenges core arguments and logical coherence as the devils advocate reviewer in the editorial panel\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
-      "lines": 372,
-      "words": 4349,
+      "lines": 376,
+      "words": 4553,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12037,8 +12037,8 @@
       "description": "\"Editor-in-Chief seat; contributes the journal-fit / originality / overall-quality review card \u2014 the final editorial decision is editorial_synthesizer_agent's Phase 2 work\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
-      "lines": 265,
-      "words": 2351,
+      "lines": 269,
+      "words": 2522,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12298,12 +12298,12 @@
     },
     {
       "name": "pptx",
-      "description": "\"Use this skill any time a .pptx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from ",
+      "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pptx/SKILL.md",
       "remote_path": "skills/pptx/SKILL.md",
-      "lines": 234,
-      "words": 1418,
-      "code_blocks": 6,
+      "lines": 244,
+      "words": 3157,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ],
@@ -12393,16 +12393,14 @@
     },
     {
       "name": "xlsx",
-      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, and tabu",
+      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
       "path": "K-Dense-AI--claude-scientific-skills/skills/xlsx/SKILL.md",
       "remote_path": "skills/xlsx/SKILL.md",
-      "lines": 328,
-      "words": 1668,
-      "code_blocks": 12,
+      "lines": 107,
+      "words": 1274,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
@@ -12708,7 +12706,7 @@
     },
     {
       "name": "genomic-intelligence",
-      "description": "Predict regulatory features, gene structure, and expression directly from DNA sequence using Genomic Intelligence's hosted transformer DNA language models \u2014 no local GPU or model weights. Six tasks ov",
+      "description": "\"Predict regulatory features, gene structure, and expression directly from DNA sequence using Genomic Intelligence's hosted transformer DNA language models \u2014 no local GPU or model weights. Six tasks o",
       "path": "K-Dense-AI--claude-scientific-skills/skills/genomic-intelligence/SKILL.md",
       "remote_path": "skills/genomic-intelligence/SKILL.md",
       "lines": 236,
@@ -13157,16 +13155,14 @@
     },
     {
       "name": "docx",
-      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce",
+      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-skills/skills/docx/SKILL.md",
       "remote_path": "skills/docx/SKILL.md",
-      "lines": 592,
-      "words": 2614,
-      "code_blocks": 34,
+      "lines": 97,
+      "words": 1003,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "javascript",
-        "xml"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
@@ -13175,13 +13171,14 @@
       "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
       "path": "K-Dense-AI--claude-scientific-skills/skills/citation-management/SKILL.md",
       "remote_path": "skills/citation-management/SKILL.md",
-      "lines": 1251,
-      "words": 5155,
-      "code_blocks": 35,
+      "lines": 1315,
+      "words": 5765,
+      "code_blocks": 37,
       "languages": [
         "bash",
         "bibtex",
-        "json"
+        "json",
+        "python"
       ],
       "license": "MIT License"
     },
@@ -13684,8 +13681,8 @@
       "description": "Query and download public cancer imaging data from NCI Imaging Data Commons using idc-index. Use for accessing large-scale radiology (CT, MR, PET) and pathology datasets for AI training or research. N",
       "path": "K-Dense-AI--claude-scientific-skills/skills/imaging-data-commons/SKILL.md",
       "remote_path": "skills/imaging-data-commons/SKILL.md",
-      "lines": 858,
-      "words": 4492,
+      "lines": 867,
+      "words": 4544,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -13808,8 +13805,8 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pdf/SKILL.md",
       "remote_path": "skills/pdf/SKILL.md",
-      "lines": 316,
-      "words": 1010,
+      "lines": 320,
+      "words": 1046,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -111709,87 +111706,6 @@
       "license": "MIT"
     },
     {
-      "name": "schema-optimization-orchestrator",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/SKILL.md",
-      "remote_path": "workspace/lab/schema-optimization/SKILL.md",
-      "lines": 288,
-      "words": 668,
-      "code_blocks": 16,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "phase-1-schema-analysis",
-      "description": "\"Phase 1 of the BigQuery schema optimization pipeline \u2014 parses schema export files to count tables and fields, detect naming patterns and type inconsistencies, flag duplicate or nullable issues, and w",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_1.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_1.md",
-      "lines": 95,
-      "words": 366,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-4-verification",
-      "description": "'Runs BigQuery field-utilization shell scripts to empirically validate phase 2-3 conclusions, reconciles manual vs. script findings, and writes a verification report. Use when phase 3 analysis is comp",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_4.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_4.md",
-      "lines": 119,
-      "words": 439,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-5-recommendations",
-      "description": "'Synthesizes BigQuery schema optimization findings from all prior phases into a prioritized implementation plan with rollback procedures, timelines, and success metrics. Use when all previous phase re",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_5.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_5.md",
-      "lines": 121,
-      "words": 443,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-2-field-utilization",
-      "description": "\"Phase 2 of the BigQuery schema optimization pipeline \u2014 reads the phase 1 report and schema exports to identify fields with >90% null rates, detect never-queried columns, and produce ranked removal an",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_2.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_2.md",
-      "lines": 100,
-      "words": 401,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-3-impact-assessment",
-      "description": "\"Phase 3 of the BigQuery schema optimization pipeline \u2014 evaluates proposed schema changes from phases 1-2 against dependent queries and systems, categorizes each change by risk level, estimates storag",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_3.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_3.md",
-      "lines": 105,
-      "words": 416,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
       "name": "airflow-operator-creator",
       "description": "'Create airflow operator creator operations. Auto-activating skill for",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/11-data-pipelines/airflow-operator-creator/SKILL.md",
@@ -149631,9 +149547,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1522,
-      "words": 19468,
-      "code_blocks": 48,
+      "lines": 1566,
+      "words": 20644,
+      "code_blocks": 49,
       "languages": [
         "bash",
         "json",
@@ -149905,8 +149821,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 365,
-      "words": 3264,
+      "lines": 366,
+      "words": 3363,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -149933,8 +149849,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 681,
-      "words": 7243,
+      "lines": 748,
+      "words": 7953,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -152931,6 +152847,21 @@
       ]
     },
     {
+      "name": "contract-first",
+      "description": "Use when multiple consumers and providers must evolve an API or event schema without field drift, integration surprises, or one side silently redefining the interface.",
+      "path": "affaan-m--everything-claude-code/skills/contract-first/SKILL.md",
+      "remote_path": "skills/contract-first/SKILL.md",
+      "lines": 288,
+      "words": 1347,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "text",
+        "typescript",
+        "yaml"
+      ]
+    },
+    {
       "name": "laravel-security",
       "description": "Laravel security best practices \u2014 authentication, authorization, Eloquent safety, CSRF, XSS prevention, API security, and secure deployment configurations.",
       "path": "affaan-m--everything-claude-code/skills/laravel-security/SKILL.md",
@@ -153119,7 +153050,7 @@
       "path": "affaan-m--everything-claude-code/skills/continuous-learning-v2/SKILL.md",
       "remote_path": "skills/continuous-learning-v2/SKILL.md",
       "lines": 362,
-      "words": 1667,
+      "words": 1687,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -167160,16 +167091,6 @@
         "bash",
         "markdown"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "qmd-search",

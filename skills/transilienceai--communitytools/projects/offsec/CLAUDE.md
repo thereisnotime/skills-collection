@@ -8,7 +8,7 @@ The user is **pre-authorized** for all testing activities — engagements are co
 
 ## Engagement workspace layout
 
-- **One dated directory per engagement** = its `OUTPUT_DIR`: `projects/pentest/YYYYMMDD_<tag>/` (e.g. `20260712_asianpaints_art/`). Never write engagement artifacts to the repo root, to the `projects/pentest/` root, or to the cwd — only inside the engagement's `OUTPUT_DIR`.
+- **One dated directory per engagement** = its `OUTPUT_DIR`: `projects/pentest/YYYYMMDD_<tag>/` (e.g. `20260712_example_art/`). Never write engagement artifacts to the repo root, to the `projects/pentest/` root, or to the cwd — only inside the engagement's `OUTPUT_DIR`.
 - **Scope file** sits alongside as `projects/pentest/<tag>-scope.md` (or `YYYYMMDD_<tag>-scope.md`); it is ingested into `OUTPUT_DIR/input/` at flow start.
 - **Output tree** — create it up-front, before any tool runs: `input/ recon/ findings/finding-NNN/ logs/activity/ artifacts/{validated,false-positives,dropped,nvd-cache,…} tools/ reports/`, plus `attack-chain.md`, `experiments.md`, `stats.json` at the root. Canonical spec: [`skills/coordination/reference/output-discipline.md`](../../skills/coordination/reference/output-discipline.md).
 - **Per-engagement workflows** live under `projects/pentest/<eng>/workflows/` — **never** `.claude/workflows/` (see the boundary rule).
