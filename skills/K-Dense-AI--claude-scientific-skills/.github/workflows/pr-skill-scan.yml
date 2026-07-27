@@ -78,7 +78,7 @@ jobs:
         id: scan
         env:
           SKILL_SCANNER_LLM_API_KEY: ${{ secrets.SKILL_SCANNER_LLM_API_KEY }}
-          SKILL_SCANNER_LLM_MODEL: ${{ vars.SKILL_SCANNER_LLM_MODEL || 'claude-sonnet-4-6' }}
+          SKILL_SCANNER_LLM_MODEL: ${{ vars.SKILL_SCANNER_LLM_MODEL || 'claude-opus-5' }}
         run: |
           uv run python scan_pr_skills.py \
             --output pr_scan_comment.md \

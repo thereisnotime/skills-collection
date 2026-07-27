@@ -16,6 +16,79 @@ FULL = json.loads(FULL_PATH.read_text(encoding="utf-8"))
 ROLES = ("eic", "methodology", "domain", "perspective", "da")
 
 
+@pytest.mark.parametrize(
+    "anchor",
+    (
+        "absence: x",
+        "absence: Methods — expected ethics;checked appendix",
+        "absence: Methods — expected ethics;  checked appendix",
+        "absence: Methods — expected ; checked appendix — expected ethics; checked supplement",
+        "absence: Methods; checked appendix — expected ethics",
+        "equation: Eq. ]3[",
+        "absence: Methods — expected ethics; checked appendix]",
+        "[absence: Methods — expected ethics; checked appendix",
+        "text: §References, six DOI strings in list order",
+        '[ text: §5 "short exact quote" ]',
+        '` text: §5 "short exact quote" `',
+        '`text: §5 "short exact quote"',
+        'text: §5 "short exact quote"`',
+        'text: §5 "short exact quote"]',
+        'text: §5 "short exact quote"`]',
+        '[text: §5 "short exact quote"] trailing]',
+        '[[text: §5 "short exact quote"]]',
+        '``text: §5 "short exact quote"``',
+        'text: §5 "short exact quote”',
+        'text: §5 “short exact quote"',
+        'text: §5 "outer “inner”',
+        'text: §5 “outer "inner”"',
+        "text: §5 “outer “” tail”",
+    ),
+)
+def test_shared_anchor_validator_rejects_incomplete_or_unpaired_shapes(anchor):
+    with pytest.raises(cps.ReportError, match="ANCHOR-INVALID"):
+        cps.validate_evidence_anchor(anchor, "probe")
+
+
+@pytest.mark.parametrize(
+    "anchor",
+    (
+        "absence: Methods — expected an ethics statement; checked Methods, appendix",
+        '`text: §5 "short exact quote"`',
+        "text: §5 “short exact quote”",
+        "equation: Eq. [3]",
+        "table: Table 2 [Panel B]",
+        "[equation: Eq. [3]]",
+        'text: §4 "short quote" [emphasis added]',
+        'text: §3 "short quote" per `df`',
+        '`text: §3 "short quote" per `df``',
+        "text: §2 “the term “quality culture” is undefined”",
+        'text: §2 "he said “quality culture” often"',
+    ),
+)
+def test_shared_anchor_validator_accepts_complete_paired_shapes(anchor):
+    cps.validate_evidence_anchor(anchor, "inverse")
+
+
+def test_shared_anchor_validator_checks_nested_quote_word_limit_per_pair():
+    words_25 = " ".join(["word"] * 25)
+    words_26 = " ".join(["word"] * 26)
+    cps.validate_evidence_anchor(
+        f"text: §2 ““{words_25}””",
+        "nested-25-word-boundary",
+    )
+    with pytest.raises(cps.ReportError, match="at most 25 words"):
+        cps.validate_evidence_anchor(
+            f"text: §2 ““{words_26}””",
+            "nested-26-word-boundary",
+        )
+    outer_words = " ".join(["outer"] * 24)
+    with pytest.raises(cps.ReportError, match="at most 25 words"):
+        cps.validate_evidence_anchor(
+            f"text: §2 “{outer_words} “inner” tail”",
+            "nested-differential-outer-26-inner-1",
+        )
+
+
 def state(value: str) -> cps.DimensionScore:
     if value == "fatal":
         return cps.DimensionScore("block", "fatal", "fatal trigger")
@@ -531,6 +604,155 @@ def test_da_trailing_row_without_outer_pipes_fails_in_synthesis_path():
         cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
 
 
+def test_da_pre_table_prose_passes_in_synthesis_path():
+    panel_reports = reports(da_ids=("C1",))
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text = da_report.text.replace(
+        "#### CRITICAL",
+        "Ordinary adversarial commentary precedes the terminal tables.\n\n"
+        "#### CRITICAL",
+        1,
+    )
+    synthesis_text, expressions = synthesis_for(
+        panel_reports, {"C1": "VALIDATED"}, marker_count=1
+    )
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    assert cps.layer2_check(
+        panel_reports, FULL, expressions, synthesis, []
+    ) == []
+
+
+def test_da_bare_comment_closer_passes_in_synthesis_path():
+    panel_reports = reports(da_ids=("C1",))
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text = da_report.text.replace(
+        "#### CRITICAL",
+        "The reported N moves 41 --> 38 without explanation.\n\n"
+        "#### CRITICAL",
+        1,
+    ).replace(
+        'text: "quoted evidence" p. 1',
+        'text: "N moves 41 --> 38" p. 1',
+        1,
+    )
+    synthesis_text, expressions = synthesis_for(
+        panel_reports, {"C1": "VALIDATED"}, marker_count=1
+    )
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    assert cps.layer2_check(
+        panel_reports, FULL, expressions, synthesis, []
+    ) == []
+
+
+def test_da_post_critical_table_prose_fails_in_synthesis_path():
+    panel_reports = reports()
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text = da_report.text.replace(
+        "\n\n#### MAJOR",
+        "\n\n*None. Ordinary adversarial commentary.*\n\n#### MAJOR",
+        1,
+    )
+    synthesis_text, expressions = synthesis_for(panel_reports)
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    with pytest.raises(cps.ReportError, match="issue tables are terminal"):
+        cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
+
+
+_DA_TERMINAL_LATE_SURFACES = (
+    '| C2 | Late issue | text: "late quoted evidence" p. 2 |',
+    "| X9 | Bogus issue |  |",
+    (
+        "| # | Issue | Evidence Anchor |\n"
+        "|---|-------|-----------------|\n"
+        "| C9 | Shadow issue |  |"
+    ),
+    'C2 | Late issue | text: "late quoted evidence" p. 2',
+    '— | Late issue | text: "late quoted evidence"',
+    "# | Issue | Evidence Anchor",
+    "C2\nLate issue without pipes\nfigure: Figure 2",
+    "- C2\n- Late critical issue\n- figure: Figure 2",
+    "> Ordinary post-table commentary",
+    "##### Additional commentary",
+    "### Closing note\nOrdinary late prose",
+)
+
+
+@pytest.mark.parametrize(
+    "late_surface",
+    _DA_TERMINAL_LATE_SURFACES,
+)
+def test_da_post_boundary_table_surfaces_fail_in_synthesis_path(
+    late_surface,
+):
+    panel_reports = reports(da_ids=("C1",))
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text = da_report.text.replace(
+        "\n\n#### MAJOR",
+        f"\n\n{late_surface}\n\n#### MAJOR",
+        1,
+    )
+    synthesis_text, expressions = synthesis_for(
+        panel_reports, {"C1": "VALIDATED"}, marker_count=1
+    )
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    with pytest.raises(cps.ReportError, match="issue tables are terminal"):
+        cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
+
+
+@pytest.mark.parametrize("late_surface", _DA_TERMINAL_LATE_SURFACES)
+def test_da_post_major_table_surfaces_fail_in_synthesis_path(
+    late_surface,
+):
+    panel_reports = reports(da_ids=("C1",))
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text += f"\n\n{late_surface}"
+    synthesis_text, expressions = synthesis_for(
+        panel_reports, {"C1": "VALIDATED"}, marker_count=1
+    )
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    with pytest.raises(cps.ReportError, match="issue tables are terminal"):
+        cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
+
+
+def test_da_fenced_payload_after_major_fails_in_synthesis_path():
+    panel_reports = reports(da_ids=("C1",))
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text += (
+        "\n\n```markdown\n"
+        '| C2 | Hidden critical issue | text: "hidden evidence" p. 2 |\n'
+        "```"
+    )
+    synthesis_text, expressions = synthesis_for(
+        panel_reports, {"C1": "VALIDATED"}, marker_count=1
+    )
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    with pytest.raises(cps.ReportError, match="issue tables are terminal"):
+        cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
+
+
+def test_da_html_comment_inside_fence_fails_in_synthesis_path():
+    panel_reports = reports()
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text += "\n\n```\n<!-- hidden adjudication payload -->\n```"
+    synthesis_text, expressions = synthesis_for(panel_reports)
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    with pytest.raises(cps.ReportError, match="HTML comments are forbidden"):
+        cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
+
+
+def test_da_html_commented_tables_fail_in_synthesis_path():
+    panel_reports = reports()
+    da_report = next(report for report in panel_reports if report.role == "da")
+    da_report.text = da_report.text.replace(
+        "#### CRITICAL", "<!--\n#### CRITICAL", 1
+    )
+    da_report.text += "\n-->"
+    synthesis_text, expressions = synthesis_for(panel_reports)
+    synthesis = cps.parse_synthesis("s.md", synthesis_text, FULL)
+    with pytest.raises(cps.ReportError, match="HTML comments are forbidden"):
+        cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
+
+
 @pytest.mark.parametrize(
     "old,new,fragment",
     [
@@ -831,7 +1053,7 @@ def test_da_escaped_pipe_cell_evasion_fails_synthesis():
     )
     text, expressions = synthesis_for(panel_reports)
     synthesis = cps.parse_synthesis("s.md", text, FULL)
-    with pytest.raises(cps.ReportError, match="unexpected issue-table"):
+    with pytest.raises(cps.ReportError, match="HTML comments are forbidden"):
         cps.layer2_check(panel_reports, FULL, expressions, synthesis, [])
 
 
@@ -845,6 +1067,38 @@ def test_da_canonical_rows_allow_escaped_pipes():
     critical, major = cps.parse_da_tables(text, "da.md")
     assert list(critical) == ["C1"]
     assert major == ['text: "quoted evidence" p. 1']
+
+
+def test_da_repeated_absence_separators_fail_in_synthesis_path():
+    malformed = (
+        "absence: Methods — expected ; checked appendix "
+        "— expected ethics; checked supplement"
+    )
+    text = report_text("da", da_ids=("C1",)).replace(
+        'text: "quoted evidence" p. 1',
+        malformed,
+        1,
+    )
+    with pytest.raises(cps.ReportError, match="ANCHOR-INVALID"):
+        cps.parse_da_tables(text, "da.md")
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    (
+        "absence: Methods; checked appendix — expected ethics",
+        '[ text: §5 "short exact quote" ]',
+        "equation: Eq. ]3[",
+    ),
+)
+def test_da_misordered_absence_or_padded_wrapper_fails_synthesis(malformed):
+    text = report_text("da", da_ids=("C1",)).replace(
+        'text: "quoted evidence" p. 1',
+        malformed,
+        1,
+    )
+    with pytest.raises(cps.ReportError, match="ANCHOR-INVALID"):
+        cps.parse_da_tables(text, "da.md")
 
 
 @pytest.mark.parametrize(

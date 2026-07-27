@@ -453,8 +453,8 @@
       "description": "\"Dependency injection in Golang using samber/do \u2014 service containers, lifecycle management, scopes, health checks, graceful shutdown, and module organization. Apply when using or adopting samber/do, w",
       "path": "samber--cc-skills-golang/skills/golang-samber-do/SKILL.md",
       "remote_path": "skills/golang-samber-do/SKILL.md",
-      "lines": 223,
-      "words": 903,
+      "lines": 227,
+      "words": 1081,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -504,8 +504,8 @@
       "description": "\"Recommends production-ready Golang libraries and frameworks. Apply when the user explicitly asks for library suggestions, wants to compare alternatives, needs to choose a library for a specific task,",
       "path": "samber--cc-skills-golang/skills/golang-popular-libraries/SKILL.md",
       "remote_path": "skills/golang-popular-libraries/SKILL.md",
-      "lines": 71,
-      "words": 573,
+      "lines": 72,
+      "words": 583,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -11965,8 +11965,8 @@
       "description": "\"Peer Reviewer 3; evaluates cross-disciplinary relevance, broader impact, and alternative interpretations\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
-      "lines": 358,
-      "words": 3111,
+      "lines": 378,
+      "words": 4069,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -11989,8 +11989,8 @@
       "description": "\"Peer Reviewer 1; assesses methodological soundness, research design validity, and statistical rigor\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
-      "lines": 323,
-      "words": 2783,
+      "lines": 343,
+      "words": 3741,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12013,8 +12013,8 @@
       "description": "\"Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
-      "lines": 343,
-      "words": 3109,
+      "lines": 363,
+      "words": 4067,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12025,8 +12025,8 @@
       "description": "\"Challenges core arguments and logical coherence as the devils advocate reviewer in the editorial panel\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
-      "lines": 376,
-      "words": 4553,
+      "lines": 396,
+      "words": 5542,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12037,8 +12037,8 @@
       "description": "\"Editor-in-Chief seat; contributes the journal-fit / originality / overall-quality review card \u2014 the final editorial decision is editorial_synthesizer_agent's Phase 2 work\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
-      "lines": 269,
-      "words": 2522,
+      "lines": 289,
+      "words": 3480,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12270,6 +12270,20 @@
   ],
   "K-Dense-AI--claude-scientific-skills": [
     {
+      "name": "uncertainty-and-units",
+      "description": "Track physical units and propagate measurement uncertainty in scientific calculations using pint and uncertainties. Use for unit conversion and dimensional checking, GUM uncertainty budgets, Type A an",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/uncertainty-and-units/SKILL.md",
+      "remote_path": "skills/uncertainty-and-units/SKILL.md",
+      "lines": 385,
+      "words": 2534,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "python"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "hypothesis-generation",
       "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/hypothesis-generation/SKILL.md",
@@ -12287,8 +12301,8 @@
       "description": "Analyze, manipulate, compare, annotate, and visualize phylogenetic or other hierarchical trees with ETE 4. Use for Newick/Nexus tree I/O, topology edits and pattern matching, Robinson-Foulds compariso",
       "path": "K-Dense-AI--claude-scientific-skills/skills/etetoolkit/SKILL.md",
       "remote_path": "skills/etetoolkit/SKILL.md",
-      "lines": 333,
-      "words": 1277,
+      "lines": 328,
+      "words": 1272,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -12301,7 +12315,7 @@
       "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pptx/SKILL.md",
       "remote_path": "skills/pptx/SKILL.md",
-      "lines": 244,
+      "lines": 247,
       "words": 3157,
       "code_blocks": 5,
       "languages": [
@@ -12314,8 +12328,8 @@
       "description": "Create and audit truthful, accessible, publication-ready scientific figures with Matplotlib, Seaborn, or Plotly. Use for figure design, multi-panel layouts, uncertainty and missing-data displays, colo",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-visualization/SKILL.md",
       "remote_path": "skills/scientific-visualization/SKILL.md",
-      "lines": 292,
-      "words": 1575,
+      "lines": 286,
+      "words": 1569,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -12328,8 +12342,8 @@
       "description": "Interact with Zotero reference management libraries using the pyzotero Python client. Retrieve, create, update, and delete items, collections, tags, and attachments via the Zotero Web API v3. Use this",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pyzotero/SKILL.md",
       "remote_path": "skills/pyzotero/SKILL.md",
-      "lines": 125,
-      "words": 679,
+      "lines": 138,
+      "words": 649,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -12356,7 +12370,7 @@
       "description": "Use when working with LaminDB, the open-source lineage-native lakehouse for biological datasets and models. Covers setup, artifact registration, query/search, lineage tracking, validation, ontology-ba",
       "path": "K-Dense-AI--claude-scientific-skills/skills/lamindb/SKILL.md",
       "remote_path": "skills/lamindb/SKILL.md",
-      "lines": 407,
+      "lines": 409,
       "words": 1915,
       "code_blocks": 4,
       "languages": [
@@ -12369,7 +12383,7 @@
       "description": "Guided statistical analysis for research data - test selection, assumption checking, effect sizes, power analysis, Bayesian alternatives, and APA-formatted reporting. Use whenever a user wants to comp",
       "path": "K-Dense-AI--claude-scientific-skills/skills/statistical-analysis/SKILL.md",
       "remote_path": "skills/statistical-analysis/SKILL.md",
-      "lines": 445,
+      "lines": 447,
       "words": 2704,
       "code_blocks": 14,
       "languages": [
@@ -12383,8 +12397,8 @@
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-skills/skills/parallel-web/SKILL.md",
       "remote_path": "skills/parallel-web/SKILL.md",
-      "lines": 121,
-      "words": 877,
+      "lines": 129,
+      "words": 878,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -12396,7 +12410,7 @@
       "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
       "path": "K-Dense-AI--claude-scientific-skills/skills/xlsx/SKILL.md",
       "remote_path": "skills/xlsx/SKILL.md",
-      "lines": 107,
+      "lines": 111,
       "words": 1274,
       "code_blocks": 1,
       "languages": [
@@ -12423,7 +12437,7 @@
       "description": "Infer gene regulatory networks (GRNs) from gene expression data using scalable algorithms (GRNBoost2, GENIE3). Use when analyzing transcriptomics data (bulk RNA-seq, single-cell RNA-seq) to identify t",
       "path": "K-Dense-AI--claude-scientific-skills/skills/arboreto/SKILL.md",
       "remote_path": "skills/arboreto/SKILL.md",
-      "lines": 266,
+      "lines": 268,
       "words": 919,
       "code_blocks": 16,
       "languages": [
@@ -12437,8 +12451,8 @@
       "description": "\"Web toolkit powered by Exa, tuned for scientific and technical content. Use this skill when the user needs to search the web or fetch/extract URL content. Covers: web search (semantic lookups, resear",
       "path": "K-Dense-AI--claude-scientific-skills/skills/exa-search/SKILL.md",
       "remote_path": "skills/exa-search/SKILL.md",
-      "lines": 94,
-      "words": 715,
+      "lines": 103,
+      "words": 705,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -12464,7 +12478,7 @@
       "description": "Search scientific papers and retrieve structured experimental data extracted from full-text studies via the BGPT MCP server. Returns 25+ fields per paper including methods, results, sample sizes, qual",
       "path": "K-Dense-AI--claude-scientific-skills/skills/bgpt-paper-search/SKILL.md",
       "remote_path": "skills/bgpt-paper-search/SKILL.md",
-      "lines": 72,
+      "lines": 76,
       "words": 400,
       "code_blocks": 3,
       "languages": [
@@ -12478,9 +12492,9 @@
       "description": "NGS analysis toolkit. BAM to bigWig conversion, QC (correlation, PCA, fingerprints), heatmaps/profiles (TSS, peaks), for ChIP-seq, RNA-seq, ATAC-seq visualization.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/deeptools/SKILL.md",
       "remote_path": "skills/deeptools/SKILL.md",
-      "lines": 537,
-      "words": 2377,
-      "code_blocks": 15,
+      "lines": 413,
+      "words": 1935,
+      "code_blocks": 9,
       "languages": [
         "bash"
       ],
@@ -12491,8 +12505,8 @@
       "description": "Unified Python interface to 40+ bioinformatics services. Use when querying multiple databases (UniProt, KEGG, ChEMBL, Reactome) in a single workflow with consistent API. Best for cross-database analys",
       "path": "K-Dense-AI--claude-scientific-skills/skills/bioservices/SKILL.md",
       "remote_path": "skills/bioservices/SKILL.md",
-      "lines": 386,
-      "words": 1416,
+      "lines": 392,
+      "words": 1405,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -12505,7 +12519,7 @@
       "description": "Build, run, and debug Nextflow data pipelines and nf-core workflows end to end. Use whenever the user mentions Nextflow, nf-core, .nf files, nextflow.config, DSL2, processes/channels/operators, sample",
       "path": "K-Dense-AI--claude-scientific-skills/skills/nextflow/SKILL.md",
       "remote_path": "skills/nextflow/SKILL.md",
-      "lines": 194,
+      "lines": 196,
       "words": 1576,
       "code_blocks": 5,
       "languages": [
@@ -12519,8 +12533,8 @@
       "description": "Use when the user is doing AI/ML work in a scientific domain such as biology, chemistry, physics, astronomy, climate, genomics, materials, medicine, ecology, energy, engineering, math, drug discovery,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/hugging-science/SKILL.md",
       "remote_path": "skills/hugging-science/SKILL.md",
-      "lines": 131,
-      "words": 1419,
+      "lines": 133,
+      "words": 1475,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -12532,9 +12546,9 @@
       "description": "Standard single-cell RNA-seq analysis pipeline. Use for QC, normalization, dimensionality reduction (PCA/UMAP/t-SNE), clustering, differential expression, visualization, and converting R-friendly sing",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scanpy/SKILL.md",
       "remote_path": "skills/scanpy/SKILL.md",
-      "lines": 512,
-      "words": 2435,
-      "code_blocks": 25,
+      "lines": 304,
+      "words": 1947,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "python"
@@ -12546,7 +12560,7 @@
       "description": "PyTorch Geometric (PyG) for graph neural networks \u2014 node/link/graph classification, message passing (GCN, GAT, GraphSAGE, GIN), heterogeneous graphs, neighbor sampling, and custom datasets. Use when w",
       "path": "K-Dense-AI--claude-scientific-skills/skills/torch-geometric/SKILL.md",
       "remote_path": "skills/torch-geometric/SKILL.md",
-      "lines": 457,
+      "lines": 459,
       "words": 2120,
       "code_blocks": 20,
       "languages": [
@@ -12560,12 +12574,11 @@
       "description": "Statistical models library for Python. Use when you need specific model classes (OLS, GLM, mixed models, ARIMA) with detailed diagnostics, residuals, and inference. Best for econometrics, time series,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/statsmodels/SKILL.md",
       "remote_path": "skills/statsmodels/SKILL.md",
-      "lines": 628,
-      "words": 2459,
-      "code_blocks": 10,
+      "lines": 239,
+      "words": 1209,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "python"
+        "bash"
       ],
       "license": "BSD-3-Clause license"
     },
@@ -12574,9 +12587,9 @@
       "description": "Differential gene expression analysis for bulk RNA-seq with PyDESeq2, including formulaic designs, Wald tests, FDR correction, LFC shrinkage, and result visualization.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pydeseq2/SKILL.md",
       "remote_path": "skills/pydeseq2/SKILL.md",
-      "lines": 577,
-      "words": 1971,
-      "code_blocks": 24,
+      "lines": 370,
+      "words": 1326,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "python"
@@ -12601,7 +12614,7 @@
       "description": "Query the Precision Medicine Knowledge Graph (PrimeKG) for multiscale biological data including genes, drugs, diseases, phenotypes, and more.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/primekg/SKILL.md",
       "remote_path": "skills/primekg/SKILL.md",
-      "lines": 97,
+      "lines": 99,
       "words": 467,
       "code_blocks": 3,
       "languages": [
@@ -12614,7 +12627,7 @@
       "description": "Comprehensive markdown and Mermaid diagram writing skill. Use when creating any scientific document, report, analysis, or visualization. Establishes text-based diagrams as the default documentation st",
       "path": "K-Dense-AI--claude-scientific-skills/skills/markdown-mermaid-writing/SKILL.md",
       "remote_path": "skills/markdown-mermaid-writing/SKILL.md",
-      "lines": 318,
+      "lines": 323,
       "words": 2074,
       "code_blocks": 7,
       "languages": [
@@ -12627,7 +12640,7 @@
       "description": "Run and analyze molecular dynamics simulations with OpenMM and MDAnalysis. Set up protein/small molecule systems, define force fields, run energy minimization and production MD, analyze trajectories (",
       "path": "K-Dense-AI--claude-scientific-skills/skills/molecular-dynamics/SKILL.md",
       "remote_path": "skills/molecular-dynamics/SKILL.md",
-      "lines": 457,
+      "lines": 459,
       "words": 1418,
       "code_blocks": 11,
       "languages": [
@@ -12637,25 +12650,12 @@
       "license": "MIT"
     },
     {
-      "name": "iso-13485-certification",
-      "description": "Prepare and structurally review ISO 13485 QMS scope, controlled documentation, and local evidence manifests. Use for ISO 13485 certification-readiness documentation or for separating related FDA QMSR,",
-      "path": "K-Dense-AI--claude-scientific-skills/skills/iso-13485-certification/SKILL.md",
-      "remote_path": "skills/iso-13485-certification/SKILL.md",
-      "lines": 300,
-      "words": 1406,
-      "code_blocks": 8,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
       "name": "database-lookup",
       "description": "Query documented public database APIs with explicit endpoints, filters, pagination, and provenance. Use when a scientific, regulatory, financial, or other database-backed fact must be retrieved reprod",
       "path": "K-Dense-AI--claude-scientific-skills/skills/database-lookup/SKILL.md",
       "remote_path": "skills/database-lookup/SKILL.md",
-      "lines": 534,
-      "words": 5318,
+      "lines": 387,
+      "words": 3790,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -12681,9 +12681,9 @@
       "description": "Machine learning in Python with scikit-learn. Use when working with supervised learning (classification, regression), unsupervised learning (clustering, dimensionality reduction), model evaluation, hy",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scikit-learn/SKILL.md",
       "remote_path": "skills/scikit-learn/SKILL.md",
-      "lines": 533,
-      "words": 1769,
-      "code_blocks": 23,
+      "lines": 325,
+      "words": 1117,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "python"
@@ -12695,7 +12695,7 @@
       "description": "Deep generative models for single-cell omics. Use when you need probabilistic batch correction (scVI), transfer learning, differential expression with uncertainty, or multi-modal integration (TOTALVI,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scvi-tools/SKILL.md",
       "remote_path": "skills/scvi-tools/SKILL.md",
-      "lines": 200,
+      "lines": 202,
       "words": 928,
       "code_blocks": 5,
       "languages": [
@@ -12709,8 +12709,8 @@
       "description": "\"Predict regulatory features, gene structure, and expression directly from DNA sequence using Genomic Intelligence's hosted transformer DNA language models \u2014 no local GPU or model weights. Six tasks o",
       "path": "K-Dense-AI--claude-scientific-skills/skills/genomic-intelligence/SKILL.md",
       "remote_path": "skills/genomic-intelligence/SKILL.md",
-      "lines": 236,
-      "words": 1646,
+      "lines": 244,
+      "words": 1615,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -12723,7 +12723,7 @@
       "description": "Biological data toolkit. Sequence analysis, alignments, phylogenetic trees, diversity metrics (alpha/beta, UniFrac), ordination (PCoA), PERMANOVA, FASTA/Newick I/O, for microbiome analysis.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scikit-bio/SKILL.md",
       "remote_path": "skills/scikit-bio/SKILL.md",
-      "lines": 469,
+      "lines": 471,
       "words": 2320,
       "code_blocks": 11,
       "languages": [
@@ -12737,7 +12737,7 @@
       "description": "High-performance DataFrame library for Python ETL, analytics, and pandas migration. Use for expression-based data manipulation with lazy query optimization, parallel execution, streaming out-of-core p",
       "path": "K-Dense-AI--claude-scientific-skills/skills/polars/SKILL.md",
       "remote_path": "skills/polars/SKILL.md",
-      "lines": 392,
+      "lines": 394,
       "words": 1148,
       "code_blocks": 25,
       "languages": [
@@ -12751,12 +12751,11 @@
       "description": "Rowan is a cloud-native molecular modeling and medicinal-chemistry workflow platform with a Python API. Use for pKa and macropKa prediction, conformer and tautomer ensembles, docking and analogue dock",
       "path": "K-Dense-AI--claude-scientific-skills/skills/rowan/SKILL.md",
       "remote_path": "skills/rowan/SKILL.md",
-      "lines": 1087,
-      "words": 4410,
-      "code_blocks": 39,
+      "lines": 382,
+      "words": 1632,
+      "code_blocks": 16,
       "languages": [
         "bash",
-        "json",
         "python",
         "text"
       ],
@@ -12767,8 +12766,8 @@
       "description": "Self-hosted, open-source alternative to Google NotebookLM for AI-powered research and document analysis. Use when organizing research materials into notebooks, ingesting diverse content sources (PDFs,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/open-notebook/SKILL.md",
       "remote_path": "skills/open-notebook/SKILL.md",
-      "lines": 285,
-      "words": 1300,
+      "lines": 297,
+      "words": 1266,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -12777,13 +12776,26 @@
       "license": "MIT"
     },
     {
+      "name": "ontology-term-resolution",
+      "description": "Resolve free-text scientific labels to ontology term IDs and validate existing CURIEs against the EBI Ontology Lookup Service (OLS4). Use whenever an ontology identifier must be produced or checked - ",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/ontology-term-resolution/SKILL.md",
+      "remote_path": "skills/ontology-term-resolution/SKILL.md",
+      "lines": 148,
+      "words": 1136,
+      "code_blocks": 6,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "cellxgene-census",
       "description": "Query the CZ CELLxGENE Census programmatically for versioned public single-cell and spatial transcriptomics data. Use when you need population-scale cell metadata, gene expression slices, Census summa",
       "path": "K-Dense-AI--claude-scientific-skills/skills/cellxgene-census/SKILL.md",
       "remote_path": "skills/cellxgene-census/SKILL.md",
-      "lines": 560,
-      "words": 2057,
-      "code_blocks": 26,
+      "lines": 284,
+      "words": 1242,
+      "code_blocks": 14,
       "languages": [
         "bash",
         "python"
@@ -12809,8 +12821,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-skills/skills/research-lookup/SKILL.md",
       "remote_path": "skills/research-lookup/SKILL.md",
-      "lines": 328,
-      "words": 1751,
+      "lines": 339,
+      "words": 1753,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -12837,9 +12849,9 @@
       "description": "Use when you need exact symbolic math in Python \u2014 algebra, calculus, equation solving, symbolic linear algebra, or code generation via lambdify/LaTeX. Prefer NumPy or SciPy when floating-point approxi",
       "path": "K-Dense-AI--claude-scientific-skills/skills/sympy/SKILL.md",
       "remote_path": "skills/sympy/SKILL.md",
-      "lines": 519,
-      "words": 1866,
-      "code_blocks": 36,
+      "lines": 355,
+      "words": 1293,
+      "code_blocks": 19,
       "languages": [
         "bash",
         "python"
@@ -12851,8 +12863,8 @@
       "description": "Author, review, migrate, simulate, and troubleshoot official Opentrons Python Protocol API v2 protocols for Flex and OT-2 robots. Use for robot-specific liquid handling, deck and labware setup, pipett",
       "path": "K-Dense-AI--claude-scientific-skills/skills/opentrons-integration/SKILL.md",
       "remote_path": "skills/opentrons-integration/SKILL.md",
-      "lines": 327,
-      "words": 1674,
+      "lines": 323,
+      "words": 1670,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -12865,8 +12877,8 @@
       "description": "Build, review, migrate, and safely plan MATLAB or GNU Octave numerical workflows, including arrays, tabular/time data, tests, projects, graphics, MAT files, and explicit Python interoperability.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/matlab/SKILL.md",
       "remote_path": "skills/matlab/SKILL.md",
-      "lines": 280,
-      "words": 1708,
+      "lines": 275,
+      "words": 1703,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -12879,9 +12891,9 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-slides/SKILL.md",
       "remote_path": "skills/scientific-slides/SKILL.md",
-      "lines": 1155,
-      "words": 6401,
-      "code_blocks": 23,
+      "lines": 380,
+      "words": 2596,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "markdown"
@@ -12893,11 +12905,10 @@
       "description": "\"GPU-accelerate Python code using CuPy, Numba CUDA, Warp, cuDF, cuML, cuGraph, KvikIO, cuCIM, cuxfilter, cuVS, cuSpatial, and RAFT. Use whenever the user mentions GPU/CUDA/NVIDIA acceleration, or want",
       "path": "K-Dense-AI--claude-scientific-skills/skills/optimize-for-gpu/SKILL.md",
       "remote_path": "skills/optimize-for-gpu/SKILL.md",
-      "lines": 708,
-      "words": 4765,
-      "code_blocks": 15,
+      "lines": 138,
+      "words": 1396,
+      "code_blocks": 1,
       "languages": [
-        "bash",
         "python"
       ]
     },
@@ -12906,8 +12917,8 @@
       "description": "Access a collection of open-source molecular design and structural biology tools on the Tamarind Bio platform, via its REST API or MCP server \u2014 no local GPUs required. Tamarind bundles popular open-so",
       "path": "K-Dense-AI--claude-scientific-skills/skills/tamarind/SKILL.md",
       "remote_path": "skills/tamarind/SKILL.md",
-      "lines": 278,
-      "words": 3441,
+      "lines": 286,
+      "words": 3426,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -12920,12 +12931,11 @@
       "description": ">",
       "path": "K-Dense-AI--claude-scientific-skills/skills/bids/SKILL.md",
       "remote_path": "skills/bids/SKILL.md",
-      "lines": 756,
-      "words": 3834,
-      "code_blocks": 24,
+      "lines": 238,
+      "words": 2032,
+      "code_blocks": 3,
       "languages": [
         "bash",
-        "json",
         "python"
       ],
       "license": "https://creativecommons.org/licenses/by/4.0/"
@@ -12935,8 +12945,8 @@
       "description": "Observe the user's screen via screenpipe, detect repeated research workflows, match them against existing scientific-agent-skills, and draft new skills (or composition recipes that chain existing ones",
       "path": "K-Dense-AI--claude-scientific-skills/skills/autoskill/SKILL.md",
       "remote_path": "skills/autoskill/SKILL.md",
-      "lines": 219,
-      "words": 1563,
+      "lines": 234,
+      "words": 1531,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -12949,9 +12959,9 @@
       "description": "Pythonic wrapper around RDKit with simplified interface and sensible defaults. Preferred for standard drug discovery including SMILES parsing, standardization, descriptors, fingerprints, clustering, 3",
       "path": "K-Dense-AI--claude-scientific-skills/skills/datamol/SKILL.md",
       "remote_path": "skills/datamol/SKILL.md",
-      "lines": 724,
-      "words": 2354,
-      "code_blocks": 41,
+      "lines": 201,
+      "words": 998,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "python"
@@ -12963,7 +12973,7 @@
       "description": "Chat with your agent about projects, recommendations, and canonical papers in Paperzilla. Use when users ask for recent project recommendations, canonical paper details, markdown-based summaries, reco",
       "path": "K-Dense-AI--claude-scientific-skills/skills/paperzilla/SKILL.md",
       "remote_path": "skills/paperzilla/SKILL.md",
-      "lines": 158,
+      "lines": 160,
       "words": 519,
       "code_blocks": 13,
       "languages": [
@@ -12990,7 +13000,7 @@
       "description": "End-to-end bulk RNA-seq orchestrator \u2014 takes raw FASTQ reads through QC and trimming (FastQC, fastp/Trim Galore), alignment and quantification (STAR, Salmon, featureCounts), assembles a gene-level cou",
       "path": "K-Dense-AI--claude-scientific-skills/skills/bulk-rnaseq/SKILL.md",
       "remote_path": "skills/bulk-rnaseq/SKILL.md",
-      "lines": 197,
+      "lines": 199,
       "words": 1864,
       "code_blocks": 5,
       "languages": [
@@ -13004,8 +13014,8 @@
       "description": "Low-level plotting library for full customization. Use when you need fine-grained control over every plot element, creating novel plot types, or integrating with specific scientific workflows. Export ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/matplotlib/SKILL.md",
       "remote_path": "skills/matplotlib/SKILL.md",
-      "lines": 380,
-      "words": 1484,
+      "lines": 379,
+      "words": 1481,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -13033,7 +13043,7 @@
       "description": "Constraint-based metabolic modeling (COBRA). FBA, FVA, gene knockouts, flux sampling, SBML models, for systems biology and metabolic engineering analysis.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/cobrapy/SKILL.md",
       "remote_path": "skills/cobrapy/SKILL.md",
-      "lines": 495,
+      "lines": 497,
       "words": 1642,
       "code_blocks": 22,
       "languages": [
@@ -13044,11 +13054,11 @@
     },
     {
       "name": "pi-agent",
-      "description": "Build with and use Pi, the minimal terminal coding harness. Use for installing Pi, configuring providers/models/settings, creating Pi skills/extensions/packages/themes/prompt templates, embedding Pi t",
+      "description": "Build with and use Pi, the minimal terminal coding harness. Use for installing Pi, configuring providers/models/settings/environment variables, creating Pi skills/extensions/packages/themes/prompt tem",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pi-agent/SKILL.md",
       "remote_path": "skills/pi-agent/SKILL.md",
-      "lines": 74,
-      "words": 644,
+      "lines": 83,
+      "words": 756,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -13060,9 +13070,9 @@
       "description": "Bayesian modeling with PyMC. Build hierarchical models, MCMC (NUTS), variational inference, LOO/WAIC comparison, posterior checks, for probabilistic programming and inference.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pymc/SKILL.md",
       "remote_path": "skills/pymc/SKILL.md",
-      "lines": 589,
-      "words": 2032,
-      "code_blocks": 25,
+      "lines": 311,
+      "words": 1262,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "python"
@@ -13074,8 +13084,8 @@
       "description": "Hardware-agnostic quantum ML framework with automatic differentiation. Use when training quantum circuits via gradients, building hybrid quantum-classical models, or needing device portability across ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pennylane/SKILL.md",
       "remote_path": "skills/pennylane/SKILL.md",
-      "lines": 242,
-      "words": 959,
+      "lines": 241,
+      "words": 956,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -13088,7 +13098,7 @@
       "description": "Deep learning framework (PyTorch Lightning / lightning package). Organize PyTorch code into LightningModules, configure Trainers for multi-GPU/TPU, implement data pipelines, callbacks, logging (W&B, T",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pytorch-lightning/SKILL.md",
       "remote_path": "skills/pytorch-lightning/SKILL.md",
-      "lines": 190,
+      "lines": 192,
       "words": 852,
       "code_blocks": 5,
       "languages": [
@@ -13102,8 +13112,8 @@
       "description": "Analyze, validate, convert, and transform materials structures and computed materials data with current pymatgen APIs, including local phase diagrams, symmetry sensitivity, electronic-structure I/O, a",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pymatgen/SKILL.md",
       "remote_path": "skills/pymatgen/SKILL.md",
-      "lines": 410,
-      "words": 1702,
+      "lines": 405,
+      "words": 1697,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -13117,12 +13127,25 @@
       "description": "Run pathway and gene-set enrichment analysis on gene lists or ranked gene data, then interpret the results. Use whenever the user has a set of genes (differentially expressed genes from PyDESeq2/Scanp",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pathway-enrichment/SKILL.md",
       "remote_path": "skills/pathway-enrichment/SKILL.md",
-      "lines": 193,
+      "lines": 195,
       "words": 1678,
       "code_blocks": 5,
       "languages": [
         "bash",
         "python"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "genomic-coordinates",
+      "description": "Convert genomic intervals between coordinate conventions, normalise and compare variant representations, and detect assembly or contig-naming mismatches before they corrupt an analysis. Use whenever c",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/genomic-coordinates/SKILL.md",
+      "remote_path": "skills/genomic-coordinates/SKILL.md",
+      "lines": 190,
+      "words": 1276,
+      "code_blocks": 8,
+      "languages": [
+        "bash"
       ],
       "license": "MIT"
     },
@@ -13158,7 +13181,7 @@
       "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-skills/skills/docx/SKILL.md",
       "remote_path": "skills/docx/SKILL.md",
-      "lines": 97,
+      "lines": 100,
       "words": 1003,
       "code_blocks": 3,
       "languages": [
@@ -13171,14 +13194,11 @@
       "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
       "path": "K-Dense-AI--claude-scientific-skills/skills/citation-management/SKILL.md",
       "remote_path": "skills/citation-management/SKILL.md",
-      "lines": 1315,
-      "words": 5765,
-      "code_blocks": 37,
+      "lines": 322,
+      "words": 1638,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "bibtex",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "MIT License"
     },
@@ -13187,7 +13207,7 @@
       "description": "Build and analyze phylogenetic trees using MAFFT (multiple alignment), IQ-TREE 2 (maximum likelihood), and FastTree (fast NJ/ML). Visualize with ETE3 or FigTree. For evolutionary analysis, microbial g",
       "path": "K-Dense-AI--claude-scientific-skills/skills/phylogenetics/SKILL.md",
       "remote_path": "skills/phylogenetics/SKILL.md",
-      "lines": 404,
+      "lines": 406,
       "words": 1543,
       "code_blocks": 7,
       "languages": [
@@ -13208,11 +13228,24 @@
       "license": "MIT license"
     },
     {
+      "name": "iso-standards-readiness",
+      "description": "Prepares and structurally reviews readiness evidence for ISO management-system and laboratory-competence standards - ISO 13485 medical device QMS, ISO 14971 device risk management, ISO/IEC 17025 testi",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/iso-standards-readiness/SKILL.md",
+      "remote_path": "skills/iso-standards-readiness/SKILL.md",
+      "lines": 353,
+      "words": 1955,
+      "code_blocks": 8,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "stable-baselines3",
       "description": "Production-ready reinforcement learning algorithms (PPO, SAC, DQN, TD3, DDPG, A2C) with scikit-learn-like API. Use for standard RL experiments, quick prototyping, and well-documented algorithm impleme",
       "path": "K-Dense-AI--claude-scientific-skills/skills/stable-baselines3/SKILL.md",
       "remote_path": "skills/stable-baselines3/SKILL.md",
-      "lines": 324,
+      "lines": 326,
       "words": 1159,
       "code_blocks": 16,
       "languages": [
@@ -13222,13 +13255,28 @@
       "license": "MIT license"
     },
     {
+      "name": "openpiv",
+      "description": "Particle Image Velocimetry (PIV) analysis with OpenPIV. Use when extracting velocity fields from PIV image pairs, analyzing fluid dynamics or flow visualization experiments, cross-correlating interrog",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/openpiv/SKILL.md",
+      "remote_path": "skills/openpiv/SKILL.md",
+      "lines": 464,
+      "words": 2178,
+      "code_blocks": 19,
+      "languages": [
+        "bash",
+        "python",
+        "text"
+      ],
+      "license": "BSD-3-Clause"
+    },
+    {
       "name": "zarr-python",
       "description": "Chunked N-D arrays for cloud storage (Zarr-Python 3). Compressed arrays, parallel I/O, S3/GCS via fsspec, NumPy/Dask/Xarray compatible, for large-scale scientific computing pipelines.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/zarr-python/SKILL.md",
       "remote_path": "skills/zarr-python/SKILL.md",
-      "lines": 780,
-      "words": 2706,
-      "code_blocks": 39,
+      "lines": 242,
+      "words": 883,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "python"
@@ -13240,7 +13288,7 @@
       "description": "Medicinal chemistry filters for compound triage. Apply drug-likeness rules (Lipinski, Veber, CNS), structural alert catalogs (PAINS, NIBR, ChEMBL), complexity metrics, and the medchem query language f",
       "path": "K-Dense-AI--claude-scientific-skills/skills/medchem/SKILL.md",
       "remote_path": "skills/medchem/SKILL.md",
-      "lines": 320,
+      "lines": 322,
       "words": 1161,
       "code_blocks": 17,
       "languages": [
@@ -13254,8 +13302,8 @@
       "description": "Modal is a serverless cloud platform for running Python on demand, including on-demand GPUs. Use when deploying or serving AI/ML models, running GPU-accelerated workloads (training, fine-tuning, infer",
       "path": "K-Dense-AI--claude-scientific-skills/skills/modal/SKILL.md",
       "remote_path": "skills/modal/SKILL.md",
-      "lines": 457,
-      "words": 1872,
+      "lines": 469,
+      "words": 1845,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -13268,7 +13316,7 @@
       "description": "Operator toolkit for nf-core/pacsomatic matched tumor-normal workflows from BAM inputs. Use this skill when the user needs to validate run inputs, generate pacsomatic-compliant samplesheets, prepare r",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pacsomatic/SKILL.md",
       "remote_path": "skills/pacsomatic/SKILL.md",
-      "lines": 147,
+      "lines": 151,
       "words": 667,
       "code_blocks": 3,
       "languages": [
@@ -13281,8 +13329,8 @@
       "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pptx-posters/SKILL.md",
       "remote_path": "skills/pptx-posters/SKILL.md",
-      "lines": 265,
-      "words": 1307,
+      "lines": 259,
+      "words": 1301,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -13292,28 +13340,28 @@
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images using AI models (FLUX, Nano Banana 2). Use for general-purpose image generation including photos, illustrations, artwork, visual assets, concept art, and any image that is not ",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
       "path": "K-Dense-AI--claude-scientific-skills/skills/generate-image/SKILL.md",
       "remote_path": "skills/generate-image/SKILL.md",
-      "lines": 183,
-      "words": 921,
-      "code_blocks": 11,
+      "lines": 216,
+      "words": 1166,
+      "code_blocks": 6,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "gget",
       "description": "\"Fast CLI/Python queries to 20+ bioinformatics databases. Use for quick lookups: gene info, BLAST/BLAT, viral sequence downloads, AlphaFold structures, enrichment analysis, OpenTargets, COSMIC, CELLxG",
       "path": "K-Dense-AI--claude-scientific-skills/skills/gget/SKILL.md",
       "remote_path": "skills/gget/SKILL.md",
-      "lines": 973,
-      "words": 3921,
-      "code_blocks": 58,
+      "lines": 154,
+      "words": 987,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "python"
+        "bash"
       ],
       "license": "BSD-2-Clause license"
     },
@@ -13335,7 +13383,7 @@
       "description": "Build clinical/healthcare deep-learning pipelines with PyHealth \u2014 loading EHR/signal/imaging datasets (MIMIC-III/IV, eICU, OMOP, SleepEDF, ChestXray14, EHRShot), defining tasks (mortality, readmission",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pyhealth/SKILL.md",
       "remote_path": "skills/pyhealth/SKILL.md",
-      "lines": 123,
+      "lines": 125,
       "words": 972,
       "code_blocks": 2,
       "languages": [
@@ -13348,7 +13396,7 @@
       "description": "Query the Cancer Dependency Map (DepMap) for cancer cell line gene dependency scores (CRISPR Chronos), drug sensitivity data, and gene effect profiles. Use for identifying cancer-specific vulnerabilit",
       "path": "K-Dense-AI--claude-scientific-skills/skills/depmap/SKILL.md",
       "remote_path": "skills/depmap/SKILL.md",
-      "lines": 300,
+      "lines": 302,
       "words": 1269,
       "code_blocks": 6,
       "languages": [
@@ -13375,9 +13423,9 @@
       "description": "Zero-shot time series forecasting with Google's TimesFM foundation model. Use for any univariate time series (sales, sensors, energy, vitals, weather) without training a custom model. Supports CSV/Dat",
       "path": "K-Dense-AI--claude-scientific-skills/skills/timesfm-forecasting/SKILL.md",
       "remote_path": "skills/timesfm-forecasting/SKILL.md",
-      "lines": 784,
-      "words": 3813,
-      "code_blocks": 29,
+      "lines": 412,
+      "words": 1957,
+      "code_blocks": 16,
       "languages": [
         "bash",
         "mermaid",
@@ -13390,8 +13438,8 @@
       "description": "DiffDock and DiffDock-L molecular docking. Use for protein-small-molecule pose prediction from PDB or sequence plus SMILES/SDF/MOL2, batch docking, virtual screening, and pose-confidence interpretatio",
       "path": "K-Dense-AI--claude-scientific-skills/skills/diffdock/SKILL.md",
       "remote_path": "skills/diffdock/SKILL.md",
-      "lines": 493,
-      "words": 2035,
+      "lines": 489,
+      "words": 2029,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -13405,23 +13453,21 @@
       "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-schematics/SKILL.md",
       "remote_path": "skills/scientific-schematics/SKILL.md",
-      "lines": 619,
-      "words": 3126,
-      "code_blocks": 21,
+      "lines": 383,
+      "words": 2076,
+      "code_blocks": 6,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
     {
       "name": "experimental-design",
-      "description": "Design experiments and studies BEFORE data is collected \u2014 choosing a design, randomizing, blocking, and laying out treatment combinations so the results will actually be interpretable. Use whenever so",
+      "description": "Design experiments and studies BEFORE data is collected \u2014 choosing a design, randomizing, blocking, and laying out treatment combinations so results are interpretable. Use whenever someone is planning",
       "path": "K-Dense-AI--claude-scientific-skills/skills/experimental-design/SKILL.md",
       "remote_path": "skills/experimental-design/SKILL.md",
-      "lines": 233,
-      "words": 1681,
+      "lines": 235,
+      "words": 1677,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -13461,7 +13507,7 @@
       "description": "Comprehensive geospatial science skill covering remote sensing, GIS, spatial analysis, machine learning for earth observation, and 30+ scientific domains. Supports satellite imagery processing (Sentin",
       "path": "K-Dense-AI--claude-scientific-skills/skills/geomaster/SKILL.md",
       "remote_path": "skills/geomaster/SKILL.md",
-      "lines": 365,
+      "lines": 367,
       "words": 1302,
       "code_blocks": 13,
       "languages": [
@@ -13475,9 +13521,9 @@
       "description": "Multi-objective optimization framework. NSGA-II, NSGA-III, MOEA/D, Pareto fronts, constraint handling, benchmarks (ZDT, DTLZ), for engineering design and optimization problems.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pymoo/SKILL.md",
       "remote_path": "skills/pymoo/SKILL.md",
-      "lines": 658,
-      "words": 2287,
-      "code_blocks": 21,
+      "lines": 277,
+      "words": 1265,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "python"
@@ -13489,8 +13535,8 @@
       "description": "Comprehensive molecular biology toolkit. Use for sequence manipulation, file parsing (FASTA/GenBank/PDB), phylogenetics, and programmatic NCBI/PubMed access (Bio.Entrez). Best for batch processing, cu",
       "path": "K-Dense-AI--claude-scientific-skills/skills/biopython/SKILL.md",
       "remote_path": "skills/biopython/SKILL.md",
-      "lines": 464,
-      "words": 1983,
+      "lines": 473,
+      "words": 1952,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -13516,8 +13562,8 @@
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-skills/skills/research-grants/SKILL.md",
       "remote_path": "skills/research-grants/SKILL.md",
-      "lines": 929,
-      "words": 4843,
+      "lines": 297,
+      "words": 1673,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -13543,7 +13589,7 @@
       "description": "Data structure for annotated matrices in single-cell analysis. Use when working with .h5ad files or integrating with the scverse ecosystem. This is the data format skill\u2014for analysis workflows use sca",
       "path": "K-Dense-AI--claude-scientific-skills/skills/anndata/SKILL.md",
       "remote_path": "skills/anndata/SKILL.md",
-      "lines": 430,
+      "lines": 432,
       "words": 1413,
       "code_blocks": 18,
       "languages": [
@@ -13570,7 +13616,7 @@
       "description": "Sample-size and statistical power calculations for planning studies. Use whenever someone asks \"how many subjects/samples/replicates do I need\", wants an a priori power analysis, a minimum detectable ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/statistical-power/SKILL.md",
       "remote_path": "skills/statistical-power/SKILL.md",
-      "lines": 199,
+      "lines": 201,
       "words": 2024,
       "code_blocks": 4,
       "languages": [
@@ -13584,7 +13630,7 @@
       "description": "Use when working directly with the `esm` Python SDK, ESM3 or ESMC model IDs, Forge/Biohub inference clients, or ESMFold2 folding workflows.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/esm/SKILL.md",
       "remote_path": "skills/esm/SKILL.md",
-      "lines": 333,
+      "lines": 335,
       "words": 1380,
       "code_blocks": 12,
       "languages": [
@@ -13599,7 +13645,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/get-available-resources/SKILL.md",
       "remote_path": "skills/get-available-resources/SKILL.md",
       "lines": 261,
-      "words": 1179,
+      "words": 1181,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -13611,9 +13657,9 @@
       "description": "Lightweight WSI tile extraction and preprocessing. Use for basic slide processing, tissue detection, tile extraction, and stain normalization for H&E images. Best for simple pipelines, dataset prepara",
       "path": "K-Dense-AI--claude-scientific-skills/skills/histolab/SKILL.md",
       "remote_path": "skills/histolab/SKILL.md",
-      "lines": 714,
-      "words": 2474,
-      "code_blocks": 15,
+      "lines": 244,
+      "words": 1158,
+      "code_blocks": 3,
       "languages": [
         "bash",
         "python"
@@ -13625,7 +13671,7 @@
       "description": "Use this skill for processing and analyzing large tabular datasets (billions of rows) that exceed available RAM. Vaex excels at out-of-core DataFrame operations, lazy evaluation, fast aggregations, ef",
       "path": "K-Dense-AI--claude-scientific-skills/skills/vaex/SKILL.md",
       "remote_path": "skills/vaex/SKILL.md",
-      "lines": 203,
+      "lines": 205,
       "words": 1064,
       "code_blocks": 6,
       "languages": [
@@ -13639,8 +13685,8 @@
       "description": "\"How to use the Adaptyv Bio Foundry API and Python SDK for protein experiment design, submission, and results retrieval. Use this skill whenever the user mentions Adaptyv, Foundry API, protein binding",
       "path": "K-Dense-AI--claude-scientific-skills/skills/adaptyv/SKILL.md",
       "remote_path": "skills/adaptyv/SKILL.md",
-      "lines": 240,
-      "words": 1033,
+      "lines": 241,
+      "words": 1030,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -13681,9 +13727,9 @@
       "description": "Query and download public cancer imaging data from NCI Imaging Data Commons using idc-index. Use for accessing large-scale radiology (CT, MR, PET) and pathology datasets for AI training or research. N",
       "path": "K-Dense-AI--claude-scientific-skills/skills/imaging-data-commons/SKILL.md",
       "remote_path": "skills/imaging-data-commons/SKILL.md",
-      "lines": 867,
-      "words": 4544,
-      "code_blocks": 25,
+      "lines": 402,
+      "words": 2922,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "python"
@@ -13695,7 +13741,7 @@
       "description": "Local document and PDF parsing with spatial text and bounding boxes. Use for extracting text from PDFs, DOCX, Office files, and images; OCR on scans; layout-preserved JSON for RAG; batch-ingesting pap",
       "path": "K-Dense-AI--claude-scientific-skills/skills/liteparse/SKILL.md",
       "remote_path": "skills/liteparse/SKILL.md",
-      "lines": 294,
+      "lines": 296,
       "words": 1199,
       "code_blocks": 21,
       "languages": [
@@ -13737,7 +13783,7 @@
       "description": "Core Python library for astronomy and astrophysics workflows that need Astropy APIs, including units/quantities, coordinates, FITS I/O, tables, time systems, WCS, and cosmology. Use when implementing ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/astropy/SKILL.md",
       "remote_path": "skills/astropy/SKILL.md",
-      "lines": 352,
+      "lines": 354,
       "words": 1811,
       "code_blocks": 6,
       "languages": [
@@ -13751,7 +13797,7 @@
       "description": ">",
       "path": "K-Dense-AI--claude-scientific-skills/skills/onekgpd/SKILL.md",
       "remote_path": "skills/onekgpd/SKILL.md",
-      "lines": 369,
+      "lines": 371,
       "words": 2395,
       "code_blocks": 4,
       "languages": [
@@ -13778,7 +13824,7 @@
       "description": "Create, analyze, and visualize complex networks and graphs in Python with NetworkX. Use when working with network/graph data structures, computing graph algorithms (shortest paths, centrality, cluster",
       "path": "K-Dense-AI--claude-scientific-skills/skills/networkx/SKILL.md",
       "remote_path": "skills/networkx/SKILL.md",
-      "lines": 439,
+      "lines": 441,
       "words": 1512,
       "code_blocks": 25,
       "languages": [
@@ -13791,9 +13837,9 @@
       "description": "Molecular ML with diverse featurizers and pre-built datasets. Use for property prediction (ADMET, toxicity) with traditional ML or GNNs when you want extensive featurization options and MoleculeNet be",
       "path": "K-Dense-AI--claude-scientific-skills/skills/deepchem/SKILL.md",
       "remote_path": "skills/deepchem/SKILL.md",
-      "lines": 603,
-      "words": 2185,
-      "code_blocks": 24,
+      "lines": 245,
+      "words": 1213,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "python"
@@ -13805,7 +13851,7 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pdf/SKILL.md",
       "remote_path": "skills/pdf/SKILL.md",
-      "lines": 320,
+      "lines": 323,
       "words": 1046,
       "code_blocks": 18,
       "languages": [
@@ -13833,7 +13879,7 @@
       "description": "Extract cognitive patterns and thinking fingerprints from any text. Use this skill when the user wants to analyze how someone thinks, understand cognitive style, profile writing or speech patterns, co",
       "path": "K-Dense-AI--claude-scientific-skills/skills/dhdna-profiler/SKILL.md",
       "remote_path": "skills/dhdna-profiler/SKILL.md",
-      "lines": 162,
+      "lines": 164,
       "words": 1256,
       "code_blocks": 1,
       "languages": [],
@@ -13844,8 +13890,8 @@
       "description": "Read, inspect, and write Flow Cytometry Standard (FCS) 2.0, 3.0, and 3.1 files with FlowIO. Use for low-level FCS metadata and channel inspection, NumPy event extraction, multi-dataset files, table ex",
       "path": "K-Dense-AI--claude-scientific-skills/skills/flowio/SKILL.md",
       "remote_path": "skills/flowio/SKILL.md",
-      "lines": 312,
-      "words": 1346,
+      "lines": 311,
+      "words": 1343,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -13858,13 +13904,11 @@
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-skills/skills/literature-review/SKILL.md",
       "remote_path": "skills/literature-review/SKILL.md",
-      "lines": 711,
-      "words": 3661,
-      "code_blocks": 22,
+      "lines": 264,
+      "words": 1546,
+      "code_blocks": 5,
       "languages": [
-        "bash",
-        "markdown",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
@@ -13873,7 +13917,7 @@
       "description": "Efficient storage and retrieval of genomic variant data using TileDB. Scalable VCF/BCF ingestion, incremental sample addition, compressed storage, parallel queries, and export capabilities for populat",
       "path": "K-Dense-AI--claude-scientific-skills/skills/tiledbvcf/SKILL.md",
       "remote_path": "skills/tiledbvcf/SKILL.md",
-      "lines": 454,
+      "lines": 456,
       "words": 1804,
       "code_blocks": 19,
       "languages": [
@@ -13900,12 +13944,10 @@
       "description": "Benchling Python SDK and REST API integration for registry entities, inventory, ELN entries, workflows, Benchling Apps, and Data Warehouse queries. Use when automating lab data with benchling-sdk or t",
       "path": "K-Dense-AI--claude-scientific-skills/skills/benchling-integration/SKILL.md",
       "remote_path": "skills/benchling-integration/SKILL.md",
-      "lines": 533,
-      "words": 1814,
-      "code_blocks": 26,
+      "lines": 230,
+      "words": 843,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "json",
         "python"
       ],
       "license": "MIT"
@@ -13915,8 +13957,8 @@
       "description": "Version-aware guidance for PufferLib reinforcement-learning environments, vectorization, policies, PuffeRL training, evaluation, and safe checkpoint review. Use when adapting Gymnasium/PettingZoo envi",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pufferlib/SKILL.md",
       "remote_path": "skills/pufferlib/SKILL.md",
-      "lines": 333,
-      "words": 1376,
+      "lines": 329,
+      "words": 1372,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -13931,8 +13973,8 @@
       "description": "Plan, configure, inspect, restart, and analyze bounded FluidSim computational-fluid-dynamics simulations with explicit numerical-validity and HPC safety checks. Use for FluidSim solver selection, para",
       "path": "K-Dense-AI--claude-scientific-skills/skills/fluidsim/SKILL.md",
       "remote_path": "skills/fluidsim/SKILL.md",
-      "lines": 285,
-      "words": 1281,
+      "lines": 280,
+      "words": 1276,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -13959,12 +14001,11 @@
       "description": "Cheminformatics toolkit for fine-grained molecular control. SMILES/SDF parsing, descriptors (MW, LogP, TPSA), fingerprints, substructure search, 2D/3D generation, similarity, reactions. For standard w",
       "path": "K-Dense-AI--claude-scientific-skills/skills/rdkit/SKILL.md",
       "remote_path": "skills/rdkit/SKILL.md",
-      "lines": 833,
-      "words": 2635,
-      "code_blocks": 41,
+      "lines": 95,
+      "words": 745,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "python"
+        "bash"
       ],
       "license": "BSD-3-Clause license"
     },
@@ -13973,7 +14014,7 @@
       "description": "RNA velocity analysis with scVelo. Estimate cell state transitions from unspliced/spliced mRNA dynamics, infer trajectory directions, compute latent time, and identify driver genes in single-cell RNA-",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scvelo/SKILL.md",
       "remote_path": "skills/scvelo/SKILL.md",
-      "lines": 321,
+      "lines": 323,
       "words": 1193,
       "code_blocks": 9,
       "languages": [
@@ -14000,7 +14041,7 @@
       "description": "Query the U.S. Treasury Fiscal Data REST API for federal financial data. No API key required. Use for national debt (Debt to the Penny), Daily Treasury Statements, Monthly Treasury Statements, Treasur",
       "path": "K-Dense-AI--claude-scientific-skills/skills/usfiscaldata/SKILL.md",
       "remote_path": "skills/usfiscaldata/SKILL.md",
-      "lines": 170,
+      "lines": 172,
       "words": 766,
       "code_blocks": 7,
       "languages": [
@@ -14015,8 +14056,8 @@
       "description": "Analyze Neuropixels extracellular recordings end-to-end with SpikeInterface. Covers loading SpikeGLX/Open Ephys/NWB data, preprocessing, drift/motion correction, Kilosort4 (and CPU) spike sorting, qua",
       "path": "K-Dense-AI--claude-scientific-skills/skills/neuropixels-analysis/SKILL.md",
       "remote_path": "skills/neuropixels-analysis/SKILL.md",
-      "lines": 406,
-      "words": 1664,
+      "lines": 413,
+      "words": 1653,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -14029,8 +14070,8 @@
       "description": "\"Use Geniml for audited local genomic-interval workflows: validate BED and universe contracts, plan Region2Vec or scEmbed runs, inspect model/tokenizer compatibility, and assess consensus universes.\"",
       "path": "K-Dense-AI--claude-scientific-skills/skills/geniml/SKILL.md",
       "remote_path": "skills/geniml/SKILL.md",
-      "lines": 316,
-      "words": 1569,
+      "lines": 311,
+      "words": 1564,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -14044,7 +14085,7 @@
       "description": "Google quantum computing framework. Use when targeting Google Quantum AI hardware, designing noise-aware circuits, or running quantum characterization experiments. Best for Google hardware, noise mode",
       "path": "K-Dense-AI--claude-scientific-skills/skills/cirq/SKILL.md",
       "remote_path": "skills/cirq/SKILL.md",
-      "lines": 369,
+      "lines": 371,
       "words": 1380,
       "code_blocks": 7,
       "languages": [
@@ -14058,7 +14099,7 @@
       "description": "Distributed computing for larger-than-RAM pandas/NumPy workflows. Use when you need to scale existing pandas/NumPy code beyond memory or across clusters. Best for parallel file processing, distributed",
       "path": "K-Dense-AI--claude-scientific-skills/skills/dask/SKILL.md",
       "remote_path": "skills/dask/SKILL.md",
-      "lines": 481,
+      "lines": 483,
       "words": 2025,
       "code_blocks": 19,
       "languages": [
@@ -14072,7 +14113,7 @@
       "description": "Analyze and engineer protein glycosylation. Scan sequences for N-glycosylation sequons (N-X-S/T), predict O-glycosylation hotspots, and access curated glycoengineering tools (NetOGlyc, GlycoShield, Gl",
       "path": "K-Dense-AI--claude-scientific-skills/skills/glycoengineering/SKILL.md",
       "remote_path": "skills/glycoengineering/SKILL.md",
-      "lines": 338,
+      "lines": 340,
       "words": 1486,
       "code_blocks": 7,
       "languages": [
@@ -14086,7 +14127,7 @@
       "description": "High-performance genomic interval operations and bioinformatics file I/O on Polars DataFrames. Overlap, nearest, merge, coverage, complement, subtract for BED/VCF/BAM/GFF intervals. Streaming, cloud-n",
       "path": "K-Dense-AI--claude-scientific-skills/skills/polars-bio/SKILL.md",
       "remote_path": "skills/polars-bio/SKILL.md",
-      "lines": 378,
+      "lines": 380,
       "words": 1834,
       "code_blocks": 20,
       "languages": [
@@ -14114,7 +14155,7 @@
       "description": "Use UMAP-learn for nonlinear dimensionality reduction, 2D/3D embeddings, clustering preprocessing, supervised or semi-supervised UMAP, DensMAP, AlignedUMAP, and Parametric UMAP workflows.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/umap-learn/SKILL.md",
       "remote_path": "skills/umap-learn/SKILL.md",
-      "lines": 487,
+      "lines": 489,
       "words": 1949,
       "code_blocks": 20,
       "languages": [
@@ -14128,12 +14169,11 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-skills/skills/latex-posters/SKILL.md",
       "remote_path": "skills/latex-posters/SKILL.md",
-      "lines": 1597,
-      "words": 8614,
-      "code_blocks": 48,
+      "lines": 370,
+      "words": 2111,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ]
     },
     {
@@ -14141,8 +14181,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": "skills/scientific-critical-thinking/SKILL.md",
-      "lines": 560,
-      "words": 2979,
+      "lines": 181,
+      "words": 1103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14154,7 +14194,7 @@
       "description": "This skill should be used for time series machine learning tasks including classification, regression, clustering, forecasting, anomaly detection, segmentation, and similarity search. Use when working",
       "path": "K-Dense-AI--claude-scientific-skills/skills/aeon/SKILL.md",
       "remote_path": "skills/aeon/SKILL.md",
-      "lines": 401,
+      "lines": 403,
       "words": 1275,
       "code_blocks": 21,
       "languages": [
@@ -14181,7 +14221,7 @@
       "description": "Autonomously improve a real artifact (code, training recipe, agent harness, data pipeline, prompt) against an objective and an evaluator, using Hypothesis Tree Refinement (HTR) from the Arbor paper. U",
       "path": "K-Dense-AI--claude-scientific-skills/skills/arbor/SKILL.md",
       "remote_path": "skills/arbor/SKILL.md",
-      "lines": 151,
+      "lines": 153,
       "words": 2032,
       "code_blocks": 6,
       "languages": [
@@ -14207,9 +14247,9 @@
       "description": "Statistical visualization with pandas integration. Use for quick exploration of distributions, relationships, and categorical comparisons with attractive defaults. Best for box plots, violin plots, pa",
       "path": "K-Dense-AI--claude-scientific-skills/skills/seaborn/SKILL.md",
       "remote_path": "skills/seaborn/SKILL.md",
-      "lines": 711,
-      "words": 2685,
-      "code_blocks": 40,
+      "lines": 255,
+      "words": 1137,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "python"
@@ -14221,8 +14261,8 @@
       "description": "Develop and review PyLabRobot lab-automation resources, liquid-handling plans, offline simulations, and supported-device integrations. Use for PyLabRobot protocols or API questions; keep physical exec",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pylabrobot/SKILL.md",
       "remote_path": "skills/pylabrobot/SKILL.md",
-      "lines": 221,
-      "words": 1025,
+      "lines": 217,
+      "words": 1021,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -14249,9 +14289,9 @@
       "description": "Molecular featurization for ML (100+ featurizers). ECFP, MACCS, descriptors, pretrained models (ChemBERTa), convert SMILES to features, for QSAR and molecular ML.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/molfeat/SKILL.md",
       "remote_path": "skills/molfeat/SKILL.md",
-      "lines": 522,
-      "words": 1801,
-      "code_blocks": 27,
+      "lines": 349,
+      "words": 1407,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "python"
@@ -14263,7 +14303,7 @@
       "description": "Complete mass spectrometry analysis platform. Use for proteomics and metabolomics workflows\u2014feature detection, peptide/protein identification, label-free and isobaric quantification, adduct/accurate-m",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pyopenms/SKILL.md",
       "remote_path": "skills/pyopenms/SKILL.md",
-      "lines": 178,
+      "lines": 180,
       "words": 946,
       "code_blocks": 5,
       "languages": [
@@ -14290,7 +14330,7 @@
       "description": "Run structured What-If scenario analysis with 4\u20136 branch possibility exploration (best, likely, worst, wild card, contrarian, second-order). Use when the user asks speculative what-if questions about ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/what-if-oracle/SKILL.md",
       "remote_path": "skills/what-if-oracle/SKILL.md",
-      "lines": 181,
+      "lines": 185,
       "words": 1214,
       "code_blocks": 2,
       "languages": [],
@@ -14315,7 +14355,7 @@
       "description": "Run a multi-perspective Mind Council deliberation on any question, decision, or creative challenge. Use this skill whenever the user wants diverse viewpoints, needs help making a tough decision, asks ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/consciousness-council/SKILL.md",
       "remote_path": "skills/consciousness-council/SKILL.md",
-      "lines": 150,
+      "lines": 152,
       "words": 1249,
       "code_blocks": 2,
       "languages": [],
@@ -14326,12 +14366,11 @@
       "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-skills/skills/infographics/SKILL.md",
       "remote_path": "skills/infographics/SKILL.md",
-      "lines": 566,
-      "words": 2252,
-      "code_blocks": 24,
+      "lines": 316,
+      "words": 1414,
+      "code_blocks": 9,
       "languages": [
-        "bash",
-        "json"
+        "bash"
       ]
     }
   ],
@@ -42484,6 +42523,16 @@
       ]
     },
     {
+      "name": "protect-with-password",
+      "description": "Generate ONE strong password and apply it to each referenced file (PDF, Word, Excel, PowerPoint, or any type). Use when asked to password-protect / encrypt / lock one or more deliverable files with a ",
+      "path": "transilienceai--communitytools/skills/protect-with-password/SKILL.md",
+      "remote_path": "skills/protect-with-password/SKILL.md",
+      "lines": 37,
+      "words": 340,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "dfir",
       "description": "Digital forensics and incident response - Windows event log analysis, PCAP forensics, filesystem artifact analysis, AD attack detection, and timeline correlation. Use when investigating security incid",
       "path": "transilienceai--communitytools/skills/dfir/SKILL.md",
@@ -42500,8 +42549,8 @@
       "description": "Mobile application security testing (Android + iOS) mapped to OWASP MASVS/MASTG \u2014 static reversing (Flutter AOT, Unity IL2CPP, React Native/Hermes, native ARM64, Mach-O/Swift), SAST (manifest/IPC, sto",
       "path": "transilienceai--communitytools/skills/mobile-security/SKILL.md",
       "remote_path": "skills/mobile-security/SKILL.md",
-      "lines": 66,
-      "words": 817,
+      "lines": 69,
+      "words": 895,
       "code_blocks": 0,
       "languages": []
     },
@@ -42568,6 +42617,16 @@
       "languages": []
     },
     {
+      "name": "authenticated-session-acquisition",
+      "description": "Acquire an authenticated session THROUGH MFA/OTP on an in-scope target and emit a reusable session artifact (Playwright storageState + Bearer) so executors can test the post-auth attack surface. Use w",
+      "path": "transilienceai--communitytools/skills/authenticated-session-acquisition/SKILL.md",
+      "remote_path": "skills/authenticated-session-acquisition/SKILL.md",
+      "lines": 60,
+      "words": 763,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "reverse-engineering",
       "description": "Static and dynamic reverse engineering \u2014 ELF/PE analysis, custom-VM bytecode, packed binaries, anti-debug bypass, Frida hooking.",
       "path": "transilienceai--communitytools/skills/reverse-engineering/SKILL.md",
@@ -42582,8 +42641,8 @@
       "description": "Network infrastructure testing - port scanning, DNS attacks, MITM, VLAN hopping, IPv6, SMB/NetBIOS, sniffing, and DoS assessment.",
       "path": "transilienceai--communitytools/skills/infrastructure/SKILL.md",
       "remote_path": "skills/infrastructure/SKILL.md",
-      "lines": 51,
-      "words": 325,
+      "lines": 53,
+      "words": 363,
       "code_blocks": 0,
       "languages": []
     },
@@ -42612,8 +42671,8 @@
       "description": "Claude-native firewall ruleset audit playbook \u2014 17 vendor-agnostic detectors across FortiGate / PAN-OS / Cisco ASA\u00b7IOS / Azure NSG / AWS SG / iptables, with framework citations pinned to NIST CSF 2.0,",
       "path": "transilienceai--communitytools/skills/firewall-review/SKILL.md",
       "remote_path": "skills/firewall-review/SKILL.md",
-      "lines": 74,
-      "words": 827,
+      "lines": 78,
+      "words": 863,
       "code_blocks": 1,
       "languages": []
     },
@@ -42644,8 +42703,8 @@
       "description": "API security testing - GraphQL, REST API, WebSocket, and Web-LLM attack techniques.",
       "path": "transilienceai--communitytools/skills/api-security/SKILL.md",
       "remote_path": "skills/api-security/SKILL.md",
-      "lines": 33,
-      "words": 166,
+      "lines": 47,
+      "words": 410,
       "code_blocks": 0,
       "languages": []
     },
@@ -42686,8 +42745,8 @@
       "description": "Generate a Transilience-branded PDF report (pentest, vuln assessment, compliance, threat intel) from a single findings JSON using the bundled ReportLab generator. Use whenever an engagement needs its ",
       "path": "transilienceai--communitytools/skills/transilience-report-style/SKILL.md",
       "remote_path": "skills/transilience-report-style/SKILL.md",
-      "lines": 43,
-      "words": 557,
+      "lines": 46,
+      "words": 657,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -42731,7 +42790,7 @@
       "path": "transilienceai--communitytools/skills/hackerone/SKILL.md",
       "remote_path": "skills/hackerone/SKILL.md",
       "lines": 138,
-      "words": 936,
+      "words": 950,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -42786,7 +42845,7 @@
       "path": "transilienceai--communitytools/skills/cve-poc-generator/SKILL.md",
       "remote_path": "skills/cve-poc-generator/SKILL.md",
       "lines": 57,
-      "words": 406,
+      "words": 431,
       "code_blocks": 2,
       "languages": []
     },
@@ -42819,6 +42878,16 @@
       "remote_path": "skills/essential-tools/SKILL.md",
       "lines": 41,
       "words": 234,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "network-appliance-offensive",
+      "description": "Offensive testing of perimeter network appliances and VPN crypto \u2014 IKE/IPsec (aggressive-mode, transform/DH enum, NAT-T), Check Point SIC/OPSEC, safe firmware/patch-level inference for FortiGate/PAN-O",
+      "path": "transilienceai--communitytools/skills/network-appliance-offensive/SKILL.md",
+      "remote_path": "skills/network-appliance-offensive/SKILL.md",
+      "lines": 41,
+      "words": 713,
       "code_blocks": 0,
       "languages": []
     },
@@ -42862,8 +42931,8 @@
       "description": "",
       "path": "transilienceai--communitytools/skills/coordination/reference/executor-role.md",
       "remote_path": "skills/coordination/reference/executor-role.md",
-      "lines": 63,
-      "words": 497,
+      "lines": 64,
+      "words": 539,
       "code_blocks": 0,
       "languages": []
     },
@@ -111706,6 +111775,87 @@
       "license": "MIT"
     },
     {
+      "name": "schema-optimization-orchestrator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/SKILL.md",
+      "remote_path": "workspace/lab/schema-optimization/SKILL.md",
+      "lines": 288,
+      "words": 668,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "phase-1-schema-analysis",
+      "description": "\"Phase 1 of the BigQuery schema optimization pipeline \u2014 parses schema export files to count tables and fields, detect naming patterns and type inconsistencies, flag duplicate or nullable issues, and w",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_1.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_1.md",
+      "lines": 95,
+      "words": 366,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-4-verification",
+      "description": "'Runs BigQuery field-utilization shell scripts to empirically validate phase 2-3 conclusions, reconciles manual vs. script findings, and writes a verification report. Use when phase 3 analysis is comp",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_4.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_4.md",
+      "lines": 119,
+      "words": 439,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-5-recommendations",
+      "description": "'Synthesizes BigQuery schema optimization findings from all prior phases into a prioritized implementation plan with rollback procedures, timelines, and success metrics. Use when all previous phase re",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_5.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_5.md",
+      "lines": 121,
+      "words": 443,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-2-field-utilization",
+      "description": "\"Phase 2 of the BigQuery schema optimization pipeline \u2014 reads the phase 1 report and schema exports to identify fields with >90% null rates, detect never-queried columns, and produce ranked removal an",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_2.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_2.md",
+      "lines": 100,
+      "words": 401,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-3-impact-assessment",
+      "description": "\"Phase 3 of the BigQuery schema optimization pipeline \u2014 evaluates proposed schema changes from phases 1-2 against dependent queries and systems, categorizes each change by risk level, estimates storag",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_3.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_3.md",
+      "lines": 105,
+      "words": 416,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
       "name": "airflow-operator-creator",
       "description": "'Create airflow operator creator operations. Auto-activating skill for",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/11-data-pipelines/airflow-operator-creator/SKILL.md",
@@ -149547,9 +149697,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1566,
-      "words": 20644,
-      "code_blocks": 49,
+      "lines": 1615,
+      "words": 22170,
+      "code_blocks": 51,
       "languages": [
         "bash",
         "json",
@@ -149861,9 +150011,9 @@
       "description": "|",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
       "remote_path": "daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
-      "lines": 517,
-      "words": 1813,
-      "code_blocks": 7,
+      "lines": 714,
+      "words": 2754,
+      "code_blocks": 9,
       "languages": [
         "bash",
         "javascript",
@@ -151198,6 +151348,19 @@
       ]
     },
     {
+      "name": "unified-memory",
+      "description": "Share durable, inspectable context and handoffs between Claude, Codex, Hermes, Cursor, OpenCode, and other agents through the local ECC Memory Vault. Use when an agent must save work state, transfer c",
+      "path": "affaan-m--everything-claude-code/.cursor/skills/unified-memory/SKILL.md",
+      "remote_path": ".cursor/skills/unified-memory/SKILL.md",
+      "lines": 170,
+      "words": 868,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "text"
+      ]
+    },
+    {
       "name": "documentation-lookup",
       "description": "Use up-to-date library and framework docs via Context7 MCP instead of training data. Activates for setup questions, API references, code examples, or when the user names a framework (e.g. React, Next.",
       "path": "affaan-m--everything-claude-code/.cursor/skills/documentation-lookup/SKILL.md",
@@ -151447,6 +151610,19 @@
       "code_blocks": 1,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "unified-memory",
+      "description": "Share durable, inspectable context and handoffs between Claude, Codex, Hermes, Cursor, OpenCode, and other agents through the local ECC Memory Vault. Use when an agent must save work state, transfer c",
+      "path": "affaan-m--everything-claude-code/.agents/skills/unified-memory/SKILL.md",
+      "remote_path": ".agents/skills/unified-memory/SKILL.md",
+      "lines": 169,
+      "words": 866,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "text"
       ]
     },
     {
@@ -153176,6 +153352,19 @@
       "words": 896,
       "code_blocks": 1,
       "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "unified-memory",
+      "description": "Share durable, inspectable context and handoffs between Claude, Codex, Hermes, Cursor, OpenCode, and other agents through the local ECC Memory Vault. Use when an agent must save work state, transfer c",
+      "path": "affaan-m--everything-claude-code/skills/unified-memory/SKILL.md",
+      "remote_path": "skills/unified-memory/SKILL.md",
+      "lines": 171,
+      "words": 869,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
         "text"
       ]
     },
@@ -166815,9 +167004,9 @@
       "description": "End-to-end pipeline for publishing Claude Code lab meetings. Accepts optional args: date (YYYYMMDD, \"yesterday\", \"today\") and lab number (e.g. \"04\"). Examples: \"yesterday 04\", \"20260420 05\", \"04\" (tod",
       "path": "glebis--claude-skills/agency-docs-updater/SKILL.md",
       "remote_path": "agency-docs-updater/SKILL.md",
-      "lines": 288,
-      "words": 1819,
-      "code_blocks": 12,
+      "lines": 299,
+      "words": 1894,
+      "code_blocks": 13,
       "languages": [
         "bash",
         "python"
@@ -167091,6 +167280,16 @@
         "bash",
         "markdown"
       ]
+    },
+    {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
+      "languages": []
     },
     {
       "name": "qmd-search",

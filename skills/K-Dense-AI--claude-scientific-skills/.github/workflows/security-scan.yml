@@ -37,19 +37,13 @@ jobs:
       - name: Run security scan
         env:
           SKILL_SCANNER_LLM_API_KEY: ${{ secrets.SKILL_SCANNER_LLM_API_KEY }}
-          SKILL_SCANNER_LLM_MODEL: ${{ vars.SKILL_SCANNER_LLM_MODEL || 'claude-sonnet-5' }}
+          SKILL_SCANNER_LLM_MODEL: ${{ vars.SKILL_SCANNER_LLM_MODEL || 'claude-opus-5' }}
           # Each skill scan is blocked on LLM network I/O, so concurrency is
           # bounded by API rate limits rather than by the runner. Lower this if
           # runs start hitting sustained 429s.
           SKILL_SCAN_WORKERS: ${{ vars.SKILL_SCAN_WORKERS || '8' }}
           SKILL_SCAN_FULL: ${{ inputs.full_scan && '1' || '' }}
         run: uv run python scan_skills.py
-
-      # Gate: a scan that contradicts the contents of skills/ must not be
-      # published. A non-zero exit here fails the job, so the commit step below
-      # is skipped and the previous report stays in place.
-      - name: Validate scan report
-        run: uv run python validate_report.py
 
       - name: Upload report artifact
         if: always()

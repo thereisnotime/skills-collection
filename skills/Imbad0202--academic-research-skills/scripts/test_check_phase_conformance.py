@@ -127,8 +127,23 @@ def test_role_swap_is_conformance_failure(tmp_path):
 
 
 def test_missing_fatal_trigger_fails():
-    with pytest.raises(phase.ConformanceError, match="what_triggers_fatal"):
+    with pytest.raises(
+        phase.ConformanceError,
+        match=r"what_triggers_fatal: line for dimension D1, found 0",
+    ):
         parse_plan("methodology", {"D1": {"what_triggers_fatal": None}})
+
+
+def test_duplicate_scoring_plan_diagnostic_names_dimension():
+    text = phase1_text("methodology").replace(
+        "\n[CONTRACT-ACKNOWLEDGED]",
+        "\n### D3: argumentative_coherence\n[CONTRACT-ACKNOWLEDGED]",
+    )
+    with pytest.raises(
+        phase.ConformanceError,
+        match=r"duplicate scoring-plan subsection: D3: argumentative_coherence",
+    ):
+        phase.parse_phase1("p1.md", text, FULL, "methodology")
 
 
 @pytest.mark.parametrize(
@@ -452,6 +467,21 @@ def test_nonmandatory_block_class_fails_phase_checker(tmp_path):
         "twentyone twentytwo twentythree twentyfour twentyfive twentysix\"",
         "### W1: empty absence\n**Severity**: Critical\n"
         "**Evidence Anchor**: absence:",
+        "### W1: incomplete absence\n**Severity**: Critical\n"
+        "**Evidence Anchor**: absence: x",
+        "### W1: missing expected item\n**Severity**: Critical\n"
+        "**Evidence Anchor**: absence: Methods — expected ; checked appendix",
+        "### W1: missing checked surfaces\n**Severity**: Critical\n"
+        "**Evidence Anchor**: absence: Methods — expected ethics statement; checked",
+        "### W1: missing literal separator space\n**Severity**: Critical\n"
+        "**Evidence Anchor**: absence: Methods — expected ethics statement;checked appendix",
+        "### W1: doubled separator space\n**Severity**: Critical\n"
+        "**Evidence Anchor**: absence: Methods — expected ethics statement;  checked appendix",
+        "### W1: repeated separators\n**Severity**: Critical\n"
+        "**Evidence Anchor**: absence: Methods — expected ; checked appendix "
+        "— expected ethics statement; checked supplement",
+        "### W1: reversed separators\n**Severity**: Critical\n"
+        "**Evidence Anchor**: absence: Methods; checked appendix — expected ethics statement",
     ],
 )
 def test_critical_major_anchor_failures(body):
@@ -466,7 +496,8 @@ def test_critical_major_anchor_failures(body):
         '### W1: quoted defect\n**Severity**: Critical\n'
         '**Evidence Anchor**: text: "short exact quote" p. 2',
         "### W1: missing surfaces\n**Severity**: Major\n"
-        "**Evidence Anchor**: absence: checked Methods, appendix, and supplement",
+        "**Evidence Anchor**: absence: Methods — expected an ethics statement; "
+        "checked Methods, appendix, and supplement",
     ],
 )
 def test_compliant_critical_major_anchors_pass(body):
@@ -495,7 +526,8 @@ def test_two_independently_anchored_findings_pass():
         '**Evidence Anchor**: text: "first quote" p. 1\n'
         "### W2: second\n"
         "**Severity**: Major\n"
-        "**Evidence Anchor**: absence: checked Methods and appendix"
+        "**Evidence Anchor**: absence: Methods — expected an ethics statement; "
+        "checked Methods and appendix"
     )
     report, _ = parse_report("eic", body=body)
     phase.check_scoring_seat_anchors(report)
@@ -576,21 +608,104 @@ def test_indented_bullet_fields_still_enforce_anchor_gate():
         phase.check_scoring_seat_anchors(report)
 
 
-def test_backticked_template_anchor_is_normalised_and_accepted():
+@pytest.mark.parametrize(
+    "anchor",
+    (
+        '`text: §5 "short exact quote"`',
+        '[`text: §5 "short exact quote"`]',
+        '[text: §5 "short exact quote"]',
+        "text: §5 “short exact quote”",
+        "equation: Eq. [3]",
+        "[equation: Eq. [3]]",
+        'text: §5 "short exact quote" per `df`',
+        '`text: §5 "short exact quote" per `df``',
+        "text: §2 “the term “quality culture” is undefined”",
+        'text: §2 "he said “quality culture” often"',
+    ),
+)
+def test_whole_value_wrapped_template_anchor_is_normalised_and_accepted(anchor):
     body = (
         "### W1: template-shaped finding\n"
         "**Severity**: Critical\n"
-        "**Evidence Anchor**: `text: §5 \"short exact quote\"`"
+        f"**Evidence Anchor**: {anchor}"
     )
     report, _ = parse_report("eic", body=body)
     phase.check_scoring_seat_anchors(report)
+
+
+@pytest.mark.parametrize(
+    "anchor",
+    (
+        '[`text`: §5 "short exact quote"]',
+        '`text` — §5 "short exact quote"',
+    ),
+)
+def test_type_only_wrapping_anchor_is_rejected(anchor):
+    body = (
+        "### W1: malformed type wrapping\n"
+        "**Severity**: Critical\n"
+        f"**Evidence Anchor**: {anchor}"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(phase.ConformanceError, match="ANCHOR-INVALID"):
+        phase.check_scoring_seat_anchors(report)
+
+
+@pytest.mark.parametrize(
+    "anchor",
+    (
+        '`text: §5 "short exact quote"',
+        'text: §5 "short exact quote"`',
+        '[text: §5 "short exact quote"',
+        'text: §5 "short exact quote"]',
+        'text: §5 "short exact quote"`]',
+        '[text: §5 "short exact quote"] trailing]',
+        '[ text: §5 "short exact quote" ]',
+        '[[text: §5 "short exact quote"]]',
+        '``text: §5 "short exact quote"``',
+        '` text: §5 "short exact quote" `',
+        '[`text: §5 "short exact quote"]',
+        '[text: §5 "short exact quote"`]',
+        "equation: Eq. ]3[",
+    ),
+)
+def test_unpaired_or_repeated_whole_value_wrappers_are_rejected(anchor):
+    body = (
+        "### W1: malformed whole-value wrapper\n"
+        "**Severity**: Critical\n"
+        f"**Evidence Anchor**: {anchor}"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(phase.ConformanceError, match="ANCHOR-INVALID"):
+        phase.check_scoring_seat_anchors(report)
+
+
+@pytest.mark.parametrize(
+    "anchor",
+    (
+        'text: §5 "short exact quote”',
+        'text: §5 “short exact quote"',
+        'text: §5 "outer “inner”',
+        'text: §5 “outer "inner”"',
+    ),
+)
+def test_hybrid_double_quote_pairs_are_rejected(anchor):
+    body = (
+        "### W1: mismatched quote pair\n"
+        "**Severity**: Critical\n"
+        f"**Evidence Anchor**: {anchor}"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(phase.ConformanceError, match="ANCHOR-INVALID"):
+        phase.check_scoring_seat_anchors(report)
 
 
 def test_combined_template_fields_are_parsed():
     body = (
         "### W1: combined fields\n"
         "  - **Severity**: Major | **Evidence Anchor**: "
-        "`absence: checked Methods and appendix` | "
+        "`absence: Methods — expected an ethics statement; "
+        "checked Methods and appendix` | "
         "**Confidence**: 4 — core expertise"
     )
     report, _ = parse_report("eic", body=body)
@@ -954,7 +1069,7 @@ def test_da_escaped_pipe_cell_evasion_fails_phase():
     )
     text = da_text().replace("#### MAJOR", block + "#### MAJOR", 1)
     report = panel.parse_report("da.md", text, FULL)
-    with pytest.raises(phase.ConformanceError, match="unexpected issue-table"):
+    with pytest.raises(phase.ConformanceError, match="HTML comments are forbidden"):
         phase.check_da_anchors(report)
 
 
@@ -1078,6 +1193,143 @@ def test_da_row_without_outer_pipes_fails_phase_checker():
     with pytest.raises(
         (panel.ReportError, phase.panel.ReportError, phase.ConformanceError),
         match="outer-pipe-delimited",
+    ):
+        phase.check_da_anchors(report)
+
+
+def test_da_pre_table_prose_passes_phase_checker():
+    report = panel.parse_report(
+        "da.md",
+        da_text(
+            major_rows=('| M1 | Issue | text: "short quote" |',)
+        ).replace(
+            "#### CRITICAL",
+            "Ordinary adversarial commentary precedes the terminal tables.\n\n"
+            "#### CRITICAL",
+            1,
+        ),
+        FULL,
+    )
+    phase.check_da_anchors(report)
+
+
+def test_da_bare_comment_closer_passes_phase_checker():
+    text = da_text(ids=("C1",)).replace(
+        "#### CRITICAL",
+        "The reported N moves 41 --> 38 without explanation.\n\n"
+        "#### CRITICAL",
+        1,
+    ).replace(
+        'text: "quote" p. 1',
+        'text: "N moves 41 --> 38" p. 1',
+        1,
+    )
+    report = panel.parse_report("da.md", text, FULL)
+    phase.check_da_anchors(report)
+
+
+def test_da_post_critical_table_prose_fails_phase_checker():
+    text = da_text(ids=()).replace(
+        "\n\n#### MAJOR",
+        "\n\n*None. Ordinary adversarial commentary.*\n\n#### MAJOR",
+        1,
+    )
+    report = panel.parse_report("da.md", text, FULL)
+    with pytest.raises(
+        (panel.ReportError, phase.panel.ReportError, phase.ConformanceError),
+        match="issue tables are terminal",
+    ):
+        phase.check_da_anchors(report)
+
+
+_DA_TERMINAL_LATE_SURFACES = (
+    '| C2 | Late issue | text: "late quoted evidence" p. 2 |',
+    "| X9 | Bogus issue |  |",
+    (
+        "| # | Issue | Evidence Anchor |\n"
+        "|---|-------|-----------------|\n"
+        "| C9 | Shadow issue |  |"
+    ),
+    'C2 | Late issue | text: "late quoted evidence" p. 2',
+    '— | Late issue | text: "late quoted evidence"',
+    "# | Issue | Evidence Anchor",
+    "C2\nLate issue without pipes\nfigure: Figure 2",
+    "- C2\n- Late critical issue\n- figure: Figure 2",
+    "> Ordinary post-table commentary",
+    "##### Additional commentary",
+    "### Closing note\nOrdinary late prose",
+)
+
+
+@pytest.mark.parametrize(
+    "late_surface",
+    _DA_TERMINAL_LATE_SURFACES,
+)
+def test_da_post_boundary_table_surfaces_fail_phase_checker(
+    late_surface,
+):
+    text = da_text(ids=("C1",)).replace(
+        "\n\n#### MAJOR",
+        f"\n\n{late_surface}\n\n#### MAJOR",
+        1,
+    )
+    report = panel.parse_report("da.md", text, FULL)
+    with pytest.raises(
+        (panel.ReportError, phase.panel.ReportError, phase.ConformanceError),
+        match="issue tables are terminal",
+    ):
+        phase.check_da_anchors(report)
+
+
+@pytest.mark.parametrize("late_surface", _DA_TERMINAL_LATE_SURFACES)
+def test_da_post_major_table_surfaces_fail_phase_checker(
+    late_surface,
+):
+    report = panel.parse_report(
+        "da.md", da_text(ids=("C1",)) + f"\n\n{late_surface}", FULL
+    )
+    with pytest.raises(
+        (panel.ReportError, phase.panel.ReportError, phase.ConformanceError),
+        match="issue tables are terminal",
+    ):
+        phase.check_da_anchors(report)
+
+
+def test_da_fenced_payload_after_major_fails_phase_checker():
+    text = da_text(ids=("C1",)) + (
+        "\n\n```markdown\n"
+        '| C2 | Hidden critical issue | text: "hidden evidence" p. 2 |\n'
+        "```"
+    )
+    report = panel.parse_report("da.md", text, FULL)
+    with pytest.raises(
+        (panel.ReportError, phase.panel.ReportError, phase.ConformanceError),
+        match="issue tables are terminal",
+    ):
+        phase.check_da_anchors(report)
+
+
+def test_da_html_comment_inside_fence_fails_phase_checker():
+    text = da_text(ids=()) + (
+        "\n\n```\n<!-- hidden adjudication payload -->\n```"
+    )
+    report = panel.parse_report("da.md", text, FULL)
+    with pytest.raises(
+        (panel.ReportError, phase.panel.ReportError, phase.ConformanceError),
+        match="HTML comments are forbidden",
+    ):
+        phase.check_da_anchors(report)
+
+
+def test_da_html_commented_tables_fail_phase_checker():
+    text = da_text(ids=()).replace(
+        "#### CRITICAL", "<!--\n#### CRITICAL", 1
+    )
+    text += "\n-->"
+    report = panel.parse_report("da.md", text, FULL)
+    with pytest.raises(
+        (panel.ReportError, phase.panel.ReportError, phase.ConformanceError),
+        match="HTML comments are forbidden",
     ):
         phase.check_da_anchors(report)
 

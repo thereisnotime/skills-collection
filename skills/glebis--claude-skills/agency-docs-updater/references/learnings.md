@@ -70,6 +70,11 @@
 - Publication transcript is a wanted artifact: merge consecutive same-speaker segments, `[HH:MM:SS]` timecodes, names shortened to «Имя Ф.» (site rule: no last names), targeted ASR fixes only → `public/transcripts/${DATE}-<slug>-NN-transcript.md`, linked from the meeting MDX.
 - Pipeline can ship in stages: page + materials + transcript first (with «Запись обрабатывается» note), video embed as a second commit once upload verifies. Unblocks the page by ~an hour.
 
+## Recording completeness (seen 2026-07-24/26, GDD RU #02 lost its last hour)
+- BEFORE publishing, compare recording duration against the planned meeting length (~2 h for GDD). A short Fathom recording (e.g. 1:35 of a 2.5 h session) means Fathom stopped early — immediately check Zoom cloud AND the other cohort's Zoom account AND ask the host for local recordings. Meeting 01 was saved by merging Fathom part 1 + Zoom part 2; meeting 02's last hour was captured nowhere.
+- Fix applied 2026-07-26: `auto_recording: cloud` enabled on both recurring cohort meetings (RU 85721142966, EN 83860788683) via `PATCH /meetings/{id}` with the **S2S token** (`get_access_token(load_credentials())`) — the recordings OAuth token lacks `meeting:update`/`user:update:settings` scopes and 400s with code 4711.
+- Zoom auto-recordings will start at meeting open → trim dead air with `scripts/trim_leading_silence.sh` (SKILL Step 3-pre) before uploading.
+
 ## Dead API keys (policy)
 - When a required API key is invalid (e.g. Groq 401 in preflight): do NOT just silently work around it — ask the user for a fresh key via AppleScript dialog first: `osascript -e 'display dialog "Enter GROQ_API_KEY:" default answer "" with hidden answer'`, then use it for the run and offer to store it in the appropriate secrets file (SOPS). Only if the user declines/has no key, fall back to the manual `VideoConfig` path (title/description/tags hand-written).
 

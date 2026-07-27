@@ -5,6 +5,7 @@
 .venv/
 .python-version
 __pycache__/
+.pytest_cache/
 
 # Secrets
 .env
@@ -13,9 +14,9 @@ __pycache__/
 temp/
 research/
 
+# Local agent tooling
+.claude/
 .agents/
-AGENTS.md
-CLAUDE.md
 
 skills-lock.json
 
