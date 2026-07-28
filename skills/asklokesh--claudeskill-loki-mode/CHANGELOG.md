@@ -5,6 +5,220 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v8.0.0
+
+Loki's first 8.x. No 8.x has ever been published (npm latest was 7.129.5), so
+everything below ships together as ONE major release.
+
+### Fixed before release: regressions found by auditing v8 against v7.129.5
+
+The legacy (non-SDK) engine changed substantially in this release, so it was
+audited line-by-line against v7.129.5 -- the version users are running today --
+specifically for things that WORKED on v7 and would BREAK on v8. Everything
+below was reproduced first, then fixed, then guarded by a registered test.
+
+- **The completion gate called finished apps a secret leak.** v8 added a
+  secret-scan axis to the completion council; v7 had none there. It blocked on
+  FILENAMES alone, so `src/auth/token.ts` -- a routine file in any auth-enabled
+  app, exactly what this engine is asked to build -- failed the gate with
+  nothing secret in it. `.env.example` shipping a placeholder key failed too.
+  The council now judges CONTENT; template and fixture paths are skipped. Real
+  keys in real paths still block (verified against live-shaped keys, an AWS id,
+  and a PEM block). The filename heuristic is retained on the auto-commit path,
+  where refusing to STAGE a `.env` is correct.
+- **A passing test suite could read as "no tests run."** The detector counted
+  TAP output and treated its absence as proof of zero tests, but Node 26
+  defaults to the spec reporter, which emits no TAP. A green suite recorded
+  `inconclusive`, so the loop kept working on a finished job and the user paid
+  for iterations they did not need. Failing tests still block, unchanged.
+- **The tamper-evident audit chain forked itself.** Chain writes were
+  serialized with a thread lock and an import-time tip, so concurrent writer
+  PROCESSES each chained from a stale tip. On one machine 25 of 67 audit files
+  were internally broken across 10,163 entries. Now serialized cross-process
+  with a file lock and a re-read of the true tail.
+- **`loki init --json` emitted invalid JSON on reinit.** The banner went to
+  stdout, so the second `init` in a directory produced prose followed by JSON.
+  Tools parsing it worked once, then broke. Diagnostics now go to stderr.
+- **Codex was unusable on its free tier.** A hardcoded model name is rejected
+  by ChatGPT-account users with HTTP 400. Since Codex is the only agent CLI
+  with a free tier, this broke the one no-cost on-ramp. No model is pinned by
+  default now; explicit overrides still pass through.
+- **The bundled Agent SDK was not recognized as a provider.** `loki doctor`
+  demanded a separate CLI install that Loki already ships internally.
+- **First-pass excellence did not reach the SDK route.** The directive that
+  front-loads a complete first attempt was gated behind a `claude`-binary
+  probe, so it silently vanished on exactly the route v8 promotes.
+
+### Test surface
+
+Registered test suites went from 106 to 259. Roughly two thirds of the suite
+existed but was wired into no runner, and therefore never ran -- which is how
+several of the defects above reached this branch unnoticed. A coverage gate now
+fails CI if a new test file is added without being registered. The sections previously
+drafted under a separate "v8.1.0" heading are folded in here: they were never
+released independently, and shipping a first-ever 8.x as 8.1.0 with a phantom
+8.0.0 beneath it would describe a release history that does not exist.
+
+**Default-off posture (the whole release).** With no `LOKI_*` flag set, the
+engine behaves byte-identically to v7: the bash `claude` path runs and none of
+the SDK code loads. Every new capability below is opt-in or additive, and the
+SDK RARV loop specifically remains DEFAULT-OFF pending its acceptance tests.
+
+### v8 harness intelligence (jcode-informed)
+
+Four measured-harness disciplines, adopted onto the existing trust core rather
+than bolted beside it. None of them can weaken a gate.
+
+- **Prompt-cache discipline.** Already present and verified, not rebuilt: the
+  prompt is split into a cache-stable `<loki_system>` prefix and a volatile
+  `<dynamic_context>` tail at an explicit `[CACHE_BREAKPOINT]`, which
+  `sdk_invoker.ts` uses to apply `cache_control`. Every new instruction added in
+  this release was placed in the prefix to preserve that property.
+- **Confidence-spike re-check.** A jump to near-maximal self-reported confidence
+  forces ONE extra verification before the done-signal valve force-stops a run.
+  Strictly additive: a spike can only ADD a verification pass, never skip or
+  satisfy a gate. It cannot delay the stagnation valve, and the delay is
+  one-shot so a re-spiking run cannot postpone the valve indefinitely.
+- **Hill-climbable goal scoring.** A `COMPLETION_PROMISE` with no measurable
+  target (no number, comparator, named metric, or verifiable artifact) gets an
+  advisory asking for a checkable success condition. Advisory only -- it never
+  blocks a build or rewrites the goal. Suppressed for an absent goal and in
+  perpetual mode, where open-endedness is the chosen configuration.
+  Byte-mirrored across the bash and TypeScript routes.
+- **Smart retry.** Positively-identified permanent failures (bad credentials,
+  unknown model, exhausted quota) stop early instead of burning the retry
+  budget on guaranteed-identical failures. Fail-safe by construction: an
+  unrecognized error stays TRANSIENT and keeps retrying exactly as before, and
+  rate limits are explicitly excluded from the permanent set.
+
+### Operational observability
+
+- **SDK capability-degradation event.** An SDK load or stream failure now emits
+  a structured `capability_degraded` record onto the existing
+  `.loki/events.jsonl` stream instead of existing only as prose in the captured
+  output, so an unattended operator can distinguish "the SDK could not load"
+  from "the model did poor work". No new env var.
+- **Time to first preview.** The elapsed seconds from run start to the app first
+  serving is recorded once per run. Write-once, so a restart cannot overwrite a
+  genuine slow first preview with a flattering warm-start number, and skipped
+  entirely rather than guessed when no baseline exists.
+- **Opt-in build analytics + otel 2.x.** Build-outcome analytics behind a strict
+  second gate (default off even when telemetry is on, allowlist-only fields),
+  and the OpenTelemetry 2.x bump that clears GHSA-45rx-2jwx-cxfr at source.
+
+### One-switch SDK activation + rollback + packaging gate (default-off)
+
+The SDK route is reachable through eight per-site `LOKI_SDK_*` flags. This makes
+it operable at scale without learning all eight, adds the rollback that must
+exist before the loop can ever default-on, and proves the SDK judge ships in the
+packed artifact. Everything remains OPT-IN and DEFAULT-OFF: with nothing set,
+the engine is byte-identical to v7.
+
+**One-switch mode (`LOKI_SDK_MODE`).** A single operator switch sets the default
+for all eight per-site flags at once via a write-once resolver, mirrored
+byte-for-byte in bash (`autonomy/lib/sdk-mode.sh`) and TypeScript
+(`loki-ts/src/runner/sdk_mode.ts`):
+- `off` (default) writes nothing -- every site keeps its own `:-0` default.
+- `judges` turns on the seven one-shot JUDGE/TEXT sites; the RARV loop stays off.
+  The recommended scale tier.
+- `full` turns on all eight, including the loop (`LOKI_SDK_LOOP`). Pre-flight
+  tier; the loop default-flip remains a later release.
+- `LOKI_SDK=1` is an alias for `judges`; `LOKI_SDK=full` for `full`.
+An explicit per-site flag ALWAYS wins over the mode (even an explicit `=0` under
+`full`) -- the resolver only writes a var that is unset. The resolver runs in all
+entrypoints (`bin/loki`, `autonomy/loki`, `run.sh`, and the Bun `cli.ts`) so
+`LOKI_SDK_MODE=full loki start` correctly routes the loop to the Bun runner. bash
+and TS bind to one shared parity fixture (`loki-ts/test/fixtures/
+sdk-mode-table.json`) so the two resolvers cannot drift. Opt-in
+`LOKI_SDK_MODE_DEBUG=1` prints what one switch turned on.
+
+**Symmetric rollback (`LOKI_LEGACY_BASH`).** Already honored by the `bin/loki`
+shim; now also honored inside the Bun provider resolver
+(`selectClaudeInvokerKind`), so it forces the legacy `claude` spawn even if the
+Bun route is reached another way. It wins over `LOKI_SDK_LOOP`. This lands and is
+CI-tested now, before the loop ever flips default-on, so the escape hatch exists
+before it is needed. Today (loop default-off) it is a no-op.
+
+**Packaging gate (CI).** A new `sdk-tarball-no-binary` job packs the real npm
+tarball, installs it into a clean prefix with NO `claude` binary on PATH, and
+proves the bundled `@anthropic-ai/sdk` judge SHIPS: keyless, `loki internal
+sdk-judge` fail-closes with exit exactly 1 (no module-not-found). A billable
+real-verdict probe is gated on the `ANTHROPIC_API_KEY` secret. This catches the
+".gitignore-excluded dist" class of bug for the SDK route and is the gate that
+later lets `LOKI_SDK_LOOP` flip default-on safely.
+
+**Sandbox deprecation notice (annotation-only).** The Docker Desktop microVM path
+now emits a one-shot notice that its bundled-`claude`-binary template is legacy
+under the SDK route, while stating explicitly that code-execution ISOLATION is
+RETAINED (in-process SDK runs at host privilege, so isolation matters more, not
+less). No behavior change, no removal; opt out `LOKI_SANDBOX_DEPRECATION_QUIET=1`.
+
+**Not in v8 (deliberate, YAGNI).** The Message Batches API judge fan-out was
+scoped out after a codebase-wide audit: every judge fan-out is either a single
+inlined call or on the RARV critical path, where the Batch API's minutes-of-async
+polling is a latency regression, not a win. No batch-appropriate site exists
+today; revisit if a latency-tolerant bulk-judge site is introduced.
+
+### The Anthropic SDK transformation (MAJOR)
+
+v8 replaces Loki's bash `claude -p` wrapper with the Anthropic SDKs. Every model
+call the engine makes can now run through a library call instead of spawning the
+`claude` CLI: the one-shot JUDGE/TEXT sites on the raw `@anthropic-ai/sdk` (pure
+HTTPS, bundled into the shipped bundle, zero extra install), and the agentic RARV
+MAIN LOOP on the `@anthropic-ai/claude-agent-sdk` `query()`. This is the
+enterprise/SaaS deploy win: a container or SaaS worker can run the SDK route with
+just an API key, no interactive `claude` login and no user-managed CLI version
+drift.
+
+Everything below is OPT-IN and DEFAULT-OFF. With no `LOKI_SDK_*` flag set, the
+engine behaves byte-identically to v7: the bash `claude` path runs, and none of
+the SDK code loads. Every SDK path is fail-closed: any miss (flag off, no key,
+transport error, refusal, malformed output, timeout, empty) falls through to the
+existing `claude`/deterministic path. A quality gate or completion council can
+never fake-PASS or fake-APPROVE via an SDK path, and a failed iteration is never
+counted as success.
+
+**Judge / text call-sites on the raw SDK** (each behind its own flag):
+- done-recognition (`LOKI_SDK_DONE_RECOG=1`), council-v2 (`LOKI_SDK_COUNCIL_V2=1`),
+  code-review reviewer (`LOKI_SDK_CODE_REVIEW=1`), completion-council member +
+  contrarian VOTE (`LOKI_SDK_COUNCIL_VOTE=1`), voter-agents council
+  (`LOKI_SDK_VOTER_AGENTS=1`) - all schema-constrained via the shared
+  `internal sdk-judge` bridge.
+- grill and prd-enrich (`LOKI_SDK_GRILL=1`, `LOKI_SDK_PRD_ENRICH=1`) - free-form
+  text via the `internal sdk-text` bridge.
+- Every branch runs BEFORE its `claude`-binary guard (binary-free deploy), keeps
+  the downstream parser/verdict shape byte-compatible, and is mirrored on both
+  the bash and Bun/TypeScript routes.
+
+**RARV main loop on the Agent SDK** (`LOKI_SDK_LOOP=1`):
+- `loki start` on the Bun route drives the agentic loop with `query()` instead of
+  spawning `claude ... --output-format stream-json`. A new stream parser
+  (`sdk_stream_parser`) consumes the typed SDK message stream and writes the SAME
+  `.loki` state the bash Python parser wrote (agents.json, queue/in-progress.json,
+  events.jsonl hook records, per-iteration result-cost) so the dashboard,
+  efficiency writer, event bus, and council are unchanged. `bin/loki` routes
+  `start` to Bun only when the flag is truthy; the bash `claude` main loop stays
+  the default.
+
+**Packaging / distribution:**
+- The raw `@anthropic-ai/sdk` is statically bundled into `loki-ts/dist/loki.js`,
+  so the npm tarball and Docker image ship the judge SDK route self-contained.
+- The Agent SDK (a dynamic import + a per-platform native binary) is declared as
+  an `optionalDependency` so `npm install` resolves it, and the Docker image
+  installs it into `loki-ts/`, making the `LOKI_SDK_LOOP` path work in both
+  shipped channels.
+
+**Env knobs:** `LOKI_SDK_DONE_RECOG`, `LOKI_SDK_COUNCIL_V2`, `LOKI_SDK_CODE_REVIEW`,
+`LOKI_SDK_COUNCIL_VOTE`, `LOKI_SDK_VOTER_AGENTS`, `LOKI_SDK_GRILL`,
+`LOKI_SDK_PRD_ENRICH`, `LOKI_SDK_LOOP` (all default off);
+`LOKI_SDK_COUNCIL_MODEL`, `LOKI_SDK_REVIEW_MODEL`, `LOKI_SDK_JUDGE_MODEL`,
+`LOKI_SDK_REVIEW_TIMEOUT`, `LOKI_SDK_GRILL_MODEL`, `LOKI_SDK_PRD_ENRICH_MODEL`.
+
+**Validation:** every SDK path was council-reviewed to unanimous approval (per
+cluster and a final whole-arc pass), the SDK loop was E2E-verified on the live API
+building real apps (a one-file utility, a multi-file CLI, and a full-stack Flask
+REST API whose 6 tests pass), and the full test suites stay green on both routes.
+
 ## v7.129.5
 
 ### Fixed: corrupt Evidence Receipt when a test runner emits colored output

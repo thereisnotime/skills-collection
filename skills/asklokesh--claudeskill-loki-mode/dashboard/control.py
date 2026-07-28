@@ -64,6 +64,14 @@ EVENTS_FILE = LOKI_DIR / "events.jsonl"
 
 # Find skill directory
 def find_skill_dir() -> Path:
+    explicit = os.environ.get("LOKI_SKILL_DIR", "").strip()
+    if explicit:
+        configured = Path(explicit).expanduser().resolve()
+        if ((configured / "SKILL.md").exists()
+                and (configured / "autonomy" / "run.sh").exists()):
+            return configured
+        raise RuntimeError(f"LOKI_SKILL_DIR is not a Loki source tree: {configured}")
+
     candidates = [
         Path.home() / ".claude" / "skills" / "loki-mode",
         Path(__file__).parent.parent,

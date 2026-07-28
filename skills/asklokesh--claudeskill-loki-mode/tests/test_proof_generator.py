@@ -6,7 +6,7 @@ Covers:
     minus the verification field) and assert it matches; scope == "integrity".
   - --include-diffs toggling: null when off, list when on (real git fixture).
   - graceful degradation: empty council, non-git dir -> empty files list,
-    missing efficiency -> zero cost.
+    missing efficiency -> unavailable cost.
 
 The generator is invoked as a subprocess (its filename has a hyphen so it is
 not importable as a module), matching how run.sh actually calls it.
@@ -33,12 +33,15 @@ def _canonical(obj):
 
 
 def _run_generator(loki_dir, out_dir, *, include_diffs=False, env_extra=None,
-                   run_id="gen-fixed-001", loki_version="7.9.0"):
+                   run_id="gen-fixed-001", loki_version="7.9.0",
+                   session_exit_code=None):
     cmd = [sys.executable, _GENERATOR, "--loki-dir", loki_dir,
            "--out-dir", out_dir, "--run-id", run_id,
            "--loki-version", loki_version, "--quiet"]
     if include_diffs:
         cmd.append("--include-diffs")
+    if session_exit_code is not None:
+        cmd.extend(["--session-exit-code", str(session_exit_code)])
     env = dict(os.environ)
     env.pop("PRD_PATH", None)
     env.pop("_LOKI_ITER_START_SHA", None)
@@ -263,6 +266,93 @@ class IncludeDiffsTests(unittest.TestCase):
             self.assertIn("patch", entry)
 
 
+class FinalWorkspaceDiffTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="loki-proof-final-tree-")
+        self.proj = os.path.join(self.tmp, "repo")
+        os.makedirs(self.proj)
+        self.git("init")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def git(self, *args):
+        return subprocess.run(
+            ["git", "-C", self.proj, "-c", "user.email=t@t.test",
+             "-c", "user.name=tester"] + list(args),
+            capture_output=True, text=True, check=True,
+        )
+
+    def write(self, path, text):
+        full = os.path.join(self.proj, path)
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        with open(full, "w") as handle:
+            handle.write(text)
+
+    def generate(self, base, include_diffs=False):
+        loki_dir = os.path.join(self.proj, ".loki")
+        out_dir = os.path.join(loki_dir, "proofs", "final-tree")
+        os.makedirs(loki_dir, exist_ok=True)
+        return _run_generator(
+            loki_dir,
+            out_dir,
+            include_diffs=include_diffs,
+            env_extra={"_LOKI_ITER_START_SHA": base},
+        )
+
+    def test_base_equals_head_still_reports_worktree_and_untracked_changes(self):
+        self.write("tracked.txt", "base\n")
+        self.git("add", "tracked.txt")
+        self.git("commit", "-m", "baseline")
+        base = self.git("rev-parse", "HEAD").stdout.strip()
+
+        self.write("tracked.txt", "base\nchanged\n")
+        self.write("new.txt", "new\n")
+        os.makedirs(os.path.join(self.proj, ".loki", "state"))
+        with open(os.path.join(self.proj, ".loki", "state",
+                               "execution-policy.json"), "w") as handle:
+            json.dump({"model": {"sdk_id": "provider-fast-v1"}}, handle)
+
+        proof = self.generate(base, include_diffs=True)
+        git_facts = proof["facts"]["git"]
+        self.assertEqual(git_facts["base_sha"], git_facts["head_sha"])
+        self.assertEqual(
+            {item["path"] for item in proof["files_changed"]["files"]},
+            {"new.txt", "tracked.txt"},
+        )
+        self.assertEqual(proof["files_changed"], git_facts["diff"])
+        self.assertTrue(git_facts["tree_sha256"])
+        self.assertEqual(proof["provider"]["model"], "provider-fast-v1")
+        self.assertFalse(proof["cost"]["available"])
+        self.assertIsNone(proof["cost"]["usd"])
+        self.assertIsNone(proof["cost"]["input_tokens"])
+        self.assertIn("new.txt", {item["path"] for item in proof["diffs"]})
+
+    def test_final_diff_covers_every_git_layer_and_deletion_once(self):
+        for path in ("committed.txt", "staged.txt", "unstaged.txt", "deleted.txt"):
+            self.write(path, "base\n")
+        self.git("add", "committed.txt", "staged.txt", "unstaged.txt", "deleted.txt")
+        self.git("commit", "-m", "baseline")
+        base = self.git("rev-parse", "HEAD").stdout.strip()
+
+        self.write("committed.txt", "base\ncommitted\n")
+        self.git("add", "committed.txt")
+        self.git("commit", "-m", "committed change")
+        self.write("staged.txt", "base\nstaged\n")
+        self.git("add", "staged.txt")
+        self.write("unstaged.txt", "base\nunstaged\n")
+        os.unlink(os.path.join(self.proj, "deleted.txt"))
+        self.write("untracked.txt", "untracked\n")
+
+        proof = self.generate(base)
+        paths = [item["path"] for item in proof["files_changed"]["files"]]
+        self.assertEqual(paths, sorted({
+            "committed.txt", "staged.txt", "unstaged.txt",
+            "deleted.txt", "untracked.txt",
+        }))
+        self.assertEqual(proof["files_changed"]["count"], 5)
+
+
 class GracefulDegradationTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="loki-proof-gen-degrade-")
@@ -288,8 +378,9 @@ class GracefulDegradationTests(unittest.TestCase):
         # Missing efficiency -> cost NOT collected: usd is null (not 0.0) so the
         # page reads "cost not recorded" instead of a credibility-killing $0.00.
         self.assertIsNone(d["cost"]["usd"])
-        self.assertEqual(d["cost"]["input_tokens"], 0)
-        self.assertEqual(d["cost"]["output_tokens"], 0)
+        self.assertFalse(d["cost"]["available"])
+        self.assertIsNone(d["cost"]["input_tokens"])
+        self.assertIsNone(d["cost"]["output_tokens"])
 
         # Empty council -> not enabled, no reviewers.
         self.assertFalse(d["council"]["enabled"])
@@ -635,6 +726,56 @@ class HonestyHeadlineTests(unittest.TestCase):
         self.assertEqual(d["honesty"]["degraded"], [],
                          "no degraded items expected for an all-green run")
         self.assertEqual(d["honesty"]["headline"], "VERIFIED")
+
+    def test_max_iterations_with_green_checks_is_not_verified(self):
+        """A blocked terminal outcome can never be signed as successful."""
+        proj, base = self._git_repo_with_change()
+        loki_dir = os.path.join(proj, ".loki")
+        out_dir = os.path.join(self.tmp, "out-max-iterations")
+        os.makedirs(os.path.join(loki_dir, "state"))
+        self._write_tests(loki_dir, {
+            "runner": "vitest", "command": "vitest", "exit_code": 0,
+            "status": "verified",
+        })
+        self._write_build(loki_dir, {
+            "command": "npm run build", "ran": True, "exit_code": 0,
+        })
+        with open(os.path.join(loki_dir, "state", "completion.json"), "w") as f:
+            json.dump({"outcome": "max_iterations"}, f)
+
+        d = _run_generator(
+            loki_dir, out_dir, env_extra={"_LOKI_ITER_START_SHA": base},
+            session_exit_code=20,
+        )
+
+        self.assertEqual(d["facts"]["execution"]["outcome"], "max_iterations")
+        self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED")
+        self.assertTrue(any(
+            item.get("item") == "execution"
+            for item in d["honesty"]["degraded"]
+        ))
+
+    def test_nonzero_session_exit_with_green_checks_is_not_verified(self):
+        proj, base = self._git_repo_with_change()
+        loki_dir = os.path.join(proj, ".loki")
+        out_dir = os.path.join(self.tmp, "out-nonzero-exit")
+        os.makedirs(loki_dir)
+        self._write_tests(loki_dir, {
+            "runner": "vitest", "command": "vitest", "exit_code": 0,
+            "status": "verified",
+        })
+        self._write_build(loki_dir, {
+            "command": "npm run build", "ran": True, "exit_code": 0,
+        })
+
+        d = _run_generator(
+            loki_dir, out_dir,
+            env_extra={"_LOKI_ITER_START_SHA": base},
+            session_exit_code=20,
+        )
+
+        self.assertEqual(d["facts"]["execution"]["exit_code"], 20)
+        self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED")
 
     def test_all_green_but_empty_diff_not_verified(self):
         # Tests green but NO file changes -> git.diff degraded -> not VERIFIED.
@@ -1160,6 +1301,21 @@ class GateAndCouncilReportingTests(unittest.TestCase):
         names = {g["name"]: g["status"] for g in d["quality_gates"]["gates"]}
         self.assertEqual(names.get("unit_tests"), "passed")
 
+    def test_unresolved_gate_file_is_merged_as_failed(self):
+        loki_dir = os.path.join(self.tmp, "app3", ".loki")
+        out_dir = os.path.join(self.tmp, "out3")
+        os.makedirs(os.path.join(loki_dir, "quality"))
+        open(os.path.join(loki_dir, "quality", "static-analysis.pass"), "w").close()
+        with open(os.path.join(loki_dir, "quality", "gate-failures.txt"), "w") as f:
+            f.write("code_review,\n")
+
+        d = _run_generator(loki_dir, out_dir)
+
+        names = {g["name"]: g["status"] for g in d["quality_gates"]["gates"]}
+        self.assertEqual(names.get("static_analysis"), "passed")
+        self.assertEqual(names.get("code_review"), "failed")
+        self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED")
+
 
 class StaticAnalysisMarkerTests(unittest.TestCase):
     """The static-analysis marker writes `"pass": <bool>`. The collector must
@@ -1204,6 +1360,150 @@ class StaticAnalysisMarkerTests(unittest.TestCase):
         # fabricated as passed -- it stays not_run.
         names = self._gates({"files_checked": 0, "summary": "unknown"})
         self.assertEqual(names.get("static_analysis"), "not_run")
+
+
+class FunctionalityAxesTests(unittest.TestCase):
+    """The functionality-proving axes (nomock/persistence/auth) recorded by the
+    completion-council evidence gate must flow into proof.json as HONEST facts:
+      - a fresh ok:true (not inconclusive) -> a PROVEN fact (a green receipt row).
+      - inconclusive (or absent) -> NOT proven: state not_checked, never green,
+        never a gap.
+      - a fresh ok:false -> an honest GAP: state gap AND listed in degraded[]
+        like every other gap, so it can never hide behind a green headline.
+    A fabricated proven axis is catastrophic; these lock the honesty rule."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="loki-proof-gen-func-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _gen(self, axes):
+        """Write evidence-gate-details.json with the given per-axis dicts and
+        return the generated proof. `axes` maps axis name -> {ok,inconclusive,
+        reason} (or is omitted to test an absent axis)."""
+        loki_dir = os.path.join(self.tmp, "app", ".loki")
+        out_dir = os.path.join(self.tmp, "out")
+        os.makedirs(os.path.join(loki_dir, "council"))
+        os.makedirs(out_dir)
+        details = {"verdict": "CONTINUE", "iteration": 3}
+        details.update(axes)
+        with open(os.path.join(loki_dir, "council",
+                               "evidence-gate-details.json"), "w") as f:
+            json.dump(details, f)
+        return _run_generator(loki_dir, out_dir)
+
+    def _fnc(self, d):
+        return d["facts"]["functionality"]
+
+    def _degraded_items(self, d):
+        return {e["item"] for e in d["honesty"]["degraded"]}
+
+    def test_proven_axis_becomes_proven_fact(self):
+        d = self._gen({
+            "nomock": {"ok": True, "inconclusive": False, "reason": ""},
+            "persistence": {"ok": True, "inconclusive": False, "reason": ""},
+            "auth": {"ok": True, "inconclusive": False, "reason": ""},
+        })
+        fnc = self._fnc(d)
+        for axis in ("nomock", "persistence", "auth"):
+            self.assertEqual(fnc[axis]["state"], "proven",
+                             "a fresh ok:true axis must be a proven fact")
+        # A proven axis is NOT a gap.
+        self.assertNotIn("functionality:persistence", self._degraded_items(d))
+
+    def test_inconclusive_axis_is_not_proven_and_not_a_gap(self):
+        d = self._gen({
+            "nomock": {"ok": True, "inconclusive": True,
+                       "reason": "nomock_gate_disabled"},
+            "persistence": {"ok": True, "inconclusive": True,
+                            "reason": "not_serveable"},
+            "auth": {"ok": True, "inconclusive": True,
+                     "reason": "auth_gate_disabled"},
+        })
+        fnc = self._fnc(d)
+        deg = self._degraded_items(d)
+        for axis in ("nomock", "persistence", "auth"):
+            self.assertEqual(fnc[axis]["state"], "not_checked",
+                             "inconclusive must NEVER upgrade to proven "
+                             "(even when ok:true is the pass-through default)")
+            self.assertNotIn("functionality:%s" % axis, deg,
+                             "an inconclusive (not-proven) axis is not a gap")
+
+    def test_disproven_axis_is_a_gap_in_degraded(self):
+        d = self._gen({
+            "nomock": {"ok": True, "inconclusive": False, "reason": ""},
+            "persistence": {"ok": False, "inconclusive": False,
+                            "reason": "not_persisted"},
+            "auth": {"ok": False, "inconclusive": False,
+                     "reason": "auth_not_enforced"},
+        })
+        fnc = self._fnc(d)
+        deg = {e["item"]: e for e in d["honesty"]["degraded"]}
+        self.assertEqual(fnc["persistence"]["state"], "gap")
+        self.assertEqual(fnc["auth"]["state"], "gap")
+        self.assertEqual(fnc["nomock"]["state"], "proven")
+        self.assertIn("functionality:persistence", deg,
+                      "a fresh ok:false axis must land in degraded[]")
+        self.assertIn("functionality:auth", deg)
+        self.assertEqual(deg["functionality:persistence"]["reason"],
+                         "not_persisted")
+        self.assertNotIn("functionality:nomock", deg)
+
+    def test_absent_file_and_absent_axis_are_not_checked(self):
+        # No evidence-gate-details.json at all.
+        loki_dir = os.path.join(self.tmp, "app2", ".loki")
+        out_dir = os.path.join(self.tmp, "out2")
+        os.makedirs(loki_dir)
+        os.makedirs(out_dir)
+        d = _run_generator(loki_dir, out_dir)
+        fnc = self._fnc(d)
+        for axis in ("nomock", "persistence", "auth"):
+            self.assertEqual(fnc[axis]["state"], "not_checked",
+                             "absent gate file -> nothing proven, nothing gap")
+        self.assertEqual(self._degraded_items(d) & {
+            "functionality:nomock", "functionality:persistence",
+            "functionality:auth"}, set())
+
+    def test_missing_ok_key_is_not_checked_not_proven(self):
+        # Honest floor: an axis dict with neither ok:true nor a clear ok:false
+        # (e.g. ok absent / null) must NOT be fabricated as proven.
+        d = self._gen({
+            "nomock": {"inconclusive": False, "reason": "malformed"},
+            "persistence": {"ok": None, "inconclusive": False},
+        })
+        fnc = self._fnc(d)
+        self.assertEqual(fnc["nomock"]["state"], "not_checked")
+        self.assertEqual(fnc["persistence"]["state"], "not_checked")
+
+    def test_authorization_proven_is_green_row_not_gap(self):
+        # The tenant-isolation axis rides the SAME generic tuple. Proven -> green
+        # row; proves _collect_functionality was extended to include it.
+        d = self._gen({"authorization": {"ok": True, "inconclusive": False, "reason": ""}})
+        self.assertIn("authorization", self._fnc(d),
+                      "_collect_functionality must include 'authorization'")
+        self.assertEqual(self._fnc(d)["authorization"]["state"], "proven")
+        self.assertNotIn("functionality:authorization", self._degraded_items(d))
+
+    def test_authorization_disproven_is_a_gap_in_degraded(self):
+        # The Lovable leak: ok:false -> gap AND listed in degraded[].
+        d = self._gen({"authorization": {"ok": False, "inconclusive": False,
+                                         "reason": "user_b_read_user_a_detail"}})
+        self.assertEqual(self._fnc(d)["authorization"]["state"], "gap")
+        deg = {e["item"]: e for e in d["honesty"]["degraded"]}
+        self.assertIn("functionality:authorization", deg)
+        self.assertEqual(deg["functionality:authorization"]["reason"],
+                         "user_b_read_user_a_detail")
+
+    def test_authorization_inconclusive_is_not_checked(self):
+        d = self._gen({"authorization": {"ok": True, "inconclusive": True,
+                                         "reason": "no_multiuser_auth"}})
+        self.assertEqual(self._fnc(d)["authorization"]["state"], "not_checked")
+        self.assertNotIn("functionality:authorization", self._degraded_items(d))
+
+    def test_authorization_absent_axis_is_not_checked(self):
+        d = self._gen({"nomock": {"ok": True, "inconclusive": False, "reason": ""}})
+        self.assertEqual(self._fnc(d)["authorization"]["state"], "not_checked")
 
 
 if __name__ == "__main__":

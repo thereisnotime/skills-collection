@@ -10,7 +10,7 @@
 #   Fix 1: the tracked-but-gitignored dir is EXCLUDED at its EXACT depth, and a
 #          REAL non-ignored sibling under the SAME top-level dir SURVIVES (the
 #          council-caught over-exclusion / fail-closed hole).
-#   Fix 2: an oversized diff triggers the explicit warning wiring in run.sh.
+#   Fix 2: an oversized context rejects explicitly before reviewer dispatch.
 #   Fix 3: per-reviewer prompt sizes are logged + recorded.
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -149,12 +149,15 @@ if printf '%s' "$FILTER_BLOCK" | grep -q 'dirname "\$_f"' \
 else
     bad "REGRESSION: filter block collapses to top-level prefix (over-exclusion bug)"
 fi
-grep -q 'LOKI_REVIEW_MAX_DIFF_BYTES' "$RUN_SH" && grep -q 'code_review_diff_oversized' "$RUN_SH" \
-    && ok "Fix 2 wired: oversized-diff warning + event" || bad "Fix 2 not wired"
+grep -q 'LOKI_REVIEW_MAX_DIFF_BYTES' "$RUN_SH" \
+    && grep -q 'code_review_diff_oversized' "$RUN_SH" \
+    && grep -q 'refusing to truncate or dispatch a partial review' "$RUN_SH" \
+    && ok "Fix 2 wired: oversized context rejects explicitly" || bad "Fix 2 not wired"
 grep -q 'Reviewer .*: prompt .* bytes' "$RUN_SH" && grep -q 'sizes.tsv' "$RUN_SH" \
     && ok "Fix 3 wired: per-reviewer prompt-size logging" || bad "Fix 3 not wired"
-grep -q 'LIKELY CAUSE: the review diff is' "$RUN_SH" \
-    && ok "self-explanatory INCONCLUSIVE block names the oversize cause" || bad "INCONCLUSIVE block missing cause"
+grep -q 'LOKI_REVIEW_MAX_PROMPT_BYTES' "$RUN_SH" \
+    && grep -q 'code_review_prompt_oversized' "$RUN_SH" \
+    && ok "Fix 3 rejects oversized prompts before a partial council" || bad "prompt rejection wiring missing"
 
 # ---- syntax ----
 bash -n "$RUN_SH" && ok "run.sh passes bash -n" || bad "run.sh syntax error"

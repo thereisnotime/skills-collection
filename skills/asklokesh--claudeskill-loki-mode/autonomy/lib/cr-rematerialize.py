@@ -32,8 +32,13 @@ import sys
 _BLOCKING = {"CRITICAL", "HIGH"}
 
 
-def rematerialize(raw):
-    """Return legacy VERDICT/FINDINGS text, or raise ValueError(exit_code)."""
+def _payload(raw):
+    """Return the structured payload from a CLI envelope or bare SDK result."""
+    raw = raw.strip()
+    if raw.startswith("```") and raw.endswith("```"):
+        first_newline = raw.find("\n")
+        if first_newline != -1:
+            raw = raw[first_newline + 1 : -3].strip()
     try:
         env = json.loads(raw)
     except Exception:
@@ -54,14 +59,92 @@ def rematerialize(raw):
                 payload = json.loads(res)
             except Exception:
                 payload = None
+    # v8 raw-SDK path: `loki internal sdk-judge` emits the BARE payload object
+    # (no CLI envelope), so there is no 'structured_output'/'result' wrapper. If
+    # the top-level dict itself carries the payload's 'verdict' key, it IS the
+    # payload. The stop_reason guard above already passes for a bare object
+    # (no 'stop_reason' key -> None -> allowed).
+    if not isinstance(payload, dict) and "verdict" in env:
+        payload = env
     if not isinstance(payload, dict):
         raise ValueError(5)
+
+    return payload
+
+
+def _requirement_contract(payload, manifest_source):
+    if isinstance(manifest_source, dict):
+        manifest = manifest_source
+    else:
+        try:
+            with open(manifest_source, encoding="utf-8") as handle:
+                manifest = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            raise ValueError(8)
+    if not isinstance(manifest, dict):
+        raise ValueError(8)
+    expected = manifest.get("requirements")
+    actual = payload.get("requirements")
+    findings = payload.get("findings")
+    if (
+        set(payload)
+        != {"schema", "spec_sha256", "verdict", "requirements", "findings"}
+        or manifest.get("schema") != "loki-requirements-manifest/v1"
+        or payload.get("schema") != "loki-requirements-verdict/v1"
+        or payload.get("spec_sha256") != manifest.get("spec_sha256")
+        or not isinstance(expected, list)
+        or not expected
+        or not isinstance(actual, list)
+        or len(actual) != len(expected)
+        or not isinstance(findings, list)
+    ):
+        raise ValueError(8)
+
+    expected_ids = [item.get("id") for item in expected if isinstance(item, dict)]
+    actual_ids = [item.get("id") for item in actual if isinstance(item, dict)]
+    if len(expected_ids) != len(expected) or actual_ids != expected_ids:
+        raise ValueError(8)
+    for item in actual:
+        if (
+            set(item) != {"id", "status", "evidence"}
+            or item.get("status") not in ("PASS", "FAIL")
+            or not isinstance(item.get("evidence"), str)
+            or not item["evidence"].strip()
+            or len(item["evidence"]) > 2000
+        ):
+            raise ValueError(8)
+
+    for finding in findings:
+        if (
+            not isinstance(finding, dict)
+            or set(finding) != {"severity", "description"}
+            or finding.get("severity")
+            not in ("Critical", "High", "Medium", "Low")
+            or not isinstance(finding.get("description"), str)
+            or not finding["description"].strip()
+            or len(finding["description"]) > 2000
+        ):
+            raise ValueError(8)
 
     verdict = str(payload.get("verdict", "")).strip().upper()
     if verdict not in ("PASS", "FAIL"):
         raise ValueError(6)
+    if findings or any(item["status"] != "PASS" for item in actual):
+        verdict = "FAIL"
+    return verdict, findings
 
-    findings = payload.get("findings")
+
+def rematerialize(raw, manifest_source=""):
+    """Return legacy VERDICT/FINDINGS text, or raise ValueError(exit_code)."""
+    payload = _payload(raw)
+    if manifest_source:
+        verdict, findings = _requirement_contract(payload, manifest_source)
+    else:
+        verdict = str(payload.get("verdict", "")).strip().upper()
+        findings = payload.get("findings")
+    if verdict not in ("PASS", "FAIL"):
+        raise ValueError(6)
+
     if not isinstance(findings, list):
         findings = []
 
@@ -101,7 +184,21 @@ def main():
         return 2
 
     try:
-        text = rematerialize(raw)
+        manifest_source = os.environ.get(
+            "_LOKI_CR_REQUIREMENTS_MANIFEST_JSON", ""
+        )
+        if manifest_source:
+            try:
+                manifest_source = json.loads(manifest_source)
+            except json.JSONDecodeError:
+                return 8
+        else:
+            manifest_source = os.environ.get(
+                "_LOKI_CR_REQUIREMENTS_MANIFEST", ""
+            )
+        text = rematerialize(
+            raw, manifest_source
+        )
     except ValueError as e:
         return int(e.args[0])
 

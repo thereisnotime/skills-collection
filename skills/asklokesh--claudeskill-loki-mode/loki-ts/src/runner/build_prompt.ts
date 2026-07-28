@@ -27,10 +27,19 @@
 //   - autonomy/run.sh:8823 load_queue_tasks()
 //   - loki-ts/docs/phase4-research/build_prompt.md
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
+import { resolve, dirname } from "node:path";
 import { runInline } from "../util/python.ts";
 import { detectComplexity } from "./rarv.ts";
+import { goalSharpeningInstruction } from "./goal_score.ts";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -312,14 +321,17 @@ function resetWorkflowDisclosure(): void {
 function maybeDiscloseWorkflowAnalysis(
   env: Readonly<Record<string, string | undefined>>,
   targetDir?: string,
+  writeError?: (message: string) => void,
 ): void {
   if (workflowDisclosed) return;
   if (!workflowAnalysisDecision(env, targetDir).autonomous) return;
   workflowDisclosed = true;
-  // eslint-disable-next-line no-console
-  console.error(
-    "Loki: no PRD found and this repo looks complex (complexity=complex), so the codebase-analysis pass is dispatching a Claude Code Dynamic Workflow (parallel fan-out). Workflows are more thorough but cost meaningfully more than the default three-pass analysis. Set LOKI_USE_CLAUDE_WORKFLOWS=0 to keep the cheaper three-pass pass.",
-  );
+  const message = "Loki: no PRD found and this repo looks complex (complexity=complex), so the codebase-analysis pass is dispatching a Claude Code Dynamic Workflow (parallel fan-out). Workflows are more thorough but cost meaningfully more than the default three-pass analysis. Set LOKI_USE_CLAUDE_WORKFLOWS=0 to keep the cheaper three-pass pass.";
+  if (writeError) writeError(message);
+  else {
+    // eslint-disable-next-line no-console
+    console.error(message);
+  }
 }
 
 // The analysis instruction, optionally workflow-prefixed. Default (three-pass)
@@ -508,7 +520,19 @@ async function loadHandoffContext(cwd: string): Promise<string> {
 // as `- [source|score] summary[:100]`.
 // ---------------------------------------------------------------------------
 
+// RUN-25 iter 2: --skip-memory maps to LOKI_SKIP_MEMORY=true (bash autonomy/
+// loki:1630, read at :664). Honor it on the Bun route too so the flag actually
+// takes effect (it was accepted by start.ts but previously unread here -- a
+// hidden capability loss under the loop-flip). Byte-lock-safe: the fixtures never
+// set LOKI_SKIP_MEMORY and never ship memory-context.json, so the default (unset)
+// path is byte-identical.
+function skipMemory(): boolean {
+  const v = process.env["LOKI_SKIP_MEMORY"];
+  return v === "true" || v === "1";
+}
+
 function loadStartupLearnings(cwd: string): string {
+  if (skipMemory()) return "";
   const path = resolve(cwd, ".loki/state/memory-context.json");
   const raw = readFileSafe(path);
   if (raw === null) return "";
@@ -542,6 +566,7 @@ function loadStartupLearnings(cwd: string): string {
 // ---------------------------------------------------------------------------
 
 function retrieveMemoryContext(cwd: string): string {
+  if (skipMemory()) return ""; // RUN-25 iter 2: --skip-memory / LOKI_SKIP_MEMORY
   const indexPath = resolve(cwd, ".loki/memory/index.json");
   if (!existsSync(indexPath)) return "";
   // For now, do not attempt to invoke the Python retrieval pipeline from
@@ -738,6 +763,107 @@ async function buildGateFailureContext(cwd: string): Promise<string> {
   ctx += buildInvariantFindingsBlock(cwd);
 
   return ctx;
+}
+
+function buildGateEscalationContext(cwd: string): string {
+  const raw = safeReadLocal(resolve(cwd, ".loki/signals/GATE_ESCALATION.json"));
+  if (raw === null) return "";
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return "";
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return "";
+  const data = parsed as Record<string, unknown>;
+  if (data["action"] !== "escalate") return "";
+
+  const gate = data["gate"];
+  const count = data["count"];
+  const threshold = data["threshold"];
+  const artifact = data["latest_artifact"];
+  if (typeof gate !== "string" || !/^[A-Za-z0-9_.-]+$/.test(gate)) return "";
+  if (typeof count !== "number" || !Number.isInteger(count) || count < 1) return "";
+  if (typeof threshold !== "number" || !Number.isInteger(threshold) || threshold < 1) return "";
+  if (artifact !== null && artifact !== undefined && typeof artifact !== "string") return "";
+
+  const artifactText =
+    typeof artifact === "string" && artifact.length > 0
+      ? `Inspect latest artifact: ${artifact}.`
+      : "No latest artifact was recorded.";
+  return (
+    `REPEATED_GATE_BLOCKER (PRIORITY): action=escalate gate=${gate} count=${count} threshold=${threshold}. ` +
+    `Change implementation strategy on this attempt. ${artifactText} Resolve the root blocker before new work. ` +
+    "Do not suppress or filter console errors or React act warnings, mock those signals, or weaken tests or assertions."
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SLICE 6c self-heal (mirror of run.sh _loki_build_self_heal_hint).
+// ---------------------------------------------------------------------------
+// Route the prior iteration's classified error signature into this iteration's
+// prompt so the loop fixes forward. Opt-in via LOKI_SELF_HEAL (default 0 --
+// stock runs are byte-identical). Reads .loki/state/LAST_ERROR.json, emits the
+// same hint string as bash, then archives-then-clears the record so the hint
+// injects exactly ONCE. "unknown"/empty error_class is NOT actionable -> no
+// hint. Best-effort; any failure returns "".
+function buildSelfHealContext(cwd: string): string {
+  if (process.env["LOKI_SELF_HEAL"] !== "1") return "";
+  const src = resolve(cwd, ".loki/state/LAST_ERROR.json");
+  const raw = safeReadLocal(src);
+  if (raw === null) return "";
+  let rec: unknown;
+  try {
+    rec = JSON.parse(raw);
+  } catch {
+    return "";
+  }
+  if (rec === null || typeof rec !== "object") return "";
+  const r = rec as Record<string, unknown>;
+  const ec = String(r["error_class"] ?? "").trim();
+  if (ec === "" || ec === "unknown") return "";
+  const brief = String(r["brief"] ?? "").trim();
+  const it = r["iteration"] ?? "?";
+  const hint =
+    `SELF_HEAL_HINT: the previous iteration (#${it}) failed with error_class=${ec}. ` +
+    `${brief} Address this specific failure FIRST before any new work.`;
+  // Archive-then-clear so it injects once (LEARN-FORWARD parity with bash
+  // _loki_archive_last_error, run.sh:1180): the record lands in
+  // failure-history.jsonl before the single file is removed. Mirror bash EXACTLY:
+  // read the existing history, append this record, keep only the most recent 50
+  // entries (bounded -- never grows unbounded), and write atomically via a
+  // temp file + rename (no partial-write window on a concurrent reader).
+  try {
+    const hist = resolve(cwd, ".loki/state/failure-history.jsonl");
+    let lines: string[] = [];
+    const prev = safeReadLocal(hist);
+    if (prev !== null) {
+      lines = prev.split("\n").filter((ln) => ln.trim() !== "");
+    }
+    lines.push(JSON.stringify(rec));
+    lines = lines.slice(-50);
+    const tmp = resolve(dirname(hist), `.failure-history.${process.pid}.tmp`);
+    writeFileSync(tmp, lines.join("\n") + "\n");
+    renameSync(tmp, hist);
+  } catch {
+    /* best-effort */
+  }
+  try {
+    rmSync(src, { force: true });
+  } catch {
+    /* best-effort */
+  }
+  return hint;
+}
+
+function safeReadLocal(path: string): string | null {
+  try {
+    if (!existsSync(path)) return null;
+    return readFileSync(path, "utf-8");
+  } catch {
+    return null;
+  }
 }
 
 // P1-3 helper: surface the specific semantic test-authenticity findings
@@ -1204,6 +1330,8 @@ function buildChecklistStatus(
 interface ResolvedSections {
   contextSection: string;
   gateFailureContext: string;
+  gateEscalationContext: string;
+  selfHealContext: string;
   humanDirective: string;
   queueTasks: string;
   appRunnerInfo: string;
@@ -1254,9 +1382,13 @@ async function resolveDynamicSections(
       ? `QUEUED_TASKS (PRIORITY): ${rawQueue}. Execute these tasks BEFORE finding new improvements.`
       : "";
 
+  const gateEscalationContext = buildGateEscalationContext(ctx.cwd);
+
   return {
     contextSection,
     gateFailureContext: await buildGateFailureContext(ctx.cwd),
+    gateEscalationContext,
+    selfHealContext: buildSelfHealContext(ctx.cwd),
     humanDirective,
     queueTasks,
     appRunnerInfo: buildAppRunnerInfo(ctx.cwd),
@@ -1350,6 +1482,21 @@ export async function buildPrompt(opts: BuildPromptOpts): Promise<string> {
   lines.push(COMPOSE_INSTRUCTION);
   lines.push(LSP_GROUNDING_INSTRUCTION);
   lines.push(AGENTS_MD_INSTRUCTION);
+  // v8 harness intelligence (3c): flag a goal the loop cannot hill-climb.
+  // Derived from COMPLETION_PROMISE, fixed for the run, so it is cache-stable
+  // and belongs here in the prefix (above [CACHE_BREAKPOINT]) rather than in
+  // <dynamic_context>, where it would bust the cache every iteration.
+  //
+  // Advisory ONLY: "" for a measurable goal (or when scoring is disabled), and
+  // it never blocks a build or edits the user's goal. Deliberately not added to
+  // the DEGRADED path below, which carries a minimal instruction set by design.
+  //
+  // SUPPRESSED IN PERPETUAL MODE. Perpetual runs are open-ended on purpose
+  // ("never ending improvement cycle"); an unbounded goal is the CONFIGURATION
+  // there, not a defect, so demanding a success threshold would be advice
+  // against the mode the user explicitly chose.
+  const goalSharpening = perpetual ? "" : goalSharpeningInstruction(completionPromise, env);
+  if (goalSharpening.length > 0) lines.push(goalSharpening);
   if (prd === null || prd.length === 0) {
     // v7.40.0 (#584): emit the autonomous-decision cost disclosure once per run
     // BEFORE pushing the (possibly workflow-prefixed) analysis instruction. The
@@ -1371,6 +1518,8 @@ export async function buildPrompt(opts: BuildPromptOpts): Promise<string> {
   }
   if (sections.humanDirective.length > 0) lines.push(sections.humanDirective);
   if (sections.gateFailureContext.length > 0) lines.push(sections.gateFailureContext);
+  if (sections.gateEscalationContext.length > 0) lines.push(sections.gateEscalationContext);
+  if (sections.selfHealContext.length > 0) lines.push(sections.selfHealContext);
   if (sections.queueTasks.length > 0) lines.push(sections.queueTasks);
   if (sections.bmadContext.length > 0) lines.push(sections.bmadContext);
   if (sections.openspecContext.length > 0) lines.push(sections.openspecContext);
@@ -1425,6 +1574,7 @@ function buildStaticFirstDegraded(
   lines.push("[CACHE_BREAKPOINT]");
   lines.push(`<dynamic_context iteration="${iteration}" retry="${retry}">`);
   if (sections.humanDirective.length > 0) lines.push(`Priority: ${sections.humanDirective}`);
+  if (sections.gateEscalationContext.length > 0) lines.push(sections.gateEscalationContext);
   if (sections.queueTasks.length > 0) lines.push(`Tasks: ${sections.queueTasks}`);
   if (prd !== null && prd.length > 0) lines.push(`PRD contents: ${prdContent}`);
   lines.push("</dynamic_context>");
@@ -1449,11 +1599,14 @@ interface LegacyFullParts {
 function buildLegacyFull(opts: BuildPromptOpts, p: LegacyFullParts): string {
   const { prd, retry, iteration } = opts;
   const s = p.sections;
+  const combinedGateContext = [s.gateFailureContext, s.gateEscalationContext]
+    .filter((part) => part.length > 0)
+    .join(" ");
   // Order from run.sh:9273-9281. Empty optional sections are emitted as empty
   // strings between two spaces, exactly as bash's "$var $var" expansion does.
   const tail = [
     s.humanDirective,
-    s.gateFailureContext,
+    combinedGateContext,
     s.queueTasks,
     s.bmadContext,
     s.openspecContext,
@@ -1492,7 +1645,10 @@ function buildLegacyDegraded(
   }
   // bash `${var:+prefix $var}` -- if var is non-empty, output `prefix $var`,
   // else nothing. Exactly two spaces around each segment in bash's echo.
-  const human = sections.humanDirective.length > 0 ? `Priority: ${sections.humanDirective}` : "";
+  const priorityContext = [sections.humanDirective, sections.gateEscalationContext]
+    .filter((part) => part.length > 0)
+    .join(" ");
+  const human = priorityContext.length > 0 ? `Priority: ${priorityContext}` : "";
   const tasks = sections.queueTasks.length > 0 ? `Tasks: ${sections.queueTasks}` : "";
 
   if (retry === 0) {
@@ -1535,6 +1691,7 @@ export const _internals = {
   loadStartupLearnings,
   loadQueueTasks,
   buildGateFailureContext,
+  buildGateEscalationContext,
   buildAppRunnerInfo,
   buildPlaywrightInfo,
   buildBmadContext,
@@ -1542,6 +1699,7 @@ export const _internals = {
   buildMirofishContext,
   buildMagicContext,
   buildChecklistStatus,
+  buildSelfHealContext,
 };
 
 // ---------------------------------------------------------------------------

@@ -19,7 +19,7 @@
 // TS port can extend coverage without diverging):
 //   count >= GATE_PAUSE_LIMIT     -> write .loki/PAUSE + signals/GATE_ESCALATION
 //   count >= GATE_ESCALATE_LIMIT  -> write signals/GATE_ESCALATION (no pause)
-//   count >= GATE_CLEAR_LIMIT     -> log warning, treat as passing this round
+//   count >= GATE_CLEAR_LIMIT     -> retain failure and escalate repeated blocker
 //
 // Phase 5 status: runStaticAnalysis, runTestCoverage, runDocQualityGate,
 // runMagicDebateGate, and runCodeReview are real ports of the corresponding
@@ -44,6 +44,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { claudeFlagSupported, ensureClaudeHelpCache } from "../providers/claude_flags.ts";
+import { judgeJson, sdkJudgeAvailable } from "./sdk_invoker.ts";
 import { atomicWriteText, withFileLockSync } from "../util/atomic.ts";
 import { REPO_ROOT, lokiDir } from "../util/paths.ts";
 import { commandExists, run } from "../util/shell.ts";
@@ -68,12 +69,11 @@ function handoffModSync(): typeof import("./escalation_handoff.ts") | null {
 // --- Public types ----------------------------------------------------------
 
 export type GateOutcome = {
-  // Gate names that ran and passed (or were treated as passing under the
-  // CLEAR_LIMIT rule).
+  // Gate names that ran and passed.
   passed: string[];
   // Gate names that ran and failed this iteration.
   failed: string[];
-  // True when at least one gate failed and was not cleared by the CLEAR rule.
+  // True when at least one gate failed.
   blocked: boolean;
   // True when the PAUSE_LIMIT or ESCALATE_LIMIT was reached for any gate.
   // Caller (autonomous.ts) inspects this to decide whether to pause the loop.
@@ -96,12 +96,21 @@ export type GateResult = {
   passed: boolean;
   // Optional human-readable detail surfaced into logs / prompt injection.
   detail?: string;
+  // TRUE when the gate did NOT actually run to a verdict (detector spawn failure,
+  // timeout, or malformed/unparseable output) and defaulted to passed:true so the
+  // loop is not wedged. Distinguishes "the gate ran and found nothing" from "the
+  // gate went dark" -- without this an un-run authenticity gate is byte-identical
+  // to a clean pass, so a mis-pathed/broken detector silently disables the gate
+  // with zero operator/council signal. Consumers (runner log, council, dashboard)
+  // can surface or escalate on repeated inconclusive runs. Does NOT change the
+  // pass/block decision.
+  inconclusive?: boolean;
 };
 
 // Escalation ladder limits, mirroring autonomy/run.sh:725-727. Read once at
 // gate-run time so tests can override via env without restarting the process.
 type EscalationLimits = {
-  clear: number;
+  repeat: number;
   escalate: number;
   pause: number;
 };
@@ -114,7 +123,9 @@ function readEscalationLimits(): EscalationLimits {
     return Number.isFinite(n) && n > 0 ? n : fallback;
   };
   return {
-    clear: parse("LOKI_GATE_CLEAR_LIMIT", 3),
+    // Keep the legacy env name for compatibility. It no longer clears a real
+    // blocker into a pass; it is the repeated-blocker escalation threshold.
+    repeat: parse("LOKI_GATE_CLEAR_LIMIT", 3),
     escalate: parse("LOKI_GATE_ESCALATE_LIMIT", 5),
     pause: parse("LOKI_GATE_PAUSE_LIMIT", 10),
   };
@@ -589,27 +600,55 @@ export async function runMockIntegrity(ctx?: RunnerContext): Promise<GateResult>
 }
 
 // Mirror of bash enforce_mutation_integrity -> tests/detect-test-mutations.sh.
-// Reads <lokiDir>/quality/mutation-findings.txt. Blocks ONLY on [HIGH] (we do
-// not use --strict, which over-blocks MED/LOW). Honors
-// LOKI_STUB_GATE_MUTATION_INTEGRITY for tests.
+// The detector honors LOKI_SCAN_DIR, so the Bun route runs it directly against
+// ctx.cwd and persists the same findings artifact as the shell route.
 export async function runMutationIntegrity(ctx?: RunnerContext): Promise<GateResult> {
   const stubKey = "LOKI_STUB_GATE_MUTATION_INTEGRITY";
   const stubVal = process.env[stubKey];
   if (stubVal === "fail" || stubVal === "pass") return stubResult("mutation_integrity");
 
+  const cwd = ctx?.cwd ?? process.cwd();
   const base = ctx?.lokiDir ?? lokiDir();
-  const body = readFindingsArtifact(base, "mutation-findings.txt");
-  if (body === null) {
-    return {
-      passed: true,
-      detail: "mutation_integrity: no mutation-findings.txt artifact -- gate did not run",
-    };
+  const findingsPath = join(base, "quality", "mutation-findings.txt");
+  const detector = join(REPO_ROOT, "tests", "detect-test-mutations.sh");
+  if (!existsSync(detector)) {
+    persistFindings(findingsPath, "# Test mutation detector failure", ["[HIGH] mutation detector unavailable"]);
+    return { passed: false, detail: "mutation_integrity: detector unavailable -- BLOCK (fail-closed)" };
   }
-  if (hasSeverityToken(body, "HIGH")) {
+
+  let exitCode: number;
+  let output: string;
+  try {
+    const result = await run(["bash", detector, "--block-high"], {
+      cwd,
+      env: { LOKI_SCAN_DIR: cwd },
+      timeoutMs: 300_000,
+    });
+    exitCode = result.exitCode;
+    output = `${result.stdout}${result.stderr}`;
+  } catch {
+    persistFindings(findingsPath, "# Test mutation detector failure", ["[HIGH] mutation detector spawn failed"]);
+    return { passed: false, detail: "mutation_integrity: detector spawn failed -- BLOCK (fail-closed)" };
+  }
+
+  const severities = grepSeverities(output, /\[(HIGH|MEDIUM|LOW)\]/);
+  if (exitCode === 2 || hasSeverityToken(output, "HIGH")) {
+    persistFindings(findingsPath, "# Test mutation findings (HIGH blocks this iteration)", severities);
     return {
       passed: false,
-      detail: "mutation_integrity: [HIGH] finding present -- possible test fitting",
+      detail: "mutation_integrity: [HIGH] harness or test mutation finding present -- BLOCK",
     };
+  }
+  if (exitCode !== 0) {
+    persistFindings(findingsPath, "# Test mutation detector failure", [`[HIGH] detector exited ${exitCode} without a valid verdict`]);
+    return { passed: false, detail: `mutation_integrity: detector exited ${exitCode} -- BLOCK (fail-closed)` };
+  }
+
+  const advisory = severities.filter((line) => /\[(MEDIUM|LOW)\]/.test(line));
+  if (advisory.length > 0) {
+    persistFindings(findingsPath, "# Test mutation advisory findings (MED/LOW, non-blocking)", advisory);
+  } else {
+    clearFindings(findingsPath);
   }
   return { passed: true, detail: "mutation_integrity: no high findings" };
 }
@@ -709,6 +748,7 @@ export async function runSemanticTests(ctx?: RunnerContext): Promise<GateResult>
     clearFindings(semanticFindingsPath(base));
     return {
       passed: true,
+      inconclusive: true,
       detail: "semantic_tests: detector not found -- gate did not run",
     };
   }
@@ -746,6 +786,7 @@ export async function runSemanticTests(ctx?: RunnerContext): Promise<GateResult>
     clearFindings(semanticFindingsPath(base));
     return {
       passed: true,
+      inconclusive: true,
       detail: "semantic_tests: detector spawn failed -- inconclusive, not blocking",
     };
   }
@@ -791,6 +832,7 @@ export async function runSemanticTests(ctx?: RunnerContext): Promise<GateResult>
     clearFindings(semanticFindingsPath(base));
     return {
       passed: true,
+      inconclusive: true,
       detail: "semantic_tests: detector timed out -- inconclusive, not blocking",
     };
   }
@@ -898,6 +940,7 @@ export async function runInvariants(ctx?: RunnerContext): Promise<GateResult> {
     clearFindings(invariantFindingsPath(base));
     return {
       passed: true,
+      inconclusive: true,
       detail: "invariants: detector not found -- gate did not run",
     };
   }
@@ -931,6 +974,7 @@ export async function runInvariants(ctx?: RunnerContext): Promise<GateResult> {
     clearFindings(invariantFindingsPath(base));
     return {
       passed: true,
+      inconclusive: true,
       detail: "invariants: detector spawn failed -- inconclusive, not blocking",
     };
   }
@@ -975,6 +1019,7 @@ export async function runInvariants(ctx?: RunnerContext): Promise<GateResult> {
     clearFindings(invariantFindingsPath(base));
     return {
       passed: true,
+      inconclusive: true,
       detail: "invariants: detector timed out -- inconclusive, not blocking",
     };
   }
@@ -1312,6 +1357,14 @@ export function rematerializeCodeReview(rawJson: string): string | null {
       }
     }
   }
+  // v8 raw-SDK path: `loki internal sdk-judge` emits the BARE payload object (no
+  // CLI envelope), so there is no structured_output/result wrapper. If the
+  // top-level dict itself carries 'verdict', it IS the payload. Mirrors
+  // autonomy/lib/cr-rematerialize.py. (stop_reason guard above already passes
+  // for a bare object -- no stop_reason -> undefined -> allowed.)
+  if ((typeof payload !== "object" || payload === null) && "verdict" in e) {
+    payload = e;
+  }
   if (typeof payload !== "object" || payload === null) return null;
   const p = payload as Record<string, unknown>;
   let verdict = String(p["verdict"] ?? "").trim().toUpperCase();
@@ -1345,6 +1398,35 @@ export const claudeReviewer: ReviewerFn = async ({ prompt }) => {
   }
   if (process.env["LOKI_REVIEW_TOOL_GUARD"] !== "0") {
     argv.push("--disallowedTools", REVIEW_GUARD_DENYLIST);
+  }
+
+  // v8 RAW-SDK REVIEWER PATH (opt-in LOKI_SDK_CODE_REVIEW=1). Run the reviewer
+  // in-process via the pure-HTTPS @anthropic-ai/sdk judge (no claude binary) and
+  // re-materialize the SAME legacy VERDICT/FINDINGS text so parseVerdict et al are
+  // untouched. Mirrors the bash _dispatch_reviewer SDK branch, which runs BEFORE
+  // the claude --json-schema block. Fail-closed: judgeJson returns null on any
+  // miss (no key/transport/refusal/malformed) and a bad rematerialize returns
+  // null -> fall through to the claude paths below (never a PASS on a miss;
+  // rematerialize forces FAIL on Critical/High). Calls judgeJson directly rather
+  // than spawning bin/loki -- we are already inside the loki-ts process.
+  if (process.env["LOKI_SDK_CODE_REVIEW"] === "1" && existsSync(CODE_REVIEW_SCHEMA_PATH)) {
+    try {
+      const schema = JSON.parse(readFileSync(CODE_REVIEW_SCHEMA_PATH, "utf8")) as Record<string, unknown>;
+      const timeoutMs = (Number(process.env["LOKI_SDK_REVIEW_TIMEOUT"]) || 180) * 1000;
+      const obj = await judgeJson({
+        prompt,
+        schema,
+        model: process.env["LOKI_SDK_REVIEW_MODEL"] || "claude-sonnet-5",
+        effort: "high",
+        timeoutMs,
+      });
+      if (obj !== null) {
+        const legacy = rematerializeCodeReview(JSON.stringify(obj));
+        if (legacy !== null) return legacy;
+      }
+    } catch {
+      // fall through to the claude paths below (fail-closed)
+    }
   }
 
   // STRUCTURED VERDICT (v8.x): when the CLI supports --json-schema, force valid
@@ -1404,6 +1486,16 @@ export async function resolveDefaultReviewer(): Promise<{
 }> {
   const claudePath = await commandExists("claude");
   if (claudePath !== null) return { reviewer: claudeReviewer, available: true };
+  // v8 (council review): the raw-SDK reviewer path needs no claude binary, so in
+  // a no-binary deploy with LOKI_SDK_CODE_REVIEW=1 and a reachable SDK, the
+  // claudeReviewer IS available -- its own SDK branch runs and falls closed to a
+  // synthetic blocking FAIL on any miss (never a fake PASS). Without this the
+  // primary Bun route would return unavailableReviewer before that branch is
+  // ever reached, defeating the binary-free win. Bash _dispatch_reviewer has no
+  // equivalent upstream gate, so this is the TS-side parity fix.
+  if (process.env["LOKI_SDK_CODE_REVIEW"] === "1" && sdkJudgeAvailable()) {
+    return { reviewer: claudeReviewer, available: true };
+  }
   return { reviewer: unavailableReviewer, available: false };
 }
 
@@ -1467,7 +1559,15 @@ export function parseVerdict(reviewer: string, output: string): ReviewerVerdict 
     const raw = verdictLine.replace(/^\s*VERDICT:/i, "").trim().toUpperCase();
     if (raw === "PASS" || raw === "FAIL") verdict = raw;
   }
-  const hasBlockingSeverity = /\[(Critical|High)\]/i.test(output);
+  // RUN-25 iter 8 (Wave B #3): blocking-severity detection must be as
+  // format-tolerant as non-blocking detection (countNonBlockingFindings). LLM
+  // reviewers and the devil's-advocate routinely drift from `[Critical]` to
+  // `**Critical**:` / `Severity: Critical` / `- Critical - ...`. The old
+  // bracket-only `/\[(Critical|High)\]/i` let a real Critical/High in any other
+  // form slip through -> blocking=false -> the FAIL fell through to passed:true
+  // and a bolded Critical did not flip a unanimous PASS. Reuse the same 4-form
+  // matcher so a recognizable Critical/High in ANY form makes a FAIL blocking.
+  const hasBlockingSeverity = matchesSeverityAnyForm(output, "critical") || matchesSeverityAnyForm(output, "high");
   return {
     reviewer,
     verdict,
@@ -1476,16 +1576,29 @@ export function parseVerdict(reviewer: string, output: string): ReviewerVerdict 
   };
 }
 
+// Shared 4-form severity matcher: [Sev] | **Sev** | Severity: Sev | "- Sev".
+// Case-insensitive, line-scanned. Used by BOTH blocking (Critical/High) and
+// non-blocking (Medium/Low) detection so the two are equally format-tolerant.
+function severityFormRegex(sev: string): RegExp {
+  return new RegExp(
+    `(\\[${sev}\\])|(\\*\\*\\s*${sev}\\s*\\*\\*)|(severity:?\\s*${sev})|(^\\s*[-*]\\s+${sev}([\\s:.,*]|$))`,
+    "i",
+  );
+}
+export function matchesSeverityAnyForm(output: string, sev: string): boolean {
+  const re = severityFormRegex(sev);
+  return output.split(/\r?\n/).some((line) => re.test(line));
+}
+
 // 7.114.0 (rank 9): count non-blocking (Medium/Low) findings in a reviewer's
 // output, tolerant of bracketed, bold, 'Severity:' and bullet-form severity
 // tokens. Parity-locked with _count_nonblocking_findings() in autonomy/run.sh
 // (the bash side greps with -icE; here we count regex matches line by line).
 export function countNonBlockingFindings(output: string): { medium: number; low: number } {
   const countSev = (sev: string): number => {
-    const re = new RegExp(
-      `(\\[${sev}\\])|(\\*\\*\\s*${sev}\\s*\\*\\*)|(severity:?\\s*${sev})|(^\\s*[-*]\\s+${sev}([\\s:.,*]|$))`,
-      "i",
-    );
+    // Same 4-form matcher used for blocking severity (severityFormRegex), kept in
+    // lockstep so blocking + non-blocking detection recognize identical forms.
+    const re = severityFormRegex(sev);
     let n = 0;
     for (const line of output.split(/\r?\n/)) if (re.test(line)) n += 1;
     return n;
@@ -1509,6 +1622,32 @@ export function computeMergeabilityScore(
 // Port of the diff-fetching block at autonomy/run.sh:6243. Tries `git diff
 // HEAD~1` first; falls back to `git diff --cached`; returns "" on both
 // failures (matches the bash `2>/dev/null || ... || echo ""` chain).
+// RUN-25 iter 19 (Wave C #2, self-contained part): derive the changed-file list
+// from the FULL diff's `diff --git a/X b/X` headers instead of a SECOND git spawn
+// (`git diff --name-only`). The full diff already names every changed file in its
+// headers, so a separate --name-only call is pure redundant work: this halves the
+// git spawns per code_review (2->1, or 4->2 counting each command's cached
+// fallback). Handles quoted paths (git quotes names with special chars) and the
+// a/ b/ prefixes. Byte-parity with `git diff --name-only` is proven in the test.
+export function filesFromDiff(diff: string): string {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const line of diff.split("\n")) {
+    // `diff --git a/<path> b/<path>` -- take the b/ side (post-image), matching
+    // `git diff --name-only`'s reported name. git QUOTES paths with specials in
+    // double quotes; strip the a/ b/ prefixes and any surrounding quotes.
+    const m = /^diff --git (?:"?a\/.*?"?) (?:"?b\/(.+?)"?)$/.exec(line);
+    if (!m || m[1] === undefined) continue;
+    // A trailing quote left by the optional non-greedy quote match.
+    const name = m[1].replace(/"$/, "");
+    if (!seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names.length > 0 ? names.join("\n") + "\n" : "";
+}
+
 async function readDiffAndFiles(cwd: string): Promise<{ diff: string; files: string }> {
   const tryGit = async (args: readonly string[]): Promise<string | null> => {
     const r = await run(["git", "-C", cwd, ...args], { timeoutMs: 30_000 });
@@ -1516,7 +1655,10 @@ async function readDiffAndFiles(cwd: string): Promise<{ diff: string; files: str
     return r.stdout;
   };
   const diff = (await tryGit(["diff", "HEAD~1"])) ?? (await tryGit(["diff", "--cached"])) ?? "";
-  const files = (await tryGit(["diff", "--name-only", "HEAD~1"])) ?? (await tryGit(["diff", "--name-only", "--cached"])) ?? "";
+  // Derive the file list from the diff we already fetched (Wave C #2) instead of
+  // a redundant second `git diff --name-only`. Same source diff -> same fallback
+  // path -> consistent file list.
+  const files = filesFromDiff(diff);
   return { diff, files };
 }
 
@@ -1665,9 +1807,36 @@ export async function runCodeReview(
   // auditor. parseVerdict counts every UNAVAILABLE verdict as "UNKNOWN", so
   // passCount/failCount are both 0 here.
   if (!reviewerAvailable) {
+    // code_review is the ONLY gate that refuses completion on this route, so an
+    // UNAVAILABLE that silently PASSES turns the flagship blind-3-reviewer moat
+    // into a no-op on any host without a reviewer (SDK-only containers/CI with no
+    // `claude` binary AND no reachable SDK judge). That is a fake-PASS: a build
+    // ships "reviewed" with zero review. So UNAVAILABLE BLOCKS by default under
+    // hard-gates, symmetric with the inconclusive guard below
+    // (LOKI_REVIEW_INCONCLUSIVE_BLOCK) -- both default to blocking and take only an
+    // explicit "0" opt-out. Opt out with LOKI_REVIEW_UNAVAILABLE_BLOCK=0 (the
+    // honest degraded pass, for a user who deliberately runs without any reviewer)
+    // or by disabling hard-gates (LOKI_HARD_GATES=0). NOTE: the raw-SDK reviewer
+    // path (LOKI_SDK_CODE_REVIEW=1 + a reachable key) keeps reviewerAvailable
+    // TRUE (resolveDefaultReviewer), so this only fires when NO reviewer at all
+    // can run -- exactly when failing open is unsafe.
+    // LOKI_HARD_GATES defaults TRUE (matches readToggles' flag("LOKI_HARD_GATES",
+    // true)); only an explicit "0"/"false" disables it.
+    const hgRaw = (process.env["LOKI_HARD_GATES"] ?? "").trim().toLowerCase();
+    const hardGates = !(hgRaw === "0" || hgRaw === "false" || hgRaw === "no" || hgRaw === "off");
+    const unavailableOptOut = process.env["LOKI_REVIEW_UNAVAILABLE_BLOCK"] === "0";
+    if (hardGates && !unavailableOptOut) {
+      ctx.log(
+        `code_review: UNAVAILABLE - no reviewer CLI/SDK on PATH; BLOCKING under hard-gates (set LOKI_REVIEW_UNAVAILABLE_BLOCK=0 for an honest degraded pass) (${reviewId})`,
+      );
+      return {
+        passed: false,
+        detail: `code_review: UNAVAILABLE - no reviewer available, blocking (fail-closed) (${reviewId})`,
+      };
+    }
     return {
       passed: true,
-      detail: `code_review: UNAVAILABLE - no reviewer CLI on PATH, no real review performed (${reviewId})`,
+      detail: `code_review: UNAVAILABLE - no reviewer CLI on PATH, no real review performed (LOKI_REVIEW_UNAVAILABLE_BLOCK=0 or hard-gates off) (${reviewId})`,
     };
   }
 
@@ -2366,24 +2535,11 @@ export async function runMagicDebateGate(ctx?: RunnerContext): Promise<GateResul
 //   warnings only / clean -> passed:true.
 // An LSP error never makes passed:false on the Bun route.
 //
-// SURFACING ASYMMETRY (honest, flagged to the integrator -- NOT closed here):
-// On bash the advisory arm appends the `lsp_diagnostics` token to gate_failures
-// (run.sh:15254), which build_prompt injects into the NEXT prompt WITHOUT
-// blocking, because bash's gate_failures string is informational injection
-// decoupled from the actual block decision. The Bun route's binary GateResult
-// model couples the two: a token in gate-failures.txt IS a block (persistFailureList
-// writes only failed[]; blocked = failed.length > 0). So to keep LSP non-blocking
-// we MUST return passed:true, which routes through passed[] + clearGateFailure --
-// the lsp_diagnostics token never reaches gate-failures.txt. Unlike semantic /
-// invariant (which surface via a dedicated findings file with a build_prompt
-// reader -- buildSemanticFindingsBlock / buildInvariantFindingsBlock), there is
-// NO build_prompt reader for lsp-diagnostics.json today (verified: zero hits in
-// build_prompt.ts). So on the Bun route the LSP advisory error is recorded to
-// the artifact + the gate detail/log, but is NOT yet injected into the next
-// prompt. The block decision is byte-identical (LSP never blocks on either
-// route); only the prompt-surfacing of the advisory differs. Full surfacing
-// parity needs a build_prompt.ts lsp-diagnostics reader (out of this file's
-// ownership -- integrator follow-up).
+// ADVISORY STORAGE: both routes keep LSP results out of gate-failures.txt,
+// because that file is the canonical blocker set consumed by proof generation.
+// The measured artifact and stage detail remain available as telemetry. A
+// future repair prompt may read the validated artifact through a dedicated
+// advisory channel without weakening the blocker-file invariant.
 //
 // HONESTY (never fabricate a verdict from absence):
 //   - Gate is DEFAULT-ON (surfacing-first), mirroring bash
@@ -2597,8 +2753,6 @@ function readToggles(): GateToggles {
 // outcome the orchestrator needs without touching the loop's mutable state
 // directly. Mirrors autonomy/run.sh:10904-10921.
 type EscalationOutcome = {
-  // True when the failure should be treated as passing (CLEAR_LIMIT rule).
-  cleared: boolean;
   // True when ESCALATE_LIMIT or PAUSE_LIMIT was hit.
   escalated: boolean;
   // True only when PAUSE_LIMIT was hit -- caller writes the PAUSE signal.
@@ -2614,6 +2768,10 @@ function applyEscalation(
   detail?: string,
 ): EscalationOutcome {
   const count = trackGateFailure(name, base);
+  const repeatThreshold = Math.min(limits.repeat, limits.escalate);
+  if (count >= repeatThreshold) {
+    writeEscalationGuidance(base, name, count, repeatThreshold, detail);
+  }
   if (count >= limits.pause) {
     ctx.log(
       `Gate escalation: ${name} failed ${count} times (>= ${limits.pause}) - forcing PAUSE`,
@@ -2646,22 +2804,58 @@ function applyEscalation(
       }
     }
     writePauseSignal(base, name, count);
-    return { cleared: false, escalated: true, pause: true, count };
+    return { escalated: true, pause: true, count };
   }
   if (count >= limits.escalate) {
     ctx.log(
       `Gate escalation: ${name} failed ${count} times (>= ${limits.escalate}) - escalating`,
     );
     writeEscalationSignal(base, name, count, "ESCALATE");
-    return { cleared: false, escalated: true, pause: false, count };
+    return { escalated: true, pause: false, count };
   }
-  if (count >= limits.clear) {
+  if (count >= limits.repeat) {
     ctx.log(
-      `Gate cleared: ${name} failed ${count} times (>= ${limits.clear}) - passing this iteration, counter continues`,
+      `Gate escalation: ${name} remains blocked after ${count} failures - escalating without converting failure to pass`,
     );
-    return { cleared: true, escalated: false, pause: false, count };
+    writeEscalationSignal(base, name, count, "ESCALATE");
+    return { escalated: true, pause: false, count };
   }
-  return { cleared: false, escalated: false, pause: false, count };
+  return { escalated: false, pause: false, count };
+}
+
+function writeEscalationGuidance(
+  base: string,
+  gate: GateName,
+  count: number,
+  threshold: number,
+  detail?: string,
+): void {
+  let latestArtifact: string | null = null;
+  if (gate === "code_review") {
+    const reviewId = detail?.match(/\((review-[A-Za-z0-9_-]+)\)\s*$/)?.[1];
+    if (reviewId) {
+      const reviewDir = join(base, "quality", "reviews", reviewId);
+      if (existsSync(reviewDir)) latestArtifact = reviewDir;
+    }
+  } else {
+    const files: Partial<Record<GateName, string>> = {
+      mutation_integrity: "mutation-findings.txt",
+      mock_integrity: "mock-findings.txt",
+      test_coverage: "test-results.json",
+      semantic_tests: "semantic-findings.txt",
+      invariants: "invariant-findings.txt",
+    };
+    const file = files[gate];
+    if (file) {
+      const candidate = join(base, "quality", file);
+      if (existsSync(candidate)) latestArtifact = candidate;
+    }
+  }
+  const target = join(base, "signals", "GATE_ESCALATION.json");
+  atomicWriteText(
+    target,
+    `${JSON.stringify({ action: "escalate", gate, count, threshold, latest_artifact: latestArtifact }, null, 2)}\n`,
+  );
 }
 
 // Match autonomy/run.sh:10906-10908. Two-line file: action then reason.
@@ -2754,6 +2948,44 @@ export async function runQualityGates(ctx: RunnerContext): Promise<GateOutcome> 
     if (result.passed) {
       clearGateFailure(gate.name, base);
       passed.push(gate.name);
+      // Surface an INCONCLUSIVE pass distinctly (the gate defaulted to passed:true
+      // because it could not run -- spawn failure / timeout / missing detector --
+      // NOT because it ran clean). Without this an un-run authenticity gate is
+      // invisible, identical to a real pass. Log it and persist a durable marker
+      // (.loki/quality/inconclusive-<gate>.json with a monotonically increasing
+      // count) so an operator or a future escalation policy can see a gate going
+      // dark across iterations. Does not change the pass decision.
+      if (result.inconclusive) {
+        ctx.log(`quality-gate ${gate.name}: INCONCLUSIVE (gate did not run) -- ${result.detail ?? ""}`);
+        try {
+          const qDir = join(base, "quality");
+          mkdirSync(qDir, { recursive: true });
+          const markerPath = join(qDir, `inconclusive-${gate.name}.json`);
+          let count = 0;
+          if (existsSync(markerPath)) {
+            try {
+              const prev = JSON.parse(readFileSync(markerPath, "utf8")) as { count?: number };
+              count = typeof prev.count === "number" ? prev.count : 0;
+            } catch {
+              count = 0;
+            }
+          }
+          atomicWriteText(
+            markerPath,
+            `${JSON.stringify({ gate: gate.name, count: count + 1, last_detail: result.detail ?? "" }, null, 2)}\n`,
+          );
+        } catch (err) {
+          ctx.log(`inconclusive marker persist failed (non-fatal): ${(err as Error).message}`);
+        }
+      } else {
+        // A real clean pass clears any stale inconclusive streak for this gate.
+        try {
+          const markerPath = join(base, "quality", `inconclusive-${gate.name}.json`);
+          if (existsSync(markerPath)) rmSync(markerPath, { force: true });
+        } catch {
+          // best-effort
+        }
+      }
       continue;
     }
     const esc = applyEscalation(gate.name, base, limits, ctx, result.detail);
@@ -2778,14 +3010,7 @@ export async function runQualityGates(ctx: RunnerContext): Promise<GateOutcome> 
         ctx.log(`auto-learnings write failed (non-fatal): ${(err as Error).message}`);
       }
     }
-    if (esc.cleared) {
-      // Per bash CLEAR_LIMIT semantics the gate is treated as passing this
-      // iteration even though the counter keeps climbing. Surface it under
-      // `passed` so the caller's prompt-injection logic does not double-warn.
-      passed.push(gate.name);
-    } else {
-      failed.push(gate.name);
-    }
+    failed.push(gate.name);
     if (esc.pause) {
       // PAUSE signal already written; stop running further gates so the
       // operator inspects state from a deterministic point. Matches the

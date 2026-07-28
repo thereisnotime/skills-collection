@@ -40,10 +40,117 @@ _PO_INSTALL_CMD="npm install -g @anthropic-ai/claude-code"
 
 # detect_any_provider: true (0) if any supported provider CLI is on PATH.
 # Extracted verbatim from the loki doctor detection loop (design 1.2).
+#
+# DELIBERATELY PATH-ONLY. Do NOT fold the bundled-SDK predicate below into this
+# function. Its callers include cmd_demo (loki:12369 -> bash cmd_start) and
+# cmd_quick (loki:12701 -> execs run.sh), both of which stay on the BASH route
+# even under LOKI_SDK_MODE=full and therefore genuinely require a binary on PATH
+# (providers/claude.sh:108 provider_detect is `command -v claude`). Opening this
+# gate for them would be a fail-open: a green pre-flight followed by a runner
+# that cannot invoke anything.
 detect_any_provider() {
     local _dp
     for _dp in claude codex cline aider; do
         command -v "$_dp" >/dev/null 2>&1 && return 0
+    done
+    return 1
+}
+
+# detect_bundled_sdk_provider: true (0) only when the bundled Claude Agent SDK
+# can ACTUALLY run this machine's main loop with no separate CLI install.
+#
+# FAIL CLOSED BY CONSTRUCTION. A green doctor followed by a failed first build is
+# worse than today's honest blocker, so all THREE conditions must hold:
+#
+#   1. USABLE, not merely declared. @anthropic-ai/claude-agent-sdk is an
+#      optionalDependency whose own per-platform binary is itself an
+#      optionalDependency, so `--no-optional`, an offline install, or an
+#      unsupported platform all leave the package listed in package.json (or even
+#      sdk.mjs on disk) with NO runnable executable. We therefore probe for the
+#      extracted binary at @anthropic-ai/claude-agent-sdk-<platform>/claude, not
+#      for the JS entrypoint. Glob over the platform suffix instead of mapping
+#      uname, so a new platform tuple needs no edit here.
+#   2. CREDENTIALS present. The SDK is pure HTTPS: ANTHROPIC_API_KEY, an
+#      ANTHROPIC_AUTH_TOKEN, or an ANTHROPIC_BASE_URL gateway. Absent all three,
+#      the loop would stall exactly like a logged-out CLI.
+#   3. THE SDK LOOP IS ACTIVE. This is the condition that is easy to miss: with
+#      the SDK installed and a key set but LOKI_SDK_MODE unset, `loki start`
+#      never forks to Bun (bin/loki:255 tests LOKI_SDK_LOOP) and dies on the bash
+#      route at loki:1940. We read LOKI_SDK_LOOP because autonomy/lib/sdk-mode.sh
+#      has already resolved LOKI_SDK_MODE=full into it at bin/loki:41-46, which
+#      runs for every subcommand. Reading the resolved flag (not the mode string)
+#      also honors an explicit per-site LOKI_SDK_LOOP=1.
+#
+# Any doubt -> return 1 and the caller keeps today's behavior verbatim.
+detect_bundled_sdk_provider() {
+    # MATCH bin/loki:255 EXACTLY -- only "1" and "true" fork to the Bun SDK loop.
+    # bin/loki's own comment concedes it cannot cheaply reproduce truthy()'s
+    # yes/on spellings, so accepting a wider set here is a proven fail-open:
+    # LOKI_SDK_LOOP=yes made doctor print PASS while the very next `loki start`
+    # stayed on the bash route and exited 2 at the provider gate. Doctor green,
+    # build dead. Keep these two sets byte-identical; widening either one alone
+    # reopens the hole.
+    case "${LOKI_SDK_LOOP:-}" in
+        1|true) : ;;
+        *) return 1 ;;
+    esac
+
+    # The Bun runtime must actually exist. bin/loki:200-203 silently execs the
+    # BASH CLI when `command -v bun` fails ("keeps users on systems without Bun
+    # working"), and the bash route needs a binary on PATH. Without this check a
+    # bun-less machine with the SDK + a key would pass doctor and then die.
+    command -v bun >/dev/null 2>&1 || return 1
+
+    if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${ANTHROPIC_AUTH_TOKEN:-}" ] \
+        && [ -z "${ANTHROPIC_BASE_URL:-}" ]; then
+        return 1
+    fi
+
+    # Search the node_modules trees Loki is actually installed into. The root is
+    # derived from THIS FILE's location (self-containment contract, see header):
+    # SKILL_DIR belongs to autonomy/loki and is NOT exported, so it would be
+    # empty when doctor.ts spawns this script standalone -- which would silently
+    # answer "no SDK" on the Bun route while the bash route said yes, exactly the
+    # kind of route split the parity gate exists to prevent.
+    # LOKI_SDK_NODE_MODULES is a TEST-ONLY seam (never set in production) so the
+    # shell tests can point at a fixture tree without mutating real node_modules.
+    local _po_root
+    _po_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)" || _po_root=""
+    # Array, not a word-split string: install roots can contain spaces.
+    local _po_search=()
+    if [ -n "${LOKI_SDK_NODE_MODULES:-}" ]; then
+        # When the test seam is set it is AUTHORITATIVE (not merely first): the
+        # real tree must not be consulted as a fallback, or a fixture asserting
+        # "no usable SDK" would silently pass by finding the repo's own binary.
+        _po_search=("$LOKI_SDK_NODE_MODULES")
+    elif [ -n "$_po_root" ]; then
+        # Two layouts, both real:
+        #   repo clone      -> <root>/node_modules, <root>/loki-ts/node_modules
+        #   npm install     -> npm HOISTS the SDK out of node_modules/loki-mode/
+        #                      up to the installing tree's top-level
+        #                      node_modules/ (verified by packing this repo and
+        #                      installing the tarball). Without the hoisted
+        #                      candidates the predicate silently returns 1 for
+        #                      every npm-installed user, i.e. the feature would
+        #                      be dead for exactly the audience it targets.
+        # <root> is .../node_modules/loki-mode, so ../ is the @scope-less
+        # top-level node_modules and ../../ covers a scoped install.
+        _po_search=(
+            "$_po_root/node_modules"
+            "$_po_root/loki-ts/node_modules"
+            "$_po_root/.."
+            "$_po_root/../.."
+        )
+    fi
+    local _nm
+    for _nm in ${_po_search+"${_po_search[@]}"}; do
+        [ -n "$_nm" ] || continue
+        set -- "$_nm"/@anthropic-ai/claude-agent-sdk-*/claude
+        # Unmatched globs stay literal in bash, so test the expansion for real.
+        while [ "$#" -gt 0 ]; do
+            [ -x "$1" ] && return 0
+            shift
+        done
     done
     return 1
 }
@@ -251,6 +358,10 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
         offer|report) offer_provider_install report ;;
         gate)         offer_provider_install gate ;;
         detect)       detect_any_provider ;;
+        # Silent, exit-status-only probe for the Bun doctor bridge
+        # (loki-ts/src/commands/doctor.ts). Prints nothing, so it cannot perturb
+        # the parity-captured stdout.
+        detect-sdk)   detect_bundled_sdk_provider ;;
         *)            offer_provider_install report ;;
     esac
 fi

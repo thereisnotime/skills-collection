@@ -175,8 +175,13 @@ jobs:
         if: steps.check_release.outputs.release_exists == 'false'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Write awk output directly to file to avoid bash backtick interpretation
-          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > changelog_body.txt
+          # Extract the section body for this version from CHANGELOG.md. The
+          # CHANGELOG uses unbracketed `## vX.Y.Z` headers (not `## [X.Y.Z]`), so
+          # match `## v$VERSION` and stop at the next `## v` header. The prior
+          # bracketed pattern never matched -> release notes were silently the
+          # generic fallback for every release. Write to file to avoid backtick
+          # interpretation.
+          awk "/^## v$VERSION\$/{flag=1; next} /^## v/{flag=0} flag" CHANGELOG.md > changelog_body.txt
           if [ ! -s changelog_body.txt ]; then
             echo "Release v$VERSION" > changelog_body.txt
           fi
@@ -228,7 +233,7 @@ jobs:
         run: |
           VERSION="${{ needs.release.outputs.version }}"
           # Write awk output to file to avoid bash backtick interpretation in variables
-          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > /tmp/changelog-body.txt
+          awk "/^## v$VERSION\$/{flag=1; next} /^## v/{flag=0} flag" CHANGELOG.md > /tmp/changelog-body.txt
           if [ ! -s /tmp/changelog-body.txt ]; then
             echo "Release v$VERSION" > /tmp/changelog-body.txt
           fi

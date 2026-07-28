@@ -143,6 +143,15 @@ if [ -f "$_LOKI_SCRIPT_DIR/lib/config-map.sh" ]; then
     source "$_LOKI_SCRIPT_DIR/lib/config-map.sh"
 fi
 
+# v8.1: one-switch SDK activation resolver (LOKI_SDK_MODE=off|judges|full,
+# default off). Idempotent; run.sh sources+resolves it too. Sourced here so any
+# in-CLI SDK judge site sees the resolved per-site flags. No-op when mode unset.
+if [ -f "$_LOKI_SCRIPT_DIR/lib/sdk-mode.sh" ]; then
+    # shellcheck source=autonomy/lib/sdk-mode.sh
+    source "$_LOKI_SCRIPT_DIR/lib/sdk-mode.sh"
+    loki_sdk_resolve_mode
+fi
+
 # Resolve the script's real path (handles symlinks)
 resolve_script_path() {
     local script="$1"
@@ -824,6 +833,7 @@ show_help() {
     echo "Usage: loki <command> [options]"
     echo ""
     echo "New here? Try these in order:"
+    echo "  loki welcome              Friendly first-run opener (what Loki is, next steps)"
     echo "  loki doctor               Check your setup is ready (a few seconds)"
     echo "  loki quickstart           Guided first build from your idea (no PRD needed)"
     echo "  loki start ./prd.md       Build from a spec (PRD file, GitHub/GitLab/Jira/Azure issue, or no arg)"
@@ -856,6 +866,7 @@ show_help() {
     echo "  stop             Stop execution immediately"
     echo "  pause            Pause after current session"
     echo "  resume           Resume paused execution"
+    echo "  steer \"<note>\"    Nudge a running build (needs LOKI_PROMPT_INJECTION=1)"
     echo ""
     echo "Verify / trust:"
     echo "  verify [base]    Deterministic PR verification (CI-gate exit codes)"
@@ -910,6 +921,8 @@ show_help() {
     echo "  --budget USD     Set cost budget limit (display in dashboard/status)"
     echo "  --bmad-project PATH  Use BMAD Method project artifacts as input"
     echo "  --openspec PATH      Use OpenSpec change directory as input"
+    echo "  --config PATH    Load settings from a config file (.yaml/.json/.env). Alias: --env-file, --vars"
+    echo "                   Precedence: CLI flag > env var > --config file > defaults. Secrets via \${VAR}."
     echo ""
     echo "Deprecated alias 'run': 'loki run <issue-ref>' still works as an alias"
     echo "for 'loki start'. See its options with 'loki run --help'."
@@ -3328,6 +3341,52 @@ cmd_pause() {
     fi
 }
 
+# RUN-25 iter 22 (Wave D #3): `loki steer "<note>"` writes an operator directive
+# the running loop actually reads (.loki/HUMAN_INPUT.md), replacing the dead
+# steering.md hint the cockpit used to advertise (nothing read it). The loop only
+# INJECTS the note when LOKI_PROMPT_INJECTION=1 (default off, for safety), so we
+# write the note and tell the operator the exact flag -- honest: the control now
+# genuinely persists the directive instead of silently no-op'ing.
+cmd_steer() {
+    case "${1:-}" in
+        --help|-h|help|"")
+            echo -e "${BOLD}Loki Mode -- steer the running build${NC}"
+            echo ""
+            echo "Usage: loki steer \"<guidance>\""
+            echo ""
+            echo "Writes your guidance to .loki/HUMAN_INPUT.md, which the running"
+            echo "loop reads at the next iteration boundary (when LOKI_PROMPT_INJECTION=1)."
+            echo ""
+            echo "  loki steer \"focus on the auth flow, skip the docs for now\""
+            echo ""
+            echo "The loop injects the note only when prompt injection is enabled:"
+            echo "  LOKI_PROMPT_INJECTION=1 loki start ...   (or export it before starting)"
+            [ -z "${1:-}" ] && return 2
+            return 0
+            ;;
+    esac
+    if [ ! -d "$LOKI_DIR" ]; then
+        echo -e "${YELLOW}No .loki directory found.${NC} Start a session first: loki start"
+        return 1
+    fi
+    local note="$*"
+    # Append with a timestamp so multiple steers accumulate; the reader consumes
+    # and clears the file each iteration, so this is the pending-directive buffer.
+    {
+        printf '## Operator directive (%s)\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        printf '%s\n\n' "$note"
+    } >> "$LOKI_DIR/HUMAN_INPUT.md"
+    emit_event session cli steer "chars=${#note}" 2>/dev/null || true
+    echo -e "${GREEN}Steering note written to .loki/HUMAN_INPUT.md${NC}"
+    if [ "${LOKI_PROMPT_INJECTION:-false}" != "1" ] && [ "${LOKI_PROMPT_INJECTION:-false}" != "true" ]; then
+        echo -e "${YELLOW}Note: prompt injection is OFF, so the loop will NOT read this yet.${NC}"
+        echo -e "${DIM}Enable it: export LOKI_PROMPT_INJECTION=1 (then the next iteration ingests the note).${NC}"
+    else
+        echo -e "${DIM}The next iteration will read and apply it.${NC}"
+    fi
+    return 0
+}
+
 # Resume paused execution
 cmd_resume() {
     # v7.6.2 B-13 fix: --help must print help, not act on session state.
@@ -3835,6 +3894,8 @@ WHYJSON
     _LOKI_WHY_STATE="$state_file" _LOKI_WHY_COMPLETION="$completion_file" \
     _LOKI_WHY_HEAD_SHA="$_why_head_sha" \
     _LOKI_WHY_LAST_ERROR="$loki_dir/state/LAST_ERROR.json" \
+    _LOKI_WHY_UNCERTAINTY="$loki_dir/signals/UNCERTAINTY_ESCALATION" \
+    _LOKI_WHY_CONVERGENCE="$loki_dir/council/convergence.log" \
     _LOKI_WHY_HANDOFFS="$loki_dir/memory/handoffs" python3 - <<'WHYTXT'
 import json, os, glob
 def load(p):
@@ -3925,6 +3986,32 @@ if comp.get("pr_url"):
 print()
 print(f"  What happened: {meaning}")
 print(f"  What to do   : {action}")
+
+# RUN-25 iter 22b/iter 23 (Wave D #6): when a run is PAUSED / live and actually
+# STUCK, name the REAL stall reason instead of the generic "resume". The runner
+# drops .loki/signals/UNCERTAINTY_ESCALATION when its proactive stuck-detector
+# fires (repeated no-progress / uncertainty), and council/convergence.log records
+# consecutive-no-change. Surface those so "why is it stuck" has a real answer, not
+# a generic resume hint. Reads existing files only (no new state, no spend).
+_unc = os.environ.get("_LOKI_WHY_UNCERTAINTY", "")
+if _unc and os.path.exists(_unc):
+    print()
+    print("  Stall reason : the runner's proactive stuck-detector escalated")
+    print("                 (UNCERTAINTY_ESCALATION): repeated no-progress or")
+    print("                 low-confidence iterations. It is not making headway on its own.")
+    # Add the consecutive-no-change count from the convergence log tail if present.
+    _conv = os.environ.get("_LOKI_WHY_CONVERGENCE", "")
+    if _conv and os.path.exists(_conv):
+        try:
+            with open(_conv) as _cf:
+                _tail = _cf.read().splitlines()[-1:]
+            if _tail:
+                print(f"                 Latest convergence signal: {_tail[0][:120]}")
+        except Exception:
+            pass
+    print("  Unstick it   : give the loop a concrete next step:")
+    print("                   loki steer \"<what to try next>\"   (needs LOKI_PROMPT_INJECTION=1)")
+    print("                 or narrow the spec / fix the blocker, then loki resume.")
 
 # Surface the structured per-iteration error record, if one exists at
 # .loki/state/LAST_ERROR.json (the run.sh writer that produces it ships in the
@@ -9372,14 +9459,40 @@ cmd_assets() {
     esac
 }
 
-# Guard: check if output file exists and warn before overwriting
+# Guard: check if output file exists and warn before overwriting.
+#
+# NON-INTERACTIVE SAFETY: this is the single chokepoint every export format
+# (_export_json / _export_markdown / _export_csv / _export_timeline) routes
+# through, so the guard lives here once rather than in four callers. Without it
+# the prompt BLOCKS FOREVER whenever stdin is not closed and not answerable -- a
+# CI lane, a pipeline, or a test harness that leaves stdin attached. That wedged
+# local-ci for 40+ minutes at tests/cli/test-alias-forwarding.sh (the runner sat
+# at 0.0% CPU in state S waiting on a read that could never be satisfied).
+#
+# Semantics mirror the established precedent at the BMAD prompt (search
+# LOKI_AUTO_CONFIRM): LOKI_AUTO_CONFIRM=true (falling back to CI) means ANSWER
+# YES, and echoes an auditable "y (auto-confirmed)" line. A non-interactive
+# shell WITHOUT that opt-in FAILS CLOSED: it refuses the overwrite and names the
+# env var, because silently clobbering a user's file in CI is the worse failure.
+# `read` is `|| reply=""` guarded so an EOF cannot abort a `set -e` caller.
 _export_check_overwrite() {
     local output="$1"
     if [ -n "$output" ] && [ -f "$output" ]; then
         echo -e "${YELLOW}Warning: File already exists: $output${NC}"
+        local _auto="${LOKI_AUTO_CONFIRM:-${CI:-false}}"
+        if [ "$_auto" = "true" ]; then
+            echo -n "Overwrite? [y/N] "
+            echo "y (auto-confirmed)"
+            return 0
+        fi
+        if [ ! -t 0 ]; then
+            echo "Export cancelled (non-interactive: refusing to overwrite '$output'." >&2
+            echo "Set LOKI_AUTO_CONFIRM=true to overwrite, or choose a new output path.)" >&2
+            return 1
+        fi
         echo -n "Overwrite? [y/N] "
         local reply
-        read -r reply
+        read -r reply || reply=""
         case "$reply" in
             [yY]|[yY][eE][sS]) return 0 ;;
             *) echo "Export cancelled."; return 1 ;;
@@ -10044,7 +10157,18 @@ cmd_config_edit() {
 
     if [ -z "$config_file" ]; then
         echo -e "${YELLOW}No config file found.${NC}"
-        read -p "Create one? [Y/n]: " create
+        # Non-interactive safety (same class as _export_check_overwrite): a bare
+        # `read` here blocks forever when stdin is attached but unanswerable.
+        # This prompt DEFAULTS TO YES, so auto-confirm and non-interactive both
+        # take the create path; only the explicit interactive "n" declines.
+        local create=""
+        local _auto="${LOKI_AUTO_CONFIRM:-${CI:-false}}"
+        if [ "$_auto" = "true" ] || [ ! -t 0 ]; then
+            echo "Create one? [Y/n]: Y (non-interactive default; run 'loki config init' to control this)"
+            create="Y"
+        else
+            read -r -p "Create one? [Y/n]: " create || create=""
+        fi
         create="${create:-Y}"
         if [[ "$create" =~ ^[Yy] ]]; then
             cmd_config_init
@@ -10555,15 +10679,25 @@ cmd_doctor() {
     # Check if at least one provider is installed (detect_any_provider is the
     # shared helper from provider-offer.sh, extracted from this exact loop).
     if ! detect_any_provider; then
-        echo -e "  ${RED}FAIL${NC}  No AI provider CLI installed -- at least one is required"
-        echo -e "         ${YELLOW}Install: npm install -g @anthropic-ai/claude-code${NC}"
-        fail_count=$((fail_count + 1))
-        # v7.29.0: on a TTY (non-json), append the consent-gated install offer.
-        # In report mode the helper is a no-op on non-TTY/CI, so the doctor
-        # output stays byte-identical for the bun-parity matrix. --json never
-        # reaches here (cmd_doctor dispatches to cmd_doctor_json earlier).
-        if declare -f offer_provider_install >/dev/null 2>&1; then
-            offer_provider_install report || true
+        # The bundled Claude Agent SDK runs the main loop with no separate CLI,
+        # but ONLY when it is genuinely usable: binary extracted, credentials
+        # present, and the SDK loop actually active. detect_bundled_sdk_provider
+        # fails closed on any doubt, so when it returns false we emit today's
+        # blocker verbatim. Mirrored in loki-ts/src/commands/doctor.ts.
+        if declare -f detect_bundled_sdk_provider >/dev/null 2>&1 && detect_bundled_sdk_provider; then
+            echo -e "  ${GREEN}PASS${NC}  Bundled Claude Agent SDK is usable -- no separate CLI needed"
+            pass_count=$((pass_count + 1))
+        else
+            echo -e "  ${RED}FAIL${NC}  No AI provider CLI installed -- at least one is required"
+            echo -e "         ${YELLOW}Install: npm install -g @anthropic-ai/claude-code${NC}"
+            fail_count=$((fail_count + 1))
+            # v7.29.0: on a TTY (non-json), append the consent-gated install offer.
+            # In report mode the helper is a no-op on non-TTY/CI, so the doctor
+            # output stays byte-identical for the bun-parity matrix. --json never
+            # reaches here (cmd_doctor dispatches to cmd_doctor_json earlier).
+            if declare -f offer_provider_install >/dev/null 2>&1; then
+                offer_provider_install report || true
+            fi
         fi
     fi
     echo ""
@@ -12977,7 +13111,12 @@ cmd_init() {
                 return 1
             fi
         fi
-        echo -e "${YELLOW}Reinitializing existing .loki/ directory${NC}"
+        # stderr, not stdout: `loki init --json` writes a machine-readable
+        # template list to stdout, and this human-facing banner was landing in
+        # the middle of it -- the second `init` in a directory emitted invalid
+        # JSON, so any tool parsing it broke on reinit but worked on first run.
+        # Diagnostics belong on stderr; stdout is the data channel.
+        echo -e "${YELLOW}Reinitializing existing .loki/ directory${NC}" >&2
     fi
 
     local version=$(get_version)
@@ -13286,7 +13425,10 @@ print(p or '')
                 return 1
             fi
         fi
-        echo -e "${YELLOW}Reinitializing existing .loki/ directory in $target_dir${NC}"
+        # stderr for the same reason as the sibling banner above: stdout is the
+        # machine-readable channel. Fixing only the path the failing test
+        # exercised would leave this one to resurface the same bug.
+        echo -e "${YELLOW}Reinitializing existing .loki/ directory in $target_dir${NC}" >&2
     fi
 
     # Build config JSON
@@ -16692,7 +16834,7 @@ def _resolve_session_pin(alias):
 #     override-path clamp). A 'sonnet' override dispatches sonnet.
 #   - No override (session pin): the runner maps alias -> tier ->
 #     resolve_model_for_tier -> clamp(model, real_tier). Use _resolve_session_pin.
-#     A 'sonnet' session pin dispatches OPUS (development tier).
+#     A 'sonnet' session pin dispatches SONNET (development tier; CLAUDE_DEFAULT_DEVELOPMENT=sonnet since v7.104.0).
 # This is the task-568 fix: price the actually-dispatched model on BOTH routes.
 _is_override = (_session_model_source == '.loki/state/model-override')
 if _is_override:
@@ -17508,7 +17650,17 @@ main() {
        && _loki_telemetry_enabled; then
         _loki_disclose_telemetry_once
     fi
-    loki_telemetry "cli_command" "command=$command" 2>/dev/null || true
+    # The command value is passed through the FIXED ALLOWLIST at the boundary
+    # (_loki_known_command, autonomy/telemetry.sh): a real subcommand goes out
+    # verbatim, anything else becomes the literal "other". Without this, the
+    # honest typo `loki ./client-acme-merger-prd.md` put the raw file name on the
+    # wire, because the payload builder is a pass-through dict, not an allowlist.
+    # Fail closed: if the sanitizer is somehow undefined, send "other".
+    if declare -f _loki_known_command >/dev/null 2>&1; then
+        loki_telemetry "cli_command" "command=$(_loki_known_command "$command")" 2>/dev/null || true
+    else
+        loki_telemetry "cli_command" "command=other" 2>/dev/null || true
+    fi
 
     # Unified config-file pre-pass (#691). For session commands ONLY, honor
     # LOKI_CONFIG_FILE / --config|--vars|--env-file and load the file BEFORE the
@@ -17580,6 +17732,9 @@ main() {
             ;;
         pause)
             cmd_pause "$@"
+            ;;
+        steer)
+            cmd_steer "$@"
             ;;
         resume)
             cmd_resume "$@"
@@ -29473,6 +29628,20 @@ except Exception:
     fi
 
     # Gate 2: Security Scan
+    # Deny filter for the secret patterns below. This scanner sees RAW DIFF
+    # LINES with no file context, so unlike the other two copies of this matcher
+    # (autonomy/lib/secret-scan.sh, verify.sh) it cannot skip test paths -- it
+    # has to judge the VALUE. A credential whose value literally says "test",
+    # "example", "xxx", or "not-called" is a fixture; real leaked keys are not
+    # named after their own fakeness.
+    #
+    # Concretely, this is what reported 2 CRITICAL findings on the v8 PR:
+    #   sk-ant-xxx                 (loki-ts/test/runner/oauth_dev.test.ts)
+    #   sk-ant-test-not-called     (loki-ts/tests/runner/quality_gates.test.ts)
+    # Both exist to prove the SDK path fails closed without a real key. Flagging
+    # them trains people to ignore CRITICAL, which is how a real one gets missed.
+    local _ci_secret_deny='(test|example|sample|fixture|dummy|fake|placeholder|redacted|changeme|your[-_]|xxx+|not[-_]called|\$\{|\$[A-Za-z_]|process\.env|os\.(environ|getenv)|<[^>]*>)'
+
     _ci_scan() {
         local pattern="$1" sev="$2" cat="$3" finding="$4" suggestion="$5"
         # Only scan added lines (starting with "+") to avoid flagging deleted code
@@ -29481,7 +29650,10 @@ except Exception:
             local ml
             ml=$(echo "$match" | cut -d: -f1)
             _ci_add_finding "diff" "$ml" "$sev" "$cat" "$finding" "$suggestion"
-        done < <(echo "$diff_content" | grep -n '^+' | grep -E "$pattern" 2>/dev/null || true)
+        done < <(printf '%s\n' "$diff_content" \
+            | grep -n '^+' \
+            | grep -E "$pattern" 2>/dev/null \
+            | grep -vEi "$_ci_secret_deny" 2>/dev/null || true)
     }
 
     # Hardcoded secrets

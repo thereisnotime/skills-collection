@@ -73,6 +73,23 @@ run_check() {
       FAILED+=("$label")
       echo "${RED}FAIL:${NC} $label"
       echo "$out" | tail -30
+      # Most checks are written as `bash tests/foo.sh 2>&1 | tail -3`, so the
+      # `tail -30` above can only ever show those same 3 lines -- which are the
+      # SUMMARY, never the failing assertion. Diagnosing a failure then costs a
+      # full 40-minute re-run to learn nothing, and a load-flake that passes in
+      # isolation is undiagnosable. On failure only, re-run with the inner
+      # truncation stripped and surface the actual FAIL lines.
+      local _bare="${cmd%% | tail -*}"
+      if [ "$_bare" != "$cmd" ]; then
+        local _full
+        _full=$(eval "$_bare" 2>&1) || true
+        local _hits
+        _hits=$(printf '%s\n' "$_full" | grep -aiE '^[[:space:]]*(\[?FAIL\]?|not ok|✗|FAILED)' | head -15)
+        if [ -n "$_hits" ]; then
+          echo "${YELLOW}  failing assertions:${NC}"
+          printf '%s\n' "$_hits" | sed 's/^/    /'
+        fi
+      fi
     fi
   fi
 }
@@ -376,11 +393,34 @@ fi
 run_check "tests/test-cli-commands.sh (Bun route)" "bash tests/test-cli-commands.sh 2>&1 | tail -3"
 run_check "tests/test-cli-commands.sh (LOKI_LEGACY_BASH=1)" "LOKI_LEGACY_BASH=1 bash tests/test-cli-commands.sh 2>&1 | tail -3"
 
+# Acceptance #8 (SDK-default flip gate): a resumed run must not repeat an
+# irreversible action. Stubs `gh` on PATH and uses a local bare remote, so it
+# never touches the network. Mirrored in test.yml's v8 SDK bridge step.
+run_check "tests/test-acceptance-resume-idempotence.sh" "bash tests/test-acceptance-resume-idempotence.sh 2>&1 | tail -3"
+
 # CLI consolidation (Phase A): deprecated-alias back-compat contract + help
 # structure. Data-driven; runs on BOTH routes (Bun-native alias tokens like
 # stats must emit the deprecation line on the Bun route, not bypass it).
 run_check "tests/cli/test-alias-forwarding.sh (Bun route)" "LOKI_ROUTE=bun bash tests/cli/test-alias-forwarding.sh 2>&1 | tail -3"
 run_check "tests/cli/test-alias-forwarding.sh (bash route)" "LOKI_ROUTE=bash bash tests/cli/test-alias-forwarding.sh 2>&1 | tail -3"
+
+# Export overwrite guard: the prompt must never block a non-interactive run.
+# This gate exists because an unguarded "Overwrite? [y/N]" read wedged local-ci
+# for 40+ minutes (runner at 0.0% CPU in state S). Every case runs under
+# `timeout`, so a re-introduced hang fails loudly instead of stalling the lane.
+run_check "tests/test-export-overwrite-noninteractive.sh (prompt never hangs)" "bash tests/test-export-overwrite-noninteractive.sh 2>&1 | tail -3"
+
+# Time-to-first-preview: the number that most predicts whether someone keeps
+# using the product. Guards that it is write-once (a restart cannot overwrite a
+# real slow first preview with a fast one) and never invented from a missing or
+# absurd baseline.
+run_check "tests/test-first-preview-metric.sh (write-once, never invented)" "bash tests/test-first-preview-metric.sh 2>&1 | tail -3"
+
+# The v8 SDK-default-flip audit concluded there is no cross-iteration context to
+# regress BECAUSE these knobs ship OFF. If anything ever turns one on, that
+# conclusion silently becomes wrong -- so the fact is guarded, not just written
+# down in docs/V8-RUNTIME-TRUTH-2026-07-25.md.
+run_check "tests/test-session-knobs-default-off.sh (audit premise holds)" "bash tests/test-session-knobs-default-off.sh 2>&1 | tail -3"
 
 # P4-2: AUTOMATED bash<->Bun runtime parity. Extracts the load-bearing
 # invariants from BOTH routes (autonomy-override text, PHASE_KEYS, effort-per-tier,
@@ -410,6 +450,13 @@ run_check "tests/test-proven-pr-detached.sh (detached --pr/--ship -d carries rec
 # covertly. Hermetic (unroutable endpoint, fresh HOME, no real network send).
 run_check "tests/test-telemetry-disclosure-pty.sh (TTY signal + no covert egress)" "bash tests/test-telemetry-disclosure-pty.sh 2>&1 | tail -3"
 
+# First-run funnel privacy: asserts WHAT REACHES THE WIRE by stubbing curl (the
+# last hop) and reading the real POST body, given path-shaped, space-containing
+# and glob-containing input. Guards the leak reverted in a0f835bc: the fixed
+# allowlist at the boundary, the quoted-array transport, disclosure-before-egress
+# on the early-exit path, zero egress with the gates shut, and route parity.
+run_check "tests/test-funnel-privacy.sh (allowlist at the wire, zero-egress default)" "bash tests/test-funnel-privacy.sh 2>&1 | tail -4"
+
 # ---------------------------------------------------------------------------
 # STOP-SUITE FOREIGN-KILL REGRESSION GUARD (fix/local-ci-sentinel)
 # ---------------------------------------------------------------------------
@@ -426,9 +473,14 @@ run_check "tests/test-telemetry-disclosure-pty.sh (TTY signal + no covert egress
 # end of this section.
 SENTINEL_PARENT_PID=""
 SENTINEL_CHILD_PID=""
+# Sentinel lifetime, and when it started. Both are read by the assertion so a
+# dead sentinel can be classified as EXPIRED vs KILLED.
+SENTINEL_LIFETIME=7200
+SENTINEL_SPAWN_EPOCH=0
 SENTINEL_SCRIPT=""
 SENTINEL_CWD=""
 _spawn_stop_sentinel() {
+  SENTINEL_SPAWN_EPOCH=$(date +%s)
   SENTINEL_CWD=$(mktemp -d "${TMPDIR:-/tmp}/loki-sentinel-cwd-XXXXXX") || return 1
   local _rand="$$-${RANDOM}-${RANDOM}"
   SENTINEL_SCRIPT="${TMPDIR:-/tmp}/loki-run-SENTINEL-${_rand}.sh"
@@ -436,8 +488,19 @@ _spawn_stop_sentinel() {
 #!/usr/bin/env bash
 # local-ci stop-suite foreign-kill sentinel. Marker: LOKI-CI-SENTINEL-${_rand}
 echo \$\$ > "${SENTINEL_CWD}/parent.pid"
-sleep 900 &
+# Lifetime must outlive the WHOLE local-ci run, not just the stop suites.
+# It was 900s (15 min). A full run takes 25-37 min here and grows as suites are
+# added, so on any slow run the sentinel simply EXPIRED mid-run and the guard
+# below reported "a stop suite killed the sentinel" -- a false DO-NOT-PUSH that
+# is indistinguishable from the real regression it exists to catch.
+# Measured: 25m40s and 26m48s runs SURVIVED; 35m10s and 36m40s runs "failed".
+# 7200s (2h) is far beyond any plausible run and the sentinel is reaped by PID
+# at the end of the stop section, so a longer sleep costs nothing.
+sleep ${SENTINEL_LIFETIME} &
 echo \$! > "${SENTINEL_CWD}/child.pid"
+# Touch a heartbeat AFTER the sleep starts so the guard can tell "still the
+# process we spawned" from "PID recycled onto something else".
+echo alive > "${SENTINEL_CWD}/started"
 wait
 SENT
   chmod +x "$SENTINEL_SCRIPT"
@@ -495,6 +558,7 @@ run_check "tests/test-state-baseline-lifecycle.sh (run 2+ baseline freshness)" "
 run_check "tests/test-reuse-done-recognition.sh (no-PRD reuse done-recognition gate)" "bash tests/test-reuse-done-recognition.sh 2>&1 | tail -3"
 run_check "tests/run-checkpoint-worktree-bundle-tests.sh (V2 refs/loki/cp bundle sync)" "bash tests/run-checkpoint-worktree-bundle-tests.sh 2>&1 | tail -3"
 run_check "tests/test-allowed-paths-sandbox-mount.sh (V3 sandbox workspace fail-closed)" "bash tests/test-allowed-paths-sandbox-mount.sh 2>&1 | tail -3"
+run_check "tests/test-sandbox-deprecation.sh (v8.1 microVM binary-hosting deprecation; isolation retained)" "bash tests/test-sandbox-deprecation.sh 2>&1 | tail -3"
 run_check "tests/test-queue-consumer.sh (V5 redis/file consumer + flag-injection guard)" "bash tests/test-queue-consumer.sh 2>&1 | tail -3"
 run_check "tests/test-loki-why.sh (B5 failure/outcome diagnosis)" "bash tests/test-loki-why.sh 2>&1 | tail -3"
 run_check "tests/cli/test-loki-next.sh (loki next resolver)" "bash tests/cli/test-loki-next.sh 2>&1 | tail -3"
@@ -502,6 +566,34 @@ run_check "tests/cli/test-ship-review-scope.sh (ship review scope)" "bash tests/
 run_check "tests/cli/test-cli-flag-guards.sh (budget/plan-json/memory/temp-prd/flag-value guards)" "bash tests/cli/test-cli-flag-guards.sh 2>&1 | tail -3"
 run_check "tests/test-rate-limit-detection.sh (rate-limit false-positive guard)" "bash tests/test-rate-limit-detection.sh 2>&1 | tail -3"
 run_check "tests/test-config-map-fallback.sh (no-yq YAML nested-path + quote handling)" "bash tests/test-config-map-fallback.sh 2>&1 | tail -3"
+run_check "tests/test-sdk-mode.sh (v8.1 one-switch SDK resolver + bash<->TS fixture parity)" "bash tests/test-sdk-mode.sh 2>&1 | tail -3"
+run_check "tests/test-council-track-iteration.sh (convergence counter + stagnation force-stop)" "bash tests/test-council-track-iteration.sh 2>&1 | tail -3"
+run_check "tests/test-council-structured-done-signal.sh (structured claim counts as done signal -> valve arms)" "bash tests/test-council-structured-done-signal.sh 2>&1 | tail -3"
+run_check "tests/test-tier-routing.sh (Task6: complexity->model routing, dev-tier never below sonnet)" "bash tests/test-tier-routing.sh 2>&1 | tail -3"
+run_check "tests/test-auto-tune-interval.sh (Task6: council interval auto-tune by complexity)" "bash tests/test-auto-tune-interval.sh 2>&1 | tail -3"
+run_check "tests/test-self-heal-injection.sh (Task6: LAST_ERROR heal hint injected once + archived)" "bash tests/test-self-heal-injection.sh 2>&1 | tail -3"
+run_check "tests/test-review-diff-moat.sh (review diff exclusion + partial NO_OUTPUT block)" "bash tests/test-review-diff-moat.sh 2>&1 | tail -3"
+run_check "tests/test-review-assurance-tail.sh (deadline, requirements, speculative DA)" "bash tests/test-review-assurance-tail.sh 2>&1 | tail -3"
+run_check "tests/test-evidence-gate-rc.sh (evidence-gate rc propagation, fail-closed)" "bash tests/test-evidence-gate-rc.sh 2>&1 | tail -3"
+run_check "tests/test-playwright-verify-as-evidence.sh (playwright pass/fail distinction)" "bash tests/test-playwright-verify-as-evidence.sh 2>&1 | tail -3"
+run_check "tests/test-enforce-mutation-integrity.sh (mutation-integrity HIGH block)" "bash tests/test-enforce-mutation-integrity.sh 2>&1 | tail -3"
+run_check "tests/test-start-bash-diversion.sh (T3 loop-flip: orchestration flags divert to bash)" "bash tests/test-start-bash-diversion.sh 2>&1 | tail -3"
+run_check "tests/test-checklist-gate-failclosed.sh (council checklist gate fail-closed on corrupt results)" "bash tests/test-checklist-gate-failclosed.sh 2>&1 | tail -3"
+run_check "tests/test-council-aggregate-votes.sh (council completion tally threshold + stdout hygiene)" "bash tests/test-council-aggregate-votes.sh 2>&1 | tail -3"
+run_check "tests/test-checklist-determine-item-status.py (item-status aggregator: inconclusive never verified)" "python3 -m pytest tests/test-checklist-determine-item-status.py -q 2>&1 | tail -3"
+run_check "tests/test-checklist-run-check-arms.py (http_check never True on error + 4 arms)" "python3 -m pytest tests/test-checklist-run-check-arms.py -q 2>&1 | tail -3"
+run_check "tests/test_checklist_main_summary.py (main() summary counting end-to-end)" "python3 -m pytest tests/test_checklist_main_summary.py -q 2>&1 | tail -3"
+run_check "tests/test-heuristic-council-affirmative.sh (heuristic test_auditor requires affirmative pass evidence)" "bash tests/test-heuristic-council-affirmative.sh 2>&1 | tail -3"
+run_check "tests/test-checkpoint-index-rebuild.sh (single-python index rebuild, byte-identical + 1 spawn)" "bash tests/test-checkpoint-index-rebuild.sh 2>&1 | tail -3"
+run_check "tests/test-evidence-boot-axis.sh (completion gate blocks when the built app does not run)" "bash tests/test-evidence-boot-axis.sh 2>&1 | tail -3"
+run_check "tests/test-evidence-secret-axis.sh (completion gate blocks a secret leak in changed files)" "bash tests/test-evidence-secret-axis.sh 2>&1 | tail -3"
+run_check "tests/test-loki-steer.sh (loki steer writes the file the loop reads; dead steering.md hint removed)" "bash tests/test-loki-steer.sh 2>&1 | tail -3"
+run_check "tests/test-loki-why-stall.sh (loki why names the real stall reason: UNCERTAINTY_ESCALATION + convergence signal, suggests loki steer)" "bash tests/test-loki-why-stall.sh 2>&1 | tail -3"
+run_check "tests/test-spec-expand.sh (OpenAPI/GraphQL/Postman contract expands to a per-operation checklist; no ops lost to prompt truncation; non-contract untouched)" "bash tests/test-spec-expand.sh 2>&1 | tail -3"
+run_check "tests/test-spec-contract-drift.sh (contract locks one requirement per operation; mutating one response schema drifts exactly that operationId, exit 1)" "bash tests/test-spec-contract-drift.sh 2>&1 | tail -3"
+run_check "tests/test-spec-contradiction-confident.sh (a flaky single-sample spec-contradiction verdict must reproduce across N samples before it can terminal-fail a run)" "bash tests/test-spec-contradiction-confident.sh 2>&1 | tail -3"
+run_check "tests/test-spec-contradiction-classify.sh (ambiguity under a contradiction-ish grill section is NOT mislabeled a contradiction; real conflicts still are)" "bash tests/test-spec-contradiction-classify.sh 2>&1 | tail -3"
+run_check "tests/test-failure-learn-forward.sh (learn-forward: prior failure archived to append-only bounded history before clear; completion.json carries error_class+brief)" "bash tests/test-failure-learn-forward.sh 2>&1 | tail -3"
 run_check "tests/test-bench-honest-degrade.sh (L4 packaged-install bench UX)" "bash tests/test-bench-honest-degrade.sh 2>&1 | tail -3"
 run_check "tests/test-emit-json-escape.sh (C0 control-char escaping + UTF-8)" "bash tests/test-emit-json-escape.sh 2>&1 | tail -3"
 run_check "tests/test-codex-model-trusted.sh (LOKI_CODEX_MODEL verbatim, generic validated)" "bash tests/test-codex-model-trusted.sh 2>&1 | tail -3"
@@ -538,8 +630,18 @@ run_check "tests/test-stop-process-group.sh (group-kill agent teardown)" "bash t
 # on a live run, which is the anti-pattern that masked this bug originally. If
 # the sentinel is dead, a stop suite reaped a foreign loki-run-* and the build
 # fails loudly.
+# A dead sentinel has TWO possible causes and they must not be conflated:
+# a stop suite killed it (the regression this guard exists for), or it simply
+# reached the end of its own sleep (a harness bug that produces a FALSE
+# DO-NOT-PUSH). The original check reported "killed" for both, and on a 36m run
+# with a 900s sentinel that fired every time -- costing several full CI cycles
+# chasing a regression that was never there.
+# The sentinel's own script is the discriminator: _reap_stop_sentinel deletes it,
+# and nothing else does. If the script is still on disk and the PIDs are gone,
+# the sentinel EXPIRED (or was killed). We now also record its start so the
+# elapsed time can be compared against the configured lifetime.
 run_check "stop suites do NOT kill a foreign loki run (sentinel alive by PID)" \
-  'if [ -z "'"$SENTINEL_PARENT_PID"'" ]; then echo "sentinel never spawned -- cannot verify"; exit 1; fi; if kill -0 '"$SENTINEL_PARENT_PID"' 2>/dev/null && kill -0 '"$SENTINEL_CHILD_PID"' 2>/dev/null; then echo "sentinel parent='"$SENTINEL_PARENT_PID"' child='"$SENTINEL_CHILD_PID"' SURVIVED the stop suites"; else echo "FOREIGN-KILL REGRESSION: a stop suite killed the sentinel (parent='"$SENTINEL_PARENT_PID"' alive=$(kill -0 '"$SENTINEL_PARENT_PID"' 2>/dev/null && echo yes || echo no), child='"$SENTINEL_CHILD_PID"' alive=$(kill -0 '"$SENTINEL_CHILD_PID"' 2>/dev/null && echo yes || echo no))"; exit 1; fi'
+  'if [ -z "'"$SENTINEL_PARENT_PID"'" ]; then echo "sentinel never spawned -- cannot verify"; exit 1; fi; if kill -0 '"$SENTINEL_PARENT_PID"' 2>/dev/null && kill -0 '"$SENTINEL_CHILD_PID"' 2>/dev/null; then echo "sentinel parent='"$SENTINEL_PARENT_PID"' child='"$SENTINEL_CHILD_PID"' SURVIVED the stop suites"; else _el=$(( $(date +%s) - '"${SENTINEL_SPAWN_EPOCH:-0}"' )); if [ "$_el" -ge '"${SENTINEL_LIFETIME:-7200}"' ]; then echo "SENTINEL EXPIRED after ${_el}s (lifetime '"${SENTINEL_LIFETIME:-7200}"'s) -- this is a HARNESS limit, not a foreign-kill regression. Raise SENTINEL_LIFETIME in _spawn_stop_sentinel."; exit 1; fi; echo "FOREIGN-KILL REGRESSION: a stop suite killed the sentinel after only ${_el}s of a '"${SENTINEL_LIFETIME:-7200}"'s lifetime (parent='"$SENTINEL_PARENT_PID"' alive=$(kill -0 '"$SENTINEL_PARENT_PID"' 2>/dev/null && echo yes || echo no), child='"$SENTINEL_CHILD_PID"' alive=$(kill -0 '"$SENTINEL_CHILD_PID"' 2>/dev/null && echo yes || echo no))"; exit 1; fi'
 # Reap the sentinel by PID now that the assertion is done (scoped, never pgrep).
 _reap_stop_sentinel
 
@@ -657,6 +759,12 @@ PYHS
 # start/demo gate.
 run_check "tests/cli/test-provider-offer.sh (provider install offer + gate)" "bash tests/cli/test-provider-offer.sh 2>&1 | tail -3"
 
+# T1: the bundled Claude Agent SDK counts as a provider ONLY when usable
+# (extracted binary + credentials + SDK loop active). Fixture node_modules via
+# the LOKI_SDK_NODE_MODULES test seam; asserts every fail-closed branch and that
+# detect_any_provider stays PATH-only (demo/quick run on the bash route).
+run_check "tests/test-bundled-sdk-provider.sh (bundled SDK provider, fail-closed)" "bash tests/test-bundled-sdk-provider.sh 2>&1 | tail -3"
+
 # v7.29.0: quickstart guided interview (autonomy/quickstart.sh). Stub-based,
 # ZERO spend / ZERO build: source-level harness overrides _qs_non_interactive
 # and stubs show_prd_plan / provider_offer_gate / cmd_start / cmd_dashboard_open.
@@ -683,6 +791,7 @@ run_check "tests/test-spec.sh (living spec lock/status/sync + drift finding)" "b
 # disclosure lifecycle) and the deterministic `loki verify` pipeline. Wired in
 # v7.28.0 after a council reviewer caught both suites missing from local-ci.
 run_check "tests/test-evidence-gate.sh (evidence gate + inconclusive lifecycle)" "bash tests/test-evidence-gate.sh 2>&1 | tail -3"
+run_check "tests/test-nomock-data-render.sh (static catalogs pass, operational mocks block)" "bash tests/test-nomock-data-render.sh 2>&1 | tail -3"
 run_check "tests/test-evidence-gate-no-tests.sh (P1-1 no-tests not affirmative)" "bash tests/test-evidence-gate-no-tests.sh 2>&1 | tail -3"
 run_check "tests/test-verify.sh (loki verify deterministic gates)" "bash tests/test-verify.sh 2>&1 | tail -3"
 run_check "tests/test-verify-scope-record.sh (rank 10 locality scope record, advisory-first)" "bash tests/test-verify-scope-record.sh 2>&1 | tail -3"
@@ -899,6 +1008,19 @@ fi
 # 10. Pre-publish 3a: npm pack tarball includes expected files
 # ---------------------------------------------------------------------------
 run_check "npm pack tarball contents" 'npm pack --dry-run 2>&1 | grep -E "loki-ts/dist/loki.js|bin/loki|dashboard/static/index.html|web-app/dist/index.html|autonomy/provider-offer.sh|autonomy/quickstart.sh" | wc -l | grep -qE "[6-9]|[1-9][0-9]"'
+
+# 10a-v8. The Agent SDK (@anthropic-ai/claude-agent-sdk) is a DYNAMIC import in
+# dist/loki.js (the opt-in LOKI_SDK_LOOP=1 RARV loop) + a per-platform native
+# binary, so it is NOT bundled into dist and MUST be a declared dependency npm
+# can resolve at install time; otherwise npm/Docker users who set LOKI_SDK_LOOP=1
+# hit ERR_MODULE_NOT_FOUND (fail-closed, but dead-on-arrival). This check would
+# have caught the whole-arc council's packaging finding. It must stay pinned to
+# the same version loki-ts/package.json uses.
+run_check "Agent SDK is a resolvable root dependency (LOKI_SDK_LOOP packaging)" '
+  root_ver=$(python3 -c "import json; d=json.load(open(\"package.json\")); print((d.get(\"dependencies\",{}) | d.get(\"optionalDependencies\",{})).get(\"@anthropic-ai/claude-agent-sdk\",\"\"))")
+  src_ver=$(python3 -c "import json; print(json.load(open(\"loki-ts/package.json\"))[\"dependencies\"][\"@anthropic-ai/claude-agent-sdk\"])")
+  [ -n "$root_ver" ] && [ "$root_ver" = "$src_ver" ] &&
+  grep -q "claude-agent-sdk" Dockerfile'
 
 # ---------------------------------------------------------------------------
 # 10b. Phase Merge-3: web-app dist must be built with base: '/lab/'

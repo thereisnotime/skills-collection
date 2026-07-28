@@ -281,6 +281,28 @@ Commit hygiene still applies: git checkpoints are LOCAL only. Never push or forc
 
 This precedence override is narrow. It does NOT relax any safety rule. Every safety prohibition in CLAUDE.md or memory still fully binds: anything genuinely destructive or irreversible remains out of scope unless the task explicitly calls for it. This includes (not limited to) force-pushing, deleting or overwriting the user's data, dropping or truncating databases, publishing or releasing, rotating or exfiltrating secrets, touching production systems, and anything a CLAUDE.md safety rule explicitly forbids. When in doubt about whether an action is destructive, treat it as destructive and do not do it.
 LOKI_AUTONOMY_EOF
+
+    # First-pass excellence directive (v8): front-load intelligence into
+    # iteration 1 so a single informed pass lands the COMPLETE, working solution
+    # instead of a rough draft the loop then spends iterations correcting. This
+    # is the mechanism behind "a cheap model in one pass matches a strong model":
+    # the iteration count is a proxy for how much the first pass missed, so a
+    # more directive first prompt is the lever, not more loops. Iteration-1-only
+    # (ITERATION_COUNT<=1) and gated on LOKI_FIRST_PASS_EXCELLENCE (default ON;
+    # set to 0 to disable). Grounded in the user-research directives: nail the
+    # first working preview, WIRE the backend (a form that does nothing is the #1
+    # churn), do not defer/stub, escape the AI-slop defaults.
+    if [ "${LOKI_FIRST_PASS_EXCELLENCE:-1}" != "0" ] && [ "${ITERATION_COUNT:-1}" -le 1 ] 2>/dev/null; then
+        cat <<'LOKI_FIRSTPASS_EOF'
+
+[FIRST-PASS EXCELLENCE] Treat THIS pass as your one shot to ship a complete, working, verified solution. Do not produce a rough draft to refine later; the loop exists as a safety net, not a plan. Before you finish this iteration:
+1. BUILD IT FULLY. Implement every requirement end to end. No stubs, no TODOs, no "coming soon", no placeholder or hardcoded/mock data where real logic belongs. If the spec implies a backend (auth, persistence, a form that submits, a list that saves), WIRE IT so it actually works and persists -- a beautiful UI whose buttons do nothing is the single most common failure, not a draft. Every list/table must trace to a real query, never an inline mock array.
+2. SELF-VERIFY BY RUNNING, not by reading. Run the build and the tests yourself; for each acceptance criterion, DRIVE the actual path and observe the result (submit the form, then reload and confirm the record persisted; hit a protected route logged-out and confirm it is rejected). Fix what fails now, in this pass. Do not mark done on "looks right" or a self-claim -- observed behavior is the only proof.
+3. LOCK THE ARCHITECTURE on this pass so later edits are small and additive. Decide the data model, routes, and component structure up front and build to them; never rewrite whole files later to patch a small thing (that is the doom loop that breaks working features).
+4. DESIGN: commit to ONE named aesthetic direction up front (editorial, brutalist, luxury, retro-futuristic, soft/pastel, industrial, etc. -- chosen from the product domain) and hold it on every surface. Use real content (never lorem). AVOID the AI-slop tells that instantly read as machine-generated: NO indigo/blue-to-purple gradient (the #1 tell), NO Inter/Roboto/system-font headlines (pick a real display+body pairing), NO three-equal-rounded-cards-in-a-row skeleton, NO flat 1px gray card borders or colored left-border strips, NO untouched shadcn defaults, NO reflexive dark mode. Cap the palette at ~3 hues (60/30/10), tinted not pure #fff/#000, separate sections by whitespace then a slight background shift before any border. Aim for Linear/Stripe/Duolingo-tier taste: "this does not look AI-generated".
+Deliver the finished, self-verified, genuinely-designed result in THIS pass. Additional iterations should be the exception, not the plan.
+LOKI_FIRSTPASS_EOF
+    fi
 }
 
 # Invocation function (basic, no tier).
@@ -380,6 +402,54 @@ loki_apply_max_tier_clamp() {
     printf '%s' "$model"
 }
 
+# Complexity-aware MODEL routing (net-new; effort routing already exists in
+# loki_effort_for_tier). ENV VAR: LOKI_TIER_ROUTING (DEFAULT "0" = OFF = current
+# flat resolution, zero change to stock runs). When LOKI_TIER_ROUTING=1 the
+# resolved model is nudged by the auto-detected project complexity signal
+# (LOKI_COMPLEXITY: simple|standard|complex):
+#   complex + planning -> opus  (deeper reasoning for hard architecture)
+#   simple  + fast     -> haiku ONLY when LOKI_ALLOW_HAIKU=true (support gate);
+#                         else stay put (never route to an unavailable model)
+#   standard, or the development/ACT tier -> UNCHANGED.
+# HARD GUARD: the development/ACT tier is NEVER routed below sonnet regardless of
+# complexity (implementation stays >= sonnet). "explicit override wins": we skip
+# the nudge whenever the operator pinned that tier via LOKI_CLAUDE_MODEL_PLANNING
+# / LOKI_MODEL_PLANNING (or the _FAST pair), so a deliberate pin is never
+# overridden. Byte-mirrored by loki_tier_route_model in loki-ts claude_flags.ts.
+loki_tier_route_model() {
+    local tier="$1"
+    local model="$2"
+    # Default OFF: only the explicit "1" opt-in engages routing.
+    [ "${LOKI_TIER_ROUTING:-0}" = "1" ] || { printf '%s' "$model"; return; }
+    local complexity="${LOKI_COMPLEXITY:-standard}"
+    case "$tier" in
+        planning)
+            # Bump to opus for complex work, but only when the operator did NOT
+            # pin planning explicitly (an explicit override always wins, even if
+            # they pinned it back to the flat default).
+            if [ "$complexity" = "complex" ] \
+               && [ -z "${LOKI_CLAUDE_MODEL_PLANNING:-}" ] \
+               && [ -z "${LOKI_MODEL_PLANNING:-}" ]; then
+                model="opus"
+            fi
+            ;;
+        fast)
+            # Drop to haiku for trivial verify work, gated on haiku availability
+            # and on the operator not having pinned fast explicitly.
+            if [ "$complexity" = "simple" ] \
+               && [ "${LOKI_ALLOW_HAIKU:-false}" = "true" ] \
+               && [ -z "${LOKI_CLAUDE_MODEL_FAST:-}" ] \
+               && [ -z "${LOKI_MODEL_FAST:-}" ]; then
+                model="haiku"
+            fi
+            ;;
+        # development/ACT and every other tier: unchanged. HARD GUARD -- never
+        # route implementation below sonnet, so this arm deliberately does nothing.
+        *) ;;
+    esac
+    printf '%s' "$model"
+}
+
 # Dynamic model resolution (v6.0.0)
 # Resolves a capability tier to a concrete model name at runtime.
 # Respects LOKI_MAX_TIER to cap cost via loki_apply_max_tier_clamp. NOTE the
@@ -431,6 +501,11 @@ resolve_model_for_tier() {
     # run.sh sets CURRENT_TIER=fable for that one iteration, which lands on the
     # `fable)` arm above. Keeping the decision in run.sh is the only place that
     # has ITERATION_COUNT, so the scoping is honest.
+
+    # Complexity-aware MODEL routing (opt-in). Applied AFTER base resolution and
+    # BEFORE the max-tier clamp, so the ceiling still bounds any bump-up. Byte-
+    # mirrored by loki_tier_route_model in loki-ts claude_flags.ts.
+    model="$(loki_tier_route_model "$tier" "$model")"
 
     # Apply the shared LOKI_MAX_TIER ceiling (same clamp the run.sh override path
     # uses, so the cost ceiling is enforced byte-identically on both paths).

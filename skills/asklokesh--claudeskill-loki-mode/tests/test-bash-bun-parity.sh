@@ -172,9 +172,13 @@ check_autonomy_override() {
     local bash_txt="$TMPDIR_PARITY/override.bash.txt"
     local bun_txt="$TMPDIR_PARITY/override.bun.txt"
 
-    # Source providers/claude.sh in a subshell and dump the function output to a
-    # file (NO command substitution -> trailing newline preserved).
-    if ! ( set +u; . providers/claude.sh >/dev/null 2>&1; _loki_autonomy_override_text ) > "$bash_txt" 2>/dev/null; then
+    # Source providers/claude.sh in a subshell and dump the BASE function output
+    # to a file (NO command substitution -> trailing newline preserved). Force
+    # ITERATION_COUNT=2 so the iteration-1-only FIRST-PASS EXCELLENCE block is NOT
+    # appended -- this invariant checks the BASE autonomy text (bun's
+    # AUTONOMY_OVERRIDE_TEXT). First-pass-append parity is covered separately by
+    # the claude_flags unit test (bash<->TS byte-identity was verified directly).
+    if ! ( set +u; ITERATION_COUNT=2; . providers/claude.sh >/dev/null 2>&1; _loki_autonomy_override_text ) > "$bash_txt" 2>/dev/null; then
         fail "$name" "could not source providers/claude.sh / call _loki_autonomy_override_text"
         return
     fi
@@ -366,9 +370,14 @@ GATE_ALLOWED_BUN_ONLY=()
 check_gate_env() {
     local name="LOKI_GATE_* env var set (autonomy/ <-> loki-ts/src/)"
 
+    # Only PUBLIC LOKI_GATE_* toggles participate in parity. Internal python-heredoc
+    # env vars use a leading underscore (e.g. _LOKI_GATE_GUIDANCE_FILE) and are an
+    # implementation detail of one route, not a user-facing gate. The bare pattern
+    # matches those as a substring, so require the match to start at a non-word,
+    # non-underscore boundary, then strip that leading char.
     local bash_set bun_set
-    bash_set="$(grep -rhoE 'LOKI_GATE_[A-Z_]+' autonomy/ 2>/dev/null | sort -u)"
-    bun_set="$(grep -rhoE 'LOKI_GATE_[A-Z_]+' loki-ts/src/ 2>/dev/null | sort -u)"
+    bash_set="$(grep -rhoE '(^|[^A-Za-z0-9_])LOKI_GATE_[A-Z_]+' autonomy/ 2>/dev/null | grep -oE 'LOKI_GATE_[A-Z_]+' | sort -u)"
+    bun_set="$(grep -rhoE '(^|[^A-Za-z0-9_])LOKI_GATE_[A-Z_]+' loki-ts/src/ 2>/dev/null | grep -oE 'LOKI_GATE_[A-Z_]+' | sort -u)"
 
     if [ -z "$bash_set" ]; then
         fail "$name" "no LOKI_GATE_* found in autonomy/ (grep pattern broken?)"

@@ -53,20 +53,106 @@ report() {
     esac
 }
 
+local_import_is_source() {
+    local test_file="$1"
+    local spec="$2"
+    local normalized leaf test_dir import_base candidate
+
+    spec="${spec%%\?*}"
+    spec="${spec%%#*}"
+    normalized=$(printf '%s' "$spec" | tr '[:upper:]' '[:lower:]')
+    leaf="${normalized##*/}"
+
+    case "/$normalized/" in
+        */__mocks__/*|*/mocks/*|*/mock/*|*/__tests__/*|*/tests/*|*/test/*|*/__fixtures__/*|*/fixtures/*|*/test-utils/*|*/test_utils/*|*/test-helpers/*|*/test_helpers/*)
+            return 1
+            ;;
+    esac
+    case "$leaf" in
+        mock|mocks|mock.*|mocks.*|mock-*|mock_*|*.mock|*.mock.*|*.test|*.test.*|*.spec|*.spec.*|fixture|fixtures|fixture.*|fixtures.*|test-helper*|test_helper*|test-util*|test_util*|setup-tests*|setup_tests*|setuptests*)
+            return 1
+            ;;
+    esac
+
+    test_dir="${test_file%/*}"
+    [ "$test_dir" != "$test_file" ] || test_dir="."
+    import_base="$test_dir/$spec"
+
+    case "$leaf" in
+        *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs|*.mts|*.cts|*.vue|*.svelte)
+            [ -f "$import_base" ] && return 0
+            ;;
+        *.*) ;;
+        *) [ -f "$import_base" ] && return 0 ;;
+    esac
+
+    for candidate in \
+        "$import_base.js" "$import_base.jsx" "$import_base.ts" "$import_base.tsx" \
+        "$import_base.mjs" "$import_base.cjs" "$import_base.mts" "$import_base.cts" \
+        "$import_base.vue" "$import_base.svelte" \
+        "$import_base/index.js" "$import_base/index.jsx" \
+        "$import_base/index.ts" "$import_base/index.tsx" \
+        "$import_base/index.mjs" "$import_base/index.cjs" \
+        "$import_base/index.mts" "$import_base/index.cts" \
+        "$import_base/index.vue" "$import_base/index.svelte"; do
+        [ -f "$candidate" ] && return 0
+    done
+    return 1
+}
+
+test_has_source_import() {
+    local test_file="$1"
+    local line spec import_open=false
+    local esm_from_re="^[[:space:]]*import[[:space:]]+.*[[:space:]]from[[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
+    local esm_side_re="^[[:space:]]*import[[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
+    local esm_continue_re="^[[:space:]]*.*[[:space:]]from[[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
+    local cjs_re="require[[:space:]]*\([[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            *'jest.mock('*|*'vi.mock('*) continue ;;
+        esac
+        if [[ "$line" =~ ^[[:space:]]*(//|/\*|\*) ]]; then
+            continue
+        fi
+
+        spec=""
+        if [ "$import_open" = true ]; then
+            if [[ "$line" =~ $esm_continue_re ]]; then
+                spec="${BASH_REMATCH[1]}"
+                import_open=false
+            elif [[ "$line" == *';'* ]]; then
+                import_open=false
+            fi
+        elif [[ "$line" =~ ^[[:space:]]*import[[:space:]]+type[[:space:]] ]]; then
+            continue
+        elif [[ "$line" =~ $esm_from_re ]]; then
+            spec="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ $esm_side_re ]]; then
+            spec="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^[[:space:]]*import[[:space:]] ]]; then
+            import_open=true
+        elif [[ "$line" =~ $cjs_re ]]; then
+            spec="${BASH_REMATCH[1]}"
+        fi
+
+        if [ -n "$spec" ] && local_import_is_source "$test_file" "$spec"; then
+            return 0
+        fi
+    done < "$test_file"
+    return 1
+}
+
 # Pattern 1: TypeScript/JavaScript tests that never import from source
 # (excludes E2E/spec files which interact via browser, not imports)
 echo -e "${CYAN}Scanning for tests that never import real code...${NC}"
 while IFS= read -r test_file; do
     rel_path="${test_file#$PROJECT_DIR/}"
 
-    # Check if any import references source code (not just assert/test libs)
+    # Resolve local imports so same-directory source counts, while imports of
+    # test helpers, fixtures, mocks, or missing modules do not.
     has_source_import=false
-    if grep -qE "^import.*from ['\"]\.\./" "$test_file" 2>/dev/null; then
-        has_source_import=true
-    fi
-    if grep -qE "require\(['\"]\.\./" "$test_file" 2>/dev/null; then
-        has_source_import=true
-    fi
+    test_has_source_import "$test_file" && has_source_import=true
 
     if [ "$has_source_import" = false ]; then
         # Count actual test cases
@@ -75,7 +161,7 @@ while IFS= read -r test_file; do
             report "CRITICAL" "$rel_path" "1" "Test file has $test_count test(s) but never imports source code -- tests only test inline mocks"
         fi
     fi
-done < <(find "$PROJECT_DIR" \( -name "*.test.ts" -o -name "*.test.js" \) 2>/dev/null | grep -v node_modules | grep -v dist | grep -v e2e)
+done < <(find "$PROJECT_DIR" \( -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" \) 2>/dev/null | grep -v node_modules | grep -v dist | grep -v e2e)
 
 # Pattern 2: Tautological assertions on literals
 echo -e "${CYAN}Scanning for tautological assertions...${NC}"
@@ -97,7 +183,7 @@ while IFS= read -r test_file; do
         report "HIGH" "$rel_path" "$lineno" "Tautological assertion: assert.ok(true) always passes"
     done < <(grep -nE "assert\.ok\((true|1)\)" "$test_file" 2>/dev/null)
 
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.js" -o -name "*.spec.ts" -o -name "*.spec.js" -o -name "test_*.py" 2>/dev/null | grep -v node_modules | grep -v dist)
+done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" -o -name "test_*.py" 2>/dev/null | grep -v node_modules | grep -v dist)
 
 # Pattern 3: Conditional assertions (if guards that silently skip)
 echo -e "${CYAN}Scanning for conditional assertions...${NC}"
@@ -114,7 +200,7 @@ while IFS= read -r test_file; do
         fi
     done)
 
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.js" -o -name "*.spec.ts" -o -name "*.spec.js" 2>/dev/null | grep -v node_modules | grep -v dist)
+done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" 2>/dev/null | grep -v node_modules | grep -v dist)
 
 # Pattern 4: Empty test bodies
 echo -e "${CYAN}Scanning for empty test bodies...${NC}"
@@ -126,7 +212,7 @@ while IFS= read -r test_file; do
         report "MEDIUM" "$rel_path" "$lineno" "Empty test body -- test does nothing"
     done < <(grep -nE "(it|test)\(['\"].*['\"],\s*(\(\)|function\s*\(\))\s*\{?\s*\}?\s*\);" "$test_file" 2>/dev/null)
 
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.js" -o -name "*.spec.ts" -o -name "*.spec.js" 2>/dev/null | grep -v node_modules | grep -v dist)
+done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" 2>/dev/null | grep -v node_modules | grep -v dist)
 
 # Pattern 5: Skipped tests
 echo -e "${CYAN}Scanning for skipped tests...${NC}"
@@ -137,7 +223,7 @@ while IFS= read -r test_file; do
         report "LOW" "$rel_path" "$lineno" "Skipped test: $line"
     done < <(grep -nE "(xit|xtest|xdescribe|\.skip)\(" "$test_file" 2>/dev/null | head -5)
 
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.js" -o -name "*.spec.ts" -o -name "*.spec.js" -o -name "test_*.py" 2>/dev/null | grep -v node_modules | grep -v dist)
+done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" -o -name "test_*.py" 2>/dev/null | grep -v node_modules | grep -v dist)
 
 # Pattern 6: Internal vs External mock classification
 # Internal mocks (mocking your own code) are problematic -- you're hiding bugs
@@ -166,7 +252,7 @@ while IFS= read -r test_file; do
     elif [ "$total_mocks" -gt 10 ] && [ "$external_mocks" -lt 3 ]; then
         report "MEDIUM" "$rel_path" "1" "Elevated internal mock ratio: $total_mocks mocks, only $external_mocks external refs -- review mock targets"
     fi
-done < <(find "$PROJECT_DIR" \( -name "*.test.ts" -o -name "*.test.js" -o -name "*.spec.ts" -o -name "*.spec.js" \) 2>/dev/null | grep -v node_modules | grep -v dist)
+done < <(find "$PROJECT_DIR" \( -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" \) 2>/dev/null | grep -v node_modules | grep -v dist)
 
 # Summary
 echo ""

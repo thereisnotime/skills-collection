@@ -38,15 +38,21 @@ trap cleanup EXIT
 
 TMPROOT="$(mktemp -d -t loki-buildcheck.XXXXXX)"
 
-# Extract enforce_build_check() and source it with a stub logger.
+# Extract the supervised result predicate and enforce_build_check(), then source
+# them with a stub logger and the real exact-profile predicate.
 FN="$TMPROOT/fn.sh"
-awk '/^enforce_build_check\(\) \{/,/^\}/' "$RUN_SH" > "$FN"
+awk '/^_loki_supervised_build_result_passes\(\) \{/,/^\}/' "$RUN_SH" > "$FN"
+awk '/^enforce_build_check\(\) \{/,/^\}/' "$RUN_SH" >> "$FN"
 if ! grep -q 'enforce_build_check' "$FN"; then
     bad "could not extract enforce_build_check from run.sh"
     printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"; exit 1
 fi
 # shellcheck disable=SC1090
 log_info() { :; }
+loki_is_supervised_simple_web() {
+    [ "${LOKI_SUPERVISED_BUILD:-0}" = "1" ] \
+        && [ "${LOKI_BUILD_PROFILE:-}" = "simple-web" ]
+}
 source "$FN"
 
 # status_of <dir> -> prints build-results.json .status (or ERR)
@@ -168,6 +174,40 @@ assert_status "npm build succeeds" "$d" "verified"
 d="$(mk bad)"; printf '{"scripts":{"build":"false"}}' > "$d/package.json"
 TARGET_DIR="$d" enforce_build_check
 assert_status "npm build fails -> failed (never N/A, never green)" "$d" "failed"
+
+# Exact hosted profile is fail-closed. The same records stay advisory elsewhere.
+d="$(mk supervised-bad)"; printf '{"scripts":{"build":"false"}}' > "$d/package.json"
+if LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web TARGET_DIR="$d" enforce_build_check; then
+    bad "supervised failed build returned success"
+else
+    ok "supervised failed build returns nonzero"
+fi
+
+d="$(mk supervised-gap)"; printf '{"scripts":{"compile":"tsc"}}' > "$d/package.json"
+if LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web TARGET_DIR="$d" enforce_build_check; then
+    bad "supervised applicable not_run build returned success"
+else
+    ok "supervised applicable not_run build returns nonzero"
+fi
+
+d="$(mk supervised-ok)"; printf '{"scripts":{"build":"true"}}' > "$d/package.json"
+if LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web TARGET_DIR="$d" enforce_build_check; then
+    ok "supervised verified build returns success"
+else
+    bad "supervised verified build returned nonzero"
+fi
+
+d="$(mk advisory-bad)"; printf '{"scripts":{"build":"false"}}' > "$d/package.json"
+if TARGET_DIR="$d" enforce_build_check; then
+    ok "failed build remains advisory outside exact profile"
+else
+    bad "failed build blocked outside exact profile"
+fi
+if LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web TARGET_DIR="$d" enforce_build_check; then
+    bad "supervised cached failed build returned success"
+else
+    ok "supervised cached failed build returns nonzero"
+fi
 
 # --- once-per-run: a second call reuses, does NOT rebuild --------------------
 d="$(mk once)"; printf '{"scripts":{"build":"true"}}' > "$d/package.json"

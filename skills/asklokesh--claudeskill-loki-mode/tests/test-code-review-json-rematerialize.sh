@@ -100,6 +100,30 @@ REAL='{"stop_reason":"tool_use","structured_output":{"verdict":"FAIL","findings"
 r=$(classify "$REAL")
 [ "$r" = "FAIL|0|0 0" ] && ok "recorded-real envelope -> FAIL, blocking" || bad "recorded-real got [$r]"
 
+# ---------- v8 RAW-SDK BARE OBJECT (no CLI envelope) ----------
+# `loki internal sdk-judge` emits the bare payload, not the CLI envelope. The
+# re-materializer must accept it and reach the SAME decision, with T1 + fail-
+# closed intact. Byte-for-byte parity with the TS bare-object test.
+r=$(classify '{"verdict":"PASS","findings":[]}')
+[ "$r" = "PASS|1|0 0" ] && ok "SDK bare PASS+empty -> PASS, non-blocking (parity)" || bad "SDK bare PASS got [$r]"
+
+r=$(classify '{"verdict":"FAIL","findings":[{"severity":"Critical","description":"SQLi (a.py:10)"}]}')
+[ "$r" = "FAIL|0|0 0" ] && ok "SDK bare FAIL+Critical -> FAIL, blocking (parity)" || bad "SDK bare FAIL+Crit got [$r]"
+
+r=$(classify '{"verdict":"PASS","findings":[{"severity":"High","description":"authz bypass"}]}')
+[ "$r" = "FAIL|0|0 0" ] && ok "T1: SDK bare PASS+High FORCED to FAIL (no fake-green)" || bad "T1 SDK bare got [$r]"
+
+# fail-closed on a bare object that isn't a payload / bad token
+for envelope in \
+    '{"foo":"bar","findings":[]}' \
+    '{"verdict":"MAYBE","findings":[]}' ; do
+    r=$(classify "$envelope")
+    case "$r" in
+        PYFAIL:*) ok "fail-closed (bare) for: ${envelope:0:40}" ;;
+        *) bad "NOT fail-closed (bare) for [${envelope:0:40}] -> got [$r]" ;;
+    esac
+done
+
 echo ""
 echo "Total: $((PASS+FAIL))  Passed: $PASS  Failed: $FAIL"
 [ "$FAIL" -eq 0 ]

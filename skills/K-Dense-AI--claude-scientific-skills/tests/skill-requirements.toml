@@ -448,6 +448,9 @@ packages = ["pandas"]
 [skills.genomic-coordinates]
 packages = []
 
+[skills.pathogen-variant-surveillance]
+packages = []
+
 [skills.biopython]
 packages = ["biopython", "matplotlib", "numpy", "reportlab"]
 

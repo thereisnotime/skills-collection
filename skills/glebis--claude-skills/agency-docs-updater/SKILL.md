@@ -102,6 +102,28 @@ bash ${SKILLS_LOCAL_DIR}/agency-docs-updater/scripts/trim_leading_silence.sh ${V
 
 The script only trims when the file STARTS in silence >10 s, keeps 2 s of lead-in, refuses cuts >20 min, and stream-copies (no re-encode). "no leading silence detected" → use the original.
 
+**Smarter cut via transcript** (preferred when a timestamped transcript exists — Fathom JSON or Zoom VTT; avoid the merged publication .md, its block timestamps are coarse):
+
+```bash
+python3 ${SKILLS_LOCAL_DIR}/agency-docs-updater/scripts/detect_lesson_start.py <fathom.json|zoom.vtt> --json
+# → {"lesson_start_s": 21.0, "lesson_phrase": "всем привет", "presentation_open_s": 915.0, ...}
+```
+
+It finds (a) the lesson-opening phrase («всем привет», «добро пожаловать», «давайте начинать», "let's start"…) and (b) the presentation-opening moment («открою презентацию», "share my screen"…). Use them as:
+- **Trim point**: `max(silence_end, lesson_start_s − 5)` — keep the greeting, cut the dead air before it. Sanity-check against the silence result; if the two disagree wildly, inspect before cutting.
+- **YouTube chapters** in the description: `0:00 Начало` / `MM:SS Презентация` (from `presentation_open_s`, minus the trim offset).
+
+If neither phrase is found, fall back to the plain silence trim.
+
+**Tech-difficulty spans.** The same detector emits `tech_check_spans` — screen-share fumbling («видно презентацию?», «меня слышно?», «перешарю», «одну секундочку» рядом со словами презентация/экран). These are CANDIDATES: read each span's `context` lines first; a genuine question-and-answer about visibility is cuttable, a rhetorical «секундочку» mid-explanation is not. To cut approved spans:
+
+```bash
+python3 ${SKILLS_LOCAL_DIR}/agency-docs-updater/scripts/cut_spans.py video.mp4 \
+  --remove 1245-1270 --remove 781-821        # seconds, from tech_check_spans
+```
+
+`cut_spans.py` re-encodes (frame-accurate; ~realtime for talking-head 1080p), merges/clamps spans, and refuses to remove >15% of total duration. Cutting shifts everything after each span — compute YouTube chapter timestamps AFTER all cuts. For a single ≤30 s hiccup consider skipping the cut: a full re-encode of a 2 h video may not be worth it.
+
 ```bash
 cd ${YOUTUBE_UPLOADER_DIR} && \
 python3 process_video.py \

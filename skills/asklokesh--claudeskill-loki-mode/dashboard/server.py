@@ -10,7 +10,9 @@ import asyncio
 import json
 import logging
 import os
+import platform
 import subprocess
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -31,7 +33,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,6 +56,7 @@ from . import auth
 from . import audit
 from . import app_secrets as secrets_mod
 from . import telemetry as _telemetry
+from . import build_supervisor as _build_execution
 from .control import atomic_write_json, find_skill_dir, is_process_running
 from .activity_logger import get_activity_logger
 from .api_v2 import (
@@ -404,6 +407,29 @@ class SessionInfo(BaseModel):
     log_file: str = ""
 
 
+def _npm_execution_target() -> tuple[str, str, str]:
+    """Return the npm-native target used by provider and verification commands."""
+    os_name = {
+        "darwin": "darwin",
+        "linux": "linux",
+        "win32": "win32",
+    }.get(sys.platform, "")
+    cpu = {
+        "aarch64": "arm64",
+        "arm64": "arm64",
+        "amd64": "x64",
+        "x86_64": "x64",
+    }.get(platform.machine().lower(), "")
+    libc = ""
+    if os_name == "linux":
+        detected_libc = platform.libc_ver()[0].lower()
+        libc = {"glibc": "glibc", "musl": "musl"}.get(detected_libc, "")
+    return os_name, cpu, libc
+
+
+_EXECUTION_OS, _EXECUTION_CPU, _EXECUTION_LIBC = _npm_execution_target()
+
+
 class StatusResponse(BaseModel):
     """Schema for system status response."""
     status: str
@@ -413,6 +439,11 @@ class StatusResponse(BaseModel):
     running_agents: int = 0
     pending_tasks: int = 0
     database_connected: bool = True
+    # Native dependency target for commands executed by this engine. Callers
+    # must treat blanks as unknown and skip cross-environment preparation.
+    execution_os: str = _EXECUTION_OS
+    execution_cpu: str = _EXECUTION_CPU
+    execution_libc: str = _EXECUTION_LIBC
     # File-based session fields
     phase: str = ""
     iteration: int = 0
@@ -3059,7 +3090,8 @@ async def get_session_model():
     default = _normalize_session_pin(os.environ.get("LOKI_SESSION_MODEL")) or "sonnet"
     # Resolve on the route the runner will actually take: override-path clamp when
     # an override file is present, session-pin tier route otherwise. This closes
-    # the task-568 stock-path gap (a "sonnet" pin dispatches opus).
+    # the task-568 stock-path gap (a "sonnet" pin dispatches sonnet post-v7.104.0;
+    # the gap it originally fixed was the pre-flip opus default).
     if override is not None:
         effective = _clamp_to_max_tier(override)
     else:
@@ -3274,6 +3306,9 @@ class StartBuildRequest(BaseModel):
     # The path is path-guarded against ALLOWED_WORKSPACE_ROOTS (see
     # _validate_workspace) -- it is NOT a free-form filesystem write target.
     workspace: Optional[str] = None
+    # Stable SaaS build UUID. Required for workspace starts so a retried POST
+    # returns the same durable execution instead of launching a second runner.
+    request_id: Optional[str] = None
     # Start-time execution model (haiku|sonnet|opus; fable NOT accepted). When a
     # valid alias is supplied, the run is pinned to EXACTLY that model for every
     # iteration via the LOKI_CLAUDE_MODEL_{PLANNING,DEVELOPMENT,FAST} env triple
@@ -3292,6 +3327,21 @@ class StartBuildRequest(BaseModel):
     # execution stays on the chosen/default execution model. Absent/invalid -> no
     # advisor pin (reviewers use the account default).
     advisor_model: Optional[str] = None
+    # Build profile (e.g. "simple-web"): exported as LOKI_BUILD_PROFILE into the
+    # run env, where run.sh's loki_apply_build_profile helper (run.sh:562) maps it
+    # to a set of LOKI_PHASE_* gate defaults (a simple landing page skips the
+    # gates irrelevant to a static frontend while KEEPING E2E, code review, the
+    # completion council, security, and accessibility). Absent -> unset -> the
+    # full gate suite runs (byte-identical to before this field existed). Never
+    # weakens the moat: the council + evidence/proof gate are not disable-able by
+    # a profile.
+    build_profile: Optional[str] = None
+    # Optional runtime complexity tier. Unknown values are ignored so they can
+    # never widen policy or become arbitrary environment input.
+    complexity: Optional[str] = None
+    # The provider's first-pass excellence prompt is default-on. A caller may
+    # explicitly disable it for non-UI work such as CLI and library builds.
+    first_pass_directive: Optional[bool] = None
 
     def validate_provider(self) -> None:
         """Validate provider is from the supported list.
@@ -3478,6 +3528,274 @@ def _project_run_active(loki_dir: _Path) -> Optional[int]:
     return None
 
 
+def _supervised_start_response(state: dict[str, Any], replay: bool = False) -> dict[str, Any]:
+    """Build the additive start response shared by new and replayed starts."""
+    execution_id = str(state.get("execution_id") or "")
+    provider = str(state.get("provider") or "")
+    return {
+        "success": True,
+        "message": (
+            "Existing build execution returned"
+            if replay
+            else f"Build accepted with provider {provider}"
+        ),
+        "execution_id": execution_id,
+        "state": str(state.get("state") or "accepted"),
+        "status_url": f"/api/control/builds/{execution_id}",
+        # Deprecated compatibility handle. Callers must use execution_id.
+        "pid": int(state.get("supervisor_pid") or 0),
+        "spec": str(state.get("spec") or ""),
+        "provider": provider,
+        "workspace": str(state.get("workspace") or ""),
+        "run_id": str(state.get("run_id") or ""),
+        "model": str(state.get("model") or ""),
+        "advisor_model": str(state.get("advisor_model") or ""),
+        "build_profile": str(state.get("build_profile") or ""),
+        "complexity": str(state.get("complexity") or "auto"),
+        "first_pass_directive": bool(state.get("first_pass_directive", True)),
+    }
+
+
+def _reap_supervisor_process(process: subprocess.Popen[Any]) -> None:
+    """Wait for a dashboard child so an exited supervisor cannot stay zombie."""
+    try:
+        process.wait()
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Build supervisor reaper could not wait for child", exc_info=True
+        )
+
+
+def _start_supervised_workspace_build(
+    request: Request,
+    body: StartBuildRequest,
+    execution_id: str,
+    workspace_dir: _Path,
+    loki_dir: _Path,
+    spec_content: bytes,
+    run_sh: _Path,
+    skill_dir: _Path,
+    popen_env: dict[str, str],
+    start_model: str,
+    advisor_model: str,
+    build_profile: Optional[str],
+    complexity: str,
+    first_pass_directive: bool,
+) -> JSONResponse:
+    """Start one durable workspace execution without the run.sh --bg wrapper."""
+    spec_sha256 = _build_execution.sha256_bytes(spec_content)
+    fingerprint_payload = json.dumps(
+        {
+            "workspace": str(workspace_dir),
+            "spec_sha256": spec_sha256,
+            "provider": body.provider,
+            "parallel": body.parallel,
+            "model": start_model,
+            "advisor_model": advisor_model,
+            "build_profile": build_profile or "",
+            "complexity": complexity,
+            "first_pass_directive": first_pass_directive,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    request_fingerprint = _build_execution.sha256_bytes(fingerprint_payload)
+
+    created = False
+    with _build_execution.execution_lock(execution_id):
+        existing = _build_execution.read_state_unlocked(execution_id)
+        if existing is not None:
+            if existing.get("request_fingerprint") != request_fingerprint:
+                raise HTTPException(
+                    status_code=409,
+                    detail="request_id is already bound to different build inputs",
+                )
+            return JSONResponse(
+                status_code=200,
+                content=_supervised_start_response(existing, replay=True),
+            )
+        if _build_execution.state_path(execution_id).exists():
+            raise HTTPException(
+                status_code=409,
+                detail="Execution state exists but cannot be read safely",
+            )
+
+        active_pid = _project_run_active(loki_dir)
+        if active_pid is not None:
+            detail = "A build is already running in this project"
+            if active_pid > 0:
+                detail += f" (PID {active_pid})"
+            raise HTTPException(status_code=409, detail=detail)
+
+        try:
+            spec_file = _build_execution.write_spec_snapshot_unlocked(
+                execution_id, spec_content
+            )
+        except OSError as exc:
+            raise HTTPException(
+                status_code=500, detail=f"Could not persist spec snapshot: {exc}"
+            ) from exc
+
+        if os.environ.get("LOKI_HOST_SEATBELT", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            try:
+                auth_status = _build_execution.confined_provider_auth_status(
+                    body.provider,
+                    workspace_dir,
+                    run_sh,
+                    spec_file,
+                )
+            except (OSError, RuntimeError, ValueError):
+                auth_status = {
+                    "available": False,
+                    "classification": "provider_auth_probe_failed",
+                    "action": (
+                        "Check the controlled-local provider auth boundary, "
+                        "then retry."
+                    ),
+                }
+            if auth_status.get("available") is not True:
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "code": "provider_auth_unavailable_in_confinement",
+                        "provider": body.provider,
+                        "reason": str(
+                            auth_status.get("classification") or "unknown"
+                        ),
+                        "action": str(
+                            auth_status.get("action")
+                            or "Authenticate the provider, then retry."
+                        ),
+                    },
+                )
+
+        accepted_at = _build_execution.utc_now()
+        state: dict[str, Any] = {
+            "schema_version": _build_execution.SCHEMA_VERSION,
+            "execution_id": execution_id,
+            "request_fingerprint": request_fingerprint,
+            "workspace": str(workspace_dir),
+            "spec": str(spec_file),
+            "spec_sha256": spec_sha256,
+            "provider": body.provider,
+            "parallel": body.parallel,
+            "model": start_model,
+            "advisor_model": advisor_model,
+            "build_profile": build_profile or "",
+            "complexity": complexity,
+            "first_pass_directive": first_pass_directive,
+            "state": "accepted",
+            "accepted_at": accepted_at,
+            "started_at": None,
+            "exited_at": None,
+            "finished_at": None,
+            "supervisor_pid": None,
+            "supervisor_birth_token": None,
+            "runner_pid": None,
+            "runner_pgid": None,
+            "runner_sid": None,
+            "runner_birth_token": None,
+            "returncode": None,
+            "exit_code": None,
+            "signal": None,
+            "termination_reason": None,
+            "descendants": _build_execution.empty_descendant_outcome(),
+            "run_id": "",
+            "final_tree_sha256": "",
+            "proof": _build_execution.empty_proof_binding(execution_id),
+        }
+        _build_execution.write_state_unlocked(execution_id, state)
+
+        supervisor_args = [
+            sys.executable,
+            "-m",
+            "dashboard.build_supervisor",
+            "--execution-id",
+            execution_id,
+            "--run-sh",
+            str(run_sh),
+            "--workspace",
+            str(workspace_dir),
+            "--loki-dir",
+            str(loki_dir),
+            "--spec",
+            str(spec_file),
+            "--provider",
+            body.provider,
+        ]
+        if body.parallel:
+            supervisor_args.append("--parallel")
+
+        popen_env["LOKI_OWN_SESSION"] = "1"
+        popen_env["LOKI_SPEC_SHA256"] = spec_sha256
+        supervisor_log = _build_execution.execution_dir(execution_id) / "supervisor.log"
+        try:
+            with _build_execution.open_private_log(supervisor_log) as log_handle:
+                process = subprocess.Popen(
+                    supervisor_args,
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                    cwd=str(skill_dir),
+                    env=popen_env,
+                )
+        except (OSError, subprocess.SubprocessError) as exc:
+            finished_at = _build_execution.utc_now()
+            state.update(
+                state="exited",
+                exited_at=finished_at,
+                finished_at=finished_at,
+                exit_code=None,
+                signal=None,
+                termination_reason="launch_failed",
+                launch_error=str(exc),
+            )
+            _build_execution.write_state_unlocked(execution_id, state)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to start build supervisor: {exc}"
+            ) from exc
+
+        state.update(
+            supervisor_pid=process.pid,
+            supervisor_birth_token=_build_execution.process_birth_token(process.pid),
+            supervisor_log=str(supervisor_log),
+        )
+        _build_execution.write_state_unlocked(execution_id, state)
+        threading.Thread(
+            target=_reap_supervisor_process,
+            args=(process,),
+            name=f"build-supervisor-reaper-{execution_id[:8]}",
+            daemon=True,
+        ).start()
+        created = True
+
+    if created:
+        audit.log_event(
+            action="start",
+            resource_type="session",
+            details={
+                "source": "dashboard",
+                "provider": body.provider,
+                "spec": state["spec"],
+                "execution_id": execution_id,
+                "supervisor_pid": state["supervisor_pid"],
+                "workspace": str(workspace_dir),
+                "model": start_model,
+                "advisor_model": advisor_model,
+            },
+            ip_address=request.client.host if request.client else None,
+        )
+    return JSONResponse(
+        status_code=202,
+        content=_supervised_start_response(state),
+    )
+
+
 @app.post("/api/control/start", dependencies=[Depends(auth.require_scope("control"))])
 async def start_build(request: Request, body: StartBuildRequest):
     """Start a Loki Mode build from a spec, kicked off from the browser.
@@ -3515,9 +3833,19 @@ async def start_build(request: Request, body: StartBuildRequest):
     # When omitted, behavior is byte-identical to before: the active dashboard
     # project (the engine's own _get_loki_dir).
     workspace_dir: Optional[_Path] = None
+    execution_id = ""
     if body.workspace and body.workspace.strip():
         try:
             workspace_dir = _validate_workspace(body.workspace)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        if not body.request_id:
+            raise HTTPException(
+                status_code=400,
+                detail="request_id is required for workspace builds",
+            )
+        try:
+            execution_id = _build_execution.validate_execution_id(body.request_id)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -3538,17 +3866,28 @@ async def start_build(request: Request, body: StartBuildRequest):
         project_dir = loki_dir.parent if loki_dir.name == ".loki" else _Path.cwd()
         project_dir = project_dir.resolve()
 
-    # Single-flight: refuse if a run is already active in this project.
-    active_pid = _project_run_active(loki_dir)
-    if active_pid is not None:
-        detail = "A build is already running in this project"
-        if active_pid > 0:
-            detail += f" (PID {active_pid})"
-        raise HTTPException(status_code=409, detail=detail)
+    # Legacy no-workspace starts keep their existing single-flight behavior.
+    # Workspace starts check under their execution lock below so a retried POST
+    # can return its existing execution before the active-run guard fires.
+    if workspace_dir is None:
+        active_pid = _project_run_active(loki_dir)
+        if active_pid is not None:
+            detail = "A build is already running in this project"
+            if active_pid > 0:
+                detail += f" (PID {active_pid})"
+            raise HTTPException(status_code=409, detail=detail)
 
     # Resolve the spec to a concrete, path-guarded file.
+    spec_content: Optional[bytes] = None
     try:
-        if has_path:
+        if workspace_dir is not None:
+            if has_path:
+                source_spec = _validate_prd_path(body.prd_path.strip(), project_dir)
+                spec_content = source_spec.read_bytes()
+            else:
+                spec_content = body.prd_text.encode("utf-8")
+            spec_file = None
+        elif has_path:
             spec_file = _validate_prd_path(body.prd_path.strip(), project_dir)
         else:
             spec_file = _write_spec_text(body.prd_text, project_dir)
@@ -3563,14 +3902,6 @@ async def start_build(request: Request, body: StartBuildRequest):
     if not run_sh.exists():
         raise HTTPException(status_code=500, detail=f"run.sh not found at {run_sh}")
 
-    # Build args: mirror control.py:start_session (provider, optional parallel,
-    # background, then the spec path).
-    args = [str(run_sh), "--provider", body.provider]
-    if body.parallel:
-        args.append("--parallel")
-    args.append("--bg")
-    args.append(str(spec_file))
-
     # When a workspace is given, pass an explicit env that PINS run.sh to the
     # workspace. cwd alone is not enough: `loki` exports LOKI_DIR (default
     # .loki) into the dashboard process, and run.sh resolves its workspace as
@@ -3584,12 +3915,28 @@ async def start_build(request: Request, body: StartBuildRequest):
     # haiku|sonnet|opus (no fable); invalid/absent -> "" -> no pin.
     start_model = _normalize_start_model(body.model)
     advisor_model = _normalize_start_model(body.advisor_model)
+    # Build profile: a light allow-list (only known profiles are forwarded, so a
+    # stray value can never disable a gate we did not intend). Absent -> no profile.
+    build_profile = body.build_profile if body.build_profile in ("simple-web",) else None
+    complexity = (
+        body.complexity
+        if body.complexity in ("auto", "simple", "standard", "complex")
+        else "auto"
+    )
+    first_pass_directive = body.first_pass_directive is not False
 
     # Build a custom env only when we actually need to change something
     # (workspace pin, start-time model pin, or advisor pin). When nothing is set,
     # env stays None (inherit) so behavior is byte-identical to before.
     popen_env = None
-    if workspace_dir is not None or start_model or advisor_model:
+    if (
+        workspace_dir is not None
+        or start_model
+        or advisor_model
+        or build_profile
+        or complexity != "auto"
+        or not first_pass_directive
+    ):
         popen_env = dict(os.environ)
     if workspace_dir is not None:
         popen_env["LOKI_TARGET_DIR"] = str(workspace_dir)
@@ -3611,6 +3958,40 @@ async def start_build(request: Request, body: StartBuildRequest):
     if advisor_model:
         # Opt-in Opus (or other) judge for code review; execution model unchanged.
         popen_env["LOKI_ADVISOR_MODEL"] = advisor_model
+    if build_profile:
+        # run.sh's loki_apply_build_profile maps this to LOKI_PHASE_* gate defaults
+        # (skips gates irrelevant to a static frontend; keeps E2E, code review,
+        # council, security, accessibility). The moat gates cannot be disabled here.
+        popen_env["LOKI_BUILD_PROFILE"] = build_profile
+    if complexity != "auto":
+        popen_env["LOKI_COMPLEXITY"] = complexity
+    if not first_pass_directive:
+        popen_env["LOKI_FIRST_PASS_EXCELLENCE"] = "0"
+
+    if workspace_dir is not None:
+        return _start_supervised_workspace_build(
+            request=request,
+            body=body,
+            execution_id=execution_id,
+            workspace_dir=workspace_dir,
+            loki_dir=loki_dir,
+            spec_content=spec_content or b"",
+            run_sh=run_sh,
+            skill_dir=skill_dir,
+            popen_env=popen_env,
+            start_model=start_model,
+            advisor_model=advisor_model,
+            build_profile=build_profile,
+            complexity=complexity,
+            first_pass_directive=first_pass_directive,
+        )
+
+    # Legacy behavior for local dashboard starts without a workspace.
+    args = [str(run_sh), "--provider", body.provider]
+    if body.parallel:
+        args.append("--parallel")
+    args.append("--bg")
+    args.append(str(spec_file))
     try:
         process = subprocess.Popen(
             args,
@@ -3698,7 +4079,175 @@ async def start_build(request: Request, body: StartBuildRequest):
         # so the UI can confirm what the run was actually pinned to.
         "model": start_model,
         "advisor_model": advisor_model,
+        "build_profile": build_profile or "",
+        "complexity": complexity,
+        "first_pass_directive": first_pass_directive,
     }
+
+
+def _execution_status_response(state: dict[str, Any]) -> dict[str, Any]:
+    """Add fail-closed liveness facts to a durable execution snapshot."""
+    result = dict(state)
+    defaults: dict[str, Any] = {
+        "schema_version": _build_execution.SCHEMA_VERSION,
+        "state": "accepted",
+        "accepted_at": None,
+        "started_at": None,
+        "exited_at": None,
+        "finished_at": None,
+        "supervisor_pid": None,
+        "supervisor_birth_token": None,
+        "runner_pid": None,
+        "runner_pgid": None,
+        "runner_sid": None,
+        "runner_birth_token": None,
+        "returncode": None,
+        "exit_code": None,
+        "signal": None,
+        "termination_reason": None,
+        "descendants": _build_execution.empty_descendant_outcome(),
+        "run_id": "",
+        "final_tree_sha256": "",
+        "proof": _build_execution.empty_proof_binding(
+            str(state.get("execution_id") or "")
+        ),
+    }
+    for key, value in defaults.items():
+        result.setdefault(key, value)
+    raw_proof = result.get("proof")
+    proof = dict(raw_proof) if isinstance(raw_proof, dict) else {}
+    proof.pop("proof_path", None)
+    proof_defaults = dict(defaults["proof"])
+    proof_defaults.pop("proof_path", None)
+    for key, value in proof_defaults.items():
+        proof.setdefault(key, value)
+    result["proof"] = proof
+    supervisor_alive = _build_execution.process_identity_matches(
+        state.get("supervisor_pid"), state.get("supervisor_birth_token")
+    )
+    runner_alive = _build_execution.process_identity_matches(
+        state.get("runner_pid"), state.get("runner_birth_token")
+    )
+    result["supervisor_alive"] = supervisor_alive
+    result["runner_alive"] = runner_alive
+    if result.get("state") == "exited":
+        result["lifecycle_health"] = "exited"
+        result["terminal"] = True
+        result["reconciliation_reason"] = ""
+    elif supervisor_alive:
+        result["lifecycle_health"] = (
+            "running" if result.get("state") == "running" else "starting"
+        )
+        result["terminal"] = False
+        result["reconciliation_reason"] = ""
+    elif runner_alive:
+        result["lifecycle_health"] = "runner_orphaned"
+        result["terminal"] = True
+        result["reconciliation_reason"] = "supervisor_lost"
+    else:
+        result["lifecycle_health"] = "supervisor_lost"
+        result["terminal"] = True
+        result["reconciliation_reason"] = "supervisor_lost"
+    return result
+
+
+@app.get(
+    "/api/control/builds/{execution_id}",
+    dependencies=[Depends(auth.require_scope("read"))],
+)
+async def get_build_execution(execution_id: str):
+    """Read server-owned build state by durable execution identity."""
+    try:
+        execution_id = _build_execution.validate_execution_id(execution_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    state = _build_execution.read_state(execution_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Build execution not found")
+    return _execution_status_response(state)
+
+
+@app.get(
+    "/api/control/builds/{execution_id}/proof",
+    dependencies=[Depends(auth.require_scope("read"))],
+)
+async def get_build_execution_proof(execution_id: str):
+    """Serve the immutable server-owned proof snapshot for one execution."""
+    try:
+        execution_id = _build_execution.validate_execution_id(execution_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    state = _build_execution.read_state(execution_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Build execution not found")
+    proof = state.get("proof") if isinstance(state.get("proof"), dict) else {}
+    expected_sha = str(proof.get("document_sha256") or "")
+    snapshot = _build_execution.execution_dir(execution_id) / "proof.json"
+    try:
+        raw = snapshot.read_bytes()
+    except OSError as exc:
+        raise HTTPException(status_code=404, detail="Proof snapshot not found") from exc
+    if not expected_sha or _build_execution.sha256_bytes(raw) != expected_sha:
+        raise HTTPException(
+            status_code=409,
+            detail="Proof snapshot integrity check failed",
+        )
+    return Response(
+        content=raw,
+        media_type="application/json",
+        headers={"ETag": f'"sha256:{expected_sha}"'},
+    )
+
+
+@app.post(
+    "/api/control/builds/{execution_id}/stop",
+    dependencies=[Depends(auth.require_scope("control"))],
+)
+async def stop_build_execution(request: Request, execution_id: str):
+    """Ask the exact long-lived supervisor to stop its owned runner group."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        execution_id = _build_execution.validate_execution_id(execution_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    with _build_execution.execution_lock(execution_id):
+        state = _build_execution.read_state_unlocked(execution_id)
+        if state is None:
+            raise HTTPException(status_code=404, detail="Build execution not found")
+        if state.get("state") == "exited":
+            return {
+                "success": True,
+                "message": "Build execution already exited",
+                "execution_id": execution_id,
+                "state": "exited",
+            }
+        if not _build_execution.process_identity_matches(
+            state.get("supervisor_pid"), state.get("supervisor_birth_token")
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Build supervisor identity cannot be verified",
+            )
+        state.setdefault("stop_requested_at", _build_execution.utc_now())
+        _build_execution.write_state_unlocked(execution_id, state)
+
+    audit.log_event(
+        action="stop",
+        resource_type="session",
+        details={"source": "api", "execution_id": execution_id},
+        ip_address=request.client.host if request.client else None,
+    )
+    return JSONResponse(
+        status_code=202,
+        content={
+            "success": True,
+            "message": "Stop requested",
+            "execution_id": execution_id,
+            "state": str(state.get("state") or "running"),
+        },
+    )
 
 
 class RunningProjectStopRequest(BaseModel):
@@ -9942,7 +10491,10 @@ def get_prompt_versions():
     if not _read_limiter.check("prompt_versions"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
     try:
-        return _get_prompt_optimizer().get_current_version()
+        result = _get_prompt_optimizer().get_current_version()
+        result["experimental"] = True
+        result["note"] = "heuristic-only: returns content-hash version tracking, not an applied LLM optimization"
+        return result
     except Exception as exc:
         logger.error("Prompt version read error: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to read prompt versions")
@@ -9956,7 +10508,10 @@ def optimize_prompts(sessions: int = 10, dry_run: bool = True):
     if not _control_limiter.check("prompt_optimize"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
     try:
-        return _get_prompt_optimizer().optimize(sessions=sessions, dry_run=dry_run)
+        result = _get_prompt_optimizer().optimize(sessions=sessions, dry_run=dry_run)
+        result["experimental"] = True
+        result["note"] = "heuristic-only: returns content-hash version tracking, not an applied LLM optimization"
+        return result
     except Exception as exc:
         logger.error("Prompt optimization error: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to run prompt optimization")
@@ -9967,7 +10522,7 @@ def optimize_prompts(sessions: int = 10, dry_run: bool = True):
 # =============================================================================
 # Must be configured AFTER all API routes to avoid conflicts
 
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse
 
 # Find static files in multiple possible locations
 DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))

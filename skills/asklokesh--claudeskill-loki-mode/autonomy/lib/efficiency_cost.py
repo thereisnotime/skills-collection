@@ -13,6 +13,7 @@ Behavior contract (preserved from the R1 proof generator):
   - cost.usd is None when NO valid efficiency record was read (cost was never
     collected for this run). A skeptic seeing "$0.00" assumes the artifact is
     fake; "cost not recorded" is the honest signal.
+  - Token counts are also None and available is False when no record exists.
   - A genuine 0.0 (records existed but summed to zero) is preserved as 0.0.
   - usd is rounded to 4 decimals only when records were collected.
 
@@ -76,10 +77,10 @@ def collect_efficiency(loki_dir):
 
     Returns (cost dict, best-effort model name (last non-empty seen)).
 
-    Credibility: cost.usd is set to None when NO valid efficiency record was
-    read (cost was never collected for this run). A skeptic seeing "$0.00" on
-    HN assumes the artifact is fake; "cost not recorded" is the honest signal.
-    A genuine 0.0 (records existed but summed to zero) is preserved as 0.0.
+    Credibility: unavailable cost and token values are None when NO valid
+    efficiency record was read. A skeptic seeing "$0.00" assumes the artifact
+    is fake; "cost not recorded" is the honest signal. A genuine 0.0 from a
+    present record is preserved as 0.0.
     """
     cost = {
         "usd": 0.0,
@@ -87,6 +88,7 @@ def collect_efficiency(loki_dir):
         "output_tokens": 0,
         "cache_read_tokens": 0,
         "cache_creation_tokens": 0,
+        "available": False,
     }
     model = ""
     collected = False
@@ -113,9 +115,14 @@ def collect_efficiency(loki_dir):
         # Round usd to a sane precision but keep it precise (anti-pattern:
         # round suspiciously-clean numbers). 4 decimals preserves odd values.
         cost["usd"] = round(cost["usd"], 4)
+        cost["available"] = True
     else:
-        # No efficiency files were read: cost was not collected for this run.
-        cost["usd"] = None
+        # No record means unavailable, never an observed zero.
+        for key in (
+            "usd", "input_tokens", "output_tokens",
+            "cache_read_tokens", "cache_creation_tokens",
+        ):
+            cost[key] = None
     return cost, model
 
 

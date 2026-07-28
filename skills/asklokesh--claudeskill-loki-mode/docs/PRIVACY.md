@@ -88,8 +88,36 @@ the tools you use, plus the same anonymous `distinct_id`. It still never sends
 your name, email, or IP. In headless / Docker / CI environments there is no
 browser, so this path never runs.
 
+### 4. Build-outcome analytics (anonymous, STRICT opt-in, default OFF)
+
+A `build_verified` event that reports how a build turned out. Unlike crash
+reporting and usage telemetry (which default ON for individuals), this path is
+OFF by default even for users who have telemetry enabled -- it requires a
+SECOND, explicit opt-in:
+
+- Set `LOKI_ANALYTICS=on` (or `LOKI_POSTHOG=on`), or
+- Add `ANALYTICS_ENABLED=true` to `~/.loki/config`.
+
+It fires once when a build finishes, reading a FIXED allowlist of already-
+computed scalars from the run's Evidence Receipt (`proof.json`). The allowlist
+(`autonomy/lib/proof-analytics-props.py`) is the single source of truth; any
+field not named there is never read, so a schema change cannot silently start
+sending something new. Fields sent:
+
+- headline (a bounded enum: VERIFIED / VERIFIED WITH GAPS / NOT VERIFIED)
+- evidence_gate_verdict, final_verdict (bounded verdict strings)
+- iterations, files_changed_count (a COUNT -- never the file paths)
+- wall_clock_sec, gates_passed, gates_total, gate_pass_rate
+
+It NEVER sends your spec/PRD text, file paths or names, code, or diffs. Because
+it sits below the base telemetry gate, every telemetry opt-out (`loki telemetry
+off` / `LOKI_TELEMETRY=off` / `DO_NOT_TRACK=1`) also disables it -- opt-out
+always wins.
+
 This document and the first-run notice describe ALL paths. The model is unified:
-one opt-in enables them and one opt-out (which always wins) disables them.
+opt-out always wins and disables everything; crash reporting and usage telemetry
+opt in together (default ON for individuals); build-outcome analytics needs its
+own explicit second opt-in on top (default OFF).
 
 ## What is collected (the whitelist)
 

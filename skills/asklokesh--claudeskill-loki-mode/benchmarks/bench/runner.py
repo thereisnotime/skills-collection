@@ -407,6 +407,12 @@ def run_task(task_path: str, adapter_name: str, *,
         "trials": trial_rows,
         "summary": schema.summarize_trials(trial_rows),
     }
+    # Model-equivalence matrix (matrix.sh) sets LOKI_BENCH_CELL per cell so the
+    # aggregation report can group results into the model x config grid. Persist
+    # it when set; absent for ordinary (non-matrix) runs.
+    _cell = os.environ.get("LOKI_BENCH_CELL")
+    if _cell:
+        row["cell"] = _cell
     errs = schema.validate_result_row(row)
     if errs:
         raise ValueError("assembled result-row invalid: %s" % "; ".join(errs))

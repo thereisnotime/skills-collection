@@ -42,6 +42,17 @@ wiki-repo/
 # Source hooks live in autonomy/hooks/ (tracked)
 .loki/
 
+# EXCEPTION: test fixtures. tests/fixtures/project-graph/acme/ models a
+# multi-repo logical app, and loki_project_graph_discover only activates when
+# each member carries a `.loki/app.json` marker. Because `.loki/` above is
+# ignored globally, those markers could never be committed -- so the fixture
+# shipped with CLAUDE.md files and nothing to discover, and every suite relying
+# on it failed from birth while suites that synthesized their own markers
+# inline passed. That is the root cause, not the tests.
+# Negated narrowly (this one fixture path) rather than by weakening the rule.
+!tests/fixtures/**/.loki/
+!tests/fixtures/**/.loki/app.json
+
 # Runtime state in subdirectories
 dashboard-ui/.loki/
 vscode-extension/.loki/
@@ -99,4 +110,7 @@ artifacts/observability/screenshot.png
 artifacts/paolo/
 artifacts/v781-e2e/
 artifacts/E2E-CLIENT-FIX-RESULTS.md
-artifacts/V8-SESSION-STATE.md
+artifacts/V8-FACTORY-BACKLOG.md
+
+# Competitive research scratch (OpenHands vs Loki v8) - not product
+research/openhands-competitive/

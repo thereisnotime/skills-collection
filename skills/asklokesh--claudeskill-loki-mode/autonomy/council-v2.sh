@@ -273,6 +273,45 @@ Respond ONLY with a valid JSON object. No markdown fencing."
     local result
     case "${PROVIDER_NAME:-claude}" in
         claude)
+            # v8 RAW-SDK JUDGE PATH (opt-in LOKI_SDK_COUNCIL_V2=1). Run this
+            # reviewer verdict via the pure-HTTPS @anthropic-ai/sdk (no claude
+            # binary) through the loki-ts `internal sdk-judge` bridge, same schema
+            # (council-v2-schema.json), same JSON output the extractor below
+            # consumes -> parity by construction. Fail-closed: any miss (flag off,
+            # no ANTHROPIC_API_KEY, non-zero, empty) falls through to the claude
+            # path. Runs BEFORE the claude-binary guard so the SDK path is
+            # genuinely binary-free. Default OFF = zero behavior change.
+            if [ "${LOKI_SDK_COUNCIL_V2:-0}" = "1" ]; then
+                local _c2_sdk_root _c2_sdk_loki _c2_sdk_schema _c2_sdk_pf _c2_sdk_out _c2_sdk_rc
+                _c2_sdk_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+                _c2_sdk_loki="${_c2_sdk_root}/bin/loki"
+                _c2_sdk_schema="${_c2_sdk_root}/loki-ts/data/council-v2-schema.json"
+                if [ -x "$_c2_sdk_loki" ] && [ -f "$_c2_sdk_schema" ] && command -v bun >/dev/null 2>&1; then
+                    _c2_sdk_pf="$(mktemp 2>/dev/null)" || _c2_sdk_pf=""
+                    if [ -n "$_c2_sdk_pf" ]; then
+                        printf '%s' "$full_prompt" > "$_c2_sdk_pf"
+                        _c2_sdk_rc=0
+                        # Explicit in-process timeout + OS-level ceiling on the bun
+                        # subprocess (council review: default 120s + maxRetries could
+                        # stack, and a cold-start could hang with no cap). Bound both.
+                        local _c2_to_s="${LOKI_SDK_REVIEW_TIMEOUT:-180}"
+                        local _c2_wrap
+                        if command -v timeout >/dev/null 2>&1; then _c2_wrap="timeout $(( _c2_to_s + 15 ))"
+                        elif command -v gtimeout >/dev/null 2>&1; then _c2_wrap="gtimeout $(( _c2_to_s + 15 ))"
+                        else _c2_wrap=""; fi
+                        _c2_sdk_out="$($_c2_wrap "$_c2_sdk_loki" internal sdk-judge \
+                            --prompt-file "$_c2_sdk_pf" --schema-file "$_c2_sdk_schema" \
+                            --model "${LOKI_SDK_JUDGE_MODEL:-claude-haiku-4-5}" --effort low \
+                            --timeout-ms "$(( _c2_to_s * 1000 ))" 2>/dev/null)" || _c2_sdk_rc=$?
+                        rm -f "$_c2_sdk_pf" 2>/dev/null || true
+                        if [ "$_c2_sdk_rc" -eq 0 ] && [ -n "$_c2_sdk_out" ]; then
+                            echo "$_c2_sdk_out" > "$output_file"
+                            return 0
+                        fi
+                    fi
+                fi
+                # fall through to the claude path (fail-closed)
+            fi
             if command -v claude &>/dev/null; then
                 # EMBED 2 + 3 (v7.33.0). Council-v2 reviewer verdict. $full_prompt
                 # is self-contained (evidence + PRD + strict JSON output, via

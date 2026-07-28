@@ -207,11 +207,12 @@ loki_crash_friction() {
 # Kept as a callable no-op so existing callers (run.sh) do not break, and still
 # records the DISCLOSURE_SHOWN sentinel for back-compat with any reader of it.
 loki_show_disclosure_once() {
-    local config="${HOME}/.loki/config"
+    local config_root="${LOKI_DIR:-${HOME}/.loki}"
+    local config="${config_root}/config"
     if [ -f "$config" ] && grep -q "^DISCLOSURE_SHOWN=true" "$config" 2>/dev/null; then
         return 0
     fi
-    mkdir -p "${HOME}/.loki" 2>/dev/null || return 0
+    mkdir -p "$config_root" 2>/dev/null || return 0
     echo "DISCLOSURE_SHOWN=true" >> "$config" 2>/dev/null || true
     return 0
 }

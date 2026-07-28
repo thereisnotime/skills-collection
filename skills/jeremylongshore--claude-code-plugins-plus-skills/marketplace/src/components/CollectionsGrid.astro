@@ -49,16 +49,6 @@ if (limit) {
     gap: 0.75rem;
   }
 
-  .collection-icon {
-    font-size: 2rem;
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 2px;
-    background: var(--brand-light);
-  }
 
   .collection-title {
     font-size: 1.25rem;
@@ -129,9 +119,6 @@ if (limit) {
   {displayCollections.map(collection => (
     <div class="collection-card" data-collection-id={collection.id}>
       <div class="collection-header">
-        <span class="collection-icon" style={`background: ${collection.color}20;`}>
-          {collection.icon}
-        </span>
         <h3 class="collection-title">{collection.name}</h3>
       </div>
 
@@ -144,7 +131,7 @@ if (limit) {
           data-plugins={collection.plugins.join(',')}
           onclick={`copyInstallCommand('${collection.plugins.join(',')}')`}
         >
-          <span>📋</span> Copy Install
+          Copy Install
         </button>
       </div>
     </div>

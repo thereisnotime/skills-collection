@@ -475,11 +475,22 @@ class RedactionInvariantTests(unittest.TestCase):
         return mod
 
     def _make_args(self, mod, loki_dir, out_dir):
-        import argparse
-        return argparse.Namespace(
-            loki_dir=loki_dir, out_dir=out_dir, include_diffs=False,
-            run_id="bypass-001", loki_version="9.9.9", provider="claude",
-            quiet=True)
+        # Derive the stub from the generator's REAL argument defaults rather
+        # than hand-listing fields. A hand-written Namespace silently rots the
+        # moment the generator gains an argument: that is exactly how
+        # --session-exit-code broke all three tests in this class with an
+        # AttributeError that had nothing to do with redaction. build_parser()
+        # is the same parser main() uses, so parsing an empty argv yields every
+        # current argument at its declared default.
+        ns = mod.build_parser().parse_args([])
+        ns.loki_dir = loki_dir
+        ns.out_dir = out_dir
+        ns.include_diffs = False
+        ns.run_id = "bypass-001"
+        ns.loki_version = "9.9.9"
+        ns.provider = "claude"
+        ns.quiet = True
+        return ns
 
     def test_redaction_applied_always_true(self):
         loki_dir = os.path.join(self.tmp, "p", ".loki")

@@ -2,7 +2,7 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Loki Mode is a spec-driven autonomous builder with a built-in trust layer that takes any spec to a deployed product and verifies completion with evidence (quality gates plus a completion council), not just a "done" claim. Complete installation instructions for all platforms and use cases.
 
-**Version:** v7.129.2
+**Version:** v8.0.0
 
 ---
 
@@ -215,6 +215,23 @@ loki doctor       # Check skill symlinks, providers, and system prerequisites
 
 ---
 
+## Configuration file
+
+Instead of exporting many `LOKI_*` env vars, point `loki start` at a config file with `--config <path>` (aliases: `--env-file`, `--vars`), or set `LOKI_CONFIG_FILE`. The format is detected from the extension or content: `.yaml`/`.yml`, `.json`, or `.env` (flat `LOKI_*=value` lines). Values resolve by precedence: a CLI flag beats an ambient env var, which beats the `--config` file, which beats built-in defaults. Never inline a secret; reference an env var with `${VAR}` and the loader expands it at load time (an unset reference is skipped with a warning, and a raw-looking secret literal is flagged and rejected by `loki config validate`). Run `loki config example` to generate an annotated starter.
+
+```bash
+# config.yaml
+dashboard:
+  port: 9000
+github:
+  token: ${GITHUB_TOKEN}   # expanded from the environment, never stored inline
+
+loki start --config config.yaml ./prd.md
+loki config validate config.yaml    # check refs and reject raw secrets before a run
+```
+
+---
+
 ## Other Methods
 
 Git clone and Docker installation methods are also available. See
@@ -396,7 +413,7 @@ provider works inside the container. Provide auth with your Anthropic API key:
 # Run Loki Mode in Docker (Claude provider, API-key auth)
 docker run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
   -v $(pwd):/workspace -w /workspace \
-  asklokesh/loki-mode:7.129.2 start ./my-spec.md
+  asklokesh/loki-mode:8.0.0 start ./my-spec.md
 ```
 
 ##### docker compose + .env (no host install)

@@ -50,6 +50,51 @@
 # needs a real command, not a shell function.
 _loki_done_recog_invoke() {
     local prompt="$1"
+
+    # v8 RAW-SDK JUDGE PATH (opt-in LOKI_SDK_DONE_RECOG=1). Runs this one-shot
+    # judge via the pure-HTTPS @anthropic-ai/sdk (no claude binary) through the
+    # loki-ts `internal sdk-judge` bridge. This is the first end-to-end SDK
+    # adoption -- CLAUDE-ONLY site, one prompt -> one schema-constrained JSON
+    # object, already inconclusive-safe. Fail-closed: on ANY miss (flag off, no
+    # ANTHROPIC_API_KEY, bun/entrypoint absent, non-zero, empty) we fall straight
+    # through to the existing claude/deterministic paths below -- zero behavior
+    # change when off or unavailable. Same schema, same output shape (a JSON
+    # object parse_object consumes), so parity holds by construction.
+    if [ "${LOKI_SDK_DONE_RECOG:-0}" = "1" ]; then
+        local _sdk_root _sdk_loki _sdk_schema _sdk_prompt_f _sdk_out _sdk_rc
+        _sdk_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+        _sdk_loki="${_sdk_root}/bin/loki"
+        _sdk_schema="${_sdk_root}/loki-ts/data/done-recognition-schema.json"
+        if [ -x "$_sdk_loki" ] && [ -f "$_sdk_schema" ] && command -v bun >/dev/null 2>&1; then
+            _sdk_prompt_f="$(mktemp 2>/dev/null)" || _sdk_prompt_f=""
+            if [ -n "$_sdk_prompt_f" ]; then
+                printf '%s' "$prompt" > "$_sdk_prompt_f"
+                _sdk_rc=0
+                # OS-level ceiling around the whole bun subprocess (council review:
+                # --timeout-ms only bounds the in-process HTTP call; a bun cold-start
+                # / DNS stall could hang the command substitution otherwise). Mirror
+                # the claude path's `timeout` wrap, with a small buffer over the
+                # in-process budget. Degrade to no-cap only if neither timeout binary
+                # is present.
+                local _sdk_to_s=$(( ${LOKI_DONE_RECOG_TIMEOUT:-180} + 15 ))
+                local _sdk_wrap
+                if command -v timeout >/dev/null 2>&1; then _sdk_wrap="timeout ${_sdk_to_s}"
+                elif command -v gtimeout >/dev/null 2>&1; then _sdk_wrap="gtimeout ${_sdk_to_s}"
+                else _sdk_wrap=""; fi
+                _sdk_out="$($_sdk_wrap "$_sdk_loki" internal sdk-judge \
+                    --prompt-file "$_sdk_prompt_f" --schema-file "$_sdk_schema" \
+                    --model "${LOKI_SDK_JUDGE_MODEL:-claude-haiku-4-5}" --effort low \
+                    --timeout-ms "$(( ${LOKI_DONE_RECOG_TIMEOUT:-180} * 1000 ))" 2>/dev/null)" || _sdk_rc=$?
+                rm -f "$_sdk_prompt_f" 2>/dev/null || true
+                if [ "$_sdk_rc" -eq 0 ] && [ -n "$_sdk_out" ]; then
+                    printf '%s' "$_sdk_out"
+                    return 0
+                fi
+            fi
+        fi
+        # fall through to the claude/deterministic paths (fail-closed)
+    fi
+
     command -v claude >/dev/null 2>&1 || return 1
 
     # STRUCTURED VERDICT (v8.x): when the CLI supports --json-schema, force valid

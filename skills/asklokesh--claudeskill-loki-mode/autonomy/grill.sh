@@ -138,6 +138,14 @@ grill_check_provider() {
     local provider="${LOKI_PROVIDER:-claude}"
     case "$provider" in
         claude)
+            # v8: the raw-SDK grill path (LOKI_SDK_GRILL=1) needs no claude binary,
+            # so the precondition passes when that path is viable (bridge + bun).
+            # grill_invoke_provider still fails closed to claude on an SDK miss.
+            if [ "${LOKI_SDK_GRILL:-0}" = "1" ] \
+               && [ -x "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/bin/loki" ] \
+               && command -v bun >/dev/null 2>&1; then
+                return 0
+            fi
             if ! command -v claude >/dev/null 2>&1; then
                 _grill_err "Claude Code CLI not found. Install: https://docs.anthropic.com/en/docs/claude-code"
                 return $GRILL_EXIT_ERROR
@@ -181,6 +189,40 @@ grill_invoke_provider() {
 
     case "$provider" in
         claude)
+            # v8 RAW-SDK TEXT PATH (opt-in LOKI_SDK_GRILL=1). Free-form grill via
+            # the pure-HTTPS @anthropic-ai/sdk (no claude binary) through the
+            # loki-ts `internal sdk-text` bridge. Runs BEFORE the claude-binary
+            # check so the no-binary deploy win holds. Fail-closed: on ANY miss
+            # (flag off, no key, bun/entrypoint absent, non-zero, empty) fall
+            # through to the claude path below. Output is the free-form question
+            # text loki-grill parses, same as the claude path.
+            if [ "${LOKI_SDK_GRILL:-0}" = "1" ]; then
+                local _gs_root _gs_loki _gs_pf _gs_out _gs_rc
+                _gs_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+                _gs_loki="${_gs_root}/bin/loki"
+                if [ -x "$_gs_loki" ] && command -v bun >/dev/null 2>&1; then
+                    _gs_pf="$(mktemp 2>/dev/null)" || _gs_pf=""
+                    if [ -n "$_gs_pf" ]; then
+                        printf '%s' "$prompt" > "$_gs_pf"
+                        _gs_rc=0
+                        local _gs_to_s="${LOKI_GRILL_TIMEOUT:-180}"
+                        local _gs_wrap
+                        if command -v timeout >/dev/null 2>&1; then _gs_wrap="timeout $(( _gs_to_s + 15 ))"
+                        elif command -v gtimeout >/dev/null 2>&1; then _gs_wrap="gtimeout $(( _gs_to_s + 15 ))"
+                        else _gs_wrap=""; fi
+                        _gs_out="$($_gs_wrap "$_gs_loki" internal sdk-text \
+                            --prompt-file "$_gs_pf" \
+                            --model "${LOKI_SDK_GRILL_MODEL:-claude-sonnet-5}" --effort high \
+                            --timeout-ms "$(( _gs_to_s * 1000 ))" 2>/dev/null)" || _gs_rc=$?
+                        rm -f "$_gs_pf" 2>/dev/null || true
+                        if [ "$_gs_rc" -eq 0 ] && [ -n "$_gs_out" ]; then
+                            printf '%s\n' "$_gs_out"
+                            return 0
+                        fi
+                    fi
+                fi
+                # fall through to the claude path (fail-closed)
+            fi
             if ! command -v claude >/dev/null 2>&1; then
                 _grill_err "Claude Code CLI not found. Install: https://docs.anthropic.com/en/docs/claude-code"
                 return $GRILL_EXIT_ERROR

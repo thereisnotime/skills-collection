@@ -10,16 +10,24 @@
 # blanket suppression. Moderate/low advisories are not gated here (mirrors
 # --audit-level=high) and never require a waiver.
 #
-# Accepted HIGH/CRITICAL advisories (review on every otel/dep bump; real fix
-# lands in v8's @opentelemetry 2.x major upgrade):
+# Accepted HIGH/CRITICAL advisories (review on every otel/dep bump):
 #   GHSA-45rx-2jwx-cxfr  @opentelemetry/* JaegerPropagator DoS via malformed
 #     inbound header. NOT REACHABLE: loki-ts is a CLI that only EMITS OTLP traces
 #     (opt-in, gated on LOKI_OTEL_ENDPOINT / LOKI_TELEMETRY, off by default) and
 #     never runs an inbound-HTTP server that feeds attacker-controlled headers to
-#     a propagator's extract(). Fix requires a breaking @opentelemetry 2.x major
-#     bump, deferred to the v8 major release.
+#     a propagator's extract().
+#     STATUS (v8, 2026-07-24): FIXED at the source. The @opentelemetry/* deps were
+#     bumped to sdk-trace-node/base 2.10.0 + exporter-trace-otlp-http 0.221.0,
+#     which pulls propagator-jaeger >= 2.9.0 (patched) and core 2.10.0 (also clears
+#     the previously-unwaived W3C-Baggage moderate). Production npm audit
+#     (--omit=dev) is now clean at high+ WITHOUT invoking this waiver. The entry is
+#     kept as a harmless no-op fail-safe so an older transitive re-introduction
+#     still fails safe; removing it is a separate reviewed step.
 set -uo pipefail
 
+# Waived HIGH/CRITICAL advisories. As of the v8 otel 2.x bump this list is a
+# no-op fail-safe (its target left the tree); it stays as a guard and is removed
+# only under separate review. See the rationale block above.
 ACCEPTED_GHSAS="GHSA-45rx-2jwx-cxfr"
 
 python3 - "$ACCEPTED_GHSAS" <<'PY'

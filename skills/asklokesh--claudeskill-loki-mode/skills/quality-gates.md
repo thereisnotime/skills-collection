@@ -264,6 +264,28 @@ LOKI_REVIEW_INCONCLUSIVE_BLOCK=1  # default 1. Treat a code-review round that
                                   # or zero real verdicts) as a BLOCK instead
                                   # of a silent pass. Set 0 to disable.
 
+LOKI_REVIEW_UNAVAILABLE_BLOCK=1   # default 1 (blocks under LOKI_HARD_GATES).
+                                  # When NO reviewer can run at all (no claude
+                                  # binary on PATH AND no reachable SDK judge),
+                                  # code_review would otherwise pass with ZERO
+                                  # review -- a fake-PASS that makes the blind
+                                  # 3-reviewer moat a no-op. Blocks instead. Set
+                                  # 0 for an honest degraded pass (a run that
+                                  # deliberately has no reviewer). The raw-SDK
+                                  # reviewer path (LOKI_SDK_CODE_REVIEW=1 + a key)
+                                  # counts as available, so this only fires with
+                                  # no reviewer at all.
+
+LOKI_GATE_TEST_COVERAGE_BLOCK=0   # default 0 (advisory, bash-parity). By default
+                                  # a failing test suite is surfaced and the
+                                  # completion-council evidence gate is the
+                                  # backstop that refuses "done" on red tests.
+                                  # Set 1 to ALSO refuse completion at the runner
+                                  # layer deterministically (fail-closed even if
+                                  # a heuristic council with no evidence gate is
+                                  # in play). Same opt-in shape as the
+                                  # semantic_tests / invariants _BLOCK toggles.
+
 LOKI_COMPLETION_TEST_CAPTURE=1    # default 1. The verified-completion gate
                                   # captures fresh test evidence when
                                   # test-results.json is absent, instead of

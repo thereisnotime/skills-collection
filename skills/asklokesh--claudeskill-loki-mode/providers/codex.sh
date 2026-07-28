@@ -45,16 +45,66 @@ PROVIDER_SKILL_DIR="${HOME}/.agents/skills"
 PROVIDER_SKILL_FORMAT="markdown"  # Codex v0.98+ loads skills from ~/.agents/skills
 
 # Capability Flags
+#
+# SUBAGENTS / TASK_TOOL stay false: Codex has no equivalent of Claude Code's
+# in-session subagent dispatch. These two are reporting-only in this codebase
+# (loader.sh display + the degraded-mode summary); nothing branches on them.
 PROVIDER_HAS_SUBAGENTS=false
-PROVIDER_HAS_PARALLEL=false
 PROVIDER_HAS_TASK_TOOL=false
 PROVIDER_HAS_MCP=true
-PROVIDER_MAX_PARALLEL=1
+#
+# PARALLEL: enabled 2026-07-27 after MEASURING it, not assuming it.
+#
+# The v0.98-era `false` was an untested assumption. On codex-cli 0.144.6 two
+# concurrent `codex exec` runs in separate git worktrees both completed, exit 0,
+# zero rate-limit errors. This flag gates exactly one behavior -- worktree
+# parallel sessions (run.sh:4832 spawn guard, run.sh:23473 mode downgrade) --
+# and that primitive is only "run the non-interactive CLI in N directories at
+# once". It needs no subagents and no Task tool, which is why those two stay
+# false above while this one does not.
+#
+# Enabling it required making the user-facing text honest first, because
+# "degraded" was being reported as if it always implied "sequential":
+# run.sh:23461 now enumerates the capabilities actually missing (read from
+# these flags) instead of hardcoding "Parallel agents and Task tool", and the
+# live-output banner only claims "Sequential execution only" when
+# PROVIDER_HAS_PARALLEL is genuinely false. PROVIDER_DEGRADED itself is
+# deliberately UNTOUCHED: its other consumers (run.sh:20340 workflow analysis,
+# done-recognition.sh:167) are claude-only guards and one is parity-locked with
+# the Bun route, so widening its meaning would ripple into prompt construction
+# for no gain here.
+#
+# MAX_PARALLEL is 2, not the Claude value. Two is what was actually verified,
+# and Codex's free ChatGPT tier -- the audience this matters for, since Codex is
+# the only zero-cost on-ramp in the category -- is rate-limited well before
+# process concurrency becomes the ceiling. Raise it only with evidence at the
+# higher number.
+PROVIDER_HAS_PARALLEL=true
+PROVIDER_MAX_PARALLEL=2
 
 # Model Configuration
-# Codex uses single model with effort parameter
-# NOTE: gpt-5.3-codex is the official model name for Codex CLI v0.98+
-CODEX_DEFAULT_MODEL="gpt-5.3-codex"
+# Codex uses a single model with an effort parameter.
+#
+# DEFAULT IS EMPTY ON PURPOSE (2026-07-26). Pinning a model name here broke
+# Codex outright for ChatGPT-account users -- the account tier that matters
+# most, since Codex ships free with every ChatGPT plan and is the only
+# zero-cost on-ramp in the category. Verified against codex-cli 0.144.6:
+#
+#   codex exec --model gpt-5.3-codex "..."
+#     -> 400 invalid_request_error: "The 'gpt-5.3-codex' model is not
+#        supported when using Codex with a ChatGPT account."
+#   codex exec "..."            (no --model)
+#     -> works, 22255 tokens, correct output
+#
+# The old pin ("official model name for Codex CLI v0.98+") was written against
+# v0.98 and never re-verified; the installed CLI is 0.144.6. Replacing it with
+# another hardcoded name would repeat the same mistake with a fresher string --
+# valid model names differ per account tier and change with upstream releases,
+# so THIS FILE CANNOT KNOW THEM. Codex already resolves an account-appropriate
+# default (honoring ~/.codex/config.toml), so the correct behavior is to say
+# nothing and let it choose. An operator who wants a specific model still sets
+# LOKI_CODEX_MODEL or LOKI_MODEL_*, which are passed through below.
+CODEX_DEFAULT_MODEL=""
 
 # Known valid Codex model prefixes for validation (BUG-PROV-002 fix)
 # Generic LOKI_MODEL_* may contain Claude model aliases (e.g. "opus", "sonnet",
@@ -69,7 +119,10 @@ _codex_validate_model() {
             return 0
         fi
     done
-    # Not a valid Codex model name -- fall back to default
+    # Not a valid Codex model name (e.g. a Claude alias leaking in via the
+    # generic LOKI_MODEL_*) -- fall back to the default, which is now EMPTY,
+    # i.e. "pass no --model and let Codex pick". That is deliberately the same
+    # safe outcome as an unset model rather than a guessed name.
     echo "$CODEX_DEFAULT_MODEL"
 }
 
@@ -125,16 +178,28 @@ provider_version() {
 # Invocation function
 # Note: Codex uses positional prompt, not -p flag
 # Note: Reasoning effort is configured via environment or config, not CLI flag
-# v7.x: pin the resolved model explicitly via -m/--model. Without it, codex
-# falls back to the installed CLI's built-in default (e.g. gpt-5.5 on codex
-# 0.132.0), which silently ignores _codex_validate_model and makes the run.sh
-# cost table (priced for gpt-5.3-codex) wrong. --model is the documented model
-# selector and is readable in process listings.
+# v7.x pinned the resolved model explicitly via -m/--model so the run.sh cost
+# table matched what actually ran. That is still the behavior WHEN A MODEL IS
+# SET -- but the flag is now OMITTED when the resolved model is empty, because
+# a hardcoded name broke ChatGPT-account users outright (see CODEX_DEFAULT_MODEL
+# above). Omitting it lets Codex resolve an account-appropriate default; the
+# trade-off is that the cost table falls back to its generic estimate, which is
+# strictly better than a run that cannot start at all.
+_codex_model_flag() {
+    # Echo nothing when no model is resolved, so the caller's array stays empty.
+    [ -n "${1:-}" ] && printf '%s\n%s\n' "--model" "$1"
+    return 0
+}
+
 provider_invoke() {
     local prompt="$1"
     shift
+    local model_flag=()
+    while IFS= read -r _mf; do
+        [ -n "$_mf" ] && model_flag+=("$_mf")
+    done < <(_codex_model_flag "$PROVIDER_MODEL_DEVELOPMENT")
     codex exec --sandbox workspace-write --skip-git-repo-check \
-        --model "$PROVIDER_MODEL_DEVELOPMENT" \
+        "${model_flag[@]+"${model_flag[@]}"}" \
         "$prompt" "$@"
 }
 
@@ -254,12 +319,19 @@ provider_invoke_with_tier() {
     # array is empty, and a bare "${arr[@]}" under `set -u` aborts with
     # "unbound variable" on bash 3.2 (stock macOS /bin/bash). ${arr[@]+...}
     # expands to nothing when empty and preserves spaced elements otherwise.
+    # Same conditional as provider_invoke: omit --model entirely when none
+    # resolved, rather than passing an empty string (which codex rejects).
+    local model_flag=()
+    while IFS= read -r _mf; do
+        [ -n "$_mf" ] && model_flag+=("$_mf")
+    done < <(_codex_model_flag "$model")
+
     codex \
         "${pre_exec_flags[@]+"${pre_exec_flags[@]}"}" \
         exec \
         --sandbox workspace-write \
         --skip-git-repo-check \
-        --model "$model" \
+        "${model_flag[@]+"${model_flag[@]}"}" \
         "${extra_flags[@]+"${extra_flags[@]}"}" \
         "$prompt" "$@"
 }

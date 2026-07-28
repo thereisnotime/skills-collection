@@ -87,3 +87,46 @@ describe("rematerializeCodeReview (v8.x structured verdict adapter)", () => {
     expect(v.blocking).toBe(true);
   });
 });
+
+// v8 raw-SDK reviewer path: `loki internal sdk-judge` (and the in-process
+// judgeJson) emit the BARE payload object -- no CLI envelope. The re-materializer
+// must accept it and produce output byte-identical to the wrapped form, with the
+// T1 override and fail-closed guarantees intact. Mirrors the python edit.
+describe("rematerializeCodeReview (v8 raw-SDK bare-object path)", () => {
+  // bare = the object the SDK bridge emits (no stop_reason / structured_output).
+  const bare = (verdict: string, findings: Array<{ severity: string; description: string }>) =>
+    JSON.stringify({ verdict, findings });
+
+  test("bare PASS + empty == wrapped PASS + empty (byte-identical)", () => {
+    const wrapped = rematerializeCodeReview(env("PASS", []));
+    const b = rematerializeCodeReview(bare("PASS", []));
+    expect(b).toBe("VERDICT: PASS\nFINDINGS:\n- None\n");
+    expect(b).toBe(wrapped);
+  });
+
+  test("bare FAIL + Critical -> blocking FAIL (parity with envelope)", () => {
+    const text = rematerializeCodeReview(bare("FAIL", [{ severity: "Critical", description: "SQLi (a.py:10)" }]));
+    expect(text).toBe("VERDICT: FAIL\nFINDINGS:\n- [Critical] SQLi (a.py:10)\n");
+    const v = parseVerdict("r", text!);
+    expect(v.verdict).toBe("FAIL");
+    expect(v.blocking).toBe(true);
+  });
+
+  // T1 must hold through the bare path too: a self-contradictory PASS + High
+  // becomes blocking FAIL, never a fake green.
+  test("T1: bare PASS + High is FORCED to blocking FAIL", () => {
+    const text = rematerializeCodeReview(bare("PASS", [{ severity: "High", description: "authz bypass" }]));
+    const v = parseVerdict("r", text!);
+    expect(v.verdict).toBe("FAIL");
+    expect(v.blocking).toBe(true);
+  });
+
+  // Fail-closed still holds for a bare object: no verdict key -> null; invalid
+  // token -> null. (A bare {"foo":"bar"} must NOT sneak through as the payload.)
+  test.each([
+    ["bare no verdict", JSON.stringify({ foo: "bar", findings: [] })],
+    ["bare invalid verdict token", JSON.stringify({ verdict: "MAYBE", findings: [] })],
+  ])("fail-closed: %s -> null", (_label, raw) => {
+    expect(rematerializeCodeReview(raw)).toBeNull();
+  });
+});

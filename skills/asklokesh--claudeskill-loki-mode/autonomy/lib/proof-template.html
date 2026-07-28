@@ -20,9 +20,8 @@
        the literal token anywhere else (this comment deliberately spells it out
        instead of repeating it, and the renderer detects an un-substituted
        blob structurally rather than by string-matching the token).
-    4. No other token substitution is required. All rendering happens client
-       side from the parsed blob. This keeps Bun and bash routes at exact
-       parity (one string replace, one template).
+    4. The generator also substitutes the receipt title, social description,
+       and share-button setting before embedding the parsed blob.
 
   The renderer below is defensive: every nullable / optional schema field is
   guarded (deployed_url, public_url, diffs, council.enabled false, empty
@@ -42,10 +41,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Loki Mode - Proof of Run</title>
+<title>__PROOF_RECEIPT_TITLE__ - Loki Mode Evidence Receipt</title>
 <!-- Static text-only social meta. No og:image (would break self-containment). -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Built and verified autonomously by Loki Mode">
+<meta property="og:title" content="__PROOF_RECEIPT_TITLE__ - Loki Mode Evidence Receipt">
 <!-- og:description and twitter:description are filled at generation time with
      the real measured cost + files-changed + council ratio (cost-free variant
      when cost was not collected). The generator replaces the og token below in
@@ -589,7 +588,7 @@
   function honestyVariant(headline) {
     var h = String(headline || "").toUpperCase();
     if (h === "VERIFIED") return { cls: "is-verified", mark: "OK",
-      sub: "Tests verified, a real diff exists, and nothing was left unverified. Every claim below is deterministic and re-checkable." };
+      sub: "The recorded tests passed and this receipt contains a non-empty source change. Review the evidence below for the exact scope." };
     if (h.indexOf("GAPS") !== -1) return { cls: "is-gaps", mark: "!",
       sub: "Some evidence is verified, but the items listed below were not. A gap is never hidden: read them before trusting this run." };
     return { cls: "is-failed", mark: "X",
@@ -776,7 +775,7 @@
     // fmtUsd: a skeptic seeing a zero-dollar total assumes the artifact is fake.
     var usdRaw = g(p, "cost.usd", null);
     var fc = num(g(p, "files_changed.count", 0));
-    var parts = ["Built and verified autonomously"];
+    var parts = [__PROOF_RECEIPT_TITLE_JSON__];
     if (usdRaw !== null) parts.push(fmtUsd(usdRaw));
     else parts.push("cost not recorded");
     parts.push(fc + " file" + (fc === 1 ? "" : "s") + " changed");
@@ -929,11 +928,15 @@
   function renderCost(p) {
     var card = document.getElementById("costCard");
     var usdRaw = g(p, "cost.usd", null);
+    function tokenValue(path) {
+      var raw = g(p, path, null);
+      return raw === null ? "not recorded" : fmtInt(raw);
+    }
     var cells = [
-      ["Input tokens", fmtInt(g(p, "cost.input_tokens", 0))],
-      ["Output tokens", fmtInt(g(p, "cost.output_tokens", 0))],
-      ["Cache read", fmtInt(g(p, "cost.cache_read_tokens", 0))],
-      ["Cache write", fmtInt(g(p, "cost.cache_creation_tokens", 0))]
+      ["Input tokens", tokenValue("cost.input_tokens")],
+      ["Output tokens", tokenValue("cost.output_tokens")],
+      ["Cache read", tokenValue("cost.cache_read_tokens")],
+      ["Cache write", tokenValue("cost.cache_creation_tokens")]
     ];
     var grid = "";
     for (var i = 0; i < cells.length; i++) {
@@ -1249,7 +1252,7 @@
     function shareHook() {
       var m = document.querySelector('meta[property="og:description"]');
       var c = m ? (m.getAttribute("content") || "") : "";
-      return c || "Built and verified autonomously by Loki Mode";
+      return c || (__PROOF_RECEIPT_TITLE_JSON__ + " - Loki Mode Evidence Receipt");
     }
     document.addEventListener("click", function (e) {
       var t = e.target && e.target.closest ? e.target.closest("[data-share]") : null;

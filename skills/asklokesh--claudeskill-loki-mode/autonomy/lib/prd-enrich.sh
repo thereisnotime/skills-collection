@@ -42,6 +42,40 @@
 # precedent at autonomy/lib/voter-agents.sh:259.
 _loki_prd_enrich_invoke() {
     local prompt="$1"
+    # v8 RAW-SDK TEXT PATH (opt-in LOKI_SDK_PRD_ENRICH=1). Free-form enrichment
+    # via the pure-HTTPS @anthropic-ai/sdk (no claude binary) through the loki-ts
+    # `internal sdk-text` bridge. Runs BEFORE the claude-binary guard so the
+    # no-binary deploy win holds. Fail-closed: on ANY miss (flag off, no key,
+    # bun/entrypoint absent, non-zero, empty) fall straight through to the claude
+    # path below -- zero behavior change when off or unavailable. The output is
+    # free-form text the caller consumes verbatim, same as the claude path.
+    if [ "${LOKI_SDK_PRD_ENRICH:-0}" = "1" ]; then
+        local _pe_root _pe_loki _pe_pf _pe_out _pe_rc
+        _pe_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+        _pe_loki="${_pe_root}/bin/loki"
+        if [ -x "$_pe_loki" ] && command -v bun >/dev/null 2>&1; then
+            _pe_pf="$(mktemp 2>/dev/null)" || _pe_pf=""
+            if [ -n "$_pe_pf" ]; then
+                printf '%s' "$prompt" > "$_pe_pf"
+                _pe_rc=0
+                local _pe_to_s="${LOKI_PRD_ENRICH_TIMEOUT:-180}"
+                local _pe_wrap
+                if command -v timeout >/dev/null 2>&1; then _pe_wrap="timeout $(( _pe_to_s + 15 ))"
+                elif command -v gtimeout >/dev/null 2>&1; then _pe_wrap="gtimeout $(( _pe_to_s + 15 ))"
+                else _pe_wrap=""; fi
+                _pe_out="$($_pe_wrap "$_pe_loki" internal sdk-text \
+                    --prompt-file "$_pe_pf" \
+                    --model "${LOKI_SDK_PRD_ENRICH_MODEL:-claude-sonnet-5}" --effort medium \
+                    --timeout-ms "$(( _pe_to_s * 1000 ))" 2>/dev/null)" || _pe_rc=$?
+                rm -f "$_pe_pf" 2>/dev/null || true
+                if [ "$_pe_rc" -eq 0 ] && [ -n "$_pe_out" ]; then
+                    printf '%s' "$_pe_out"
+                    return 0
+                fi
+            fi
+        fi
+        # fall through to the claude path (fail-closed)
+    fi
     command -v claude >/dev/null 2>&1 || return 1
     local rc=0
     local out=""
@@ -65,6 +99,14 @@ _loki_prd_enrich_invoke() {
 _loki_prd_enrich_provider_ok() {
     [ "${LOKI_PROVIDER:-claude}" = "claude" ] || return 1
     [ "${PROVIDER_DEGRADED:-false}" != "true" ] || return 1
+    # v8: the raw-SDK enrich path (LOKI_SDK_PRD_ENRICH=1) needs no claude binary,
+    # so attempt is viable when that path is usable (bridge + bun). The invoke fn
+    # still fails closed to claude on an SDK miss.
+    if [ "${LOKI_SDK_PRD_ENRICH:-0}" = "1" ] \
+       && [ -x "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/loki" ] \
+       && command -v bun >/dev/null 2>&1; then
+        return 0
+    fi
     command -v claude >/dev/null 2>&1 || return 1
     return 0
 }

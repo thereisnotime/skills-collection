@@ -556,8 +556,8 @@
       "description": "\"Provides a guide for setting up Golang project layouts and workspaces. Use when starting a new Go project, organizing an existing codebase, setting up a monorepo with multiple packages, creating CLI ",
       "path": "samber--cc-skills-golang/skills/golang-project-layout/SKILL.md",
       "remote_path": "skills/golang-project-layout/SKILL.md",
-      "lines": 121,
-      "words": 848,
+      "lines": 122,
+      "words": 889,
       "code_blocks": 1,
       "languages": [
         "go"
@@ -581,7 +581,7 @@
       "path": "samber--cc-skills-golang/skills/golang-how-to/SKILL.md",
       "remote_path": "skills/golang-how-to/SKILL.md",
       "lines": 159,
-      "words": 1858,
+      "words": 1921,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -10644,20 +10644,6 @@
       "languages": []
     },
     {
-      "name": "clickhousectl-local-dev",
-      "description": "Use when a user wants to build an application with ClickHouse, set up a local ClickHouse development environment, install ClickHouse, create a local server, create tables, or start developing with Cli",
-      "path": "ClickHouse--agent-skills/skills/clickhousectl-local-dev/SKILL.md",
-      "remote_path": "skills/clickhousectl-local-dev/SKILL.md",
-      "lines": 173,
-      "words": 621,
-      "code_blocks": 16,
-      "languages": [
-        "bash",
-        "sql"
-      ],
-      "license": "Apache-2.0"
-    },
-    {
       "name": "clickhouse-best-practices",
       "description": "MUST USE when reviewing ClickHouse schemas, queries, or configurations. Contains 31 rules that MUST be checked before providing recommendations. Always read relevant rule files and cite specific rules",
       "path": "ClickHouse--agent-skills/skills/clickhouse-best-practices/SKILL.md",
@@ -10679,13 +10665,26 @@
       "languages": []
     },
     {
-      "name": "clickhousectl-cloud-deploy",
-      "description": "Use when a user wants to deploy ClickHouse to the cloud, go to production, use ClickHouse Cloud, host a managed ClickHouse service, or migrate from a local ClickHouse setup to ClickHouse Cloud.",
-      "path": "ClickHouse--agent-skills/skills/clickhousectl-cloud-deploy/SKILL.md",
-      "remote_path": "skills/clickhousectl-cloud-deploy/SKILL.md",
-      "lines": 191,
-      "words": 980,
-      "code_blocks": 13,
+      "name": "infra-postgres",
+      "description": "Sets up and manages Postgres using the clickhousectl CLI \u2014 runs a local Docker-backed Postgres for development, and creates and operates managed ClickHouse Cloud Postgres services (connections, TLS, r",
+      "path": "ClickHouse--agent-skills/skills/infra-postgres/SKILL.md",
+      "remote_path": "skills/infra-postgres/SKILL.md",
+      "lines": 52,
+      "words": 364,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "infra-clickhouse",
+      "description": "Sets up and manages ClickHouse using the clickhousectl CLI \u2014 installs and runs a local ClickHouse server for development, and creates managed ClickHouse Cloud services for production (authentication, ",
+      "path": "ClickHouse--agent-skills/skills/infra-clickhouse/SKILL.md",
+      "remote_path": "skills/infra-clickhouse/SKILL.md",
+      "lines": 52,
+      "words": 367,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ],
@@ -12982,6 +12981,19 @@
       "license": "MIT"
     },
     {
+      "name": "pathogen-variant-surveillance",
+      "description": "Query live pathogen genomic surveillance data through the GenSpectrum LAPIS API to find which viral lineages are circulating now, how fast they are growing, and what mutations they carry. Use whenever",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/pathogen-variant-surveillance/SKILL.md",
+      "remote_path": "skills/pathogen-variant-surveillance/SKILL.md",
+      "lines": 209,
+      "words": 1625,
+      "code_blocks": 10,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "pydicom",
       "description": "Use pydicom to read, inspect, write, transform, and safely preflight local DICOM datasets and pixel data. Applies to DICOM metadata, transfer syntaxes, compression plugins, frames, private elements, J",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pydicom/SKILL.md",
@@ -13665,6 +13677,19 @@
         "python"
       ],
       "license": "Apache-2.0 license"
+    },
+    {
+      "name": "analytical-method-validation",
+      "description": "Plan, execute, and document validation, verification, and transfer of analytical procedures under the governing framework - ICH Q2(R2) and Q14, USP <1220>/<1225>/<1226>, ICH M10 bioanalytical, CLSI EP",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/analytical-method-validation/SKILL.md",
+      "remote_path": "skills/analytical-method-validation/SKILL.md",
+      "lines": 300,
+      "words": 2267,
+      "code_blocks": 14,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "vaex",
@@ -20005,8 +20030,8 @@
       "description": "When the user wants to set up, improve, or audit analytics tracking and measurement. Also use when the user mentions \"set up tracking,\" \"GA4,\" \"Google Analytics,\" \"conversion tracking,\" \"event trackin",
       "path": "coreyhaines31--marketingskills/skills/analytics/SKILL.md",
       "remote_path": "skills/analytics/SKILL.md",
-      "lines": 310,
-      "words": 1193,
+      "lines": 311,
+      "words": 1222,
       "code_blocks": 5,
       "languages": [
         "javascript",
@@ -20353,10 +20378,22 @@
       "description": "\"When the user wants help with pricing decisions, packaging, or monetization strategy. Also use when the user mentions 'pricing,' 'pricing tiers,' 'freemium,' 'free trial,' 'packaging,' 'price increas",
       "path": "coreyhaines31--marketingskills/skills/pricing/SKILL.md",
       "remote_path": "skills/pricing/SKILL.md",
-      "lines": 232,
-      "words": 1089,
+      "lines": 249,
+      "words": 1384,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "attribution",
+      "description": "When the user wants to figure out which marketing actually drives conversions and revenue, choose or interpret an attribution model, or reconcile conflicting numbers across tools. Also use when the us",
+      "path": "coreyhaines31--marketingskills/skills/attribution/SKILL.md",
+      "remote_path": "skills/attribution/SKILL.md",
+      "lines": 225,
+      "words": 3093,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
     },
     {
       "name": "prospecting",
@@ -23250,22 +23287,12 @@
     },
     {
       "name": "remotion-render",
-      "description": "Best practices for rendering videos",
+      "description": "Export a Remotion video",
       "path": "remotion-dev--skills/skills/remotion-render/SKILL.md",
       "remote_path": "skills/remotion-render/SKILL.md",
       "lines": 29,
-      "words": 59,
+      "words": 58,
       "code_blocks": 2,
-      "languages": []
-    },
-    {
-      "name": "video-layout",
-      "description": "Video-first layout, composition, and text sizing guidance for Remotion.",
-      "path": "remotion-dev--skills/skills/remotion-create/video-layout.md",
-      "remote_path": "skills/remotion-create/video-layout.md",
-      "lines": 69,
-      "words": 669,
-      "code_blocks": 0,
       "languages": []
     },
     {
@@ -23280,11 +23307,11 @@
     },
     {
       "name": "remotion-create",
-      "description": "Creating a new Remotion video",
+      "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-create/SKILL.md",
       "remote_path": "skills/remotion-create/SKILL.md",
-      "lines": 50,
-      "words": 193,
+      "lines": 52,
+      "words": 216,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -23292,79 +23319,35 @@
     },
     {
       "name": "remotion-maps",
-      "description": "Best practices for animating Maps in Remotion",
+      "description": "Remotion Map animation knowledge",
       "path": "remotion-dev--skills/skills/remotion-maps/SKILL.md",
       "remote_path": "skills/remotion-maps/SKILL.md",
       "lines": 36,
-      "words": 140,
+      "words": 137,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "remotion-best-practices",
-      "description": "Best practices for Remotion",
+      "description": "Router for all Remotion skills",
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
       "lines": 47,
-      "words": 220,
+      "words": 219,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "remotion-interactivity",
-      "description": "Best practices for writing Remotion animations that stay intuitive for agents and editable in Remotion Studio Visual Mode.",
+      "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 24,
-      "words": 115,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "get-video-dimensions",
-      "description": "Getting the width and height of a video file with Mediabunny",
-      "path": "remotion-dev--skills/skills/mediabunny/get-video-dimensions.md",
-      "remote_path": "skills/mediabunny/get-video-dimensions.md",
-      "lines": 69,
-      "words": 202,
-      "code_blocks": 4,
+      "lines": 227,
+      "words": 898,
+      "code_blocks": 9,
       "languages": [
         "tsx"
       ]
-    },
-    {
-      "name": "get-video-duration",
-      "description": "Getting the duration of a video file in seconds with Mediabunny",
-      "path": "remotion-dev--skills/skills/mediabunny/get-video-duration.md",
-      "remote_path": "skills/mediabunny/get-video-duration.md",
-      "lines": 61,
-      "words": 180,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ]
-    },
-    {
-      "name": "get-audio-duration",
-      "description": "Getting the duration of an audio file in seconds with Mediabunny",
-      "path": "remotion-dev--skills/skills/mediabunny/get-audio-duration.md",
-      "remote_path": "skills/mediabunny/get-audio-duration.md",
-      "lines": 59,
-      "words": 177,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ]
-    },
-    {
-      "name": "mediabunny",
-      "description": "Multimedia handling with the Mediabunny library",
-      "path": "remotion-dev--skills/skills/mediabunny/SKILL.md",
-      "remote_path": "skills/mediabunny/SKILL.md",
-      "lines": 22,
-      "words": 95,
-      "code_blocks": 0,
-      "languages": []
     },
     {
       "name": "player",
@@ -23390,11 +23373,11 @@
     },
     {
       "name": "remotion-saas",
-      "description": "Building video apps with Remotion - framework, rendering and Player advice",
+      "description": "Build an app with Remotion",
       "path": "remotion-dev--skills/skills/remotion-saas/SKILL.md",
       "remote_path": "skills/remotion-saas/SKILL.md",
       "lines": 35,
-      "words": 167,
+      "words": 161,
       "code_blocks": 0,
       "languages": []
     },
@@ -23439,9 +23422,9 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
       "remote_path": "skills/remotion-markup/effects.md",
-      "lines": 236,
-      "words": 922,
-      "code_blocks": 6,
+      "lines": 246,
+      "words": 974,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "ts",
@@ -23493,8 +23476,8 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-markup/sequencing.md",
-      "lines": 145,
-      "words": 399,
+      "lines": 165,
+      "words": 425,
       "code_blocks": 8,
       "languages": [
         "tsx"
@@ -23629,12 +23612,12 @@
     },
     {
       "name": "remotion-markup",
-      "description": "Best practices for writing Remotion React Markup",
+      "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 278,
-      "words": 1109,
-      "code_blocks": 7,
+      "lines": 316,
+      "words": 1146,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "tsx"
@@ -23731,7 +23714,7 @@
     },
     {
       "name": "remotion-captions",
-      "description": "Dealing with captions in Remotion",
+      "description": "Transcribing, displaying and animating captions",
       "path": "remotion-dev--skills/skills/remotion-captions/SKILL.md",
       "remote_path": "skills/remotion-captions/SKILL.md",
       "lines": 37,
@@ -23768,6 +23751,52 @@
       ]
     },
     {
+      "name": "get-video-dimensions",
+      "description": "Getting the width and height of a video file with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-multimedia/get-video-dimensions.md",
+      "remote_path": "skills/remotion-multimedia/get-video-dimensions.md",
+      "lines": 69,
+      "words": 202,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-duration",
+      "description": "Getting the duration of a video file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-multimedia/get-video-duration.md",
+      "remote_path": "skills/remotion-multimedia/get-video-duration.md",
+      "lines": 61,
+      "words": 180,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-audio-duration",
+      "description": "Getting the duration of an audio file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-multimedia/get-audio-duration.md",
+      "remote_path": "skills/remotion-multimedia/get-audio-duration.md",
+      "lines": 59,
+      "words": 177,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-multimedia",
+      "description": "Interacting with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-multimedia/SKILL.md",
+      "remote_path": "skills/remotion-multimedia/SKILL.md",
+      "lines": 22,
+      "words": 92,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "remotion-upgrade",
       "description": "Upgrade Remotion, its related packages, compatible Mediabunny packages, and installed Remotion Agent Skills. Use when asked to upgrade or update a Remotion project.",
       "path": "remotion-dev--skills/skills/remotion-upgrade/SKILL.md",
@@ -23781,11 +23810,11 @@
     },
     {
       "name": "remotion-docs",
-      "description": "Search and fetch Remotion documentation pages",
+      "description": "Search Remotion documentation",
       "path": "remotion-dev--skills/skills/remotion-docs/SKILL.md",
       "remote_path": "skills/remotion-docs/SKILL.md",
       "lines": 48,
-      "words": 150,
+      "words": 147,
       "code_blocks": 2,
       "languages": []
     },
@@ -23831,11 +23860,11 @@
     },
     {
       "name": "remotion-render",
-      "description": "Best practices for rendering videos",
+      "description": "Export a Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-render/REFERENCE.md",
       "lines": 29,
-      "words": 59,
+      "words": 58,
       "code_blocks": 2,
       "languages": []
     },
@@ -23854,22 +23883,12 @@
       ]
     },
     {
-      "name": "video-layout",
-      "description": "Video-first layout, composition, and text sizing guidance for Remotion.",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/video-layout.md",
-      "remote_path": "skills/remotion-best-practices/remotion-create/video-layout.md",
-      "lines": 69,
-      "words": 669,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "remotion-create",
-      "description": "Creating a new Remotion video",
+      "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-create/REFERENCE.md",
-      "lines": 50,
-      "words": 193,
+      "lines": 52,
+      "words": 216,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -23887,69 +23906,25 @@
     },
     {
       "name": "remotion-maps",
-      "description": "Best practices for animating Maps in Remotion",
+      "description": "Remotion Map animation knowledge",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-maps/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-maps/REFERENCE.md",
       "lines": 36,
-      "words": 140,
+      "words": 137,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "remotion-interactivity",
-      "description": "Best practices for writing Remotion animations that stay intuitive for agents and editable in Remotion Studio Visual Mode.",
+      "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 24,
-      "words": 115,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "get-video-dimensions",
-      "description": "Getting the width and height of a video file with Mediabunny",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-video-dimensions.md",
-      "remote_path": "skills/remotion-best-practices/mediabunny/get-video-dimensions.md",
-      "lines": 69,
-      "words": 202,
-      "code_blocks": 4,
+      "lines": 227,
+      "words": 898,
+      "code_blocks": 9,
       "languages": [
         "tsx"
       ]
-    },
-    {
-      "name": "get-video-duration",
-      "description": "Getting the duration of a video file in seconds with Mediabunny",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-video-duration.md",
-      "remote_path": "skills/remotion-best-practices/mediabunny/get-video-duration.md",
-      "lines": 61,
-      "words": 180,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ]
-    },
-    {
-      "name": "get-audio-duration",
-      "description": "Getting the duration of an audio file in seconds with Mediabunny",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/get-audio-duration.md",
-      "remote_path": "skills/remotion-best-practices/mediabunny/get-audio-duration.md",
-      "lines": 59,
-      "words": 177,
-      "code_blocks": 4,
-      "languages": [
-        "tsx"
-      ]
-    },
-    {
-      "name": "mediabunny",
-      "description": "Multimedia handling with the Mediabunny library",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/mediabunny/REFERENCE.md",
-      "remote_path": "skills/remotion-best-practices/mediabunny/REFERENCE.md",
-      "lines": 22,
-      "words": 95,
-      "code_blocks": 0,
-      "languages": []
     },
     {
       "name": "player",
@@ -23975,11 +23950,11 @@
     },
     {
       "name": "remotion-saas",
-      "description": "Building video apps with Remotion - framework, rendering and Player advice",
+      "description": "Build an app with Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-saas/REFERENCE.md",
       "lines": 35,
-      "words": 167,
+      "words": 161,
       "code_blocks": 0,
       "languages": []
     },
@@ -24024,9 +23999,9 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
-      "lines": 236,
-      "words": 922,
-      "code_blocks": 6,
+      "lines": 246,
+      "words": 974,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "ts",
@@ -24078,8 +24053,8 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/sequencing.md",
-      "lines": 145,
-      "words": 399,
+      "lines": 165,
+      "words": 425,
       "code_blocks": 8,
       "languages": [
         "tsx"
@@ -24150,12 +24125,12 @@
     },
     {
       "name": "remotion-markup",
-      "description": "Best practices for writing Remotion React Markup",
+      "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 278,
-      "words": 1109,
-      "code_blocks": 7,
+      "lines": 316,
+      "words": 1146,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "tsx"
@@ -24316,7 +24291,7 @@
     },
     {
       "name": "remotion-captions",
-      "description": "Dealing with captions in Remotion",
+      "description": "Transcribing, displaying and animating captions",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/REFERENCE.md",
       "lines": 37,
@@ -24353,6 +24328,52 @@
       ]
     },
     {
+      "name": "get-video-dimensions",
+      "description": "Getting the width and height of a video file with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/get-video-dimensions.md",
+      "remote_path": "skills/remotion-best-practices/remotion-multimedia/get-video-dimensions.md",
+      "lines": 69,
+      "words": 202,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-duration",
+      "description": "Getting the duration of a video file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/get-video-duration.md",
+      "remote_path": "skills/remotion-best-practices/remotion-multimedia/get-video-duration.md",
+      "lines": 61,
+      "words": 180,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-audio-duration",
+      "description": "Getting the duration of an audio file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/get-audio-duration.md",
+      "remote_path": "skills/remotion-best-practices/remotion-multimedia/get-audio-duration.md",
+      "lines": 59,
+      "words": 177,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-multimedia",
+      "description": "Interacting with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-multimedia/REFERENCE.md",
+      "lines": 22,
+      "words": 92,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "remotion-upgrade",
       "description": "Upgrade Remotion, its related packages, compatible Mediabunny packages, and installed Remotion Agent Skills. Use when asked to upgrade or update a Remotion project.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
@@ -24366,11 +24387,11 @@
     },
     {
       "name": "remotion-docs",
-      "description": "Search and fetch Remotion documentation pages",
+      "description": "Search Remotion documentation",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-docs/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-docs/REFERENCE.md",
       "lines": 48,
-      "words": 150,
+      "words": 147,
       "code_blocks": 2,
       "languages": []
     },
@@ -24407,6 +24428,106 @@
       "description": "Create a deterministic static locator map in Remotion when neither the camera nor geographic data animates.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-maps/techniques/static-map/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-maps/techniques/static-map/TECHNIQUE.md",
+      "lines": 38,
+      "words": 148,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-maps",
+      "description": "Remotion Map animation knowledge",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/REFERENCE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/REFERENCE.md",
+      "lines": 36,
+      "words": 137,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "maps-mapbox",
+      "description": "Make deterministic Remotion 2D map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, map markers, labels, camera movement, or Mapbox styles.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
+      "lines": 450,
+      "words": 1548,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "maps-maplibre",
+      "description": "Make deterministic Remotion 2D map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, map markers, labels, and camera movement.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
+      "lines": 466,
+      "words": 1515,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-maps-static",
+      "description": "Create a deterministic static locator map in Remotion when neither the camera nor geographic data animates.",
+      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/static-map/TECHNIQUE.md",
+      "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/static-map/TECHNIQUE.md",
+      "lines": 38,
+      "words": 148,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-maps",
+      "description": "Remotion Map animation knowledge",
+      "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/REFERENCE.md",
+      "remote_path": "skills/remotion-markup/remotion-maps/REFERENCE.md",
+      "lines": 36,
+      "words": 137,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "maps-mapbox",
+      "description": "Make deterministic Remotion 2D map animations with Mapbox GL JS and Turf. Use when the user chooses Mapbox for animated routes, map markers, labels, camera movement, or Mapbox styles.",
+      "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
+      "remote_path": "skills/remotion-markup/remotion-maps/techniques/mapbox/TECHNIQUE.md",
+      "lines": 450,
+      "words": 1548,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "maps-maplibre",
+      "description": "Make deterministic Remotion 2D map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, map markers, labels, and camera movement.",
+      "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
+      "remote_path": "skills/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
+      "lines": 466,
+      "words": 1515,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "remotion-maps-static",
+      "description": "Create a deterministic static locator map in Remotion when neither the camera nor geographic data animates.",
+      "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/static-map/TECHNIQUE.md",
+      "remote_path": "skills/remotion-markup/remotion-maps/techniques/static-map/TECHNIQUE.md",
       "lines": 38,
       "words": 148,
       "code_blocks": 1,
@@ -28719,9 +28840,9 @@
       "description": ">",
       "path": "typefully--agent-skills/skills/typefully/SKILL.md",
       "remote_path": "skills/typefully/SKILL.md",
-      "lines": 299,
-      "words": 2006,
-      "code_blocks": 9,
+      "lines": 311,
+      "words": 2138,
+      "code_blocks": 10,
       "languages": [
         "bash"
       ]
@@ -29968,8 +30089,8 @@
       "description": "Autonomous spec-driven build system with a built-in trust layer. It does not call work done until it is verified (RARV-C closure loop, 8 quality gates, completion council, verified-completion evidence",
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 412,
-      "words": 3161,
+      "lines": 473,
+      "words": 3813,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -167004,9 +167125,9 @@
       "description": "End-to-end pipeline for publishing Claude Code lab meetings. Accepts optional args: date (YYYYMMDD, \"yesterday\", \"today\") and lab number (e.g. \"04\"). Examples: \"yesterday 04\", \"20260420 05\", \"04\" (tod",
       "path": "glebis--claude-skills/agency-docs-updater/SKILL.md",
       "remote_path": "agency-docs-updater/SKILL.md",
-      "lines": 299,
-      "words": 1894,
-      "code_blocks": 13,
+      "lines": 321,
+      "words": 2137,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "python"

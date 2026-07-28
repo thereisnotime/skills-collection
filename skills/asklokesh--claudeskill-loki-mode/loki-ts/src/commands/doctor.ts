@@ -556,24 +556,44 @@ async function runText(): Promise<number> {
     if (c.found) anyProvider = true;
   }
   if (!anyProvider) {
-    process.stdout.write(
-      `  ${badge("fail")}  No AI provider CLI installed -- at least one is required\n`,
-    );
-    process.stdout.write(
-      `         ${YELLOW}Install: npm install -g @anthropic-ai/claude-code${NC}\n`,
-    );
-    tally.fail++;
-    // v7.29.0: consent-gated install offer. Parity by construction: rather than
-    // re-implementing the prompt copy in TypeScript (which would drift from the
-    // bash route), invoke the single shared helper autonomy/provider-offer.sh
-    // via child_process with inherited stdio. The helper's "report" mode is a
-    // no-op on non-TTY/CI, so doctor's non-interactive and --json output stay
-    // byte-identical (this is the only path; --json never reaches runText).
-    // Guarded on stdout being a TTY so we never spawn bash in piped/CI doctor.
-    if (process.stdout.isTTY) {
-      const offerScript = resolve(REPO_ROOT, "autonomy/provider-offer.sh");
-      if (existsSync(offerScript)) {
-        spawnSync("bash", [offerScript, "report"], { stdio: "inherit" });
+    // The bundled Claude Agent SDK runs the main loop with no separate CLI, but
+    // only when genuinely usable (binary extracted + credentials + SDK loop
+    // active). Parity by construction: rather than reimplement that predicate in
+    // TypeScript (this provider block is already an independent reimplementation
+    // of the bash loop, and a second copy would drift), shell out to the SAME
+    // shared helper the bash doctor calls. Fails closed: a missing helper, a
+    // spawn error, or any non-zero status all keep today's blocker verbatim.
+    let sdkUsable = false;
+    const sdkOfferScript = resolve(REPO_ROOT, "autonomy/provider-offer.sh");
+    if (existsSync(sdkOfferScript)) {
+      const probe = spawnSync("bash", [sdkOfferScript, "detect-sdk"], { stdio: "ignore" });
+      sdkUsable = probe.status === 0;
+    }
+    if (sdkUsable) {
+      process.stdout.write(
+        `  ${badge("pass")}  Bundled Claude Agent SDK is usable -- no separate CLI needed\n`,
+      );
+      tally.pass++;
+    } else {
+      process.stdout.write(
+        `  ${badge("fail")}  No AI provider CLI installed -- at least one is required\n`,
+      );
+      process.stdout.write(
+        `         ${YELLOW}Install: npm install -g @anthropic-ai/claude-code${NC}\n`,
+      );
+      tally.fail++;
+      // v7.29.0: consent-gated install offer. Parity by construction: rather than
+      // re-implementing the prompt copy in TypeScript (which would drift from the
+      // bash route), invoke the single shared helper autonomy/provider-offer.sh
+      // via child_process with inherited stdio. The helper's "report" mode is a
+      // no-op on non-TTY/CI, so doctor's non-interactive and --json output stay
+      // byte-identical (this is the only path; --json never reaches runText).
+      // Guarded on stdout being a TTY so we never spawn bash in piped/CI doctor.
+      if (process.stdout.isTTY) {
+        const offerScript = resolve(REPO_ROOT, "autonomy/provider-offer.sh");
+        if (existsSync(offerScript)) {
+          spawnSync("bash", [offerScript, "report"], { stdio: "inherit" });
+        }
       }
     }
   }
