@@ -113,11 +113,26 @@ def _is_git_repo(repo_dir):
 
 
 def _rev_resolvable(repo_dir, ref):
-    """True iff `ref` resolves to a commit in repo_dir."""
+    """True iff `ref` names something in repo_dir that a diff can be taken from.
+
+    Accepts a COMMIT or a TREE. The tree case is load-bearing: a greenfield run
+    starts in a repo with no commits, so the generator records the EMPTY TREE
+    (4b825dc6...) as its baseline -- "everything that now exists". That object
+    is a tree, not a commit, so a commit-only check rejects it and the verifier
+    reports "base ref unresolvable" for a perfectly genuine proof.
+
+    `git diff <empty-tree>` works fine, so the diff really is re-derivable; only
+    the resolvability probe was too narrow. This does NOT loosen the forgery
+    defense -- an unknown or fabricated SHA still resolves as neither and is
+    still rejected.
+    """
     if not ref:
         return False
-    out = _git(repo_dir, ["rev-parse", "--verify", "--quiet", str(ref) + "^{commit}"])
-    return bool(out and out.strip())
+    for kind in ("commit", "tree"):
+        out = _git(repo_dir, ["rev-parse", "--verify", "--quiet", "%s^{%s}" % (ref, kind)])
+        if out and out.strip():
+            return True
+    return False
 
 
 def _numstat(repo_dir, base, head):

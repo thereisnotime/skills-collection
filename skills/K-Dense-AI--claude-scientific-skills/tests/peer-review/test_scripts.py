@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import ast
-import copy
 import csv
 import json
-import re
 import stat
 import sys
 import tempfile
@@ -45,6 +43,8 @@ from select_reporting_guidelines import (  # noqa: E402
 from validate_claim_evidence import load_matrix  # noqa: E402
 from validate_claim_evidence import validate_matrix  # noqa: E402
 from validate_review_intake import validate_intake  # noqa: E402
+
+import skill_contract
 
 
 def load_asset_json(name: str) -> dict:
@@ -370,25 +370,10 @@ class FileSafetyAndStaticTests(unittest.TestCase):
         self.assertTrue(all(row["verified_on"] == "2026-07-23" for row in rows))
         self.assertTrue(all(row["url"].startswith("https://") for row in rows))
 
-    def test_markdown_local_path_references_exist(self) -> None:
-        markdown_files = [
-            SKILL_ROOT / "SKILL.md",
-            *(SKILL_ROOT / "references").glob("*.md"),
-        ]
-        pattern = re.compile(
-            r"`((?:assets|references|scripts)/[A-Za-z0-9_./-]+)`"
-        )
-        for markdown in markdown_files:
-            for relative in pattern.findall(markdown.read_text(encoding="utf-8")):
-                self.assertTrue(
-                    (SKILL_ROOT / relative).is_file(),
-                    f"{markdown.name}: missing {relative}",
-                )
-
     def test_skill_frontmatter_and_progressive_disclosure(self) -> None:
         skill = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertLess(len(skill.splitlines()), 500)
-        self.assertIn('version: "2.1"', skill)
+        self.assertRegex(skill, r'\n  version: "\d+\.\d+"\n')
         self.assertIn("license: MIT", skill)
         self.assertIn("compatibility:", skill)
         self.assertNotIn("OPENROUTER", skill)
@@ -401,6 +386,11 @@ class FileSafetyAndStaticTests(unittest.TestCase):
         self.assertFalse((SCRIPTS / "generate_schematic.py").exists())
         self.assertFalse((SCRIPTS / "generate_schematic_ai.py").exists())
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

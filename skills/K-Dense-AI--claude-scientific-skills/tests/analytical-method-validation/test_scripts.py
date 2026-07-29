@@ -17,6 +17,8 @@ import sys
 import unittest
 from pathlib import Path
 
+import skill_contract
+
 SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills" / "analytical-method-validation"
 SCRIPTS_DIR = SKILL_ROOT / "scripts"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -58,7 +60,7 @@ class TestSkillStructure(unittest.TestCase):
         end = text.index("\n---\n", 4)
         front = text[4:end]
         self.assertIn("name: analytical-method-validation", front)
-        self.assertIn('version: "1.0"', front)
+        self.assertRegex(front, r'\n  version: "\d+\.\d+"\n')
         # allowed-tools must be a space-separated string, not a YAML list
         for line in front.splitlines():
             if line.startswith("allowed-tools:"):
@@ -944,6 +946,11 @@ class TestInputHandling(unittest.TestCase):
         self.assertNotIn("note:", res.stdout)
         self.assertIn("note:", res.stderr)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

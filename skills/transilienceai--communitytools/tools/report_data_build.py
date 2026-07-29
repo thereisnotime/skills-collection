@@ -114,6 +114,13 @@ def finding_from_verdict(v):
               "calibration", "ease_of_exploitation", "references"):
         if rf.get(k) is not None:
             out[k] = rf[k]
+    # MITRE technique ids. Read from the verdict OR the report fields, because a
+    # validator attributes techniques while an author may instead supply them
+    # alongside the prose. Normalised to a list so the renderer and the exporters
+    # never have to branch on scalar-vs-list.
+    attack = v.get("attack") if v.get("attack") is not None else rf.get("attack")
+    if attack:
+        out["attack"] = [attack] if isinstance(attack, str) else list(attack)
     if v.get("cves"):
         out["cves"] = v["cves"]
     # Reproducible PoC — an ordered list of {description, command, image_url} steps
@@ -161,7 +168,7 @@ def build_attack_coverage(eng_dir):
     per_class = m.get("per_class") or {}
     if not per_class:
         return None
-    tax_order = {"API-2023": 0, "Web-2021": 1, "Cross-cut": 2}
+    tax_order = {"API-2023": 0, "Web-2021": 1, "Cross-cut": 2, "MASVS-2023": 3}
     items = sorted(per_class.items(),
                    key=lambda kv: (tax_order.get((kv[1] or {}).get("taxonomy"), 9), kv[0]))
     rows = [[cid, pc.get("taxonomy", ""), (pc.get("title") or "")[:52],

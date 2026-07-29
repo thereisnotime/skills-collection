@@ -766,12 +766,58 @@ def _diff_sha256(files_changed):
 
 
 def _git_diffstat(target_dir, include_diffs):
-    """Return the final worktree diff relative to this iteration's base."""
-    return collect_workspace_diff(
-        target_dir,
-        os.environ.get("_LOKI_ITER_START_SHA", "").strip(),
-        include_diffs,
-    )
+    """Return the final worktree diff relative to the RUN's base.
+
+    The receipt is a run-level document, so its diff stat must span the WHOLE
+    run. This previously passed _LOKI_ITER_START_SHA -- the per-ITERATION
+    baseline -- so a multi-iteration run attested only to the changes since its
+    last iteration. Measured on a real 2-commit run: 850 insertions + 76
+    deletions reported where the run actually produced 1300 insertions.
+
+    That matters more than an ordinary display bug: the returned object flows
+    into _diff_sha256, the receipt's integrity hash, which is written on EVERY
+    run. A verifier recomputing it therefore attests to the understated stat,
+    and the receipt is exactly the artifact users are told to trust. (Detached
+    GPG signing is a separate opt-in layer gated on LOKI_PROOF_GPG_KEY and
+    default OFF; when enabled it signs these same bytes, but the integrity hash
+    is the always-on path.)
+
+    Order of preference:
+      1. _LOKI_RUN_START_SHA -- the run's own baseline (run.sh exports it).
+      2. The empty tree -- correct for a GREENFIELD run (a repo with no commits
+         at start), where "everything that now exists" IS the run's output and
+         there is no earlier commit to diff against.
+      3. Empty string -- let workspace_diff apply its own fallbacks.
+    """
+    base = os.environ.get("_LOKI_RUN_START_SHA", "").strip()
+    if not base:
+        # Greenfield: no baseline commit existed when the run started.
+        base = _empty_tree_sha(target_dir)
+    files_changed, diffs = collect_workspace_diff(target_dir, base, include_diffs)
+    # Return the base too. git_facts records base_sha NEXT TO diff and
+    # diff_sha256; if they disagree the signed receipt is internally
+    # inconsistent and a verifier recomputing the diff from base_sha gets a
+    # different answer than the one that was signed.
+    return files_changed, diffs, base
+
+
+def _empty_tree_sha(repo_dir):
+    """The canonical empty-tree object, or "" when git is unavailable.
+
+    Diffing against this yields "everything that currently exists", which is the
+    truthful baseline for a run that started from a repo with no commits.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "hash-object", "-t", "tree", os.devnull],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception:
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
 
 
 def _collect_iterations(loki_dir):
@@ -908,7 +954,7 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     provider_name = args.provider or os.environ.get("PROVIDER_NAME") or "claude"
     model = _collect_model(loki_dir, model_from_eff)
 
-    files_changed, diffs = _git_diffstat(target_dir, args.include_diffs)
+    files_changed, diffs, diff_base_sha = _git_diffstat(target_dir, args.include_diffs)
     iterations = _collect_iterations(loki_dir)
     spec = _collect_spec(loki_dir, target_dir)
     council = _collect_council(loki_dir)
@@ -944,7 +990,8 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     # recompute the hash. True non-forgeability requires the neutral signed record
     # (service-held key). See proof-verify.py verify() docstring.
     git_facts = {
-        "base_sha": os.environ.get("_LOKI_ITER_START_SHA", "").strip(),
+        # Must be the SAME base the diff above was computed against.
+        "base_sha": diff_base_sha,
         "head_sha": _git_head_sha(target_dir),
         "diff": files_changed,
         "diff_sha256": _diff_sha256(files_changed),

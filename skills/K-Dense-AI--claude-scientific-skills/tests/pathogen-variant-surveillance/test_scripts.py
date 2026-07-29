@@ -20,6 +20,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
+import skill_contract
+
 SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills" / "pathogen-variant-surveillance"
 SCRIPTS_DIR = SKILL_ROOT / "scripts"
 LIVE = os.environ.get("LAPIS_LIVE_TESTS") == "1"
@@ -953,6 +955,11 @@ class LiveApiTests(unittest.TestCase):
             with self.subTest(instance=name):
                 self.assertTrue(lapis_client.data_version(url))
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

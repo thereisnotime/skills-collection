@@ -65,6 +65,16 @@ raw/
 *.csv
 *.txt
 
+# Office documents. A client deliverable is far likelier to arrive as a workbook
+# or a report document than as prose, and no text lane can read one — the content
+# guard can only hash-pin binaries, never inspect them. Extension rules only, and
+# no office document is tracked today, so this is not a retroactive change.
+*.xlsx
+*.xls
+*.docx
+*.doc
+*.pptx
+
 # Benchmark runner artifacts (per-run workdirs, logs, result JSON)
 benchmarks/xbow/results/
 benchmarks/cybench/results/
@@ -76,10 +86,32 @@ benchmarks/bountybench/results/
 !.claude-plugin/marketplace.json
 !plugins/**/.claude-plugin/plugin.json
 !mcp/**/*.json
-# Skill compliance catalogs are source-of-truth data, not engagement output — keep them tracked
+# Skill compliance catalogs are source-of-truth data, not engagement output — keep them tracked.
+# Both forms: reference/catalog/ and a catalog/ nested deeper (e.g. reference/posture/catalog/).
+# The adjacency-only pattern silently excluded the latter, which is how a catalogue can validate
+# locally and be absent from CI — the same *.json trap that already hid coverage-matrix.json,
+# report-data-schema.json and example-report-data.json. tools/test_tracked_assets.py now fails
+# on any such file so the next one is caught by a test rather than by a red pipeline.
 !skills/**/reference/catalog/*.json
+!skills/**/catalog/*.json
+# The attack-class coverage catalog is the MACHINE source of truth for the whole
+# coverage gate (enumerate_cells / coverage_gate / validate_catalog all load it) and
+# the report-data schema is the contract generate_report.py renders against. Both sat
+# under the blanket *.json rule, so neither was tracked: a fresh checkout had no
+# catalog, `validate_catalog.py` could not run in CI, and the CI paths: filter that
+# names coverage-matrix.json could never fire on a file git did not know about.
+!skills/coordination/reference/coverage-matrix.json
+!skills/transilience-report-style/reference/report-data-schema.json
+# The example report_data is the third file in that same trap: SKILL.md links it twice
+# as the worked reference, and test_report_schema.py reads it. Untracked, both link
+# checks and two schema tests pass locally (the file is on the author's disk) and fail
+# on a fresh checkout — which is exactly how it reached CI red.
+!skills/transilience-report-style/reference/example-report-data.json
 # PCI SSS catalog build config (deterministic, auditable) — keep tracked
 !tools/pci-sss/*.json
+# Content-guard binary pins. MUST stay tracked: without this file the guard cannot
+# certify any binary and fails closed everywhere it runs, CI included.
+!scripts/content-guard-*.json
 # CERT-In Audit Metadata export — pinned vocabulary + intermediate-JSON schema are
 # committed source-of-truth assets the builder resolves at this path (fresh checkout / CI).
 !formats/certin-audit-metadata/enums.json
@@ -88,6 +120,15 @@ benchmarks/bountybench/results/
 # It is not redistributed here — obtain it from CERT-In and point the builder at it
 # with --template or CERTIN_TEMPLATE.
 formats/certin-audit-metadata/*.xlsx
+
+# Third-party benchmark and standard documents. CIS Benchmark Terms of Use state it is
+# NEVER acceptable to host a CIS Benchmark in ANY format on a non-CIS site, and that even
+# using portions of a Recommendation in third-party documentation needs CIS Legal's
+# written guidance. Our catalogues therefore carry control NUMBERS + our own procedure
+# text (see skills/cloud-containers/reference/posture/INDEX.md), never the source document.
+# Fails closed: PDFs are ignored by default, with existing tracked papers allowlisted.
+*.pdf
+!papers/practice-makes-perfect.pdf
 
 # Credentials and secrets
 credentials.json
@@ -148,6 +189,16 @@ Desktop.ini
 *.pem
 *.p12
 *.pfx
+# VPN profiles (often carry an inline <key> block) and cert/key material an
+# engagement or a capture proxy produces. Extension rules only — a directory rule
+# on projects/pentest/ would untrack real content. scripts/check_client_data.py
+# fails the build if one of these is tracked or staged anyway.
+*.ovpn
+*.crt
+*.cer
+*.der
+*.key
+*.jks
 # Dated engagement output dirs must never sit outside an ignored engagement tree
 [0-9][0-9][0-9][0-9][0-9][0-9]_*/
 [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*/

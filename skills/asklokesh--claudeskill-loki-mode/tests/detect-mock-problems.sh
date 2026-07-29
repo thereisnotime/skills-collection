@@ -107,6 +107,39 @@ test_has_source_import() {
     local esm_side_re="^[[:space:]]*import[[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
     local esm_continue_re="^[[:space:]]*.*[[:space:]]from[[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
     local cjs_re="require[[:space:]]*\([[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
+    # `require.resolve('./x')` names the real module just as `require('./x')`
+    # does -- it is how a subprocess/E2E test points at the source it runs.
+    # Separate pattern (not an alternation) so the path stays BASH_REMATCH[1].
+    local cjs_resolve_re="require\.resolve[[:space:]]*\([[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
+    # A test that hands a literal source path to a child process exercises the
+    # real code end-to-end without ever naming it in an import. Gated on the
+    # file importing child_process, because this flag unlocks a deliberately
+    # broad path-literal pattern -- keep the enabling condition as narrow as
+    # possible. You cannot spawn in Node without importing child_process, so
+    # matching spawnSync/execFile/fork( as well would add no true positives
+    # while letting a mock-only test that merely MENTIONS them unlock it.
+    # Two shapes, both gated on has_subprocess below:
+    #   1. an explicitly-relative path      -- './greet.js', '../src/cli.js'
+    #   2. a BARE source filename           -- path.join(__dirname, 'greet.js')
+    # Shape 2 is idiomatic Node for locating a sibling script to spawn, and it
+    # was the exact form a real benchmark build produced. Requiring a leading
+    # './' missed it and re-raised the false positive. The bare form demands a
+    # source-code EXTENSION so ordinary string literals ('utf8', 'Hello, Ada!',
+    # 'node') can never satisfy it, and local_import_is_source() still has to
+    # resolve the name to a real file on disk before it counts.
+    local subproc_re="['\"](\.{1,2}/[^'\"]+)['\"]"
+    local subproc_bare_re="['\"]([A-Za-z0-9_.-]+\.(js|jsx|mjs|cjs|ts|tsx|mts|cts|py|rb|go|sh))['\"]"
+    local has_subprocess=false
+    if grep -q "child_process" "$test_file" 2>/dev/null; then
+        has_subprocess=true
+    fi
+    # Stricter companion flag: the file must actually CALL a spawn function, not
+    # merely import the module. Guards the deliberately broad bare-filename
+    # pattern below (see its comment for the mock-only case this rejects).
+    local has_spawn_call=false
+    if grep -qE "(spawnSync|spawn|execFile|execFileSync|execSync|exec|fork)[[:space:]]*\\(" "$test_file" 2>/dev/null; then
+        has_spawn_call=true
+    fi
 
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
@@ -131,9 +164,37 @@ test_has_source_import() {
         elif [[ "$line" =~ $esm_side_re ]]; then
             spec="${BASH_REMATCH[1]}"
         elif [[ "$line" =~ ^[[:space:]]*import[[:space:]] ]]; then
-            import_open=true
+            # Only latch an UNFINISHED multi-line import. A single-line import of
+            # a NON-relative module (`import { execFileSync } from
+            # 'node:child_process';`) reaches this branch because no ./-relative
+            # pattern matched -- latching on it left import_open stuck true for
+            # the REST OF THE FILE, so every later line was swallowed by the
+            # import_open branch and the subprocess patterns never ran. Effect:
+            # an ESM subprocess test was flagged CRITICAL while the
+            # byte-identical CJS version passed. Latch only when the statement is
+            # genuinely incomplete (no from-clause and no terminator on the line).
+            if [[ ! "$line" =~ from[[:space:]]*[\'\"][^\'\"]+[\'\"] ]] && [[ "$line" != *';'* ]]; then
+                import_open=true
+            fi
+        elif [[ "$line" =~ $cjs_resolve_re ]]; then
+            spec="${BASH_REMATCH[1]}"
         elif [[ "$line" =~ $cjs_re ]]; then
             spec="${BASH_REMATCH[1]}"
+        elif [ "$has_subprocess" = true ] && [[ "$line" =~ $subproc_re ]]; then
+            spec="${BASH_REMATCH[1]}"
+        elif [ "$has_spawn_call" = true ] && [[ "$line" =~ $subproc_bare_re ]]; then
+            # Bare filename ('greet.js'), normalized so local_import_is_source()
+            # resolves it against the test's own directory.
+            #
+            # Gated on has_spawn_call, NOT has_subprocess. An adversarial review
+            # produced a mock-only test that imports child_process, assigns
+            # `const TARGET_NAME = 'greet.js'`, then asserts on an INLINE stub and
+            # never spawns anything -- importing alone let that pass, blinding a
+            # fail-closed gate. Requiring an actual spawn INVOCATION somewhere in
+            # the file keeps the legitimate shapes (path.join(__dirname,'x.js')
+            # assigned on one line and spawned on the next) while rejecting a file
+            # that merely imports the module.
+            spec="./${BASH_REMATCH[1]}"
         fi
 
         if [ -n "$spec" ] && local_import_is_source "$test_file" "$spec"; then

@@ -25,6 +25,8 @@ import detect_resources  # noqa: E402
 import plan_workload  # noqa: E402
 import snapshot_tools  # noqa: E402
 
+import skill_contract
+
 
 CASES = json.loads(FIXTURES.read_text(encoding="utf-8"))
 GIB = 1024**3
@@ -509,6 +511,11 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan["checks"][0]["commands"][0][0], "nvidia-smi")
         self.assertIn("stress tests or large allocations", plan["prohibited_actions"])
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

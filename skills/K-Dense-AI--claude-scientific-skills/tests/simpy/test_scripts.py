@@ -11,8 +11,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+import pytest
 from pathlib import Path
 
+# Guarded so a bare project-environment run skips cleanly instead of failing
+# collection; the real run is `tests/run_all.py --isolated simpy`.
+pytest.importorskip("simpy", reason="simpy needs simpy")
 import simpy
 
 

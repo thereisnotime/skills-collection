@@ -63,7 +63,13 @@ SENTINEL="ORIGINAL-CONTENT-DO-NOT-CLOBBER"
 #    regression is back.
 # ---------------------------------------------------------------------------
 printf '%s\n' "$SENTINEL" > out.md
-timeout 15 bash "$LOKI_BIN" export markdown out.md > t1.log 2>&1
+# `env -u CI -u LOKI_AUTO_CONFIRM` is load-bearing. This case asserts the DECLINE
+# path: non-interactive with no auto-confirm signal must leave the file intact.
+# Cases 2 and 3 below assert the opposite for LOKI_AUTO_CONFIRM=1 and CI=true --
+# so inheriting CI here makes the suite contradict itself. GitHub Actions exports
+# CI=true for every step, which is exactly what happened: this case failed on the
+# runner while the CI=true case passed, for the same underlying behavior.
+timeout 15 env -u CI -u LOKI_AUTO_CONFIRM bash "$LOKI_BIN" export markdown out.md > t1.log 2>&1
 rc=$?
 if [ "$rc" -eq 124 ]; then
     fail "non-interactive existing file terminates" "TIMED OUT (rc 124) -- the prompt is blocking again"

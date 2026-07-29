@@ -17,7 +17,12 @@ PASS predicates per applicable cell:
   covered_negative   -> {status:covered_negative, e_id in experiments.md}, not contradicted
                         by a VALID finding, and per negative_kind:
                           reachability  -> >= min_vantages distinct VERIFIED regions in
-                                           source-ips.jsonl (verified:false excluded)
+                                           source-ips.jsonl. A region counts only from a
+                                           vantage-role row (attack-vm|vpn) that is
+                                           verified:true AND whose probe_evidence file
+                                           exists and contains that row's own IP; regions
+                                           are deduped by observed IP first. Registration
+                                           alone never counts — see verify_source_ip.py.
                           active_probe  -> a non-agent corroborator (tools/*.md 'Experiment:'
                                            header, or an existing 'corroborator' file)
                           none          -> the experiment reference alone suffices
@@ -117,8 +122,50 @@ def load_tool_eids(asset_dir: str) -> set:
     return ids
 
 
+# Only a real attacking position can be a distinct vantage. A proxy is not a
+# geography; the primary runner is the baseline the second vantage is compared
+# against, not a second vantage itself.
+VANTAGE_ROLES = {"attack-vm", "vpn"}
+
+
+def _probe_evidence_ok(row, root) -> bool:
+    """True iff the row's probe_evidence names a readable file that actually
+    contains the row's own IP — the same corroborator-file pattern as
+    _is_corroborated. Written only by tools/verify_source_ip.py."""
+    rel = row.get("probe_evidence")
+    ip = row.get("ip")
+    if not rel or not ip:
+        return False
+    path = os.path.join(root, rel)
+    if not os.path.isfile(path):
+        return False
+    try:
+        if os.path.getsize(path) <= 0:
+            return False
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return ip in fh.read()
+    except OSError:
+        return False
+
+
 def load_verified_regions(dirs) -> set:
-    regions = set()
+    """Regions that count as distinct vantages for a reachability negative.
+
+    A row counts only when ALL of these hold:
+      * role is a vantage role (attack-vm | vpn);
+      * verified is true AND probe_evidence names a readable file containing the
+        row's IP — "registered" is not "proven", and only verify_source_ip.py
+        can produce that pairing;
+      * region is non-empty.
+
+    Regions are deduped BY OBSERVED IP first, so re-registering one egress under
+    two region spellings ("us-east" and "us-east-2") cannot manufacture a second
+    vantage. First region seen for an IP wins.
+
+    Note this is deliberately region-keyed, not ASN-keyed: eval_cell intersects
+    this set with the agent-authored entry["vantages"], which are region strings.
+    """
+    by_ip = {}
     for d in dirs:
         path = os.path.join(d, "logs", "activity", "source-ips.jsonl")
         if not os.path.isfile(path):
@@ -131,9 +178,14 @@ def load_verified_regions(dirs) -> set:
                 row = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if row.get("verified") and row.get("region"):
-                regions.add(row["region"])
-    return regions
+            if row.get("role") not in VANTAGE_ROLES:
+                continue
+            if not (row.get("verified") and row.get("region") and row.get("ip")):
+                continue
+            if not _probe_evidence_ok(row, d):
+                continue
+            by_ip.setdefault(row["ip"], row["region"])
+    return set(by_ip.values())
 
 
 # --- per-cell verdict --------------------------------------------------------
@@ -207,6 +259,15 @@ def eval_cell(cell, ctx):
     if status == "NA":
         return False, "na_fabrication", None
     if status == "deferred":
+        # A DEVICE excuse is only valid for a cell that genuinely needs a device.
+        # proof_mode "static" (provable from the artifact) and "either" (provable
+        # either way) both leave the static route open when no device is available,
+        # so deferring them on blocked_on:"device" would sweep away work nobody was
+        # prevented from doing — exactly the loophole the DAST gate exists to close.
+        # Deferrals for any OTHER reason (no test tenant, no credentials, client
+        # policy) are unaffected and still available to every cell.
+        if entry.get("blocked_on") == "device" and cell.get("proof_mode", "either") != "runtime":
+            return False, "deferred_device_excuse_on_provable_cell", None
         # Substantiation guard: a deferred cell must name a reason AND a client-input
         # request that resolves to a real on-disk file (like _is_corroborated). Two
         # agent-authored strings alone can never exempt a cell from the 100% gate.
@@ -305,6 +366,7 @@ def run_gate(root: str, single: bool, accept_deferrals: bool = False) -> dict:
             passed, reason, mode = eval_cell(c, ctx)
             rec = {"asset_tag": asset_tag, "scope": c["scope"], "scope_key": c["scope_key"],
                    "class_id": c["class_id"], "passed": passed, "reason": reason,
+                   "proof_mode": c.get("proof_mode", "either"),
                    "equiv_group": c.get("equiv_group")}
             if mode == "covered_equiv":
                 rec["representative"] = ctx.get("chosen_rep")
@@ -444,7 +506,10 @@ def _emit_open(result: dict) -> None:
     elif len(openc) <= 60:
         for r in openc:
             eq = f" [equiv:{r['equiv_group']}]" if r.get("equiv_group") else ""
-            print(f"OPEN {r['class_id']} @ {r['scope_key']} ({r['asset_tag']}){eq} — {r['reason']}")
+            # a runtime cell cannot be closed from the artifact — route it to a
+            # device-bearing mission rather than another static pass
+            pm = " [runtime]" if r.get("proof_mode") == "runtime" else ""
+            print(f"OPEN {r['class_id']} @ {r['scope_key']} ({r['asset_tag']}){eq}{pm} — {r['reason']}")
     else:
         by_class = defaultdict(int)
         for r in openc:

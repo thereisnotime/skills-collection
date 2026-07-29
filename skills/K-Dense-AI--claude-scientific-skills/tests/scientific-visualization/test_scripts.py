@@ -24,6 +24,8 @@ import image_metadata  # noqa: E402
 import palette_audit  # noqa: E402
 import style_presets  # noqa: E402
 
+import skill_contract
+
 
 class CommonSafetyTests(unittest.TestCase):
     def test_json_output_is_private_and_refuses_overwrite(self) -> None:
@@ -340,6 +342,11 @@ class ExportTests(unittest.TestCase):
             finally:
                 plt.close(fig)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

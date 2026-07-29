@@ -22,6 +22,8 @@ import discover_metadata as discover  # noqa: E402
 import load_and_split_data as loader  # noqa: E402
 import molecular_generation as molecular  # noqa: E402
 
+import skill_contract
+
 
 class WorkingDirectoryTestCase(unittest.TestCase):
     def setUp(self) -> None:
@@ -217,6 +219,11 @@ class CacheAuditTests(WorkingDirectoryTestCase):
         self.assertEqual(result["largest_files"][0]["path"], "large.pkl")
         self.assertEqual(result["symlink_count_skipped"], 1)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SCRIPTS.parent)
 
 if __name__ == "__main__":
     unittest.main()

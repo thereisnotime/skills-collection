@@ -19,6 +19,8 @@ import unittest
 from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
 
+import skill_contract
+
 SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills" / "genomic-coordinates"
 SCRIPTS_DIR = SKILL_ROOT / "scripts"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -607,7 +609,7 @@ class SkillStructureTests(unittest.TestCase):
 
     def test_version_is_a_quoted_string(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn('version: "1.0"', text)
+        self.assertRegex(text, r'\n  version: "\d+\.\d+"\n')
 
     def test_skill_md_is_within_the_line_budget(self):
         lines = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8").splitlines()
@@ -649,6 +651,11 @@ class SkillStructureTests(unittest.TestCase):
                 with self.subTest(script=script.name, module=module):
                     self.assertNotIn(module.split(".")[0], third_party)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

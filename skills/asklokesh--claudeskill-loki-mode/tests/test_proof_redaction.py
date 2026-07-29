@@ -364,7 +364,7 @@ class RedactionEndToEndTests(unittest.TestCase):
         # concrete prefix to collapse; the generic /Users//home/ rules also fire.
         env["HOME"] = "/Users/secretuser"
         env.pop("PRD_PATH", None)
-        env.pop("_LOKI_ITER_START_SHA", None)
+        env.pop("_LOKI_RUN_START_SHA", None)
         r = subprocess.run(cmd, capture_output=True, text=True, env=env,
                            timeout=60)
         self.assertEqual(r.returncode, 0, "generator failed: %s" % r.stderr)

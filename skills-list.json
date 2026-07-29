@@ -11728,7 +11728,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
       "lines": 452,
-      "words": 3963,
+      "words": 4135,
       "code_blocks": 4,
       "languages": []
     },
@@ -11737,8 +11737,8 @@
       "description": "\"Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-researc",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
-      "lines": 640,
-      "words": 5747,
+      "lines": 643,
+      "words": 5961,
       "code_blocks": 11,
       "languages": []
     },
@@ -12000,8 +12000,8 @@
       "description": "\"Synthesizes all reviewer reports into a unified editorial decision letter and revision roadmap\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
-      "lines": 439,
-      "words": 5420,
+      "lines": 441,
+      "words": 5527,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12059,8 +12059,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 983,
-      "words": 16032,
+      "lines": 1004,
+      "words": 17278,
       "code_blocks": 18,
       "languages": []
     },
@@ -12080,7 +12080,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/state_tracker_agent.md",
       "remote_path": "academic-pipeline/agents/state_tracker_agent.md",
       "lines": 507,
-      "words": 2241,
+      "words": 2303,
       "code_blocks": 6,
       "languages": [
         "json"
@@ -12091,8 +12091,8 @@
       "description": "\"Verifies all references, citations, and data for factual accuracy before submission and after revision\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
-      "lines": 745,
-      "words": 7841,
+      "lines": 746,
+      "words": 7963,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -12504,8 +12504,8 @@
       "description": "Unified Python interface to 40+ bioinformatics services. Use when querying multiple databases (UniProt, KEGG, ChEMBL, Reactome) in a single workflow with consistent API. Best for cross-database analys",
       "path": "K-Dense-AI--claude-scientific-skills/skills/bioservices/SKILL.md",
       "remote_path": "skills/bioservices/SKILL.md",
-      "lines": 392,
-      "words": 1405,
+      "lines": 400,
+      "words": 1474,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -12597,12 +12597,12 @@
     },
     {
       "name": "paper-lookup",
-      "description": "Search 10 academic literature APIs for papers, preprints, citations, and open-access full text, and return results with reproducible provenance. Covers PubMed, PMC (full text), bioRxiv, medRxiv, arXiv",
+      "description": "Search 11 academic literature APIs for papers, preprints, citations, and open-access full text, and return results with reproducible provenance. Covers PubMed, PMC (full text), Europe PMC (full-text a",
       "path": "K-Dense-AI--claude-scientific-skills/skills/paper-lookup/SKILL.md",
       "remote_path": "skills/paper-lookup/SKILL.md",
-      "lines": 215,
-      "words": 2301,
-      "code_blocks": 2,
+      "lines": 264,
+      "words": 3282,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
@@ -12613,8 +12613,8 @@
       "description": "Query the Precision Medicine Knowledge Graph (PrimeKG) for multiscale biological data including genes, drugs, diseases, phenotypes, and more.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/primekg/SKILL.md",
       "remote_path": "skills/primekg/SKILL.md",
-      "lines": 99,
-      "words": 467,
+      "lines": 100,
+      "words": 484,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -13083,7 +13083,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/pymc/SKILL.md",
       "remote_path": "skills/pymc/SKILL.md",
       "lines": 311,
-      "words": 1262,
+      "words": 1273,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -13219,8 +13219,8 @@
       "description": "Build and analyze phylogenetic trees using MAFFT (multiple alignment), IQ-TREE 2 (maximum likelihood), and FastTree (fast NJ/ML). Visualize with ETE3 or FigTree. For evolutionary analysis, microbial g",
       "path": "K-Dense-AI--claude-scientific-skills/skills/phylogenetics/SKILL.md",
       "remote_path": "skills/phylogenetics/SKILL.md",
-      "lines": 406,
-      "words": 1543,
+      "lines": 410,
+      "words": 1570,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -13271,8 +13271,8 @@
       "description": "Particle Image Velocimetry (PIV) analysis with OpenPIV. Use when extracting velocity fields from PIV image pairs, analyzing fluid dynamics or flow visualization experiments, cross-correlating interrog",
       "path": "K-Dense-AI--claude-scientific-skills/skills/openpiv/SKILL.md",
       "remote_path": "skills/openpiv/SKILL.md",
-      "lines": 464,
-      "words": 2178,
+      "lines": 470,
+      "words": 2252,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -13444,6 +13444,20 @@
         "python"
       ],
       "license": "Apache-2.0 license"
+    },
+    {
+      "name": "paperclip",
+      "description": "Search and read full-text biomedical papers, FDA/PMDA/EMA regulatory documents, clinical trial registries, and UniProt/PDB/ChEMBL entries with the Paperclip CLI from GXL. Covers installing and authent",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/paperclip/SKILL.md",
+      "remote_path": "skills/paperclip/SKILL.md",
+      "lines": 414,
+      "words": 3167,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "text"
+      ],
+      "license": "MIT"
     },
     {
       "name": "diffdock",
@@ -13752,8 +13766,8 @@
       "description": "Query and download public cancer imaging data from NCI Imaging Data Commons using idc-index. Use for accessing large-scale radiology (CT, MR, PET) and pathology datasets for AI training or research. N",
       "path": "K-Dense-AI--claude-scientific-skills/skills/imaging-data-commons/SKILL.md",
       "remote_path": "skills/imaging-data-commons/SKILL.md",
-      "lines": 402,
-      "words": 2922,
+      "lines": 408,
+      "words": 3065,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -13763,11 +13777,11 @@
     },
     {
       "name": "liteparse",
-      "description": "Local document and PDF parsing with spatial text and bounding boxes. Use for extracting text from PDFs, DOCX, Office files, and images; OCR on scans; layout-preserved JSON for RAG; batch-ingesting pap",
+      "description": "Local document and PDF parsing that returns spatial text with bounding boxes. Use for extracting text from PDFs, DOCX, Office files, and images; running OCR on scans; producing layout-preserved JSON f",
       "path": "K-Dense-AI--claude-scientific-skills/skills/liteparse/SKILL.md",
       "remote_path": "skills/liteparse/SKILL.md",
       "lines": 296,
-      "words": 1199,
+      "words": 1192,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -13904,8 +13918,8 @@
       "description": "Extract cognitive patterns and thinking fingerprints from any text. Use this skill when the user wants to analyze how someone thinks, understand cognitive style, profile writing or speech patterns, co",
       "path": "K-Dense-AI--claude-scientific-skills/skills/dhdna-profiler/SKILL.md",
       "remote_path": "skills/dhdna-profiler/SKILL.md",
-      "lines": 164,
-      "words": 1256,
+      "lines": 185,
+      "words": 1490,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT license"
@@ -14039,8 +14053,8 @@
       "description": "RNA velocity analysis with scVelo. Estimate cell state transitions from unspliced/spliced mRNA dynamics, infer trajectory directions, compute latent time, and identify driver genes in single-cell RNA-",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scvelo/SKILL.md",
       "remote_path": "skills/scvelo/SKILL.md",
-      "lines": 323,
-      "words": 1193,
+      "lines": 329,
+      "words": 1264,
       "code_blocks": 9,
       "languages": [
         "python"
@@ -14118,6 +14132,19 @@
         "python"
       ],
       "license": "Apache-2.0 license"
+    },
+    {
+      "name": "pkpd-modeling",
+      "description": "Pharmacokinetic and pharmacodynamic modelling and simulation - non-compartmental analysis, compartmental and population PK, PK/PD and exposure-response, TMDD, PBPK orientation, bioequivalence, allomet",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/pkpd-modeling/SKILL.md",
+      "remote_path": "skills/pkpd-modeling/SKILL.md",
+      "lines": 382,
+      "words": 2989,
+      "code_blocks": 20,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "dask",
@@ -14402,39 +14429,38 @@
   "K-Dense-AI--claude-scientific-writer": [
     {
       "name": "hypothesis-generation",
-      "description": "Structured hypothesis formulation from observations. Use when you have experimental observations or data and need to formulate testable hypotheses with predictions, propose mechanisms, and design expe",
+      "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-writer/skills/hypothesis-generation/SKILL.md",
       "remote_path": "skills/hypothesis-generation/SKILL.md",
-      "lines": 298,
-      "words": 1823,
-      "code_blocks": 3,
+      "lines": 265,
+      "words": 1811,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "scientific-writing",
-      "description": "Core skill for the deep research and writing tool. Write scientific manuscripts in full paragraphs (never bullet points). Use two-stage process with (1) section outlines with key points using research",
+      "description": "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency c",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-writing/SKILL.md",
       "remote_path": "skills/scientific-writing/SKILL.md",
-      "lines": 718,
-      "words": 4367,
-      "code_blocks": 9,
+      "lines": 357,
+      "words": 1608,
+      "code_blocks": 8,
       "languages": [
         "bash",
-        "latex"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "parallel-web",
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-writer/skills/parallel-web/SKILL.md",
       "remote_path": "skills/parallel-web/SKILL.md",
-      "lines": 121,
-      "words": 877,
+      "lines": 129,
+      "words": 878,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14460,8 +14486,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-writer/skills/research-lookup/SKILL.md",
       "remote_path": "skills/research-lookup/SKILL.md",
-      "lines": 328,
-      "words": 1751,
+      "lines": 339,
+      "words": 1753,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -14474,9 +14500,9 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-slides/SKILL.md",
       "remote_path": "skills/scientific-slides/SKILL.md",
-      "lines": 1155,
-      "words": 6401,
-      "code_blocks": 23,
+      "lines": 380,
+      "words": 2596,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "markdown"
@@ -14485,137 +14511,131 @@
     },
     {
       "name": "clinical-reports",
-      "description": "Write comprehensive clinical reports including case reports (CARE guidelines), diagnostic reports (radiology/pathology/lab), clinical trial reports (ICH-E3, SAE, CSR), and patient documentation (SOAP,",
+      "description": "Create safety-bounded draft structures and run local deterministic checks for clinical case, diagnostic, trial, safety, and aggregate research reports. Use only with synthetic, de-identified, or aggre",
       "path": "K-Dense-AI--claude-scientific-writer/skills/clinical-reports/SKILL.md",
       "remote_path": "skills/clinical-reports/SKILL.md",
-      "lines": 1132,
-      "words": 5399,
-      "code_blocks": 1,
+      "lines": 249,
+      "words": 1673,
+      "code_blocks": 7,
       "languages": [
         "bash"
       ],
-      "license": "MIT License"
+      "license": "MIT"
     },
     {
       "name": "citation-management",
       "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
       "path": "K-Dense-AI--claude-scientific-writer/skills/citation-management/SKILL.md",
       "remote_path": "skills/citation-management/SKILL.md",
-      "lines": 1251,
-      "words": 5155,
-      "code_blocks": 35,
+      "lines": 322,
+      "words": 1638,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "bibtex",
-        "json"
+        "bash"
       ],
       "license": "MIT License"
     },
     {
       "name": "pptx-posters",
-      "description": "Create research posters using HTML/CSS that can be exported to PDF or PPTX. Use this skill ONLY when the user explicitly requests PowerPoint/PPTX poster format. For standard research posters, use late",
+      "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-writer/skills/pptx-posters/SKILL.md",
       "remote_path": "skills/pptx-posters/SKILL.md",
-      "lines": 415,
-      "words": 2054,
-      "code_blocks": 15,
+      "lines": 259,
+      "words": 1301,
+      "code_blocks": 7,
       "languages": [
         "bash",
-        "css",
-        "html",
-        "python"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images using AI models (FLUX, Nano Banana 2). Use for general-purpose image generation including photos, illustrations, artwork, visual assets, concept art, and any image that is not ",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
       "path": "K-Dense-AI--claude-scientific-writer/skills/generate-image/SKILL.md",
       "remote_path": "skills/generate-image/SKILL.md",
-      "lines": 183,
-      "words": 921,
-      "code_blocks": 11,
+      "lines": 216,
+      "words": 1166,
+      "code_blocks": 6,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "peer-review",
-      "description": "Structured manuscript/grant review with checklist-based evaluation. Use when writing formal peer reviews with specific criteria methodology assessment, statistical validity, reporting standards compli",
+      "description": "Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific manuscripts, protocols, preprints, or research proposals; repor",
       "path": "K-Dense-AI--claude-scientific-writer/skills/peer-review/SKILL.md",
       "remote_path": "skills/peer-review/SKILL.md",
-      "lines": 572,
-      "words": 3247,
-      "code_blocks": 5,
+      "lines": 289,
+      "words": 1422,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "scientific-schematics",
-      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.1 Pro Preview for quality review. Only regenerates if quality is below threshold fo",
+      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-schematics/SKILL.md",
       "remote_path": "skills/scientific-schematics/SKILL.md",
-      "lines": 619,
-      "words": 3136,
-      "code_blocks": 21,
+      "lines": 383,
+      "words": 2076,
+      "code_blocks": 6,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
     {
       "name": "markitdown",
-      "description": "Convert files and office documents to Markdown. Supports PDF, DOCX, PPTX, XLSX, images (with OCR), audio (with transcription), HTML, CSV, JSON, XML, ZIP, YouTube URLs, EPubs and more.",
+      "description": "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats",
       "path": "K-Dense-AI--claude-scientific-writer/skills/markitdown/SKILL.md",
       "remote_path": "skills/markitdown/SKILL.md",
-      "lines": 489,
-      "words": 1558,
-      "code_blocks": 24,
+      "lines": 265,
+      "words": 1358,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "python"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "clinical-decision-support",
-      "description": "Generate professional clinical decision support (CDS) documents for pharmaceutical and clinical research settings, including patient cohort analyses (biomarker-stratified with outcomes) and treatment ",
+      "description": "Prepare and validate research-only clinical decision-support evaluation, evidence-profile, cohort, survival, biomarker/model, privacy, and governance artifacts. Use for aggregate or synthetic research",
       "path": "K-Dense-AI--claude-scientific-writer/skills/clinical-decision-support/SKILL.md",
       "remote_path": "skills/clinical-decision-support/SKILL.md",
-      "lines": 510,
-      "words": 3222,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "latex"
-      ],
-      "license": "MIT License"
-    },
-    {
-      "name": "scholar-evaluation",
-      "description": "Systematically evaluate scholarly work using the ScholarEval framework, providing structured assessment across research quality dimensions including problem formulation, methodology, analysis, and wri",
-      "path": "K-Dense-AI--claude-scientific-writer/skills/scholar-evaluation/SKILL.md",
-      "remote_path": "skills/scholar-evaluation/SKILL.md",
-      "lines": 299,
-      "words": 1600,
-      "code_blocks": 2,
+      "lines": 239,
+      "words": 1495,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
+    },
+    {
+      "name": "scholar-evaluation",
+      "description": "Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics with optional local quality controls. Never use for ranking peopl",
+      "path": "K-Dense-AI--claude-scientific-writer/skills/scholar-evaluation/SKILL.md",
+      "remote_path": "skills/scholar-evaluation/SKILL.md",
+      "lines": 297,
+      "words": 1266,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "research-grants",
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-writer/skills/research-grants/SKILL.md",
       "remote_path": "skills/research-grants/SKILL.md",
-      "lines": 929,
-      "words": 4843,
+      "lines": 297,
+      "words": 1673,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14624,44 +14644,41 @@
     },
     {
       "name": "treatment-plans",
-      "description": "Generate concise (3-4 page), focused medical treatment plans in LaTeX/PDF format for all clinical specialties. Supports general medical treatment, rehabilitation therapy, mental health care, chronic d",
+      "description": "Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by authorized licensed professionals. Use for source traceability, ",
       "path": "K-Dense-AI--claude-scientific-writer/skills/treatment-plans/SKILL.md",
       "remote_path": "skills/treatment-plans/SKILL.md",
-      "lines": 1581,
-      "words": 6658,
-      "code_blocks": 30,
+      "lines": 175,
+      "words": 1197,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "market-research-reports",
-      "description": "Generate comprehensive market research reports (50+ pages) in the style of top consulting firms (McKinsey, BCG, Gartner). Features professional LaTeX formatting, extensive visual generation with scien",
+      "description": "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/S",
       "path": "K-Dense-AI--claude-scientific-writer/skills/market-research-reports/SKILL.md",
       "remote_path": "skills/market-research-reports/SKILL.md",
-      "lines": 905,
-      "words": 3848,
-      "code_blocks": 14,
+      "lines": 338,
+      "words": 1605,
+      "code_blocks": 9,
       "languages": [
         "bash",
-        "latex"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "literature-review",
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-writer/skills/literature-review/SKILL.md",
       "remote_path": "skills/literature-review/SKILL.md",
-      "lines": 707,
-      "words": 3703,
-      "code_blocks": 22,
+      "lines": 264,
+      "words": 1546,
+      "code_blocks": 5,
       "languages": [
-        "bash",
-        "markdown",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
@@ -14670,12 +14687,11 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-writer/skills/latex-posters/SKILL.md",
       "remote_path": "skills/latex-posters/SKILL.md",
-      "lines": 1597,
-      "words": 8614,
-      "code_blocks": 48,
+      "lines": 370,
+      "words": 2111,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ]
     },
     {
@@ -14683,8 +14699,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-writer/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": "skills/scientific-critical-thinking/SKILL.md",
-      "lines": 560,
-      "words": 2979,
+      "lines": 181,
+      "words": 1103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14693,25 +14709,24 @@
     },
     {
       "name": "infographics",
-      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3 Pro for quality review. Integrates research-lookup and web search for accurate data. Supports ",
+      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-writer/skills/infographics/SKILL.md",
       "remote_path": "skills/infographics/SKILL.md",
-      "lines": 566,
-      "words": 2252,
-      "code_blocks": 24,
+      "lines": 316,
+      "words": 1414,
+      "code_blocks": 9,
       "languages": [
-        "bash",
-        "json"
+        "bash"
       ]
     },
     {
       "name": "pptx",
-      "description": "\"Use this skill any time a .pptx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from ",
+      "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-writer/skills/document-skills/pptx/SKILL.md",
       "remote_path": "skills/document-skills/pptx/SKILL.md",
-      "lines": 234,
-      "words": 1418,
-      "code_blocks": 6,
+      "lines": 247,
+      "words": 3157,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ],
@@ -14719,31 +14734,27 @@
     },
     {
       "name": "xlsx",
-      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, and tabu",
+      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
       "path": "K-Dense-AI--claude-scientific-writer/skills/document-skills/xlsx/SKILL.md",
       "remote_path": "skills/document-skills/xlsx/SKILL.md",
-      "lines": 328,
-      "words": 1668,
-      "code_blocks": 12,
+      "lines": 111,
+      "words": 1274,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "docx",
-      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce",
+      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-writer/skills/document-skills/docx/SKILL.md",
       "remote_path": "skills/document-skills/docx/SKILL.md",
-      "lines": 592,
-      "words": 2614,
-      "code_blocks": 34,
+      "lines": 100,
+      "words": 1003,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "javascript",
-        "xml"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
@@ -14752,8 +14763,8 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-writer/skills/document-skills/pdf/SKILL.md",
       "remote_path": "skills/document-skills/pdf/SKILL.md",
-      "lines": 316,
-      "words": 1010,
+      "lines": 323,
+      "words": 1046,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -14763,39 +14774,38 @@
     },
     {
       "name": "hypothesis-generation",
-      "description": "Structured hypothesis formulation from observations. Use when you have experimental observations or data and need to formulate testable hypotheses with predictions, propose mechanisms, and design expe",
+      "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/hypothesis-generation/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/hypothesis-generation/SKILL.md",
-      "lines": 298,
-      "words": 1823,
-      "code_blocks": 3,
+      "lines": 265,
+      "words": 1811,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "scientific-writing",
-      "description": "Core skill for the deep research and writing tool. Write scientific manuscripts in full paragraphs (never bullet points). Use two-stage process with (1) section outlines with key points using research",
+      "description": "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency c",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-writing/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-writing/SKILL.md",
-      "lines": 718,
-      "words": 4367,
-      "code_blocks": 9,
+      "lines": 357,
+      "words": 1608,
+      "code_blocks": 8,
       "languages": [
         "bash",
-        "latex"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "parallel-web",
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/parallel-web/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/parallel-web/SKILL.md",
-      "lines": 121,
-      "words": 877,
+      "lines": 129,
+      "words": 878,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14821,8 +14831,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/research-lookup/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/research-lookup/SKILL.md",
-      "lines": 328,
-      "words": 1751,
+      "lines": 339,
+      "words": 1753,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -14835,9 +14845,9 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-slides/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-slides/SKILL.md",
-      "lines": 1155,
-      "words": 6401,
-      "code_blocks": 23,
+      "lines": 380,
+      "words": 2596,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "markdown"
@@ -14846,137 +14856,131 @@
     },
     {
       "name": "clinical-reports",
-      "description": "Write comprehensive clinical reports including case reports (CARE guidelines), diagnostic reports (radiology/pathology/lab), clinical trial reports (ICH-E3, SAE, CSR), and patient documentation (SOAP,",
+      "description": "Create safety-bounded draft structures and run local deterministic checks for clinical case, diagnostic, trial, safety, and aggregate research reports. Use only with synthetic, de-identified, or aggre",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/clinical-reports/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/clinical-reports/SKILL.md",
-      "lines": 1132,
-      "words": 5399,
-      "code_blocks": 1,
+      "lines": 249,
+      "words": 1673,
+      "code_blocks": 7,
       "languages": [
         "bash"
       ],
-      "license": "MIT License"
+      "license": "MIT"
     },
     {
       "name": "citation-management",
       "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/citation-management/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/citation-management/SKILL.md",
-      "lines": 1251,
-      "words": 5155,
-      "code_blocks": 35,
+      "lines": 322,
+      "words": 1638,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "bibtex",
-        "json"
+        "bash"
       ],
       "license": "MIT License"
     },
     {
       "name": "pptx-posters",
-      "description": "Create research posters using HTML/CSS that can be exported to PDF or PPTX. Use this skill ONLY when the user explicitly requests PowerPoint/PPTX poster format. For standard research posters, use late",
+      "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/pptx-posters/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/pptx-posters/SKILL.md",
-      "lines": 415,
-      "words": 2054,
-      "code_blocks": 15,
+      "lines": 259,
+      "words": 1301,
+      "code_blocks": 7,
       "languages": [
         "bash",
-        "css",
-        "html",
-        "python"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images using AI models (FLUX, Nano Banana 2). Use for general-purpose image generation including photos, illustrations, artwork, visual assets, concept art, and any image that is not ",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/generate-image/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/generate-image/SKILL.md",
-      "lines": 183,
-      "words": 921,
-      "code_blocks": 11,
+      "lines": 216,
+      "words": 1166,
+      "code_blocks": 6,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "peer-review",
-      "description": "Structured manuscript/grant review with checklist-based evaluation. Use when writing formal peer reviews with specific criteria methodology assessment, statistical validity, reporting standards compli",
+      "description": "Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific manuscripts, protocols, preprints, or research proposals; repor",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/peer-review/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/peer-review/SKILL.md",
-      "lines": 572,
-      "words": 3247,
-      "code_blocks": 5,
+      "lines": 289,
+      "words": 1422,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "scientific-schematics",
-      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.1 Pro Preview for quality review. Only regenerates if quality is below threshold fo",
+      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-schematics/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-schematics/SKILL.md",
-      "lines": 619,
-      "words": 3136,
-      "code_blocks": 21,
+      "lines": 383,
+      "words": 2076,
+      "code_blocks": 6,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
     {
       "name": "markitdown",
-      "description": "Convert files and office documents to Markdown. Supports PDF, DOCX, PPTX, XLSX, images (with OCR), audio (with transcription), HTML, CSV, JSON, XML, ZIP, YouTube URLs, EPubs and more.",
+      "description": "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/markitdown/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/markitdown/SKILL.md",
-      "lines": 489,
-      "words": 1558,
-      "code_blocks": 24,
+      "lines": 265,
+      "words": 1358,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "python"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "clinical-decision-support",
-      "description": "Generate professional clinical decision support (CDS) documents for pharmaceutical and clinical research settings, including patient cohort analyses (biomarker-stratified with outcomes) and treatment ",
+      "description": "Prepare and validate research-only clinical decision-support evaluation, evidence-profile, cohort, survival, biomarker/model, privacy, and governance artifacts. Use for aggregate or synthetic research",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/clinical-decision-support/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/clinical-decision-support/SKILL.md",
-      "lines": 510,
-      "words": 3222,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "latex"
-      ],
-      "license": "MIT License"
-    },
-    {
-      "name": "scholar-evaluation",
-      "description": "Systematically evaluate scholarly work using the ScholarEval framework, providing structured assessment across research quality dimensions including problem formulation, methodology, analysis, and wri",
-      "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
-      "remote_path": "scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
-      "lines": 299,
-      "words": 1600,
-      "code_blocks": 2,
+      "lines": 239,
+      "words": 1495,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
+    },
+    {
+      "name": "scholar-evaluation",
+      "description": "Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics with optional local quality controls. Never use for ranking peopl",
+      "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
+      "remote_path": "scientific_writer/.claude/skills/scholar-evaluation/SKILL.md",
+      "lines": 297,
+      "words": 1266,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "research-grants",
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/research-grants/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/research-grants/SKILL.md",
-      "lines": 929,
-      "words": 4843,
+      "lines": 297,
+      "words": 1673,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14985,44 +14989,41 @@
     },
     {
       "name": "treatment-plans",
-      "description": "Generate concise (3-4 page), focused medical treatment plans in LaTeX/PDF format for all clinical specialties. Supports general medical treatment, rehabilitation therapy, mental health care, chronic d",
+      "description": "Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by authorized licensed professionals. Use for source traceability, ",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/treatment-plans/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/treatment-plans/SKILL.md",
-      "lines": 1581,
-      "words": 6658,
-      "code_blocks": 30,
+      "lines": 175,
+      "words": 1197,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "market-research-reports",
-      "description": "Generate comprehensive market research reports (50+ pages) in the style of top consulting firms (McKinsey, BCG, Gartner). Features professional LaTeX formatting, extensive visual generation with scien",
+      "description": "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/S",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/market-research-reports/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/market-research-reports/SKILL.md",
-      "lines": 905,
-      "words": 3848,
-      "code_blocks": 14,
+      "lines": 338,
+      "words": 1605,
+      "code_blocks": 9,
       "languages": [
         "bash",
-        "latex"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "literature-review",
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/literature-review/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/literature-review/SKILL.md",
-      "lines": 707,
-      "words": 3703,
-      "code_blocks": 22,
+      "lines": 264,
+      "words": 1546,
+      "code_blocks": 5,
       "languages": [
-        "bash",
-        "markdown",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
@@ -15031,12 +15032,11 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/latex-posters/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/latex-posters/SKILL.md",
-      "lines": 1597,
-      "words": 8614,
-      "code_blocks": 48,
+      "lines": 370,
+      "words": 2111,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ]
     },
     {
@@ -15044,8 +15044,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/scientific-critical-thinking/SKILL.md",
-      "lines": 560,
-      "words": 2979,
+      "lines": 181,
+      "words": 1103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15054,25 +15054,24 @@
     },
     {
       "name": "infographics",
-      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3 Pro for quality review. Integrates research-lookup and web search for accurate data. Supports ",
+      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/infographics/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/infographics/SKILL.md",
-      "lines": 566,
-      "words": 2252,
-      "code_blocks": 24,
+      "lines": 316,
+      "words": 1414,
+      "code_blocks": 9,
       "languages": [
-        "bash",
-        "json"
+        "bash"
       ]
     },
     {
       "name": "pptx",
-      "description": "\"Use this skill any time a .pptx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from ",
+      "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/document-skills/pptx/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/document-skills/pptx/SKILL.md",
-      "lines": 234,
-      "words": 1418,
-      "code_blocks": 6,
+      "lines": 247,
+      "words": 3157,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ],
@@ -15080,31 +15079,27 @@
     },
     {
       "name": "xlsx",
-      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, and tabu",
+      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/document-skills/xlsx/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/document-skills/xlsx/SKILL.md",
-      "lines": 328,
-      "words": 1668,
-      "code_blocks": 12,
+      "lines": 111,
+      "words": 1274,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "docx",
-      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce",
+      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/document-skills/docx/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/document-skills/docx/SKILL.md",
-      "lines": 592,
-      "words": 2614,
-      "code_blocks": 34,
+      "lines": 100,
+      "words": 1003,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "javascript",
-        "xml"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
@@ -15113,8 +15108,8 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-writer/scientific_writer/.claude/skills/document-skills/pdf/SKILL.md",
       "remote_path": "scientific_writer/.claude/skills/document-skills/pdf/SKILL.md",
-      "lines": 316,
-      "words": 1010,
+      "lines": 323,
+      "words": 1046,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -15124,39 +15119,38 @@
     },
     {
       "name": "hypothesis-generation",
-      "description": "Structured hypothesis formulation from observations. Use when you have experimental observations or data and need to formulate testable hypotheses with predictions, propose mechanisms, and design expe",
+      "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/hypothesis-generation/SKILL.md",
       "remote_path": ".claude/skills/hypothesis-generation/SKILL.md",
-      "lines": 298,
-      "words": 1823,
-      "code_blocks": 3,
+      "lines": 265,
+      "words": 1811,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "scientific-writing",
-      "description": "Core skill for the deep research and writing tool. Write scientific manuscripts in full paragraphs (never bullet points). Use two-stage process with (1) section outlines with key points using research",
+      "description": "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency c",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-writing/SKILL.md",
       "remote_path": ".claude/skills/scientific-writing/SKILL.md",
-      "lines": 718,
-      "words": 4367,
-      "code_blocks": 9,
+      "lines": 357,
+      "words": 1608,
+      "code_blocks": 8,
       "languages": [
         "bash",
-        "latex"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "parallel-web",
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/parallel-web/SKILL.md",
       "remote_path": ".claude/skills/parallel-web/SKILL.md",
-      "lines": 121,
-      "words": 877,
+      "lines": 129,
+      "words": 878,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -15182,8 +15176,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/research-lookup/SKILL.md",
       "remote_path": ".claude/skills/research-lookup/SKILL.md",
-      "lines": 328,
-      "words": 1751,
+      "lines": 339,
+      "words": 1753,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -15196,9 +15190,9 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-slides/SKILL.md",
       "remote_path": ".claude/skills/scientific-slides/SKILL.md",
-      "lines": 1155,
-      "words": 6401,
-      "code_blocks": 23,
+      "lines": 380,
+      "words": 2596,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "markdown"
@@ -15207,137 +15201,131 @@
     },
     {
       "name": "clinical-reports",
-      "description": "Write comprehensive clinical reports including case reports (CARE guidelines), diagnostic reports (radiology/pathology/lab), clinical trial reports (ICH-E3, SAE, CSR), and patient documentation (SOAP,",
+      "description": "Create safety-bounded draft structures and run local deterministic checks for clinical case, diagnostic, trial, safety, and aggregate research reports. Use only with synthetic, de-identified, or aggre",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/clinical-reports/SKILL.md",
       "remote_path": ".claude/skills/clinical-reports/SKILL.md",
-      "lines": 1132,
-      "words": 5399,
-      "code_blocks": 1,
+      "lines": 249,
+      "words": 1673,
+      "code_blocks": 7,
       "languages": [
         "bash"
       ],
-      "license": "MIT License"
+      "license": "MIT"
     },
     {
       "name": "citation-management",
       "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/citation-management/SKILL.md",
       "remote_path": ".claude/skills/citation-management/SKILL.md",
-      "lines": 1251,
-      "words": 5155,
-      "code_blocks": 35,
+      "lines": 322,
+      "words": 1638,
+      "code_blocks": 7,
       "languages": [
-        "bash",
-        "bibtex",
-        "json"
+        "bash"
       ],
       "license": "MIT License"
     },
     {
       "name": "pptx-posters",
-      "description": "Create research posters using HTML/CSS that can be exported to PDF or PPTX. Use this skill ONLY when the user explicitly requests PowerPoint/PPTX poster format. For standard research posters, use late",
+      "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/pptx-posters/SKILL.md",
       "remote_path": ".claude/skills/pptx-posters/SKILL.md",
-      "lines": 415,
-      "words": 2054,
-      "code_blocks": 15,
+      "lines": 259,
+      "words": 1301,
+      "code_blocks": 7,
       "languages": [
         "bash",
-        "css",
-        "html",
-        "python"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images using AI models (FLUX, Nano Banana 2). Use for general-purpose image generation including photos, illustrations, artwork, visual assets, concept art, and any image that is not ",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/generate-image/SKILL.md",
       "remote_path": ".claude/skills/generate-image/SKILL.md",
-      "lines": 183,
-      "words": 921,
-      "code_blocks": 11,
+      "lines": 216,
+      "words": 1166,
+      "code_blocks": 6,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "peer-review",
-      "description": "Structured manuscript/grant review with checklist-based evaluation. Use when writing formal peer reviews with specific criteria methodology assessment, statistical validity, reporting standards compli",
+      "description": "Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific manuscripts, protocols, preprints, or research proposals; repor",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/peer-review/SKILL.md",
       "remote_path": ".claude/skills/peer-review/SKILL.md",
-      "lines": 572,
-      "words": 3247,
-      "code_blocks": 5,
+      "lines": 289,
+      "words": 1422,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "scientific-schematics",
-      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.1 Pro Preview for quality review. Only regenerates if quality is below threshold fo",
+      "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-schematics/SKILL.md",
       "remote_path": ".claude/skills/scientific-schematics/SKILL.md",
-      "lines": 619,
-      "words": 3136,
-      "code_blocks": 21,
+      "lines": 383,
+      "words": 2076,
+      "code_blocks": 6,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
     {
       "name": "markitdown",
-      "description": "Convert files and office documents to Markdown. Supports PDF, DOCX, PPTX, XLSX, images (with OCR), audio (with transcription), HTML, CSV, JSON, XML, ZIP, YouTube URLs, EPubs and more.",
+      "description": "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/markitdown/SKILL.md",
       "remote_path": ".claude/skills/markitdown/SKILL.md",
-      "lines": 489,
-      "words": 1558,
-      "code_blocks": 24,
+      "lines": 265,
+      "words": 1358,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "python"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "clinical-decision-support",
-      "description": "Generate professional clinical decision support (CDS) documents for pharmaceutical and clinical research settings, including patient cohort analyses (biomarker-stratified with outcomes) and treatment ",
+      "description": "Prepare and validate research-only clinical decision-support evaluation, evidence-profile, cohort, survival, biomarker/model, privacy, and governance artifacts. Use for aggregate or synthetic research",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/clinical-decision-support/SKILL.md",
       "remote_path": ".claude/skills/clinical-decision-support/SKILL.md",
-      "lines": 510,
-      "words": 3222,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "latex"
-      ],
-      "license": "MIT License"
-    },
-    {
-      "name": "scholar-evaluation",
-      "description": "Systematically evaluate scholarly work using the ScholarEval framework, providing structured assessment across research quality dimensions including problem formulation, methodology, analysis, and wri",
-      "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scholar-evaluation/SKILL.md",
-      "remote_path": ".claude/skills/scholar-evaluation/SKILL.md",
-      "lines": 299,
-      "words": 1600,
-      "code_blocks": 2,
+      "lines": 239,
+      "words": 1495,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
+    },
+    {
+      "name": "scholar-evaluation",
+      "description": "Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics with optional local quality controls. Never use for ranking peopl",
+      "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scholar-evaluation/SKILL.md",
+      "remote_path": ".claude/skills/scholar-evaluation/SKILL.md",
+      "lines": 297,
+      "words": 1266,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "research-grants",
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/research-grants/SKILL.md",
       "remote_path": ".claude/skills/research-grants/SKILL.md",
-      "lines": 929,
-      "words": 4843,
+      "lines": 297,
+      "words": 1673,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15346,44 +15334,41 @@
     },
     {
       "name": "treatment-plans",
-      "description": "Generate concise (3-4 page), focused medical treatment plans in LaTeX/PDF format for all clinical specialties. Supports general medical treatment, rehabilitation therapy, mental health care, chronic d",
+      "description": "Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by authorized licensed professionals. Use for source traceability, ",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/treatment-plans/SKILL.md",
       "remote_path": ".claude/skills/treatment-plans/SKILL.md",
-      "lines": 1581,
-      "words": 6658,
-      "code_blocks": 30,
+      "lines": 175,
+      "words": 1197,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "market-research-reports",
-      "description": "Generate comprehensive market research reports (50+ pages) in the style of top consulting firms (McKinsey, BCG, Gartner). Features professional LaTeX formatting, extensive visual generation with scien",
+      "description": "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/S",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/market-research-reports/SKILL.md",
       "remote_path": ".claude/skills/market-research-reports/SKILL.md",
-      "lines": 905,
-      "words": 3848,
-      "code_blocks": 14,
+      "lines": 338,
+      "words": 1605,
+      "code_blocks": 9,
       "languages": [
         "bash",
-        "latex"
+        "text"
       ],
-      "license": "MIT license"
+      "license": "MIT"
     },
     {
       "name": "literature-review",
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/literature-review/SKILL.md",
       "remote_path": ".claude/skills/literature-review/SKILL.md",
-      "lines": 707,
-      "words": 3703,
-      "code_blocks": 22,
+      "lines": 264,
+      "words": 1546,
+      "code_blocks": 5,
       "languages": [
-        "bash",
-        "markdown",
-        "python"
+        "bash"
       ],
       "license": "MIT license"
     },
@@ -15392,12 +15377,11 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/latex-posters/SKILL.md",
       "remote_path": ".claude/skills/latex-posters/SKILL.md",
-      "lines": 1597,
-      "words": 8614,
-      "code_blocks": 48,
+      "lines": 370,
+      "words": 2111,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "latex"
+        "bash"
       ]
     },
     {
@@ -15405,8 +15389,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": ".claude/skills/scientific-critical-thinking/SKILL.md",
-      "lines": 560,
-      "words": 2979,
+      "lines": 181,
+      "words": 1103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -15415,25 +15399,24 @@
     },
     {
       "name": "infographics",
-      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3 Pro for quality review. Integrates research-lookup and web search for accurate data. Supports ",
+      "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/infographics/SKILL.md",
       "remote_path": ".claude/skills/infographics/SKILL.md",
-      "lines": 566,
-      "words": 2252,
-      "code_blocks": 24,
+      "lines": 316,
+      "words": 1414,
+      "code_blocks": 9,
       "languages": [
-        "bash",
-        "json"
+        "bash"
       ]
     },
     {
       "name": "pptx",
-      "description": "\"Use this skill any time a .pptx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from ",
+      "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/document-skills/pptx/SKILL.md",
       "remote_path": ".claude/skills/document-skills/pptx/SKILL.md",
-      "lines": 234,
-      "words": 1418,
-      "code_blocks": 6,
+      "lines": 247,
+      "words": 3157,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ],
@@ -15441,31 +15424,27 @@
     },
     {
       "name": "xlsx",
-      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, and tabu",
+      "description": "\"Create, edit, analyze, or convert Excel spreadsheets (.xlsx, .xlsm, .xltx) where the workbook file is the primary deliverable. Use for formulas, formatting, financial models, multi-sheet workbooks, a",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/document-skills/xlsx/SKILL.md",
       "remote_path": ".claude/skills/document-skills/xlsx/SKILL.md",
-      "lines": 328,
-      "words": 1668,
-      "code_blocks": 12,
+      "lines": 111,
+      "words": 1274,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "json",
-        "python"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "docx",
-      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce",
+      "description": "\"Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/document-skills/docx/SKILL.md",
       "remote_path": ".claude/skills/document-skills/docx/SKILL.md",
-      "lines": 592,
-      "words": 2614,
-      "code_blocks": 34,
+      "lines": 100,
+      "words": 1003,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "javascript",
-        "xml"
+        "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
     },
@@ -15474,8 +15453,8 @@
       "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rota",
       "path": "K-Dense-AI--claude-scientific-writer/.claude/skills/document-skills/pdf/SKILL.md",
       "remote_path": ".claude/skills/document-skills/pdf/SKILL.md",
-      "lines": 316,
-      "words": 1010,
+      "lines": 323,
+      "words": 1046,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -20721,7 +20700,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
       "lines": 181,
-      "words": 2876,
+      "words": 2945,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -25126,8 +25105,8 @@
       "description": "Sanity development best practices for schema design, GROQ queries, TypeGen, Visual Editing, images, Portable Text, Studio structure, localization, migrations, Sanity Functions, webhooks, Blueprints, a",
       "path": "sanity-io--agent-toolkit/skills/sanity-best-practices/SKILL.md",
       "remote_path": "skills/sanity-best-practices/SKILL.md",
-      "lines": 80,
-      "words": 585,
+      "lines": 87,
+      "words": 734,
       "code_blocks": 1,
       "languages": []
     },
@@ -25645,8 +25624,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 66,
-      "words": 580,
+      "lines": 70,
+      "words": 622,
       "code_blocks": 0,
       "languages": []
     },
@@ -25715,8 +25694,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 66,
-      "words": 580,
+      "lines": 70,
+      "words": 622,
       "code_blocks": 0,
       "languages": []
     },
@@ -25805,8 +25784,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 66,
-      "words": 580,
+      "lines": 70,
+      "words": 622,
       "code_blocks": 0,
       "languages": []
     },
@@ -25875,8 +25854,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 66,
-      "words": 580,
+      "lines": 70,
+      "words": 622,
       "code_blocks": 0,
       "languages": []
     },
@@ -25955,8 +25934,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-best-practices/SKILL.md",
       "remote_path": "skills/stripe-best-practices/SKILL.md",
-      "lines": 66,
-      "words": 580,
+      "lines": 70,
+      "words": 622,
       "code_blocks": 0,
       "languages": []
     },
@@ -42636,9 +42615,9 @@
       "description": "Skill creation, update and management \u2014 generates skill directory structure, validates against best practices, enforces line count limits. Use when creating, updating, or improving skills.",
       "path": "transilienceai--communitytools/skills/skill-update/SKILL.md",
       "remote_path": "skills/skill-update/SKILL.md",
-      "lines": 114,
-      "words": 565,
-      "code_blocks": 2,
+      "lines": 126,
+      "words": 650,
+      "code_blocks": 3,
       "languages": [
         "yaml"
       ]
@@ -42670,8 +42649,8 @@
       "description": "Mobile application security testing (Android + iOS) mapped to OWASP MASVS/MASTG \u2014 static reversing (Flutter AOT, Unity IL2CPP, React Native/Hermes, native ARM64, Mach-O/Swift), SAST (manifest/IPC, sto",
       "path": "transilienceai--communitytools/skills/mobile-security/SKILL.md",
       "remote_path": "skills/mobile-security/SKILL.md",
-      "lines": 69,
-      "words": 895,
+      "lines": 85,
+      "words": 1124,
       "code_blocks": 0,
       "languages": []
     },
@@ -42789,11 +42768,11 @@
     },
     {
       "name": "firewall-review",
-      "description": "Claude-native firewall ruleset audit playbook \u2014 17 vendor-agnostic detectors across FortiGate / PAN-OS / Cisco ASA\u00b7IOS / Azure NSG / AWS SG / iptables, with framework citations pinned to NIST CSF 2.0,",
+      "description": "Evidence-safe firewall ruleset audit reference specification \u2014 22 documented detector patterns (17 vendor-agnostic plus 5 FortiGate-specific), a 15-check semantic catalogue, CIS Fortinet FortiGate Ben",
       "path": "transilienceai--communitytools/skills/firewall-review/SKILL.md",
       "remote_path": "skills/firewall-review/SKILL.md",
-      "lines": 78,
-      "words": 863,
+      "lines": 86,
+      "words": 1050,
       "code_blocks": 1,
       "languages": []
     },
@@ -42844,8 +42823,8 @@
       "description": "Cloud and container security testing - AWS, Azure, GCP, Docker, and Kubernetes misconfigurations and exploitation.",
       "path": "transilienceai--communitytools/skills/cloud-containers/SKILL.md",
       "remote_path": "skills/cloud-containers/SKILL.md",
-      "lines": 31,
-      "words": 154,
+      "lines": 42,
+      "words": 259,
       "code_blocks": 0,
       "languages": []
     },
@@ -42866,8 +42845,8 @@
       "description": "Generate a Transilience-branded PDF report (pentest, vuln assessment, compliance, threat intel) from a single findings JSON using the bundled ReportLab generator. Use whenever an engagement needs its ",
       "path": "transilienceai--communitytools/skills/transilience-report-style/SKILL.md",
       "remote_path": "skills/transilience-report-style/SKILL.md",
-      "lines": 46,
-      "words": 657,
+      "lines": 50,
+      "words": 763,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -43314,18 +43293,18 @@
       "description": "Parse all configs in the current engagement, dispatch senior-pentester subagents in parallel, run the validation chain, emit findings ready for /review.",
       "path": "transilienceai--communitytools/skills/firewall-review/reference/commands/launch.md",
       "remote_path": "skills/firewall-review/reference/commands/launch.md",
-      "lines": 119,
-      "words": 1386,
+      "lines": 121,
+      "words": 1460,
       "code_blocks": 2,
       "languages": []
     },
     {
       "name": "report",
-      "description": "Render audit-grade PDF + Excel remediation tracker from the current engagement's approved findings. Gated on \u22651 approve in feedback.jsonl.",
+      "description": "Render a consolidated customer-review Excel workbook, optional audit-grade PDF, and chain-of-custody manifest from approved findings. Gated on \u22651 approve in feedback.jsonl.",
       "path": "transilienceai--communitytools/skills/firewall-review/reference/commands/report.md",
       "remote_path": "skills/firewall-review/reference/commands/report.md",
-      "lines": 67,
-      "words": 472,
+      "lines": 79,
+      "words": 732,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -43347,10 +43326,22 @@
       "path": "transilienceai--communitytools/skills/firewall-review/reference/commands/start.md",
       "remote_path": "skills/firewall-review/reference/commands/start.md",
       "lines": 163,
-      "words": 973,
+      "words": 975,
       "code_blocks": 4,
       "languages": [
         "bash",
+        "yaml"
+      ]
+    },
+    {
+      "name": "custom-policy-benchmark",
+      "description": "Data-driven benchmark for customer-specific firewall policy requirements such as UAT/DEV-to-PROD restrictions, regulated-segment boundaries, approved service matrices, and exception expiry. Requires a",
+      "path": "transilienceai--communitytools/skills/firewall-review/reference/semantic/custom-policy-benchmark.md",
+      "remote_path": "skills/firewall-review/reference/semantic/custom-policy-benchmark.md",
+      "lines": 89,
+      "words": 551,
+      "code_blocks": 1,
+      "languages": [
         "yaml"
       ]
     },
@@ -43447,6 +43438,16 @@
       ]
     },
     {
+      "name": "network-team-review-workbook",
+      "description": "Customer-collaboration Excel profiles for firewall rule audits. Produces one consolidated workbook with row-grain or grouped Network Team Review presentation, filterable detail sheets, complete rule i",
+      "path": "transilienceai--communitytools/skills/firewall-review/reference/reporting/network-team-review-workbook.md",
+      "remote_path": "skills/firewall-review/reference/reporting/network-team-review-workbook.md",
+      "lines": 142,
+      "words": 1365,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "brand-config",
       "description": "Re-skinnable brand identity layer. brand.yaml at repo root (gitignored, optional) overrides a baked-in OSS-neutral defaults dict in [`lib/fwrr/report/brand.py.`](https://github.com/ipunithgowda/firewa",
       "path": "transilienceai--communitytools/skills/firewall-review/reference/reporting/brand-config.md",
@@ -43457,12 +43458,22 @@
       "languages": []
     },
     {
+      "name": "evidence-state-contract",
+      "description": "Claim-safety contract for firewall reviews. Separates facts proven by supplied configuration from deterministic derivations, runtime-dependent conclusions, business-context decisions, external-control",
+      "path": "transilienceai--communitytools/skills/firewall-review/reference/validation/evidence-state-contract.md",
+      "remote_path": "skills/firewall-review/reference/validation/evidence-state-contract.md",
+      "lines": 83,
+      "words": 920,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "precedence-awareness",
-      "description": "Post-detection pass that downgrades findings whose primary affected rule is dead code due to an earlier explicit-deny rule in the same chain. Detectors evaluate rules in isolation and don't know the c",
+      "description": "Post-detection pass that identifies possible unreachable allows based on the match dimensions modeled by the current implementation. Because protocol and other platform semantics are not fully evaluat",
       "path": "transilienceai--communitytools/skills/firewall-review/reference/validation/precedence-awareness.md",
       "remote_path": "skills/firewall-review/reference/validation/precedence-awareness.md",
       "lines": 59,
-      "words": 703,
+      "words": 709,
       "code_blocks": 1,
       "languages": []
     },
@@ -43471,8 +43482,8 @@
       "description": "Post-detection enrichment that assigns Confidence (High/Medium/Low) and Validation Status (Confirmed/Needs Review) to every Finding based on detector class and severity context. Also computes the disc",
       "path": "transilienceai--communitytools/skills/firewall-review/reference/validation/post-process-enrich.md",
       "remote_path": "skills/firewall-review/reference/validation/post-process-enrich.md",
-      "lines": 63,
-      "words": 684,
+      "lines": 65,
+      "words": 728,
       "code_blocks": 0,
       "languages": []
     },
@@ -167125,9 +167136,9 @@
       "description": "End-to-end pipeline for publishing Claude Code lab meetings. Accepts optional args: date (YYYYMMDD, \"yesterday\", \"today\") and lab number (e.g. \"04\"). Examples: \"yesterday 04\", \"20260420 05\", \"04\" (tod",
       "path": "glebis--claude-skills/agency-docs-updater/SKILL.md",
       "remote_path": "agency-docs-updater/SKILL.md",
-      "lines": 321,
-      "words": 2137,
-      "code_blocks": 15,
+      "lines": 331,
+      "words": 2265,
+      "code_blocks": 16,
       "languages": [
         "bash",
         "python"

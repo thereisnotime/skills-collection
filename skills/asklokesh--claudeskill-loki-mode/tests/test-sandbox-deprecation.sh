@@ -38,9 +38,15 @@ extract_fn() {
     awk "/^${1}\(\) \{/{f=1} f{print} f&&/^\}/{exit}" "$SANDBOX"
 }
 
+# NOTE: no apostrophes inside this heredoc. bash 3.2 (stock macOS /bin/bash,
+# what CI's macos-latest still provides) mis-parses an apostrophe inside a
+# quoted heredoc nested in $( ), reporting "unexpected EOF while looking for
+# matching '" and rejecting the WHOLE file. That is why the macOS Bun jobs
+# went red while the ubuntu ones passed. bash 5 parses it fine, so this is
+# invisible on a modern local shell.
 HARNESS="$(cat <<'EOF'
 set -u
-# Minimal stubs for the extracted function's dependencies.
+# Minimal stubs for the dependencies of the extracted function.
 log_warn() { printf 'WARN: %s\n' "$*"; }
 SKILL_DIR="/nonexistent-skill-dir-for-test"
 EOF

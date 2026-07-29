@@ -3896,6 +3896,8 @@ WHYJSON
     _LOKI_WHY_LAST_ERROR="$loki_dir/state/LAST_ERROR.json" \
     _LOKI_WHY_UNCERTAINTY="$loki_dir/signals/UNCERTAINTY_ESCALATION" \
     _LOKI_WHY_CONVERGENCE="$loki_dir/council/convergence.log" \
+    _LOKI_WHY_GATE="$loki_dir/signals/GATE_ESCALATION.json" \
+    _LOKI_WHY_TARGET="${TARGET_DIR:-$(dirname "$loki_dir")}" \
     _LOKI_WHY_HANDOFFS="$loki_dir/memory/handoffs" python3 - <<'WHYTXT'
 import json, os, glob
 def load(p):
@@ -3953,6 +3955,11 @@ GUIDE = {
                 "If no build is active it likely crashed; in durable mode (LOKI_DURABLE_STATE=1) a restart resumes, else loki start re-runs."),
     "exited": ("The build process exited mid-iteration (likely a crash, kill, or empty provider output).",
                "Read .loki/logs/ for the last error; if nothing is running it crashed -- re-run with loki start, or loki resume in durable mode."),
+    # A real terminal state that had no entry, so `loki why` answered the one
+    # question it exists to answer with "No diagnosis mapping for this status".
+    "inconclusive_spec_contradiction": (
+        "Loki could not reconcile parts of the spec, so it stopped rather than guess.",
+        "The specific contradictions are in .loki/assumptions/ledger.md -- resolve them in the spec, then re-run."),
 }
 meaning, action = GUIDE.get(status, ("No diagnosis mapping for this status; see the raw fields below.",
                                      "Check loki status and .loki/logs/ for detail."))
@@ -3979,13 +3986,66 @@ if iters is not None:
     print(f"  Iterations  : {iters}")
 if comp.get("branch"):
     print(f"  Branch      : {comp['branch']}{comp_label}")
-if comp.get("files_changed") is not None:
-    print(f"  Changes     : {comp.get('files_changed',0)} files (+{comp.get('insertions',0)}/-{comp.get('deletions',0)}){comp_label}")
+_fc = comp.get("files_changed")
+if _fc is not None:
+    if _fc == 0:
+        # A recorded 0 is NOT trustworthy on its own: a greenfield run whose
+        # baseline never resolved records 0 while having committed real work.
+        # Saying "0 files" flatly told users nothing was built on a run that
+        # produced 9 files and 1300 insertions. Re-derive from git, and only
+        # claim zero when git agrees.
+        _real = None
+        try:
+            import subprocess as _sp
+            _tgt = os.environ.get("_LOKI_WHY_TARGET") or "."
+            _base = (comp.get("start_sha") or "").strip()
+            if not _base or _base == "HEAD":
+                _base = _sp.run(["git", "-C", _tgt, "hash-object", "-t", "tree", os.devnull],
+                                capture_output=True, text=True, timeout=10).stdout.strip()
+            if _base:
+                _o = _sp.run(["git", "-C", _tgt, "diff", "--shortstat", f"{_base}..HEAD",
+                              "--", ".", ":(exclude).loki/"],
+                             capture_output=True, text=True, timeout=15).stdout.strip()
+                if _o:
+                    _real = _o
+        except Exception:
+            _real = None
+        if _real:
+            print(f"  Changes     : {_real}  (re-derived; the run record said 0)")
+        else:
+            print(f"  Changes     : none recorded (the run did not resolve a baseline)")
+    else:
+        print(f"  Changes     : {_fc} files (+{comp.get('insertions',0)}/-{comp.get('deletions',0)}){comp_label}")
 if comp.get("pr_url"):
     print(f"  PR          : {comp['pr_url']}{comp_label}")
+
+# Name the gate that actually stopped the run. Without this the user is told to
+# "resume", which the run's own pause notice warns will stop at the same gate.
+_gate = load(os.environ.get("_LOKI_WHY_GATE", "")) or {}
+_gname = str(_gate.get("gate", "") or "").strip()
+if _gname:
+    _gc, _gt = _gate.get("count"), _gate.get("threshold")
+    _detail = f"{_gname} (failed {_gc} times, threshold {_gt})" if isinstance(_gc, int) and isinstance(_gt, int) else _gname
+    print(f"  Blocked by  : {_detail}")
+
 print()
 print(f"  What happened: {meaning}")
-print(f"  What to do   : {action}")
+if _gname:
+    print(f"  What to do   : Read the {_gname} findings and fix what they name, then resume.")
+    print(f"                 Resuming unchanged will stop at the same gate again.")
+    _art = str(_gate.get("latest_artifact", "") or "")
+    if _art:
+        # Make the pointer relative to the workspace. The recorded value is an
+        # absolute path from the machine that ran the build -- on the preserved
+        # run it names a /var/folders temp dir that no longer exists, so the one
+        # actionable pointer in the whole notice led nowhere. Anchor on
+        # ".loki/" so it works even when the run happened elsewhere.
+        _i = _art.find(".loki/")
+        if _i != -1:
+            _art = _art[_i:]
+        print(f"                 Findings: {_art}")
+else:
+    print(f"  What to do   : {action}")
 
 # RUN-25 iter 22b/iter 23 (Wave D #6): when a run is PAUSED / live and actually
 # STUCK, name the REAL stall reason instead of the generic "resume". The runner
@@ -11025,6 +11085,13 @@ except Exception:
         fi
     else
         echo -e "  ${YELLOW}WARN${NC}  Bun not found -- 'loki cockpit' uses the text summary + browser dashboard (install bun for the inline-image frame)"
+        # Report the protocol line here too. Without it doctor's Cockpit section
+        # is asymmetric: the bun branch prints BOTH "Inline-image protocol" and
+        # "Render path", the no-bun branch printed only "Render path". A user
+        # reading doctor on a machine without bun could not tell whether the
+        # inline-image path was unsupported by their terminal or simply never
+        # probed. Naming the reason keeps the section self-explanatory.
+        echo -e "  ${DIM}  --  ${NC}  Inline-image protocol: not probed (needs bun to run the cockpit renderer)"
         echo -e "  ${DIM}  --  ${NC}  Render path: text + browser dashboard"
     fi
     echo ""

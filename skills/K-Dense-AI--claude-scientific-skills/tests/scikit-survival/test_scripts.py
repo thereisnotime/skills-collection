@@ -9,12 +9,18 @@ import stat
 import sys
 import tempfile
 import unittest
+
+import pytest
 from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills" / "scikit-survival"
 SCRIPTS = SKILL_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
+
+# Guarded so a bare project-environment run skips cleanly instead of failing
+# collection; the real run is `tests/run_all.py --isolated scikit-survival`.
+pytest.importorskip("sksurv", reason="scikit-survival needs scikit-survival")
 
 import _common  # noqa: E402
 import competing_risk_cif  # noqa: E402

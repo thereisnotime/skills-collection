@@ -31,6 +31,8 @@ from terminology_validator import validate_terminology_manifest  # noqa: E402
 from validate_case_report import CARE_ITEMS, validate_case_manifest  # noqa: E402
 from validate_trial_report import E3_SECTIONS, validate_trial_manifest  # noqa: E402
 
+import skill_contract
+
 
 def valid_case_manifest() -> dict:
     return {
@@ -485,6 +487,11 @@ class AssetAndGeneratorTests(unittest.TestCase):
         self.assertIn("BLOCKED", data["draft_status"])
         self.assertFalse(data["authorization_verified"])
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

@@ -239,6 +239,46 @@ This needs Bun on your PATH (the SDK loop runs on the Bun runtime). `loki doctor
 
 **With a coding-agent CLI.** The classic path, and still the default: Loki drives a separate CLI (Claude Code is the recommended one) plus a couple of common tools on your PATH.
 
+**With a different model or provider.** Loki is not tied to Anthropic. Anything
+that speaks the Anthropic Messages API works: OpenRouter, Ollama, LiteLLM, vLLM,
+or your own gateway. Point `ANTHROPIC_BASE_URL` at the endpoint and name the
+model with `LOKI_MODEL_OVERRIDE`:
+
+```bash
+# OpenRouter (hundreds of models, one key)
+export ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1
+export ANTHROPIC_API_KEY=sk-or-...
+export LOKI_MODEL_OVERRIDE=<model-id-from-openrouter.ai/models>
+loki start prd.md
+
+# Ollama, fully local (no API key, no per-token cost)
+export ANTHROPIC_BASE_URL=http://localhost:11434/v1
+export LOKI_MODEL_OVERRIDE=<model you have pulled, e.g. the output of `ollama list`>
+loki start prd.md
+
+# LiteLLM / vLLM / any self-hosted gateway
+export ANTHROPIC_BASE_URL=https://your-gateway.internal/v1
+export ANTHROPIC_API_KEY=...
+export LOKI_MODEL_OVERRIDE=<whatever your gateway calls the model>
+loki start prd.md
+```
+
+**Set both variables.** `LOKI_MODEL_OVERRIDE` is what makes the alt-provider
+path work: without it Loki keeps asking for `opus` / `sonnet` / `haiku`, which
+only Anthropic resolves, and most providers reject those names outright. A
+proxy that maps the aliases for you (LiteLLM can) is the one exception.
+
+Model IDs are not listed here on purpose -- OpenRouter's catalogue changes every
+week, and a stale ID in a README is a failure you would hit at runtime. Take the
+exact string from your provider's own model list.
+
+Both routes honor these variables identically -- the bundled-SDK path and the
+Claude Code CLI path -- and `loki doctor` reports the endpoint it detected plus a
+warning if the model override is missing.
+
+The quality gates, the completion council, and the Evidence Receipt do not care
+which model produced the code. They check what was actually built.
+
 Either way, run `loki doctor` any time and it tells you exactly what is present and what is missing, with a copy-pasteable install command for each gap.
 
 ```bash
@@ -715,7 +755,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 **[Autonomi](https://www.autonomi.dev/)** | **[Documentation](wiki/Home.md)** | **[Changelog](CHANGELOG.md)** | **[Comparisons](references/competitive-analysis.md)**
 
 </div>
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/chart?repos=asklokesh/loki-mode&type=timeline&legend=bottom-right)](https://www.star-history.com/?repos=asklokesh%2Floki-mode&type=timeline&legend=bottom-right)

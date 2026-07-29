@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import pytest
 
 import autoskill
+
+import skill_contract
 
 
 def test_dispatches_to_run_subcommand(monkeypatch):
@@ -59,3 +63,8 @@ def test_missing_subcommand_errors_out():
 def test_unknown_subcommand_errors_out():
     with pytest.raises(SystemExit):
         autoskill.main(["nope"])
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(Path(__file__).resolve().parents[2] / "skills" / "autoskill")

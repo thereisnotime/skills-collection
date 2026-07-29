@@ -31,6 +31,48 @@ export LOKI_PROVIDER=claude  # or codex, cline, aider
 loki start --provider cline ./prd.md
 ```
 
+## Any Model, Any Provider (ANTHROPIC_BASE_URL)
+
+Independent of the four CLI providers below. Loki speaks the Anthropic Messages
+API, so ANY endpoint that implements it works: OpenRouter, Ollama, LiteLLM,
+vLLM, or a self-hosted gateway. Nothing needs installing.
+
+```bash
+export ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1   # or http://localhost:11434/v1
+export ANTHROPIC_API_KEY=...                             # omit for a keyless local Ollama
+export LOKI_MODEL_OVERRIDE=<exact model id from your provider>
+loki start prd.md
+```
+
+**BOTH variables are required.** The override at `providers/claude.sh:520` fires
+only when `ANTHROPIC_BASE_URL` AND `LOKI_MODEL_OVERRIDE` are both set. With only
+the base URL, Loki keeps resolving the tier aliases `opus` / `sonnet` / `haiku`,
+which only Anthropic serves -- most providers reject them and the run dies at the
+first model call. (A proxy that maps the aliases, such as LiteLLM, is the
+exception.) `loki doctor` warns on exactly this condition.
+
+Implementation, byte-mirrored across both routes -- edit BOTH or the parity
+fixtures diverge:
+
+| Route | Site |
+|---|---|
+| bash | `providers/claude.sh:520`, `autonomy/run.sh:693` |
+| Bun  | `loki-ts/src/runner/providers.ts:328` |
+| doctor | `loki-ts/src/commands/doctor.ts:652` |
+
+`ANTHROPIC_BASE_URL` is passed through unchanged; Loki never rewrites it.
+
+**No model IDs are listed here deliberately.** Alt-provider catalogues change
+weekly, and a stale ID in documentation becomes a runtime failure for the user.
+Read the exact string from the provider (`ollama list`, OpenRouter's model page,
+your gateway's config). For the same reason `LOKI_MODEL_OVERRIDE` is NOT
+validated against an allowlist -- any string the provider accepts is passed
+straight through.
+
+Quality gates, the completion council, and the Evidence Receipt are all
+model-agnostic: they assert on the artifact that was built, not on which model
+built it. A cheaper or local model gets the same verification as Opus.
+
 ## Claude Code (Default, Full Features)
 
 **Best for:** All use cases. Full autonomous capability.

@@ -123,6 +123,17 @@ run_test "Orphan Wrapper Reaper (#92 liveness predicate)" "$SCRIPT_DIR/test-orph
 
 # Quality Gates
 run_test "Mock Detector (Gate #8)" "$SCRIPT_DIR/detect-mock-problems.sh"
+run_test "Mock Detector source-import false positive (subprocess E2E)" "$SCRIPT_DIR/test-mock-detector-source-import.sh"
+run_test "start-SHA empty-repo capture (council empty_diff blocker)" "$SCRIPT_DIR/test-start-sha-empty-repo.sh"
+run_test "stat portability (GNU-first ordering)" "$SCRIPT_DIR/test-stat-portability.sh"
+run_test "alt-provider model-alias warning (OpenRouter/Ollama/LiteLLM)" "$SCRIPT_DIR/test-alt-provider-warning.sh"
+run_test "bash 3.2 parse compatibility (macOS /bin/bash)" "$SCRIPT_DIR/test-bash32-parse.sh"
+run_test "greenfield diff-stat (report what was built)" "$SCRIPT_DIR/test-greenfield-diffstat.sh"
+run_test "PAUSED.md states the pause reason" "$SCRIPT_DIR/test-paused-md-reason.sh"
+run_test "per-outcome next-step guidance" "$SCRIPT_DIR/test-outcome-guidance.sh"
+run_test "Evidence Receipt run-level baseline (signed diff stat)" "$SCRIPT_DIR/test-receipt-run-baseline.sh"
+run_test "no hardcoded home-directory paths in tests" "$SCRIPT_DIR/test-no-hardcoded-paths.sh"
+run_test "loki why honest reporting (gate named, diff re-derived)" "$SCRIPT_DIR/test-why-honest-report.sh"
 run_test "Test Mutation Detector (Gate #9)" "$SCRIPT_DIR/detect-test-mutations.sh"
 run_test "Harness False-Green Regression and Mutation" "$SCRIPT_DIR/test-harness-false-green.sh"
 

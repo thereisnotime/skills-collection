@@ -17,9 +17,17 @@ import os
 import sys
 import tempfile
 import unittest
+
+import pytest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import skill_contract
+
+# Guarded so a bare project-environment run skips cleanly instead of failing;
+# the real run is `tests/run_all.py --isolated exa-search`.
+pytest.importorskip("exa_py", reason="exa-search needs exa-py")
 
 SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills" / "exa-search"
 SCRIPTS_DIR = SKILL_ROOT / "scripts"
@@ -212,6 +220,11 @@ class IntegrationHeaderAndFlowTests(unittest.TestCase):
             self.assertEqual(payload["num_results"], 1)
             self.assertEqual(payload["results"][0]["title"], "Attention Is All You Need")
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

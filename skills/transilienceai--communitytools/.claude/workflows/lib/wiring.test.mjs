@@ -12,6 +12,7 @@ const pe = read('pentest-engagement.js');
 const cl = read('coordinator-loop.js');
 const vf = read('validate-findings.js');
 const mr = read('merge-reports.js');
+const su = read('skill-update.js');
 const pv = readFileSync(join(wfDir, '..', '..', 'tools', 'provision_vantage.sh'), 'utf8');
 const ciYml = readFileSync(join(wfDir, '..', '..', '.github', 'workflows', 'pentest-workflow-tests.yml'), 'utf8');
 
@@ -21,12 +22,12 @@ const ok = (cond, msg) => { if (cond) pass++; else { fail++; fails.push(`✗ ${m
 // pentest-engagement: validation is INLINE — no Stage-2 validate-findings call,
 // inline_validate + business_tier + frozen-operand paths threaded, snapshot created.
 ok(!/workflow\('validate-findings'/.test(pe), 'pentest-engagement no longer calls the validate-findings workflow (validation is inline)');
-ok((pe.match(/inline_validate: true/g) || []).length >= 2, 'inline_validate:true passed for BOTH the WEB and NETWORK deep-dive loops');
+ok((pe.match(/inline_validate: true/g) || []).length >= 4, 'inline_validate:true passed for the WEB, NETWORK and BOTH mobile (app + recovered-backend) loops');
 ok(/nvd_cache_dir: nvdCacheDir/.test(pe) && /kev_snapshot: kevSnapshot/.test(pe), 'frozen NVD/KEV snapshot paths threaded into the loop');
-ok(/assets: N,/.test(pe) && /assets: NH,/.test(pe), 'assets:N (web) + assets:NH (network) threaded — the governor partitions the cap by the PER-RUN running count');
+ok(/assets: N,/.test(pe) && /assets: NH,/.test(pe) && /assets: NM,/.test(pe), 'assets:N (web) + assets:NH (network) + assets:NM (mobile) threaded — the governor partitions the cap by the PER-RUN running count');
 ok(/kev-lookup\.py --cache-dir/.test(pe), 'Setup freezes the KEV snapshot via kev-lookup.py --cache-dir');
 ok(!/validate: false/.test(pe), 'the retired validate:false flag is gone');
-ok((pe.match(/VALID\/REPAIRED/g) || []).length >= 2, 'Correlate reads VALID+REPAIRED (both modes), not VALID-only');
+ok((pe.match(/VALID\/REPAIRED/g) || []).length >= 3, 'Correlate reads VALID+REPAIRED (all three modes), not VALID-only');
 
 // coordinator-loop: interleave machinery present; vestigial P5 retired.
 ok(/const INLINE_VALIDATE = shouldInlineValidate\(MODE, a\.inline_validate\)/.test(cl), 'coordinator-loop gates the lane on shouldInlineValidate');
@@ -174,7 +175,7 @@ ok(/deep_asset_slice/.test(pe) && /const deepAssetSlice = /.test(pe), 'DEEP_ASSE
 
 // E1 tools-not-agents: the deterministic mechanical-class probe is wired into the loop.
 ok(/tools\/passive_web_probe\.py --asset-dir OUTPUT_DIR/.test(cl), 'E1: passive_web_probe.py runs at bootstrap to clear the mechanical attack-classes');
-ok(/RESUME-AWARE: if OUTPUT_DIR\/recon\/inventory\/surface\.json AND OUTPUT_DIR\/coverage\.json BOTH already exist/.test(cl), 'coverage bootstrap is resume-aware (preserves surface.json/coverage.json, re-derives the backlog)');
+ok(/RESUME-AWARE: if OUTPUT_DIR\/\$\{SURFACE_FILE\} AND OUTPUT_DIR\/coverage\.json BOTH already exist/.test(cl), 'coverage bootstrap is resume-aware (preserves the surface file/coverage.json, re-derives the backlog)');
 
 // E2 equivalence-class validation: gate credit + loop instruction + validator sampling.
 ok(/EQUIVALENCE \(E2\)/.test(cl) && /validate ONE representative/.test(cl), 'COVERAGE-BY-VALID instructs one representative per (class x equiv_group)');
@@ -194,11 +195,240 @@ ok(/python3 tools\/test_passive_web_probe\.py/.test(ciYml), 'CI runs the passive
 // (kept alongside the plaintext), with an auto-generated out-of-band password.
 ok(/tools\/protect_deliverable\.py --engagement-dir/.test(pe), 'finalize runs protect_deliverable.py for an AES-256 protected copy');
 ok(/const wantProtect = opts\.protect !== false/.test(pe), 'protection is default-ON with a protect:false kill-switch');
-ok((pe.match(/protect: input\.protect !== false/g) || []).length >= 2, 'the protect flag is threaded from BOTH the web and network finalize calls');
+ok((pe.match(/protect: input\.protect !== false/g) || []).length >= 3, 'the protect flag is threaded from ALL THREE (web, network, mobile) finalize calls');
 ok(/deliverable_password: \{ type/.test(pe) && /protected_zip: \{ type/.test(pe), 'FINALIZE_SCHEMA carries the protected artifacts + password');
 ok(/NEVER write the password VALUE into summary\.md/.test(pe), 'the runner is told to keep the password value out of the zipped summary');
 ok(/DELIVERABLE-PASSWORD\.txt/.test(pe), 'the password is surfaced via a root file excluded from the deliverable');
 ok(/python3 tools\/test_protect_deliverable\.py/.test(ciYml), 'CI runs the protect_deliverable test');
+
+// --- skill-update: the determinism contract -------------------------------
+// The whole point of converting the skill to a workflow is that no step can be
+// skipped and no LLM can decide the outcome. These assert exactly that.
+ok(/phase\('Intake'\)/.test(su) && /phase\('Verify'\)/.test(su), 'skill-update runs Intake and Verify');
+ok(su.indexOf("phase('Sweep')") > 0 && su.indexOf("phase('Sweep')") < su.indexOf("phase('Verify')"),
+   'the confidentiality Sweep runs BEFORE Verify');
+ok(su.indexOf("phase('Write')") < su.indexOf("phase('Sweep')"), 'Write precedes Sweep');
+ok(su.indexOf("phase('Judge')") < su.indexOf("phase('Route')"), 'Judge precedes Route');
+// The lint gate must be a DELTA gate: the tree carries pre-existing violations,
+// so an absolute clean-tree gate would block every run forever.
+ok(/skill_linter\.py --delta/.test(su) && /afterPayload\.regressed/.test(su),
+   'skill-update gates on the lint DELTA, not an absolute clean tree');
+ok(/--write-baseline/.test(su) && /stores the violation key set/.test(su),
+   'Intake stores a baseline key set rather than relaying the ~280 KB payload through an agent');
+ok(/baseline_ok/.test(su), 'a delta computed against a MISSING baseline fails closed');
+ok(/refusing to write without a delta baseline/.test(su), 'a missing baseline fails closed rather than writing blind');
+// Every decision is code, not an agent.
+ok(/promotionGate\(c, carry\.j, carry\.votes\)/.test(su), 'the promote/reject decision is made by promotionGate in pure JS');
+ok(/writeGate\(\{ \.\.\.a, target_path: target \}/.test(su), 'every authored block passes through writeGate before any write');
+ok(/skillUpdateGate\(\{/.test(su), 'the final COMPLETE/BLOCKED call is skillUpdateGate');
+// "Built in code" means no AGENT ever supplies the report: no schema exposes a
+// report_markdown field for one to fill. A JS template literal is still code.
+ok(/buildChangeReport\(/.test(su), 'the three-bucket report comes from buildChangeReport');
+ok(!/report_markdown: \{ type/.test(su),
+   'no agent schema exposes report_markdown — the report is never authored by an agent');
+// The confidentiality sweep is an independent veto that no agent can talk past.
+ok(/python3 scripts\/check_client_data\.py/.test(su), 'the Sweep phase runs the confidentiality guard');
+ok(/gate\.ok && !sweepClean/.test(su), 'a failed confidentiality sweep vetoes an otherwise-passing gate');
+ok(/Do NOT edit any file to make it pass/.test(su), 'the sweep runner is forbidden from fixing its own failure');
+// Role boundary + fail-closed agent calls.
+ok(/INVOKED_BY === 'coordinator'/.test(su), 'a coordinator invocation is blocked (orchestrator-only)');
+ok(!/verdict === 'clean'/.test(su), 'no code path lets an agent verdict clear a deterministic finding');
+ok((su.match(/\.catch\(\(\) =>/g) || []).length >= 5, 'every agent call fails closed via .catch');
+// Reverting must never destroy the operator's uncommitted work.
+ok(/!dirtyPaths\.has\(p\)/.test(su), 'revert skips paths that were already dirty at Intake');
+// Budget overflow is deferred and reported, never silently dropped.
+ok(/budget:deferred/.test(su), 'over-budget candidates are deferred with a stated reason, not dropped');
+// CI must actually run the new gates.
+ok(/syntax\.test\.mjs/.test(ciYml), 'CI runs the workflow syntax checker');
+ok(/test_skill_linter\.py/.test(readFileSync(join(wfDir, '..', '..', '.github', 'workflows', 'skill-lint.yml'), 'utf8')),
+   'CI runs the skill_linter --json contract test');
+
+
+// ---------------------------------------------------------------------------
+// content-guard + safe-pr: the publish gate.
+//
+// These assert the properties that make the gate a GATE rather than a habit —
+// things no unit test can see, because they are about ordering, about which
+// agent is constructed at all, and about what an agent is permitted to decide.
+// ---------------------------------------------------------------------------
+const cg = read('content-guard.js');
+const ps = read('safe-pr.js');
+const guardYml = readFileSync(join(wfDir, '..', '..', '.github', 'workflows', 'content-guards.yml'), 'utf8');
+
+// content-guard: deterministic by construction.
+ok(/--changed/.test(cg), 'content-guard runs the changed-scope scan');
+ok(/guardCmd\('changed'\)/.test(cg) && /guardCmd\('full'\)/.test(cg),
+   'content-guard runs BOTH the changed scan and the whole-tree backstop');
+ok(/--redact/.test(cg),
+   'content-guard always redacts — its output lands in an agent transcript');
+ok(/check_neutrality\.py/.test(cg) && /check_no_forks\.py/.test(cg),
+   'content-guard runs the neutrality and no-forks guards too');
+ok(!/[^a-zA-Z]new RegExp\(|AKIA|-----BEGIN/.test(cg),
+   'content-guard forks NO rule from the Python guard — no regex, no pattern, no allowlist');
+ok(/function verdict\(/.test(cg) && /function usable\(/.test(cg),
+   'the verdict is a pure JS function of the relayed facts');
+ok(/exit === 2/.test(cg) && /CONFIG_ERROR/.test(cg),
+   'exit 2 is a config error (scan not trustworthy), distinct from a finding');
+ok(/denylistOk\(/.test(cg),
+   'a scan whose client-name lane never ran cannot be reported as clean');
+ok(/headMismatch/.test(cg),
+   'two lanes disagreeing about HEAD blocks — no single state would have been certified');
+// The exit code the verdict reads is a number an AGENT typed. The tool's own JSON
+// says the same thing authoritatively. Trusting only the transcript would put a
+// model back in the finding path, which is the one thing this design forbids.
+ok(/l\.payload\.exit !== l\.exit/.test(cg),
+   "the relayed exit code is cross-checked against the tool's own JSON verdict");
+ok(/l\.payload\.counts\.findings > 0\) !== \(l\.exit !== 0\)/.test(cg),
+   'a payload listing findings alongside a clean exit code is a disagreement, not a pass');
+ok(!/clean: \{ type|status: \{ type|verdict: \{ type|report_markdown: \{ type/.test(cg),
+   'no agent schema in content-guard can express a verdict — agents are transport only');
+ok(/Do NOT edit, create or delete ANY file/.test(cg),
+   'the scan runner is forbidden from fixing its own failure');
+ok((cg.match(/\.catch\(\(\) =>/g) || []).length >= 3, 'every content-guard agent call fails closed');
+
+// safe-pr: the gate is structural — nothing that can publish exists on the blocked path.
+ok(/workflow\('content-guard'/.test(ps), 'safe-pr delegates the analysis to the standalone workflow');
+ok(ps.indexOf("workflow('content-guard'") < ps.indexOf('git push'),
+   'the guard runs before any push');
+ok(/guard\.clean !== true/.test(ps), 'safe-pr hard-gates strictly on the guard verdict');
+// Comments legitimately DESCRIBE the ordering, so compare positions in code only
+// — otherwise a comment mentioning phase('Plan') satisfies the assertion for free.
+const psCode = ps.replace(/^\s*\/\/[^\n]*$/gm, '');
+ok(psCode.indexOf('guard.clean !== true') < psCode.indexOf("phase('Plan')"),
+   'the gate returns BEFORE the Plan phase, so no publishing agent is ever constructed');
+ok(psCode.indexOf("phase('Guard')") < psCode.indexOf("phase('Commit')")
+   && psCode.indexOf("phase('Verify')") < psCode.indexOf("phase('Publish')"),
+   'phase order is Guard -> Plan -> Commit -> Verify -> Publish');
+// These tokens appear in safe-pr only to FORBID them to the agent. Assert exactly
+// that: every occurrence must sit on a line that prohibits it. A bare absence
+// check would be satisfied by deleting the prohibitions, which is backwards.
+for (const tok of ['--no-verify', '--force', 'git add -A', 'git add .', '--amend']) {
+  const lines = ps.split('\n').filter((l) => l.includes(tok));
+  const bad = lines.filter((l) => !/NEVER|never/.test(l));
+  ok(bad.length === 0,
+     `safe-pr mentions \`${tok}\` only to forbid it (offending line: ${(bad[0] || '').trim().slice(0, 70)})`);
+  ok(lines.length > 0, `safe-pr explicitly forbids \`${tok}\` to the agent`);
+}
+ok(/guard\.stageable_paths/.test(ps), 'safe-pr stages exactly the paths the guard certified');
+ok(/post\.tree_digest !== guard\.tree_digest/.test(ps),
+   'the push is bound to the digest the guard certified — content cannot change under it');
+// The body scan must be a CODE gate, not a sentence asking the agent to stop
+// itself: the scanning agent has no push/gh capability, and the publishing agent
+// is constructed only after JS has seen a clean scan.
+ok(/--scan-file/.test(ps), 'the PR and issue bodies are scanned before they are published');
+ok(/label: 'bodies'/.test(ps) && /label: 'publish'/.test(ps),
+   'writing+scanning the bodies is a separate agent from the one that pushes');
+ok(/bodies\.pr_body_exit !== 0 \|\| bodies\.issue_body_exit !== 0/.test(ps),
+   'a non-zero body scan blocks in code');
+ok(psCode.indexOf('bodies.pr_body_exit !== 0') < psCode.indexOf("label: 'publish'"),
+   'the body-scan gate returns BEFORE the publishing agent is constructed');
+ok(/required: \['ok', 'pr_body_exit', 'issue_body_exit'\]/.test(ps),
+   'both body-scan exit codes are REQUIRED fields — an omitted one cannot default to clean');
+ok(/PROTECTED\.includes\(branch\)/.test(ps), 'safe-pr refuses to commit to main/master');
+ok(/validCommitSubject/.test(ps) && /subjectLeak/.test(ps),
+   'the commit subject is validated in code for convention AND for leakage');
+ok(/Closes #/.test(ps), 'the PR body links an issue, per the repo template');
+ok(!/report_markdown: \{ type/.test(ps), 'the safe-pr report is never authored by an agent');
+ok((ps.match(/\.catch\(\(\) =>/g) || []).length >= 3, 'every safe-pr agent call fails closed');
+
+// A BLOCKED report must describe the state the run actually REACHED. The constant
+// sentence may exist exactly once — as the nothing-happened branch of the function
+// that derives it — because a second copy is how a late failure (the PR step) came
+// to deny a push that had already succeeded, hiding public bytes from the reader.
+ok((ps.match(/Nothing was committed, pushed or published/g) || []).length === 1,
+   'the "nothing happened" sentence exists once, inside the function that derives it');
+ok(/function stateSentence/.test(ps) && /\$\{stateSentence\(state\)\}/.test(ps),
+   'blocked() derives its closing sentence from state instead of asserting a constant');
+ok(/if \(pushed\) return/.test(ps),
+   'a block raised after a successful push reports that the commit is already public');
+
+// Push and PR-open are distinct observable outcomes; one must not be able to erase
+// the other. `gh pr create` refusing because the branch already has an open PR is
+// the success path — the push put the certified commit into that PR.
+ok(/required: \['ok', 'pushed', 'pr_create_exit'\]/.test(ps),
+   'push and PR-create outcomes are REQUIRED and reported separately');
+ok(/const prExisted = publish\.pr_create_exit !== 0/.test(ps),
+   'an already-open PR is classified in code, never by the agent');
+ok(psCode.indexOf('!publish.pushed') < psCode.indexOf('const prUrl'),
+   'the push verdict is settled before the PR verdict, so a PR failure cannot revoke it');
+ok(/gh pr view/.test(ps) && psCode.indexOf('gh pr create') < psCode.indexOf('gh pr view'),
+   'the PR is resolved after the create attempt, whether or not that attempt succeeded');
+ok(!/gh pr edit/.test(ps),
+   'safe-pr never overwrites an existing PR title or description — authored text is not force-pushed');
+
+// CI must enforce the changed-scope gate server-side, and redact its public log.
+ok(/check_client_data\.py --changed/.test(guardYml),
+   'CI runs the changed-scope scan on pull requests');
+ok(/--redact/.test(guardYml), 'CI redacts — an Actions log on a public repo is public');
+
+// ---------------------------------------------------------------------------
+// MOBILE mode: three-way dispatch, TWO gated surfaces, device-gated DAST.
+// The motivating failure was a MAPT that ran outside the coverage machinery
+// entirely and under-tested the backend the app talks to. These assert the
+// structure that makes both halves impossible to skip.
+// ---------------------------------------------------------------------------
+ok(/enum: \['web', 'network', 'mobile'\]/.test(pe), "SETUP_SCHEMA.engagement_kind admits 'mobile' (a strict enum would reject the structured output otherwise)");
+ok(/const KIND = \['network', 'mobile'\]\.includes\(setup\.engagement_kind\) \? setup\.engagement_kind : 'web'/.test(pe), "KIND is a three-way WHITELIST — an unknown or absent kind still falls back to web");
+ok(/if \(KIND === 'mobile'\)/.test(pe), 'a self-contained MOBILE branch exists');
+{ // the branch must precede the WEB fallthrough (which has no `else`) and return internally
+  const mobIdx = pe.indexOf("if (KIND === 'mobile')");
+  const webIdx = pe.indexOf("// WEB MODE (engagement_kind !== 'network')");
+  ok(mobIdx > 0 && webIdx > 0 && mobIdx < webIdx, 'the MOBILE branch sits before the WEB fallthrough');
+  const seg = pe.slice(mobIdx, webIdx);
+  ok(seg.includes("status: 'DONE'") && seg.includes("status: 'DRY_RUN'") && seg.includes("status: 'BLOCKED'"),
+     'the MOBILE branch returns internally on every path (DONE + DRY_RUN + BLOCKED) — a fallthrough would CT-log-enumerate an APK');
+}
+ok((pe.match(/engagement_kind: 'mobile'/g) || []).length >= 2, 'the mobile returns stamp engagement_kind');
+ok(/\.apk\/\.aab\/\.xapk\/\.apks\/\.ipa/.test(pe), 'the Setup classifier keys mobile off an ARTIFACT/store-id/package-id, not off the absence of a domain');
+ok(/FIRST MATCH WINS/.test(pe), 'the kind classifier is an ordered first-match test (mobile before network before web)');
+
+// TWO gated surfaces — the app bundle AND the backend recovered from it.
+ok(/recon\/inventory\/mobile-surface\.json/.test(pe), 'MOBILE emits the app-bundle MASVS surface');
+ok(/tools\/mobile_surface_build\.py/.test(pe), 'both surfaces are written by the shared deterministic tool, not an engagement-local script');
+ok(/tools\/mobile_manifest_facts\.py/.test(pe), 'manifest/Info.plist facts are extracted by code, not authored by the agent');
+ok(/const mobSurfaceOk = mobApps\.length > 0/.test(pe), 'mobSurfaceOk guards on mobApps.length — [].every() is vacuously true');
+ok(/apiAssets\.length > 0 && apiAssets\.every\(a => Number\(a\.units\) > 0\)/.test(pe), 'zero recovered backend endpoints is a FAILED acquisition, not a small surface');
+ok(/INCOMPLETE_sast/.test(pe), 'an unemitted surface can never reach COMPLETE');
+ok(/platform: 'mobile'/.test(pe) && (pe.match(/platform: 'web'/g) || []).length >= 2, "the app loop runs platform:'mobile' and the RECOVERED backend loop platform:'web'");
+ok(/skills_hint: 'mobile-security/.test(pe) && /skills_hint: 'api-security/.test(pe), 'the two mobile lanes mount different skill sets (MASVS vs API)');
+ok(/SYSTEMATICALLY UNDER-TESTED/.test(pe), 'the recovered-backend goal names why that surface is under-tested (not browser-reachable)');
+ok(/--allow /.test(pe), 'the recovered-backend allow-list is passed explicitly (a bundle string never steers out-of-scope testing)');
+
+// DAST is device-gated; a deferral must be MACHINE-substantiated, never a flag.
+ok(/tools\/mobile_device_check\.py/.test(pe), 'the Device phase runs the mobile_device_check preflight');
+ok(/INCOMPLETE_dast/.test(pe), 'an unresolved DAST obstruction is its own incomplete status (the mobile analogue of INCOMPLETE_scan)');
+// no operator INPUT may skip DAST (the prose comment saying so is allowed to
+// mention the names — what must not exist is a read of one)
+ok(!/input\.(skip_dast|static_only|no_dast|skip_device)/.test(pe), 'there is NO operator flag that skips DAST — the only way past the gate is a device or a substantiated obstruction');
+ok(/deliberately NO skip_dast/.test(pe), 'the absence of a DAST kill-switch is documented at the knob block, so it is not "re-added as a convenience" later');
+ok(/ready = \(exit code 0\) and NOTHING ELSE/.test(pe), 'only exit 0 counts as ready — DEGRADED (incl. every iOS Simulator) routes to the obstruction path');
+{ // the deferral may only be constructed AFTER the machine evidence exists
+  const oIdx = pe.indexOf('recon/dast/obstruction.json');
+  const dIdx = pe.indexOf('dastDeferral = {');
+  ok(oIdx > 0 && dIdx > 0 && oIdx < dIdx, 'the machine obstruction record is written BEFORE any deferral is constructed');
+}
+ok(/obst\.obstructed === true && obst\.obstruction_path && obst\.cir_path/.test(pe), 'JS requires BOTH the obstruction record and the CIR before a deferral exists');
+ok(/RELATIVE TO THE ASSET DIR/.test(pe), 'the obstruction agent is told the CIR path is asset-dir-relative (coverage_gate resolves it against asset_dir)');
+ok(/proof_mode:static cells are NOT deferrable/.test(pe), 'the app loop is told static cells cannot be device-deferred');
+ok(/phase\('Acquire'\)/.test(pe) && /phase\('Device'\)/.test(pe), 'MOBILE runs the Acquire + Device phases');
+{ // a phase() title absent from meta.phases does not group in the progress UI
+  const emitted = [...new Set([...pe.matchAll(/phase\('([A-Za-z]+)'\)/g)].map((m) => m[1]))];
+  const declared = [...pe.matchAll(/\{ title: '([A-Za-z]+)'/g)].map((m) => m[1]);
+  const undeclared = emitted.filter((t) => !declared.includes(t));
+  ok(undeclared.length === 0, `every phase() title is declared in meta.phases (undeclared: ${undeclared.join(',') || 'none'})`);
+}
+
+// coordinator-loop must not manufacture a WEB surface for an app bundle.
+ok(/const SURFACE_FILE = a\.surface_file/.test(cl), 'coordinator-loop takes a surface_file override');
+ok(/const IS_MOBILE_SURFACE = /.test(cl), 'the loop branches on the surface SCHEMA, not just the filename');
+ok(/surface_file: 'recon\/inventory\/mobile-surface\.json'/.test(pe), 'the app loop overrides the surface file so bootstrap does not enumerate a web surface for an APK');
+ok(/passive_web_probe\.py is an HTTP tool and must NOT be run against an app bundle/.test(cl), 'the mobile bootstrap forbids the passive HTTP probe (it would fabricate covered_negative cells)');
+ok(/CANNOT be closed from the artifact/.test(cl), 'THINK is told a [runtime] cell needs a device-bearing mission');
+
+// the mobile tools are CI-enforced like every other tool in tools/
+ok(/python3 tools\/test_mobile_surface_build\.py/.test(ciYml), 'CI runs the mobile surface-builder test');
+ok(/python3 tools\/test_mobile_device_check\.py/.test(ciYml), 'CI runs the device-check test');
+ok(/python3 tools\/test_mobile_manifest_facts\.py/.test(ciYml), 'CI runs the manifest-facts test');
 
 console.log(`\nwiring: ${pass} passed, ${fail} failed`);
 if (fail) { console.log('\n' + fails.join('\n')); process.exit(1); }

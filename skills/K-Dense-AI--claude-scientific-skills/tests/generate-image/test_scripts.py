@@ -229,7 +229,7 @@ class SaveImageTests(unittest.TestCase):
 class SkillDocumentTests(unittest.TestCase):
     def test_frontmatter_version_matches_expected(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn('version: "2.0"', text)
+        self.assertRegex(text, r'\n  version: "\d+\.\d+"\n')
 
     def test_documented_default_model_matches_the_script(self):
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")

@@ -165,7 +165,7 @@ How much control over onboarding UX?
 
 #### Risk Management by Business Model
 
-> **Note:** This section is directional guidance only. For detailed risk and Radar configuration, refer to the [Stripe Radar for Platforms documentation](https://docs.stripe.com/radar/radar-for-platforms.md).
+> **Note:** This section is directional guidance only. For detailed risk and Radar configuration, refer to the [Radar documentation](https://docs.stripe.com/radar.md).
 
 **Default recommendation: Let Stripe manage risk.** This usually reduces operational overhead for launch. Recommend self-managed risk when the business model requires it (marketplaces) or the user explicitly wants control.
 

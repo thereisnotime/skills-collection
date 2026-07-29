@@ -31,6 +31,8 @@ from synthetic_manuscript import (
     valid_source_manifest,
 )
 
+import skill_contract
+
 
 class ScriptTests(unittest.TestCase):
     def write_json(self, directory: Path, name: str, value: object) -> Path:
@@ -213,6 +215,11 @@ class ScriptTests(unittest.TestCase):
             self.assertIn("manuscript.md", files)
             self.assertTrue((output / "claims.csv").is_file())
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(ROOT)
 
 if __name__ == "__main__":
     unittest.main()

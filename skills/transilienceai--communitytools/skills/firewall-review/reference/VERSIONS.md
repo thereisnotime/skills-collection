@@ -4,7 +4,8 @@ Every artefact this tool emits carries `chain_of_custody.detector_version` and `
 
 If the running detector emits a version not listed here, the build is drifting; reconcile here first.
 
-Last verified: 2026-04-25 — pulled live from `examples/demo-acme-pharmaceuticals_2026-04-24/findings.draft.jsonl` chain_of_custody fields.
+Last updated: 2026-07-27 — added 5 FortiGate-specific detectors, the semantic-check catalogue (v1.0.0), the CIS Fortinet FortiGate Benchmark, the evidence-state contract, and the consolidated network-team workbook profiles including grouped observation/severity presentation.
+The inherited skill metadata records detector/parser pins as last verified on 2026-04-25 from `examples/demo-acme-pharmaceuticals_2026-04-24/findings.draft.jsonl`. This contribution could not independently re-verify that statement because the cited runtime repository was inaccessible; see [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md).
 
 ---
 
@@ -47,6 +48,19 @@ Last verified: 2026-04-25 — pulled live from `examples/demo-acme-pharmaceutica
 | `shadow-rule` | `0.2.0` | (context-dependent) | `detectors/shadow-rule/` |
 | `contradicting-rule` | `0.2.0` | (context-dependent) | `detectors/contradicting-rule/` |
 | `rules-no-comments` | `0.1.0` | Info | `detectors/rules-no-comments/` |
+| `admin-timeout-excess` | `0.1.0` | High | `detectors/admin-timeout-excess/` — FortiGate |
+| `sslvpn-timeout-excess` | `0.1.0` | High | `detectors/sslvpn-timeout-excess/` — FortiGate |
+| `super-admin-trusthost` | `0.1.0` | Critical | `detectors/super-admin-trusthost/` — FortiGate |
+| `utm-status-orphan` | `0.1.0` | Medium | `detectors/utm-status-orphan/` — FortiGate |
+| `service-all-ports` | `0.1.0` | High | `detectors/service-all-ports/` — FortiGate |
+
+## Semantic-check catalogue (`fwrr.semantic.*`)
+
+| Component | Version | Skill |
+|---|---|---|
+| `semantic-check-catalogue` | `1.0.0` | `semantic/semantic-check-catalogue.md` |
+
+15 named checks across 7 categories. Five have been promoted to deterministic detectors (`SEM-011/012/021/031/060`); the rest run as the auditable LLM pass.
 
 ## Validation passes (`fwrr.validation.*`)
 
@@ -63,6 +77,16 @@ Last verified: 2026-04-25 — pulled live from `examples/demo-acme-pharmaceutica
 | `report-writer-pdf` | `0.2.0` | `reporting/report-writer-pdf/` |
 | `narrative-framer` | `0.1.0` | `reporting/narrative-framer/` |
 | `brand-config` | `0.1.0` | `reporting/brand-config/` |
+
+### Skill-only reporting and validation profiles
+
+These are reusable operating contracts, not claims about implemented `fwrr` modules.
+
+| Component | Version | Skill |
+|---|---|---|
+| `evidence-state-contract` | `1.0.0` | `validation/evidence-state-contract.md` |
+| `network-team-review-workbook` | `1.0.0` | `reporting/network-team-review-workbook.md` |
+| `custom-policy-benchmark` | `1.0.0` | `semantic/custom-policy-benchmark.md` |
 
 ## Personas (`fwrr.personas.*`)
 
@@ -84,6 +108,14 @@ Last verified: 2026-04-25 — pulled live from `examples/demo-acme-pharmaceutica
 | CIS Controls | `v8.1` (June 2024) | cisecurity.org/controls/v8-1 | `compliance/cis-controls-v8.1/` |
 | HIPAA Security Rule | `45 CFR §164` (2013 Final Rule) | hhs.gov/hipaa | (no skill — referenced inline) |
 | GDPR | `Reg. 2016/679` | eur-lex.europa.eu | (no skill — referenced inline) |
+
+## Benchmarks
+
+| Benchmark | Pinned version | Source | Skill |
+|---|---|---|---|
+| CIS Fortinet FortiGate Benchmark | CIS FortiOS — 64 checks (45 deterministic, 19 advisory) | cisecurity.org | `compliance/cis-fortigate-benchmark/` |
+
+Distinct from the CIS Controls v8.1 mapping above: this is a product-hardening benchmark, not a controls framework. Do not mix a benchmark check number with a control safeguard number in a finding's `framework_refs`.
 
 ## Drift policy
 

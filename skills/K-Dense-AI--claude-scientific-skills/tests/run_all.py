@@ -8,6 +8,10 @@ directories share top-level module names (see tests/conftest.py).
     python tests/run_all.py qutip pydicom       # only the named skills
     python tests/run_all.py -- -x --tb=long     # pass extra args to pytest
 
+A full run starts with `tests/_meta`, the repo-wide guard that checks every
+skill against the shared structural contract and fails if a skill ships
+`scripts/` without a suite here. Naming skills explicitly skips it.
+
 With `--isolated`, each suite instead runs in a throwaway `uv` environment
 built from that skill's entry in tests/skill-requirements.toml:
 
@@ -41,10 +45,13 @@ NO_TESTS_COLLECTED = 5
 
 
 def discover(names: list[str]) -> list[Path]:
+    # Underscore-prefixed directories are infrastructure, not skills:
+    # `_contract/` is the shared library and `_meta/` is the repo-wide guard,
+    # run separately by `run_meta()` because it spans every skill at once.
     available = sorted(
         path
         for path in TESTS_DIR.iterdir()
-        if path.is_dir() and not path.name.startswith((".", "__"))
+        if path.is_dir() and not path.name.startswith((".", "_"))
     )
     if not names:
         return available
@@ -82,6 +89,22 @@ def isolated_command(
     return [*command, "python", "-m", "pytest", target, *pytest_args]
 
 
+def run_meta(pytest_args: list[str]) -> int:
+    """Run the repo-wide guard in this interpreter, before any skill suite.
+
+    `tests/_meta` spans every skill at once -- it is what enforces that a skill
+    shipping `scripts/` has a suite here at all -- so it cannot be one of the
+    per-skill processes. It imports no skill code and needs no scientific
+    packages, so it always runs in the project environment, never an isolated
+    one.
+    """
+    print("\n=== _meta " + "=" * 55)
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests/_meta", *pytest_args], cwd=REPO_ROOT
+    )
+    return completed.returncode
+
+
 def main(argv: list[str]) -> int:
     isolated = "--isolated" in argv
     argv = [argument for argument in argv if argument != "--isolated"]
@@ -102,6 +125,12 @@ def main(argv: list[str]) -> int:
 
     suites = discover(names)
     results: dict[str, int] = {}
+
+    # Only on a full run: when the caller named skills they want those skills,
+    # not a repo-wide audit.
+    if not names:
+        results["_meta"] = run_meta(pytest_args)
+
     for suite in suites:
         print(f"\n=== {suite.name} " + "=" * max(0, 60 - len(suite.name)))
         target = str(suite.relative_to(REPO_ROOT))

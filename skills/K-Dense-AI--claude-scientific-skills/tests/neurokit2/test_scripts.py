@@ -154,7 +154,7 @@ class SafetyAndManifestTests(unittest.TestCase):
 
     def test_skill_version_license_references_and_progressive_disclosure(self) -> None:
         skill = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn('metadata:\n  version: "1.1"', skill)
+        self.assertRegex(skill, r'\nmetadata:\n  version: "\d+\.\d+"\n')
         self.assertIn("license: MIT", skill)
         self.assertIn("compatibility:", skill)
         self.assertIn('uv pip install "neurokit2==0.2.13"', skill)

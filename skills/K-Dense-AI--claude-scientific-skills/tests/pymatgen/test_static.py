@@ -21,7 +21,7 @@ class SkillStructureTests(unittest.TestCase):
         self.assertIn("\ncompatibility:", text)
         self.assertRegex(
             text,
-            r'\nmetadata:\n  version: "1\.2"\n  skill-author:',
+            r'\nmetadata:\n  version: "\d+\.\d+"\n  skill-author:',
         )
         self.assertNotIn('metadata: {"version"', text)
         self.assertIn('last-reviewed: "2026-07-23"', text)

@@ -24,6 +24,8 @@ from research_lookup import (  # noqa: E402
     build_parser,
 )
 
+import skill_contract
+
 
 def source(
     index: int,
@@ -375,6 +377,11 @@ class PacketTests(unittest.TestCase):
         self.assertIn("https://doi.org/10.1234/example", urls)
         self.assertIn("https://pubmed.ncbi.nlm.nih.gov/12345678", urls)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SCRIPT_DIR.parent)
 
 if __name__ == "__main__":
     unittest.main()

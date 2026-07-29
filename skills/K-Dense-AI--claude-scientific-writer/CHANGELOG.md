@@ -4,6 +4,41 @@ All notable changes to the Scientific Writer project will be documented in this 
 
 ## [Unreleased]
 
+### Added
+
+- **GitHub releases are created by the release workflow** — `release.yml` now creates the GitHub release from the `CHANGELOG.md` section for the tag, after PyPI publishing succeeds. Previously the workflow only published to PyPI and release entries were written by hand, so the releases page drifted (`v2.19.0` shipped to PyPI while the page still showed `v2.18.0` as latest, and several earlier versions have no entry at all). The step is idempotent: re-running a tag refreshes the notes instead of failing.
+- **`scripts/changelog_notes.py`** — extracts the release body for one version from `CHANGELOG.md` and appends a compare link to the previous release. Run it to preview what a tag will publish: `uv run scripts/changelog_notes.py X.Y.Z`.
+
+### Changed
+
+- **A changelog entry is now required to release** — the workflow extracts the notes before running any checks, so a tag whose version has no `## [X.Y.Z]` section (or an empty one) fails immediately, rather than after the package is already on PyPI. `docs/RELEASING.md` documents this, along with why the local `scripts/publish.py` path does not produce a GitHub release.
+
+---
+
+## [2.19.0] - 2026-07-28
+
+### Changed
+
+- **Vendored skills refreshed to upstream `ab2f84ab1059`** — the writing-skill subset is now pinned to `K-Dense-AI/scientific-agent-skills` commit `ab2f84ab1059` (upstream version 2.61.0), up from release `v2.60.0` at `223f5a30f892`. Pinned to the commit rather than a tag because upstream has not yet published a `v2.61.0` release. `skills.lock.json` and all snapshots (`skills/`, `.claude/skills/`, `scientific_writer/.claude/skills/`) were regenerated; the same 26 selected skills continue to ship.
+
+### Fixed
+
+- **Image generation model slug corrected** — `scientific-schematics`, `infographics`, `latex-posters`, `literature-review`, `citation-management`, and `scientific-slides` now request `google/gemini-3.1-flash-image` instead of the text-only `google/gemini-3.1-flash-image-preview`, which failed with "No endpoints found that support the requested output modalities".
+- **`OPENROUTER_API_KEY` resolution hardened** — the schematic, infographic, and slide-image scripts now resolve the key from `--api-key`, then the environment, then the first `.env` found while walking up from the working directory, using only the standard library. A missing optional `python-dotenv` no longer surfaces as a missing credential.
+- **LibreOffice conversion in `docx`/`pptx`/`xlsx`** — `scripts/office/soffice.py` gained more robust binary discovery and error reporting.
+
+---
+
+## [2.18.0] - 2026-07-28
+
+### Changed
+
+- **Vendored skills refreshed to upstream `v2.60.0`** — the writing-skill subset is now pinned to `K-Dense-AI/scientific-agent-skills` release `v2.60.0` at commit `223f5a30f892`, up from `v2.54.0`. `skills.lock.json` and all plugin/package snapshots (`skills/`, `.claude/skills/`, `scientific_writer/.claude/skills/`) were regenerated with refreshed provenance and content hashes. Scientific Writer continues to ship the same 26 selected skills.
+- **Duplicate schematic scripts consolidated** — upstream removed the per-skill `generate_schematic.py` and `generate_schematic_ai.py` copies from `clinical-decision-support`, `clinical-reports`, `citation-management`, and `treatment-plans`; diagram generation is now centralized in `scientific-schematics`. The script paths referenced by `CLAUDE.md` are unaffected.
+- **Skill scope statements tightened** — `clinical-decision-support`, `clinical-reports`, and `treatment-plans` are now explicitly scoped to research, formatting, and validation of clinician-supplied decisions rather than clinical decision-making, and `scientific-writing`, `peer-review`, and `scholar-evaluation` gained evidence-provenance and traceability framing. Several skills also folded their `assets/` templates and `references/` guides into their `SKILL.md`.
+- **Image and diagram backends updated** — `generate-image` now targets the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image) with reference-image editing and compositing, while `scientific-schematics` and `infographics` now run quality review through Gemini 3.6 Flash.
+- **`pptx-posters` rebuilt as PowerPoint-native** — posters are now generated and audited as macro-free `.pptx` with pinned `python-pptx`/`Pillow`/`lxml` versions and local package-security, printer, and accessibility checks, replacing the previous HTML/CSS export path.
+
 ---
 
 ## [2.17.1] - 2026-07-22

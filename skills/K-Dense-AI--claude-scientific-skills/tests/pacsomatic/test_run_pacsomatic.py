@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+import skill_contract
+
 SKILL_ROOT = Path(__file__).resolve().parents[2] / "skills" / "pacsomatic"
 SCRIPT_PATH = SKILL_ROOT / "scripts" / "run_pacsomatic.py"
 
@@ -72,6 +74,11 @@ class RunPacsomaticUnitTests(unittest.TestCase):
         self.assertIn("P001,P001_T,1,/data/tumor.bam,", content)
         self.assertIn("P001,P001_N,0,/data/normal.bam,", content)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

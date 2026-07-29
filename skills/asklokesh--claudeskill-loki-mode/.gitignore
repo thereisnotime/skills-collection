@@ -114,3 +114,8 @@ artifacts/V8-FACTORY-BACKLOG.md
 
 # Competitive research scratch (OpenHands vs Loki v8) - not product
 research/openhands-competitive/
+
+# A/B benchmark trial history and rendered dashboard (local measurement data)
+benchmarks/results/ab-history.jsonl
+benchmarks/results/ab-dashboard.html
+benchmarks/results/speed-*.json

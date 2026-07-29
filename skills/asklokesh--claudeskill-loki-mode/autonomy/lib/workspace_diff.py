@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 
 
@@ -74,6 +75,22 @@ def collect_workspace_diff(repo_dir, base, include_diffs=False):
     comparison = base or "HEAD~1"
     raw = _git(repo_dir, ["diff", "--no-renames", "--numstat", "-z", comparison, "--"])
     if raw is None:
+        # HEAD~1 is unusable (single-commit or empty repo). Fall back to the
+        # EMPTY TREE, not to a bare "HEAD".
+        #
+        # A bare "HEAD" compares HEAD to the working tree, so it sees only
+        # UNCOMMITTED changes and silently drops everything the run committed.
+        # Measured on a real greenfield run: bare HEAD reported 5 files where
+        # the truth was 9. The empty tree yields "everything that now exists",
+        # which is the correct answer when no earlier commit exists to diff
+        # against -- and it agrees with HEAD~1 on runs where both are valid.
+        empty_tree = _git(repo_dir, ["hash-object", "-t", "tree", os.devnull])
+        if empty_tree:
+            comparison = empty_tree.strip()
+            raw = _git(repo_dir, ["diff", "--no-renames", "--numstat", "-z", comparison, "--"])
+    if raw is None:
+        # Last resort: worktree-only. Undercounts a run that committed its work,
+        # so it is reached only when even the empty-tree diff failed.
         comparison = "HEAD"
         raw = _git(repo_dir, ["diff", "--no-renames", "--numstat", "-z", comparison, "--"])
     if raw is None:

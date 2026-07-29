@@ -36,6 +36,8 @@ from validate_competitor_matrix import (  # noqa: E402
 )
 from validate_evidence_ledger import _load_records, validate_records  # noqa: E402
 
+import skill_contract
+
 
 def load_json(name: str) -> dict:
     with (ASSETS / name).open("r", encoding="utf-8") as handle:
@@ -183,6 +185,11 @@ class ScaffoldTests(unittest.TestCase):
             with self.assertRaisesRegex(ValidationError, "already exists"):
                 generate(manifest, output)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

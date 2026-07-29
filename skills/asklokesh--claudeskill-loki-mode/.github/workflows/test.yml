@@ -76,7 +76,15 @@ jobs:
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pydantic httpx fastapi uvicorn
+          # Install from the canonical list, not a hand-maintained subset. This
+          # job previously installed only "pydantic httpx fastapi uvicorn" and
+          # omitted sqlalchemy/aiosqlite, so every shell test that imports
+          # dashboard/server.py died with
+          #   ModuleNotFoundError: No module named 'sqlalchemy'
+          # and reported as a product failure. Five suites were red for that one
+          # missing dependency. Sourcing requirements-test.txt keeps this job and
+          # the python-tests job from drifting apart again.
+          python3 -m pip install -r requirements-test.txt
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -281,6 +289,14 @@ jobs:
   sdk-tarball-no-binary:
     name: v8.1 SDK judge from packed tarball (no claude binary)
     runs-on: ubuntu-latest
+    # The `secrets` context is NOT available in a step-level `if:` -- referencing
+    # it there makes GitHub reject the whole workflow file at parse time, so ZERO
+    # jobs are created and the run reports the opaque "workflow file issue"
+    # failure. Hoist the secret to job-level env and gate on the env var instead;
+    # `env` IS available in `if:`. A secret-less fork sees an empty string and the
+    # billable steps self-skip exactly as intended.
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -310,9 +326,18 @@ jobs:
           # dir prefix: a partial/empty dist/ would pass a prefix grep while
           # bin/loki's `[ -f dist/loki.js ]` check fails and routes to bash --
           # green-washing a missing bundle (council S5+S6 R2 HIGH). Exact file closes it.
-          tar tzf "$TARBALL" | grep -qx 'package/loki-ts/dist/loki.js' \
+          # List ONCE into a file, then grep the file. Piping `tar tzf` straight
+          # into `grep -q` is a SIGPIPE trap: grep -q exits at the first match and
+          # closes the pipe, GNU tar then dies with "tar: stdout: write error",
+          # and `set -o pipefail` fails the whole step even though the assertion
+          # SUCCEEDED. That is exactly how this job broke -- it reported a missing
+          # artifact when the artifact was present. (BSD tar on macOS tolerates
+          # the closed pipe, so it does not reproduce locally.)
+          TARLIST="$RUNNER_TEMP/tarball-contents.txt"
+          tar tzf "$TARBALL" > "$TARLIST"
+          grep -qx 'package/loki-ts/dist/loki.js' "$TARLIST" \
             || { echo 'FAIL: loki-ts/dist/loki.js missing from tarball (SDK judge would not ship)'; exit 1; }
-          tar tzf "$TARBALL" | grep -qx 'package/autonomy/lib/sdk-mode.sh' \
+          grep -qx 'package/autonomy/lib/sdk-mode.sh' "$TARLIST" \
             || { echo 'FAIL: autonomy/lib/sdk-mode.sh missing from tarball (mode resolver would not ship)'; exit 1; }
           mkdir -p "$RUNNER_TEMP/loki-prefix"
           npm install -g --prefix "$RUNNER_TEMP/loki-prefix" "./$TARBALL"
@@ -431,7 +456,7 @@ jobs:
           echo "PASS: keyless SDK judge fail-closed cleanly (exit 1) from the tarball -- SDK code shipped"
 
       - name: BILLABLE judge probe (gated on the ANTHROPIC_API_KEY secret)
-        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        if: env.HAS_ANTHROPIC_KEY == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           LOKI_SDK_MODE: judges
@@ -452,7 +477,7 @@ jobs:
       # crashes on a fresh install (the v6.25 dist-excluded bug class, for the loop).
       # Billable + gated on the secret (self-skips on forks / secret-less pushes).
       - name: BILLABLE RARV-loop E2E from the tarball (gated on ANTHROPIC_API_KEY)
-        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        if: env.HAS_ANTHROPIC_KEY == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           LOKI_SDK_LOOP: "1"

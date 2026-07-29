@@ -18,6 +18,8 @@ import session_scaffold
 import validate_register
 from _common import MAX_INPUT_BYTES, CliError, read_json, write_json
 
+import skill_contract
+
 
 def populated_register() -> dict:
     """Return a small valid synthetic register."""
@@ -273,6 +275,11 @@ class MatrixTests(unittest.TestCase):
             with self.assertRaises(CliError):
                 evaluate_matrix.load_scores(str(scores), criteria)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

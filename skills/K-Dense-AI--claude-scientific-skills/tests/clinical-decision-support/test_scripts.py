@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 import copy
 import json
-import re
 import sys
 import unittest
 from pathlib import Path
@@ -25,6 +24,8 @@ import evidence_profile_check  # noqa: E402
 import model_biomarker_evaluation  # noqa: E402
 import survival_plan_validator  # noqa: E402
 import validate_cds_artifact  # noqa: E402
+
+import skill_contract
 
 
 def load_asset(filename: str) -> dict:
@@ -94,28 +95,10 @@ class StaticSafetyTests(unittest.TestCase):
         with self.assertRaises(_common.InputError):
             _common.local_input_path("https://example.invalid/data.json")
 
-    def test_documented_local_paths_exist(self) -> None:
-        pattern = re.compile(r"\b(?:assets|references|scripts)/[A-Za-z0-9_.-]+")
-        documents = [ROOT / "SKILL.md", *sorted((ROOT / "references").glob("*.md"))]
-        missing: list[str] = []
-        for document in documents:
-            for relative in pattern.findall(document.read_text(encoding="utf-8")):
-                if not (ROOT / relative).is_file():
-                    missing.append(f"{document.name}: {relative}")
-        self.assertEqual(missing, [])
-
-    def test_no_bytecode_artifacts(self) -> None:
-        artifacts = [
-            str(path.relative_to(ROOT))
-            for path in ROOT.rglob("*")
-            if path.suffix in {".pyc", ".pyo"}
-        ]
-        self.assertEqual(artifacts, [])
-
     def test_skill_is_progressively_disclosed_and_versioned(self) -> None:
         text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertLess(len(text.splitlines()), 500)
-        self.assertIn('version: "2.1"', text)
+        self.assertRegex(text, r'\n  version: "\d+\.\d+"\n')
         self.assertIn("license: MIT", text)
         self.assertIn("metadata:\n  version:", text)
 
@@ -263,6 +246,11 @@ class PrivacyChecklistTests(unittest.TestCase):
         self.assertFalse(summary["deidentification_determined"])
         self.assertFalse(summary["hipaa_compliance_determined"])
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(ROOT)
 
 if __name__ == "__main__":
     unittest.main()

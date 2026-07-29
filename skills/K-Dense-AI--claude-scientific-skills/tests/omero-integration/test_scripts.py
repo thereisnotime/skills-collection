@@ -28,6 +28,8 @@ from omero_common import (  # noqa: E402
     take_bounded,
 )
 
+import skill_contract
+
 
 class FakeParty:
     def __init__(self, identifier: int, username: str = "private-user"):
@@ -336,6 +338,11 @@ class TransferPlannerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 plan_transfer.plan_import(args)
 
+
+# The shared --help contract: every argparse CLI this skill ships answers --help
+# without doing any work. It skips when the skill's packages are absent and runs
+# for real under `python tests/run_all.py --isolated`.
+CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 if __name__ == "__main__":
     unittest.main()

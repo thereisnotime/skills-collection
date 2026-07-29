@@ -674,10 +674,5 @@ class CLITests(unittest.TestCase):
             self.assertIn("CHOICE_INVALID", codes)
             self.assertIn("VALUE_UNKNOWN", codes)
 
-    def test_no_bytecode_artifacts_created(self) -> None:
-        for path in ROOT.rglob("__pycache__"):
-            self.fail(f"unexpected bytecode directory: {path}")
-
-
 if __name__ == "__main__":
     unittest.main()

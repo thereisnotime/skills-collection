@@ -5,6 +5,108 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v8.0.2
+
+Patch release. `loki why` -- the command v8.0.1 tells users to run after a
+failure -- was misreporting the run it exists to explain.
+
+### `loki why`
+
+Measured against a preserved real run that produced 9 files and 1300 insertions
+and paused on a gate:
+
+- **"Changes: 0 files (+0/-0)"** on a run that built 9 files. A greenfield run
+  whose baseline never resolved records 0, and `loki why` printed that as fact.
+  A recorded zero is now re-derived from git and only reported as zero when git
+  agrees; a trustworthy non-zero record is printed unchanged.
+- **The blocking gate was never named.** The run stopped on `code_review` after
+  3 failures at threshold 3, and the advice was "Resume with: loki resume" --
+  the exact thing the run's own pause notice warns will stop at the same gate
+  again. It now names the gate, its count and threshold, and says to read the
+  findings first.
+- **The findings pointer was an absolute path from the build machine**, naming
+  a temp directory that no longer existed. It is now workspace-relative, so it
+  resolves for the person reading it.
+- **`inconclusive_spec_contradiction`** -- a real terminal state -- produced
+  "No diagnosis mapping for this status". It now explains the stop and points
+  at `.loki/assumptions/ledger.md`.
+
+No verdict, threshold, or gate logic changed. Every gate decision examined in
+this work was a true positive; the defects were in how correct decisions were
+reported.
+
+## v8.0.1
+
+Patch release. Every change is a bug fix; no behavior a working v8.0.0 install
+depends on was altered.
+
+### Trust core
+
+- **The Evidence Receipt attested to an understated diff.** `_git_diffstat`
+  computed the receipt's stat against `_LOKI_ITER_START_SHA` -- the
+  per-ITERATION baseline, which is re-captured to current HEAD at the top of
+  every iteration -- while presenting the result as run-level. A multi-iteration
+  run therefore attested only to changes since its last iteration, and that
+  count feeds `diff_sha256`, the integrity hash written on every run. Measured
+  on a real 2-commit run: 850 insertions + 76 deletions reported where the run
+  produced 1479 across 10 files. Now resolves the run-level baseline, falls back
+  to the empty tree for greenfield runs, and records `base_sha` from the same
+  baseline the diff used so a verifier recomputing it cannot disagree.
+- **The verifier rejected the greenfield baseline it is meant to accept.**
+  `_rev_resolvable` probed only `<ref>^{commit}`; the empty tree is a TREE, so
+  genuine proofs failed with "base ref unresolvable". Fixed without loosening
+  the forgery defense -- fabricated, all-zero, and garbage SHAs are all still
+  rejected.
+
+### Reporting
+
+Every gate decision examined during this work was a TRUE positive. The defects
+were in how those correct decisions were reported.
+
+- **A greenfield run reported `files_changed: 0` for work it had done.** A build
+  that produced 4 spec-required files and passed 28/28 of its own tests told the
+  user nothing was changed. Now diffs against the empty tree when no baseline
+  commit exists: the same artifact reports 9 files, 1300 insertions.
+- **`PAUSED.md` never said why it paused.** It was static boilerplate. It now
+  names the blocking gate, its failure count and threshold, the findings path,
+  and what was built before the pause.
+- **Terminal outcomes gave no next step.** Guidance was reachable only for
+  `complete|max_iterations` AND `files_changed == 0`, so `intervention`,
+  `failed`, `stopped`, `force_stopped` and `inconclusive_spec_contradiction`
+  got nothing -- exactly the outcomes where a user is stuck. Each now names a
+  concrete next action, and the guidance is independent of the file count.
+- **`loki doctor` hid the inline-image protocol when bun was absent.** The
+  Cockpit section printed "Render path" but not "Inline-image protocol", so a
+  user could not tell whether their terminal was unsupported or simply never
+  probed.
+
+### CI and portability
+
+The Tests workflow had not started for four days: a `secrets` reference in a
+step-level `if:` is rejected at parse time, so ZERO jobs were created and the
+only symptom was "workflow file issue". Fixing that surfaced a backlog of
+platform bugs, each of which reported a product failure for an environment
+difference:
+
+- `tar tzf | grep -q` under `pipefail` reported a missing tarball artifact that
+  was present -- `grep -q` closes the pipe and GNU tar dies of SIGPIPE.
+- GNU `stat -f` means "filesystem status" and exits 0, so a macOS-first
+  `stat -f ... || stat -c ...` never fell through on Linux (5 suites).
+- An apostrophe inside a quoted heredoc nested in `$( )` makes macOS bash 3.2
+  reject the whole file, breaking both macOS Bun jobs.
+- Three suites grepped a hardcoded `/Users/<name>/git/loki-mode` checkout, and
+  two pinned `/opt/homebrew/bin/python3.12`.
+- The shell-tests job installed a hand-maintained dependency subset missing
+  sqlalchemy, failing five suites on one import; it now installs from
+  `requirements-test.txt`.
+- `import mcp` resolved to this repo's own `mcp/` directory rather than the SDK,
+  so a preflight guard passed with no SDK installed at all.
+
+New guards prevent each class from returning: bash 3.2 parse compatibility,
+`stat` ordering, hardcoded home and toolchain paths, greenfield diff-stat,
+per-outcome guidance, and the receipt's run-level baseline. Every guard was
+verified non-vacuous by reintroducing the bug it exists to catch.
+
 ## v8.0.0
 
 Loki's first 8.x. No 8.x has ever been published (npm latest was 7.129.5), so

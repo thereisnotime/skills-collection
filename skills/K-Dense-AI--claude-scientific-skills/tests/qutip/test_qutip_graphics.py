@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import unittest
 
-import matplotlib
+import pytest
+
+# Guarded so a bare project-environment run skips cleanly instead of failing
+# collection; the real run is `tests/run_all.py --isolated qutip`.
+matplotlib = pytest.importorskip("matplotlib", reason="qutip graphics need matplotlib")
+pytest.importorskip("qutip", reason="qutip needs qutip")
 
 matplotlib.use("Agg")
 

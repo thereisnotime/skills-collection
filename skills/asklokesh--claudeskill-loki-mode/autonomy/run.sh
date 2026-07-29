@@ -2830,6 +2830,30 @@ _loki_check_workspace_writable() {
 # is missing, when LOKI_SKIP_NET_PREFLIGHT=1, when ANTHROPIC_BASE_URL is set (alt
 # provider endpoint we cannot assume), or for any provider whose endpoint we do
 # not know. It NEVER blocks the build.
+# Alt-provider guard: ANTHROPIC_BASE_URL routes Loki at a non-Anthropic endpoint
+# (OpenRouter, Ollama, LiteLLM, vLLM, self-hosted). The tier aliases Loki resolves
+# by default -- opus / sonnet / haiku -- are Anthropic-only names, and most
+# alt-providers reject them outright, so the run dies at the FIRST model call with
+# a provider-side error that is hard to trace back to the missing override.
+#
+# LOKI_MODEL_OVERRIDE is what makes that path work (providers/claude.sh:520 and
+# loki-ts/src/runner/providers.ts:328 both apply it only when BOTH vars are set).
+# `loki doctor` already warns on this, but doctor is opt-in and the run is not.
+#
+# NON-FATAL by design: a mapping proxy (LiteLLM can do this) legitimately resolves
+# the aliases server-side, so this is a warning and never a block. Emitted once per
+# run, and silent unless an alt endpoint is actually configured.
+_loki_warn_alt_provider_model_alias() {
+    [ -n "${ANTHROPIC_BASE_URL:-}" ] || return 0
+    [ -z "${LOKI_MODEL_OVERRIDE:-}" ] || return 0
+    log_warn "ANTHROPIC_BASE_URL is set (${ANTHROPIC_BASE_URL}) but LOKI_MODEL_OVERRIDE is not."
+    log_warn "  Loki will ask for the Anthropic tier aliases (opus/sonnet/haiku), which most"
+    log_warn "  alt-providers do not serve. Set the exact model id your endpoint expects:"
+    log_warn "    export LOKI_MODEL_OVERRIDE=<model-id>   # e.g. from 'ollama list' or your provider's model page"
+    log_warn "  Ignore this if your gateway maps those aliases for you (LiteLLM can)."
+    return 0
+}
+
 _loki_check_network_reachable() {
     local provider="${1:-claude}"
     [ "${LOKI_SKIP_NET_PREFLIGHT:-}" = "1" ] && return 0
@@ -2874,6 +2898,7 @@ validate_api_keys() {
     if ! _loki_check_network_reachable "$provider"; then
         return 1
     fi
+    _loki_warn_alt_provider_model_alias
 
     # Zero-friction auth preflight for LOCAL runs (must run BEFORE the early
     # return below, which exits for non-Docker/K8s envs). When claude is the
@@ -3889,6 +3914,33 @@ notify_rate_limit() {
 # written even when desktop notifications are disabled. emit_completion_summary
 # below is the wrapper that writes the files AND (gated) fires the desktop ping.
 #===============================================================================
+# Read the gate escalation signal into one human line, or print nothing.
+# Shared by COMPLETION.txt's per-outcome guidance and PAUSED.md so the two never
+# disagree about why a run stopped. Best-effort: a missing or corrupt signal
+# yields an empty string, and the caller degrades to generic guidance.
+_loki_summary_gate_reason() {
+    local loki_dir="${1:-${TARGET_DIR:-.}/.loki}"
+    [ -s "$loki_dir/signals/GATE_ESCALATION.json" ] || return 0
+    _LOKI_GR_FILE="$loki_dir/signals/GATE_ESCALATION.json" python3 -c '
+import json, os, sys
+try:
+    d = json.load(open(os.environ["_LOKI_GR_FILE"]))
+except Exception:
+    sys.exit(0)
+if not isinstance(d, dict):
+    sys.exit(0)
+gate = str(d.get("gate", "") or "").strip()
+if not gate:
+    sys.exit(0)
+count = d.get("count")
+thr = d.get("threshold")
+if isinstance(count, int) and isinstance(thr, int):
+    print("%s (failed %d times, threshold %d)" % (gate, count, thr))
+else:
+    print(gate)
+' 2>/dev/null || true
+}
+
 build_completion_summary() {
     local outcome="${1:-complete}"
     local loki_dir="${TARGET_DIR:-.}/.loki"
@@ -3944,7 +3996,30 @@ except Exception:
         fi
         review_cmd="git diff ${start_sha}..HEAD -- . ':(exclude).loki/'"
     else
-        review_cmd="git diff HEAD -- . ':(exclude).loki/'"
+        # No baseline SHA. This is the GREENFIELD case: the run started in a repo
+        # with no commits, so `git rev-parse --verify HEAD` correctly produced
+        # nothing (see the start-sha capture). Everything the run built is new.
+        #
+        # Without this branch the counts stayed at zero and a user was told
+        # "files_changed: 0" about a run that had produced real, committed,
+        # working code -- observed on a PRD benchmark that built 4 files and
+        # passed 28/28 of its own tests, yet reported 0. Diff against the empty
+        # tree so the summary reports what was actually created.
+        local _empty_tree
+        _empty_tree="$( (cd "${TARGET_DIR:-.}" && git hash-object -t tree /dev/null) 2>/dev/null || true )"
+        if [ -n "$_empty_tree" ] && (cd "${TARGET_DIR:-.}" && git rev-parse --verify HEAD >/dev/null 2>&1); then
+            diff_stat="$( (cd "${TARGET_DIR:-.}" && git diff --stat "${_empty_tree}..HEAD" "${_summary_pathspec[@]}") 2>/dev/null || true )"
+            local _shortstat_new
+            _shortstat_new="$( (cd "${TARGET_DIR:-.}" && git diff --shortstat "${_empty_tree}..HEAD" "${_summary_pathspec[@]}") 2>/dev/null || true )"
+            if [ -n "$_shortstat_new" ]; then
+                files_changed="$(printf '%s\n' "$_shortstat_new" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+' | head -1)"
+                insertions="$(printf '%s\n' "$_shortstat_new" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' | head -1)"
+                deletions="$(printf '%s\n' "$_shortstat_new" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' | head -1)"
+            fi
+            review_cmd="git diff ${_empty_tree}..HEAD -- . ':(exclude).loki/'"
+        else
+            review_cmd="git diff HEAD -- . ':(exclude).loki/'"
+        fi
     fi
     [ -z "$files_changed" ] && files_changed=0
     [ -z "$insertions" ] && insertions=0
@@ -4071,6 +4146,52 @@ except Exception:
                         echo "or inspect what happened: loki why"
                         ;;
                 esac
+                ;;
+        esac
+
+        # Per-outcome next step. Deliberately NOT nested inside the
+        # files_changed==0 case above: a run that stops for a gate reason has
+        # usually built plenty, and that is exactly the run whose user most needs
+        # to be told what to do. Keying this on an empty diff would silence it
+        # for the case that motivated it.
+        #
+        # Measured on the PRD benchmark: outcome=intervention with 9 files built
+        # and 28/28 tests passing produced NO guidance at all, because the old
+        # block covered only complete|max_iterations.
+        case "$outcome" in
+            intervention)
+                echo ""
+                echo "Loki stopped and needs a decision from you."
+                _cs_gate="$(_loki_summary_gate_reason "$loki_dir")"
+                if [ -n "$_cs_gate" ]; then
+                    echo "  Blocked by: $_cs_gate"
+                    echo "  The findings say exactly what to change. Fix those, then resume:"
+                else
+                    echo "  See .loki/PAUSED.md for the reason and .loki/CONTINUITY.md for context."
+                    echo "  Resume with:"
+                fi
+                echo "    rm .loki/PAUSE        # resume this run"
+                echo "    touch .loki/STOP      # end it instead"
+                echo "  Resuming without addressing the finding will stop at the same gate again."
+                ;;
+            failed)
+                echo ""
+                echo "The run failed. What went wrong:"
+                echo "  loki why              # the classified cause, in one line"
+                echo "  .loki/logs/           # the full session log"
+                echo "Anything already committed is listed above and is yours to keep or discard."
+                ;;
+            stopped|force_stopped)
+                echo ""
+                echo "The run was stopped before it finished."
+                echo "Work committed up to that point is listed above. To continue from here:"
+                echo "  loki start <your spec>   # a fresh run over the current tree"
+                ;;
+            inconclusive_spec_contradiction)
+                echo ""
+                echo "Loki could not reconcile parts of the spec, so it stopped rather than"
+                echo "guess. The specific contradictions are in .loki/assumptions/ledger.md."
+                echo "Resolve those in the spec, then re-run."
                 ;;
         esac
     } > "$loki_dir/COMPLETION.txt" 2>/dev/null || true
@@ -20065,7 +20186,17 @@ except Exception:
     fi
 
     if [ "${ITERATION_COUNT:-0}" -eq 0 ] || [ ! -s "$_start_sha_file" ]; then
-        (cd "${TARGET_DIR:-.}" && git rev-parse HEAD 2>/dev/null) > "$_start_sha_file" 2>/dev/null || true
+        # --verify is load-bearing. In a repo with NO commits yet (every
+        # greenfield build: git init, nothing committed), plain
+        # `git rev-parse HEAD` exits 128 but still prints the literal string
+        # "HEAD" ON STDOUT -- so 2>/dev/null does NOT suppress it and the
+        # unresolved ref name gets captured as the start SHA. Every downstream
+        # diff then becomes `git diff HEAD..HEAD`, which is ALWAYS empty: the
+        # completion council blocks with reason "empty_diff" and can never see
+        # the work, so it can never vote done and the run burns to the cap.
+        # `--verify` resolves-or-fails, emitting nothing on failure, which
+        # leaves the file empty and lets consumers apply their no-baseline path.
+        (cd "${TARGET_DIR:-.}" && git rev-parse --verify HEAD 2>/dev/null) > "$_start_sha_file" 2>/dev/null || true
     fi
     _LOKI_RUN_START_SHA="$(cat "$_start_sha_file" 2>/dev/null || echo "")"
     export _LOKI_RUN_START_SHA
@@ -20474,7 +20605,11 @@ except Exception as exc:
         # v7.6.4 B-3a fix: capture iteration-start git SHA so auto_capture_episode
         # can diff against this baseline (not just HEAD, which is empty after
         # loki's per-iteration auto-commit makes the new files HEAD).
-        _LOKI_ITER_START_SHA=$(cd "${TARGET_DIR:-.}" && git rev-parse HEAD 2>/dev/null || echo "")
+        # --verify: without it, a no-commits-yet repo makes `git rev-parse HEAD`
+        # print the literal "HEAD" on STDOUT while exiting 128, so the
+        # `|| echo ""` fallback never fires and the unresolved ref name is
+        # captured as a baseline. See the start-sha capture above.
+        _LOKI_ITER_START_SHA=$(cd "${TARGET_DIR:-.}" && git rev-parse --verify HEAD 2>/dev/null || echo "")
         export _LOKI_ITER_START_SHA
         _LOKI_ITER_START_TREE=$(_loki_snapshot_workspace_tree "${TARGET_DIR:-.}" 2>/dev/null || echo "")
         export _LOKI_ITER_START_TREE
@@ -22924,6 +23059,46 @@ Current state is saved. You can inspect:
 - `.loki/STATUS.txt` - Current status
 - `.loki/logs/` - Session logs
 EOF
+
+    # Say WHY it paused. The block above is static boilerplate: a user who comes
+    # back to a paused run learns how to resume but not what stopped it, and has
+    # to go spelunking in .loki/signals to find out. Observed on a PRD benchmark
+    # where a gate escalation paused a run that had produced 9 files and 28
+    # passing tests -- the pause was correct, the report told them nothing.
+    # Best-effort and append-only: never let a formatting failure block a pause.
+    {
+        _pause_reason_file="$loki_dir/signals/GATE_ESCALATION"
+        if [ -s "$_pause_reason_file" ]; then
+            printf '\n## Why this paused\n\n'
+            printf 'A quality gate stayed blocked across repeated attempts, so Loki stopped\n'
+            printf 'rather than keep spending on a loop that was not converging.\n\n'
+            _esc_gate="$(python3 -c 'import json,sys
+try:
+    d = json.load(open(sys.argv[1]))
+    print("%s (failed %s times, threshold %s)" % (d.get("gate","?"), d.get("count","?"), d.get("threshold","?")))
+except Exception:
+    print("")' "$loki_dir/signals/GATE_ESCALATION.json" 2>/dev/null || true)"
+            [ -n "$_esc_gate" ] && printf -- '- Gate: %s\n' "$_esc_gate"
+            _esc_art="$(python3 -c 'import json,sys
+try:
+    print(json.load(open(sys.argv[1])).get("latest_artifact","") or "")
+except Exception:
+    print("")' "$loki_dir/signals/GATE_ESCALATION.json" 2>/dev/null || true)"
+            [ -n "$_esc_art" ] && printf -- '- Findings: %s\n' "$_esc_art"
+            printf '\nRead the findings, fix what they name, then resume. Resuming without a\nchange will most likely stop at the same gate again.\n'
+        fi
+        # What DID get built, so a paused run never reads as "nothing happened".
+        _pause_head="$( (cd "${TARGET_DIR:-.}" && git rev-parse --verify HEAD) 2>/dev/null || true )"
+        if [ -n "$_pause_head" ]; then
+            _pause_base="$( (cd "${TARGET_DIR:-.}" && git hash-object -t tree /dev/null) 2>/dev/null || true )"
+            [ -s "$loki_dir/state/start-sha" ] && _pause_base="$(cat "$loki_dir/state/start-sha" 2>/dev/null)"
+            _pause_stat="$( (cd "${TARGET_DIR:-.}" && git diff --shortstat "${_pause_base}..HEAD" -- . ':(exclude).loki/') 2>/dev/null || true )"
+            if [ -n "$_pause_stat" ]; then
+                printf '\n## What was built before the pause\n\n%s\n' "$_pause_stat"
+                printf '\nReview it with:\n  git diff %s..HEAD -- . ":(exclude).loki/"\n' "$_pause_base"
+            fi
+        fi
+    } >> "$loki_dir/PAUSED.md" 2>/dev/null || true
 
     # Wait for resume signal (unified: file removal, keyboard, or STOP)
     while [ "$PAUSED" = "true" ]; do

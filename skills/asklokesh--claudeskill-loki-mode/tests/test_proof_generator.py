@@ -44,7 +44,7 @@ def _run_generator(loki_dir, out_dir, *, include_diffs=False, env_extra=None,
         cmd.extend(["--session-exit-code", str(session_exit_code)])
     env = dict(os.environ)
     env.pop("PRD_PATH", None)
-    env.pop("_LOKI_ITER_START_SHA", None)
+    env.pop("_LOKI_RUN_START_SHA", None)
     env.pop("LOKI_SESSION_ID", None)
     env.pop("LOKI_DEPLOYED_URL", None)
     if env_extra:
@@ -297,7 +297,7 @@ class FinalWorkspaceDiffTests(unittest.TestCase):
             loki_dir,
             out_dir,
             include_diffs=include_diffs,
-            env_extra={"_LOKI_ITER_START_SHA": base},
+            env_extra={"_LOKI_RUN_START_SHA": base},
         )
 
     def test_base_equals_head_still_reports_worktree_and_untracked_changes(self):
@@ -547,7 +547,7 @@ class HonestyHeadlineTests(unittest.TestCase):
 
     def _git_repo_with_change(self):
         """A real git repo with one committed change so the diff is non-empty.
-        Returns the project dir; .loki lives under it. _LOKI_ITER_START_SHA is
+        Returns the project dir; .loki lives under it. _LOKI_RUN_START_SHA is
         set to the first commit so base..HEAD shows a real diff."""
         proj = os.path.join(self.tmp, "gitproj-%s" % os.urandom(4).hex())
         os.makedirs(proj)
@@ -589,7 +589,7 @@ class HonestyHeadlineTests(unittest.TestCase):
         os.makedirs(loki_dir)
         # No test-results.json at all -> tests not_run.
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["tests"]["status"], "not_run")
         self.assertNotEqual(d["honesty"]["headline"], "VERIFIED")
         self.assertIn(d["honesty"]["headline"],
@@ -622,7 +622,7 @@ class HonestyHeadlineTests(unittest.TestCase):
                   "w") as f:
             json.dump({"custom_gate": {"status": "blocked"}}, f)
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         gates = {g.get("name") or g.get("gate") or i: g
                  for i, g in enumerate(d["facts"].get("quality_gates", []))}
         norm = [g.get("status") for g in d["facts"].get("quality_gates", [])]
@@ -648,7 +648,7 @@ class HonestyHeadlineTests(unittest.TestCase):
         # No test-results.json, no build-results.json, no quality gates: only the
         # real non-empty diff exists.
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["tests"]["status"], "not_run")
         self.assertTrue((d["facts"]["git"]["diff"] or {}).get("count"),
                         "fixture must have a non-empty diff to exercise the bug")
@@ -667,7 +667,7 @@ class HonestyHeadlineTests(unittest.TestCase):
         os.makedirs(loki_dir)
         self._write_tests(loki_dir, {"pass": True, "runner": "pytest"})
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         # status maps to verified, but no command + no exit_code 0.
         self.assertEqual(d["facts"]["tests"]["status"], "verified")
         self.assertEqual(d["facts"]["tests"]["command"], "")
@@ -684,7 +684,7 @@ class HonestyHeadlineTests(unittest.TestCase):
             "exit_code": 1, "status": "failed",
             "passed_count": 3, "failed_count": 1})
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["tests"]["status"], "failed")
         self.assertNotEqual(d["honesty"]["headline"], "VERIFIED")
 
@@ -697,7 +697,7 @@ class HonestyHeadlineTests(unittest.TestCase):
         self._write_tests(loki_dir, {
             "runner": "pytest", "command": "pytest -q", "exit_code": 2})
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["tests"]["status"], "failed")
         self.assertNotEqual(d["honesty"]["headline"], "VERIFIED")
 
@@ -717,7 +717,7 @@ class HonestyHeadlineTests(unittest.TestCase):
             "command": "make build", "ran": True, "exit_code": 0,
             "duration_sec": 1.0})
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["build"]["status"], "verified")
         self.assertEqual(d["facts"]["tests"]["status"], "verified")
         self.assertEqual(d["facts"]["tests"]["exit_code"], 0)
@@ -744,7 +744,7 @@ class HonestyHeadlineTests(unittest.TestCase):
             json.dump({"outcome": "max_iterations"}, f)
 
         d = _run_generator(
-            loki_dir, out_dir, env_extra={"_LOKI_ITER_START_SHA": base},
+            loki_dir, out_dir, env_extra={"_LOKI_RUN_START_SHA": base},
             session_exit_code=20,
         )
 
@@ -770,7 +770,7 @@ class HonestyHeadlineTests(unittest.TestCase):
 
         d = _run_generator(
             loki_dir, out_dir,
-            env_extra={"_LOKI_ITER_START_SHA": base},
+            env_extra={"_LOKI_RUN_START_SHA": base},
             session_exit_code=20,
         )
 
@@ -808,7 +808,7 @@ class HonestyHeadlineTests(unittest.TestCase):
             json.dump({"completed": True, "outcome": "complete"}, f)
         # No test-results.json -> tests not_run.
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         # The council/completion live under assessments, labeled not-proof.
         self.assertIn("_note", d["assessments"])
         self.assertIn("not deterministic proof", d["assessments"]["_note"])
@@ -888,7 +888,7 @@ class HonestyHeadlineTests(unittest.TestCase):
                        "command": "pytest", "exit_code": 1, "status": "failed",
                        "passed_count": 0, "failed_count": 1}, f)
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         # A failed test is RED, never amber, never green.
         self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED")
         # And it is listed explicitly in the honesty ledger.
@@ -915,7 +915,7 @@ class HonestyHeadlineTests(unittest.TestCase):
         self._write_build(loki_dir, {"applicable": False, "ran": False,
                                      "command": "", "exit_code": None})
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["build"]["status"], "not_applicable")
         items = {x["item"]: x for x in d["honesty"]["degraded"]}
         self.assertNotIn("build", items,
@@ -935,7 +935,7 @@ class HonestyHeadlineTests(unittest.TestCase):
                                      "command": "node --test", "exit_code": 0})
         # No build-results.json written.
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["build"]["status"], "not_run")
         items = {x["item"]: x for x in d["honesty"]["degraded"]}
         self.assertIn("build", items,
@@ -955,7 +955,7 @@ class HonestyHeadlineTests(unittest.TestCase):
         self._write_build(loki_dir, {"applicable": True, "ran": True,
                                      "command": "npm run build", "exit_code": 2})
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["build"]["status"], "failed")
         self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED",
                          "a failed build is RED, never N/A, never green")
@@ -973,7 +973,7 @@ class HonestyHeadlineTests(unittest.TestCase):
                                      "command": "npm run build",
                                      "exit_code": None})
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         self.assertEqual(d["facts"]["build"]["status"], "not_run")
         items = {x["item"]: x for x in d["honesty"]["degraded"]}
         self.assertIn("build", items)
@@ -1064,7 +1064,7 @@ class SecurityHonestyTests(unittest.TestCase):
             "message": "A PEM private key block is present in this file.",
             "fix": "Remove the key and rotate it.", "waived": False}])
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         # An un-waived HIGH is a verified-NO: red, never green, never amber-only.
         self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED")
         # The security gap is surfaced explicitly in the honesty ledger.
@@ -1094,7 +1094,7 @@ class SecurityHonestyTests(unittest.TestCase):
             "message": "A PEM private key block is present in this file.",
             "fix": "Remove the key and rotate it.", "waived": True}])
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         # A waived finding is NOT a gap: it must not appear in degraded.
         items = {x["item"]: x for x in d["honesty"]["degraded"]}
         self.assertNotIn("security", items,
@@ -1120,7 +1120,7 @@ class SecurityHonestyTests(unittest.TestCase):
         self._write_green_tests_and_build(loki_dir)
         # Deliberately do NOT write security-findings.json.
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         # Absence of a scan is not a security gap (the gate did not run).
         items = {x["item"]: x for x in d["honesty"]["degraded"]}
         self.assertNotIn("security", items,
@@ -1147,7 +1147,7 @@ class SecurityHonestyTests(unittest.TestCase):
             "message": "Debug mode is enabled in a production config.",
             "fix": "Set debug to False for production.", "waived": False}])
         d = _run_generator(loki_dir, out_dir,
-                           env_extra={"_LOKI_ITER_START_SHA": base})
+                           env_extra={"_LOKI_RUN_START_SHA": base})
         sec = d["facts"]["security"]
         self.assertTrue(sec["ran"])
         self.assertEqual(sec["high_active"], 0)

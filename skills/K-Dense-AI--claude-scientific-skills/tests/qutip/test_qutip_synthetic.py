@@ -7,9 +7,14 @@ import json
 import math
 import sys
 import unittest
+
+import pytest
 from pathlib import Path
 
 import numpy as np
+# Guarded so a bare project-environment run skips cleanly instead of failing
+# collection; the real run is `tests/run_all.py --isolated qutip`.
+pytest.importorskip("qutip", reason="qutip needs qutip")
 import qutip
 
 

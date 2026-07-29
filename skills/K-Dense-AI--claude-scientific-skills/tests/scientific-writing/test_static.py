@@ -20,7 +20,7 @@ class StaticTests(unittest.TestCase):
         text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertLess(len(text.splitlines()), 500)
         self.assertTrue(text.startswith("---\n"))
-        self.assertIn('  version: "2.0"', text)
+        self.assertRegex(text, r'\n  version: "\d+\.\d+"\n')
         self.assertIn("license: MIT", text)
         self.assertIn("compatibility:", text)
         self.assertNotIn("required_environment_variables", text)

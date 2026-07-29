@@ -65,6 +65,14 @@ for file in $FILES; do
     if [[ "$file" == ./tests/*.sh ]]; then
         local_excludes="${local_excludes},${TEST_EXCLUDES}"
     fi
+    # benchmarks/ harness scripts build a command-prefix env list (LOKI_* set
+    # immediately before the command they configure), so shellcheck reports
+    # SC2034 "appears unused" for every one of them -- it cannot see the vars
+    # are passed to the child process. Same rationale as tests/ above: these
+    # are environment for something else, not locals that went unread.
+    if [[ "$file" == ./benchmarks/*.sh ]]; then
+        local_excludes="${local_excludes},${TEST_EXCLUDES}"
+    fi
 
     # Run shellcheck with severity=warning (ignores info/style)
     # This means only errors and warnings will cause failure

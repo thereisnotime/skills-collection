@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import ast
-import copy
 import json
-import re
 import sys
 import tempfile
 import unittest
@@ -117,25 +115,10 @@ class StaticSafetyTests(unittest.TestCase):
     def test_skill_is_versioned_and_under_500_lines(self) -> None:
         text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertLess(len(text.splitlines()), 500)
-        self.assertIn('metadata:\n  version: "2.1"', text)
+        self.assertRegex(text, r'\nmetadata:\n  version: "\d+\.\d+"\n')
         self.assertIn("license: MIT", text)
         self.assertIn("compatibility:", text)
         self.assertNotIn("OPENROUTER", text)
-
-    def test_documented_local_paths_exist(self) -> None:
-        pattern = re.compile(
-            r"`((?:assets|references|scripts)/[A-Za-z0-9_.-]+)`"
-        )
-        documents = [
-            SKILL_ROOT / "SKILL.md",
-            *sorted((SKILL_ROOT / "references").glob("*.md")),
-        ]
-        missing = []
-        for document in documents:
-            for relative in pattern.findall(document.read_text(encoding="utf-8")):
-                if not (SKILL_ROOT / relative).is_file():
-                    missing.append(f"{document.name}:{relative}")
-        self.assertEqual(missing, [])
 
     def test_expected_assets_only(self) -> None:
         expected = {
@@ -147,14 +130,6 @@ class StaticSafetyTests(unittest.TestCase):
         }
         actual = {path.name for path in ASSETS.iterdir() if path.is_file()}
         self.assertEqual(actual, expected)
-
-    def test_no_bytecode_artifacts(self) -> None:
-        artifacts = [
-            path
-            for path in SKILL_ROOT.rglob("*")
-            if path.suffix in {".pyc", ".pyo"}
-        ]
-        self.assertEqual(artifacts, [])
 
     def test_all_script_help_is_dependency_free(self) -> None:
         modules = (

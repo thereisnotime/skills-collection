@@ -30,7 +30,7 @@ class SkillStructureTests(unittest.TestCase):
         self.assertIn("\nallowed-tools: Read Write Bash Glob Grep\n", text)
         self.assertRegex(
             text,
-            r'\nmetadata:\n  version: "1\.1"\n  skill-author:'
+            r'\nmetadata:\n  version: "\d+\.\d+"\n  skill-author:'
             r'.*\n  last-reviewed: "2026-07-23"',
         )
         self.assertNotIn('metadata: {"version"', text)

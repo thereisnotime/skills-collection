@@ -117,7 +117,7 @@ class _GitFixtureMixin:
         out_dir = os.path.join(loki_dir, "proofs", "verify-fixed-001")
         proof_path = _run_generator(
             loki_dir, out_dir,
-            env_extra={"_LOKI_ITER_START_SHA": base},
+            env_extra={"_LOKI_RUN_START_SHA": base},
             include_diffs=include_diffs)
         return proj, base, proof_path
 
@@ -223,7 +223,7 @@ class DriftTests(_GitFixtureMixin, unittest.TestCase):
         out_dir = os.path.join(loki_dir, "proofs", "worktree")
         os.makedirs(loki_dir)
         proof_path = _run_generator(
-            loki_dir, out_dir, env_extra={"_LOKI_ITER_START_SHA": base}
+            loki_dir, out_dir, env_extra={"_LOKI_RUN_START_SHA": base}
         )
 
         rc, result = _run_verifier(proof_path, proj)

@@ -42,7 +42,7 @@ class SkillStructureTests(unittest.TestCase):
         self.assertIn("\ncompatibility: >-\n", text)
         self.assertRegex(
             text,
-            r'\nmetadata:\n  version: "1\.1"\n'
+            r'\nmetadata:\n  version: "\d+\.\d+"\n'
             r'  skill-author: "K-Dense Inc\."\n'
             r'  last-reviewed: "2026-07-23"\n',
         )

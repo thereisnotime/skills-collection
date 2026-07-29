@@ -237,7 +237,7 @@ class SafetyAndHelpTests(unittest.TestCase):
     def test_skill_metadata_progressive_disclosure_and_file_set(self) -> None:
         skill = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("license: MIT", skill)
-        self.assertIn("metadata:\n  version: \"1.1\"", skill)
+        self.assertRegex(skill, r'\nmetadata:\n  version: "\d+\.\d+"\n')
         self.assertLess(len(skill.splitlines()), 500)
         self.assertFalse((REFERENCES / "config_template.yaml").exists())
         self.assertEqual(

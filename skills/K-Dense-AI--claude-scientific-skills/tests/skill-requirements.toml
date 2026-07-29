@@ -173,6 +173,9 @@ packages = ["numpy", "pandas", "pyDOE3"]
 [skills.iso-standards-readiness]
 packages = []
 
+[skills.analytical-method-validation]
+packages = []
+
 [skills.clinical-decision-support]
 packages = []
 
@@ -273,6 +276,9 @@ packages = [
 
 [skills.statistical-power]
 packages = ["statsmodels", "lifelines", "pingouin", "matplotlib", "numpy", "pandas", "scipy"]
+
+[skills.pkpd-modeling]
+packages = ["numpy", "scipy"]
 
 [skills.pymc]
 packages = ["pymc", "arviz", "matplotlib", "numpy", "pandas", "scikit-learn"]
@@ -461,7 +467,11 @@ packages = ["pysam"]
 packages = ["bioservices", "biopython", "networkx", "pandas"]
 
 [skills.gget]
-packages = ["gget", "matplotlib", "numpy", "pandas", "scanpy"]
+# scanpy is pinned forward deliberately. Unpinned, the resolver walks it back to
+# 1.9.8, whose numba 0.53.1 needs llvmlite 0.36.0, which cannot build on 3.13 --
+# so the whole environment fails before a single test runs. >=1.10 is also what
+# gget's own cellxgene extra requires.
+packages = ["gget", "matplotlib", "numpy", "pandas", "scanpy>=1.10"]
 
 [skills.scikit-bio]
 packages = ["scikit-bio", "biom-format", "tables", "matplotlib", "numpy", "pandas", "seaborn"]
@@ -531,14 +541,22 @@ packages = ["pyopenms", "matplotlib", "numpy", "pandas"]
 packages = ["mdanalysis", "openmm", "matplotlib", "numpy", "pandas", "scipy"]
 
 [skills.pymatgen]
-packages = ["pymatgen", "pymatgen-core", "mp-api"]
+# Pinned to the skill's own "Verified snapshot (2026-07-23)", which its
+# `_common.py` enforces before any network execution. Left unpinned, a new
+# pymatgen-core release makes the suite fail on the snapshot check -- and
+# loosening that check would throw away the guarantee it exists to make. When
+# the skill re-verifies against newer releases, update both together.
+packages = ["pymatgen==2026.5.4", "pymatgen-core==2026.7.16", "mp-api==0.46.4"]
 
 [skills.rowan]
 packages = ["rowan-python", "rdkit", "pandas"]
 
 [skills.deepchem]
 python = "3.11"
-packages = ["deepchem", "numpy", "scikit-learn"]
+# torch is what the skill's own `compatibility` line and the `deepchem[torch]`
+# install command require: without a backend, dc.models.GCNModel and friends do
+# not exist, so no model path is reachable at all.
+packages = ["deepchem", "torch", "numpy", "scikit-learn"]
 
 [skills.pytdc]
 python = "3.11"
