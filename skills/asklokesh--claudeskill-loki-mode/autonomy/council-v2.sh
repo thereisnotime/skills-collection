@@ -82,6 +82,9 @@ council_v2_vote() {
     local first=true
     local approve_count=0
     local reject_count=0
+    # Reviewers we could not obtain a verdict from. Never folded into
+    # reject_count -- see the TRUST comment in the tally below.
+    local inconclusive_count=0
     for vote_file in "${vote_files[@]}"; do
         if [ -f "$vote_file" ]; then
             local vote_content
@@ -95,16 +98,40 @@ council_v2_vote() {
 
             local verdict
             verdict=$(echo "$vote_content" | python3 -c "import sys,json; print(json.load(sys.stdin).get('verdict','').upper())" 2>/dev/null || echo "UNKNOWN")
+            # TRUST: a reviewer that could not be REACHED did not vote REJECT.
+            #
+            # Every provider arm below used to substitute a literal
+            # {"verdict":"REJECT","reasoning":"review execution failed"} on any
+            # miss -- CLI absent, timeout, transient error, unparseable output --
+            # and this tally counted "anything not APPROVE" as a rejection. The
+            # engine therefore fabricated a reviewer vote the model never gave,
+            # and the run was BLOCKED by it.
+            #
+            # That is the same defect class as a receipt attesting to a diff stat
+            # it did not measure: the artifact claims a fact nobody established.
+            # On a weak model that formats poorly it is worse still -- low format
+            # compliance becomes a permanent BLOCK that reads to the user as
+            # "Loki is broken" rather than "your model could not answer".
+            #
+            # INCONCLUSIVE is counted separately and never as a rejection.
             if [ "$verdict" = "APPROVE" ]; then
                 ((approve_count++))
-            else
+            elif [ "$verdict" = "REJECT" ]; then
                 ((reject_count++))
+            else
+                ((inconclusive_count++))
             fi
         fi
     done
     votes_json="$votes_json]"
 
-    log_info "Blind review results: $approve_count APPROVE / $reject_count REJECT"
+    if [ "$inconclusive_count" -gt 0 ]; then
+        log_warn "Blind review results: $approve_count APPROVE / $reject_count REJECT / $inconclusive_count INCONCLUSIVE"
+        log_warn "  $inconclusive_count reviewer(s) produced no verdict (CLI missing, timeout, or unparseable output)."
+        log_warn "  These are NOT rejections. The council decides on the verdicts it actually obtained."
+    else
+        log_info "Blind review results: $approve_count APPROVE / $reject_count REJECT"
+    fi
 
     # Step 4: Sycophancy detection
     local sycophancy_score
@@ -137,8 +164,13 @@ print('{:.3f}'.format(detect_sycophancy(votes)))
 
             if [ -f "$da_vote" ]; then
                 local da_verdict
-                da_verdict=$(cat "$da_vote" | python3 -c "import sys,json; print(json.load(sys.stdin).get('verdict','').upper())" 2>/dev/null || echo "REJECT")
-                if [ "$da_verdict" = "REJECT" ]; then
+                # Same trust rule as the main tally: an unparseable devil's
+                # advocate did not vote REJECT. Defaulting to REJECT here would
+                # silently overturn a unanimous APPROVE on a transient failure.
+                da_verdict=$(cat "$da_vote" | python3 -c "import sys,json; print(json.load(sys.stdin).get('verdict','').upper())" 2>/dev/null || echo "INCONCLUSIVE")
+                if [ "$da_verdict" = "INCONCLUSIVE" ]; then
+                    log_warn "Devil's advocate produced no verdict -- unanimous approval left UNCHANGED (not overturned)"
+                elif [ "$da_verdict" = "REJECT" ]; then
                     log_warn "Devil's advocate REJECTED unanimous approval"
                     approve_count=$((approve_count - 1))
                     reject_count=$((reject_count + 1))
@@ -374,42 +406,42 @@ except Exception:
                 fi
                 # Fall through to the plain text call (+ sed-carve) on any miss.
                 if [ -z "$result" ]; then
-                    result=$(echo "$full_prompt" | CAVEMAN_DEFAULT_MODE=off claude "${_c2_argv[@]}" -p 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                    result=$(echo "$full_prompt" | CAVEMAN_DEFAULT_MODE=off claude "${_c2_argv[@]}" -p 2>/dev/null || echo '{"verdict":"INCONCLUSIVE","reasoning":"review execution failed (no verdict obtained; NOT a rejection)","issues":[]}')
                 fi
             else
-                result='{"verdict":"REJECT","reasoning":"reviewer CLI unavailable","issues":[]}'
+                result='{"verdict":"INCONCLUSIVE","reasoning":"reviewer CLI unavailable (no verdict obtained; NOT a rejection)","issues":[]}'
             fi
             ;;
         codex)
             if command -v codex &>/dev/null; then
-                result=$(codex exec -q "$full_prompt" 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                result=$(codex exec -q "$full_prompt" 2>/dev/null || echo '{"verdict":"INCONCLUSIVE","reasoning":"review execution failed (no verdict obtained; NOT a rejection)","issues":[]}')
             else
-                result='{"verdict":"REJECT","reasoning":"reviewer CLI unavailable","issues":[]}'
+                result='{"verdict":"INCONCLUSIVE","reasoning":"reviewer CLI unavailable (no verdict obtained; NOT a rejection)","issues":[]}'
             fi
             ;;
         gemini)
             if command -v gemini &>/dev/null; then
-                result=$(echo "$full_prompt" | gemini 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                result=$(echo "$full_prompt" | gemini 2>/dev/null || echo '{"verdict":"INCONCLUSIVE","reasoning":"review execution failed (no verdict obtained; NOT a rejection)","issues":[]}')
             else
-                result='{"verdict":"REJECT","reasoning":"reviewer CLI unavailable","issues":[]}'
+                result='{"verdict":"INCONCLUSIVE","reasoning":"reviewer CLI unavailable (no verdict obtained; NOT a rejection)","issues":[]}'
             fi
             ;;
         cline)
             if command -v cline &>/dev/null; then
-                result=$(cline -y "$full_prompt" 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                result=$(cline -y "$full_prompt" 2>/dev/null || echo '{"verdict":"INCONCLUSIVE","reasoning":"review execution failed (no verdict obtained; NOT a rejection)","issues":[]}')
             else
-                result='{"verdict":"REJECT","reasoning":"reviewer CLI unavailable","issues":[]}'
+                result='{"verdict":"INCONCLUSIVE","reasoning":"reviewer CLI unavailable (no verdict obtained; NOT a rejection)","issues":[]}'
             fi
             ;;
         aider)
             if command -v aider &>/dev/null; then
-                result=$(aider --message "$full_prompt" --yes-always --no-auto-commits --no-git 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                result=$(aider --message "$full_prompt" --yes-always --no-auto-commits --no-git 2>/dev/null || echo '{"verdict":"INCONCLUSIVE","reasoning":"review execution failed (no verdict obtained; NOT a rejection)","issues":[]}')
             else
-                result='{"verdict":"REJECT","reasoning":"reviewer CLI unavailable","issues":[]}'
+                result='{"verdict":"INCONCLUSIVE","reasoning":"reviewer CLI unavailable (no verdict obtained; NOT a rejection)","issues":[]}'
             fi
             ;;
         *)
-            result='{"verdict":"REJECT","reasoning":"review not supported for this provider","issues":[]}'
+            result='{"verdict":"INCONCLUSIVE","reasoning":"review not supported for this provider (no verdict obtained; NOT a rejection)","issues":[]}'
             ;;
     esac
 
@@ -421,7 +453,11 @@ except Exception:
         extracted=$(echo "$result" | sed 's/^```json//;s/^```//' | sed -n '/^{/,/^}/p' | head -50)
     fi
     if [ -z "$extracted" ]; then
-        extracted='{"verdict":"REJECT","reasoning":"failed to parse review output","issues":[]}'
+        # The weak-model case, and the reason this matters most: a model whose
+        # prose could not be carved into JSON did not vote REJECT. Recording one
+        # here would turn "your model formats poorly" into "your code was
+        # rejected" -- a block the user cannot act on and did not earn.
+        extracted='{"verdict":"INCONCLUSIVE","reasoning":"failed to parse review output (no verdict obtained; NOT a rejection)","issues":[]}'
     fi
 
     echo "$extracted" > "$output_file"

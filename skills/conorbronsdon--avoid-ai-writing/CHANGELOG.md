@@ -4,6 +4,29 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.20.0] — 2026-07-29
+
+### Added
+
+One rule with detector coverage, found while drafting a podcast teaser post. Catalog goes from 59 to 60 detection categories; the engine goes from 45 to 46 `type`s.
+
+- **Lingering-attention claims** (`lingering-attention`) — the share-post frame that claims a thing has occupied the writer's mind rather than saying anything about the thing: `"the line I keep coming back to"`, `"I can't stop thinking about this"`, `"still thinking about this one"`, `"rattling around in my head all week"`, `"I've been chewing on this"`. Sits next to **emotional flatline** in the catalog but is a separate claim: flatline claims a *feeling* ("What surprised me most"), this claims *duration* of attention, which is unfalsifiable and self-flattering in a way a feeling isn't. It also opens a share post where **social endorsement closers** close one. Added to the P1 severity tier.
+- **Precision carve-out.** The bare verb phrase `"I keep coming back to X"` deliberately does *not* fire, because it is legitimate whenever a reason follows ("I keep coming back to the exit-voice framing because it predicts which engineers quit"), and the reason clause is not reliably regex-detectable. Only the noun-anchored frame (`the line/quote/bit/idea ... I keep coming back to`) is matched — the shape that introduces a subject instead of asserting something about it. The bare form stays an LLM-judgment call in the skill prose. Fixtures cover both directions, including the must-not-fire case.
+
+---
+
+## [3.19.0] — 2026-07-24
+
+### Added
+
+Two judgment-only rules (no detector `type`) found during a real audit. Catalog goes from 57 to 59 detection categories.
+
+- **Moral-adjective category errors** — AI glues moral adjectives (`honest`, `genuine`, `faithful`) onto non-agentic technical nouns (`shape`, `number`, `representation`) where the modifier cannot literally apply. Also covers passive-voice moral adverbs (`"described honestly"`), ontological slop on assumptions (`"stops being true"`), and gratuitous universal quantifiers (`"every first-year course"`).
+- **Invented contrast-pair mirroring** — AI fabricates the second half of a contrast pair for symmetry (`"false precision rather than genuine accuracy"`, where the first term is real and the second is phantom).
+- Both added to the P1 severity tier and the tolerance matrix (relaxed for `technical-blog` and `docs` profiles).
+
+---
+
 ## [3.18.0] — 2026-07-22
 
 ### Changed

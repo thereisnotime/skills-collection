@@ -239,18 +239,31 @@ This needs Bun on your PATH (the SDK loop runs on the Bun runtime). `loki doctor
 
 **With a coding-agent CLI.** The classic path, and still the default: Loki drives a separate CLI (Claude Code is the recommended one) plus a couple of common tools on your PATH.
 
-**With a different model or provider.** Loki is not tied to Anthropic. Anything
-that speaks the Anthropic Messages API works: OpenRouter, Ollama, LiteLLM, vLLM,
-or your own gateway. Point `ANTHROPIC_BASE_URL` at the endpoint and name the
-model with `LOKI_MODEL_OVERRIDE`:
+**With a different model or provider.** Loki is not tied to Anthropic, but
+*how* you reach another model depends on which API the endpoint speaks. There
+are two routes, and picking the wrong one fails confusingly.
+
+*Route 1 -- OpenAI-shaped endpoints (OpenRouter, and most hosted open models).*
+Use a provider that speaks that API natively. `aider` and `cline` both do, and
+Loki now defaults them to open-weight models rather than Claude:
 
 ```bash
-# OpenRouter (hundreds of models, one key)
-export ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1
-export ANTHROPIC_API_KEY=sk-or-...
-export LOKI_MODEL_OVERRIDE=<model-id-from-openrouter.ai/models>
-loki start prd.md
+loki provider set aider
+export OPENROUTER_API_KEY=sk-or-...
+loki start prd.md                          # defaults to deepseek-v3.2
 
+export LOKI_AIDER_MODEL=openrouter/z-ai/glm-4.6   # or pick your own
+```
+
+OpenRouter serves **only** the OpenAI-shaped `/v1/chat/completions`; it has no
+Anthropic `/v1/messages` endpoint. Pointing `ANTHROPIC_BASE_URL` at it does not
+work, which earlier versions of this README incorrectly suggested.
+
+*Route 2 -- Anthropic-protocol gateways.* `ANTHROPIC_BASE_URL` routes Claude
+Code itself, so the endpoint must speak the Anthropic Messages API. LiteLLM,
+Bedrock proxies, and self-hosted gateways can:
+
+```bash
 # Ollama, fully local (no API key, no per-token cost)
 export ANTHROPIC_BASE_URL=http://localhost:11434/v1
 export LOKI_MODEL_OVERRIDE=<model you have pulled, e.g. the output of `ollama list`>

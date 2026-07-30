@@ -436,7 +436,7 @@ Measured on the preserved PRD run (4-file HTTP task service, `.loki/` intact):
 | Claim about the category | What our artifact shows |
 |---|---|
 | "no tests" | **2 test files, 28 tests, 0 failures** on `node --test` |
-| "no review" | **9 gates executed**: code_review, doc_coverage, lsp_diagnostics, magic_debate, mock_integrity, mutation_integrity, security_scan, static_analysis, test_suite |
+| "no review" | **all 8 numbered gates ran**, plus the non-numbered `lsp_diagnostics` auditor: code_review, doc_coverage, magic_debate, mock_integrity, mutation_integrity, security_scan, static_analysis, test_suite (+ lsp_diagnostics) |
 | "70% done" | run produced 10 files / 1479 insertions and a working service |
 
 The review gate was not decorative on this run: `code_review` BLOCKED it, and
@@ -444,6 +444,14 @@ the blocking finding was correct (a planning artifact committed as scope creep,
 with the `.gitignore` line that had excluded it removed). A gate that stops a
 build for a true reason is the difference between a review step and a review
 that means something.
+
+Gate-count note: the run emitted NINE `stage_complete` events, but the canonical
+count is EIGHT numbered quality gates -- `lsp_diagnostics` is a stage that runs
+alongside them and is not one of the eight (CLAUDE.md records the same
+distinction for the healing-mode auditor). An earlier draft of this section
+counted the stage events instead of the gates, which the P0 verification sweep
+correctly flagged as gate-count drift. Counting stage events is not the same as
+counting gates.
 
 ### What this proves, stated exactly
 

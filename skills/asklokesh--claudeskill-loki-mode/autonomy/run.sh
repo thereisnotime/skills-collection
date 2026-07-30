@@ -22823,6 +22823,8 @@ check_human_intervention() {
                 log_warn "PAUSE file created by budget limit - NOT auto-clearing in perpetual mode"
                 log_warn "Budget limit reached. Remove .loki/signals/BUDGET_EXCEEDED and .loki/PAUSE to continue."
                 notify_intervention_needed "Budget limit reached - execution paused" 2>/dev/null || true
+                # Same-instant snapshot as COMPLETION.txt (see the PAUSE-file site).
+                (cd "${TARGET_DIR:-.}" && update_status_file) 2>/dev/null || true
                 # Genuinely blocking pause: write the durable intervention record
                 # now (state-only; the ping above already fired). This is the
                 # correct site for the durable file because the run actually halts
@@ -22835,6 +22837,7 @@ check_human_intervention() {
                 if [ "$pause_result" -eq 1 ]; then
                     # STOP requested DURING the pause: relabel the durable record
                     # as stopped (state-only; the user typed STOP and is aware).
+                    (cd "${TARGET_DIR:-.}" && update_status_file) 2>/dev/null || true
                     build_completion_summary stopped 2>/dev/null || true
                     return 2
                 fi
@@ -22849,6 +22852,13 @@ check_human_intervention() {
         fi
         log_warn "PAUSE file detected - pausing execution"
         notify_intervention_needed "Execution paused via PAUSE file"
+        # Refresh STATUS.txt from the queue BEFORE writing the durable record, so
+        # the two files snapshot the same instant. The status monitor refreshes
+        # every 2s but is not running by the time we block here, so STATUS.txt
+        # was frozen at its last tick: measured on a real paused run reporting
+        # "Failed: 0" while COMPLETION.txt -- written now, from the same
+        # queue/failed.json -- reported failed=1. Same source, different age.
+        (cd "${TARGET_DIR:-.}" && update_status_file) 2>/dev/null || true
         # Genuinely blocking pause: write the durable intervention record now
         # (state-only; the ping above already fired).
         build_completion_summary intervention 2>/dev/null || true
@@ -22859,6 +22869,7 @@ check_human_intervention() {
         if [ "$pause_result" -eq 1 ]; then
             # STOP was requested during pause: relabel the durable record as
             # stopped (state-only; the user typed STOP and is aware).
+            (cd "${TARGET_DIR:-.}" && update_status_file) 2>/dev/null || true
             build_completion_summary stopped 2>/dev/null || true
             return 2
         fi
@@ -22872,6 +22883,8 @@ check_human_intervention() {
             rm -f "$loki_dir/PAUSE_AT_CHECKPOINT"
             notify_intervention_needed "Execution paused at checkpoint"
             touch "$loki_dir/PAUSE"
+            # Same-instant snapshot as COMPLETION.txt (see the PAUSE-file site).
+            (cd "${TARGET_DIR:-.}" && update_status_file) 2>/dev/null || true
             # Genuinely blocking pause: write the durable intervention record now
             # (state-only; the ping above already fired).
             build_completion_summary intervention 2>/dev/null || true
@@ -22881,6 +22894,7 @@ check_human_intervention() {
             rm -f "$loki_dir/PAUSE"
             if [ "$pause_result" -eq 1 ]; then
                 # STOP requested during pause: relabel as stopped (state-only).
+                (cd "${TARGET_DIR:-.}" && update_status_file) 2>/dev/null || true
                 build_completion_summary stopped 2>/dev/null || true
                 return 2
             fi

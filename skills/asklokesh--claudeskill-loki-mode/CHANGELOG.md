@@ -5,6 +5,193 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v8.1.0
+
+Minor release. **The telemetry layer could hang forever and burn the CPU.** For
+a product whose claim is that it proves work actually happened, that is the
+worst possible place for a defect.
+
+### Telemetry no longer outlives the run (P0)
+
+Found on a real machine at 0% idle with the fans at full: **59 orphaned
+`events/emit.sh` processes, the oldest alive 21 hours**, orphaned to launchd.
+`emit.sh` spawns on every CLI invocation and was never exiting.
+
+Both of its lock paths could hang:
+
+- **`flock -x 9` with no timeout** (`events/emit.sh:48`). A holder killed
+  mid-write -- a reaped CI run, a Ctrl-C'd build -- blocked every later emit
+  forever. Because `emit.sh` runs per invocation, those hangs accumulated.
+- **The mkdir-mutex fallback**, which is the path real users take because
+  **macOS ships no `flock(1)`**, checked staleness only *after* exhausting all
+  500 attempts, forking a `perl` sleep helper on each one. Measured cost of a
+  single append against an already-stale lock: **10 seconds and ~500 forked
+  processes**, returning failure.
+
+Fixed: `flock -w 5` with an unlocked-append fallback; staleness checked on
+**every** iteration; attempts cut 500 to 100; `read -t` replaces the forked
+sleep. Measured after: **10s to 2s**, failure to success, no fork storm.
+
+Observability must never block the thing it observes. A rare interleaved line
+is strictly better than a hung CLI, so the append now degrades instead of
+waiting.
+
+### The council no longer fabricates reviewer verdicts
+
+Every provider arm in `autonomy/council-v2.sh` substituted a literal
+`{"verdict":"REJECT","reasoning":"review execution failed"}` on **any** miss --
+CLI absent, timeout, transient error, unparseable output -- and the tally
+counted "anything not APPROVE" as a rejection. The engine therefore recorded a
+reviewer vote the model never gave, and blocked the run on it. Twelve such
+sites existed across five providers.
+
+The devil's advocate had the same default, so a single transient parse failure
+could silently overturn a unanimous approval.
+
+This is the same defect class as an Evidence Receipt attesting to a diff stat
+it never measured: the artifact asserts a fact nobody established.
+
+It matters most on a cheap or weak model, where low format compliance became a
+permanent BLOCK that reads as "Loki is broken" rather than "your model could
+not produce a parseable verdict."
+
+Now: an unobtained verdict is `INCONCLUSIVE`. It is counted separately, never
+as a rejection, and reported to the user. A genuine `REJECT` still counts as
+one, and an inconclusive devil's advocate leaves a unanimous approval
+unchanged.
+
+### The receipt names the gate that stopped the run
+
+A blocked run's Evidence Receipt gave only a bare outcome -- `intervention`.
+That tells a reader something stopped them, not *what*, and not how close it
+came to its threshold: the single most actionable fact about a blocked run.
+
+The engine already had it. `.loki/signals/GATE_ESCALATION.json` is written on
+escalation, and both `COMPLETION.txt` and `PAUSED.md` already surfaced the gate,
+count, and threshold. The signed receipt was the one surface that stayed silent.
+
+It now reports `Blocked by: code_review (failed 3 times, threshold 3)`. These
+are deterministic facts read verbatim from a file the engine wrote, so they live
+in the facts block rather than the AI-assessment block. A missing or malformed
+signal leaves the fields empty -- which reads as "no escalation recorded", never
+as a false claim -- and never breaks receipt generation.
+
+### Cheap models are now reachable, and the docs stopped lying about how
+
+Three defects that together made the "run any model" story unusable:
+
+- **`model_catalog.json` pointed the non-Claude providers at Claude.** Both
+  `aider` and `cline` defaulted all three tiers to `claude-opus-4-8` /
+  `claude-sonnet-5`, and the catalog contained **zero** open-weight models. A
+  user who switched provider specifically to stop paying frontier prices kept
+  paying them, silently, unless they knew to set `LOKI_MODEL_OVERRIDE`. Both
+  now default to `openrouter/deepseek/deepseek-v3.2`, and the catalog carries
+  DeepSeek, GLM, MiniMax, and local Ollama entries. The `claude` provider is
+  unchanged, and the env-override chain still wins.
+- **The documented OpenRouter on-ramp could not work.** Both the CLI help and
+  the README told users to point `ANTHROPIC_BASE_URL` at OpenRouter. OpenRouter
+  serves **only** the OpenAI-shaped `/v1/chat/completions` -- it has no
+  Anthropic `/v1/messages` endpoint -- so that routes an Anthropic-shaped
+  client at an API it does not speak. The CLI example even named
+  `anthropic/claude-sonnet-4.5`, using OpenRouter to reach Claude again.
+- **The README claimed OpenRouter speaks the Anthropic Messages API.** It does
+  not.
+
+Both surfaces now present two clearly separated routes: OpenAI-shaped endpoints
+via `aider`/`cline` (which speak that API natively), and Anthropic-protocol
+gateways via `ANTHROPIC_BASE_URL` with an explicit note that OpenRouter does not
+qualify.
+
+### Status surfaces stop contradicting each other
+
+- `STATUS.txt` reported `Failed: 0` while `COMPLETION.txt` reported `failed=1`
+  from the **same** `queue/failed.json`. The cause was age, not source: the
+  status monitor refreshes every 2s but is not running once the engine blocks
+  in a pause. All three blocking pause sites now refresh before writing the
+  durable record.
+- `loki why --json` emitted a stale completion record **unlabeled**, so a
+  script reading `completion.branch` or `completion.pr_url` after a crashed run
+  would attribute a previous run's branch and PR to the current one. It now
+  emits `completion_is_stale` and `head_sha` explicitly.
+
+### Tests
+
+- `tests/test-emit-lock-no-hang.sh` (8 assertions, registered). Non-vacuity
+  proven by reverting the fix: 3 go red, including the exact 10s regression.
+- `tests/test-status-surface-agrees.sh` (10 assertions, registered). The
+  pause-site check is structural, so a future site added without the refresh is
+  caught. Non-vacuity proven three ways.
+
+## v8.0.4
+
+Patch release. The two DURABLE status surfaces disagreed, and `--json` hid the
+one field that would have let a script notice.
+
+### STATUS.txt vs COMPLETION.txt
+
+Measured on a real paused run: `STATUS.txt` reported `Failed: 0` while
+`COMPLETION.txt` reported `failed=1`. Both read the same
+`.loki/queue/failed.json`, so they cannot legitimately differ.
+
+- **The cause was age, not source.** The status monitor refreshes `STATUS.txt`
+  every 2 seconds, but it is no longer running by the time the engine blocks in
+  a pause. `STATUS.txt` was frozen at its last tick while `COMPLETION.txt` was
+  written fresh from the same queue.
+- **Fix:** every blocking pause site now refreshes `STATUS.txt` immediately
+  before writing the durable record, so the two snapshot the same instant. All
+  three sites (PAUSE file, budget-exceeded, checkpoint pause) are covered.
+
+### loki why --json
+
+- **A stale completion record was emitted unlabeled.** The human report marks
+  it `(from previous completed run)`; the JSON consumer received the identical
+  record with no such marker, so a script reading `completion.branch` or
+  `completion.pr_url` after a crashed run would attribute a PREVIOUS run's
+  branch and PR to the current one -- silently, with no field to check.
+- **Fix:** `--json` now emits `completion_is_stale` and `head_sha` as explicit
+  fields, using the same determination as the human path.
+
+### Tests
+
+- `tests/test-status-surface-agrees.sh` (7 assertions, registered). The pause
+  site check is structural, so a fourth pause site added later without the
+  refresh is caught rather than silently skewing again. Non-vacuity proven by
+  reverting both fixes: 5 of 7 go red, and green again on restore.
+
+## v8.0.3
+
+Patch release. Two live status surfaces contradicted each other about whether a
+build was running.
+
+### Dashboard status
+
+Measured on a preserved real run that was genuinely paused on a gate:
+
+- **The WebSocket stream reported "running" while `/api/status` reported
+  "paused" -- for the same run.** The stream derived status from
+  `dashboard-state.json`'s `mode` field, which the engine writes and which goes
+  stale the moment a run pauses; on that run it still read `autonomous`.
+  `/api/status` reads `.loki/PAUSE` and was correct.
+
+  Two live surfaces disagreeing about whether a build is running is worse than
+  either being wrong alone, because the user cannot tell which to believe. The
+  WebSocket now consults the control files (`.loki/STOP`, `.loki/PAUSE`) FIRST
+  and falls back to the engine-written mode only when neither exists.
+
+The pre-existing liveness check is preserved: a dead PID with no control file
+still reports `stopped`, and a corrupt or missing state file no longer breaks
+the stream.
+
+### Evidence Receipt
+
+- **The receipt collected a termination reason and never showed it.** The
+  generator records `facts.execution` (reason / outcome / run_status), but the
+  template rendered it zero times -- so a receipt for a run that stopped on a
+  gate displayed a verdict with no cause. The honesty banner now shows
+  `Stopped: <reason>` beneath the headline when a run did not complete, and
+  stays silent for a clean run. Display-only: the value is whatever the
+  generator recorded, never recomputed in the template.
+
 ## v8.0.2
 
 Patch release. `loki why` -- the command v8.0.1 tells users to run after a

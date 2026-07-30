@@ -954,10 +954,20 @@ show_help() {
     echo "  # Providers + model routing"
     echo "  loki provider list            # Show 4 providers (claude/codex/cline/aider)"
     echo "  loki provider set codex       # Switch active provider"
-    echo "  # OpenRouter / Ollama routing (Phase I v7.5.25+):"
-    echo "  export ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1 \\\\"
-    echo "         LOKI_MODEL_OVERRIDE=anthropic/claude-sonnet-4.5"
-    echo "  loki start ./prd.md           # Routes to OpenRouter via Claude Code"
+    echo "  # Cheap / open models (DeepSeek, GLM, MiniMax, Kimi) via OpenRouter:"
+    echo "  loki provider set aider       # aider + cline reach any OpenRouter model"
+    echo "  export OPENROUTER_API_KEY=sk-or-..."
+    echo "  loki start ./prd.md           # defaults to deepseek-v3.2 (open weights)"
+    echo "  # Pick a specific model:"
+    echo "  export LOKI_AIDER_MODEL=openrouter/z-ai/glm-4.6"
+    echo ""
+    echo "  # Anthropic-PROTOCOL gateways (LiteLLM, Bedrock proxies, self-hosted):"
+    echo "  export ANTHROPIC_BASE_URL=https://your-gateway/v1 \\\\"
+    echo "         LOKI_MODEL_OVERRIDE=<model-id-your-gateway-serves>"
+    echo "  # NOTE: this routes Claude Code itself, so the endpoint must speak the"
+    echo "  #       Anthropic /v1/messages API. OpenRouter does NOT -- it serves"
+    echo "  #       only the OpenAI-shaped /v1/chat/completions. Use the aider or"
+    echo "  #       cline route above for OpenRouter."
     echo ""
     echo "  # Cross-project context (Phase F v7.5.23+)"
     echo "  # Drop .loki/app.json with {schema_version:1,app_id:myapp,members:[ui,api]}"
@@ -3871,7 +3881,10 @@ cmd_why() {
     fi
 
     if [ "$as_json" = "1" ]; then
+        local _why_json_head_sha
+        _why_json_head_sha="$(git rev-parse HEAD 2>/dev/null || echo "")"
         _LOKI_WHY_STATE="$state_file" _LOKI_WHY_COMPLETION="$completion_file" \
+        _LOKI_WHY_HEAD_SHA="$_why_json_head_sha" \
         _LOKI_WHY_LAST_ERROR="$loki_dir/state/LAST_ERROR.json" python3 - <<'WHYJSON'
 import json, os
 def load(p):
@@ -3881,7 +3894,26 @@ def load(p):
 state = load(os.environ.get("_LOKI_WHY_STATE", ""))
 comp = load(os.environ.get("_LOKI_WHY_COMPLETION", ""))
 last_error = load(os.environ.get("_LOKI_WHY_LAST_ERROR", ""))
-print(json.dumps({"state": state, "completion": comp, "last_error": last_error}, indent=2))
+
+# The human report labels a stale completion record "(from previous completed
+# run)". The JSON consumer got the same record with NO such marker, so a script
+# reading `completion.branch` or `completion.pr_url` after a crashed run would
+# attribute a PREVIOUS run's branch and PR to the current one -- silently, and
+# with no field to check. Emit the identical determination as explicit fields.
+# Kept byte-identical in logic to the human path below; the two must not drift.
+live_statuses = {"running", "exited"}
+head_sha = os.environ.get("_LOKI_WHY_HEAD_SHA", "")
+comp_head = comp.get("head_sha", "")
+comp_is_stale = bool(state.get("status") in live_statuses) or bool(
+    head_sha and comp_head and comp_head != head_sha
+)
+print(json.dumps({
+    "state": state,
+    "completion": comp,
+    "last_error": last_error,
+    "completion_is_stale": comp_is_stale,
+    "head_sha": head_sha or None,
+}, indent=2))
 WHYJSON
         return 0
     fi

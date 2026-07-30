@@ -10920,10 +10920,11 @@
       "description": "Refresh the repo's captured learnings against the current codebase. Use when auditing stale, overlapping, superseded, or drifted learnings; avoid general refactor, debugging, or code review unless the",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
-      "lines": 694,
-      "words": 8642,
-      "code_blocks": 7,
+      "lines": 708,
+      "words": 8803,
+      "code_blocks": 8,
       "languages": [
+        "bash",
         "text"
       ]
     },
@@ -10932,10 +10933,12 @@
       "description": "Review requirements, plans, or specs with role-specific lenses. Use when the user wants to improve an existing planning document.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
-      "lines": 266,
-      "words": 3481,
-      "code_blocks": 3,
-      "languages": []
+      "lines": 280,
+      "words": 3642,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "ce-product-pulse",
@@ -10962,9 +10965,9 @@
       "description": "\"Give a decisive, project-grounded point of view in the subject's own shape: a graded verdict on an external-adoption question, a holistic take on a document, or a position on a user-supplied approach",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
-      "lines": 147,
-      "words": 3294,
-      "code_blocks": 1,
+      "lines": 161,
+      "words": 3455,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -10974,9 +10977,9 @@
       "description": "\"Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked for review; report-only by default, with explicit local apply available for user-directed fix workflow",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 556,
-      "words": 7778,
-      "code_blocks": 11,
+      "lines": 570,
+      "words": 7939,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "json"
@@ -10987,19 +10990,21 @@
       "description": "'Diagnosis loop for bugs and failing behavior. Use for errors, stack traces, regressions, failed tests, issue-tracker bugs, stuck investigations after failed fixes, or asks to debug/fix a bug.'",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
-      "lines": 325,
-      "words": 5416,
-      "code_blocks": 2,
-      "languages": []
+      "lines": 339,
+      "words": 5577,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "ce-work",
       "description": "Execute a plan or concrete work prompt end-to-end. Use when implementing from a plan document, a spec path, or a clear build request; use ce-debug for open-ended bugs. Standalone use owns the shipping",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
-      "lines": 419,
-      "words": 6871,
-      "code_blocks": 5,
+      "lines": 433,
+      "words": 7032,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ]
@@ -11021,9 +11026,9 @@
       "description": "\"Sweep configured feedback sources (Slack, GitHub Issues; email experimental) for new items: acknowledge at source, analyze recordings, verify fixes merged to main, and emit an `lfg`-ready plan. First",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-sweep/SKILL.md",
       "remote_path": "skills/ce-sweep/SKILL.md",
-      "lines": 180,
-      "words": 2302,
-      "code_blocks": 2,
+      "lines": 194,
+      "words": 2463,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -11057,10 +11062,11 @@
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
-      "lines": 833,
-      "words": 15601,
-      "code_blocks": 2,
+      "lines": 847,
+      "words": 15762,
+      "code_blocks": 3,
       "languages": [
+        "bash",
         "text"
       ]
     },
@@ -11081,9 +11087,9 @@
       "description": "'Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, think through scope, decide what to build, or needs collaborative product fr",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 355,
-      "words": 7368,
-      "code_blocks": 1,
+      "lines": 369,
+      "words": 7529,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -11106,9 +11112,9 @@
       "description": "\"Create a durable, visual teaching artifact \u2014 plus an optional check-in (predict-then-reveal for diffs, corrected exercises) that makes it stick \u2014 for something worth learning: a concept, a diff, an i",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
-      "lines": 126,
-      "words": 3170,
-      "code_blocks": 1,
+      "lines": 140,
+      "words": 3331,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -11166,9 +11172,9 @@
       "description": "Document a recently solved problem as a durable repo learning, or capture project vocabulary in CONCEPTS.md. Use when capturing a learning after work.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 787,
-      "words": 10140,
-      "code_blocks": 18,
+      "lines": 801,
+      "words": 10301,
+      "code_blocks": 19,
       "languages": [
         "bash"
       ]
@@ -11178,19 +11184,21 @@
       "description": "\"Simplify recently changed code for clarity, reuse, quality, and efficiency while preserving behavior. Use for tidy/refactor passes; use ce-debug for bugs.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
-      "lines": 69,
-      "words": 1367,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 83,
+      "words": 1528,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "ce-optimize",
       "description": "\"Run metric-driven optimization loops. Use when improving measurable outcomes such as search relevance, clustering quality, build performance, prompt quality, or scored behavior through experiments.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
-      "lines": 680,
-      "words": 5726,
-      "code_blocks": 18,
+      "lines": 695,
+      "words": 6017,
+      "code_blocks": 19,
       "languages": [
         "bash",
         "yaml"
@@ -11214,10 +11222,12 @@
       "description": "\"Retune a skill corpus for a new model, measurement-first: mine the run archive for a baseline, establish a noise floor, audit the corpus adversarially, then cut in measured passes until a pre-registe",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-retune/SKILL.md",
       "remote_path": "skills/ce-retune/SKILL.md",
-      "lines": 98,
-      "words": 1364,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 114,
+      "words": 1589,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "ce-babysit-pr",
@@ -11225,7 +11235,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 248,
-      "words": 10941,
+      "words": 11025,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -11236,9 +11246,9 @@
       "description": "\"Generate and evaluate grounded ideas. Use when the user asks for ideas, improvements, surprising options, or AI-generated directions before choosing one to develop; use ce-brainstorm to refine the us",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
-      "lines": 420,
-      "words": 8116,
-      "code_blocks": 1,
+      "lines": 434,
+      "words": 8277,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -19968,11 +19978,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 715,
-      "words": 11992,
+      "lines": 737,
+      "words": 12712,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.18.0",
+      "version": "3.20.0",
       "license": "MIT"
     },
     {
@@ -19980,11 +19990,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 715,
-      "words": 11992,
+      "lines": 737,
+      "words": 12712,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.18.0",
+      "version": "3.20.0",
       "license": "MIT"
     }
   ],
@@ -23289,8 +23299,8 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-create/SKILL.md",
       "remote_path": "skills/remotion-create/SKILL.md",
-      "lines": 52,
-      "words": 216,
+      "lines": 58,
+      "words": 246,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -23321,9 +23331,9 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 227,
-      "words": 898,
-      "code_blocks": 9,
+      "lines": 248,
+      "words": 956,
+      "code_blocks": 10,
       "languages": [
         "tsx"
       ]
@@ -23388,8 +23398,8 @@
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
       "path": "remotion-dev--skills/skills/remotion-markup/transitions.md",
       "remote_path": "skills/remotion-markup/transitions.md",
-      "lines": 198,
-      "words": 649,
+      "lines": 240,
+      "words": 739,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -23401,7 +23411,7 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-markup/effects.md",
       "remote_path": "skills/remotion-markup/effects.md",
-      "lines": 246,
+      "lines": 252,
       "words": 974,
       "code_blocks": 7,
       "languages": [
@@ -23424,19 +23434,6 @@
       ]
     },
     {
-      "name": "timing",
-      "description": "Interpolation and timing in Remotion\u2014prefer interpolate with B\u00e9zier easing; springs as a specialized option",
-      "path": "remotion-dev--skills/skills/remotion-markup/timing.md",
-      "remote_path": "skills/remotion-markup/timing.md",
-      "lines": 153,
-      "words": 729,
-      "code_blocks": 9,
-      "languages": [
-        "ts",
-        "tsx"
-      ]
-    },
-    {
       "name": "voiceover",
       "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
       "path": "remotion-dev--skills/skills/remotion-markup/voiceover.md",
@@ -23455,8 +23452,8 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-markup/sequencing.md",
-      "lines": 165,
-      "words": 425,
+      "lines": 170,
+      "words": 426,
       "code_blocks": 8,
       "languages": [
         "tsx"
@@ -23467,8 +23464,8 @@
       "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/embedding-videos.md",
       "remote_path": "skills/remotion-markup/embedding-videos.md",
-      "lines": 172,
-      "words": 485,
+      "lines": 174,
+      "words": 483,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -23493,8 +23490,8 @@
       "description": "Defining compositions, stills, folders, default props and dynamic metadata",
       "path": "remotion-dev--skills/skills/remotion-markup/compositions.md",
       "remote_path": "skills/remotion-markup/compositions.md",
-      "lines": 109,
-      "words": 402,
+      "lines": 118,
+      "words": 406,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -23517,8 +23514,8 @@
       "description": "Loading Google Fonts and local fonts in Remotion",
       "path": "remotion-dev--skills/skills/remotion-markup/google-fonts.md",
       "remote_path": "skills/remotion-markup/google-fonts.md",
-      "lines": 73,
-      "words": 235,
+      "lines": 77,
+      "words": 239,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -23543,7 +23540,7 @@
       "description": "Using FFmpeg and FFprobe in Remotion",
       "path": "remotion-dev--skills/skills/remotion-markup/ffmpeg.md",
       "remote_path": "skills/remotion-markup/ffmpeg.md",
-      "lines": 35,
+      "lines": 39,
       "words": 165,
       "code_blocks": 3,
       "languages": [
@@ -23556,8 +23553,8 @@
       "description": "Displaying GIFs, APNG, AVIF and WebP in Remotion",
       "path": "remotion-dev--skills/skills/remotion-markup/gifs.md",
       "remote_path": "skills/remotion-markup/gifs.md",
-      "lines": 142,
-      "words": 444,
+      "lines": 188,
+      "words": 442,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -23566,26 +23563,14 @@
     },
     {
       "name": "light-leaks",
-      "description": "Light leak overlay effects for Remotion using @remotion/light-leaks.",
+      "description": "Light leak overlay effects for Remotion using lightLeak() from @remotion/effects.",
       "path": "remotion-dev--skills/skills/remotion-markup/light-leaks.md",
       "remote_path": "skills/remotion-markup/light-leaks.md",
-      "lines": 74,
-      "words": 281,
-      "code_blocks": 4,
+      "lines": 107,
+      "words": 377,
+      "code_blocks": 5,
       "languages": [
         "bash",
-        "tsx"
-      ]
-    },
-    {
-      "name": "trimming",
-      "description": "Trimming patterns for Remotion - cut the beginning or end of animations",
-      "path": "remotion-dev--skills/skills/remotion-markup/trimming.md",
-      "remote_path": "skills/remotion-markup/trimming.md",
-      "lines": 52,
-      "words": 177,
-      "code_blocks": 3,
-      "languages": [
         "tsx"
       ]
     },
@@ -23594,9 +23579,9 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 316,
-      "words": 1146,
-      "code_blocks": 6,
+      "lines": 361,
+      "words": 1321,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
@@ -23607,7 +23592,7 @@
       "description": "Embedding Lottie animations in Remotion.",
       "path": "remotion-dev--skills/skills/remotion-markup/lottie.md",
       "remote_path": "skills/remotion-markup/lottie.md",
-      "lines": 71,
+      "lines": 74,
       "words": 226,
       "code_blocks": 3,
       "languages": [
@@ -23632,8 +23617,8 @@
       "description": "Measuring text dimensions, fitting text to containers, and checking overflow",
       "path": "remotion-dev--skills/skills/remotion-markup/measuring-text.md",
       "remote_path": "skills/remotion-markup/measuring-text.md",
-      "lines": 141,
-      "words": 372,
+      "lines": 147,
+      "words": 378,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -23645,8 +23630,8 @@
       "description": "Make a video parametrizable by adding a Zod schema",
       "path": "remotion-dev--skills/skills/remotion-markup/parameters.md",
       "remote_path": "skills/remotion-markup/parameters.md",
-      "lines": 110,
-      "words": 334,
+      "lines": 112,
+      "words": 336,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -23658,8 +23643,8 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-markup/audio.md",
       "remote_path": "skills/remotion-markup/audio.md",
-      "lines": 170,
-      "words": 523,
+      "lines": 172,
+      "words": 521,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -23671,8 +23656,8 @@
       "description": "Measuring DOM element dimensions in Remotion",
       "path": "remotion-dev--skills/skills/remotion-markup/measuring-dom-nodes.md",
       "remote_path": "skills/remotion-markup/measuring-dom-nodes.md",
-      "lines": 35,
-      "words": 117,
+      "lines": 39,
+      "words": 121,
       "code_blocks": 1,
       "languages": [
         "tsx"
@@ -23708,8 +23693,8 @@
       "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
       "path": "remotion-dev--skills/skills/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-captions/display-captions.md",
-      "lines": 185,
-      "words": 658,
+      "lines": 189,
+      "words": 662,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23721,8 +23706,8 @@
       "description": "Importing .srt subtitle files into Remotion using @remotion/captions",
       "path": "remotion-dev--skills/skills/remotion-captions/import-srt-captions.md",
       "remote_path": "skills/remotion-captions/import-srt-captions.md",
-      "lines": 70,
-      "words": 298,
+      "lines": 74,
+      "words": 302,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -23777,11 +23762,11 @@
     },
     {
       "name": "remotion-upgrade",
-      "description": "Upgrade Remotion, its related packages, compatible Mediabunny packages, and installed Remotion Agent Skills. Use when asked to upgrade or update a Remotion project.",
+      "description": "Upgrade Remotion, and related packages",
       "path": "remotion-dev--skills/skills/remotion-upgrade/SKILL.md",
       "remote_path": "skills/remotion-upgrade/SKILL.md",
       "lines": 31,
-      "words": 225,
+      "words": 207,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -23866,8 +23851,8 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-create/REFERENCE.md",
-      "lines": 52,
-      "words": 216,
+      "lines": 58,
+      "words": 246,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -23898,9 +23883,9 @@
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 227,
-      "words": 898,
-      "code_blocks": 9,
+      "lines": 248,
+      "words": 956,
+      "code_blocks": 10,
       "languages": [
         "tsx"
       ]
@@ -23965,8 +23950,8 @@
       "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/transitions.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/transitions.md",
-      "lines": 198,
-      "words": 649,
+      "lines": 240,
+      "words": 739,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -23978,7 +23963,7 @@
       "description": "Canvas/WebGL visual effects for Remotion using effects arrays and createEffect().",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/effects.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/effects.md",
-      "lines": 246,
+      "lines": 252,
       "words": 974,
       "code_blocks": 7,
       "languages": [
@@ -24001,19 +23986,6 @@
       ]
     },
     {
-      "name": "timing",
-      "description": "Interpolation and timing in Remotion\u2014prefer interpolate with B\u00e9zier easing; springs as a specialized option",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/timing.md",
-      "remote_path": "skills/remotion-best-practices/remotion-markup/timing.md",
-      "lines": 153,
-      "words": 729,
-      "code_blocks": 9,
-      "languages": [
-        "ts",
-        "tsx"
-      ]
-    },
-    {
       "name": "voiceover",
       "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/voiceover.md",
@@ -24032,8 +24004,8 @@
       "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/sequencing.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/sequencing.md",
-      "lines": 165,
-      "words": 425,
+      "lines": 170,
+      "words": 426,
       "code_blocks": 8,
       "languages": [
         "tsx"
@@ -24044,8 +24016,8 @@
       "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/embedding-videos.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/embedding-videos.md",
-      "lines": 172,
-      "words": 485,
+      "lines": 174,
+      "words": 483,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -24070,8 +24042,8 @@
       "description": "Defining compositions, stills, folders, default props and dynamic metadata",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/compositions.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/compositions.md",
-      "lines": 109,
-      "words": 402,
+      "lines": 118,
+      "words": 406,
       "code_blocks": 4,
       "languages": [
         "tsx"
@@ -24094,8 +24066,8 @@
       "description": "Loading Google Fonts and local fonts in Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/google-fonts.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/google-fonts.md",
-      "lines": 73,
-      "words": 235,
+      "lines": 77,
+      "words": 239,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -24107,9 +24079,9 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 316,
-      "words": 1146,
-      "code_blocks": 6,
+      "lines": 361,
+      "words": 1321,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
@@ -24133,7 +24105,7 @@
       "description": "Using FFmpeg and FFprobe in Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/ffmpeg.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/ffmpeg.md",
-      "lines": 35,
+      "lines": 39,
       "words": 165,
       "code_blocks": 3,
       "languages": [
@@ -24146,8 +24118,8 @@
       "description": "Displaying GIFs, APNG, AVIF and WebP in Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/gifs.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/gifs.md",
-      "lines": 142,
-      "words": 444,
+      "lines": 188,
+      "words": 442,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -24156,26 +24128,14 @@
     },
     {
       "name": "light-leaks",
-      "description": "Light leak overlay effects for Remotion using @remotion/light-leaks.",
+      "description": "Light leak overlay effects for Remotion using lightLeak() from @remotion/effects.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/light-leaks.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/light-leaks.md",
-      "lines": 74,
-      "words": 281,
-      "code_blocks": 4,
+      "lines": 107,
+      "words": 377,
+      "code_blocks": 5,
       "languages": [
         "bash",
-        "tsx"
-      ]
-    },
-    {
-      "name": "trimming",
-      "description": "Trimming patterns for Remotion - cut the beginning or end of animations",
-      "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/trimming.md",
-      "remote_path": "skills/remotion-best-practices/remotion-markup/trimming.md",
-      "lines": 52,
-      "words": 177,
-      "code_blocks": 3,
-      "languages": [
         "tsx"
       ]
     },
@@ -24184,7 +24144,7 @@
       "description": "Embedding Lottie animations in Remotion.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/lottie.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/lottie.md",
-      "lines": 71,
+      "lines": 74,
       "words": 226,
       "code_blocks": 3,
       "languages": [
@@ -24209,8 +24169,8 @@
       "description": "Measuring text dimensions, fitting text to containers, and checking overflow",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/measuring-text.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/measuring-text.md",
-      "lines": 141,
-      "words": 372,
+      "lines": 147,
+      "words": 378,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -24222,8 +24182,8 @@
       "description": "Make a video parametrizable by adding a Zod schema",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/parameters.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/parameters.md",
-      "lines": 110,
-      "words": 334,
+      "lines": 112,
+      "words": 336,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -24235,8 +24195,8 @@
       "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/audio.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/audio.md",
-      "lines": 170,
-      "words": 523,
+      "lines": 172,
+      "words": 521,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -24248,8 +24208,8 @@
       "description": "Measuring DOM element dimensions in Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/measuring-dom-nodes.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/measuring-dom-nodes.md",
-      "lines": 35,
-      "words": 117,
+      "lines": 39,
+      "words": 121,
       "code_blocks": 1,
       "languages": [
         "tsx"
@@ -24285,8 +24245,8 @@
       "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/display-captions.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/display-captions.md",
-      "lines": 185,
-      "words": 658,
+      "lines": 189,
+      "words": 662,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -24298,8 +24258,8 @@
       "description": "Importing .srt subtitle files into Remotion using @remotion/captions",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/import-srt-captions.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/import-srt-captions.md",
-      "lines": 70,
-      "words": 298,
+      "lines": 74,
+      "words": 302,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -24354,11 +24314,11 @@
     },
     {
       "name": "remotion-upgrade",
-      "description": "Upgrade Remotion, its related packages, compatible Mediabunny packages, and installed Remotion Agent Skills. Use when asked to upgrade or update a Remotion project.",
+      "description": "Upgrade Remotion, and related packages",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
       "lines": 31,
-      "words": 225,
+      "words": 207,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -25712,16 +25672,6 @@
     {
       "name": "Company Researcher",
       "description": "\"Research a company from its URL or description to infer Stripe Connect integration shape\"",
-      "path": "stripe--ai/providers/codex/plugin/skills/connect-recommend/agents/company-researcher.md",
-      "remote_path": "providers/codex/plugin/skills/connect-recommend/agents/company-researcher.md",
-      "lines": 115,
-      "words": 1142,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
-      "name": "Company Researcher",
-      "description": "\"Research a company from its URL or description to infer Stripe Connect integration shape\"",
       "path": "stripe--ai/providers/claude/plugin/agents/company-researcher.md",
       "remote_path": "providers/claude/plugin/agents/company-researcher.md",
       "lines": 117,
@@ -25867,16 +25817,6 @@
       "lines": 78,
       "words": 793,
       "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "Company Researcher",
-      "description": "\"Research a company from its URL or description to infer Stripe Connect integration shape\"",
-      "path": "stripe--ai/providers/cursor/plugin/skills/connect-recommend/agents/company-researcher.md",
-      "remote_path": "providers/cursor/plugin/skills/connect-recommend/agents/company-researcher.md",
-      "lines": 115,
-      "words": 1142,
-      "code_blocks": 1,
       "languages": []
     },
     {
@@ -26088,28 +26028,39 @@
       ]
     },
     {
+      "name": "code-slice-worker",
+      "description": "Analyzes one bounded Trailmark source packet and returns source-cited JSON without accessing the repository. Use only when invoked by the slicing-code-context coordinator.",
+      "path": "trailofbits--skills/plugins/trailmark/agents/code-slice-worker.md",
+      "remote_path": "plugins/trailmark/agents/code-slice-worker.md",
+      "lines": 42,
+      "words": 274,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "trailmark-summary",
       "description": "\"Runs a Trailmark summary analysis on a codebase. Returns auto-detected languages, entry point count, and dependency list. Use when vivisect or galvanize needs a quick structural overview. Triggers: t",
       "path": "trailofbits--skills/plugins/trailmark/skills/trailmark-summary/SKILL.md",
       "remote_path": "plugins/trailmark/skills/trailmark-summary/SKILL.md",
-      "lines": 84,
-      "words": 446,
-      "code_blocks": 3,
+      "lines": 100,
+      "words": 536,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ]
     },
     {
       "name": "trailmark",
-      "description": "\"Builds and queries multi-language source code graphs for security analysis. Includes pre-analysis passes for blast radius, taint propagation, privilege boundaries, and entry point enumeration. Use wh",
+      "description": "\"Builds and queries multi-language source and binary code graphs for security analysis. Includes pre-analysis passes for blast radius, taint propagation, privilege boundaries, entry point enumeration,",
       "path": "trailofbits--skills/plugins/trailmark/skills/trailmark/SKILL.md",
       "remote_path": "plugins/trailmark/skills/trailmark/SKILL.md",
-      "lines": 205,
-      "words": 970,
-      "code_blocks": 5,
+      "lines": 384,
+      "words": 2010,
+      "code_blocks": 9,
       "languages": [
         "bash",
-        "python"
+        "python",
+        "toml"
       ]
     },
     {
@@ -26130,9 +26081,9 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/trailmark/skills/diagramming-code/SKILL.md",
       "remote_path": "plugins/trailmark/skills/diagramming-code/SKILL.md",
-      "lines": 189,
-      "words": 814,
-      "code_blocks": 10,
+      "lines": 212,
+      "words": 955,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "markdown",
@@ -26142,12 +26093,12 @@
     },
     {
       "name": "trailmark-structural",
-      "description": "\"Runs full Trailmark structural analysis on Trailmark 0.2.x by building a graph, running `preanalysis()`, and reporting hotspots, taint, blast radius, privilege boundaries, and attack surface. Use whe",
+      "description": "\"Runs full Trailmark structural analysis by building a graph, running `preanalysis()`, and reporting hotspots, taint, blast radius, privilege boundaries, attack surface, and version-gated Trailmark 0.",
       "path": "trailofbits--skills/plugins/trailmark/skills/trailmark-structural/SKILL.md",
       "remote_path": "plugins/trailmark/skills/trailmark-structural/SKILL.md",
-      "lines": 120,
-      "words": 529,
-      "code_blocks": 3,
+      "lines": 168,
+      "words": 790,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ]
@@ -26157,13 +26108,37 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/trailmark/skills/audit-augmentation/SKILL.md",
       "remote_path": "plugins/trailmark/skills/audit-augmentation/SKILL.md",
-      "lines": 178,
-      "words": 900,
-      "code_blocks": 5,
+      "lines": 235,
+      "words": 1200,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "json",
         "python"
       ]
+    },
+    {
+      "name": "slicing-code-context",
+      "description": "\"Selects bounded, graph-informed source slices with Trailmark and delegates focused code analysis or patch-proposal work to a smaller subagent. Use when offloading function-, class-, caller-, callee-,",
+      "path": "trailofbits--skills/plugins/trailmark/skills/slicing-code-context/SKILL.md",
+      "remote_path": "plugins/trailmark/skills/slicing-code-context/SKILL.md",
+      "lines": 180,
+      "words": 1273,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "trailmark-finding-triage",
+      "description": "\"Performs graph-assisted triage of a single security finding, SARIF result, weAudit annotation, suspicious function, or report excerpt using Trailmark reachability, entrypoint paths, taint, privilege-",
+      "path": "trailofbits--skills/plugins/trailmark/skills/trailmark-finding-triage/SKILL.md",
+      "remote_path": "plugins/trailmark/skills/trailmark-finding-triage/SKILL.md",
+      "lines": 139,
+      "words": 875,
+      "code_blocks": 1,
+      "languages": []
     },
     {
       "name": "mermaid-to-proverif",
@@ -26178,6 +26153,16 @@
       ]
     },
     {
+      "name": "trailmark-review-gate",
+      "description": "\"Runs a Trailmark structural review gate over a branch, pull request, fix commit, release diff, or git ref range to detect new entrypoints, new tainted paths, removed validation or authorization calls",
+      "path": "trailofbits--skills/plugins/trailmark/skills/trailmark-review-gate/SKILL.md",
+      "remote_path": "plugins/trailmark/skills/trailmark-review-gate/SKILL.md",
+      "lines": 113,
+      "words": 657,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "crypto-protocol-diagram",
       "description": "\"Extracts protocol message flow from source code, RFCs, academic papers, pseudocode, informal prose, ProVerif (.pv), or Tamarin (.spthy) models and generates Mermaid sequenceDiagrams with cryptographi",
       "path": "trailofbits--skills/plugins/trailmark/skills/crypto-protocol-diagram/SKILL.md",
@@ -26189,6 +26174,16 @@
         "bash",
         "markdown"
       ]
+    },
+    {
+      "name": "trailmark-variant-neighborhood",
+      "description": "\"Expands one confirmed or suspected vulnerability into a Trailmark graph neighborhood of variant candidates by finding sibling functions, shared callers and callees, common sensitive sinks, common ent",
+      "path": "trailofbits--skills/plugins/trailmark/skills/trailmark-variant-neighborhood/SKILL.md",
+      "remote_path": "plugins/trailmark/skills/trailmark-variant-neighborhood/SKILL.md",
+      "lines": 110,
+      "words": 610,
+      "code_blocks": 1,
+      "languages": []
     },
     {
       "name": "vector-forge",
@@ -26207,8 +26202,8 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/trailmark/skills/graph-evolution/SKILL.md",
       "remote_path": "plugins/trailmark/skills/graph-evolution/SKILL.md",
-      "lines": 320,
-      "words": 1508,
+      "lines": 326,
+      "words": 1545,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -26385,6 +26380,18 @@
       "code_blocks": 1,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "vulnerability-triage-brocards",
+      "description": ">-",
+      "path": "trailofbits--skills/plugins/vulnerability-triage-brocards/skills/vulnerability-triage-brocards/SKILL.md",
+      "remote_path": "plugins/vulnerability-triage-brocards/skills/vulnerability-triage-brocards/SKILL.md",
+      "lines": 209,
+      "words": 1281,
+      "code_blocks": 2,
+      "languages": [
+        "mermaid"
       ]
     },
     {
@@ -27425,6 +27432,19 @@
       "words": 1964,
       "code_blocks": 2,
       "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "github-triage",
+      "description": "\"Triages a repository's open GitHub issues and pull requests via the gh CLI. Optionally reviews and merges ready PRs \u2014 incrementally merging passing automated/bot PRs and maintainer-approved ones, and",
+      "path": "trailofbits--skills/plugins/github-triage/skills/github-triage/SKILL.md",
+      "remote_path": "plugins/github-triage/skills/github-triage/SKILL.md",
+      "lines": 411,
+      "words": 3545,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
         "markdown"
       ]
     },
@@ -28528,6 +28548,18 @@
       "languages": []
     },
     {
+      "name": "open-sourcing",
+      "description": "This skill should be used when the user asks to \"open source this project\", \"prepare this repository for public release\", \"make this repo public\", \"check open-source readiness\", \"choose a license for ",
+      "path": "trailofbits--skills/plugins/open-sourcing/skills/open-sourcing/SKILL.md",
+      "remote_path": "plugins/open-sourcing/skills/open-sourcing/SKILL.md",
+      "lines": 225,
+      "words": 1447,
+      "code_blocks": 2,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
       "name": "semgrep-rule-variant-creator",
       "description": "Creates language variants of existing Semgrep rules. Use when porting a Semgrep rule to specified target languages. Takes an existing rule and target languages as input, produces independent rule+test",
       "path": "trailofbits--skills/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/SKILL.md",
@@ -28819,8 +28851,8 @@
       "description": ">",
       "path": "typefully--agent-skills/skills/typefully/SKILL.md",
       "remote_path": "skills/typefully/SKILL.md",
-      "lines": 311,
-      "words": 2138,
+      "lines": 315,
+      "words": 2270,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -30509,10 +30541,12 @@
       "description": "Automatically detect source types and build AI skills using Skill Seekers. Use when the user wants to create skills from documentation, repos, PDFs, videos, or other knowledge sources.",
       "path": "yusufkaraaslan--Skill_Seekers/distribution/claude-plugin/skills/skill-builder/SKILL.md",
       "remote_path": "distribution/claude-plugin/skills/skill-builder/SKILL.md",
-      "lines": 70,
-      "words": 443,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 92,
+      "words": 643,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
     }
   ],
   "mukul975--Anthropic-Cybersecurity-Skills": [
@@ -42902,8 +42936,8 @@
       "description": "Offensive AI security testing and exploitation framework. Systematically tests LLM applications for OWASP Top 10 vulnerabilities including prompt injection, model extraction, data poisoning, and suppl",
       "path": "transilienceai--communitytools/skills/ai-threat-testing/SKILL.md",
       "remote_path": "skills/ai-threat-testing/SKILL.md",
-      "lines": 100,
-      "words": 493,
+      "lines": 108,
+      "words": 681,
       "code_blocks": 4,
       "languages": []
     },
@@ -55425,11 +55459,11 @@
     },
     {
       "name": "ln-24-architecture-auditor",
-      "description": "\"Audits implemented architecture fitness, boundaries, contracts, dependency topology, structure, and configuration ownership. Use for system structure; not implementation-plan review.\"",
+      "description": "\"Audits implemented architecture fitness, boundaries, contracts, dependencies, and configuration ownership. Use for system structure; not for current-state documentation, diagrams, or plan review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
-      "lines": 123,
-      "words": 1622,
+      "lines": 126,
+      "words": 1740,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55572,12 +55606,84 @@
       ]
     },
     {
+      "name": "ln-75-architecture-diagram-builder",
+      "description": "\"Creates evidence-backed current or target architecture diagrams. Use when relationships need visualization; not for UI design, architecture audit, or invented structure.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
+      "remote_path": "plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
+      "lines": 104,
+      "words": 963,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-72-current-architecture-documenter",
+      "description": "\"Documents implemented current-state architecture from repository evidence. Use for onboarding or migration baselines; not for target design, audit verdicts, or code changes.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-72-current-architecture-documenter/SKILL.md",
+      "remote_path": "plugins/architecture-suite/skills/ln-72-current-architecture-documenter/SKILL.md",
+      "lines": 104,
+      "words": 956,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-74-architecture-decision-recorder",
+      "description": "\"Records one architecture decision with context, alternatives, tradeoffs, and consequences. Use for a significant choice; not for broad design, audit, or implementation.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-74-architecture-decision-recorder/SKILL.md",
+      "remote_path": "plugins/architecture-suite/skills/ln-74-architecture-decision-recorder/SKILL.md",
+      "lines": 104,
+      "words": 928,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-73-system-design-proposal-builder",
+      "description": "\"Creates a decision-complete target system design from requirements and constraints. Use before implementation planning; not for requirements baselines, reviews, audits, or code changes.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
+      "remote_path": "plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
+      "lines": 106,
+      "words": 1026,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-71-system-design-baseline-builder",
+      "description": "\"Creates a project baseline of architecture drivers and constraints. Use before design or planning; not for target design, plan review, implementation, or architecture audit.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-71-system-design-baseline-builder/SKILL.md",
+      "remote_path": "plugins/architecture-suite/skills/ln-71-system-design-baseline-builder/SKILL.md",
+      "lines": 107,
+      "words": 1084,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-76-architecture-migration-planner",
+      "description": "\"Plans a reversible architecture migration with compatibility, data movement, rollout, and rollback. Use for current-to-target transitions; not execution, generic planning, or delivery review.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-76-architecture-migration-planner/SKILL.md",
+      "remote_path": "plugins/architecture-suite/skills/ln-76-architecture-migration-planner/SKILL.md",
+      "lines": 106,
+      "words": 1029,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
       "name": "ln-12-delivery-reviewer",
       "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
-      "lines": 201,
-      "words": 3590,
+      "lines": 198,
+      "words": 3642,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -55588,8 +55694,8 @@
       "description": "\"Reviews implementation plans against repository evidence and current authoritative guidance. Use before execution to expose gaps and risks; not for completed delivery review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
-      "lines": 143,
-      "words": 2558,
+      "lines": 147,
+      "words": 2668,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -149929,8 +150035,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 603,
-      "words": 8870,
+      "lines": 620,
+      "words": 9214,
       "code_blocks": 18,
       "languages": [
         "bash",

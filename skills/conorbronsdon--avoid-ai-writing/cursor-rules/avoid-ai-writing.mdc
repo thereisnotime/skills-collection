@@ -218,6 +218,7 @@ These are normal words. Only flag them when the text is saturated with them — 
 | sophisticated | Describe the sophistication |
 | instrumental | Say what role it played |
 | world-class / state-of-the-art / best-in-class | Cite a benchmark or comparison |
+| verbatim | Usually redundant with the verb ("copies X verbatim" = "copies X") — cut it. If the exactness marks a contrast, name it: byte-for-byte, word for word, unchanged. Term of art in legal/research/QA registers ("verbatim transcript / record / testimony"), so weigh density in that context before flagging |
 
 #### Tier 3 phrases — Flag at density or in clusters
 

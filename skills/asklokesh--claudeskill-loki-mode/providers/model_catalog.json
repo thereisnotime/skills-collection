@@ -1,7 +1,7 @@
 {
   "_comment": "Canonical model catalog. Update this single file when a provider ships a new model. Providers/web-app/docs read from here.",
   "schema_version": 1,
-  "updated": "2026-06-30",
+  "updated": "2026-07-29",
   "providers": {
     "claude": {
       "latest_planning": "claude-opus-4-8",
@@ -52,31 +52,78 @@
       "latest_development": "gpt-5.3-codex",
       "latest_fast": "gpt-5.3-codex",
       "models": [
-        { "id": "gpt-5.3-codex", "tier": "planning" },
-        { "id": "o3", "tier": "planning" },
-        { "id": "o4-mini", "tier": "fast" }
+        {
+          "id": "gpt-5.3-codex",
+          "tier": "planning"
+        },
+        {
+          "id": "o3",
+          "tier": "planning"
+        },
+        {
+          "id": "o4-mini",
+          "tier": "fast"
+        }
       ],
       "notes": "Codex uses a single model with effort level (xhigh/high/low) for tier differentiation"
     },
     "cline": {
-      "latest_planning": "claude-opus-4-8",
-      "latest_development": "claude-sonnet-5",
-      "latest_fast": "claude-sonnet-5",
+      "latest_planning": "openrouter/deepseek/deepseek-v3.2",
+      "latest_development": "openrouter/deepseek/deepseek-v3.2",
+      "latest_fast": "openrouter/deepseek/deepseek-chat",
       "models": [
-        { "id": "claude-opus-4-8", "tier": "planning" },
-        { "id": "claude-sonnet-5", "tier": "development" },
-        { "id": "gpt-4.1", "tier": "development" }
+        {
+          "id": "openrouter/deepseek/deepseek-v3.2",
+          "tier": "planning",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/deepseek/deepseek-v3.2",
+          "tier": "development",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/deepseek/deepseek-chat",
+          "tier": "fast",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/z-ai/glm-4.6",
+          "tier": "development",
+          "open_weights": true
+        }
       ]
     },
     "aider": {
-      "latest_planning": "claude-opus-4-8",
-      "latest_development": "claude-sonnet-5",
-      "latest_fast": "claude-sonnet-5",
+      "latest_planning": "openrouter/deepseek/deepseek-v3.2",
+      "latest_development": "openrouter/deepseek/deepseek-v3.2",
+      "latest_fast": "openrouter/deepseek/deepseek-chat",
       "models": [
-        { "id": "claude-opus-4-8", "tier": "planning" },
-        { "id": "claude-sonnet-5", "tier": "development" },
-        { "id": "gpt-4.1", "tier": "development" },
-        { "id": "ollama_chat/deepseek-coder", "tier": "fast" }
+        {
+          "id": "openrouter/deepseek/deepseek-v3.2",
+          "tier": "planning",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/deepseek/deepseek-v3.2",
+          "tier": "development",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/deepseek/deepseek-chat",
+          "tier": "fast",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/minimax/minimax-m2.1",
+          "tier": "development",
+          "open_weights": true
+        },
+        {
+          "id": "ollama_chat/deepseek-coder",
+          "tier": "fast",
+          "open_weights": true
+        }
       ]
     }
   }

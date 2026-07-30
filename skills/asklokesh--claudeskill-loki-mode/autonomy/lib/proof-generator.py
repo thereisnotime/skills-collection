@@ -429,6 +429,19 @@ def _collect_termination(loki_dir, session_exit_code=None):
         "exit_code": None,
         "outcome": "",
         "run_status": "",
+        # Which gate stopped the run, if one did. The receipt previously named
+        # only a bare outcome ("intervention"), so a user reading the artifact
+        # could not tell WHICH gate blocked them or how close it came to its
+        # threshold -- the single most actionable fact about a blocked run. The
+        # engine already writes it to .loki/signals/GATE_ESCALATION.json and
+        # already surfaces it in COMPLETION.txt and PAUSED.md; the signed
+        # receipt was the one surface that stayed silent.
+        #
+        # These are deterministic FACTS read from a file the engine wrote, not
+        # an AI assessment, so they belong in the facts block.
+        "blocking_gate": "",
+        "blocking_gate_failures": None,
+        "blocking_gate_threshold": None,
     }
     state_paths = [os.path.join(loki_dir, "autonomy-state.json")]
     sessions_dir = os.path.join(loki_dir, "sessions")
@@ -455,6 +468,20 @@ def _collect_termination(loki_dir, session_exit_code=None):
             out["status"] = outcome
             if outcome not in ("complete", "completed", "success"):
                 out["reason"] = outcome
+    # Gate escalation: name the gate that stopped the run. Best-effort and
+    # non-fatal -- a missing or corrupt signal simply leaves the fields empty,
+    # which reads as "no gate escalation recorded", never as a false claim.
+    gate = _read_json(
+        os.path.join(loki_dir, "signals", "GATE_ESCALATION.json"), default=None
+    )
+    if isinstance(gate, dict):
+        gate_name = str(gate.get("gate") or "").strip()
+        if gate_name:
+            out["blocking_gate"] = gate_name
+            count = gate.get("count")
+            thr = gate.get("threshold")
+            out["blocking_gate_failures"] = _to_int(count, None)
+            out["blocking_gate_threshold"] = _to_int(thr, None)
     if session_exit_code is not None:
         out["exit_code"] = session_exit_code
         if session_exit_code != 0 and not out["reason"]:

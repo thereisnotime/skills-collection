@@ -44,36 +44,63 @@ safe_append_event_jsonl() {
     if command -v flock >/dev/null 2>&1; then
         # flock path: bind FD 9 to the sentinel file (created if absent),
         # take an exclusive lock, append, release on subshell exit.
+        #
+        # `-w 5` is LOAD-BEARING: a bare `flock -x 9` blocks FOREVER. A holder
+        # that is killed mid-write (a reaped CI run, a Ctrl-C'd build) leaves
+        # every subsequent emit hung, and because emit.sh is spawned per CLI
+        # invocation those hangs ACCUMULATE. Measured 2026-07-29: 59 orphaned
+        # emit.sh processes, the oldest alive 21 HOURS, on a machine at 0% idle.
+        # Observability must never outlive the thing it observes.
         (
-            flock -x 9
+            flock -w 5 -x 9 || exit 1
             printf '%s\n' "$line" >> "$events_path"
         ) 9>"$lock_target"
-        return $?
+        local frc=$?
+        if [ "$frc" -ne 0 ]; then
+            # Lock unavailable within the timeout: append unlocked rather than
+            # block. A rare interleaved line is strictly better than a hung CLI.
+            printf '%s\n' "$line" >> "$events_path" 2>/dev/null || true
+        fi
+        return 0
     fi
 
-    # Fallback: mkdir-based mutex. mkdir is atomic on POSIX.
+    # Fallback: mkdir-based mutex. mkdir is atomic on POSIX. macOS ships NO
+    # flock(1), so this is the path real users take -- it must be the robust one.
     local lock_dir="${events_path}.lockdir"
     local attempts=0
-    local max_attempts=500   # ~5s at 10ms sleep
+    local max_attempts=100   # ~1s at 10ms sleep
+    local stale_after=30
     while ! mkdir "$lock_dir" 2>/dev/null; do
+        # Check staleness EVERY iteration, not only after exhausting attempts.
+        # The old code waited for all 500 attempts before its first staleness
+        # check, so a stale lock cost ~5s AND ~500 forked sleep helpers per
+        # event; under concurrent emits the locks kept going stale and the
+        # processes piled up. Measured before this fix: 10s and ~500 forks for
+        # a SINGLE append against an already-stale lock.
+        local age=0
+        local mtime
+        mtime=$(stat -f%m "$lock_dir" 2>/dev/null || stat -c%Y "$lock_dir" 2>/dev/null || echo "")
+        if [ -n "$mtime" ]; then
+            age=$(( $(date +%s) - mtime ))
+        else
+            # Lock vanished between the failed mkdir and the stat: retry at once.
+            continue
+        fi
+        if [ "$age" -gt "$stale_after" ]; then
+            rmdir "$lock_dir" 2>/dev/null || rm -rf "$lock_dir" 2>/dev/null || true
+            continue
+        fi
         attempts=$((attempts + 1))
         if [ "$attempts" -ge "$max_attempts" ]; then
-            # Stale lock: if the dir is older than 30s, force-remove it.
-            local age
-            age=$(( $(date +%s) - $(stat -f%m "$lock_dir" 2>/dev/null \
-                                    || stat -c%Y "$lock_dir" 2>/dev/null \
-                                    || echo 0) ))
-            if [ "$age" -gt 30 ]; then
-                rmdir "$lock_dir" 2>/dev/null || rm -rf "$lock_dir" 2>/dev/null || true
-                attempts=0
-                continue
-            fi
-            # Give up -- best-effort write so observability never blocks.
+            # Give up fast -- best-effort write so observability never blocks.
             printf '%s\n' "$line" >> "$events_path" 2>/dev/null || true
-            return 1
+            return 0
         fi
-        # Sleep ~10ms (perl avoids `sleep 0.01` portability issues).
-        perl -e 'select(undef,undef,undef,0.01)' 2>/dev/null || sleep 1
+        # Sleep ~10ms WITHOUT forking when the shell supports fractional sleep
+        # (bash's `read -t` needs no external process). perl/sleep are fallbacks.
+        read -r -t 0.01 _unused_ < /dev/null 2>/dev/null \
+            || perl -e 'select(undef,undef,undef,0.01)' 2>/dev/null \
+            || sleep 1
     done
     # Critical section.
     printf '%s\n' "$line" >> "$events_path"

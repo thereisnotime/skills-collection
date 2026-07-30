@@ -214,6 +214,29 @@ test('"Interesting part of the project:" header opener flags emotional-flatline'
   assert.ok(types.has('emotional-flatline'), 'expected emotional-flatline flag');
 });
 
+test('"the line I keep coming back to" flags lingering-attention', () => {
+  const text = 'Recorded with a guest yesterday. The line I keep coming back to is that agents behave like teenagers on an unbounded goal.';
+  const r = AIDetector.analyzeText(text);
+  const types = new Set(r.issues.map((i) => i.type));
+  assert.ok(types.has('lingering-attention'), 'expected lingering-attention flag');
+});
+
+test('"I cannot stop thinking about" flags lingering-attention', () => {
+  const text = "I can't stop thinking about the runtime guardrail argument he made near the end of our conversation about agent drift.";
+  const r = AIDetector.analyzeText(text);
+  const types = new Set(r.issues.map((i) => i.type));
+  assert.ok(types.has('lingering-attention'), 'expected lingering-attention flag');
+});
+
+test('bare "I keep coming back to X because ..." does NOT flag lingering-attention', () => {
+  // Precision carve-out: the bare verb phrase with a reason attached is
+  // legitimate analytical writing, so only the noun-anchored frame fires.
+  const text = 'I keep coming back to the exit-voice framing because it predicts which engineers quit and which ones file the RFC instead.';
+  const r = AIDetector.analyzeText(text);
+  const types = new Set(r.issues.map((i) => i.type));
+  assert.ok(!types.has('lingering-attention'), 'bare reasoned form must not flag');
+});
+
 test('"real on-chain tokenomics" flags real-actual-inflation', () => {
   const text = 'The team is researching real on-chain tokenomics and actual reward sustainability versus electricity cost across the network deployment phase.';
   const r = AIDetector.analyzeText(text);
@@ -285,6 +308,38 @@ test('"load-bearing" (metaphor) flags tier1; construction nouns exempt', () => {
     const { hits } = lbHits(text);
     assert.equal(hits.length, 0, `literal construction use should not fire tier1: ${text}`);
   }
+});
+
+test('"verbatim" is Tier 3: single use stays clean, overuse flags by density', () => {
+  // Tier 3 words fire only at density (max(3, 3% of words)), so a lone
+  // "verbatim" — including the legal/QA term-of-art use — never flags, and the
+  // word only surfaces when the writer leans on it.
+  const single = AIDetector.analyzeText(
+    'The packaging step copies the in-app resource verbatim into the extension bundle today.'
+  );
+  assert.ok(!single.tooShort, 'single-use fixture must clear the length gate');
+  assert.equal(
+    single.issues.filter((i) => i.type === 'tier3' && /verbatim/i.test(i.text)).length,
+    0,
+    'one "verbatim" is below the density floor and should not flag'
+  );
+
+  // The term of art repeated once in a normal sentence also stays clean.
+  const termOfArt = AIDetector.analyzeText(
+    'The verbatim transcript was entered into evidence during the second day of the hearing.'
+  );
+  assert.equal(
+    termOfArt.issues.filter((i) => i.type === 'tier3' && /verbatim/i.test(i.text)).length,
+    0,
+    'a single term-of-art use should not flag'
+  );
+
+  // Repeated uses in a short piece clear max(3, floor(wordCount * 0.03)).
+  const overused = AIDetector.analyzeText(
+    'He copied the file verbatim, read the note verbatim, typed the line verbatim, and repeated it verbatim to the room.'
+  );
+  const hits = overused.issues.filter((i) => i.type === 'tier3' && /verbatim/i.test(i.text));
+  assert.ok(hits.length > 0, 'repeated "verbatim" uses in a short piece should flag tier3 density');
 });
 
 test('"quietly" clusters with another Tier 2 word flags tier2', () => {

@@ -224,6 +224,11 @@ loki_prd_enrich() {
     # improve tasks deterministically (content-derived user_story) so even
     # offline users get informative tasks, then return without a model call.
     if ! _loki_prd_enrich_provider_ok; then
+        # HONESTY: say so. This used to degrade to the deterministic path with no
+        # log line at all, so a user on a non-Claude provider believed their PRD
+        # had been model-enriched when it had not. A capability the run did not
+        # get must never be indistinguishable from one it did.
+        log_warn "PRD enrichment: model-assisted pass SKIPPED (provider='${LOKI_PROVIDER:-claude}'), using the deterministic pass only."
         _loki_prd_enrich_deterministic "$pending_path"
         return 0
     fi

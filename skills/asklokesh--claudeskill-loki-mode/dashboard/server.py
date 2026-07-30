@@ -679,14 +679,37 @@ async def _push_loki_state_loop() -> None:
                                 pass
 
                         status_str = raw.get("mode", "autonomous")
-                        if not _pid_alive:
-                            status_str = "stopped"
-                        elif status_str == "paused":
-                            status_str = "paused"
-                        elif status_str in ("stopped", ""):
-                            status_str = "stopped"
-                        else:
-                            status_str = "running"
+                        # Control files are the AUTHORITY, and they are checked
+                        # first. dashboard-state.json's "mode" is written by the
+                        # engine and goes stale the moment a run pauses: on a
+                        # real paused run it still read "autonomous", so this
+                        # stream reported "running" while /api/status -- which
+                        # reads .loki/PAUSE -- reported "paused" for the SAME
+                        # run. Two live surfaces disagreeing about whether a
+                        # build is running is worse than either being wrong
+                        # alone, because the user cannot tell which to believe.
+                        try:
+                            _ctl = loki_dir
+                            if (_ctl / "STOP").exists():
+                                status_str = "stopped"
+                            elif (_ctl / "PAUSE").exists():
+                                status_str = "paused"
+                            elif not _pid_alive:
+                                status_str = "stopped"
+                            elif status_str == "paused":
+                                status_str = "paused"
+                            elif status_str in ("stopped", ""):
+                                status_str = "stopped"
+                            else:
+                                status_str = "running"
+                        except (OSError, TypeError, NameError):
+                            # Never let a control-file read break the stream.
+                            if not _pid_alive:
+                                status_str = "stopped"
+                            elif status_str in ("stopped", ""):
+                                status_str = "stopped"
+                            elif status_str != "paused":
+                                status_str = "running"
 
                         payload = {
                             "status": status_str,

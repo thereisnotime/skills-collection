@@ -14,7 +14,7 @@ description: >-
 
 ---
 
-Latest Stripe API version: **2026-06-24.dahlia**. Always use the latest API version and SDK unless the user specifies otherwise.
+Latest Stripe API version: **2026-07-29.dahlia**. Always use the latest API version and SDK unless the user specifies otherwise.
 
 Latest SDK versions:
 
