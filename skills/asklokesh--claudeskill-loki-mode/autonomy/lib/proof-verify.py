@@ -65,6 +65,7 @@ CLI:
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -175,6 +176,57 @@ def _to_int(v, default=0):
 # ---------------------------------------------------------------------------
 # headline re-derivation (MUST match proof-generator._compute_headline exactly)
 # ---------------------------------------------------------------------------
+
+# DRIFT-GUARD: mirrored from proof-generator.py. A gate the AGENT authored the
+# input to (it writes both the test and the fix) or that is an LLM judgment
+# cannot be independent evidence, so it must never force or lift a headline.
+# Keyed on the ADVISORY set so an unknown or renamed gate defaults to EXOGENOUS
+# and keeps its power to block -- fail-closed, never fail-open.
+#
+# This block exists because the generator gained a provenance split while this
+# file did not, and the two then disagreed about what a receipt meant. The
+# verifier is the INDEPENDENT re-derivation users are told to trust; if it
+# cannot reproduce the generator's headline, `loki proof verify` reports drift
+# on a receipt that was never tampered with -- a false alarm from our own trust
+# artifact, which is worse than no verifier at all.
+_ADVISORY_GATES = frozenset((
+    "test_coverage", "unit_tests", "test_suite", "semantic_tests", "tests",
+    "code_review", "devils_advocate", "devil_advocate", "magic_debate",
+    "council", "anti_sycophancy",
+))
+
+
+def _gate_key(name):
+    """Normalize a gate name for provenance lookup (mirrors the generator).
+
+    run.sh emits the same gate under multiple spellings (`static-analysis` vs
+    `static_analysis`) and track_gate_failure appends `_PAUSED`/`_ESCALATED`,
+    so an exact-match lookup would misfile real gates.
+    """
+    s = str(name or "").strip().lower().replace("-", "_")
+    return re.sub(r"_(paused|escalated|not_run|blocked)$", "", s)
+
+
+def _gate_provenance(name):
+    """'advisory' for a model-authored gate, else 'exogenous' (fail-closed)."""
+    return "advisory" if _gate_key(name) in _ADVISORY_GATES else "exogenous"
+
+
+def _is_exogenous(gate):
+    """Provenance of a gate dict, honoring a stamped value when present.
+
+    The generator stamps `provenance` so its `unresolved` override survives (a
+    gate that HALTED the run is an execution fact, not a model opinion). We
+    honor that stamp and fall back to name lookup for older receipts written
+    before the split existed.
+    """
+    if not isinstance(gate, dict):
+        return True
+    stamped = gate.get("provenance")
+    if stamped:
+        return stamped == "exogenous"
+    return _gate_provenance(gate.get("name")) == "exogenous"
+
 
 def _compute_headline(facts, degraded):
     """Deterministic headline re-derived from the recorded facts.

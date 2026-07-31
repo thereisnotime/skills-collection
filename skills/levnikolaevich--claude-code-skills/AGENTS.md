@@ -15,7 +15,7 @@ Claude Code discovers the standard `skills/` directories through `.claude-plugin
 ## Skill rules
 
 - Edit the canonical skill only at `plugins/<plugin>/skills/<skill>/SKILL.md`.
-- Keep each skill standalone. It must not require another skill, an MCP server, a task tracker, or repository-wide shared instructions.
+- Keep each skill standalone. It must not require another skill, MCP server, task tracker, separately installed coordinator or worker, or shared runtime. A skill may require host-native independent contexts when that is intrinsic to its outcome and it defines an explicit `BLOCKED` result.
 - Keep YAML frontmatter to `name` and `description`. The folder name and `name` must match.
 - Put the trigger boundary in `description`: what the skill does, when to use it, and important near-negative cases.
 - Begin each skill body, before tool routing, with `**Goal:**` defining its intended outcome and boundary and `**Execution contract:**` telling the agent how to apply the skill.
@@ -23,6 +23,7 @@ Claude Code discovers the standard `skills/` directories through `.claude-plugin
 - Require the execution contract to account for all checkboxes with `Checklist: X/Y complete` and an `Incomplete` list containing each skipped item's reason, outcome impact, and exact next action; apply the skill's own verdict, decision, and approval rules to incomplete items.
 - Preserve evidence rules, tool-selection guidance, safety gates, verdict mapping, output contract, and residual-risk reporting when simplifying.
 - Add `references/`, `scripts/`, or `assets/` only after a concrete execution defect shows that the instruction-only skill is insufficient.
+- Treat each `SKILL.md` as the canonical operational document for its workflow: keep rules at the narrowest relevant section, remove filler and duplicated guidance, and avoid volatile values or copied implementation detail unless execution requires them and the authoritative source or update trigger is explicit.
 - Prefer capability descriptions over vendor-specific tools. Every required capability needs a credible fallback or an explicit `BLOCKED` outcome.
 - Keep skills in English and target 100–200 lines. Remove repetition before splitting a skill.
 - Review and audit skills are read-only. Optimization skills may mutate only the user-approved scope and must retain or discard changes using measured evidence.
@@ -52,15 +53,16 @@ Before finishing a change:
 
 1. Run the installed `skill-creator` `quick_validate.py` for every skill directory.
 2. Run the installed `plugin-creator` `validate_plugin.py` for every plugin directory.
-3. Run `claude plugin validate . --strict` for the Claude marketplace.
+3. Run `claude plugin validate . --strict` for the Claude marketplace. This validates the catalog, not Claude skill frontmatter in manifest-less plugin directories; the per-skill validator and manual frontmatter checks cover that known boundary.
 4. Confirm both marketplace catalogs contain the same plugin names in the same order, every manifest path exists, and each plugin description matches its Claude marketplace entry.
-5. Search for stale references to removed skills, MCP packages, shared registries, drafts, and orchestration harnesses.
+5. Confirm OpenAI directory-facing metadata meets current limits, including at most three starter prompts and display and short descriptions of at most 30 characters.
+6. Search for stale references to removed skills, MCP packages, shared registries, drafts, and orchestration harnesses.
 
 If an installed validator is unavailable, perform the equivalent checks manually: frontmatter contains only `name` and `description`; folder and frontmatter names match; descriptions are at most 200 characters; skills stay within the 100–200 line target; manifests parse and point to existing paths; both catalogs match; and no stale coupling remains.
 
 ## Release rules
 
-- Plugin versions live only in `.codex-plugin/plugin.json` and follow SemVer.
+- Explicit plugin SemVer lives only in `.codex-plugin/plugin.json`. Claude marketplace entries intentionally omit `version`, so Claude Code identifies ordinary updates by their source commit SHA.
 - Change a version only when the user explicitly requests a release; ordinary repository edits do not bump versions.
 - Record a release with a matching Git tag and GitHub Release. Document user-facing migration in `README.md`; a repository `CHANGELOG.md` is not required.
 

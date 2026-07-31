@@ -39,8 +39,8 @@ A one-shot "make this sound human" prompt catches the obvious stuff. This skill 
 
 - **Structured audit** — returns identified issues with quoted text, the rewrite, a change summary, and a second-pass audit in four discrete sections. You see exactly what changed and why.
 - **Two-pass detection** — the second pass re-reads the rewrite and catches patterns that survive the first edit: recycled transitions, lingering inflation, copula swaps that snuck through.
-- **112-entry word replacement table across 3 tiers + 10 Tier 3 phrases** — not vibes-based. Every flagged word has a specific, plainer alternative. "Leverage" → "use." "Commence" → "start." Tier 1 words always flag, Tier 2 words flag when they cluster, Tier 3 words flag only at high density. Tier 3 *phrases* (multi-word boilerplate like "the integration of," "decentralized compute") flag on per-phrase repetition or when 3+ distinct phrases stack in one piece — the LLM-self-varies-boilerplate shape.
-- **60 pattern categories** — representative examples below, each with before/after. Includes structural detection (hashtag stuffing, bare-NP bullet lists, hedge-stacked predictions), AI-tool fingerprints (placeholders, citation markup, UTM params), rhythm/uniformity checks, conversational-register tells, and writer-side tests. The full catalog lives in [`SKILL.md`](./SKILL.md); this count is enforced against it in CI.
+- **112-entry word replacement table across 3 tiers + 10 Tier 3 phrases** — not vibes-based. Every flagged word has a specific, plainer alternative. "Leverage" → "use." "Commence" → "start." Tier 1 words always flag, Tier 2 words flag when they cluster, Tier 3 words flag only at high density. Tier 1 itself splits into **1A frequency markers** (`delve`, `tapestry`) and **1B clarity edits** (`in order to`, `utilize`) — same fix, but only 1A is evidence about how a passage was produced, and 1B is weighted lower so a wordiness fix cannot push a document toward an AI classification. Tier 3 *phrases* (multi-word boilerplate like "the integration of," "decentralized compute") flag on per-phrase repetition or when 3+ distinct phrases stack in one piece — the LLM-self-varies-boilerplate shape.
+- **61 pattern categories** — representative examples below, each with before/after. Includes structural detection (hashtag stuffing, bare-NP bullet lists, hedge-stacked predictions), AI-tool fingerprints (placeholders, citation markup, UTM params), rhythm/uniformity checks, conversational-register tells, and writer-side tests. The full catalog lives in [`SKILL.md`](./SKILL.md); this count is enforced against it in CI.
 - **Detect mode** — flag patterns without rewriting. See which flags are real problems vs. judgment calls. Useful when patterns might be intentional or you're auditing content you don't want altered.
 - **Works across platforms** — one `SKILL.md` runs in Claude Code, Cowork (as a plugin), OpenClaw, and Cursor (as a ported rule). See the install paths below.
 
@@ -282,6 +282,12 @@ Added after a real-world exchange in which a maintainer called out an assisted-s
 |---|---------|--------|-------|
 | 54 | **Lingering-attention claims** | "The line I keep coming back to:", "I can't stop thinking about this," "this has been rattling around in my head all week" | Open on the thing itself. Carve-out: keep the frame when a reason follows ("I keep coming back to exit-voice because it predicts who quits") |
 
+### Narrated candor (v3.21)
+
+| # | Pattern | Before | After |
+|---|---------|--------|-------|
+| 55 | **Narrated candor** | "Two caveats I would rather flag than let you discover later:", "I want to be upfront:" | State the caveats. Judgment-only: the same words carry real content in conflict-of-interest disclosure ("in the interest of full disclosure, I own shares in…"), which a regex cannot separate from the empty frame |
+
 Two writer-side **tests** round out the catalog (judgment checks, not auto-detected): **paragraph-reshuffle immunity** (can you swap two body paragraphs without breaking the piece?) and the **treadmill effect** ("what's actually new in this paragraph?").
 
 ## Full Example
@@ -335,6 +341,21 @@ const { score, label, issues } = AIDetector.analyzeText("Your text here…");
 See [`detector/README.md`](./detector/README.md) for the full `analyzeText` API
 and [`detector/CATEGORIES.md`](./detector/CATEGORIES.md) for the rule ↔ category
 map that keeps `SKILL.md` and the engine in sync.
+
+The engine also ships a preservation validator. `detector/validate.js` compares
+a rewrite against its original and fails when the edit touched something it
+shouldn't have: a code block, YAML frontmatter, a blockquote, a table cell,
+inline code, a URL, a file path, the heading structure, or when the rewrite ends
+with more flagged patterns than it started with.
+
+```bash
+node detector/validate.js before.md after.md   # exits 1 on a preservation error
+```
+
+**Does it pass its own pass?** [`PROOF.md`](./PROOF.md) scores this repo's
+documentation with this repo's detector and publishes the result, including two
+defects the scan found in our own work. `npm run self-scan` reproduces it, and
+CI fails when a document drifts past its budget.
 
 ## Credits
 

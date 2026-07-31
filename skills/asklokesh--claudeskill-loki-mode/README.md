@@ -15,15 +15,106 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 
 [Website](https://www.autonomi.dev/) | [Documentation](wiki/Home.md) | [Installation](docs/INSTALLATION.md) | [Changelog](CHANGELOG.md) | [Purple Lab -- deprecated v7.44.0](#purple-lab)
 
-**Current release: v8.0.0**
+**Current release: v8.5.2**
 
 </div>
+
+---
+
+## See the receipt before you install anything
+
+Every agent claims it finished. Ours hands you an artifact you can check:
+
+```bash
+npx loki-mode tour     # no install, no API key, no spend, no network
+```
+
+That prints a real Evidence Receipt from a past build. Note what it says:
+
+```
+Headline: VERIFIED WITH GAPS
+
+| Fact          | Value                                    |
+| Files changed | 8                                        |
+| Diff sha256   | c2be6fff3e774c387f276277b25fc424f07b667… |
+| Tests         | verified (node-test)                     |
+| Build         | not_run                                  |
+| Security      | findings                                 |
+| Cost          | $10.3218                                 |
+```
+
+**"WITH GAPS" is the point.** Build was not run. Security has findings. The
+receipt says so on its own front page, and separates deterministic FACTS -- the
+diff hash, the test result, the cost -- from AI ASSESSMENTS, because only four
+of the eight quality gates are agent-independent and a receipt that implied
+otherwise would be marketing.
+
+Recompute the diff hash yourself and check it matches. That is the whole idea:
+you are not asked to trust the agent's self-report.
+
+Self-reported completion is the failure users actually hit. A survey of the
+open issue trackers of seven coding harnesses (OpenHands, Cline, Aider,
+SWE-agent, Roo-Code, OpenCode, Continue) found the recurring complaint is the
+agent silently not doing the work -- "always stuck at Preparing write"
+([opencode#11112](https://github.com/anomalyco/opencode/issues/11112), 76
+comments), "Continue not making changes to code"
+([continue#7143](https://github.com/continuedev/continue/issues/7143)), "Agent
+does not execute functions"
+([continue#5696](https://github.com/continuedev/continue/issues/5696)). None of
+those seven publishes a machine-checkable completion artifact.
+
+We measured every named competitor that ships a local CLI -- opencode 1.18.9,
+aider 0.86.2, codex-cli 0.146.0, Claude Code 2.1.220, cursor-agent -- and none
+exposes a command that verifies the agent's own output. Rerun it yourself with
+`bash tests/test-competitor-verify-surface.sh`.
+
+That is a measurement of the CLI surface, not of whole products: a web UI or an
+API could expose something `--help` does not, and Devin and Replit Agent ship no
+local CLI so they are not covered. The receipt stands on its own either way:
+run the tour and check the hash.
+
+**Evaluating this against something else?** [docs/EVALUATING.md](docs/EVALUATING.md)
+puts a runnable command next to every claim we make, and states plainly what we
+do not have (no enterprise case studies, no independent benchmark placement, and
+generation is not air-gapped). It ends with the one question worth asking any
+agent vendor, including us.
 
 ---
 
 > **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), assembles an agent team from 41 specialized agent roles across 8 domains - prompt-defined specifications the orchestrator adopts per phase, with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers - and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 8 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
 
 ---
+
+## Already have a codebase? Start read-only.
+
+Most agents are built to create new apps. The harder, more valuable problem is
+the ten-year-old repo that pays the bills. Loki works on both, and on an
+existing codebase it starts by **changing nothing**:
+
+```bash
+loki modernize heal ./your-repo --assess          # read-only. no writes, no commits.
+loki modernize heal ./your-repo --assess --json   # same, machine-readable
+```
+
+You get a modernization readiness report: language mix, a 4-level maturity
+rating, technical-debt signals (test coverage, TODO density, oversized files,
+dependency staleness), and a **ranked list of where to start** -- ordered by
+blast radius, so the first change is the one least likely to break something.
+
+Then, if you want it to act:
+
+```bash
+loki modernize heal ./your-repo --strict          # block ALL behavioral change without approval
+loki modernize heal ./your-repo --phase archaeology   # extract knowledge only
+loki modernize heal ./your-repo --compliance healthcare   # or fintech | government
+```
+
+The healing pipeline runs in phases -- archaeology, stabilize, isolate,
+modernize, validate -- and the validate phase checks **behavioral equivalence
+against the pre-change baseline**, not just that the tests are green. Friction
+points (the weird code that exists for a reason nobody remembers) are cataloged
+before anything touches them, because in a legacy system the strange code is
+usually load-bearing.
 
 ## The Evidence Receipt: don't trust the agent, check it
 

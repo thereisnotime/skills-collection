@@ -38,6 +38,8 @@ Tool absence is not itself a skill defect. Apply the documented fallback and use
 - [ ] Apply the repository's declared completion convention; when an ordered checklist is the Definition of Done, flag a duplicate completion section.
 - [ ] Preserve non-obvious domain rules, tool-routing decisions, safety gates, evidence requirements, verdict mapping, output contract, and residual risks.
 - [ ] Flag explanations a capable current model already knows unless they prevent a demonstrated execution failure.
+- [ ] Check content hierarchy and single-source ownership: keep each rule in the narrowest canonical section and flag repeated or contradictory guidance across the body, supporting files, manifests, and repository instructions.
+- [ ] Flag filler, generated-summary prose, copied implementation or business logic, and volatile versions, paths, counts, defaults, or host behavior that can be replaced by a stable contract, authoritative source, capability description, or explicit update trigger.
 - [ ] Verify every required capability has an available tool path, a credible fallback, or an explicit `BLOCKED` outcome.
 - [ ] Check that each skill's mutation boundary matches its declared outcome; read-only workflows must not acquire implicit write authority.
 - [ ] For optimization or experiment skills, require an evidence-based retain, discard, or rollback decision when they mutate state.
@@ -51,7 +53,7 @@ Tool absence is not itself a skill defect. Apply the documented fallback and use
 - [ ] Discover and run every repository-required skill validator for the changed skill directories; do not assume a validator name or location absent from repository evidence.
 - [ ] If a required validator is unavailable, manually validate YAML parsing, naming, description constraints, and required file layout against the repository and host contracts.
 - [ ] Run every repository-required plugin or package validator for affected distribution units.
-- [ ] Run each host-native strict validator when its corresponding catalog or manifest exists.
+- [ ] Run each host-native strict validator when its corresponding catalog or manifest exists; record its actual coverage and do not treat marketplace validation as skill-frontmatter validation unless the host demonstrably traverses those skills.
 - [ ] Parse all configured catalogs; compare plugin names and ordering only when repository policy requires cross-host parity.
 - [ ] Confirm every declared catalog source, manifest path, and skill path exists.
 - [ ] Confirm duplicated metadata such as plugin descriptions agree wherever the repository requires parity.

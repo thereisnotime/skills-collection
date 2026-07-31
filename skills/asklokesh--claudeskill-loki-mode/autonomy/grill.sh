@@ -158,6 +158,12 @@ grill_check_provider() {
             fi
             ;;
         *)
+            # v8.2.0: capability, not identity. Must stay in lockstep with the
+            # matching arm in grill_invoke_provider -- this gate runs FIRST, so
+            # rejecting here would make that arm dead code.
+            if type provider_invoke_argv >/dev/null 2>&1; then
+                return 0
+            fi
             _grill_err "grill currently supports the claude and codex providers (got: $provider)"
             return $GRILL_EXIT_ERROR
             ;;
@@ -278,6 +284,32 @@ grill_invoke_provider() {
             return 0
             ;;
         *)
+            # v8.2.0 TIMEOUT SEAM. Previously any other provider was a hard
+            # error. A provider exposing provider_invoke_argv builds a REAL argv
+            # (not a shell function), so _grill_with_timeout still bounds it --
+            # the whole reason the seam exists (providers/claude.sh:321).
+            # Nothing to preserve on this arm, so nothing can regress: it
+            # produced no output at all before.
+            #
+            # Deliberate: no --disallowedTools. That flag is claude-specific with
+            # no portable equivalent, so a seam-provider grill CAN write to the
+            # tree. Accepted; the alternative is the hard error below.
+            if type provider_invoke_argv >/dev/null 2>&1; then
+                local out
+                provider_invoke_argv fast "$prompt"
+                # env CAVEMAN_DEFAULT_MODE=off: grill output is parsed downstream
+                # and caveman compression would reword the questions. `env` (not a
+                # bare prefix) because _grill_with_timeout execs its first token.
+                out="$(_grill_with_timeout "${LOKI_GRILL_TIMEOUT:-180}" \
+                    env CAVEMAN_DEFAULT_MODE=off \
+                    "${_LOKI_INVOKE_ARGV[@]+"${_LOKI_INVOKE_ARGV[@]}"}" 2>/dev/null)"
+                if [ -z "$out" ]; then
+                    _grill_err "provider returned no output (timeout or invocation error)"
+                    return $GRILL_EXIT_ERROR
+                fi
+                printf '%s\n' "$out"
+                return 0
+            fi
             _grill_err "grill currently supports the claude and codex providers (got: $provider)"
             return $GRILL_EXIT_ERROR
             ;;

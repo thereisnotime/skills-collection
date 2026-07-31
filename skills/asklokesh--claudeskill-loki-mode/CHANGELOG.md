@@ -5,6 +5,558 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v8.5.2
+
+Patch. **The timeout-safe provider seam was the broken one.**
+
+For Codex, `provider_get_tier_param` returns an EFFORT level (xhigh, high, low),
+not a model name. The code says so in its own BUG-PROV-012 note.
+`provider_invoke_argv` passed it to `--model` anyway, so every argv-based
+invocation sent `--model high` and the API rejected it:
+
+```
+400 invalid_request_error: The 'high' model is not supported
+    when using Codex with a ChatGPT account.
+```
+
+This mattered more than an ordinary bug because `provider_invoke` was fine, so
+the broken path was the argv seam, which exists precisely so a call can be
+wrapped in `timeout` (a shell function cannot be exec'd by timeout). A hung
+provider could not be bounded without also breaking the invocation. And it
+failed silently: five trials produced no artifact while looking like slow runs.
+
+Effort now travels in `CODEX_MODEL_REASONING_EFFORT`, exported so it survives
+the `timeout` wrapper, and an empty model name omits the flag rather than
+sending `--model ""`. Verified end to end: 51 seconds, artifact correct.
+
+### Measuring codex properly, and what it showed
+
+Five trials of an identical artifact-verified task through the provider layer,
+free tier, no API spend:
+
+```
+300s (timeout)  48s  80s  71s  67s
+4 of 5 succeeded, median 69s, range 48 to 80s
+```
+
+The timeout is reported rather than discarded. Dropping it would turn a 4-of-5
+success rate into an implied 5-of-5 and overstate reliability.
+
+The spread is the actual finding, and it is why a single sample was refused
+earlier: one shot had timed out and would have been published as "codex:
+timeout" when the same command completed in 51 seconds minutes later. That
+would have been a fabricated competitive claim.
+
+This is still not a cross-CLI comparison, and the artifact says so. Only codex
+has been measured to five trials; opencode, aider, Claude Code and cursor-agent
+have not been run on this task, so no ranking is asserted.
+
+## v8.5.1
+
+Patch. **The free on-ramp is proven by a build, not by a tier label.**
+
+Codex is the only free on-ramp left since Gemini's free tier ended on
+2026-06-18, and this project had it pinned at "Tier 3" on v0.98 assumptions
+while the installed CLI had moved to 0.146.0. The label was the stale part, not
+the code.
+
+Measured on 2026-07-30, one complete invocation through the Loki provider layer
+rather than as a direct CLI call, because a raw CLI call proves nothing about
+whether Loki can drive it:
+
+```
+provider    codex-cli 0.146.0, ChatGPT auth, no API key
+task        create hello.txt containing exactly "hi"
+wall clock  72s
+tokens      55,889
+API cost    $0.00
+artifact    hello.txt present with exactly the expected content
+```
+
+A keyless path that demonstrably completes a build is the strongest answer to
+"why would I install this", and it is the model-agnostic claim made concrete
+instead of architectural.
+
+`benchmarks/results/free-onramp.json` records it with an explicit scope limit:
+one task, one invocation, not a quality or speed comparison against a flagship
+and not a multi-iteration build.
+
+The accompanying test deliberately does not invoke the provider. CI has no
+ChatGPT auth, and a test requiring a login would be skipped forever and rot.
+It asserts what breaks silently instead: that `provider_invoke` is defined after
+loading, that the autonomous flag is non-empty (an empty one makes codex run
+interactively and hang a build), and that `--sandbox` and `--model` exist on the
+installed binary rather than in documentation.
+
+### A comparison we chose not to publish
+
+A cross-CLI speed table was attempted and deliberately withheld. The same codex
+command that completed in 72 seconds later timed out at both 200 and 300
+seconds on the identical task and machine, while a trivial prompt answered in 9
+seconds, so the CLI is healthy and the variance is task-level.
+
+A one-sample-per-cell table would have recorded "codex: timeout" as a fact about
+a competitor when that exact command had already succeeded. That is a fabricated
+competitive claim, and a comparison that makes a competitor look bad on an
+unstable sample is worse than no comparison: it gets caught, and it takes the
+credibility of every other number with it. Recorded as INCONCLUSIVE in
+`benchmarks/results/cross-cli-headtohead.json` with the contradiction and what
+would make it publishable.
+
+## v8.5.0
+
+Minor release. **Know what you paid for, and what the wait was.**
+
+### The receipt now separates progress from rework
+
+Iterations multiply both wall clock and cost, and the Evidence Receipt reported
+only a count. A user seeing "6 iterations" could not tell real work from a gate
+false positive forcing five redos, and neither could we, which is worse: it hid
+whether an expensive run was a slow model or our own harness being wrong.
+
+That is not hypothetical. A measured run here had the agent claim done on every
+iteration while a mock-integrity false positive blocked all six, and a start-sha
+bug made the council see a permanently empty diff so it could never vote done.
+Both were harness defects billed to the user as model cost.
+
+The receipt now carries the split, with the share and the basis:
+
+```
+progress 2 ($0.24) | rework 1 ($0.12) | 33% of the run
+```
+
+"Paying for your own errors" is a named churn driver in this category and no
+competitor surfaces it. It composes with the receipt rather than bolting on:
+rework cost is a deterministic fact derived from records already written, so it
+sits with the facts, not the AI assessments.
+
+Two limits are stated in the artifact itself. Rework counts failed iterations
+only, so an iteration that completed but was forced to repeat by a gate counts
+as progress, which makes the number a floor rather than a ceiling. And with no
+efficiency records the attribution is omitted entirely rather than reporting
+zero rework, because claiming 0% for a run nobody measured would be fabricated
+reassurance.
+
+### The longest silence, not the total time
+
+A ten-minute build reporting something every twenty seconds feels fast. A
+four-minute build silent for three of them feels broken. The loudest complaints
+about agents in this category are not that they were wrong, but that they went
+quiet: "always stuck at Preparing write" (76 comments), "not making changes to
+code", "agent does not execute functions".
+
+`autonomy/lib/silence_report.py` reports the worst gaps and names the step each
+one followed, because a duration alone cannot be fixed:
+
+```
+214.0s  after 'code_review_start' before 'code_review_complete'
+```
+
+Idle time between sessions is excluded and said so explicitly. Measured against
+a real 4,240 event stream, 4,234 gaps were correctly ignored as a human being
+away from the keyboard, leaving three genuine in-build gaps. Without that
+filter, lunch breaks swamp the signal.
+
+Both tools refuse to invent data: malformed records are skipped rather than
+defaulted, and an absent file reports "nothing to measure" instead of a
+zero-silence claim.
+
+## v8.4.0
+
+Minor release. **Time to first preview is no longer invisible.**
+
+### The number that describes whether the product felt fast
+
+`app-runner.sh` has recorded `seconds_to_first_preview` since v8: write-once,
+atomic, and it already refused absurd values. Nothing ever read it. A grep
+across the whole repository found exactly one reference, the line that writes
+it. Not the run summary, not the Evidence Receipt, not the dashboard.
+
+Research on this category puts the delight peak at a working preview around
+four minutes and the churn peak at a long silent wait, so this is the single
+number that best describes whether a build felt fast. It was invisible to the
+person who waited for it and to us.
+
+The run summary now shows it beside the live app URL:
+
+```
+Files:         1 (+1 / -0)
+First preview: 247s
+```
+
+A run where no app ever came up prints nothing rather than "0s". A fabricated
+zero would claim instant preview for a run that never previewed, which is the
+same false-green the Evidence Receipt exists to prevent. Negative and malformed
+values are refused too, and a corrupt file does not break the summary.
+
+### The efficiency baseline is collectable, proven without spending
+
+`.loki/metrics/efficiency/` was empty in this checkout, which meant every claim
+about speed or cost was intuition with no "before" to compare against. The
+obvious move is to run a real build and see what lands, but that costs money and
+tens of minutes, and a broken recorder means spending both and having nothing.
+
+So the pipeline was proven first with no provider, no key and no spend:
+`track_iteration_complete` writes a complete per-iteration record with the
+DISPATCHED model (not a provider default, a mislabel that once made a
+model-equivalence benchmark unfalsifiable), and `collect_efficiency` folds
+records while keeping the property the whole baseline rests on: an absent
+record reports `usd=None`, a genuine zero reports `0.0`. If those collapsed,
+every published cost figure would be unfalsifiable.
+
+### Also
+
+Four suspected gaps were investigated and found already implemented, so no code
+changed: the simple-tier fast path is fully wired (seven consumers, including a
+doc-suite skip worth roughly 270 seconds per simple build and a council floor
+that drops from three iterations to one), reviewer count already scales with
+complexity, and all three behaviours already had registered passing tests.
+
+## v8.3.3
+
+Patch. **The first-run path is now covered on the shell most users actually have.**
+
+v8.3.2 fixed one bash 4 construct that made `loki quickstart` return zero
+templates on macOS. Fixing one call site does not close the class: any future
+bash-4-only construct anywhere in the first-run path reintroduces the same
+failure, and our test harness runs homebrew bash 5, so the suite structurally
+could not see the shell most users have.
+
+The first-run path is audited clean of `declare -A`, `${var^^}`, `${var,,}`,
+`readarray` and `mapfile`, and `tests/test-first-run-bash32.sh` now walks the
+commands a brand-new user actually runs, in order, under `/bin/bash`
+explicitly. Running them under `$SHELL` would reproduce the exact blind spot
+that let the v8.3.2 bug ship.
+
+Verified under bash 3.2.57: the welcome banner and all three next steps
+render, `loki tour` produces an Evidence Receipt with its honest "VERIFIED
+WITH GAPS" headline, and the quickstart scorer returns three ranked templates
+where it previously returned none.
+
+Nothing requiring a provider, key, network or spend is asserted. The test
+covers what works before a user commits anything, which is also the honest
+boundary of what we advertise as keyless.
+
+## v8.3.2
+
+Patch. **loki quickstart was returning nothing on every Mac.**
+
+### The guided first build was broken on macOS stock bash
+
+`_qs_score_templates` used `declare -A`, a bash 4 associative array. macOS
+ships bash 3.2.57 as `/bin/bash`, frozen since 2007 for licensing reasons and
+never updated by Apple. On the stock shell of the most common developer
+platform the scorer printed `declare: -A: invalid option` and returned ZERO
+templates, so the guided first build we point new users at from both the
+welcome screen and `loki doctor` showed an empty picker.
+
+Three things hid it. The function BODY parses fine under 3.2, so `bash -n` and
+sourcing both looked healthy and only CALLING it failed. It degraded to empty
+rather than crashing. And the test harness runs homebrew bash 5, where it works
+perfectly.
+
+Rewritten with a flat name/score list folded by awk. Verified as a pure
+portability change, not a behaviour change: output is identical between bash
+3.2 and bash 5 across five briefs, and identical to the pre-fix bash 5 output
+across six. Ranking stays correct, with "chrome extension" ranking
+chrome-extension first and "saas billing" ranking saas-starter first.
+
+`tests/test-quickstart-bash32.sh` runs the scorer under `/bin/bash`
+explicitly, because testing it under `$SHELL` would reproduce exactly the blind
+spot that let this ship.
+
+### Two tests existed but the gate never ran them
+
+`test-shard-coverage.sh` and `test-quickstart-bash32.sh` were both written,
+both passing, and both silently unregistered: the edits that were supposed to
+add them to the runner failed to match their anchor text and reported it in
+output that went unread. The gate stayed at 289 suites while two new tests sat
+outside it.
+
+Caught by noticing the suite count did not move, which is the only reliable
+tell. Both are registered now and the count is 291.
+
+## v8.3.1
+
+Patch. **The gate stops lying about why it failed.**
+
+### CI is 2.33x faster, measured
+
+Shell tests was 13m01s of a ~15m pipeline, six times the next slowest job,
+because 289 suites ran serially on one runner. A 4-way shard cut it to 5m35s.
+
+Both figures are observed, not projected. An earlier projection in this repo
+said ~3m15s and was wrong: it assumed the suites cost roughly the same, so four
+shards would be a clean quarter. They do not. Shard timings were 5m35s, 2m33s,
+3m50s and 2m26s, and the wall clock follows the slowest shard rather than the
+mean. The projection has been replaced with the measurement rather than quietly
+removed.
+
+### Two latent bugs the sharding exposed
+
+Both passed serially and failed sharded, which is what made them worth finding.
+
+`test-embeddings.sh` called `skip()` and then `exit 1`, so an unavailable
+optional dependency was reported to the runner as a failing suite. It hid
+behind suite ORDER: run serially, an earlier suite left the module importable
+and the branch never executed. It now exits 0 while still printing the reason
+and a visible SKIP line, so the missing dependency stays reported rather than
+swallowed.
+
+`test-memory-speed-privacy.sh` piped the benchmark through `2>&1`, folding any
+stderr line the interpreter emits into the same stream as the JSON document.
+The parse then died with "Expecting value: line 1 column 1" and named the
+parser instead of the warning that caused it. Stderr now stays on stderr, and
+an empty document is reported as "bench produced NO output" rather than as a
+malformed one, because those are different failures and conflating them costs
+an investigation.
+
+A gate that cannot tell "optional thing not installed" from "the code is
+broken" is one people learn to ignore, and that is how three red releases
+shipped over a real bug earlier the same day.
+
+## v8.3.0
+
+Minor release. **The first minute, the shop window, and the enterprise promise.**
+
+### doctor names what blocks you instead of counting it
+
+On a bare machine `loki doctor` printed 15 WARNINGS -- sentrux, GPG receipt
+signing, bash >= 4, Bun, python3.12, truecolor, the inline-image probe, every
+one of them OPTIONAL -- surrounding exactly 2 real blockers, then ended with
+"Some required prerequisites are missing" without naming them. A first-time user
+cannot separate the 2 that matter from the 15 that do not, and the honest
+reading of that screen is "this needs a lot of setup". That is where someone
+closes the terminal.
+
+It now names each blocker with its exact fix command, states plainly that
+everything else is optional, and points at `loki tour`, which works with no
+provider, no key and no network -- so a blocked user still reaches a real result
+in their first minute.
+
+### An evaluation page a buyer can falsify
+
+Our competitive material was a ten-column feature grid written January 2026
+against v2.36.9, unchanged while the repo reached v8.2.0. Six months and thirty
+releases stale, and the unverifiable KIND of comparison: every cell a subjective
+grade assigned by the vendor being graded.
+
+`docs/EVALUATING.md` replaces it with five claims that each carry a runnable
+command, all executed before publishing. It also carries a "What we do not have"
+section -- no enterprise case studies, no independent benchmark placement, no
+audit of the closed-source products, and generation is not air-gapped. The old
+grid is now labelled STALE and points there.
+
+### The brownfield read-only promise is now enforced, not asserted
+
+The README sends someone with a ten-year-old revenue-critical codebase to
+`loki modernize heal --assess` on the promise it changes nothing. Verified
+behaviourally -- zero file content changed, HEAD did not move, working tree
+clean afterwards -- and locked by a content-addressed test that hashes every
+file before and after. One stray write turns the safest thing we offer into the
+scariest, and there is no second evaluation.
+
+### The MCP registry manifest was 30+ releases stale
+
+`server.json` was pinned at 7.34.1 while the repo shipped 8.2.0. Nothing caught
+it because nothing checked it; the cost would have landed at submission time,
+advertising a weeks-old build to exactly the audience deciding whether this
+project is maintained. Now current, added to the release checklist in CLAUDE.md,
+and enforced by a test that also pre-checks the two things which would reject a
+submission after the interactive OAuth: the 100-char description cap and the
+namespace-ownership marker.
+
+### Failures that explain themselves
+
+The supervisor test surfaced only `AssertionError: 127 != 0` -- an exit code
+with none of the cause -- which cost two full investigations that both ended
+without a root cause. It now prints the child log and the resolved child PATH,
+and doing so immediately produced the lead those investigations missed: the log
+is empty, so the child never started and the failure is on the spawn side.
+
+Also fixed three tests that encoded assumptions about their environment rather
+than about the behaviour under test: one wedged only the mkdir locking path (a
+Linux runner has flock), one built a git fixture that failed silently without a
+configured identity, and one assumed its host had no blockers.
+
+## v8.2.0
+
+Minor release. **Run any model, and find the feature that was already here.**
+
+### Telemetry can no longer outlive the run that emitted it
+
+v8.1.0 fixed a specific unbounded wait in `events/emit.sh`. It was a real fix
+and it was not sufficient. Measured on a development machine on 2026-07-30,
+after that release shipped: **63 orphaned `emit.sh` processes alive, the oldest
+10 hours 51 minutes, each burning roughly 5% CPU**, contributing to a load
+average of 63 on a 14-core machine. Every one of them started after the fix
+landed, so whatever wedges `emit.sh` is not the path that was repaired.
+
+Patching each individual hang is an arms race, because a hang anywhere in the
+script has the same cost to the user: a hot laptop and a process that never
+ends. `emit.sh` is fire-and-forget telemetry -- nothing waits on its result, and
+a dropped event is strictly cheaper than a wedged process. So rather than
+proving no path can block, this release caps the lifetime of every path.
+
+A watchdog now SIGKILLs the emit process after `LOKI_EMIT_MAX_SECONDS`
+(default 10; set `0` to disable). It is deliberately blunt -- no cleanup hook,
+no graceful drain -- because the failure mode being defended against is exactly
+"the graceful paths did not run".
+
+Being straight about the limits of this fix: the root cause of those 63 orphans
+is still unknown. The watchdog bounds the damage to 10 seconds; it does not
+explain the hang. An earlier diagnosis blaming the lock-retry loop's attempt
+counter was tested and disproven -- a deterministic wedge terminates in 2s on
+the pre-fix code too, so that loop was already correctly bounded.
+
+`tests/test-emit-self-reaper.sh` asserts a genuinely blocked emit is reaped at
+its deadline (with a non-vacuity check that it actually blocked first), that a
+healthy emit is untouched and still writes its event, and that the watchdog
+leaves no stray processes of its own.
+
+### Verification in milliseconds
+
+Verification that takes minutes cannot be embedded in an IDE, a CI step, an MCP
+tool, or another vendor's agent. `autonomy/lib/fast_verify.py` makes the
+deterministic checks fast enough to be a dependency.
+
+Measured on this repo, 1,932 tracked source files:
+
+| scope | before | after |
+|---|---|---|
+| full repo, cold | 11,040 ms | **298 ms** |
+| full repo, warm | 11,040 ms | **87 ms** |
+| diff-scoped | 11,040 ms | **19 ms** |
+
+The work was never slow; the architecture was. One detector performed **four
+separate full-tree `find` walks** (110 ms each) and spawned ~25 subprocesses at
+~24 ms of interpreter startup apiece. `git ls-files` returns the same set in
+37 ms, already deduplicated and gitignore-aware.
+
+Five rules: walk once and classify in that pass; run detectors as pure functions
+in one process; cache findings by **content hash**, so a moved file keeps its
+result, a changed file gets a new key, and there is no staleness window;
+scope to the diff; and admit **no model call and no network** on this path.
+
+That last rule is the point, not a limitation. A verdict you can re-derive is a
+fact; a verdict a model produced is an opinion. A test greps for
+`anthropic|openai|requests|urllib|httpx|provider_invoke` and fails if any appear,
+so the constraint cannot erode.
+
+Three surfaces, same engine: `loki verify --fast`, the `loki_verify_fast` MCP
+tool (20 ms end-to-end), and the Python API.
+
+### The receipt separates evidence from opinion
+
+Only four of the eight quality gates are **exogenous** -- deterministic and
+impossible for the agent to author: static analysis, mock integrity, test
+mutation, documentation coverage. The other four are model-coupled: the agent
+writes both the test and the fix, and the council, devil's advocate, and magic
+debate are LLM judgments.
+
+Published research measured a strict three-judge ensemble still accepting 55% of
+errors, and our "blind" council is blind only to *itself* -- every reviewer reads
+the same candidate diff, which scores plausibility rather than correctness.
+
+The Evidence Receipt now reports the two groups separately, and the headline
+verdict is computed from the **exogenous four only**. Advisory results are shown
+but can never lift a verdict. Unknown or renamed gates default to exogenous, so a
+gate can never silently lose its power to block.
+
+`proof-verify.py` mirrors the same provenance rules. It is the independent
+re-derivation users are told to trust, and a generator it cannot reproduce would
+report drift on a receipt nobody tampered with -- a false alarm from our own
+trust artifact. A drift guard asserts both sides agree on every gate-name shape.
+
+### opencode: the model-agnostic route
+
+`providers/opencode.sh` makes opencode a first-class provider. It is a
+*registry*, not a fixed table: 75+ providers through the AI SDK and Models.dev,
+any OpenAI-compatible endpoint, plus local models via Ollama, LM Studio, and
+llama.cpp. Users can add providers that are not in its built-in list, which
+means we stop maintaining a per-vendor model list.
+
+```bash
+loki provider set opencode
+export OPENROUTER_API_KEY=sk-or-...
+loki start ./prd.md              # defaults to deepseek-v3.2, open weights
+```
+
+Why opencode and not aider: capability was never the question, maintenance was.
+Verified 2026-07-29 -- `anomalyco/opencode` at 190,871 stars with v1.18.9
+released 2026-07-28, against `Aider-AI/aider` whose last release was v0.86.0 on
+2025-08-09, with Roo Code archived and Continue read-only. Integrating a dormant
+project would have been a slow-motion outage.
+
+The CLI surface was verified against the installed binary rather than assumed:
+`opencode run [message..]` takes its prompt positionally, with `-m/--model`.
+
+**Loader fix found on the way in.** `loader.sh` required
+`PROVIDER_AUTONOMOUS_FLAG` to be non-empty, so a CLI that needs no autonomy flag
+was rejected as "incomplete". It now sits alongside `PROVIDER_PROMPT_FLAG` in
+the allow-empty set. The variable must still be *defined*, so an author who
+forgets it entirely is still caught, and there is a test asserting exactly that.
+
+### The judges work on any provider, and keep their timeout
+
+Eight auxiliary judge sites shell out to `claude -p` directly instead of going
+through the provider abstraction. The reason is written into the source:
+*"`timeout` needs a real command, not a shell function."* That is true, and it
+is why the obvious fix is wrong -- routing them through `provider_invoke` would
+mean dropping their timeout, reintroducing the hang class that left 59 orphaned
+processes alive for 21 hours in v8.1.0.
+
+New seam: `provider_invoke_argv <tier> <prompt>` populates `_LOKI_INVOKE_ARGV`
+with a real command line *without* executing it, so a caller can write
+
+```bash
+provider_invoke_argv development "$prompt"
+timeout 120 "${_LOKI_INVOKE_ARGV[@]}"
+```
+
+and get provider-agnostic dispatch **and** a preserved timeout. Measured against
+a stub CLI that sleeps 300s: the argv form returns 124 after 3 seconds, the
+shell-function form returns 127 immediately because `timeout` cannot exec a
+function. That asymmetry is asserted in the test suite.
+
+`_loki_done_recog_provider_ok` and `_loki_prd_enrich_provider_ok` now ask a
+**capability** question rather than an identity one. They required
+`LOKI_PROVIDER=claude`, so users on codex, opencode, cline, or aider silently
+lost done-recognition and PRD enrichment. Any provider exposing the seam now
+qualifies, with the legacy claude-binary check retained as a fallback.
+
+### Weak models can be judged without being punished for formatting
+
+A strict JSON carve is the most model-sensitive contract in the engine: schema
+adherence varies most across models, while every coding model can state a
+verdict in prose. When the carve yields nothing, the council now scans for a
+standalone verdict word and accepts it **only** if exactly one of
+APPROVE/REJECT appears. Output mentioning both, or neither, stays
+`INCONCLUSIVE`.
+
+Recovering a verdict the model genuinely stated is legitimate; inventing one is
+not. Recovered verdicts carry `"recovered": true` so they stay auditable, and
+the twelve pre-existing no-fabrication assertions still pass unchanged.
+
+### Brownfield is no longer hidden
+
+`loki modernize heal` has shipped since v6.67.0 and the README mentioned it
+once. Greenfield ("build me an app") is the crowded half of this market; the
+ten-year-old repo that pays the bills is the valuable half, and we were hiding
+our answer to it.
+
+The README now opens with the read-only path:
+
+```bash
+loki modernize heal ./your-repo --assess     # changes nothing
+```
+
+which reports language mix, a four-level maturity rating, technical-debt
+signals, and a ranked list of where to start, ordered by blast radius. Every
+claim in that section was verified by running it against a legacy fixture,
+including `--assess --json` and the `--compliance healthcare|fintech|government`
+presets.
+
 ## v8.1.0
 
 Minor release. **The telemetry layer could hang forever and burn the CPU.** For

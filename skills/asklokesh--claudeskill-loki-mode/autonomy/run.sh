@@ -1508,11 +1508,39 @@ log_header() {
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 }
 
-log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+# VERBOSITY. LOKI_LOG_LEVEL is one of debug|info|warn|error (default info);
+# LOKI_QUIET=1 is shorthand for warn.
+#
+# Implemented at these five functions rather than at 527 call sites, which is
+# both the smaller diff and the only version that cannot drift -- a new
+# log_info added next year is covered without anyone remembering to gate it.
+#
+# WHY THIS IS NEEDED DESPITE GOOD TTY DETECTION. The heavy decoration (HUD,
+# completion card, start headline) is already `[ -t 1 ]`-guarded and vanishes
+# off a TTY, so CI output was never the wall of banners it might have been.
+# But 527 log_info/log_step calls are unguarded and print regardless, and a
+# pipeline that wants only warnings had no way to ask. log_debug already
+# honored LOKI_DEBUG; the other levels honored nothing.
+#
+# ERRORS ARE NEVER SUPPRESSED. `error` is the floor: the quietest setting still
+# prints failures. A verbosity flag that can hide the reason a build failed is
+# a footgun, not a feature.
+_loki_log_threshold() {
+    case "${LOKI_LOG_LEVEL:-$([ "${LOKI_QUIET:-0}" = "1" ] && echo warn || echo info)}" in
+        debug) echo 0 ;;
+        info)  echo 1 ;;
+        warn)  echo 2 ;;
+        error) echo 3 ;;
+        *)     echo 1 ;;   # unrecognized value behaves as the default, never silences
+    esac
+}
+_loki_log_enabled() { [ "$1" -ge "$(_loki_log_threshold)" ]; }
+
+log_info() { _loki_log_enabled 1 && echo -e "${GREEN}[INFO]${NC} $*" || true; }
+log_warn() { _loki_log_enabled 2 && echo -e "${YELLOW}[WARN]${NC} $*" || true; }
 log_warning() { log_warn "$@"; }  # Alias for backwards compatibility
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-log_step() { echo -e "${CYAN}[STEP]${NC} $*"; }
+log_step() { _loki_log_enabled 1 && echo -e "${CYAN}[STEP]${NC} $*" || true; }
 log_debug() { [[ "${LOKI_DEBUG:-}" == "true" ]] && echo -e "${CYAN}[DEBUG]${NC} $*" >&2 || true; }
 
 #===============================================================================
@@ -3971,6 +3999,30 @@ except Exception:
     print('')" "$_app_state_file" 2>/dev/null)"
     fi
 
+    # Time to first preview: how long until the user could SEE something running.
+    #
+    # WRITTEN BUT NEVER READ, until now. app-runner.sh:177 has recorded
+    # seconds_to_first_preview since v8, write-once and atomically, and NOTHING
+    # consumed it -- not this summary, not the receipt, not the dashboard. A
+    # measurement nobody surfaces cannot influence anything, so the number that
+    # research identifies as the delight peak of this whole category (a working
+    # preview at roughly four minutes) was invisible to the person who waited for
+    # it and to us.
+    #
+    # Read-only and best-effort by design: absent file means the app never
+    # previewed (or the run predates the writer), and we render nothing rather
+    # than a zero. A fabricated "0s to preview" would be worse than silence.
+    local first_preview_s=""
+    local _fp_file="$loki_dir/app-runner/first-preview.json"
+    if [ -f "$_fp_file" ]; then
+        first_preview_s="$(python3 -c "import json,sys
+try:
+    v=json.load(open(sys.argv[1])).get('seconds_to_first_preview')
+    print(int(v) if isinstance(v,(int,float)) and v>=0 else '')
+except Exception:
+    print('')" "$_fp_file" 2>/dev/null)"
+    fi
+
     # Branch + diff stats vs the run-start SHA (best-effort; non-git or empty
     # baseline yields empty values, which we render as "unknown"/"0").
     local start_sha="${_LOKI_RUN_START_SHA:-}"
@@ -4100,6 +4152,11 @@ except Exception:
         fi
         printf '%-14s %s\n' "Branch:" "$branch"
         printf '%-14s %s\n' "Files:" "$files_changed (+$insertions / -$deletions)"
+        # Only rendered when the app actually previewed. Silence beats a
+        # fabricated zero for a run where nothing ever came up.
+        if [ -n "$first_preview_s" ]; then
+            printf '%-14s %ss\n' "First preview:" "$first_preview_s"
+        fi
         printf '%-14s %s\n' "Finished:" "$ts"
         if [ -n "$delegate_branch" ]; then
             printf '%-14s %s\n' "Delegate:" "$delegate_branch"
@@ -16441,6 +16498,46 @@ check_max_iterations() {
     return 1
 }
 
+# WALL-CLOCK CAP. Returns 0 (stop) when the run has exceeded LOKI_MAX_DURATION
+# seconds. Unset or 0 = no cap, which is the default and exactly today's
+# behavior.
+#
+# WHY A THIRD BOUND. Spend was already capped (LOKI_BUDGET_LIMIT) and so were
+# iterations (LOKI_MAX_ITERATIONS), but a run that STALLS is bounded by neither:
+# a hung provider call or a wedged subprocess burns hours while spending almost
+# nothing and completing no iteration, so neither existing breaker ever trips.
+# It runs until something external kills it -- and an external kill leaves no
+# terminal status, so the receipt cannot say what happened.
+#
+# Kubernetes operators already have activeDeadlineSeconds in the Job spec, but
+# that SIGKILLs the pod: no status is written, no receipt, and the platform
+# sees a crash rather than a deliberate stop. This cap stops the loop cleanly
+# at the next iteration boundary so the run still explains itself.
+#
+# It is checked at the boundary, not mid-iteration: interrupting an agent
+# mid-write is how you get a half-applied change. So the effective stop time is
+# the cap plus the remainder of the current iteration, which the log states
+# rather than pretending to be exact.
+check_max_duration() {
+    local cap="${LOKI_MAX_DURATION:-0}"
+    case "$cap" in
+        ''|*[!0-9]*) return 1 ;;   # unset or non-numeric: no cap, never stop
+    esac
+    [ "$cap" -eq 0 ] && return 1
+
+    local start="${_LOKI_RUN_START_EPOCH:-0}"
+    [ "$start" -eq 0 ] 2>/dev/null && return 1
+
+    local now elapsed
+    now=$(date +%s)
+    elapsed=$((now - start))
+    if [ "$elapsed" -ge "$cap" ]; then
+        log_warn "Wall-clock cap reached (${elapsed}s elapsed, LOKI_MAX_DURATION=${cap}s). Stopping at the iteration boundary."
+        return 0
+    fi
+    return 1
+}
+
 # Load latest ledger content for context injection
 load_ledger_context() {
     local ledger_content=""
@@ -20548,6 +20645,18 @@ except Exception as exc:
             return 20
         fi
 
+        # Wall-clock cap. Checked alongside the iteration cap and treated the
+        # same way: a distinct terminal status so the receipt and `loki why`
+        # can say the run ran out of TIME rather than iterations or money, and
+        # exit 20 because re-running the same spec under the same cap will hit
+        # the same wall. The operator raises LOKI_MAX_DURATION (or narrows the
+        # spec) and submits again.
+        if check_max_duration; then
+            save_state "$retry" "max_duration_reached" 20
+            emit_completion_summary max_duration
+            return 20
+        fi
+
         # Increment after all pre-attempt stop checks pass.
         ((ITERATION_COUNT++))
 
@@ -24237,11 +24346,12 @@ except Exception:
     #
     # Contract (LOKI_DURABLE_STATE=1 only; local/CI exit codes are unchanged):
     #   0  = success / human-controlled clean stop (council approved, completion
-    #        promise, force-stop, or paused/interrupted/budget/stopped where a
-    #        human will resume). Job -> Complete, no retry.
+    #        promise, force-stop, or paused/interrupted/stopped where a HUMAN
+    #        chose to stop and will resume). Job -> Complete, no retry.
     #   20 = deterministic terminal failure (failed, max_iterations_reached,
-    #        max_retries_exceeded, exited, policy_blocked). Re-running on the same
-    #        inputs fails the same way -> Job must NOT retry. The Helm Job pairs
+    #        max_retries_exceeded, budget_exceeded, max_duration_reached,
+    #        policy_blocked). Re-running on
+    #        the same inputs fails the same way -> Job must NOT retry. The Helm Job pairs
     #        this with restartPolicy: Never + a podFailurePolicy rule that maps
     #        exit 20 to FailJob (no retry), so a deterministic failure does not
     #        burn the backoffLimit (the Job records the failure; an operator
@@ -24254,9 +24364,25 @@ except Exception:
         _final_state_file="$(_loki_state_file)"
         _final_status=$(LOKI_STATE_FILE="$_final_state_file" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status','unknown'))" 2>/dev/null || echo "unknown")
         case "$_final_status" in
-            council_approved|council_force_approved|deterministic_gates_passed|completion_promise_fulfilled|force_stopped|paused|interrupted|budget_exceeded|stopped)
+            council_approved|council_force_approved|deterministic_gates_passed|completion_promise_fulfilled|force_stopped|paused|interrupted|stopped)
                 result=0 ;;
-            failed|max_iterations_reached|max_retries_exceeded|policy_blocked|inconclusive_spec_contradiction)
+            # budget_exceeded belongs HERE, not with the human-controlled stops.
+            # It sat in the result=0 arm on the rationale that "a human will
+            # resume", which is true of `paused` (a human pressed pause) and
+            # false of a cost breaker firing inside a k8s Job or a CI pipeline,
+            # where there is no human. A build killed mid-work then reported
+            # SUCCESS: the Job went Complete, the pipeline went green, and an
+            # incomplete build looked finished. That is a false green produced
+            # by our own gate, which is precisely what the Evidence Receipt
+            # exists to prevent.
+            #
+            # It is deterministic rather than retryable: re-running the same
+            # inputs against the same cap exhausts the same budget and fails
+            # identically, so retrying only burns money to reach the same place.
+            # The operator raises the cap (or narrows the spec) and submits a
+            # NEW Job -- the same remedy as max_iterations_reached, which is why
+            # it shares that code.
+            failed|max_iterations_reached|max_retries_exceeded|budget_exceeded|max_duration_reached|policy_blocked|inconclusive_spec_contradiction)
                 result=20 ;;
             *)
                 # Unknown/running/exited terminal: leave $result as-is (nonzero on a

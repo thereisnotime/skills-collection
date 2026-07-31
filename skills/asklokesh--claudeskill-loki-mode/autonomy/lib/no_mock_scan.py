@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -753,7 +754,26 @@ def scan(files: list[str], tree: Path) -> tuple[int, dict[str, object] | None]:
 
 
 def main() -> int:
-    files = [line.strip() for line in os.environ.get("_NM_FILES", "").splitlines() if line.strip()]
+    # Transport: stdin first, _NM_FILES as fallback. An env string is capped at
+    # MAX_ARG_STRLEN (131071 bytes) on Linux, so a large changed-file list makes
+    # execve fail with E2BIG -- the caller then captures its own
+    # "INCONCLUSIVE:detector_error" fallback and the gate silently passes
+    # through. macOS has no per-string cap, which is why that failure was
+    # Linux-only. stdin has no such limit.
+    # Read defensively: a caller may close stdin (sys.stdin is then None) or
+    # hand over a tty. Either way fall back to the env var rather than raising,
+    # because an uncaught error here reads to the caller as
+    # "INCONCLUSIVE:detector_error" -- the exact silent pass-through this
+    # transport change exists to remove.
+    raw = ""
+    try:
+        if sys.stdin is not None and not sys.stdin.isatty():
+            raw = sys.stdin.read()
+    except (OSError, ValueError):
+        raw = ""
+    if not raw.strip():
+        raw = os.environ.get("_NM_FILES", "")
+    files = [line.strip() for line in raw.splitlines() if line.strip()]
     tree = Path(os.environ.get("_NM_TREE", ".")).resolve()
     output = os.environ.get("_NM_OUT", "")
     scanned, hit = scan(files, tree)

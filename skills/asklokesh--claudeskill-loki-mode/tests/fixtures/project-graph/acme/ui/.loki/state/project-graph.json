@@ -1,0 +1,12 @@
+{
+  "key": "bc5a85bc97f40c25d5e620525596fad507e761c4cf181f4894d0813e0679dcd1",
+  "result": {
+    "appId": "acme",
+    "root": "/Users/lokesh/git/lokimode-anthropic/tests/fixtures/project-graph/acme",
+    "members": [
+      "/Users/lokesh/git/lokimode-anthropic/tests/fixtures/project-graph/acme/ui",
+      "/Users/lokesh/git/lokimode-anthropic/tests/fixtures/project-graph/acme/api",
+      "/Users/lokesh/git/lokimode-anthropic/tests/fixtures/project-graph/acme/service"
+    ]
+  }
+}

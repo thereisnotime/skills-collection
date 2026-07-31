@@ -25,7 +25,15 @@ loki_latest_model() {
     local tier_upper
     tier_upper=$(printf '%s' "$tier" | tr '[:lower:]' '[:upper:]')
     local provider_upper
-    provider_upper=$(printf '%s' "$provider" | tr '[:lower:]' '[:upper:]')
+    # Uppercase AND normalize to a legal shell identifier. A provider named with
+    # a hyphen (e.g. "some-new-vendor") would otherwise build
+    # LOKI_SOME-NEW-VENDOR_MODEL_DEVELOPMENT, which is not a valid variable name;
+    # the indirect expansion below then fails and takes the whole lookup with it,
+    # so the provider silently resolves to nothing. Found when adding the generic
+    # registry fallback: "notaprovider" worked and "some-new-vendor" did not.
+    provider_upper=$(printf '%s' "$provider" \
+        | tr '[:lower:]' '[:upper:]' \
+        | tr -c 'A-Z0-9_' '_' )
 
     # Env override chain
     local override="LOKI_${provider_upper}_MODEL_${tier_upper}"
@@ -48,9 +56,24 @@ import json, sys
 catalog_path, provider, tier = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(catalog_path) as fh:
     data = json.load(fh)
-p = data.get("providers", {}).get(provider)
+providers = data.get("providers", {})
+p = providers.get(provider)
 if not p:
-    sys.exit(1)
+    # REGISTRY FALLBACK (v8.2.0). A fixed table of provider keys means every
+    # unknown provider is a fallthrough that resolves to NOTHING -- verified
+    # before this change: `loki_latest_model notaprovider development` returned
+    # empty with rc=1. That makes "bring your own endpoint" a dead end, which is
+    # the opposite of model-agnostic.
+    #
+    # A "generic" key turns the unknown case into a first-class one. It is the
+    # same shape codex already uses (all three tiers collapsed onto one model),
+    # so this generalizes an accepted pattern rather than inventing a mechanism.
+    #
+    # The env-override chain above still wins, so an operator naming a specific
+    # model per tier is never overridden by this default.
+    p = providers.get("generic")
+    if not p:
+        sys.exit(1)
 model = p.get(f"latest_{tier}")
 if not model:
     sys.exit(1)

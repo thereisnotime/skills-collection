@@ -341,8 +341,13 @@ else
     check_ent3 force_stopped 99 0
     check_ent3 paused 99 0
     check_ent3 interrupted 99 0
-    check_ent3 budget_exceeded 99 0
     check_ent3 stopped 99 0
+    # budget_exceeded moved from 0 to 20. It had been grouped with the
+    # human-controlled stops on the rationale that a human would resume, which
+    # is false inside a k8s Job or CI pipeline: the cost breaker fired, the
+    # build stopped mid-work, and exit 0 reported SUCCESS. Deterministic, so it
+    # must not retry -- the same cap exhausts the same way.
+    check_ent3 budget_exceeded 99 20
     check_ent3 failed 0 20
     check_ent3 max_iterations_reached 0 20
     check_ent3 max_retries_exceeded 0 20

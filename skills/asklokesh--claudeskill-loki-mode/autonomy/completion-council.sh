@@ -2267,11 +2267,17 @@ PYEOF
         if [ -z "$_nm_cc_dir" ] || [ ! -f "$_nm_scanner" ]; then
             _nm_status="INCONCLUSIVE:scanner_unavailable"
         else
+            # STDIN, not an env var: a single env string is capped at
+            # MAX_ARG_STRLEN (131071 bytes) on Linux, so a large changed-file
+            # union makes execve fail with E2BIG and this gate silently
+            # degrades to inconclusive (pass-through). macOS has no per-string
+            # cap, so that failure mode was Linux-only.
             _nm_status=$(
-                _NM_FILES="$_nm_files" \
-                _NM_TREE="." \
-                python3 -I "$_nm_scanner" 2>/dev/null \
-                    || echo "INCONCLUSIVE:detector_error"
+                printf '%s\n' "$_nm_files" | {
+                    _NM_TREE="." \
+                    python3 -I "$_nm_scanner" 2>/dev/null \
+                        || echo "INCONCLUSIVE:detector_error"
+                }
             )
         fi
         case "$_nm_status" in
@@ -3135,6 +3141,25 @@ ISSUES: CRITICAL:description (optional, one per line per issue)"
                 _provider_rc=$?
             fi
             ;;
+        *)
+            # v8.2.0 TIMEOUT SEAM. Any provider exposing provider_invoke_argv can
+            # cast a real council vote instead of falling straight to the
+            # heuristic. argv is a REAL command, so `timeout` bounds it exactly as
+            # it bounds the named arms above (providers/claude.sh:321).
+            #
+            # SEMANTICS PRESERVED: _provider_rc is captured the same way, so the
+            # bash-F4 safe default below still forces a conservative REJECT on a
+            # timeout kill (124/137/143). An empty verdict falls to
+            # council_heuristic_review, identical to a missing CLI today.
+            if type provider_invoke_argv >/dev/null 2>&1; then
+                provider_invoke_argv fast "$prompt"
+                # caveman HARD-SUPPRESS: this vote is parsed for "VOTE:".
+                verdict=$(timeout "${LOKI_COUNCIL_REVIEW_TIMEOUT:-600}" \
+                    env CAVEMAN_DEFAULT_MODE=off \
+                    "${_LOKI_INVOKE_ARGV[@]+"${_LOKI_INVOKE_ARGV[@]}"}" 2>/dev/null)
+                _provider_rc=$?
+            fi
+            ;;
     esac
 
     # bash-F4 (WAVE10 SAFE-DEFAULT): a provider timeout (124, incl. 128+SIGTERM
@@ -3301,6 +3326,22 @@ REASON: your reasoning"
         aider)
             if command -v aider &>/dev/null; then
                 verdict=$(timeout "${LOKI_COUNCIL_REVIEW_TIMEOUT:-600}" aider --message "$prompt" --yes-always --no-auto-commits --no-git 2>/dev/null)
+            fi
+            ;;
+        *)
+            # v8.2.0 TIMEOUT SEAM (contrarian / devil's-advocate vote). Same
+            # rationale as the member vote: a real argv keeps the `timeout`
+            # bound that a shell function would silently remove.
+            #
+            # SEMANTICS PRESERVED: this path tracks no _provider_rc by design --
+            # an empty verdict (timeout or failure) already routes to the
+            # conservative REJECT fallback immediately below.
+            if type provider_invoke_argv >/dev/null 2>&1; then
+                provider_invoke_argv fast "$prompt"
+                # caveman HARD-SUPPRESS: parsed for "VOTE:".
+                verdict=$(timeout "${LOKI_COUNCIL_REVIEW_TIMEOUT:-600}" \
+                    env CAVEMAN_DEFAULT_MODE=off \
+                    "${_LOKI_INVOKE_ARGV[@]+"${_LOKI_INVOKE_ARGV[@]}"}" 2>/dev/null)
             fi
             ;;
     esac

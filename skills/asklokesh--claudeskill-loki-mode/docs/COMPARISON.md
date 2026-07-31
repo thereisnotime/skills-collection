@@ -1,6 +1,13 @@
 # Autonomous Coding Agents Comparison (2025-2026)
 
-> Last Updated: January 25, 2026 (v2.36.9)
+> **STALE. Last updated January 25, 2026 against v2.36.9; the current release is
+> v8.2.0.** Roughly six months and thirty releases of drift, and every cell in
+> the grids below is a subjective grade assigned by the vendor being graded --
+> which is exactly the kind of comparison a serious evaluator discounts.
+>
+> For claims you can actually check, see **[EVALUATING.md](EVALUATING.md)**: a
+> runnable command next to every assertion, plus an explicit list of what we do
+> not have. This file is kept for historical reference only.
 >
 > A comprehensive comparison of Loki Mode against major autonomous coding agents and AI IDEs in the market.
 > Deep-dive comparisons validated by Opus feedback loops.

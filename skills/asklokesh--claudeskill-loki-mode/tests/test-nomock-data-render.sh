@@ -979,5 +979,111 @@ else
     bad "verify and council must isolate the engine scanner from inherited PYTHONPATH"
 fi
 
+# --- Transport: the changed-file list must NOT ride in a single env string ---
+# Linux caps one env/arg string at MAX_ARG_STRLEN (131071 bytes). A big changed
+# set (generated source tree) therefore made execve fail with E2BIG, both gates
+# captured their own "INCONCLUSIVE:detector_error" fallback, and the nomock gate
+# silently passed through. macOS has NO per-string cap, so large_source_tree_*
+# above stays green here even when the transport is broken; this case asserts
+# the transport property itself, so it is red on every platform.
+transport_probe_dir="$WORK_ROOT/_transport_probe"
+mkdir -p "$transport_probe_dir"
+cat >"$transport_probe_dir/python3" <<'PROBE'
+#!/usr/bin/env bash
+# Report the byte length of _NM_FILES as this child actually received it, then
+# emit a scanner-shaped line so the caller's parser stays happy.
+printf '%s\n' "${#_NM_FILES}" >"$_PROBE_OUT"
+cat >/dev/null 2>&1 || true
+echo "PASS:0"
+PROBE
+chmod +x "$transport_probe_dir/python3"
+
+transport_repo="$WORK_ROOT/transport_env_limit"
+mkdir -p "$transport_repo/src" "$transport_repo/.loki/quality" \
+    "$transport_repo/.loki/council" "$transport_repo/.loki/verification"
+(
+    cd "$transport_repo" || exit 3
+    git init -q
+    git config user.email test@example.test
+    git config user.name test
+    git config commit.gpgsign false
+    echo base >baseline.txt
+    git add baseline.txt
+    git commit -qm init
+)
+CASE_REPO="$transport_repo" emit_static_features >"$transport_repo/src/App.tsx"
+# A changed-file list comfortably past the 131071-byte Linux cap. verify_gate_nomock
+# reads VERIFY_DIFF_NAMES directly; council_evidence_gate computes its own union
+# from git, so the same paths must exist as real untracked files for its half.
+transport_names=$(awk 'BEGIN { for (i = 0; i < 6000; i++) print "src/generated/value-" i ".tsx" }')
+mkdir -p "$transport_repo/src/generated"
+printf '%s\n' "$transport_names" | while IFS= read -r transport_name; do
+    [ -n "$transport_name" ] && : >"$transport_repo/$transport_name"
+done
+transport_verify_out="$WORK_ROOT/transport-env-bytes-verify"
+transport_council_out="$WORK_ROOT/transport-env-bytes-council"
+
+rm -f "$transport_verify_out"
+(
+    cd "$transport_repo" || exit 3
+    export PATH="$transport_probe_dir:$PATH"
+    export _PROBE_OUT="$transport_verify_out"
+    VERIFY_DIFF_NAMES="$transport_names"
+    VERIFY_MERGE_BASE=""
+    _VERIFY_FINDINGS_FILE="$transport_repo/findings.tsv"
+    _VERIFY_GATES_FILE="$transport_repo/gates.tsv"
+    verify_gate_nomock "$transport_repo" >/dev/null 2>&1
+)
+transport_verify_bytes=$(cat "$transport_verify_out" 2>/dev/null || echo unset)
+[ -n "$transport_verify_bytes" ] || transport_verify_bytes="unset"
+
+rm -f "$transport_council_out"
+(
+    cd "$transport_repo" || exit 3
+    _LOKI_RUN_START_SHA="$(git -C "$transport_repo" rev-parse HEAD)"
+    ITERATION_COUNT=0
+    COUNCIL_STATE_DIR="$transport_repo/.loki/council"
+    LOKI_PROOF_PERSIST=0
+    LOKI_PROOF_AUTH=0
+    LOKI_PROOF_AUTHZ=0
+    LOKI_EVIDENCE_BOOT_GATE=0
+    LOKI_EVIDENCE_SECRET_GATE=0
+    export PATH="$transport_probe_dir:$PATH"
+    export _PROBE_OUT="$transport_council_out"
+    council_evidence_gate >/dev/null 2>&1
+)
+transport_council_bytes=$(cat "$transport_council_out" 2>/dev/null || echo unset)
+[ -n "$transport_council_bytes" ] || transport_council_bytes="unset"
+
+if [ "$transport_verify_bytes" = "0" ] && [ "$transport_council_bytes" = "0" ]; then
+    ok
+else
+    bad "changed-file list must not exceed the Linux env-string cap (verify sent ${transport_verify_bytes} bytes, council sent ${transport_council_bytes} bytes; limit 131071)"
+fi
+
+# --- Scanner must survive every stdin shape a caller can hand it ---
+# The stdin transport must not make the scanner fragile: a closed stdin leaves
+# sys.stdin as None in Python, and an uncaught error there reads back to the
+# gate as "INCONCLUSIVE:detector_error" -- the same silent pass-through the
+# transport fix exists to remove. Env-var input must keep working in all shapes.
+stdin_repo="$WORK_ROOT/scanner_stdin_shapes"
+mkdir -p "$stdin_repo/src"
+CASE_REPO="$stdin_repo" emit_inline_orders >"$stdin_repo/src/App.tsx"
+stdin_shapes_ok=true
+stdin_piped=$(printf 'src/App.tsx\n' | _NM_TREE="$stdin_repo" python3 -I "$REPO_ROOT/autonomy/lib/no_mock_scan.py" 2>/dev/null)
+stdin_devnull=$(_NM_FILES="src/App.tsx" _NM_TREE="$stdin_repo" python3 -I "$REPO_ROOT/autonomy/lib/no_mock_scan.py" </dev/null 2>/dev/null)
+stdin_closed=$(_NM_FILES="src/App.tsx" _NM_TREE="$stdin_repo" python3 -I "$REPO_ROOT/autonomy/lib/no_mock_scan.py" 0<&- 2>/dev/null)
+for stdin_status in "$stdin_piped" "$stdin_devnull" "$stdin_closed"; do
+    case "$stdin_status" in
+        FAIL:src/App.tsx:*) : ;;
+        *) stdin_shapes_ok=false ;;
+    esac
+done
+if [ "$stdin_shapes_ok" = "true" ]; then
+    ok
+else
+    bad "scanner must detect the same hit over piped, /dev/null, and closed stdin (got '$stdin_piped' / '$stdin_devnull' / '$stdin_closed')"
+fi
+
 echo "test-nomock-data-render: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

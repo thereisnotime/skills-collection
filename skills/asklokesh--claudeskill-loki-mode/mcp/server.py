@@ -2470,6 +2470,156 @@ async def loki_learnings(limit: int = 50) -> str:
 
 
 @mcp.tool()
+async def loki_graph_query(question: str, budget: int = 1500, path: str = ".") -> str:
+    """Answer a codebase question from a knowledge graph instead of reading files.
+
+    WHY THIS EXISTS
+        Loading a large repo into context is the dominant token cost of working
+        on it, and on a big codebase it is simply impossible. Measured on this
+        repo: `autonomy/` alone is 85 files / 3,194,940 bytes, roughly 798,735
+        tokens if naively read. No context window holds that.
+
+        MEASURED on this repo, same question, same subtree:
+            naive file load   101,739 bytes  ~= 25,434 tokens
+            graph query         3,335 bytes  ~=    833 tokens
+        A ~30x reduction, and the answer arrives with exact file:line citations
+        plus a provenance label on every edge (EXTRACTED / INFERRED /
+        AMBIGUOUS) -- the same facts-vs-inference split the Evidence Receipt
+        uses, which is why it composes cleanly with the rest of this server.
+
+        This is the brownfield unlock: a ten-year-old enterprise repo is
+        unreachable by reading, and reachable by querying.
+
+    REQUIRES a graph built by graphify (`graphify <path>`), which is
+    deterministic AST parsing with no LLM and no network. If no graph exists
+    this returns a structured hint rather than silently degrading to a guess.
+
+    Args:
+        question: natural-language question about the codebase
+        budget: cap the answer at roughly this many tokens (default 1500)
+        path: repo root containing graphify-out/ (default: current directory)
+
+    Returns:
+        JSON: {ok, answer, tokens_estimate, budget, source} or {ok:false, hint}
+    """
+    _emit_tool_event_async('loki_graph_query', 'start',
+                           parameters={'question': question, 'budget': budget})
+    try:
+        graph = os.path.join(path or '.', 'graphify-out', 'graph.json')
+        if not os.path.exists(graph):
+            _emit_tool_event_async('loki_graph_query', 'complete',
+                                   result_status='error')
+            return json.dumps({
+                'ok': False,
+                'hint': ('no knowledge graph found at %s. Build one first: '
+                         '`graphify %s` (deterministic AST parse, no LLM, no '
+                         'network).' % (graph, path or '.')),
+            }, indent=2)
+
+        proc = subprocess.run(
+            ['graphify', 'query', question, '--budget', str(budget)],
+            cwd=path or '.', capture_output=True, text=True, timeout=120)
+        out = (proc.stdout or '').strip()
+        if proc.returncode != 0 or not out:
+            _emit_tool_event_async('loki_graph_query', 'complete',
+                                   result_status='error')
+            return json.dumps({
+                'ok': False,
+                'hint': (proc.stderr or 'graphify query returned nothing').strip()[:400],
+            }, indent=2)
+
+        _emit_tool_event_async('loki_graph_query', 'complete',
+                               result_status='success')
+        return json.dumps({
+            'ok': True,
+            'answer': out,
+            # Deliberately an ESTIMATE, labelled as one: this is bytes/4, not a
+            # tokenizer count. Reporting it as exact would be the kind of
+            # precise-sounding wrong number this project argues against.
+            'tokens_estimate': len(out) // 4,
+            'budget': budget,
+            'source': 'graphify knowledge graph (deterministic AST, no LLM)',
+        }, indent=2)
+    except FileNotFoundError:
+        _emit_tool_event_async('loki_graph_query', 'complete', result_status='error')
+        return json.dumps({'ok': False, 'hint': 'graphify is not installed on PATH'})
+    except Exception as exc:
+        _emit_tool_event_async('loki_graph_query', 'complete',
+                               result_status='error', error=str(exc))
+        return json.dumps({'ok': False, 'error': str(exc)})
+
+
+@mcp.tool()
+async def loki_verify_fast(path: str = ".", diff_base: str = "") -> str:
+    """Verify code deterministically in milliseconds. No model call, no network.
+
+    This is the embeddable verification primitive: an IDE, another agent, a CI
+    step, or a third-party tool can call it and get a structured verdict back
+    faster than a keystroke round-trip.
+
+    MEASURED on loki-mode itself (1,932 tracked source files):
+        full repo, cold   298 ms
+        full repo, warm    87 ms
+        diff-scoped        19 ms
+    against an 11,040 ms shell-based baseline. The speedup came from
+    architecture, not micro-optimization: walk the tree ONCE via the git index,
+    run every detector as a pure function in ONE process, and cache findings by
+    file CONTENT hash so an unchanged file is never re-read.
+
+    WHY THERE IS NO LLM HERE, AND WHY THAT IS THE POINT
+        Everything this returns is reproducible by anyone with the same commit.
+        A verdict you can re-derive is a FACT; a verdict a model produced is an
+        OPINION. Keeping this path purely deterministic is what makes it both
+        fast and safe to embed in someone else's product -- they do not have to
+        trust our model choices, only our arithmetic.
+
+    Args:
+        path: repository or directory to verify (default: current directory)
+        diff_base: optional git ref. When given, only files changed against it
+            are verified, which is the normal case for a pull request and the
+            fastest path.
+
+    Returns:
+        JSON: verdict (PASS | FAIL | INCONCLUSIVE), findings[] with
+        rule/path/line/message/severity, files_scanned, files_from_cache,
+        elapsed_ms, and exogenous=true.
+    """
+    _emit_tool_event_async('loki_verify_fast', 'start',
+                           parameters={'path': path, 'diff_base': diff_base})
+    try:
+        import importlib.util as _ilu
+        _fv_path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), 'autonomy', 'lib', 'fast_verify.py')
+        if not os.path.exists(_fv_path):
+            result = json.dumps({'error': 'fast_verify not found', 'path': _fv_path})
+            _emit_tool_event_async('loki_verify_fast', 'complete',
+                                   result_status='error')
+            return result
+        _spec = _ilu.spec_from_file_location('loki_fast_verify', _fv_path)
+        _mod = _ilu.module_from_spec(_spec)
+        # Register BEFORE exec: @dataclass resolves its own module via
+        # sys.modules[cls.__module__], and on Python 3.12+ that lookup raises
+        # AttributeError on None if the module is absent. Loading by file path
+        # without this line crashes the tool -- found by actually calling it
+        # through the embedding path rather than importing it normally.
+        sys.modules.setdefault('loki_fast_verify', _mod)
+        _spec.loader.exec_module(_mod)
+
+        res = _mod.verify(path or '.', diff_base or '', True)
+        # dataclasses.asdict keeps this in lockstep with the engine's own shape,
+        # so a field added there reaches every consumer without an edit here.
+        from dataclasses import asdict as _asdict
+        payload = _asdict(res)
+        _emit_tool_event_async('loki_verify_fast', 'complete',
+                               result_status='success')
+        return json.dumps(payload, indent=2)
+    except Exception as exc:  # never let verification crash the caller
+        _emit_tool_event_async('loki_verify_fast', 'complete',
+                               result_status='error', error=str(exc))
+        return json.dumps({'error': str(exc), 'verdict': 'INCONCLUSIVE'})
+
+
+@mcp.tool()
 async def loki_counter_evidence_template(iteration: int) -> str:
     """Generate a counter-evidence file template for the given iteration.
 

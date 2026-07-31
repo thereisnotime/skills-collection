@@ -140,16 +140,36 @@ fi
 # --- Test 9: GitHub format output (uses test repo with changes) ---
 ((TOTAL++))
 GH_TEST_DIR=$(mktemp -d)
+# FIXTURE IDENTITY IS REQUIRED, not optional. A bare CI runner has no global
+# user.email, so `git commit` fails there; with the whole block redirected to
+# /dev/null that failure was INVISIBLE and left a repo with no HEAD. `git diff`
+# against nothing is empty, so the command correctly printed "No changes to
+# review" and the assertion reported "missing ## header" -- pointing at the
+# wrong thing entirely. Passed on a developer machine only because the global
+# gitconfig supplied an identity. Set it per-repo so the fixture is
+# self-sufficient on any machine.
 (
     cd "$GH_TEST_DIR" || exit 1
     git init -q
+    git config user.email "test@example.invalid"
+    git config user.name "loki test fixture"
+    git config commit.gpgsign false
     echo "clean" > app.py
     git add app.py
     git commit -q -m "init"
+    # Leave this change UNCOMMITTED. `ci --pr` tries `gh pr diff` first and falls
+    # back to `git diff` (uncommitted changes) when there is no PR or no gh auth,
+    # which is the CI condition. Committing everything made that fallback empty.
     echo "changed" >> app.py
-    git add app.py
-    git commit -q -m "change"
 ) >/dev/null 2>&1
+
+# ASSERT THE FIXTURE BUILT. Without this, any future setup breakage silently
+# degrades into "No changes to review" and gets misread as a product bug -- the
+# exact loop that cost three CI cycles to unwind.
+if ! (cd "$GH_TEST_DIR" && git rev-parse HEAD >/dev/null 2>&1 && [ -n "$(git diff --name-only)" ]); then
+    echo "  fixture FAILED to build (no HEAD, or no uncommitted diff) -- not a product failure"
+fi
+
 gh_output=$(cd "$GH_TEST_DIR" && "$LOKI" ci --pr --format github 2>&1) || true
 rm -rf "$GH_TEST_DIR"
 if echo "$gh_output" | grep -q "## Loki CI Quality Report"; then

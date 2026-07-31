@@ -131,17 +131,17 @@ const AIDetector = (() => {
     { pattern: /\bthought\s+leader(?:ship)?\b/gi, replace: 'expert, authority' },
     { pattern: /\bbest\s+practices\b/gi, replace: 'what works, proven methods' },
     { pattern: /\bat\s+its\s+core\b/gi, replace: 'cut, just state it' },
-    { pattern: /\bin\s+order\s+to\b/gi, replace: 'to' },
-    { pattern: /\bdue\s+to\s+the\s+fact\s+that\b/gi, replace: 'because' },
-    { pattern: /\bserves\s+as\b/gi, replace: 'is' },
-    { pattern: /\bfeatures\b/gi, replace: 'has, includes', filter: true },
-    { pattern: /\bboasts\b/gi, replace: 'has' },
-    { pattern: /\butiliz(?:e|es|ing|ed)\b/gi, replace: 'use' },
+    { pattern: /\bin\s+order\s+to\b/gi, replace: 'to', clarity: true },
+    { pattern: /\bdue\s+to\s+the\s+fact\s+that\b/gi, replace: 'because', clarity: true },
+    { pattern: /\bserves\s+as\b/gi, replace: 'is', clarity: true },
+    { pattern: /\bfeatures\b/gi, replace: 'has, includes', filter: true, clarity: true },
+    { pattern: /\bboasts\b/gi, replace: 'has', clarity: true },
+    { pattern: /\butiliz(?:e|es|ing|ed)\b/gi, replace: 'use', clarity: true },
     { pattern: /\bshowcas(?:e|es|ing|ed)\b/gi, replace: 'show, demonstrate' },
     { pattern: /\bembark(?:s|ing|ed)?\b/gi, replace: 'start, begin' },
-    { pattern: /\bcommenc(?:e|es|ing|ed)\b/gi, replace: 'start, begin' },
-    { pattern: /\bascertain(?:s|ing|ed)?\b/gi, replace: 'find out, determine' },
-    { pattern: /\bendeavou?r(?:s|ing|ed)?\b/gi, replace: 'effort, attempt, try' },
+    { pattern: /\bcommenc(?:e|es|ing|ed)\b/gi, replace: 'start, begin', clarity: true },
+    { pattern: /\bascertain(?:s|ing|ed)?\b/gi, replace: 'find out, determine', clarity: true },
+    { pattern: /\bendeavou?r(?:s|ing|ed)?\b/gi, replace: 'effort, attempt, try', clarity: true },
     { pattern: /\bunderscor(?:es|ing|ed)\b/gi, replace: 'highlights, shows' },
     // Hyphen required. The unhyphenated "load bearing" is ordinary English —
     // "the load bearing down on the bridge" — where `bearing` is a participle,
@@ -272,6 +272,9 @@ const AIDetector = (() => {
   // though all three are tagged `critical`.
   const ISSUE_WEIGHTS = {
     tier1: 5,
+    // Wordiness, not an AI-frequency marker. Weighted like tier2 so a
+    // clarity fix cannot push a document toward an AI classification.
+    'tier1-clarity': 3,
     tier2: 3,
     tier3: 2,
     transition: 2,
@@ -588,7 +591,12 @@ const AIDetector = (() => {
   // opportunities", "may eventually unlock value." Either word alone is
   // fine; the stack is the tell.
   const HEDGE_STACK = [
-    /\b(?:could|may|might)\s+(?:\w+\s+){0,2}(?:potentially|eventually|ultimately|possibly|conceivably)\b/gi,
+    // At most one intervening word, and never a negator. The old {0,2} gap
+    // matched ordinary English: "could not possibly" (plain emphatic
+    // negation) and inverted questions like "could a savage possibly" both
+    // fired. Measured on the human-control corpus, 3 of 4 hedge-stack flags
+    // were this over-match. See issue #69.
+    /\b(?:could|may|might)\s+(?:(?!not\b|never\b|hardly\b|scarcely\b|barely\b)\w+\s+)?(?:potentially|eventually|ultimately|possibly|conceivably)\b/gi,
     /\b(?:potentially|eventually|ultimately)\s+(?:could|may|might)\b/gi,
   ];
 
@@ -860,9 +868,11 @@ const AIDetector = (() => {
         if (tier1Found.has(lower)) continue;
         tier1Found.add(lower);
         issues.push({
-          type: 'tier1',
+          // Clarity-band entries are wordiness edits, not frequency evidence.
+          // Same fix, weaker claim — see the Tier 1A/1B split in SKILL.md.
+          type: phrase.clarity ? 'tier1-clarity' : 'tier1',
           text: match[0],
-          severity: 'high',
+          severity: phrase.clarity ? 'medium' : 'high',
           suggestion: phrase.replace,
         });
       }
@@ -995,7 +1005,18 @@ const AIDetector = (() => {
     // dash ("- **Term** — desc", "- [label](url) — desc") — are
     // definition-list typography, not prose punctuation. Shared by the
     // smart-punct signature below and the em-dash frequency check (§22).
-    const SEPARATOR_DASH_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\n]*\))[ \t]*—/gm;
+    // An optional parenthetical or inline-code span may sit between the bold
+    // lead term and the dash — "- **Lingering-attention claims**
+    // (`lingering-attention`) — the share-post frame…" is the same definition
+    // typography as the bare form. Found by the self-scan (see PROOF.md, #67).
+    const SEPARATOR_DASH_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^)\n]*\))(?:[ \t]*(?:\([^)\n]*\)|`[^`\n]+`))?[ \t]*—/gm;
+
+    // Keep-a-Changelog version headings (`## [3.21.0] — 2026-07-30`) join a
+    // label to a value exactly as a list separator does. Deliberately narrow:
+    // a bracketed or bare semver token, then a dash, then an ISO date, and
+    // nothing else on the line. Ordinary prose dashes in headings still count,
+    // because SKILL.md applies the em-dash rule to headings too.
+    const VERSION_HEADING_DASH_RE = /^#{1,6}[ \t]+\[?v?\d+\.\d+\.\d+[^\]\n]*\]?[ \t]*—[ \t]*\d{4}-\d{2}-\d{2}[ \t]*$/gm;
 
     // ── Smart-punctuation co-occurrence signature ────────────────────
     // Curly quotes + em-dash + Oxford comma all present + zero typos
@@ -1007,7 +1028,8 @@ const AIDetector = (() => {
     {
       const hasCurly = /[“”‘’]/.test(text);
       const totalEmDashes = (text.match(/—/g) || []).length;
-      const separatorEmDashes = (text.match(SEPARATOR_DASH_RE) || []).length;
+      const separatorEmDashes = (text.match(SEPARATOR_DASH_RE) || []).length
+        + (text.match(VERSION_HEADING_DASH_RE) || []).length;
       const hasEmDash = totalEmDashes > separatorEmDashes;
       const oxfordHit = text.match(/\b\w+,\s+\w+,\s+and\s+\w+/g);
       const hasOxford = (oxfordHit?.length || 0) >= 1;
@@ -1318,7 +1340,8 @@ const AIDetector = (() => {
     // and still counts, as does a mid-sentence "**bold** — like this"
     // splice. Em dash only — the `--` substitute is never carved out.
     const rawEmDashCount = (text.match(/—|(?<=\s)--(?=\s|$)|(?<=^|\s)--(?=\s)/gm) || []).length;
-    const separatorDashCount = (text.match(SEPARATOR_DASH_RE) || []).length;
+    const separatorDashCount = (text.match(SEPARATOR_DASH_RE) || []).length
+      + (text.match(VERSION_HEADING_DASH_RE) || []).length;
     const emDashCount = rawEmDashCount - separatorDashCount;
     const emDashRate = emDashCount / (wordCount / 1000);
     if (emDashRate > 1) {
@@ -1724,6 +1747,7 @@ const AIDetector = (() => {
 
   const TYPE_LABELS = {
     'tier1': 'AI vocabulary',
+    'tier1-clarity': 'Wordiness',
     'tier2': 'Word cluster',
     'tier3': 'Overused word',
     'transition': 'AI transition',

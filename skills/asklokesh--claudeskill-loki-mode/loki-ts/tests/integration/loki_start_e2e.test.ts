@@ -540,6 +540,12 @@ describe("loki start <prd> e2e (runAutonomous + stub provider)", () => {
     const state = JSON.parse(readFileSync(statePath, "utf8")) as {
       status: string;
     };
-    expect(state.status).toBe("failed");
+    // "max_retries_exceeded", not "failed". This path exhausts its retries
+    // against an always-failing provider, which is a distinct terminal from a
+    // quality-gate failure; it used to persist "failed" and was therefore
+    // indistinguishable in state from one. Both map to exit 20, so the exit
+    // code was right by luck, but every downstream reader of the status -- the
+    // receipt, `loki why`, the dashboard -- was told the wrong thing.
+    expect(state.status).toBe("max_retries_exceeded");
   });
 });

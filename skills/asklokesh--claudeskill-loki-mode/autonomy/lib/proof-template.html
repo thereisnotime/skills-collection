@@ -1117,6 +1117,24 @@
     card.innerHTML = (head ? '<div style="margin-bottom:14px;">' + head + "</div>" : "") + body + link;
   }
 
+  // Render one row of gate chips. Shared by the exogenous and advisory blocks.
+  function gateChips(gates) {
+    var chips = "";
+    if (!Array.isArray(gates)) return "";
+    for (var i = 0; i < gates.length; i++) {
+      var st = String(g(gates[i], "status", "")).toLowerCase();
+      var cls = (st === "pass" || st === "passed") ? "pass" : (st === "skip" || st === "skipped") ? "skip" : "fail";
+      var mark = cls === "pass" ? "OK" : cls === "skip" ? "-" : "X";
+      chips += '<span class="gate ' + cls + '"><span class="mk">' + mark + "</span>" +
+               esc(g(gates[i], "name", "gate")) + "</span>";
+    }
+    return chips ? '<div class="gates">' + chips + "</div>" : "";
+  }
+
+  // TRUST-4: quality gates split by PROVENANCE, not by outcome. The two blocks
+  // read from quality_gates.exogenous / quality_gates.advisory, the exact field
+  // names proof-generator.py writes. Falls back to the flat pre-split list so an
+  // older receipt still renders.
   function renderGates(p) {
     var sec = document.getElementById("secGates");
     var card = document.getElementById("gatesCard");
@@ -1127,18 +1145,34 @@
       sec.classList.add("hide");
       return;
     }
-    var head = '<p class="note" style="margin:0 0 12px;">' + passed + " of " + total + " gates passed.</p>";
-    var chips = "";
-    if (Array.isArray(gates)) {
-      for (var i = 0; i < gates.length; i++) {
-        var st = String(g(gates[i], "status", "")).toLowerCase();
-        var cls = (st === "pass" || st === "passed") ? "pass" : (st === "skip" || st === "skipped") ? "skip" : "fail";
-        var mark = cls === "pass" ? "OK" : cls === "skip" ? "-" : "X";
-        chips += '<span class="gate ' + cls + '"><span class="mk">' + mark + "</span>" +
-                 esc(g(gates[i], "name", "gate")) + "</span>";
-      }
+    var exo = g(p, "quality_gates.exogenous", null);
+    var adv = g(p, "quality_gates.advisory", null);
+    if (!exo && !adv) {
+      // Pre-TRUST-4 receipt: render the flat list exactly as before.
+      card.innerHTML = '<p class="note" style="margin:0 0 12px;">' + passed +
+        " of " + total + " gates passed.</p>" + gateChips(gates);
+      return;
     }
-    card.innerHTML = head + (chips ? '<div class="gates">' + chips + "</div>" : "");
+    var html = "";
+    var eg = g(exo, "gates", []);
+    if (Array.isArray(eg) && eg.length > 0) {
+      html += '<h3 style="margin:0 0 4px;font-size:14px;">Independent checks (count toward the verdict)</h3>' +
+        '<p class="note" style="margin:0 0 10px;">' +
+        num(g(exo, "passed", 0)) + " of " + num(g(exo, "total", 0)) +
+        " passed. These are deterministic programs the agent cannot write the " +
+        "result of, so only these set the verdict above.</p>" + gateChips(eg);
+    }
+    var ag = g(adv, "gates", []);
+    if (Array.isArray(ag) && ag.length > 0) {
+      html += '<h3 style="margin:18px 0 4px;font-size:14px;">Advisory checks (reported, not counted)</h3>' +
+        '<p class="opinion-note"><span aria-hidden="true">!</span>' +
+        num(g(adv, "passed", 0)) + " of " + num(g(adv, "total", 0)) +
+        " passed. These are the agent judging its own work (it wrote both the " +
+        "tests and the code, or a model graded the result), so a model that is " +
+        "confidently wrong scores itself green here. They are shown for context " +
+        "and can never raise or lower the verdict.</p>" + gateChips(ag);
+    }
+    card.innerHTML = html;
   }
 
   function renderFlagged(p) {
@@ -1204,9 +1238,23 @@
     if (hash) {
       kv += '<div class="k">Integrity hash</div><div class="v">' + esc(algo) + ":" + esc(hash) + "</div>";
     }
+    // Signing state, named explicitly. The hash-note below already says the
+    // hash does not prove provenance; without this row a reader is told what
+    // the receipt CANNOT do but never which state this particular receipt is
+    // in, nor how to change it. Signing is gated on LOKI_PROOF_GPG_KEY in
+    // proof-generator.py and is OFF by default -- deliberately, because a
+    // self-minted key would flip proof-verify.py's generator_trusted to false
+    // while the key came from the very process under audit.
+    var signed = !!g(p, "verification.gpg_signature", "");
+    kv += '<div class="k">Signature</div><div class="v">' +
+          (signed ? "SIGNED (detached GPG)" : "UNSIGNED") + "</div>";
+    var signNote = signed
+      ? '<p class="hash-note">This receipt carries a detached GPG signature over the same canonical bytes that were hashed. A verifier holding the signer public key can confirm its provenance offline with <code>loki proof verify</code>.</p>'
+      : '<p class="hash-note">This receipt is UNSIGNED, so it trusts the generator that produced it (<code>loki proof verify</code> reports <code>generator_trusted: true</code>). To sign future receipts, set <code>LOKI_PROOF_GPG_KEY</code> to a GPG key id before the run.</p>';
     card.innerHTML = '<div class="kv">' + kv + "</div>" +
       (hash ? '<p class="hash-note">The integrity hash is a ' + esc(algo) +
-              " digest of this proof. It proves the artifact has not been altered after it was emitted. It does not, by itself, prove who or what produced the work.</p>" : "");
+              " digest of this proof. It proves the artifact has not been altered after it was emitted. It does not, by itself, prove who or what produced the work.</p>" : "") +
+      signNote;
   }
 
   function renderCta(p) {

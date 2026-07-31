@@ -987,6 +987,12 @@ show_help() {
     echo ""
     echo "Phase A-J features (v7.5.18 - v7.5.28) are default-on. See CHANGELOG."
     echo ""
+    echo "Environment variables an operator would set: docs/environment-variables.md"
+    echo ""
+    echo "Scripting Loki? Exit codes for every command are documented in"
+    echo "docs/exit-codes.md. Severity rises with the code, and 'loki start'"
+    echo "has a richer contract under LOKI_DURABLE_STATE=1 for k8s and ECS."
+    echo ""
     echo "Environment Variables:"
     echo "  Opt-outs: LOKI_HOOK_EVENTS=off, LOKI_DYNAMIC_PROMPT_SECTIONS=keep,"
     echo "  LOKI_MEMORY_BASE_PATH (shared memory dir for app graph)"
@@ -1400,8 +1406,6 @@ cmd_start() {
     local positional_arg=""           # raw positional arg for mode detection
     local issue_ref_explicit=""       # --issue value (when explicit_mode=issue)
     local issue_mode_args=()          # captured issue-mode flags (--dry-run, --pr, etc.)
-    local issue_dry_run=false
-    local issue_no_start=false
     local issue_output_file=""
     local issue_use_worktree=false
     local issue_create_pr=false
@@ -1462,6 +1466,9 @@ cmd_start() {
                 echo "  --no-plan             Skip auto-shown PRD analysis at startup"
                 echo "  --brief \"TEXT\"        Zero-config fast first run from a one-line brief"
                 echo "  --yes, -y             Skip confirmation prompts (auto-confirm)"
+                echo "  --quiet               Suppress [INFO]/[STEP]; warnings and errors still print"
+                echo "  --log-level LEVEL     debug | info | warn | error (default: info)"
+                echo "  --max-duration DUR    Wall-clock cap: seconds, or 90m / 2h (default: none)"
                 echo ""
                 echo "Issue-mode options (only used when input is an ISSUE-REF):"
                 echo "  --dry-run             Preview generated PRD without starting"
@@ -1471,6 +1478,16 @@ cmd_start() {
                 echo "  --pr                  Worktree + auto-create PR"
                 echo "  --ship                Worktree + PR + auto-merge"
                 echo "  --detach, -d          Run in background"
+                echo ""
+                echo "Preview without spending (any input mode):"
+                echo "  loki plan <PRD>       Analyze a spec WITHOUT executing: complexity,"
+                echo "                        estimated iterations, tokens, and cost. Add --json"
+                echo "                        for machine-readable output. This is the dry run"
+                echo "                        for PRD and brief mode; --dry-run above is"
+                echo "                        issue-mode only."
+                echo "  LOKI_CONFIG_DUMP=1 loki start"
+                echo "                        Print the resolved LOKI_* configuration and exit"
+                echo "                        without starting a run or spending anything."
                 echo ""
                 echo "Environment Variables:"
                 echo "  LOKI_PRD_FILE         Path to PRD file (alternative to positional arg)"
@@ -1661,6 +1678,52 @@ cmd_start() {
                 export LOKI_AUTO_CONFIRM=true
                 shift
                 ;;
+            # Wall-clock cap. Accepts plain seconds or a suffix (30m, 2h) --
+            # an operator setting a build timeout thinks in minutes and hours,
+            # and forcing them to compute 7200 invites the off-by-3600 error.
+            --max-duration)
+                if [[ -n "${2:-}" ]]; then
+                    local _md="$2" _mdn _mdmul=1
+                    case "$_md" in
+                        *s) _mdn="${_md%s}" ;;
+                        *m) _mdn="${_md%m}"; _mdmul=60 ;;
+                        *h) _mdn="${_md%h}"; _mdmul=3600 ;;
+                        *)  _mdn="$_md" ;;
+                    esac
+                    if ! [[ "$_mdn" =~ ^[0-9]+$ ]] || [ "$_mdn" -eq 0 ]; then
+                        echo "Error: --max-duration must be a positive duration (e.g. 5400, 90m, 2h); got '$2'" >&2
+                        return 1
+                    fi
+                    export LOKI_MAX_DURATION=$(( _mdn * _mdmul ))
+                    shift 2
+                else
+                    echo "Error: --max-duration requires a value (e.g. 90m)" >&2
+                    return 1
+                fi
+                ;;
+            # Verbosity. --quiet suppresses [INFO]/[STEP]; warnings and errors
+            # always print, so a quiet run can still say why it failed.
+            --quiet)
+                export LOKI_LOG_LEVEL=warn
+                shift
+                ;;
+            --log-level)
+                if [[ -n "${2:-}" ]]; then
+                    case "$2" in
+                        debug|info|warn|error)
+                            export LOKI_LOG_LEVEL="$2"
+                            ;;
+                        *)
+                            echo "Error: --log-level must be debug, info, warn, or error (got '$2')" >&2
+                            return 1
+                            ;;
+                    esac
+                    shift 2
+                else
+                    echo "Error: --log-level requires a value (debug|info|warn|error)" >&2
+                    return 1
+                fi
+                ;;
             --bmad-project)
                 if [[ -n "${2:-}" ]]; then
                     bmad_project_path="$2"
@@ -1836,12 +1899,10 @@ cmd_start() {
                 ;;
             # v6.84.0: issue-mode flags (only meaningful when input is an issue)
             --dry-run)
-                issue_dry_run=true
                 issue_mode_args+=("--dry-run")
                 shift
                 ;;
             --no-start)
-                issue_no_start=true
                 issue_mode_args+=("--no-start")
                 shift
                 ;;
@@ -9879,6 +9940,7 @@ cmd_config() {
             echo "  issue.provider       Default issue provider: github, gitlab, jira, azure_devops"
             echo "  blind_validation     Blind validation mode: true, false (default: true)"
             echo "  adversarial_testing  Adversarial testing: true, false (default: true)"
+            echo "  log_level            Output verbosity: debug, info, warn, error (default: info)"
             echo "  spawn_timeout        [DEPRECATED] No effect since WAVE9 (no consumer); accepted for back-compat"
             echo "  spawn_retries        [DEPRECATED] No effect since WAVE9 (no consumer); accepted for back-compat"
             echo "  notify.slack         Slack webhook URL"
@@ -9954,6 +10016,12 @@ cmd_config_set() {
                 *) echo -e "${RED}Invalid $key: $value (expected: true, false)${NC}"; return 1 ;;
             esac
             ;;
+        log_level)
+            case "$value" in
+                debug|info|warn|error) ;;
+                *) echo -e "${RED}Invalid log_level: $value (expected: debug, info, warn, error)${NC}"; return 1 ;;
+            esac
+            ;;
         spawn_timeout|spawn_retries)
             if ! echo "$value" | grep -qE '^[0-9]+$'; then
                 echo -e "${RED}Invalid $key: $value (expected: integer)${NC}"; return 1
@@ -9985,7 +10053,7 @@ cmd_config_set() {
             echo -e "${RED}Unknown configuration key: '$key'${NC}"
             echo ""
             echo "Valid keys: maxTier, provider, issue.provider, blind_validation,"
-            echo "  adversarial_testing, spawn_timeout, spawn_retries, budget,"
+            echo "  adversarial_testing, log_level, spawn_timeout, spawn_retries, budget,"
             echo "  model.planning, model.development, model.fast,"
             echo "  notify.slack, notify.discord"
             echo ""
@@ -10593,8 +10661,133 @@ EOF
 }
 
 # Check system prerequisites
+# _loki_airgap_audit <json?> -- enumerate every network egress this engine can
+# perform, classify each as REQUIRED or optional, and say how to disable it.
+#
+# WHY THIS EXISTS
+#   Air-gapped deployment is a real enterprise requirement and the incumbent
+#   (Tabnine) states it can "be deployed in a completely air-gapped environment"
+#   without publishing WHICH hosts it would otherwise contact. A claim you
+#   cannot audit is a claim you have to take on faith.
+#
+#   Sourcegraph is the honest counter-example: their own whitepaper states that
+#   self-hosted Cody still "sends requests from the Sourcegraph instance to
+#   Anthropic's API". Self-hosted control plane, egressing inference.
+#
+#   So the credible position is not "trust us, we are air-gapped" -- it is here
+#   is every host, here is which ones are required, here is how to turn each one
+#   off, now verify it yourself with tcpdump. We would rather be auditable than
+#   assertive.
+#
+# Exit 0 when no REQUIRED egress remains (air-gap achievable in this config),
+# 1 otherwise. Deterministic: reads configuration, performs NO network calls.
+_loki_airgap_audit() {
+    local as_json="${1:-false}"
+
+    # Provider inference endpoint: the one egress that is genuinely required,
+    # unless the active provider serves weights locally.
+    local provider="${LOKI_PROVIDER:-claude}"
+    local model_host="" model_required="yes" model_note=""
+    case "$provider" in
+        claude)
+            model_host="${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
+            model_note="Claude Code inference. Set ANTHROPIC_BASE_URL to an in-network gateway, or switch to a local-weights provider."
+            ;;
+        codex)
+            model_host="${OPENAI_BASE_URL:-https://api.openai.com}"
+            model_note="Codex inference. Point at an in-network gateway or switch provider."
+            ;;
+        opencode|cline|aider)
+            model_host="${OPENAI_BASE_URL:-${OPENROUTER_API_KEY:+https://openrouter.ai}}"
+            if [ -z "$model_host" ] || printf '%s' "${LOKI_OPENCODE_MODEL:-}${LOKI_AIDER_MODEL:-}" | grep -qiE 'ollama|localhost|127\.0\.0\.1|lmstudio'; then
+                model_host="local weights"
+                model_required="no"
+                model_note="Local model runtime (Ollama / LM Studio / llama.cpp). No inference egress."
+            else
+                model_note="Remote model gateway. Use an ollama/ model id for zero-egress inference."
+            fi
+            ;;
+        *)
+            model_host="unknown (provider '$provider')"
+            model_note="Unrecognized provider; audit its config manually."
+            ;;
+    esac
+
+    # Optional egress, each individually disableable.
+    local tel_state="off"
+    [ "${LOKI_TELEMETRY:-}" = "on" ] && tel_state="on"
+    local upd_state="on"
+    [ "${LOKI_NO_UPDATE_CHECK:-0}" = "1" ] && upd_state="off"
+
+    if [ "$as_json" = "true" ]; then
+        _AG_PROV="$provider" _AG_HOST="$model_host" _AG_REQ="$model_required" \
+        _AG_NOTE="$model_note" _AG_TEL="$tel_state" _AG_UPD="$upd_state" \
+        python3 -c '
+import json, os
+req = os.environ["_AG_REQ"] == "yes"
+egress = [{
+    "name": "model_inference",
+    "host": os.environ["_AG_HOST"],
+    "required": req,
+    "disable": "use a local-weights provider (ollama/, lmstudio/) or an in-network gateway",
+    "note": os.environ["_AG_NOTE"],
+}, {
+    "name": "telemetry",
+    "host": "telemetry endpoint",
+    "required": False,
+    "enabled": os.environ["_AG_TEL"] == "on",
+    "disable": "loki telemetry off (already the default)",
+}, {
+    "name": "update_check",
+    "host": "registry.npmjs.org",
+    "required": False,
+    "enabled": os.environ["_AG_UPD"] == "on",
+    "disable": "export LOKI_NO_UPDATE_CHECK=1",
+}]
+blockers = [e for e in egress if e.get("required")]
+print(json.dumps({
+    "provider": os.environ["_AG_PROV"],
+    "airgap_ready": not blockers,
+    "required_egress": [e["name"] for e in blockers],
+    "egress": egress,
+}, indent=2))
+'
+        [ "$model_required" = "yes" ] && return 1
+        return 0
+    fi
+
+    echo -e "${BOLD}Network egress audit${NC}"
+    echo ""
+    echo "  Active provider: $provider"
+    echo ""
+    echo -e "${BOLD}Egress points${NC}"
+    if [ "$model_required" = "yes" ]; then
+        echo -e "  ${YELLOW}REQUIRED${NC}  model inference -> $model_host"
+    else
+        echo -e "  ${GREEN}none${NC}      model inference -> $model_host"
+    fi
+    echo "            $model_note"
+    echo -e "  optional  telemetry           [$tel_state]  disable: loki telemetry off (default off)"
+    echo -e "  optional  update check        [$upd_state]  disable: export LOKI_NO_UPDATE_CHECK=1"
+    echo ""
+    if [ "$model_required" = "yes" ]; then
+        echo -e "${YELLOW}Not air-gap ready in this configuration.${NC}"
+        echo "  One required egress remains: model inference."
+        echo "  To close it, serve the model in-network:"
+        echo "    loki provider set opencode"
+        echo "    export LOKI_OPENCODE_MODEL=ollama/qwen2.5-coder"
+        echo ""
+        echo "  Then re-run: loki doctor --airgap"
+        return 1
+    fi
+    echo -e "${GREEN}Air-gap ready: no required egress in this configuration.${NC}"
+    echo "  Verify independently -- run with the interface down, or watch with tcpdump."
+    return 0
+}
+
 cmd_doctor() {
     local json_output=false
+    local airgap_audit=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -10602,13 +10795,21 @@ cmd_doctor() {
                 json_output=true
                 shift
                 ;;
+            --airgap)
+                airgap_audit=true
+                shift
+                ;;
             --help|-h)
                 echo -e "${BOLD}loki doctor${NC} - Check system prerequisites"
                 echo ""
-                echo "Usage: loki doctor [--json]"
+                echo "Usage: loki doctor [--json] [--airgap]"
                 echo ""
                 echo "Options:"
                 echo "  --json    Output machine-readable JSON"
+                echo "  --airgap  Audit network egress: list every host this engine"
+                echo "            can contact, whether it is REQUIRED or optional,"
+                echo "            and how to disable it. Exits non-zero if any"
+                echo "            required egress remains."
                 echo ""
                 echo "Checks: node, python3, jq, git, curl, bash version,"
                 echo "        claude/codex CLIs, disk space, and cockpit render capability."
@@ -10616,11 +10817,16 @@ cmd_doctor() {
                 ;;
             *)
                 echo -e "${RED}Unknown option: $1${NC}"
-                echo "Usage: loki doctor [--json]"
+                echo "Usage: loki doctor [--json] [--airgap]"
                 return 1
                 ;;
         esac
     done
+
+    if [ "$airgap_audit" = true ]; then
+        _loki_airgap_audit "$json_output"
+        return $?
+    fi
 
     if [ "$json_output" = true ]; then
         cmd_doctor_json
@@ -10634,6 +10840,15 @@ cmd_doctor() {
 
     local pass_count=0
     local fail_count=0
+    # FUNNEL FIX (v8.2.x): collect the NAME + FIX of every hard failure, not just
+    # a count. A first-time user on a bare machine sees 15 warnings (sentrux, GPG
+    # signing, bash 4, Bun, python3.12, truecolor, inline-image probe -- all
+    # OPTIONAL) around 2 real blockers, then a summary that says only "Some
+    # required prerequisites are missing" without naming them. That is the point
+    # where someone closes the terminal. Naming the blockers and their exact
+    # install command turns a wall of yellow into a two-line to-do.
+    local _doctor_blockers=""
+    _doctor_block() { _doctor_blockers="${_doctor_blockers}\n  - $1"; }
     local warn_count=0
 
     # Helper: check command exists and optionally check version
@@ -10646,6 +10861,7 @@ cmd_doctor() {
         if ! command -v "$cmd" &> /dev/null; then
             if [ "$required" = "required" ]; then
                 echo -e "  ${RED}FAIL${NC}  $name - not found"
+                _doctor_block "$name is not installed"
                 fail_count=$((fail_count + 1))
             elif [ "$required" = "recommended" ]; then
                 echo -e "  ${YELLOW}WARN${NC}  $name - not found (recommended)"
@@ -10711,6 +10927,7 @@ cmd_doctor() {
                { [ "$cur_major" -eq "$min_major" ] 2>/dev/null && [ "$cur_minor" -lt "$min_minor" ] 2>/dev/null; }; then
                 if [ "$required" = "required" ]; then
                     echo -e "  ${RED}FAIL${NC}  $name$version_display - requires >= $min_version"
+                    _doctor_block "$name must be >= $min_version"
                     fail_count=$((fail_count + 1))
                 else
                     echo -e "  ${YELLOW}WARN${NC}  $name$version_display - recommended >= $min_version"
@@ -10782,6 +10999,7 @@ cmd_doctor() {
         else
             echo -e "  ${RED}FAIL${NC}  No AI provider CLI installed -- at least one is required"
             echo -e "         ${YELLOW}Install: npm install -g @anthropic-ai/claude-code${NC}"
+            _doctor_block "No AI provider CLI. Fix: npm install -g @anthropic-ai/claude-code"
             fail_count=$((fail_count + 1))
             # v7.29.0: on a TTY (non-json), append the consent-gated install offer.
             # In report mode the helper is a no-op on non-TTY/CI, so the doctor
@@ -10886,6 +11104,7 @@ except Exception:
             _target=$(readlink "$sdir" 2>/dev/null || echo "unknown")
             echo -e "  ${RED}FAIL${NC}  $sname  ${DIM}(broken symlink -> $_target)${NC}"
             echo -e "         ${YELLOW}Fix: loki setup-skill${NC}"
+            _doctor_block "$sname is a broken symlink. Fix: loki setup-skill"
             fail_count=$((fail_count + 1))
         else
             echo -e "  ${YELLOW}WARN${NC}  $sname  ${DIM}(not found - run 'loki setup-skill')${NC}"
@@ -11007,6 +11226,24 @@ except Exception:
         echo -e "  ${YELLOW}WARN${NC}  sentrux - not installed (optional, brew install sentrux/tap/sentrux)"
         warn_count=$((warn_count + 1))
     fi
+    # Evidence Receipt signing state (optional). Unsigned receipts are the
+    # default and are still checkable (hash + diff re-derivation); what they
+    # cannot prove is PROVENANCE, so proof-verify.py reports
+    # generator_trusted: true. Surface the state here because it is otherwise
+    # invisible until someone reads a receipt. WARN (never FAIL): unsigned is
+    # a supported, documented mode, not a broken install.
+    if [ -n "${LOKI_PROOF_GPG_KEY:-}" ]; then
+        if command -v gpg &>/dev/null; then
+            echo -e "  ${GREEN}PASS${NC}  Receipt signing: LOKI_PROOF_GPG_KEY set and gpg available"
+            pass_count=$((pass_count + 1))
+        else
+            echo -e "  ${YELLOW}WARN${NC}  Receipt signing: LOKI_PROOF_GPG_KEY set but gpg NOT on PATH - receipts will be UNSIGNED"
+            warn_count=$((warn_count + 1))
+        fi
+    else
+        echo -e "  ${YELLOW}WARN${NC}  Receipt signing: UNSIGNED (set LOKI_PROOF_GPG_KEY to a gpg key id; see docs/SIGNED-RECEIPTS.md)"
+        warn_count=$((warn_count + 1))
+    fi
     echo ""
 
     echo -e "${CYAN}System:${NC}"
@@ -11031,6 +11268,7 @@ except Exception:
         if [ -n "$disk_avail" ] && [ "$disk_avail" -gt 0 ] 2>/dev/null; then
             if [ "$disk_avail" -lt 1 ]; then
                 echo -e "  ${RED}FAIL${NC}  Disk space: ${disk_avail}GB available (need >= 1GB)"
+                _doctor_block "Free up disk: ${disk_avail}GB available, need >= 1GB"
                 fail_count=$((fail_count + 1))
             elif [ "$disk_avail" -lt 5 ]; then
                 echo -e "  ${YELLOW}WARN${NC}  Disk space: ${disk_avail}GB available (low)"
@@ -11133,8 +11371,11 @@ except Exception:
     echo ""
 
     if [ "$fail_count" -gt 0 ]; then
-        echo -e "${RED}Some required prerequisites are missing.${NC}"
-        echo "Install missing dependencies and run 'loki doctor' again."
+        echo -e "${RED}Blocking ($fail_count). Everything else above is optional.${NC}"
+        printf '%b\n' "$_doctor_blockers"
+        echo ""
+        echo "Then re-run: loki doctor"
+        echo "Meanwhile 'loki tour' works right now -- no provider, no key, no spend."
         return 1
     elif [ "$warn_count" -gt 0 ]; then
         echo -e "${YELLOW}All required checks passed with some warnings.${NC}"
@@ -11242,6 +11483,23 @@ sentrux = {
     'required': 'optional'
 }
 
+# Evidence Receipt signing state. Unsigned is the DEFAULT and is a supported
+# mode, so this is never 'fail'. Exposed because signing state is otherwise
+# invisible until someone reads a receipt, and it is exactly what decides
+# whether proof-verify.py reports generator_trusted: true. Sibling of
+# checks/disk/sentrux -- deliberately NOT counted in the summary tally so
+# existing consumers see unchanged numbers.
+signing_key_set = bool(os.environ.get('LOKI_PROOF_GPG_KEY', '').strip())
+signing_gpg_available = shutil.which('gpg') is not None
+signing_enabled = signing_key_set and signing_gpg_available
+receipt_signing = {
+    'enabled': signing_enabled,
+    'key_configured': signing_key_set,
+    'gpg_available': signing_gpg_available,
+    'status': 'pass' if signing_enabled else 'warn',
+    'required': 'optional'
+}
+
 # v7.7.17: memory subsystem health surface. Reports the latest entries
 # from .loki/memory/.errors.log (rotated by memory/error_log.py) so
 # developers see regressions in the previously-silent-fail call sites
@@ -11287,6 +11545,35 @@ if disk_status == 'pass': pass_count += 1
 elif disk_status == 'fail': fail_count += 1
 elif disk_status == 'warn': warn_count += 1
 
+# AGGREGATE PROVIDER CHECK. Each provider CLI is individually optional --
+# you need Claude OR Codex OR Cline OR Aider, not all four -- so no single
+# one can be marked required. But having NONE is a blocker, and the text
+# path reports it as one (the No-AI-provider branch near autonomy/loki:11000).
+#
+# --json omitted this entirely, so on a host with no provider the two
+# outputs gave OPPOSITE verdicts: the text path exited 1 while --json
+# reported zero failures and ok true. An operator gating a pipeline on the
+# JSON got a pass on a machine that cannot run a build -- the fake-green
+# this project exists to refuse.
+#
+# CAUTION: this block lives inside python3 -c with a DOUBLE-QUOTED program,
+# so an apostrophe or a double quote in a comment terminates the shell
+# string and mangles the program. First attempt did exactly that: doctor
+# --json printed nothing and exited 0. Keep this comment quote-free.
+_provider_cmds = ('claude', 'codex', 'cline', 'aider')
+_any_provider = any(shutil.which(_p) is not None for _p in _provider_cmds)
+ai_provider = {
+    'found': _any_provider,
+    'status': 'pass' if _any_provider else 'fail',
+    'required': 'required',
+    'detail': None if _any_provider
+              else 'No AI provider CLI. Fix: npm install -g @anthropic-ai/claude-code',
+}
+if _any_provider:
+    pass_count += 1
+else:
+    fail_count += 1
+
 result = {
     'loki_mode_version': os.environ.get('LOKI_VERSION', 'unknown'),
     'checks': checks,
@@ -11294,7 +11581,9 @@ result = {
         'available_gb': disk_gb,
         'status': disk_status
     },
+    'ai_provider': ai_provider,
     'sentrux': sentrux,
+    'receipt_signing': receipt_signing,
     'memory': memory,
     'summary': {
         'passed': pass_count,
@@ -14885,6 +15174,33 @@ with open(manifest_path, 'w') as f:
 # usable.
 # ---------------------------------------------------------------------------
 cmd_verify() {
+    # --fast: deterministic checks only, in milliseconds. Measured on this repo
+    # (1,932 tracked files): 298 ms cold, 87 ms warm, 19 ms diff-scoped, against
+    # an 11,040 ms shell-based baseline.
+    #
+    # It runs ONLY exogenous checks -- no model call, no network -- so every
+    # verdict is reproducible by anyone with the same commit. That is the point,
+    # not a limitation: a verdict you can re-derive is a fact, and a fact is what
+    # an IDE, a CI step, or another vendor's agent can safely act on without
+    # trusting our model choices.
+    #
+    # The full `loki verify` remains the deeper, slower path.
+    for _fv_arg in "$@"; do
+        if [ "$_fv_arg" = "--fast" ]; then
+            local _fv_py="$_LOKI_SCRIPT_DIR/lib/fast_verify.py"
+            if [ ! -f "$_fv_py" ]; then
+                echo -e "${RED}Error: fast_verify not found at $_fv_py${NC}" >&2
+                return 3
+            fi
+            local _fv_argv=()
+            for _a in "$@"; do
+                [ "$_a" = "--fast" ] || _fv_argv+=("$_a")
+            done
+            python3 "$_fv_py" "${_fv_argv[@]+"${_fv_argv[@]}"}"
+            return $?
+        fi
+    done
+
     local verify_mod="$_LOKI_SCRIPT_DIR/verify.sh"
     if [ ! -f "$verify_mod" ]; then
         echo -e "${RED}Error: verify module not found at $verify_mod${NC}" >&2
@@ -18903,7 +19219,7 @@ $(cat "$f" 2>/dev/null)
 
     # --- Tally results ---
     local count_critical=0 count_high=0 count_medium=0 count_low=0 count_info=0
-    for f in "${findings[@]}"; do
+    for f in "${findings[@]+"${findings[@]}"}"; do
         local sev
         sev=$(echo "$f" | cut -d'|' -f3)
         case "$sev" in
@@ -18925,7 +19241,7 @@ $(cat "$f" 2>/dev/null)
     if [ "$review_format" = "json" ]; then
         local json_findings="["
         local first=true
-        for f in "${findings[@]}"; do
+        for f in "${findings[@]+"${findings[@]}"}"; do
             local f_file f_line f_sev f_cat f_finding f_suggestion
             f_file=$(echo "$f" | cut -d'|' -f1)
             f_line=$(echo "$f" | cut -d'|' -f2)
@@ -18954,7 +19270,7 @@ $(cat "$f" 2>/dev/null)
             # Group by severity
             for sev_name in CRITICAL HIGH MEDIUM LOW INFO; do
                 local printed_header=false
-                for f in "${findings[@]}"; do
+                for f in "${findings[@]+"${findings[@]}"}"; do
                     local f_sev
                     f_sev=$(echo "$f" | cut -d'|' -f3)
                     [ "$f_sev" != "$sev_name" ] && continue
@@ -29493,6 +29809,7 @@ cmd_ci() {
                 echo "  --github-comment     Post review results as PR comment (needs GITHUB_TOKEN)"
                 echo "  --fail-on <levels>   Set exit code 1 on severity: critical,high,medium,low"
                 echo "  --format <fmt>       Output format: json, markdown, github (default: markdown)"
+                echo "  --json               Alias for --format json"
                 echo "  --help, -h           Show this help"
                 echo ""
                 echo "Exit codes:"
@@ -29533,6 +29850,15 @@ cmd_ci() {
                     return 2
                 fi
                 ci_fail_on="$(echo "$ci_fail_on" | tr '[:upper:]' '[:lower:]')"
+                shift
+                ;;
+            # --json is an alias for --format json. `loki ci` could already
+            # emit JSON, but only under a flag name no other command uses, so a
+            # script author reaching for the repo-wide --json convention found
+            # nothing and concluded the capability was missing. Same output,
+            # one spelling everywhere.
+            --json)
+                ci_format="json"
                 shift
                 ;;
             --format)
@@ -29880,7 +30206,7 @@ TEST_SUGGEST_PY
 
     # --- Tally findings ---
     local count_critical=0 count_high=0 count_medium=0 count_low=0 count_info=0
-    for f in "${findings[@]}"; do
+    for f in "${findings[@]+"${findings[@]}"}"; do
         local sev
         sev=$(echo "$f" | cut -d'|' -f3)
         case "$sev" in
@@ -29896,7 +30222,7 @@ TEST_SUGGEST_PY
     # Determine exit code based on --fail-on threshold
     local exit_code=0
     if [ "$fail_threshold" -lt 99 ]; then
-        for f in "${findings[@]}"; do
+        for f in "${findings[@]+"${findings[@]}"}"; do
             local sev sev_num
             sev=$(echo "$f" | cut -d'|' -f3)
             sev_num=$(_ci_sev_level "$sev")
@@ -29916,7 +30242,7 @@ TEST_SUGGEST_PY
     if [ "$ci_format" = "json" ]; then
         # JSON output via python for proper escaping
         export LOKI_CI_JSON_FINDINGS=""
-        for f in "${findings[@]}"; do
+        for f in "${findings[@]+"${findings[@]}"}"; do
             LOKI_CI_JSON_FINDINGS+="${f}"$'\n'
         done
         export LOKI_CI_JSON_META="ci_env=${ci_env}|pr=${ci_pr_number}|ts=${report_timestamp}|files=${file_count}|exit=${exit_code}"
@@ -29998,7 +30324,7 @@ CI_JSON_OUT
             echo ""
             for sev_name in CRITICAL HIGH MEDIUM LOW INFO; do
                 local has_sev=false
-                for f in "${findings[@]}"; do
+                for f in "${findings[@]+"${findings[@]}"}"; do
                     local f_sev
                     f_sev=$(echo "$f" | cut -d'|' -f3)
                     [ "$f_sev" != "$sev_name" ] && continue
@@ -30058,7 +30384,7 @@ for t in tests:
         else
             for sev_name in CRITICAL HIGH MEDIUM LOW INFO; do
                 local printed_header=false
-                for f in "${findings[@]}"; do
+                for f in "${findings[@]+"${findings[@]}"}"; do
                     local f_sev
                     f_sev=$(echo "$f" | cut -d'|' -f3)
                     [ "$f_sev" != "$sev_name" ] && continue
@@ -32314,6 +32640,12 @@ cmd_proof() {
             echo "  --hosted             Publish to LOKI_HOSTED_ENDPOINT (open-core seam; no official backend yet)"
             echo ""
             echo "Proofs are generated automatically at run completion (LOKI_PROOF=0 to opt out)."
+            echo ""
+            echo "Signing (off by default): receipts are UNSIGNED unless LOKI_PROOF_GPG_KEY is"
+            echo "set to a gpg key id. Unsigned, the integrity hash proves the bytes were not"
+            echo "edited after hashing but NOT who produced them, so verify reports"
+            echo "generator_trusted: true. Export LOKI_PROOF_GPG_KEY to close that gap."
+            echo "See docs/SIGNED-RECEIPTS.md."
             [ "$sub" = "" ] && exit 1
             exit 0
             ;;

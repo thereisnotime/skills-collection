@@ -51,7 +51,7 @@ The repository intentionally contains only the skills, minimal plugin manifests,
 
 ### Maintainer Suite
 
-Optional toolkit for people who maintain skill or plugin repositories and other GitHub projects. Users who only consume the engineering skills do not need to install it.
+Optional maintainer toolkit: skill 61 reviews skill repositories, skill 62 publishes any Git repository with equivalent remote evidence, and skills 63–64 publish GitHub releases and Discussions. Users who only consume the engineering skills do not need to install it.
 
 | Index | Skill | Purpose |
 |---:|---|---|
@@ -86,7 +86,10 @@ Add the marketplace and install only the suites you need:
 /plugin install product-discovery-suite@levnikolaevich-skills-marketplace
 /plugin install maintainer-suite@levnikolaevich-skills-marketplace
 /plugin install architecture-suite@levnikolaevich-skills-marketplace
+/reload-plugins
 ```
+
+Invoke a skill by its namespaced name, for example `/review-suite:ln-12-delivery-reviewer`.
 
 For local development, load one plugin directly:
 
@@ -129,10 +132,10 @@ This is the smallest practical shared layout for distributed plugins:
 
 - Both hosts use `skills/<name>/SKILL.md`, so each skill has one canonical copy.
 - Codex requires `.codex-plugin/plugin.json` for a plugin.
-- Claude Code can expose a standard `skills/` directory from the marketplace entry, so duplicate per-plugin Claude manifests are unnecessary here.
+- Claude Code automatically scans each manifest-less marketplace source's standard `skills/` directory, so duplicate per-plugin Claude manifests are unnecessary here.
 - `agents/openai.yaml`, references, scripts, assets, hooks, agents, and MCP configuration are optional and omitted until a concrete need appears.
 
-The structure follows the current official [Codex skill guide](https://learn.chatgpt.com/docs/build-skills), [Codex plugin guide](https://learn.chatgpt.com/docs/build-plugins), [Claude Code skill guide](https://code.claude.com/docs/en/skills), and [Claude Code plugin reference](https://code.claude.com/docs/en/plugins-reference).
+The structure follows the current official [Codex skill guide](https://developers.openai.com/codex/skills), [OpenAI plugin guide](https://developers.openai.com/plugins/build/plugins), [Claude Code skill guide](https://code.claude.com/docs/en/skills), and [Claude Code plugin reference](https://code.claude.com/docs/en/plugins-reference).
 
 ## Indexing
 

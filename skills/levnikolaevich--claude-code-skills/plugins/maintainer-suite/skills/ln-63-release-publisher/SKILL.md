@@ -18,10 +18,10 @@ Before returning, apply this skill's verdict, decision, and approval rules to ev
 | Existing release style and state | Authenticated GitHub CLI or connector | Public GitHub API for read-only evidence |
 | Release identity and version scope | Repository policy, prior tags, and canonical version files when present | Stop only when the release identity remains ambiguous |
 | Release validation | Repository-native gates and clean checkout | Manual structural checks with reduced confidence |
-| Tag and GitHub Release creation | Git plus authenticated GitHub CLI | `BLOCKED`; do not emulate release state in files |
+| Tag and GitHub Release creation | Git plus an authenticated GitHub release capability | `BLOCKED`; do not emulate release state in files |
 | Installation verification | Isolated environment against the documented distribution source | Clean source validation without install proof |
 
-Use a temporary notes file for publication so Markdown, quotes, and code blocks are not reinterpreted by the shell. Keep credentials in the host credential store and never echo them.
+When publishing through a shell, use a temporary notes file so Markdown, quotes, and code blocks are not reinterpreted. Keep credentials in the host credential store and never echo them.
 
 Do not browse for generic release advice when repository policy and previous comparable releases answer the question. Use official host documentation only for current API or CLI behavior.
 
@@ -29,7 +29,7 @@ Do not browse for generic release advice when repository policy and previous com
 
 - [ ] Confirm the user explicitly requested a release and identify the repository, release target, and intended audience.
 - [ ] Read repository release rules before selecting a version, tag shape, files, or publication sequence.
-- [ ] Verify GitHub CLI availability, authentication, repository access, and permission to create releases.
+- [ ] Verify an authenticated GitHub release capability, repository access, and permission to create releases.
 - [ ] Require a clean worktree or explicitly exclude unrelated changes before release preparation.
 - [ ] Fetch tags and the target branch; confirm local HEAD is synchronized with the remote release branch.
 - [ ] Find the latest relevant tag and GitHub Release rather than assuming the newest tag belongs to this release line.

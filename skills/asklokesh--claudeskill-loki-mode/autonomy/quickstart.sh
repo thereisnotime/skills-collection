@@ -174,17 +174,30 @@ _qs_score_templates() {
     local tdir; tdir="$(_qs_templates_dir)"
     local brief_lc; brief_lc=$(printf '%s' "$brief" | tr '[:upper:]' '[:lower:]')
 
-    declare -A scores
+    # BASH 3.2 COMPATIBLE. This used `declare -A scores`, a bash 4 associative
+    # array. macOS ships bash 3.2.57 as /bin/bash (frozen since 2007, GPLv2,
+    # and Apple will not update it), so on the stock shell of the most common
+    # developer platform this function printed
+    #     declare: -A: invalid option
+    # and returned ZERO templates. The function body parses fine, which is why
+    # sourcing looked healthy and the failure only appeared when CALLED --
+    # and the test harness runs under homebrew bash 5, so nothing caught it.
+    # `loki quickstart` is the guided first build we point new users at, so
+    # this was a first-run failure on Macs.
+    #
+    # Scores are kept in a flat "name<TAB>score" list instead. Same semantics,
+    # portable to 3.2, and the final sort was already doing the ordering work.
+    local scores=""
     local name f
     while IFS= read -r f; do
         [ -z "$f" ] && continue
         name=$(basename "$f" .md)
         [ "$name" = "README" ] && continue
-        scores["$name"]=0
+        scores="${scores}${name}\t0\n"
     done < <(ls "$tdir"/*.md 2>/dev/null)
 
     # No templates resolvable: fall back to the guaranteed default only.
-    if [ "${#scores[@]}" -eq 0 ]; then
+    if [ -z "$scores" ]; then
         printf 'simple-todo-app\n'
         return 0
     fi
@@ -192,37 +205,52 @@ _qs_score_templates() {
     local -a tokens
     read -ra tokens <<< "$(printf '%s' "$brief_lc" | tr -cs 'a-z0-9' ' ')"
 
-    local tok kw tmpl wt
+    # Build the additive score deltas, then fold them in once with awk. Doing
+    # the arithmetic in awk rather than a bash re-write loop keeps this O(n) and
+    # avoids quoting a growing string repeatedly.
+    local deltas="" tok kw tmpl wt
     for tok in "${tokens[@]}"; do
         [ -z "$tok" ] && continue
         _qs_is_stopword "$tok" && continue
-        for name in "${!scores[@]}"; do
+        # +2 per template whose hyphenated name contains the token.
+        while IFS=$'\t' read -r name _; do
+            [ -z "$name" ] && continue
             case "-$name-" in
-                *"-$tok-"*) scores["$name"]=$(( ${scores["$name"]} + 2 ));;
+                *"-$tok-"*) deltas="${deltas}${name}\t2\n";;
             esac
-        done
+        done < <(printf '%b' "$scores")
+        # Curated keyword weights.
         while IFS=: read -r kw tmpl wt; do
             [ -z "$kw" ] && continue
             [ -z "$wt" ] && wt=3
-            if [ "$tok" = "$kw" ] && [ -n "${scores[$tmpl]+x}" ]; then
-                scores["$tmpl"]=$(( ${scores["$tmpl"]} + wt ))
+            if [ "$tok" = "$kw" ]; then
+                deltas="${deltas}${tmpl}\t${wt}\n"
             fi
         done < <(_qs_keyword_map)
     done
 
-    # Guaranteed default baseline.
-    if [ -n "${scores[simple-todo-app]+x}" ]; then
-        scores["simple-todo-app"]=$(( ${scores["simple-todo-app"]} + 1 ))
-    fi
+    # Guaranteed default baseline: simple-todo-app gets +1 and wins exact ties.
+    deltas="${deltas}simple-todo-app\t1\n"
 
-    # Emit "score<TAB>priority<TAB>name"; sort by score desc, priority asc
-    # (simple-todo-app=0 wins ties), then name asc for full determinism.
-    local prio
-    for name in "${!scores[@]}"; do
-        prio=1
-        [ "$name" = "simple-todo-app" ] && prio=0
-        printf '%s\t%s\t%s\n' "${scores[$name]}" "$prio" "$name"
-    done | sort -t$'\t' -k1,1nr -k2,2n -k3,3 | head -3 | cut -f3
+    # Fold: keep only names that are REAL templates (a keyword map entry naming
+    # a template that does not exist must not invent one), sum the deltas, then
+    # sort by score desc, priority asc (simple-todo-app=0 wins ties), name asc.
+    printf '%b' "$scores" > /dev/null  # (no-op guard: scores is always non-empty here)
+    {
+        printf '%b' "$scores"
+        printf '%b' "$deltas"
+    } | awk -F'\t' '
+        NF < 2 { next }
+        # First pass marker: names present in the base list are valid templates.
+        { sum[$1] += $2; if (!($1 in seen) && $2 == 0) seen[$1] = 1 }
+        END {
+            for (n in sum) {
+                if (!(n in seen)) continue
+                prio = (n == "simple-todo-app") ? 0 : 1
+                printf "%d\t%d\t%s\n", sum[n], prio, n
+            }
+        }
+    ' | sort -t"$(printf '\t')" -k1,1nr -k2,2n -k3,3 | head -3 | cut -f3
 }
 
 # _qs_template_summary <name>: a short one-line description for the picker.

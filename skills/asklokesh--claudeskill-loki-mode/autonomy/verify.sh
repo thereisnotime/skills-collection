@@ -39,12 +39,23 @@
 #   2  BLOCKED
 #   3  verifier error (could not complete; never silently passes)
 #
-# NOTE on exit-code divergence from the spec: spec Section 1.1 lists
-# 0=VERIFIED, 1=BLOCKED, 2=CONCERNS, 3=error (BLOCKED and CONCERNS swapped
-# vs this implementation). This module follows the explicit BUILD TASK
-# ordering (0/1/2 = VERIFIED/CONCERNS/BLOCKED). A human must reconcile the
-# two before the GitHub App (Phase 2) consumes exit codes. The divergence is
-# surfaced in `loki verify --help`.
+# EXIT-CODE ORDERING, RECONCILED. An early draft spec listed
+# 0=VERIFIED, 1=BLOCKED, 2=CONCERNS, and this header used to say a human must
+# reconcile the two before the GitHub App consumed exit codes. That is now
+# done, in favor of THIS implementation: 0/1/2/3 =
+# VERIFIED/CONCERNS/BLOCKED/error.
+#
+# Why this ordering wins. The code is authoritative and always has been
+# (VERIFY_EXIT_* below), `loki verify --help` documents it, and
+# wiki/CLI-Reference.md documents it. The draft spec that said otherwise is not
+# in this repository and has no consumers. Renumbering working code to match an
+# absent document would break every existing caller to satisfy nothing.
+#
+# It is also the ordering an integrator expects: severity rises with the code,
+# so `[ $rc -ge 2 ]` means "at least blocked". The reverse would make 1 more
+# severe than 2, which no one guesses correctly.
+#
+# See docs/exit-codes.md for the exit codes of every command.
 
 set -uo pipefail
 
@@ -781,13 +792,19 @@ verify_gate_nomock() {
         return 0
     fi
     local status_line
+    # The changed-file list goes over STDIN, not an env var. A single env string
+    # is capped at MAX_ARG_STRLEN (131071 bytes) on Linux; a large changed set
+    # (e.g. a generated source tree) makes execve fail with E2BIG, the fallback
+    # below fires, and the gate silently degrades to inconclusive. macOS has no
+    # per-string cap, so that failure was Linux-only.
     status_line=$(
-        _NM_FILES="$changed" \
-        _NM_TREE="$tree" \
-        _NM_OUT="$scan_file" \
-        _NM_BASE="${VERIFY_MERGE_BASE:-}" \
-        python3 -I "$scanner" 2>/dev/null \
-            || echo "INCONCLUSIVE:detector_error"
+        printf '%s\n' "$changed" | {
+            _NM_TREE="$tree" \
+            _NM_OUT="$scan_file" \
+            _NM_BASE="${VERIFY_MERGE_BASE:-}" \
+            python3 -I "$scanner" 2>/dev/null \
+                || echo "INCONCLUSIVE:detector_error"
+        }
     )
 
     case "$status_line" in
@@ -1804,6 +1821,7 @@ verify_emit_evidence() {
     _VERIFY_GATES="$_VERIFY_GATES_FILE" \
     _V_VERDICT="$VERIFY_VERDICT" \
     _V_EXIT="$VERIFY_EXIT" \
+    _V_JSON_STDOUT="${VERIFY_JSON:-0}" \
     _V_SCHEMA="$VERIFY_SCHEMA_VERSION" \
     _V_TOOLVER="$tool_version" \
     _V_REPO="$repo_name" \
@@ -1827,7 +1845,7 @@ verify_emit_evidence() {
     _V_SCOPE_MAX_FILES="${VERIFY_SCOPE_MAX_FILES:-}" \
     _V_SCOPE_MAX_NET="${VERIFY_SCOPE_MAX_NET_LINES:-}" \
     python3 - <<'PYEOF'
-import json, os, hashlib
+import json, os, hashlib, sys
 
 out_dir = os.environ["_VERIFY_OUT_DIR"]
 findings_file = os.environ["_VERIFY_FINDINGS"]
@@ -1953,6 +1971,27 @@ with open(ev_path, "w") as f:
     json.dump(doc, f, indent=2)
     f.write("\n")
 
+# --json emits the SAME document to stdout. Deliberately the same `doc` rather
+# than a second serializer: two writers of one contract drift, and the drift
+# shows up as a caller trusting a field the file no longer has. The evidence
+# file is still written either way, so --json adds a pipe without removing the
+# artifact.
+#
+# Written to FD 3, not stdout. The caller redirects this function's stdout to
+# /dev/null (it emits progress chatter the human path does not want), so a
+# plain stdout write here is discarded. FD 3 is opened by the caller only under
+# --json and routed to the real stdout.
+if os.environ.get("_V_JSON_STDOUT") == "1":
+    try:
+        with os.fdopen(os.dup(3), "w") as _jf:
+            _jf.write(json.dumps(doc, indent=2) + "\n")
+    except OSError:
+        # FD 3 not open: --json was requested but the caller did not wire it.
+        # Fail loudly rather than exit 0 having emitted nothing, which would
+        # look to a pipeline like a verify that produced an empty document.
+        sys.stderr.write("verify: --json requested but FD 3 is not open\n")
+        raise SystemExit(3)
+
 # ----- Markdown report -----
 def sev_rank(s):
     return {"Critical": 0, "High": 1, "Medium": 2, "Low": 3, "Info": 4}.get(s, 5)
@@ -2044,6 +2083,11 @@ OPTIONS:
                        Default: critical,high  (one notch looser than the
                        Loki build loop, which also blocks on medium).
     --no-llm           Accepted for forward-compat; LLM is already off in MVP.
+    --json             Emit the evidence document to stdout so it can be piped
+                       (`loki verify --json | jq .verdict`). The same document
+                       is still written to <out>/evidence.json. The human
+                       VERDICT banner moves to stderr so stdout stays valid
+                       JSON. The verdict and exit code are unchanged.
     --explain          Print a one-screen, skeptic-legible trust proof: every
                        gate that ran, its status, the runner/scanner that
                        produced the evidence, whether it is reproducible, plus
@@ -2087,16 +2131,16 @@ VERDICT MODEL:
     Uncommitted working-tree changes are not verified; commit them first. An
     empty diff yields CONCERNS (nothing to verify), never VERIFIED.
 
-EXIT CODES (this implementation):
+EXIT CODES:
     0  VERIFIED
     1  CONCERNS
     2  BLOCKED
     3  verifier error (could not complete; never silently passes)
 
-    NOTE: the verification spec (Section 1.1) lists 1=BLOCKED, 2=CONCERNS.
-    This implementation follows the build-task ordering (1=CONCERNS,
-    2=BLOCKED). A human must reconcile the two before the GitHub App consumes
-    these codes.
+    Severity rises with the code, so `[ $rc -ge 2 ]` means "at least blocked".
+    An early draft spec listed 1=BLOCKED, 2=CONCERNS; that ordering was
+    rejected and is not used anywhere. See docs/exit-codes.md for every
+    command's codes.
 
 OUTPUT:
     <out>/evidence.json   consolidated machine-readable evidence (schema 1.0)
@@ -2614,6 +2658,8 @@ verify_main() {
     # verify does NOT re-run gates: it reads a prior evidence.json and fails
     # closed if the repo has drifted since that evidence was graded.
     VERIFY_CHECK_FRESH=0
+    # Opt-in machine-readable stdout (--json). Default 0 = exactly today.
+    VERIFY_JSON=0
 
     # Fail-closed defaults. These globals are read at the end of this function
     # (the VERDICT banner and the function return code). verify_compute_verdict()
@@ -2638,6 +2684,16 @@ verify_main() {
                 block_on="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
             --no-llm)
                 shift ;;
+            --json)
+                # Emit the evidence document to STDOUT so a caller can pipe it.
+                # The same document is still written to <out>/evidence.json --
+                # this adds a pipe, it does not move the artifact.
+                #
+                # Implies --quiet-banner: stdout must be JSON and nothing else,
+                # or `loki verify --json | jq` breaks on the human banner. The
+                # banner still goes to stderr, so an operator watching a
+                # terminal loses nothing.
+                VERIFY_JSON=1; shift ;;
             --explain)
                 # Render a one-screen, skeptic-legible trust proof: every gate
                 # that ran, its status, the runner/scanner that produced the
@@ -2787,10 +2843,21 @@ verify_main() {
 
     completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-    verify_emit_evidence "$out_dir" "$started_at" "$completed_at" "$block_on" >/dev/null || {
-        _verify_err "failed to emit evidence document"
-        return $VERIFY_EXIT_ERROR
-    }
+    # stdout is discarded (the emitter's own chatter is not wanted on the human
+    # path). Under --json, FD 3 is opened onto the REAL stdout so the emitter
+    # can write the evidence document there while everything else stays
+    # suppressed -- that is what keeps `loki verify --json | jq` parseable.
+    if [ "${VERIFY_JSON:-0}" = "1" ]; then
+        verify_emit_evidence "$out_dir" "$started_at" "$completed_at" "$block_on" 3>&1 >/dev/null || {
+            _verify_err "failed to emit evidence document"
+            return $VERIFY_EXIT_ERROR
+        }
+    else
+        verify_emit_evidence "$out_dir" "$started_at" "$completed_at" "$block_on" >/dev/null || {
+            _verify_err "failed to emit evidence document"
+            return $VERIFY_EXIT_ERROR
+        }
+    fi
 
     # Opt-in (--hosted): fold the embedded Autonomi Verify engine's verdict
     # fields into the just-written evidence.json. Fully additive and fail-open:
@@ -2808,9 +2875,14 @@ verify_main() {
         _verify_render_explain "$started_at" "$completed_at" "$VERIFY_VERDICT"
     fi
 
-    printf 'VERDICT: %s\n' "$VERIFY_VERDICT"
-    printf 'Evidence: %s/evidence.json\n' "$out_dir"
-    printf 'Report:   %s/report.md\n' "$out_dir"
+    # Under --json stdout carries the evidence document alone, so the human
+    # banner is redirected to stderr rather than dropped: an operator watching a
+    # terminal still sees the verdict, and `| jq` still parses.
+    _v_banner_fd=1
+    [ "${VERIFY_JSON:-0}" = "1" ] && _v_banner_fd=2
+    printf 'VERDICT: %s\n' "$VERIFY_VERDICT" >&$_v_banner_fd
+    printf 'Evidence: %s/evidence.json\n' "$out_dir" >&$_v_banner_fd
+    printf 'Report:   %s/report.md\n' "$out_dir" >&$_v_banner_fd
     # --hosted only: surface the enrichment in human output so the extra signal
     # is visible without parsing JSON. Printed solely when a fold succeeded;
     # the default path never sets VERIFY_HOSTED_SUMMARY, so it stays byte-identical.

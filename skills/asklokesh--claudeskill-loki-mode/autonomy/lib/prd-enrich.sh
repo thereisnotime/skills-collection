@@ -97,8 +97,14 @@ _loki_prd_enrich_invoke() {
 # Decide whether enrichment should even be attempted. Returns 0 (attempt)
 # only when the active provider is claude and not in degraded mode.
 _loki_prd_enrich_provider_ok() {
-    [ "${LOKI_PROVIDER:-claude}" = "claude" ] || return 1
     [ "${PROVIDER_DEGRADED:-false}" != "true" ] || return 1
+    # v8.2.0: capability, not identity. A provider exposing the timeout-able
+    # argv seam can run enrichment regardless of which CLI it is. Mirrors
+    # _loki_done_recog_provider_ok (autonomy/lib/done-recognition.sh).
+    if type provider_invoke_argv >/dev/null 2>&1; then
+        return 0
+    fi
+    [ "${LOKI_PROVIDER:-claude}" = "claude" ] || return 1
     # v8: the raw-SDK enrich path (LOKI_SDK_PRD_ENRICH=1) needs no claude binary,
     # so attempt is viable when that path is usable (bridge + bun). The invoke fn
     # still fails closed to claude on an SDK miss.

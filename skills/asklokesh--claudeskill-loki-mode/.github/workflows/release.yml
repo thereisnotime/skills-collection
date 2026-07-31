@@ -411,6 +411,14 @@ jobs:
     needs: release
     if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
+    # id-token: write is what makes cosign KEYLESS signing possible -- it mints
+    # the short-lived OIDC token that Fulcio exchanges for a signing
+    # certificate, so no private key is ever stored or rotated by us. Scoped to
+    # this job rather than the workflow: every other job here publishes
+    # artifacts and has no business minting identity tokens.
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -456,6 +464,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push (amd64 + arm64)
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -465,6 +474,73 @@ jobs:
             asklokesh/loki-mode:v${{ needs.release.outputs.version }}
             asklokesh/loki-mode:${{ needs.release.outputs.version }}
             asklokesh/loki-mode:latest
+
+      # SIGNING AND SBOM LIVE HERE, NOT IN provenance.yml, AND THAT IS THE POINT.
+      #
+      # provenance.yml triggers on `release: published`. Releases in this repo are
+      # created by release.yml using the default GITHUB_TOKEN, and GitHub
+      # deliberately does not emit trigger events for actions taken with that
+      # token -- otherwise a workflow could recursively trigger itself. So
+      # provenance.yml has never once fired on a real release: its only two runs
+      # ever were manual workflow_dispatch on 2026-04-26, and the registry
+      # confirms the consequence -- zero `sha256-*.sig` tags exist on
+      # asklokesh/loki-mode despite the header comment in provenance.yml
+      # claiming images are signed.
+      #
+      # A dead workflow shows up as an EMPTY run list, never as a red one, which
+      # is why this went unnoticed for months across many releases. Signing in
+      # the same job that pushed the image removes the trigger from the equation
+      # entirely: if the image published, the signature ran.
+      #
+      # We sign the DIGEST rather than a tag. Tags are mutable -- `latest` and
+      # even a version tag can be repointed -- so a signature bound to a tag
+      # attests to whatever that tag happens to mean today. A digest is the
+      # content itself.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.4.1'
+
+      - name: Sign the image digest (keyless)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test -n "$DIGEST" || { echo "FATAL: build step produced no digest"; exit 1; }
+          REF="asklokesh/loki-mode@${DIGEST}"
+          cosign sign --yes "$REF"
+          echo "Signed ${REF}"
+
+      # The SBOM that already existed describes the npm TARBALL. Anyone
+      # deploying via Helm or ECS runs the IMAGE, which carries an OS layer, a
+      # Python runtime and system packages that the npm SBOM never listed. An
+      # enterprise scanning us for CVEs was scanning the wrong artifact.
+      - name: Generate image SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: asklokesh/loki-mode@${{ steps.build.outputs.digest }}
+          format: cyclonedx-json
+          output-file: image-sbom.cdx.json
+          upload-artifact: false
+
+      - name: Attest the SBOM to the image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test -s image-sbom.cdx.json || { echo "FATAL: SBOM is empty"; exit 1; }
+          cosign attest --yes \
+            --predicate image-sbom.cdx.json \
+            --type cyclonedx \
+            "asklokesh/loki-mode@${DIGEST}"
+          echo "SBOM attested to asklokesh/loki-mode@${DIGEST}"
+
+      - name: Upload image SBOM as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-sbom-${{ needs.release.outputs.version }}
+          path: image-sbom.cdx.json
+          retention-days: 365
 
       - name: Update Docker Hub description
         continue-on-error: true  # Cosmetic step; image publish already succeeded above. PATs without admin scope return Forbidden here.

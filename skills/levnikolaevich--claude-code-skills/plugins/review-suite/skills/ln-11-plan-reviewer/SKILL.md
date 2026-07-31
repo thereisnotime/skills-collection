@@ -14,7 +14,7 @@ Before returning, apply this skill's verdict, decision, and approval rules to ev
 
 | Need | Preferred tool | Use it when | Fallback |
 |---|---|---|---|
-| Repository instructions and current state | Native file read plus Git | Always read applicable `AGENTS.md`/`CLAUDE.md`; use `git status`, `diff`, and history when branch or change context matters | Equivalent host file and shell tools |
+| Repository instructions and current state | Native file read plus Git | Always read the active host's applicable repository instructions; use `git status`, `diff`, and history when branch or change context matters | Equivalent host file and shell tools |
 | Paths, text, config, docs, and focused code reads | Native file listing, search, outline, and range reads | The question is textual or structural and does not require symbol identity | Narrow the path and pattern before expanding content |
 | Symbols, references, callers, implementations, cycles, and blast radius | Language server or host-native code intelligence | A plan changes existing code relationships, public APIs, module boundaries, or architecture | Targeted search plus direct inspection of definitions and consumers |
 | Planned edit risk | Code intelligence plus caller and consumer search | The plan names an edit region, route, event, response contract, or existing change surface | Inspect named symbols and adjacent integration points manually |
@@ -43,7 +43,7 @@ When sources disagree, prefer the repository for what is installed and implement
 - [ ] Resolve the exact plan, user request, linked requirements, and repository scope. If no concrete plan exists, stop with `BLOCKED` rather than inventing one to review.
 - [ ] Read all applicable repository instruction files before interpreting code, documentation, or expected workflow.
 - [ ] Inspect Git state when it can affect the review: current branch, uncommitted changes, comparison base, and relevant recent history.
-- [ ] Separate the literal request and proposed solution from the underlying intent; state the actor, human or system outcome, consequential experience qualities, observable definition of done, non-goals, constraints, and assumptions. Treat emotional or incomplete wording as an intent signal, not a fact, and never let an inference override explicit requirements, evidence, safety, or exact-output constraints.
+- [ ] Separate the literal request and proposed solution from the underlying intent; state the actor, protected outcome, observable definition of done, non-goals, constraints, and assumptions, and label unsupported intent inferences.
 - [ ] Calibrate acceptable complexity to evidenced project or product maturity, decision horizon, current scale, team and operational capacity, and business stakes. Treat future growth as a requirement only when a concrete horizon, consumer, load, or constraint supports it.
 - [ ] Separate defects in the plan from pre-existing adjacent problems. Treat an existing problem as a plan finding only when the plan introduces or worsens it, depends on a false assumption about it, must resolve it to satisfy the goal, or creates immediate delivery risk; otherwise record it as an out-of-scope observation and do not expand the plan.
 - [ ] Distinguish facts discoverable from the repository from choices that require user intent; explore first, and when plausible interpretations would produce materially different plans, ask one concise question that resolves the decision rather than a survey.
@@ -68,12 +68,12 @@ When sources disagree, prefer the repository for what is installed and implement
 
 - [ ] Extract plan claims that are external or unstable: versions, API signatures, deprecations, standards, security requirements, library capabilities, performance characteristics, and platform limits.
 - [ ] Resolve installed versions and enabled features from project manifests, lockfiles, configuration, and generated metadata before searching generic documentation.
-- [ ] Search official documentation or standards for each consequential external claim, matching the documentation to the installed or proposed version rather than merely the latest page.
-- [ ] Use web search for recent ecosystem practice, comparative alternatives, or gaps not covered by primary sources; prefer original sources over summaries.
+- [ ] Before recommending a correction that depends on an external API, library, security control, protocol, platform, standard, or version, verify the supported solution, constraints, deprecations, and security guidance in official documentation matched to the installed or proposed version.
+- [ ] When official sources leave a consequential tradeoff unresolved, use web search for current practice and comparative alternatives, preferring original engineering sources over summaries. Do not browse generic practices for repository-owned business logic already established by requirements, code, and tests.
 - [ ] Open and inspect any specific document, proposal, issue, or URL that the plan relies on instead of trusting a quotation or paraphrase.
-- [ ] Record research as compact evidence: topic, source and date, verified claim, confidence, impact on the plan, and required action.
+- [ ] Record solution research as compact evidence: topic, source and date, verified claim, candidate corrections, chosen approach, rejected alternatives, confidence, plan impact, and why the choice is the smallest safe fit.
 - [ ] Apply the research-to-action gate: if a source does not reveal a specific defect, risk, missing decision, or better-supported alternative, keep it informational and do not inflate the review.
-- [ ] If authoritative research is unavailable, label the affected claim `UNVERIFIED`; use `BLOCKED` only when implementation safety or a consequential design choice depends on it.
+- [ ] If authoritative research is unavailable, label the affected claim `UNVERIFIED`; use `BLOCKED` when implementation safety or a consequential design choice depends on it. Review approval never authorizes execution; require a later implementer to revalidate unstable external facts immediately before editing.
 
 ### 4. Review from Every Applicable Perspective
 
@@ -89,7 +89,8 @@ When sources disagree, prefer the repository for what is installed and implement
 - [ ] **Capacity and degradation:** Bound user- or data-controlled work and state load from evidenced demand; state rate assumptions and failure behavior without introducing scaling machinery for hypothetical traffic.
 - [ ] **Testing and acceptance:** Each important behavior has an observable verification method; tests cover critical product logic, errors, integration seams, and likely regressions.
 - [ ] **Delivery and operations:** Include documentation, configuration rollout, observability, deployment, rollback, and operator actions only where the change requires them.
-- [ ] **Simplicity and alternatives:** Challenge layers, services, abstractions, configuration, extensibility, infrastructure, and operational machinery whose lifecycle cost is not justified by the protected outcome, evidenced maturity, business horizon, current scale, or team capacity. Require every step to produce observable progress, merge adjacent work when ownership and verification remain clear, and prefer the shortest reversible design that preserves correctness, safety, compatibility, and an explicit path to evolve.
+- [ ] **KISS — simplicity and alternatives:** Prefer the simplest correct plan that satisfies the evidenced outcome and constraints. Challenge unjustified layers, services, abstractions, configuration, extensibility, infrastructure, and operational machinery; merge adjacent work when ownership and verification remain clear, while preserving correctness, safety, compatibility, testability, and reversibility. KISS is not code golf or omitted safeguards.
+- [ ] **Subtractive completeness:** For changed logic, constraints, configuration, schemas, routes, states, or operations, identify obsolete code, branches, flags, keys, defaults, shims, data paths, documentation, tests, permissions, metrics, and rollout scaffolding. Plan removal only when evidence proves it superseded and in scope; otherwise record retention evidence or a temporary path's owner and removal condition. `One in, two out` is a simplification prompt, never a quota.
 - [ ] Mark a perspective `N/A` only when its absence is evident from the plan and repository; never silently skip a high-risk perspective.
 
 ### 5. Run an Independent Challenge When It Adds Signal
@@ -126,6 +127,7 @@ When sources disagree, prefer the repository for what is installed and implement
 - Plan reviewed
 - Intent statement: actor, protected outcome, consequential experience qualities, and inferred assumptions
 - Maturity and complexity fit: business horizon, current scale, team and operational capacity, and justified evolution path
+- Subtraction ledger: candidates inspected, proven removals, and evidence-backed retention or no-removal conclusions
 - Architecture artifacts inspected, their status, and any authority or freshness limitations
 - Repository areas inspected
 - Commands or semantic queries used
@@ -136,7 +138,7 @@ When sources disagree, prefer the repository for what is installed and implement
 ### [BLOCKER | MAJOR | MINOR] Finding title
 - Evidence: file, symbol, command result, or authoritative source
 - Impact: concrete failure, rework, or uncertainty
-- Required change or local amendment: smallest sufficient correction
+- Required change or local amendment: smallest sufficient correction; repository mechanism used; official version-matched sources or justified local-only basis; primary-practice sources when needed; alternatives rejected; why this choice is the smallest safe fit
 
 ## Corrected plan or amendments
 Complete replacement plan for REVISE; exact local amendments for READY WITH CONCERNS; otherwise state that the reviewed plan is ready or explain why correction is blocked.

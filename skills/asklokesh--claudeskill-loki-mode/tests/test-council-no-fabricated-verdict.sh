@@ -146,6 +146,52 @@ else
     bad "inconclusive reviewers are not surfaced in the results line"
 fi
 
+# ---- STRUCTURE-TOLERANT RECOVERY (v8.2.0) --------------------------------
+# A strict JSON carve is the most model-sensitive contract in the engine: schema
+# adherence varies most across models, while every coding model can state a
+# verdict in prose. Recovering a verdict the model GENUINELY stated is
+# legitimate; inventing one is not. So recovery must fire only on an
+# unambiguous statement and must never manufacture a verdict.
+recover() {
+    _LOKI_RAW="$1" python3 -c '
+import os,re,sys
+raw=os.environ.get("_LOKI_RAW","")
+a=len(re.findall(r"(?<![A-Za-z0-9_-])APPROVE(?![A-Za-z0-9_-])",raw,re.I))
+j=len(re.findall(r"(?<![A-Za-z0-9_-])REJECT(?![A-Za-z0-9_-])",raw,re.I))
+print("APPROVE" if (a and not j) else ("REJECT" if (j and not a) else "INCONCLUSIVE"))
+' 2>/dev/null
+}
+if [ "$(recover 'Looks good to me. APPROVE.')" = "APPROVE" ]; then
+    ok "recovers an unambiguous APPROVE from prose"
+else
+    bad "failed to recover a prose APPROVE"
+fi
+if [ "$(recover 'This has a real bug. REJECT.')" = "REJECT" ]; then
+    ok "recovers an unambiguous REJECT from prose"
+else
+    bad "failed to recover a prose REJECT"
+fi
+if [ "$(recover 'Should I approve or reject this?')" = "INCONCLUSIVE" ]; then
+    ok "ambiguous prose (both words) stays INCONCLUSIVE -- never guessed"
+else
+    bad "guessed a verdict from ambiguous prose"
+fi
+if [ "$(recover 'The diff changes three files.')" = "INCONCLUSIVE" ]; then
+    ok "prose with no verdict word stays INCONCLUSIVE"
+else
+    bad "invented a verdict where the model stated none"
+fi
+if grep -q 'STRUCTURE-TOLERANT RECOVERY' "$C2"; then
+    ok "recovery path is present in council-v2.sh"
+else
+    bad "recovery path missing from source"
+fi
+if grep -q '"recovered": True' "$C2"; then
+    ok "recovered verdicts are LABELLED as recovered (auditable)"
+else
+    bad "recovered verdicts are indistinguishable from parsed ones"
+fi
+
 echo ""
 echo "  Passed: $PASS   Failed: $FAIL"
 [ "$FAIL" -eq 0 ]

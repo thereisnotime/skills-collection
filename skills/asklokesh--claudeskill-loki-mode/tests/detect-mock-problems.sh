@@ -60,7 +60,15 @@ local_import_is_source() {
 
     spec="${spec%%\?*}"
     spec="${spec%%#*}"
-    normalized=$(printf '%s' "$spec" | tr '[:upper:]' '[:lower:]')
+    # Bash's own lowercase expansion (4.0+). The `printf | tr` it replaces cost
+    # TWO forks per import spec -- 149 subprocesses on this repo -- to do what
+    # the shell does natively. Falls back to tr on bash 3.2 (stock macOS), which
+    # lacks ${var,,}, so behavior is identical on every supported shell.
+    if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+        normalized="${spec,,}"
+    else
+        normalized=$(printf '%s' "$spec" | tr '[:upper:]' '[:lower:]')
+    fi
     leaf="${normalized##*/}"
 
     case "/$normalized/" in
@@ -129,17 +137,20 @@ test_has_source_import() {
     # resolve the name to a real file on disk before it counts.
     local subproc_re="['\"](\.{1,2}/[^'\"]+)['\"]"
     local subproc_bare_re="['\"]([A-Za-z0-9_.-]+\.(js|jsx|mjs|cjs|ts|tsx|mts|cts|py|rb|go|sh))['\"]"
+    # Flags come from two repo-wide `grep -lE` lists built once (P1_CHILD_PROC /
+    # P1_SPAWN_CALL), not two greps per file. Identical patterns; membership is a
+    # newline-delimited substring test, which stays in-process.
     local has_subprocess=false
-    if grep -q "child_process" "$test_file" 2>/dev/null; then
-        has_subprocess=true
-    fi
+    case "$P1_CHILD_PROC" in
+        *$'\n'"$test_file"$'\n'*) has_subprocess=true ;;
+    esac
     # Stricter companion flag: the file must actually CALL a spawn function, not
     # merely import the module. Guards the deliberately broad bare-filename
     # pattern below (see its comment for the mock-only case this rejects).
     local has_spawn_call=false
-    if grep -qE "(spawnSync|spawn|execFile|execFileSync|execSync|exec|fork)[[:space:]]*\\(" "$test_file" 2>/dev/null; then
-        has_spawn_call=true
-    fi
+    case "$P1_SPAWN_CALL" in
+        *$'\n'"$test_file"$'\n'*) has_spawn_call=true ;;
+    esac
 
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
@@ -147,6 +158,27 @@ test_has_source_import() {
         esac
         if [[ "$line" =~ ^[[:space:]]*(//|/\*|\*) ]]; then
             continue
+        fi
+
+        # Cheap pre-filter, and a PROVABLE SUPERSET of the branches below -- it
+        # can only skip lines that every branch would have rejected anyway.
+        # Justification, branch by branch:
+        #   - the import_open continuation branches are excluded by requiring
+        #     import_open=false here;
+        #   - every remaining ESM/CJS branch (esm_from, esm_side, bare `import`,
+        #     require, require.resolve) needs the literal "import" or "require";
+        #   - the two broad path-literal branches (subproc_re, subproc_bare_re)
+        #     are gated on has_subprocess / has_spawn_call, so requiring BOTH to
+        #     be false here means neither could have fired.
+        # A glob `case` runs in-process; the 7 `[[ =~ ]]` below use variable
+        # patterns that bash recompiles on every line, which is the real cost on
+        # 43k lines. Skipping a line here is indistinguishable from evaluating
+        # all branches and matching none.
+        if [ "$import_open" = false ] && [ "$has_subprocess" = false ] && [ "$has_spawn_call" = false ]; then
+            case "$line" in
+                *import*|*require*) ;;
+                *) continue ;;
+            esac
         fi
 
         spec=""
@@ -204,9 +236,64 @@ test_has_source_import() {
     return 1
 }
 
+# File-set discovery. Each pattern below used to run its OWN full-tree `find`
+# (four walks). The tree is walked ONCE here and sliced into the three DISTINCT
+# sets the patterns actually used -- they are not interchangeable:
+#   SET_TEST_ONLY  Pattern 1    -- *.test.* only, e2e excluded
+#   SET_TEST_SPEC  Patterns 3,4,6 -- test + spec, no Python
+#   SET_WITH_PY    Patterns 2,5  -- test + spec + test_*.py
+# Collapsing them would silently change which findings are produced.
+SET_WITH_PY=()
+SET_TEST_SPEC=()
+SET_TEST_ONLY=()
+while IFS= read -r _f; do
+    [ -n "$_f" ] || continue
+    # A tree entry can name a file that vanished mid-scan; grep on a missing
+    # file yields no finding, so skip rather than report a phantom.
+    [ -f "$_f" ] || continue
+    SET_WITH_PY+=("$_f")
+    case "$_f" in *.py) continue ;; esac
+    SET_TEST_SPEC+=("$_f")
+    case "$_f" in
+        *.spec.ts|*.spec.tsx|*.spec.js|*.spec.jsx) continue ;;
+        *e2e*) continue ;;
+    esac
+    SET_TEST_ONLY+=("$_f")
+done < <(find "$PROJECT_DIR" \( \
+    -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" \
+    -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" \
+    -o -name "test_*.py" \) 2>/dev/null | grep -v node_modules | grep -v dist)
+
+# Run one grep over a whole file set and stream `path:lineno:text` back.
+# THE STREAM IS THE ITERATION: grep -H already emits results grouped by file in
+# file-list order, so a per-file loop plus a lookup table is redundant work. One
+# fork per pattern instead of one per file (2,495 greps measured before).
+# -H is mandatory: with a single-file list grep omits the path and the caller
+# would parse the line number as the filename.
+scan_lines() {
+    local pattern="$1"; shift
+    [ "$#" -gt 0 ] || return 0
+    printf '%s\0' "$@" | xargs -0 grep -nHE -- "$pattern" 2>/dev/null || true
+}
+
 # Pattern 1: TypeScript/JavaScript tests that never import from source
 # (excludes E2E/spec files which interact via browser, not imports)
 echo -e "${CYAN}Scanning for tests that never import real code...${NC}"
+# Two repo-wide flag lists + one test-count table, each ONE grep for the whole
+# set. Wrapped in newlines so a `case` membership test cannot match a path that
+# is merely a suffix of another.
+P1_CHILD_PROC=$'\n'
+P1_SPAWN_CALL=$'\n'
+if [ "${#SET_TEST_ONLY[@]}" -gt 0 ]; then
+    P1_CHILD_PROC=$'\n'"$(printf '%s\0' "${SET_TEST_ONLY[@]}" | xargs -0 grep -lE -- "child_process" 2>/dev/null || true)"$'\n'
+    P1_SPAWN_CALL=$'\n'"$(printf '%s\0' "${SET_TEST_ONLY[@]}" | xargs -0 grep -lE -- "(spawnSync|spawn|execFile|execFileSync|execSync|exec|fork)[[:space:]]*\\(" 2>/dev/null || true)"$'\n'
+fi
+# Per-file test counts, one grep -cH for the whole set. `grep -c` prints a row
+# for EVERY file including zeros, so this is a complete table.
+P1_TEST_COUNT=$'\n'
+if [ "${#SET_TEST_ONLY[@]}" -gt 0 ]; then
+    P1_TEST_COUNT=$'\n'"$(printf '%s\0' "${SET_TEST_ONLY[@]}" | xargs -0 grep -cHE -- '(it\(|test\(|describe\()' 2>/dev/null || true)"$'\n'
+fi
 while IFS= read -r test_file; do
     rel_path="${test_file#$PROJECT_DIR/}"
 
@@ -217,74 +304,98 @@ while IFS= read -r test_file; do
 
     if [ "$has_source_import" = false ]; then
         # Count actual test cases
-        test_count=$(grep -cE '(it\(|test\(|describe\()' "$test_file" 2>/dev/null || echo "0")
+        # Pull this file's count out of the precomputed table.
+        test_count="${P1_TEST_COUNT#*$'\n'"$test_file":}"
+        test_count="${test_count%%$'\n'*}"
+        case "$test_count" in ''|*[!0-9]*) test_count=0 ;; esac
         if [ "$test_count" -gt 0 ]; then
             report "CRITICAL" "$rel_path" "1" "Test file has $test_count test(s) but never imports source code -- tests only test inline mocks"
         fi
     fi
-done < <(find "$PROJECT_DIR" \( -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" \) 2>/dev/null | grep -v node_modules | grep -v dist | grep -v e2e)
+done < <(printf '%s\n' ${SET_TEST_ONLY[@]+"${SET_TEST_ONLY[@]}"})
 
 # Pattern 2: Tautological assertions on literals
 echo -e "${CYAN}Scanning for tautological assertions...${NC}"
-while IFS= read -r test_file; do
-    rel_path="${test_file#$PROJECT_DIR/}"
+# Each of these was one grep PER FILE inside a per-file loop. grep -H already
+# emits `path:lineno:text` grouped by file in list order, so the stream IS the
+# iteration and the outer loop is redundant. Patterns are byte-identical.
+# Process substitution (not a pipe) keeps `report` in the current shell, so the
+# HIGH counter still increments -- a pipe would send every count to a subshell
+# and silently zero the gate.
+while IFS=: read -r f lineno line; do
+    report "HIGH" "${f#$PROJECT_DIR/}" "$lineno" "Tautological assertion on literal string"
+done < <(scan_lines "assert\.(ok|strictEqual|equal)\(['\"].*['\"]\.includes\(['\"]" ${SET_WITH_PY[@]+"${SET_WITH_PY[@]}"})
 
-    # assert.ok('string'.includes('string')) -- always true
-    while IFS=: read -r lineno line; do
-        report "HIGH" "$rel_path" "$lineno" "Tautological assertion on literal string"
-    done < <(grep -nE "assert\.(ok|strictEqual|equal)\(['\"].*['\"]\.includes\(['\"]" "$test_file" 2>/dev/null)
+while IFS=: read -r f lineno line; do
+    report "HIGH" "${f#$PROJECT_DIR/}" "$lineno" "Tautological assertion: expect(literal).toBe(same literal)"
+done < <(scan_lines "expect\(true\)\.toBe\(true\)|expect\(false\)\.toBe\(false\)|expect\([0-9]+\)\.toBe\([0-9]+\)" ${SET_WITH_PY[@]+"${SET_WITH_PY[@]}"})
 
-    # expect(true).toBe(true), expect(false).toBe(false), expect(1).toBe(1)
-    while IFS=: read -r lineno line; do
-        report "HIGH" "$rel_path" "$lineno" "Tautological assertion: expect(literal).toBe(same literal)"
-    done < <(grep -nE "expect\(true\)\.toBe\(true\)|expect\(false\)\.toBe\(false\)|expect\([0-9]+\)\.toBe\([0-9]+\)" "$test_file" 2>/dev/null)
-
-    # assert.ok(true), assert.ok(1)
-    while IFS=: read -r lineno line; do
-        report "HIGH" "$rel_path" "$lineno" "Tautological assertion: assert.ok(true) always passes"
-    done < <(grep -nE "assert\.ok\((true|1)\)" "$test_file" 2>/dev/null)
-
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" -o -name "test_*.py" 2>/dev/null | grep -v node_modules | grep -v dist)
+while IFS=: read -r f lineno line; do
+    report "HIGH" "${f#$PROJECT_DIR/}" "$lineno" "Tautological assertion: assert.ok(true) always passes"
+done < <(scan_lines "assert\.ok\((true|1)\)" ${SET_WITH_PY[@]+"${SET_WITH_PY[@]}"})
 
 # Pattern 3: Conditional assertions (if guards that silently skip)
 echo -e "${CYAN}Scanning for conditional assertions...${NC}"
-while IFS= read -r test_file; do
-    rel_path="${test_file#$PROJECT_DIR/}"
-
-    while IFS=: read -r lineno line; do
-        report "MEDIUM" "$rel_path" "$lineno" "Conditional assertion: expect/assert inside if-guard may silently pass"
-    done < <(grep -nE "if\s*\(.*\)\s*\{?\s*$" "$test_file" 2>/dev/null | while IFS=: read -r ln _; do
-        # Check if next few lines have assert/expect
-        next_lines=$(sed -n "$((ln+1)),$((ln+3))p" "$test_file" 2>/dev/null)
-        if echo "$next_lines" | grep -qE "(assert\.|expect\()"; then
-            echo "$ln:conditional"
-        fi
-    done)
-
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" 2>/dev/null | grep -v node_modules | grep -v dist)
+# The if-guard pattern is kept BYTE-IDENTICAL, including the `\s` (a GNU/BSD
+# grep -E extension, not POSIX). "Fixing" it to [[:space:]] would be a semantic
+# change smuggled in as a cleanup.
+#
+# Only the DISCOVERY is streamed. The per-match window check keeps its original
+# `sed -n` + `grep -q` body: it fires ~167 times total on this repo, which is
+# noise next to the 2,495 greps removed elsewhere, and leaving it untouched
+# means there is less behavior to re-prove.
+# The window check (do lines ln+1..ln+3 contain assert./expect( ?) used to be a
+# `sed -n` plus a `grep -q` PER MATCHED LINE. One awk now does both: it re-reads
+# each matching file once and tests the same 3-line window with the same
+# substring test. Window bounds and match semantics are unchanged; only the
+# ~340 subprocesses are gone.
+while IFS=: read -r f ln; do
+    report "MEDIUM" "${f#$PROJECT_DIR/}" "$ln" "Conditional assertion: expect/assert inside if-guard may silently pass"
+done < <(
+    scan_lines "if\s*\(.*\)\s*\{?\s*$" ${SET_TEST_SPEC[@]+"${SET_TEST_SPEC[@]}"} \
+    | awk -F: '
+        # Stream of `path:lineno:text`. Collect the candidate line numbers per
+        # path, then read each path once and check its windows.
+        { p = $1; hits[p] = hits[p] " " $2 }
+        END {
+            for (p in hits) {
+                nl = 0
+                delete L
+                while ((getline ln < p) > 0) L[++nl] = ln
+                close(p)
+                n = split(hits[p], cand, " ")
+                for (i = 1; i <= n; i++) {
+                    c = cand[i] + 0
+                    if (c == 0) continue
+                    win = ""
+                    for (o = 1; o <= 3; o++) if (c + o <= nl) win = win L[c + o] "\n"
+                    if (index(win, "assert.") || index(win, "expect(")) print p ":" c
+                }
+            }
+        }
+    ' | sort -t: -k1,1 -k2,2n
+)
 
 # Pattern 4: Empty test bodies
 echo -e "${CYAN}Scanning for empty test bodies...${NC}"
-while IFS= read -r test_file; do
-    rel_path="${test_file#$PROJECT_DIR/}"
-
-    # it('name', () => {}) or test('name', () => {})
-    while IFS=: read -r lineno line; do
-        report "MEDIUM" "$rel_path" "$lineno" "Empty test body -- test does nothing"
-    done < <(grep -nE "(it|test)\(['\"].*['\"],\s*(\(\)|function\s*\(\))\s*\{?\s*\}?\s*\);" "$test_file" 2>/dev/null)
-
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" 2>/dev/null | grep -v node_modules | grep -v dist)
+# it('name', () => {}) or test('name', () => {})
+while IFS=: read -r f lineno line; do
+    report "MEDIUM" "${f#$PROJECT_DIR/}" "$lineno" "Empty test body -- test does nothing"
+done < <(scan_lines "(it|test)\(['\"].*['\"],\s*(\(\)|function\s*\(\))\s*\{?\s*\}?\s*\);" ${SET_TEST_SPEC[@]+"${SET_TEST_SPEC[@]}"})
 
 # Pattern 5: Skipped tests
 echo -e "${CYAN}Scanning for skipped tests...${NC}"
-while IFS= read -r test_file; do
-    rel_path="${test_file#$PROJECT_DIR/}"
-
-    while IFS=: read -r lineno line; do
-        report "LOW" "$rel_path" "$lineno" "Skipped test: $line"
-    done < <(grep -nE "(xit|xtest|xdescribe|\.skip)\(" "$test_file" 2>/dev/null | head -5)
-
-done < <(find "$PROJECT_DIR" -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" -o -name "test_*.py" 2>/dev/null | grep -v node_modules | grep -v dist)
+# The original capped this at `head -5` PER FILE. In a single stream the cap
+# becomes a counter that resets when the path changes -- same 5-per-file limit.
+# A counter rather than a pipe because `report` must stay in the current shell.
+_p5_file=""
+_p5_n=0
+while IFS=: read -r f lineno line; do
+    if [ "$f" != "$_p5_file" ]; then _p5_file="$f"; _p5_n=0; fi
+    _p5_n=$((_p5_n + 1))
+    [ "$_p5_n" -le 5 ] || continue
+    report "LOW" "${f#$PROJECT_DIR/}" "$lineno" "Skipped test: $line"
+done < <(scan_lines "(xit|xtest|xdescribe|\.skip)\(" ${SET_WITH_PY[@]+"${SET_WITH_PY[@]}"})
 
 # Pattern 6: Internal vs External mock classification
 # Internal mocks (mocking your own code) are problematic -- you're hiding bugs
@@ -296,24 +407,45 @@ EXTERNAL_MOCK_PATTERN='(fetch|axios|http|request|database|db\.|redis|pg\.|mysql|
 # Mock patterns for internal code (problematic if excessive)
 INTERNAL_MOCK_PATTERN='(jest\.fn|sinon\.stub|sinon\.spy|vi\.fn|mock\(\)|spyOn|jest\.spyOn|stub\()'
 
-while IFS= read -r test_file; do
-    rel_path="${test_file#$PROJECT_DIR/}"
-
-    total_mocks=$(grep -cE "$INTERNAL_MOCK_PATTERN" "$test_file" 2>/dev/null || true)
-    total_mocks="${total_mocks:-0}"
-    total_mocks=$(echo "$total_mocks" | tr -d '[:space:]')
-    external_mocks=$(grep -cE "$EXTERNAL_MOCK_PATTERN" "$test_file" 2>/dev/null || true)
-    external_mocks="${external_mocks:-0}"
-    external_mocks=$(echo "$external_mocks" | tr -d '[:space:]')
-
-    # Internal mock count = total mocks minus those near external patterns
-    # Simple heuristic: if file has many mocks but few external references, it's over-mocking
-    if [ "$total_mocks" -gt 5 ] && [ "$external_mocks" -eq 0 ]; then
-        report "HIGH" "$rel_path" "1" "High internal mock ratio: $total_mocks mocks with 0 external service references -- likely mocking own code"
-    elif [ "$total_mocks" -gt 10 ] && [ "$external_mocks" -lt 3 ]; then
-        report "MEDIUM" "$rel_path" "1" "Elevated internal mock ratio: $total_mocks mocks, only $external_mocks external refs -- review mock targets"
+# This ratio needs BOTH counts for the same file, so the two `grep -cH` streams
+# are joined on path by one awk. The thresholds are unchanged; awk only decides
+# WHICH files trip them, and bash still does the reporting so the severity
+# counters keep incrementing in the current shell.
+#
+# `grep -c` emits a row for every file (zeros included), so the join is complete
+# and a file missing from the internal stream simply never trips a threshold.
+if [ "${#SET_TEST_SPEC[@]}" -gt 0 ]; then
+while IFS=: read -r sev f total external; do
+    rel_path="${f#$PROJECT_DIR/}"
+    if [ "$sev" = "HIGH" ]; then
+        report "HIGH" "$rel_path" "1" "High internal mock ratio: $total mocks with 0 external service references -- likely mocking own code"
+    else
+        report "MEDIUM" "$rel_path" "1" "Elevated internal mock ratio: $total mocks, only $external external refs -- review mock targets"
     fi
-done < <(find "$PROJECT_DIR" \( -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.test.js" -o -name "*.test.jsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.spec.js" -o -name "*.spec.jsx" \) 2>/dev/null | grep -v node_modules | grep -v dist)
+done < <(
+    {
+        printf '%s\0' "${SET_TEST_SPEC[@]}" | xargs -0 grep -cHE -- "$INTERNAL_MOCK_PATTERN" 2>/dev/null | sed 's/^/I:/' || true
+        printf '%s\0' "${SET_TEST_SPEC[@]}" | xargs -0 grep -cHE -- "$EXTERNAL_MOCK_PATTERN" 2>/dev/null | sed 's/^/E:/' || true
+    } | awk -F: '
+        # Rows arrive as I:<path>:<count> then E:<path>:<count>. Rebuild the path
+        # from fields 2..NF-1 so a path containing a colon still joins correctly.
+        {
+            tag = $1; n = $NF
+            path = $2
+            for (i = 3; i < NF; i++) path = path ":" $i
+            if (tag == "I") internal[path] = n; else external[path] = n
+        }
+        END {
+            for (p in internal) {
+                t = internal[p] + 0; e = external[p] + 0
+                # Thresholds copied verbatim from the original bash conditions.
+                if (t > 5 && e == 0)        print "HIGH:" p ":" t ":" e
+                else if (t > 10 && e < 3)   print "MEDIUM:" p ":" t ":" e
+            }
+        }
+    ' | sort -t: -k2
+)
+fi
 
 # Summary
 echo ""

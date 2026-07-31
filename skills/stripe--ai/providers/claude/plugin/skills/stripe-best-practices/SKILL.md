@@ -20,13 +20,13 @@ Latest SDK versions:
 
 | Language | Latest version |
 | --- | --- |
-| Ruby | 19.3.0 |
-| Python | 15.3.0 |
-| Node.js | 22.3.0 |
-| PHP | 20.3.0 |
-| Java | 33.1.0 |
-| Go | 86.1.0 |
-| .NET | 52.1.0 |
+| Ruby | 19.4.0 |
+| Python | 15.4.0 |
+| Node.js | 22.4.0 |
+| PHP | 21.1.0 |
+| Java | 33.2.0 |
+| Go | 86.2.0 |
+| .NET | 52.2.0 |
 
 If you don’t have a Stripe account, you can call a CLI command to generate working API keys with no registration required. You can install the Stripe CLI (`npm i -g @stripe/cli`) and run the command `stripe sandbox create` to get started.
 

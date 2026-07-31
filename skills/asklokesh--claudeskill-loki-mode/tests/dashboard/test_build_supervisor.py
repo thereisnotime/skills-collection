@@ -65,7 +65,7 @@ class BuildSupervisorTests(unittest.TestCase):
         return path
 
     def _run(self, runner: Path) -> int:
-        return supervisor.run_supervisor(
+        rc = supervisor.run_supervisor(
             execution_id=self.execution_id,
             run_sh=runner,
             workspace=self.workspace,
@@ -73,6 +73,44 @@ class BuildSupervisorTests(unittest.TestCase):
             spec=self.spec,
             provider="claude",
         )
+        if rc != 0:
+            # SELF-DIAGNOSING FAILURE. Callers assert `self._run(...) == 0`, so a
+            # failure surfaced only as "AssertionError: 127 != 0" -- the exit
+            # code with none of the cause. This bit twice in CI on the same day
+            # (issue #185): Python 3.11 on one commit, 3.13 on another, a
+            # different test each time, while the other Python versions passed
+            # the same test on the same image. Each occurrence cost a full
+            # investigation that ended without a cause, because the child's own
+            # words were sitting in a log nobody printed.
+            #
+            # The supervisor already captures child stdout AND stderr into
+            # runner.log (build_supervisor.py:1331,1347). Print it, plus the
+            # resolved child PATH, since 127 means "command not found" and the
+            # child PATH is deliberately minimised to the system bin dirs.
+            #
+            # Diagnosing from the log beats diagnosing from source: this is the
+            # same lesson as several other bugs fixed this session -- read what
+            # the failure actually says before inspecting code around it.
+            details = [f"run_supervisor exited {rc}"]
+            try:
+                log = supervisor.execution_dir(self.execution_id) / "runner.log"
+                if log.is_file():
+                    body = log.read_text(encoding="utf-8", errors="replace").strip()
+                    details.append(
+                        f"runner.log:\n{body}" if body else "runner.log: (empty)"
+                    )
+                else:
+                    details.append(f"runner.log: absent at {log}")
+            except OSError as exc:  # never mask the real failure with a read error
+                details.append(f"runner.log: unreadable ({exc})")
+            details.append(
+                "child PATH: "
+                + os.environ.get(
+                    "LOKI_HOST_CHILD_PATH", "/usr/bin:/bin:/usr/sbin:/sbin"
+                )
+            )
+            print("\n".join(details), file=sys.stderr)
+        return rc
 
     def _seatbelt_env(self, protected_root: Path, workspace_root: Path):
         runtime_read = self.root / "runtime-read"

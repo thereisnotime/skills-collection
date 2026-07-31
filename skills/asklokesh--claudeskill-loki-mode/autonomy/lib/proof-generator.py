@@ -243,6 +243,70 @@ def _norm_gate_status(raw):
     return "inconclusive"
 
 
+# TRUST-4: gate provenance. The discriminating property of a verification signal
+# is NOT how many checks ran -- it is whether the checker sits OUTSIDE the agent's
+# control. arXiv 2606.28438 shows AI-self-gates "look strong early but later lose
+# their filtering effect", drifting into "a rubber-stamp regime where acceptance
+# scores rise while benchmark correctness falls". arXiv 2607.05904 shows a judge
+# conditioned on a candidate "scores plausibility, not correctness": self-play
+# drove judge pass rate 0.72 -> 0.94 while TRUE accuracy stayed 0.20, and "a
+# strict three-judge ensemble still accepts 55% of them". So a model-coupled gate
+# is REPORTED but may never lift the headline.
+#
+# ADVISORY = the agent (or a model it prompts) authored the verdict. Everything
+# else is EXOGENOUS: a deterministic script whose output the agent cannot write.
+#
+# Membership is keyed on the ADVISORY side only, and an UNKNOWN gate defaults to
+# EXOGENOUS. That direction is load-bearing and must never be inverted: an
+# unrecognized gate then still counts against VERIFIED (fail-closed). Defaulting
+# unknown gates to advisory would let any newly-added or renamed gate silently
+# lose its power to block -- the exact fake-green vector this split exists to
+# close. Names are matched on a normalized key because run.sh emits BOTH
+# spellings for the same gate (static-analysis / static_analysis, test-mutation /
+# mutation_integrity), verified against run.sh's gate_failures writers.
+_ADVISORY_GATES = frozenset((
+    # The agent writes both the test and the fix, so a green suite is a claim
+    # about its own work, not an independent measurement.
+    "test_coverage", "unit_tests", "test_suite", "semantic_tests", "tests",
+    # LLM-judgment gates: blind council, devil's advocate, magic-module debate.
+    "code_review", "devils_advocate", "devil_advocate", "magic_debate",
+    "council", "anti_sycophancy",
+))
+
+
+def _gate_key(name):
+    """Normalize a gate name for provenance lookup.
+
+    run.sh emits the same gate under multiple spellings (`static-analysis` vs
+    `static_analysis`), and track_gate_failure appends `_PAUSED`/`_ESCALATED`
+    /`_not_run` suffixes. Fold all of them onto one key so classification cannot
+    be defeated by a cosmetic rename.
+    """
+    s = str(name or "").strip().lower().replace("-", "_")
+    s = re.sub(r"_(paused|escalated|not_run|blocked)$", "", s)
+    return s
+
+
+def _gate_provenance(name):
+    """'advisory' for a model-authored gate, else 'exogenous' (fail-closed)."""
+    return "advisory" if _gate_key(name) in _ADVISORY_GATES else "exogenous"
+
+
+def _is_exogenous(gate):
+    """Provenance of a collected gate dict, honoring the stamped value.
+
+    Reads the `provenance` key stamped by _collect_quality_gates so the
+    `unresolved` override (a gate that HALTED the run counts as an execution
+    fact) is respected. Falls back to name lookup for a gate dict that never
+    passed through the collector. Fail-closed: anything not positively
+    identified as advisory counts as exogenous.
+    """
+    stamped = gate.get("provenance")
+    if stamped:
+        return stamped == "exogenous"
+    return _gate_provenance(gate.get("name")) == "exogenous"
+
+
 def _collect_quality_gates(loki_dir):
     gates_raw = _read_json(
         os.path.join(loki_dir, "state", "quality-gates.json"), default=None
@@ -354,14 +418,48 @@ def _collect_quality_gates(loki_dir):
         for name in failed_names:
             if name in by_name:
                 by_name[name]["status"] = "failed"
+                by_name[name]["unresolved"] = True
             else:
-                gate = {"name": name, "status": "failed"}
+                gate = {"name": name, "status": "failed", "unresolved": True}
                 gates.append(gate)
                 by_name[name] = gate
 
+    # TRUST-4: stamp provenance on every gate at the single point the list is
+    # finalized, so every downstream reader (headline, template, verifier) sees
+    # the same classification and none can drift.
+    # An UNRESOLVED gate (listed in gate-failures.txt) is classified EXOGENOUS
+    # even when the gate itself is model-coupled. The fact being recorded is not
+    # "a judge disliked the code" -- it is "the run halted here and never
+    # cleared this blocker", which is an execution outcome the agent did not
+    # author. Without this, a run stopped dead by an unresolved code_review
+    # would emit a green receipt: the "cryptographically valid but semantically
+    # false green" the gate-failures merge above exists to prevent.
+    for gate in gates:
+        gate["provenance"] = (
+            "exogenous" if gate.get("unresolved")
+            else _gate_provenance(gate.get("name"))
+        )
+
     total = len(gates)
     passed = sum(1 for gate in gates if gate.get("status") == "passed")
-    return {"passed": passed, "total": total, "gates": gates}
+    exo = [g for g in gates if g.get("provenance") == "exogenous"]
+    adv = [g for g in gates if g.get("provenance") == "advisory"]
+    return {
+        "passed": passed,
+        "total": total,
+        "gates": gates,
+        # Pre-split counts so the renderer never has to re-derive provenance.
+        "exogenous": {
+            "passed": sum(1 for g in exo if g.get("status") == "passed"),
+            "total": len(exo),
+            "gates": exo,
+        },
+        "advisory": {
+            "passed": sum(1 for g in adv if g.get("status") == "passed"),
+            "total": len(adv),
+            "gates": adv,
+        },
+    }
 
 
 def _collect_build(loki_dir):
@@ -983,6 +1081,37 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
 
     files_changed, diffs, diff_base_sha = _git_diffstat(target_dir, args.include_diffs)
     iterations = _collect_iterations(loki_dir)
+    # Attribute iterations to PROGRESS vs REWORK. The receipt previously reported
+    # only {count, succeeded, failed}, so a user seeing "6 iterations" could not
+    # tell real work from a gate false-positive that forced five redos -- and
+    # neither could we, which is worse, because it hides whether an expensive run
+    # was a slow model or our own harness being wrong. Measured here: an agent
+    # once claimed done on EVERY iteration while a mock-integrity false positive
+    # blocked all six.
+    #
+    # Deterministic and derived only from records the engine already writes, so
+    # this belongs with the FACTS, not the AI assessments. Failure to import or
+    # attribute leaves iterations untouched rather than guessing: a fabricated
+    # attribution would send someone optimising the wrong thing.
+    try:
+        from iteration_attribution import attribute as _attribute_iterations
+        _attr = _attribute_iterations(loki_dir)
+        if _attr.get("iterations"):
+            iterations["attribution"] = {
+                "progress": _attr["progress"],
+                "rework": _attr["rework"],
+                "rework_cost_share": _attr.get("rework_cost_share"),
+                # Stated in the artifact, not just the tool: rework is a FLOOR.
+                # An iteration that completed but was forced to repeat by a gate
+                # counts as progress, because the blocking gate is not recorded
+                # per iteration. Overstating certainty here would be worse than
+                # omitting the split.
+                "basis": "rework counts FAILED iterations only; a completed "
+                         "iteration forced to repeat by a gate is counted as "
+                         "progress, so rework is a floor",
+            }
+    except Exception:
+        pass
     spec = _collect_spec(loki_dir, target_dir)
     council = _collect_council(loki_dir)
     quality_gates = _collect_quality_gates(loki_dir)
@@ -1032,8 +1161,18 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
         "execution": termination,
         "build": build,
         "tests": tests,
+        # TRUST-4: carry `provenance` into the facts projection. _compute_headline
+        # and _compute_degraded read THIS list, so dropping the field silently
+        # sent them back to name-only lookup -- which mis-classified an
+        # UNRESOLVED code_review (a run-halting execution fact) as advisory and
+        # green-washed a blocked run.
         "quality_gates": [
-            {"name": g.get("name", ""), "status": g.get("status", "not_run")}
+            {
+                "name": g.get("name", ""),
+                "status": g.get("status", "not_run"),
+                "provenance": g.get("provenance")
+                or _gate_provenance(g.get("name")),
+            }
             for g in (quality_gates.get("gates") or [])
         ],
         "security": security,
@@ -1197,8 +1336,14 @@ def _compute_degraded(facts):
             else ("exit_code=%s" % build.get("exit_code"))
         out.append({"item": "build", "status": build.get("status"),
                     "reason": reason})
+    # TRUST-4: only EXOGENOUS gates enter the degraded ledger, because degraded[]
+    # is an INPUT to the headline (a non-empty ledger blocks VERIFIED). Letting an
+    # advisory gate in here would give a model-authored verdict the power to
+    # downgrade the headline through the back door, which is exactly what this
+    # split forbids. Advisory outcomes are still reported in full -- they render
+    # from quality_gates.advisory, which the template shows verbatim.
     for g in facts.get("quality_gates") or []:
-        if g.get("status") in weak:
+        if g.get("status") in weak and _is_exogenous(g):
             out.append({"item": "quality_gate:%s" % g.get("name", ""),
                         "status": g.get("status"),
                         "reason": "gate %s" % g.get("status")})
@@ -1289,12 +1434,21 @@ def _compute_headline(facts, degraded):
             and execution_outcome not in ("complete", "completed", "success")
         )
     )
+    # TRUST-4: only an EXOGENOUS gate failure forces NOT VERIFIED. An advisory
+    # (model-authored) gate is reported but cannot move the verdict in EITHER
+    # direction -- see _ADVISORY_GATES for the research basis. Note the
+    # asymmetry is deliberate and one-way: advisory results are barred from
+    # UPGRADING a verdict (below, in any_verified), and barred from downgrading
+    # one here, because a judge that scores plausibility is not a measurement.
+    # tests.status keeps its own hard-fail check: it is the recorded suite
+    # outcome (an exit code), not the model's opinion of the suite.
     any_failed = (
         execution_failed
         or tests.get("status") == "failed"
         or build.get("status") == "failed"
         or any(g.get("status") == "failed"
-               for g in (facts.get("quality_gates") or []))
+               for g in (facts.get("quality_gates") or [])
+               if _is_exogenous(g))
         or sec_high
         or fn_failed
     )
@@ -1315,11 +1469,15 @@ def _compute_headline(facts, degraded):
     # produced code emit "VERIFIED WITH GAPS" - a fake-green at the receipt. Only
     # a fact that actually ran and passed (tests/build verified, or a passed gate)
     # may qualify; otherwise the honest headline is NOT VERIFIED.
+    # TRUST-4: an advisory PASS is not positive evidence. A run whose ONLY green
+    # signals are a council vote and a devil's-advocate nod has proven nothing
+    # deterministically, so it must not reach "VERIFIED WITH GAPS" on that basis.
     any_verified = (
         tests.get("status") == "verified"
         or build.get("status") == "verified"
         or any(g.get("status") == "passed"
-               for g in (facts.get("quality_gates") or []))
+               for g in (facts.get("quality_gates") or [])
+               if _is_exogenous(g))
     )
     if any_verified and degraded:
         return "VERIFIED WITH GAPS"
@@ -1481,6 +1639,19 @@ def _render_fallback_html(proof):
     ver = proof.get("verification", {})
     rows.append('<p class="hash">Integrity hash (%s): %s</p>' % (
         esc(ver.get("algo", "sha256")), esc(ver.get("hash", ""))))
+    # Signing state, stated plainly. Mirrors renderProvenance in
+    # proof-template.html (the primary renderer); this fallback path must not
+    # be quieter about provenance than the page it stands in for.
+    if ver.get("gpg_signature"):
+        rows.append("<p>Signature: SIGNED (detached GPG over the canonical "
+                    "bytes). A verifier holding the signer public key can "
+                    "confirm provenance offline: loki proof verify &lt;id&gt;</p>")
+    else:
+        rows.append("<p>Signature: UNSIGNED. The integrity hash proves the "
+                    "bytes were not edited after hashing; it does NOT prove "
+                    "who produced them, so this receipt trusts its generator. "
+                    "To sign future receipts, set LOKI_PROOF_GPG_KEY to a gpg "
+                    "key id (see docs/SIGNED-RECEIPTS.md).</p>")
     red = proof.get("redaction", {})
     rows.append("<p>Redaction applied: %s (%s redactions, rules v%s)</p>" % (
         esc(red.get("applied")), esc(red.get("redactions_count")),

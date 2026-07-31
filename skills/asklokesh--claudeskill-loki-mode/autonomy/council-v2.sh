@@ -441,7 +441,29 @@ except Exception:
             fi
             ;;
         *)
-            result='{"verdict":"INCONCLUSIVE","reasoning":"review not supported for this provider (no verdict obtained; NOT a rejection)","issues":[]}'
+            # v8.2.0 TIMEOUT SEAM. A provider exposing provider_invoke_argv gets
+            # a real reviewer instead of an automatic INCONCLUSIVE. The argv is a
+            # REAL command so `timeout` genuinely bounds it (providers/claude.sh:321);
+            # routing this through a shell function would silently drop the bound.
+            #
+            # VERDICT SEMANTICS UNCHANGED: on empty output, non-zero exit, or a
+            # timeout kill (124/137/143) we fall back to the SAME INCONCLUSIVE
+            # string used below -- never REJECT. A judge that produced no
+            # judgement has not rejected anything (v8.1.0 TRUST-3).
+            result=''
+            if type provider_invoke_argv >/dev/null 2>&1; then
+                local _c2_seam_rc=0
+                provider_invoke_argv fast "$full_prompt"
+                # caveman HARD-SUPPRESS: this verdict is parsed for the JSON
+                # "verdict" field; compression would reword it.
+                result="$(timeout "${LOKI_SDK_REVIEW_TIMEOUT:-180}" \
+                    env CAVEMAN_DEFAULT_MODE=off \
+                    "${_LOKI_INVOKE_ARGV[@]+"${_LOKI_INVOKE_ARGV[@]}"}" 2>/dev/null)" || _c2_seam_rc=$?
+                [ "$_c2_seam_rc" -ne 0 ] && result=''
+            fi
+            if [ -z "$result" ]; then
+                result='{"verdict":"INCONCLUSIVE","reasoning":"review not supported for this provider (no verdict obtained; NOT a rejection)","issues":[]}'
+            fi
             ;;
     esac
 
@@ -452,6 +474,46 @@ except Exception:
         # Try removing markdown fencing
         extracted=$(echo "$result" | sed 's/^```json//;s/^```//' | sed -n '/^{/,/^}/p' | head -50)
     fi
+    # STRUCTURE-TOLERANT RECOVERY (v8.2.0).
+    #
+    # A strict JSON carve is the single most model-sensitive contract in the
+    # engine: schema adherence is exactly what varies most across models, while
+    # every coding model can state a verdict in prose. Measured elsewhere (Forge
+    # replication): scaffolding drove tool-call errors 42 -> 0 while
+    # advanced-reasoning accuracy stayed flat -- i.e. a harness CAN rescue
+    # format compliance but cannot manufacture judgment. So recovering a verdict
+    # the model genuinely expressed is legitimate; inventing one is not.
+    #
+    # This runs ONLY when the JSON carve produced nothing, and it accepts a
+    # verdict only when the model stated it UNAMBIGUOUSLY (exactly one of
+    # APPROVE/REJECT appears as a standalone word). A response mentioning both,
+    # or neither, stays INCONCLUSIVE -- never guessed.
+    if [ -z "$extracted" ] && [ -n "${result:-}" ]; then
+        local _recovered
+        _recovered="$(printf '%s' "$result" | _LOKI_RAW="$result" python3 -c '
+import os, re, sys, json
+raw = os.environ.get("_LOKI_RAW", "")
+# Standalone words only: "APPROVE" not "approved-by", and not inside a URL.
+approve = len(re.findall(r"(?<![A-Za-z0-9_-])APPROVE(?![A-Za-z0-9_-])", raw, re.I))
+reject  = len(re.findall(r"(?<![A-Za-z0-9_-])REJECT(?![A-Za-z0-9_-])",  raw, re.I))
+if approve and not reject:
+    v = "APPROVE"
+elif reject and not approve:
+    v = "REJECT"
+else:
+    sys.exit(1)   # ambiguous or absent -> stay inconclusive
+print(json.dumps({
+    "verdict": v,
+    "reasoning": "recovered from unstructured output (model stated %s in prose)" % v,
+    "issues": [],
+    "recovered": True,
+}))
+' 2>/dev/null)" || _recovered=""
+        if [ -n "$_recovered" ]; then
+            extracted="$_recovered"
+        fi
+    fi
+
     if [ -z "$extracted" ]; then
         # The weak-model case, and the reason this matters most: a model whose
         # prose could not be carved into JSON did not vote REJECT. Recording one

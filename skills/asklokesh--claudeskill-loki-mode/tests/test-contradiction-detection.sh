@@ -511,8 +511,8 @@ fi
 map_result="$(
     _final_status="inconclusive_spec_contradiction"; result=0
     case "$_final_status" in
-        council_approved|council_force_approved|completion_promise_fulfilled|force_stopped|paused|interrupted|budget_exceeded|stopped) result=0 ;;
-        failed|max_iterations_reached|max_retries_exceeded|policy_blocked|inconclusive_spec_contradiction) result=20 ;;
+        council_approved|council_force_approved|completion_promise_fulfilled|force_stopped|paused|interrupted|stopped) result=0 ;;
+        failed|max_iterations_reached|max_retries_exceeded|budget_exceeded|policy_blocked|inconclusive_spec_contradiction) result=20 ;;
         *) [ "$result" = "0" ] && result=1 ;;
     esac
     printf '%s' "$result"

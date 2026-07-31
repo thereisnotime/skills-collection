@@ -1,7 +1,7 @@
 ---
 name: avoid-ai-writing
 description: Audit and rewrite content to remove AI writing patterns ("AI-isms"). Use this skill when asked to "remove AI-isms," "clean up AI writing," "edit writing for AI patterns," "audit writing for AI tells," or "make this sound less like AI." Supports a detect-only mode, an edit-in-place mode for files, an optional voice profile (casual / professional / technical / warm / blunt), and an iterate-to-convergence pass.
-version: 3.20.0
+version: 3.22.0
 license: MIT
 compatibility: Any AI coding assistant that supports agentskills.io SKILL.md format (Claude Code, Cursor, VS Code Copilot, Hermes Agent, OpenHands, etc.) or OpenClaw. No external tools or APIs required.
 metadata:
@@ -95,6 +95,18 @@ Words are organized into three tiers based on how reliably they signal AI-genera
 
 #### Tier 1 — Always replace
 
+Tier 1 splits into two bands. **Both are always replaced**; the edit is the same. What differs is what a flag *means*.
+
+**1A — AI frequency markers.** Words claimed to appear far more often in machine text than in human writing. A cluster of these is evidence about how a passage was produced.
+
+**1B — Clarity edits.** Wordiness and inflated formality. Replacing them is good writing regardless of who wrote the sentence, and a 1B hit is **not** evidence of machine authorship. Measured against 257 paragraphs of verified pre-2023 human prose, 1B entries fire on ordinary professional and formal writing at a meaningful rate — `in order to`, `utilize`, `commence`, `ascertain`, and `endeavor` are simply the words some people reach for. The detector emits these as `tier1-clarity`, weights them like Tier 2, and excludes them from the dense-AI-vocabulary signal so a wordiness fix can never push a document toward an AI classification.
+
+In `detect` mode, report the two bands separately. Presenting a wordiness fix as authorship evidence is the error this split exists to prevent.
+
+Caveat worth keeping visible: the "appears far more often in AI text" claim behind 1A is **inherited, not measured here**. It traces to [brandonwise/humanizer](https://github.com/brandonwise/humanizer), which states a 5–20x ratio without publishing a method or dataset. Treat 1A as a well-supported convention rather than a verified statistic until this repo measures the ratios itself against a machine-written corpus.
+
+##### Tier 1A — AI frequency markers
+
 | Replace | With |
 |---|---|
 | delve / delve into | explore, dig into, look at |
@@ -115,7 +127,6 @@ Words are organized into three tiers based on how reliably they signal AI-genera
 | seamless / seamlessly | smooth, easy, without friction |
 | game-changer / game-changing | describe what specifically changed and why it matters |
 | hit differently / hits different | (say what specifically changed, or cut) |
-| utilize | use |
 | watershed moment | turning point, shift (or describe what changed) |
 | marking a pivotal moment | (state what happened) |
 | the future looks bright | (cut — say something specific or nothing) |
@@ -142,15 +153,6 @@ Words are organized into three tiers based on how reliably they signal AI-genera
 | at its core | (cut — just state the thing) |
 | synergy / synergies | (describe the actual combined effect) |
 | interplay | relationship, connection, interaction |
-| in order to | to |
-| due to the fact that | because |
-| serves as | is |
-| features (verb) | has, includes |
-| boasts | has |
-| presents (inflated) | is, shows, gives |
-| commence | start, begin |
-| ascertain | find out, determine, learn |
-| endeavor | effort, attempt, try |
 | keen (as intensifier) | interested, eager, enthusiastic (or cut — just state the interest) |
 | genuinely / genuine (as intensifier) | (cut — just state the fact) |
 | symphony (metaphor) | (describe the actual coordination or combination) |
@@ -160,6 +162,23 @@ Words are organized into three tiers based on how reliably they signal AI-genera
 **Hyphen required:** unhyphenated "load bearing" is ordinary English ("the load bearing down on the bridge") — only the hyphenated compound is the tell.
 
 **Construction carve-out:** `load-bearing` before a literal structural noun (`wall`, `beam`, `column`, `joist`, `truss`, `member`, `footing`, `slab`, `stud`, `partition`, `masonry`, `lintel`, `pier`, `rafter`, `girder`, `capacity`), optionally with one material or position adjective in between (`load-bearing structural wall`), is standard building terminology — don't flag. Abstract-capable nouns (`structure`, `element`, `frame`, `foundation`) are excluded on purpose, so "the load-bearing structure of his argument" still flags. Known gap: predicative use ("the wall is load-bearing") still flags — see issue #56.
+
+##### Tier 1B — Clarity edits
+
+Wordiness and formality, not authorship evidence. Same fix, weaker claim.
+
+| Replace | With |
+|---|---|
+| utilize | use |
+| in order to | to |
+| due to the fact that | because |
+| serves as | is |
+| features (verb) | has, includes |
+| boasts | has |
+| presents (inflated) | is, shows, gives |
+| commence | start, begin |
+| ascertain | find out, determine, learn |
+| endeavor | effort, attempt, try |
 
 #### Tier 2 — Flag when 2+ appear in the same paragraph
 
@@ -458,6 +477,16 @@ These slot-fill constructions signal that a sentence was generated, not written.
 - "Great question!", "Excellent point!", "You're absolutely right!", "That's a really insightful observation" — these are conversational rewards from chat interfaces, not writing. Remove entirely.
 - Distinct from chatbot artifacts: sycophancy specifically validates the reader/questioner rather than just performing helpfulness.
 
+### Narrated candor
+- Announcing your own disclosure instead of disclosing: "Two caveats I would rather flag than let you discover later:", "I want to be upfront:", "To be fully transparent:", "Rather than bury this, I'll say it plainly:", "I could have left this out, but:", "Being honest about the limitations here:". The content is "Two caveats:"; the rest advertises the writer's forthrightness.
+- Completes the set with two neighbours. Chatbot artifacts perform **helpfulness** ("I hope this helps!"); sycophantic tone validates **the reader** ("Great question!"); this performs **candor about oneself**. Assistant training rewards visible transparency, so the model narrates being forthcoming rather than simply being it.
+- Note the shape is usually a matched antithesis (flag rather than let you discover, say plainly rather than bury), which is its own tell — the symmetry is doing the work that content should.
+- **The deletion test.** Cut the frame. If the sentence loses no information, it was never content: "Two caveats I would rather flag than let you discover later: X and Y" and "Two caveats: X and Y" say the same thing.
+- **Carve-out — the disclosure itself.** Substantive admissions stay, and are the point: "I haven't tested this on Windows", "the numbers in the commit message don't reproduce on my hardware", "this is a mitigation, not a fix". Those carry information. The tell is the separable clause *about* disclosing, not the disclosure.
+- **Carve-out — conflict-of-interest disclosure.** "In the interest of full disclosure, I own shares in the company discussed here" is not narrated candor. In journalism, academia, finance, and open-source governance that opening is the conventional label that makes a disclosure legible, and the sentence carries the material fact. Leave it. The same words with nothing behind them ("in the interest of full disclosure, I want to be upfront about my thinking here") are the tell.
+- **Not the ordinary comparative.** "I'd rather fix it than let you inherit the mess" is a preference about work, not an announcement about disclosing. The construction only counts when what follows the frame is the *disclosure itself*.
+- **Judgment-only, deliberately.** This was implemented as a detector and reverted: every regex tight enough to spare the two carve-outs above stopped matching the tell, and the phrasings are shared with idiomatic disclosure language. Deciding it requires reading whether the clause carries information or only announces that information is coming, which is what a reader can do and a pattern cannot.
+
 ### Acknowledgment loops
 - "You're asking about," "The question of whether," "To answer your question," "That's a great question. The..." — AI restates the prompt before answering. In writing, this is pure filler. The reader knows what they asked. Just answer.
 - Related pattern: opening a section by summarizing what the previous section said. If the structure is clear, the reader doesn't need a recap.
@@ -563,6 +592,7 @@ Not all AI-isms are equal. When doing a quick pass or triaging a large document,
 - Generic future-narrative closers ("may become one of the most important narratives…")
 - Social endorsement closers ("This one is worth your time:", "thank me later")
 - Lingering-attention claims ("the line I keep coming back to," "I can't stop thinking about this")
+- Narrated candor ("I would rather flag this than let you discover it later", "in the interest of full disclosure")
 - Hedge-stacked predictions ("could potentially," "may eventually")
 - Real/actual adjective inflation ("real on-chain tokenomics")
 - Moral-adjective category errors ("honest shape," "flagged honestly")
@@ -701,7 +731,7 @@ Re-read the rewritten version from section 2. Identify any remaining AI tells th
 Return your response in two sections:
 
 **1. Issues found**
-A bulleted list of every AI-ism identified, with the offending text quoted. Group by severity (P0, P1, P2).
+A bulleted list of every AI-ism identified, with the offending text quoted. Group by severity (P0, P1, P2). Keep Tier 1B clarity edits visually separate from Tier 1A markers, and say which is which — a wordiness fix is a writing suggestion, not evidence about who wrote the text.
 
 **2. Assessment**
 For each flag, note whether it's a clear problem or a judgment call. Some AI-associated patterns are effective writing techniques — uniform paragraph length is a problem, but a well-placed "however" isn't. Call out which flags the writer should definitely fix vs. which ones are worth a second look but might be fine in context. If the text is clean, say so.
@@ -715,6 +745,14 @@ A bulleted list of the changes, each with the file location and the before → a
 
 **2. Verification**
 Confirm you re-read the file and the flagged patterns are resolved. Note anything you deliberately left alone because it was already human or intentional.
+
+**Mechanical check (optional, recommended for edit mode).** If the repo ships the detector engine, run the preservation validator against the before and after text:
+
+```bash
+node detector/validate.js <original> <rewritten>
+```
+
+It exits non-zero when a rewrite altered a fenced code block, YAML frontmatter, a blockquote, a table cell, inline code, a URL, a file path, or the heading structure, and when the rewrite introduced more flagged patterns than it removed. Those are the promises made above; this is what checks them. Rewording a heading to fix Title Case and stripping an AI tracking parameter from a URL are carved out, because this skill instructs both.
 
 ---
 
@@ -734,3 +772,21 @@ Removal is half the job. A rewrite that clears every flag but reads sterile — 
 If the original writing is already strong, say so and make only the necessary cuts. Don't over-edit for the sake of it.
 
 The replacement table provides defaults, not mandates. If a flagged word is clearly the right choice in context, preserve it.
+
+### Never inject these
+
+The instruction above — put voice back on purpose — has a predictable failure mode: the model reaches for a stock kit of "human" moves and installs a personality the author never had. That trades one detectable register for a louder one. An independent stress test of `blader/humanizer` found exactly this: generic AI phrasing replaced by a recognizable *humanizer* voice of fragments and staccato rhythm. A new fingerprint, not the absence of one.
+
+None of the following may be **added** to a text that did not already contain it. Every one is a rewrite failure even when the result scores clean:
+
+- **Fake first person.** "I've seen this a hundred times," "in my experience," "I'll admit" dropped into prose that had no author presence. Voice comes from the author or not at all. If the source has no `I`, the rewrite has no `I`.
+- **Manufactured stakes.** "In a world where," "now more than ever," "the stakes have never been higher." Covered as a detection rule under Speculative scenario openers; listed again here because the rewrite side is where it gets *introduced*.
+- **Forced contrarianism.** "Everyone says X, but they're wrong," "the conventional wisdom is backwards." Only legitimate when the source actually argued it. Inventing a foil is inventing a claim.
+- **Performed candor.** "Let's be honest," "real talk," "here's the thing." See Narrated candor and Infomercial engagement hooks. A rewrite that adds one is failing two rules at once.
+- **Em-dash theatrics.** Dashes staged for drama the content has not earned. The rule elsewhere is a rate ceiling; this is about *adding* dashes during a rewrite, which should never happen.
+- **Staccato conversion.** Chopping ordinary sentences into fragments to manufacture rhythm. Vary sentence length by varying the sentences, not by breaking them.
+- **Invented specifics.** A number, name, date, tool, or mechanism the source never contained. Specificity is the most tempting fix because it always reads better, and a fabricated specific is worse than the vague phrasing it replaced. If the concrete detail is missing, flag the gap and leave it. Never fill it.
+
+**The test.** For each edit, ask whether the information in the rewrite came from the source. Subtraction and sharpening are in scope: cutting filler, making an existing claim concrete, surfacing a buried point. Addition of stance, personality, or fact is not. Adapted from `isatimur/de-slop`'s guardrails, which state the rule plainly: you may subtract and sharpen, you may not add.
+
+**Why it belongs here rather than in the pattern catalog.** These are constraints on the editor, not detections on the text. A first-person aside is not a flag when the author wrote it; it is a failure when the tool inserted it. The difference is provenance, which no pattern can see, so it lives with the rewrite instructions where the decision is actually made.

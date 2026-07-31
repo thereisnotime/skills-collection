@@ -5,7 +5,7 @@
 PROVIDERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # List of supported providers
-SUPPORTED_PROVIDERS=("claude" "codex" "cline" "aider")
+SUPPORTED_PROVIDERS=("claude" "codex" "cline" "aider" "opencode")
 
 # Default provider
 DEFAULT_PROVIDER="claude"
@@ -67,16 +67,22 @@ validate_provider_config() {
         PROVIDER_NAME
         PROVIDER_DISPLAY_NAME
         PROVIDER_CLI
-        PROVIDER_AUTONOMOUS_FLAG
         PROVIDER_PROMPT_POSITIONAL
         PROVIDER_HAS_SUBAGENTS
         PROVIDER_HAS_PARALLEL
         PROVIDER_DEGRADED
     )
 
-    # Variables that must be defined but can be empty string
+    # Variables that must be defined but can be empty string.
+    #
+    # PROVIDER_AUTONOMOUS_FLAG moved here in v8.2.0: not every CLI needs a flag
+    # to run non-interactively. `opencode run <prompt>` is already autonomous, so
+    # requiring a non-empty value rejected a perfectly valid provider as
+    # "incomplete". The variable must still be DEFINED -- an author who forgets
+    # it entirely is still caught -- but an intentional empty value is legal.
     local allow_empty_vars=(
         PROVIDER_PROMPT_FLAG
+        PROVIDER_AUTONOMOUS_FLAG
     )
 
     for var in "${required_vars[@]}"; do
@@ -174,7 +180,7 @@ print_capability_matrix() {
 # BUG-PROV-007 fix: includes all 4 supported providers in priority order
 # Priority: Claude (Tier 1, full) > Cline (Tier 2, near-full) > Codex/Aider (Tier 3, degraded)
 auto_detect_provider() {
-    for p in claude cline codex aider; do
+    for p in claude cline codex aider opencode; do
         if check_provider_installed "$p"; then
             echo "$p"
             return 0

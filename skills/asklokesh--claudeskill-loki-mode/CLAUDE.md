@@ -332,7 +332,7 @@ Prompt: "Review the following claims for factual accuracy.
 
 ### Version Numbering
 Follows semantic versioning: MAJOR.MINOR.PATCH
-- Current: v8.1.0 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
+- Current: v8.5.2 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
 - MAJOR bump for architecture changes (v6.0.0 = dual-mode architecture, loki run)
 - MINOR bump for new features (v5.23.0 = Dashboard File-Based API)
 - PATCH bump for fixes (v5.22.1 = session.json phantom state)
@@ -389,6 +389,7 @@ SKILL.md                                 # Header (line ~6) AND footer (last lin
 Dockerfile                               # LABEL version="X.Y.Z"
 Dockerfile.sandbox                       # LABEL version="X.Y.Z"
 plugins/loki-mode/.claude-plugin/plugin.json  # "version": "X.Y.Z" (added v7.39.0; pins plugin updates, must track VERSION). marketplace.json carries no version.
+server.json                              # "version" AND packages[loki-mode].version -- the MCP registry submission manifest. Was absent from this list and silently drifted to 7.34.1 while the repo shipped 8.2.0 (30+ releases). Enforced by tests/test-server-json-current.sh.
 vscode-extension/package.json            # "version": "X.Y.Z" (DEPRECATED in v7.2.0 -- see CHANGELOG L2525-2533; publish-vscode workflow removed; source kept for reference, no longer published. Bump only if vendoring; otherwise skip.)
 CLAUDE.md                                # Version Numbering section (Current: vX.Y.Z)
 ```

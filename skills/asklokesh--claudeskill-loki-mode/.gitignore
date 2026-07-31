@@ -119,3 +119,6 @@ research/openhands-competitive/
 benchmarks/results/ab-history.jsonl
 benchmarks/results/ab-dashboard.html
 benchmarks/results/speed-*.json
+
+# graphify knowledge-graph artifacts (regenerable, machine-local)
+graphify-out/

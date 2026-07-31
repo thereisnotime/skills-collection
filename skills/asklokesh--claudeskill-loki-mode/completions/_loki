@@ -153,6 +153,7 @@ function _loki_commands {
         'memory:Memory commands'
         'compound:Knowledge compounding commands'
         'checkpoint:Snapshot and restore session state'
+        'cp:Snapshot and restore session state (alias of checkpoint)'
         'council:Completion council commands'
         'dogfood:Self-development statistics'
         'projects:Project registry commands'

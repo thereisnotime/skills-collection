@@ -132,6 +132,33 @@ else
     bad "env override ignored: got '$ogot' instead of my/custom-model"
 fi
 
+# ---- REGISTRY FALLBACK (v8.2.0) ------------------------------------------
+# A fixed table of provider keys makes every unknown provider a fallthrough that
+# resolves to NOTHING. Measured before the fix: `loki_latest_model notaprovider
+# development` returned empty with rc=1, so "bring your own endpoint" was a dead
+# end -- the opposite of model-agnostic. A "generic" key turns the unknown case
+# into a first-class one, reusing the shape codex already has (all tiers on one
+# model) rather than inventing a mechanism.
+for unknown in notaprovider some-new-vendor my.vendor.ai; do
+    got="$(resolve "$unknown" development)"
+    case "$(printf '%s' "$got" | tr '[:upper:]' '[:lower:]')" in
+        "")       bad "unknown provider '$unknown' resolved to NOTHING (registry fallback missing)" ;;
+        *claude*) bad "unknown provider '$unknown' resolved to a Claude model ($got)" ;;
+        *)        ok  "unknown provider '$unknown' falls back to the registry -> $got" ;;
+    esac
+done
+
+# A hyphen or dot in the provider name must not break the env-override chain.
+# LOKI_SOME-NEW-VENDOR_MODEL_DEVELOPMENT is not a legal shell identifier, so the
+# indirect expansion failed and took the WHOLE lookup down -- the provider then
+# silently resolved to nothing. Names are normalized to [A-Z0-9_] now.
+hy="$(LOKI_SOME_NEW_VENDOR_MODEL_DEVELOPMENT=x/y bash -c '. "$1" >/dev/null 2>&1; loki_latest_model some-new-vendor development 2>/dev/null' _ "$MODELS_SH")"
+if [ "$hy" = "x/y" ]; then
+    ok "a hyphenated provider name still honors its env override"
+else
+    bad "hyphenated provider override returned '$hy' -- identifier normalization broken"
+fi
+
 echo ""
 echo "  Passed: $PASS   Failed: $FAIL"
 [ "$FAIL" -eq 0 ]

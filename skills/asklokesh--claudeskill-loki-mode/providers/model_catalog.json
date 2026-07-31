@@ -125,6 +125,56 @@
           "open_weights": true
         }
       ]
+    },
+    "opencode": {
+      "latest_planning": "openrouter/deepseek/deepseek-v3.2",
+      "latest_development": "openrouter/deepseek/deepseek-v3.2",
+      "latest_fast": "openrouter/deepseek/deepseek-chat",
+      "models": [
+        {
+          "id": "openrouter/deepseek/deepseek-v3.2",
+          "tier": "planning",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/deepseek/deepseek-v3.2",
+          "tier": "development",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/deepseek/deepseek-chat",
+          "tier": "fast",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/z-ai/glm-4.6",
+          "tier": "development",
+          "open_weights": true
+        },
+        {
+          "id": "openrouter/minimax/minimax-m2.1",
+          "tier": "development",
+          "open_weights": true
+        },
+        {
+          "id": "ollama/qwen2.5-coder",
+          "tier": "fast",
+          "open_weights": true
+        }
+      ]
+    },
+    "generic": {
+      "_comment": "Fallback for ANY provider not named above (bring-your-own endpoint). All three tiers collapse to one open model, the same shape codex uses. Override per tier with LOKI_<PROVIDER>_MODEL_<TIER> or wholesale with LOKI_<PROVIDER>_MODEL.",
+      "latest_planning": "openrouter/deepseek/deepseek-v3.2",
+      "latest_development": "openrouter/deepseek/deepseek-v3.2",
+      "latest_fast": "openrouter/deepseek/deepseek-chat",
+      "models": [
+        {
+          "id": "openrouter/deepseek/deepseek-v3.2",
+          "tier": "development",
+          "open_weights": true
+        }
+      ]
     }
   }
 }

@@ -335,3 +335,43 @@ provider_invoke_with_tier() {
         "${extra_flags[@]+"${extra_flags[@]}"}" \
         "$prompt" "$@"
 }
+
+# provider_invoke_argv <tier> <prompt> -- see providers/claude.sh for the full
+# rationale. Prints argv into _LOKI_INVOKE_ARGV so a caller can wrap it in
+# `timeout`, which cannot wrap a shell function.
+provider_invoke_argv() {
+    local tier="${1:-development}"
+    local prompt="${2:-}"
+
+    # DO NOT pass provider_get_tier_param to --model. For Codex that function
+    # returns an EFFORT LEVEL (xhigh/high/low), not a model name -- the note at
+    # BUG-PROV-012 above says so explicitly, and provider_invoke() already routes
+    # it correctly via CODEX_MODEL_REASONING_EFFORT.
+    #
+    # This path passed it to --model anyway, so every argv-based invocation sent
+    # `--model high` and the API rejected it outright:
+    #   400 invalid_request_error: The 'high' model is not supported when using
+    #   Codex with a ChatGPT account.
+    # Measured 2026-07-30: five trials, elapsed 96s/6s/5s/4s/5s, artifact never
+    # created. The same task through provider_invoke() succeeded in 72s. The
+    # split meant the timeout-safe seam -- the one used precisely when a call
+    # must be bounded -- was the broken one, so a hung provider could not be
+    # cut off without also breaking the invocation.
+    #
+    # The model name comes from PROVIDER_MODEL_DEVELOPMENT / CODEX_DEFAULT_MODEL.
+    # Both are legitimately EMPTY by default so codex uses its own current
+    # default rather than a pinned name that rots; an empty value must therefore
+    # omit --model entirely, not send an empty string.
+    local model="${PROVIDER_MODEL_DEVELOPMENT:-${CODEX_DEFAULT_MODEL:-}}"
+    local effort
+    effort="$(provider_get_tier_param "$tier" 2>/dev/null || printf '%s' "")"
+
+    _LOKI_INVOKE_ARGV=(codex exec --sandbox workspace-write)
+    [ -n "$model" ] && _LOKI_INVOKE_ARGV+=(--model "$model")
+    _LOKI_INVOKE_ARGV+=("$prompt")
+
+    # Effort travels as an env var, not an argv flag. Exported so it survives
+    # `timeout "${_LOKI_INVOKE_ARGV[@]}"`, which is the whole reason this seam
+    # exists: `timeout` cannot exec a shell function.
+    [ -n "$effort" ] && export CODEX_MODEL_REASONING_EFFORT="$effort"
+}

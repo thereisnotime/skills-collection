@@ -10920,8 +10920,8 @@
       "description": "Refresh the repo's captured learnings against the current codebase. Use when auditing stale, overlapping, superseded, or drifted learnings; avoid general refactor, debugging, or code review unless the",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
-      "lines": 708,
-      "words": 8803,
+      "lines": 721,
+      "words": 9463,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -19978,11 +19978,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 737,
-      "words": 12712,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "3.20.0",
+      "lines": 793,
+      "words": 14008,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.22.0",
       "license": "MIT"
     },
     {
@@ -19990,11 +19992,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 737,
-      "words": 12712,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "3.20.0",
+      "lines": 793,
+      "words": 14008,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.22.0",
       "license": "MIT"
     }
   ],
@@ -25903,11 +25907,11 @@
     },
     {
       "name": "supabase-postgres-best-practices",
-      "description": "Postgres performance optimization and best practices from Supabase. Use this skill when writing, reviewing, or optimizing Postgres queries, schema designs, or database configurations.",
+      "description": "\"Postgres best practices maintained by Supabase, for Postgres running anywhere. Load this skill BEFORE writing or changing anything that lives in a Postgres database: creating or altering tables and c",
       "path": "supabase--agent-skills/skills/supabase-postgres-best-practices/SKILL.md",
       "remote_path": "skills/supabase-postgres-best-practices/SKILL.md",
       "lines": 65,
-      "words": 337,
+      "words": 436,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -25974,8 +25978,8 @@
       "description": "\"Iteratively reviews and fixes Claude Code skill quality issues until they meet standards. Runs automated fix-review cycles using the skill-reviewer agent. Use to fix skill quality issues, improve ski",
       "path": "trailofbits--skills/plugins/skill-improver/skills/skill-improver/SKILL.md",
       "remote_path": "plugins/skill-improver/skills/skill-improver/SKILL.md",
-      "lines": 147,
-      "words": 893,
+      "lines": 144,
+      "words": 862,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -55474,8 +55478,8 @@
       "description": "\"Audits documentation and code comments for structure, coverage, factual accuracy, and maintainability. Use for documentation trust reviews; not code, test, or architecture audits.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
-      "lines": 127,
-      "words": 1648,
+      "lines": 137,
+      "words": 1811,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55499,7 +55503,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
       "lines": 107,
-      "words": 1285,
+      "words": 1288,
       "code_blocks": 0,
       "languages": []
     },
@@ -55509,7 +55513,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "lines": 105,
-      "words": 1163,
+      "words": 1164,
       "code_blocks": 0,
       "languages": []
     },
@@ -55528,8 +55532,8 @@
       "description": "\"Reviews standalone skills and their configured distribution surfaces before publication. Use for skill release readiness; not for product code or implementation-plan review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
-      "lines": 104,
-      "words": 1237,
+      "lines": 106,
+      "words": 1326,
       "code_blocks": 0,
       "languages": []
     },
@@ -55551,7 +55555,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "lines": 125,
-      "words": 1798,
+      "words": 1778,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55587,7 +55591,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "lines": 107,
-      "words": 1402,
+      "words": 1378,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55599,7 +55603,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "lines": 107,
-      "words": 1355,
+      "words": 1340,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55607,11 +55611,11 @@
     },
     {
       "name": "ln-75-architecture-diagram-builder",
-      "description": "\"Creates evidence-backed current or target architecture diagrams. Use when relationships need visualization; not for UI design, architecture audit, or invented structure.\"",
+      "description": "\"Creates evidence-backed current or target architecture diagrams when the diagram is the primary deliverable. Not for UI design, architecture audit, or invented structure.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
       "lines": 104,
-      "words": 963,
+      "words": 965,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55647,7 +55651,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
       "lines": 106,
-      "words": 1026,
+      "words": 1048,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55682,9 +55686,9 @@
       "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
-      "lines": 198,
-      "words": 3642,
-      "code_blocks": 2,
+      "lines": 175,
+      "words": 2741,
+      "code_blocks": 1,
       "languages": [
         "markdown"
       ]
@@ -55694,8 +55698,8 @@
       "description": "\"Reviews implementation plans against repository evidence and current authoritative guidance. Use before execution to expose gaps and risks; not for completed delivery review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
-      "lines": 147,
-      "words": 2668,
+      "lines": 149,
+      "words": 2795,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55707,7 +55711,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
       "lines": 111,
-      "words": 1389,
+      "words": 1366,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -167518,16 +167522,6 @@
         "bash",
         "markdown"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "qmd-search",

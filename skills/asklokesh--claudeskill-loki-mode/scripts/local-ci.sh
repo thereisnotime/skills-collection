@@ -9,9 +9,28 @@
 # every change is validated on this Mac before it reaches the remote.
 #
 # Usage:
-#   bash scripts/local-ci.sh              # full run
-#   bash scripts/local-ci.sh --fast       # skip mutation + docker
-#   bash scripts/local-ci.sh --verbose    # show full output
+#   bash scripts/local-ci.sh                    # FAST tier (default, < 2 min)
+#   LOCAL_CI_TIER=full bash scripts/local-ci.sh # FULL tier (pre-push gate)
+#   bash scripts/local-ci.sh --full             # same as LOCAL_CI_TIER=full
+#   bash scripts/local-ci.sh --verbose          # show full output
+#
+# TIERS (LOCAL_CI_TIER=fast|full, default fast)
+#
+#   fast -- the inner-loop tier. Syntax, structural and trust-core checks only:
+#           every receipt / proof / council / verify suite runs, unchanged, with
+#           the same assertions. A dozen known-slow checks are DEFERRED and each
+#           one is PRINTED in the Skipped block with its measured cost. FAST is
+#           NOT push authorization; see the verdict line.
+#
+#   full -- every check, unchanged. This is the CLAUDE.md pre-push gate. Nothing
+#           about full's behaviour changed when the fast tier was added: the
+#           denylist below is consulted only when the tier is fast.
+#
+# WHY A TIER AND NOT A FASTER GATE: the slow items are slow because of what they
+# check, not how. tests/run-all-tests.sh (282 suites), the pytest blanket (1793
+# tests) and run-shellcheck.sh (~118s measured) cannot be made sub-second without
+# checking less, which is the exact false-green this product exists to prevent.
+# So they are deferred by NAME and reported, never silently trimmed.
 #
 # Exit code 0 = green; nonzero = at least one check failed (printed loudly).
 
@@ -27,13 +46,180 @@ VERBOSE=0
 # LOCAL_CI_SERIAL=1 to determine whether it is parallel-induced or a real
 # logic regression, without reverting the parallelization.
 SERIAL="${LOCAL_CI_SERIAL:-0}"
+
+# Tier. Default fast (the inner loop); full is the CLAUDE.md pre-push gate.
+# NOTE: --fast is a PRE-EXISTING, UNRELATED flag (it skips only the SBOM step,
+# see section 11). It is deliberately NOT an alias for the fast TIER -- two
+# things named "fast" that mean different things is how a full run gets
+# mistaken for a fast one. The tier is set by LOCAL_CI_TIER or --full only.
+TIER="${LOCAL_CI_TIER:-fast}"
 for arg in "$@"; do
   case "$arg" in
     --fast)    FAST=1 ;;
+    --full)    TIER=full ;;
     --verbose) VERBOSE=1 ;;
     --serial)  SERIAL=1 ;;
   esac
 done
+case "$TIER" in
+  fast|full) ;;
+  *) echo "local-ci: unknown LOCAL_CI_TIER='$TIER' (want fast|full)" >&2; exit 2 ;;
+esac
+
+# SINGLE INSTANCE. Two concurrent gate runs starve each other's timing-sensitive
+# suites and produce failures that vanish on an isolated re-run.
+#
+# MEASURED on 2026-07-30, every one of these "failures" passed alone:
+#   tests/cli/test-alias-forwarding.sh   FAIL under load -> 213 passed, 0 failed
+#   tests/test-plan-command.sh           FAIL under load ->  27 passed, 0 failed
+#   tests/test-proven-pr-receipt.sh      FAIL under load ->  14 passed, 0 failed
+#   tests/test-heal-assess-readiness.sh  FAIL under load ->   8 passed, 0 failed
+#
+# Hours were spent treating those as defects. Worse, a phantom failure trains the
+# reader to distrust the gate, which is exactly how a REAL failure gets waved
+# through. Refusing to start is cheaper than a verdict nobody believes.
+#
+# A stale lock from a killed run is self-healing: the PID inside is checked for
+# liveness, so a crash never wedges the next run. Override with
+# LOCAL_CI_ALLOW_CONCURRENT=1 if you genuinely want two.
+_lci_lock="${TMPDIR:-/tmp}/loki-local-ci.lock"
+if [ "${LOCAL_CI_ALLOW_CONCURRENT:-0}" != "1" ]; then
+    if [ -f "$_lci_lock" ]; then
+        _lci_prev="$(cat "$_lci_lock" 2>/dev/null || echo "")"
+        if [ -n "$_lci_prev" ] && kill -0 "$_lci_prev" 2>/dev/null; then
+            echo "local-ci is already running (pid $_lci_prev)." >&2
+            echo "Two concurrent runs starve each other and produce phantom failures." >&2
+            echo "Wait for it, or: kill $_lci_prev   (or LOCAL_CI_ALLOW_CONCURRENT=1 to override)" >&2
+            exit 3
+        fi
+        # Stale lock from a killed run: reclaim it rather than wedge forever.
+    fi
+    printf '%s' "$$" > "$_lci_lock" 2>/dev/null || true
+    _lci_owner="$$"
+    # Release ONLY from the process that took the lock. A bare `trap ... EXIT`
+    # fires in every subshell too, and this script runs many -- so a finishing
+    # child test deleted the parent's lock, after which the next invocation saw
+    # no lock and started concurrently. Observed live: lock held 33475 while a
+    # second parent (70402) was running anyway.
+    trap '[ "$$" = "$_lci_owner" ] && rm -f "$_lci_lock" 2>/dev/null || true' EXIT
+fi
+
+# ---------------------------------------------------------------------------
+# FAST-tier KEEP list (allowlist)
+# ---------------------------------------------------------------------------
+# WHY AN ALLOWLIST AND NOT A DENYLIST. The first cut of this tier deferred a
+# dozen known-slow checks and still took >10 minutes. Measured cause: the gate's
+# cost is NOT a few slow checks, it is ~113 shell suites at a mean of 2.6s
+# (measured: 63 non-deferred suites summed 166.1s, projecting ~298s serial).
+# Deferring 16 items cannot reach 120s; only running FEWER checks can. So the
+# fast tier states positively what it DOES run, and everything else is deferred
+# and printed. A denylist would also silently admit every newly-added suite into
+# the fast tier, which is how a fast pass quietly becomes a slow one again.
+#
+# What FAST keeps, and why each earns its place:
+#   1. every structural/syntax lane (bash -n, JSON, YAML, emoji, git-add,
+#      heredoc, completions coverage) -- already parallel-safe, already cheap;
+#   2. the 14 per-file proof/bench/dashboard pytest gates -- the receipt layer;
+#   3. every trust-core shell suite (proof/receipt/council/verify/evidence) --
+#      the moat. These can NEVER be deferred; the guard below enforces it.
+#
+# Matching is substring-against-LABEL, consulted ONLY when TIER=fast. The full
+# tier never consults this array and is byte-for-byte its pre-tiering self.
+declare -a _FAST_KEEP=(
+  # 1. syntax + structure (cheap, already background lanes)
+  "bash -n "
+  "JSON validation"
+  "workflow YAML parse"
+  "no emojis in modified files"
+  "no git add -A in workflows"
+  "no unescaped \$<digit>"
+  "shell completions cover every dispatch command"
+  "local-ci tiering"
+  # 2. trust core: proof / receipt / evidence-gate / verify / council.
+  #    Measured (by name, this Mac): the pytest gates run ~15s as parallel
+  #    lanes; the shell suites ~60s serial. Both stay, in full, unchanged.
+  "tests/test_proof_"
+  "tests/test_own_render.py"
+  "tests/test_effort_estimate.py"
+  "tests/test_bench_"
+  "tests/dashboard/test_proofs_routes.py"
+  "tests/cli/test-proof-command.sh"
+  "tests/test-evidence-gate"
+  "tests/test-evidence-boot-axis.sh"
+  "tests/test-evidence-secret-axis.sh"
+  "tests/test-verify.sh"
+  "tests/test-verify-scope-record.sh"
+  "tests/test-verify-setup-recipe.sh"
+  "tests/test-council-"
+  "tests/test-heuristic-council-affirmative.sh"
+  "tests/test-playwright-verify-as-evidence.sh"
+  "tests/test-proven-pr-receipt.sh"
+  "tests/test-checklist-"
+  "tests/test_checklist_"
+  # 3. every MEASURED sub-second suite. Cheap enough that deferring them buys
+  #    nothing, so the fast tier runs them and the deferred list stays honest
+  #    about being slow-only. Times measured by name on this Mac (2026-07-30);
+  #    a suite whose cost was NOT measured is deliberately left deferred rather
+  #    than guessed into the fast tier.
+  "tests/test-bench-honest-degrade.sh"        # 100ms
+  "tests/test-build-home-isolation.sh"        # 107ms
+  "tests/test-codex-model-trusted.sh"         # 134ms
+  "tests/test-loki-steer.sh"                  # 179ms
+  "tests/test-loki-dir-double-path.sh"        # 195ms
+  "tests/test-first-preview-metric.sh"        # 197ms
+  "tests/test-approval-phase-gate.sh"         # 259ms
+  "tests/test-auto-tune-interval.sh"          # 87ms
+  "tests/test-checkpoint-index-rebuild.sh"    # 312ms
+  "tests/test-bundled-sdk-provider.sh"        # 372ms
+  "tests/test-loki-why-stall.sh"              # 473ms
+  "tests/test-mergeability-review.sh"         # 519ms
+  "tests/cli/test-loki-next.sh"               # 549ms
+  "tests/test-allowed-paths-sandbox-mount.sh" # 634ms
+  "tests/test-export-overwrite-noninteractive.sh" # 668ms
+  "tests/run-checkpoint-worktree-bundle-tests.sh" # 742ms
+  "tests/cli/test-provider-offer.sh"          # 869ms
+  "tests/test-emit-json-escape.sh"            # 870ms
+  "tests/test-bash-bun-parity.sh"             # 997ms
+  # CLAUDE.md cleanup mandate: sub-second, and the whole point is that it runs
+  # on every invocation, not only the slow one.
+  "no /tmp/loki-* /tmp/test-* leftovers"
+)
+
+# Returns 0 when the check should RUN in the fast tier.
+_fast_keeps() {
+  local label="$1" pat
+  for pat in "${_FAST_KEEP[@]}"; do
+    case "$label" in *"$pat"*) return 0 ;; esac
+  done
+  return 1
+}
+
+# Returns 0 (defer) when TIER=fast and the label is NOT on the keep list.
+_should_defer() {
+  [ "$TIER" = "fast" ] || return 1
+  _fast_keeps "$1" && return 1
+  return 0
+}
+
+# TRUST-CORE INVARIANT (the reason this tiering is allowed to exist at all).
+# The moat is the receipt/proof/council/verify layer, so the fast tier must run
+# ALL of it. The dangerous future edit is not someone deferring a trust-core
+# check by name -- it is someone ADDING a new trust-core suite to local-ci and
+# not adding it to _FAST_KEEP, at which point the fast tier silently stops
+# covering the moat. So the guard runs in the direction that catches it: scan
+# this script for every trust-core suite path it invokes, and abort if any one
+# of them is not matched by the keep list.
+_trust_core_unkept=""
+while read -r _p; do
+  [ -n "$_p" ] || continue
+  _fast_keeps "$_p" || _trust_core_unkept="$_trust_core_unkept $_p"
+done <<< "$(grep -oE 'tests/[a-z0-9/_-]*(proof|receipt|council|verify|evidence|redaction)[a-z0-9/_-]*\.(sh|py)' "$0" | sort -u)"
+if [ -n "$_trust_core_unkept" ]; then
+  echo "local-ci: FATAL -- trust-core suite(s) not covered by _FAST_KEEP:$_trust_core_unkept" >&2
+  echo "The fast tier must run every receipt/proof/council/verify suite. Add them to _FAST_KEEP." >&2
+  exit 2
+fi
+unset _trust_core_unkept _p
 
 declare -a FAILED=()
 declare -a PASSED=()
@@ -56,6 +242,12 @@ run_check() {
   local label="$1"
   shift
   local cmd="$*"
+  # FAST tier: route deferred checks through skip_check so they land in the
+  # SKIPPED block and get printed at the end. Never silently dropped.
+  if _should_defer "$label"; then
+    skip_check "$label" "DEFERRED by fast tier (not trust-core/syntax) -- run LOCAL_CI_TIER=full"
+    return
+  fi
   echo
   echo "${CYAN}== $label${NC}"
   echo "${DIM}$cmd${NC}"
@@ -142,6 +334,10 @@ LANE_DIR=""
 run_check_bg() {
   local label="$1"; shift
   local cmd="$*"
+  if _should_defer "$label"; then
+    skip_check "$label" "DEFERRED by fast tier (not trust-core/syntax) -- run LOCAL_CI_TIER=full"
+    return
+  fi
   # Serial fallback: behave exactly like run_check (the bisect lever).
   if [ "$SERIAL" = "1" ]; then
     run_check "$label" "$cmd"
@@ -201,6 +397,29 @@ harvest_lanes() {
   _LANE_LABELS=(); _LANE_PIDS=(); LANE_DIR=""
 }
 
+# Tier-aware dispatch for the per-file pytest gates (proof / bench / dashboard).
+#
+# Those gates are pinned SERIAL in the full tier for one specific reason stated
+# at section 3: the blanket `pytest -q` run collects the SAME files, so
+# backgrounding them would double-execute the same tests concurrently. That
+# hazard is a property of the blanket run, not of the gates.
+#
+# In the FAST tier the blanket run is deferred, so no other process collects
+# those files and the hazard is structurally absent -- verified: every per-file
+# target in this script is distinct (no target appears twice). They can then run
+# as parallel lanes, which turns ~20 sequential python interpreter startups into
+# one wave WITHOUT changing a single assertion: same files, same pytest, same
+# pass counts, only the scheduling differs.
+#
+# Full tier keeps the original serial behaviour exactly.
+run_check_pyfile() {
+  if [ "$TIER" = "fast" ]; then
+    run_check_bg "$@"
+  else
+    run_check "$@"
+  fi
+}
+
 # Per-suite HOME hermeticity was prototyped here for the state-contending suites
 # (model-override, plan-command) but removed: serial pinning already eliminates
 # the only concurrency those suites could contend under (the read-only pool is
@@ -218,7 +437,13 @@ echo "${CYAN}Loki Mode local-ci -- mirrors every GitHub Actions workflow${NC}"
 echo "Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Repo:    $REPO_ROOT"
 echo "VERSION: $(cat VERSION 2>/dev/null || echo MISSING)"
-[ "$FAST" = "1" ] && echo "Mode:    --fast (mutation + docker SKIPPED)"
+[ "$FAST" = "1" ] && echo "Mode:    --fast (SBOM SKIPPED)"
+if [ "$TIER" = "fast" ]; then
+  echo "Tier:    FAST -- trust core + syntax + structure. Slow checks deferred and listed at the end."
+  echo "         NOT a pre-push gate. Pre-push: LOCAL_CI_TIER=full bash scripts/local-ci.sh"
+else
+  echo "Tier:    FULL -- every check (the CLAUDE.md pre-push gate)"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Bash syntax (mirrors release.yml gate.bash-syntax-validation)
@@ -290,37 +515,37 @@ if [ -n "$PROOF_PY" ]; then
   # SERIAL (inline): per-file proof + bench pytest gates. Same files as the
   # blanket run above; kept inline so they never execute concurrently with it.
   # THE GATE: redaction corpus + end-to-end no-leak + refuse-if-bypassed.
-  run_check "tests/test_proof_redaction.py (R1 redaction gate)" "$PROOF_PY -m pytest -q tests/test_proof_redaction.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_proof_redaction.py (R1 redaction gate)" "$PROOF_PY -m pytest -q tests/test_proof_redaction.py 2>&1 | tail -5"
   # Schema + integrity hash + include-diffs + graceful degradation.
-  run_check "tests/test_proof_generator.py (R1 generator schema/hash)" "$PROOF_PY -m pytest -q tests/test_proof_generator.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_proof_generator.py (R1 generator schema/hash)" "$PROOF_PY -m pytest -q tests/test_proof_generator.py 2>&1 | tail -5"
   # Rank 6: per-build effort_estimate (work-based hours, fail-open heuristic,
   # honest LLM gate, deterministic inputs_hash). Two-scope separation gate.
-  run_check "tests/test_effort_estimate.py (Rank 6 effort estimator)" "$PROOF_PY -m pytest -q tests/test_effort_estimate.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_effort_estimate.py (Rank 6 effort estimator)" "$PROOF_PY -m pytest -q tests/test_effort_estimate.py 2>&1 | tail -5"
   # Evidence Receipt verifier: tamper + drift re-check (loki proof verify).
-  run_check "tests/test_proof_verify.py (Evidence Receipt verify: tamper/drift)" "$PROOF_PY -m pytest -q tests/test_proof_verify.py 2>&1 | tail -5"
-  run_check "tests/test_own_render.py (finish-and-own honesty: never green unless verified)" "$PROOF_PY -m pytest -q tests/test_own_render.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_proof_verify.py (Evidence Receipt verify: tamper/drift)" "$PROOF_PY -m pytest -q tests/test_proof_verify.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_own_render.py (finish-and-own honesty: never green unless verified)" "$PROOF_PY -m pytest -q tests/test_own_render.py 2>&1 | tail -5"
   # Self-contained page: no external resource refs; all Tier1-4 fields render.
-  run_check "tests/test_proof_html.py (R1 self-contained page)" "$PROOF_PY -m pytest -q tests/test_proof_html.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_proof_html.py (R1 self-contained page)" "$PROOF_PY -m pytest -q tests/test_proof_html.py 2>&1 | tail -5"
   # R2 benchmark harness gates (mocked adapters, no paid API calls).
   # Task-spec hash determinism + held-out anti-contamination + offline loader.
-  run_check "tests/test_bench_taskspec.py (R2 task-spec + hash)" "$PROOF_PY -m pytest -q tests/test_bench_taskspec.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_bench_taskspec.py (R2 task-spec + hash)" "$PROOF_PY -m pytest -q tests/test_bench_taskspec.py 2>&1 | tail -5"
   # Runner + grader: success set ONLY by held-out acceptance, N-trial aggregate.
-  run_check "tests/test_bench_runner.py (R2 runner + grader)" "$PROOF_PY -m pytest -q tests/test_bench_runner.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_bench_runner.py (R2 runner + grader)" "$PROOF_PY -m pytest -q tests/test_bench_runner.py 2>&1 | tail -5"
   # Adapters never report success/quality; manual adapter requires provenance.
-  run_check "tests/test_bench_adapters.py (R2 adapters boundary)" "$PROOF_PY -m pytest -q tests/test_bench_adapters.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_bench_adapters.py (R2 adapters boundary)" "$PROOF_PY -m pytest -q tests/test_bench_adapters.py 2>&1 | tail -5"
   # Report is data-driven: a Loki-loses fixture renders the competitor as winner.
-  run_check "tests/test_bench_report.py (R2 report non-rigged)" "$PROOF_PY -m pytest -q tests/test_bench_report.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_bench_report.py (R2 report non-rigged)" "$PROOF_PY -m pytest -q tests/test_bench_report.py 2>&1 | tail -5"
   # bench CLI list/verify on the bash route.
-  run_check "tests/test_bench_cli.py (R2 bench CLI)" "$PROOF_PY -m pytest -q tests/test_bench_cli.py 2>&1 | tail -5"
-  run_check "tests/test_bench_mergeability.py (Rank 12 mergeability score)" "$PROOF_PY -m pytest -q tests/test_bench_mergeability.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_bench_cli.py (R2 bench CLI)" "$PROOF_PY -m pytest -q tests/test_bench_cli.py 2>&1 | tail -5"
+  run_check_pyfile "tests/test_bench_mergeability.py (Rank 12 mergeability score)" "$PROOF_PY -m pytest -q tests/test_bench_mergeability.py 2>&1 | tail -5"
 else
   skip_check "proof-of-run python gates" "no python3 on PATH"
 fi
 # Dashboard proof routes need fastapi (python3.12 only).
 if command -v python3.12 >/dev/null 2>&1; then
-  run_check "tests/dashboard/test_proofs_routes.py (R1 proof routes + traversal)" "python3.12 -m pytest -q tests/dashboard/test_proofs_routes.py 2>&1 | tail -5"
+  run_check_pyfile "tests/dashboard/test_proofs_routes.py (R1 proof routes + traversal)" "python3.12 -m pytest -q tests/dashboard/test_proofs_routes.py 2>&1 | tail -5"
   # v7.34.0 Phase 1: /api/status surfaces claude_session_id from claude-session.json.
-  run_check "tests/dashboard/test_claude_session_status.py (v7.34.0 claude_session_id)" "python3.12 -m pytest -q tests/dashboard/test_claude_session_status.py 2>&1 | tail -5"
+  run_check_pyfile "tests/dashboard/test_claude_session_status.py (v7.34.0 claude_session_id)" "python3.12 -m pytest -q tests/dashboard/test_claude_session_status.py 2>&1 | tail -5"
 else
   skip_check "proof routes dashboard gate" "python3.12 not on PATH (fastapi)"
 fi
@@ -343,6 +568,11 @@ run_check_bg "no emojis in modified files" '! git diff HEAD --name-only | xargs 
 run_check_bg "no git add -A in workflows" '! grep -rn "git add -A" .github/workflows/ 2>/dev/null | grep -v "^.*#"'
 run_check_bg 'no unescaped $<digit> in python3 -c bodies (v7.41 heredoc footgun)' 'bash tests/check-heredoc-dollar-digit.sh'
 run_check_bg 'shell completions cover every dispatch command (no drift)' 'bash tests/cli/test-completions-coverage.sh'
+# Guards this script's own FAST/FULL tiering: that a fast pass can never read as
+# push authorization, and that the fast tier still covers every trust-core
+# suite. Static assertions, sub-second, so it runs in the fast tier too --
+# a tier guard that only ran in the slow tier would be useless.
+run_check_bg 'local-ci tiering (fast is not push authorization; trust core kept)' 'bash tests/test-local-ci-tiers.sh'
 
 # ---------------------------------------------------------------------------
 # Harvest the read-only parallel pool BEFORE the serial-sensitive spine. The
@@ -550,7 +780,17 @@ run_check "tests/test-stop-scoping.sh (stop scoping + per-project stop)" "bash t
 # CI). Running the whole harness closes that class for good. The per-name entries
 # below are kept as a FAST fail-early subset for the most-edited suites.
 if [ "${LOKI_LOCALCI_FULL_SHELL:-1}" = "1" ]; then
-  run_check "tests/run-all-tests.sh (FULL CI shell suite -- authoritative)" "bash tests/run-all-tests.sh 2>&1 | tail -6"
+  # `tail -6` kept ONLY the totals, so a failing run reported "Failed: 1" and
+  # discarded the line naming WHICH suite failed. That turned a one-line
+  # diagnosis into a full re-run of a ~25-minute suite to find out. Keep the
+  # FAILED lines (there are few, by definition) ahead of the totals.
+  # Keep the ✗ FAILED lines (one per failing suite, few by definition) and the
+  # final totals. Two earlier attempts lost the name: `tail -6` cut everything
+  # above the totals, and grepping for 'FAILED|Passed:|Failed:' then tailing
+  # still lost it, because member suites print their own per-suite "Passed: N"
+  # lines that flood the tail. Anchoring on the ✗ marker is what survives.
+  run_check "tests/run-all-tests.sh (FULL CI shell suite -- authoritative)" \
+    "bash tests/run-all-tests.sh 2>&1 | grep -aE '(✗.*FAILED|Passed: {5,}[0-9]|Failed: {5,}[0-9])' | tail -20"
 fi
 
 # Fast fail-early subset (also covered by the full suite above):
@@ -609,6 +849,12 @@ run_check "tests/test-council-da-veto.sh (anti-sycophancy DA veto forces CONTINU
 # (--append-system-prompt) parity. Verifies the dashboard Stop button responds
 # promptly and the autonomous agent does not refuse work due to global CLAUDE.md.
 run_check "tests/test-autonomy-and-stop.sh (stop responsiveness + agent autonomy)" "bash tests/test-autonomy-and-stop.sh 2>&1 | tail -3"
+
+# DESIGN-1: the OSS design-archetype library (references/design-archetypes.md) is
+# the positive half of the first-pass DESIGN directive. Verifies it is appended
+# byte-identically on both routes, is iteration-1-only, fails open when absent,
+# and names only real Google Fonts families / real Radix Colors steps.
+run_check "tests/test-design-archetypes.sh (OSS design library, both-route parity)" "bash tests/test-design-archetypes.sh 2>&1 | tail -3"
 
 # v7.7.32: /api/tasks must pass through task enrichment (description,
 # acceptance_criteria, logs, provider) so the dashboard task-detail modal is
@@ -1124,7 +1370,7 @@ ELAPSED=$((END - START))
 
 echo
 echo "${CYAN}===============================================================${NC}"
-echo "${CYAN}local-ci summary  ($(printf '%dm%02ds' $((ELAPSED/60)) $((ELAPSED%60))))${NC}"
+echo "${CYAN}local-ci summary  [tier: $(echo "$TIER" | tr '[:lower:]' '[:upper:]')]  ($(printf '%dm%02ds' $((ELAPSED/60)) $((ELAPSED%60))))${NC}"
 echo "${CYAN}===============================================================${NC}"
 echo "${GREEN}Passed:  ${#PASSED[@]}${NC}"
 echo "${YELLOW}Skipped: ${#SKIPPED[@]}${NC}"
@@ -1141,11 +1387,30 @@ if [ "${#FAILED[@]}" -gt 0 ]; then
   echo "${RED}Failed:${NC}"
   for f in "${FAILED[@]}"; do echo "  - $f"; done
   echo
-  echo "${RED}DO NOT PUSH. Fix the failures above and re-run.${NC}"
+  echo "${RED}DO NOT PUSH. Fix the failures above and re-run (tier: $TIER).${NC}"
   exit 1
 fi
 
 echo
-echo "${GREEN}All local-ci checks passed.${NC}"
-echo "Safe to commit + push."
+# The verdict must never let a FAST pass be mistaken for a FULL one. CLAUDE.md
+# mandates the full gate before every push; a fast run that printed "safe to
+# push" would make the tiering itself the false-green it was meant to avoid.
+if [ "$TIER" = "fast" ]; then
+  echo "${GREEN}All FAST-tier local-ci checks passed.${NC}"
+  echo "${YELLOW}This is NOT push authorization.${NC}"
+  # The deferred list is long. A summary nobody reads is how a fast pass gets
+  # mistaken for a full one, so name the scale of what was NOT checked -- in
+  # particular the blanket pytest run, which is where a pre-existing red hides.
+  echo "${YELLOW}${#SKIPPED[@]} check(s) deferred${NC} (listed above), covering roughly:"
+  echo "  - tests/run-all-tests.sh   282 shell suites   (~10+ min, measured)"
+  echo "  - blanket pytest -q        1793 tests         (128s, measured)"
+  echo "  - tests/run-shellcheck.sh  repo-wide lint     (118s, measured)"
+  echo "  - SBOM / npm audit / license-audit / bun-parity / MCP handshakes"
+  echo "FAST covers syntax, structure and the full trust core (proof, receipt,"
+  echo "council, verify, evidence) -- nothing else. Before push or release:"
+  echo "    LOCAL_CI_TIER=full bash scripts/local-ci.sh"
+else
+  echo "${GREEN}All FULL-tier local-ci checks passed.${NC}"
+  echo "Safe to commit + push."
+fi
 exit 0

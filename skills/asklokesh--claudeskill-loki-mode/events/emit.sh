@@ -71,6 +71,26 @@ safe_append_event_jsonl() {
     local max_attempts=100   # ~1s at 10ms sleep
     local stale_after=30
     while ! mkdir "$lock_dir" 2>/dev/null; do
+        # COUNT EVERY ITERATION, before any `continue` can skip the increment.
+        #
+        # This was the v8.1.0 fix's blind spot and it kept the P0 alive. Both
+        # `continue` paths below (lock vanished mid-stat; stale lock reclaimed)
+        # jumped PAST the increment that used to live at the bottom of the loop,
+        # so `max_attempts` was unreachable on those paths and the loop spun
+        # forever. Under concurrent emits the stale-reclaim path fires over and
+        # over, which is precisely the pathological case.
+        #
+        # MEASURED 2026-07-30, AFTER the v8.1.0 fix shipped: 63 orphaned
+        # emit.sh processes, oldest alive 10h51m, each burning ~5% CPU, machine
+        # at load 63 on 14 cores. Every orphan started after the fix landed.
+        # An unbounded wait whose only exit is a counter must increment that
+        # counter on EVERY path, or the bound is decorative.
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge "$max_attempts" ]; then
+            # Give up fast -- best-effort write so observability never blocks.
+            printf '%s\n' "$line" >> "$events_path" 2>/dev/null || true
+            return 0
+        fi
         # Check staleness EVERY iteration, not only after exhausting attempts.
         # The old code waited for all 500 attempts before its first staleness
         # check, so a stale lock cost ~5s AND ~500 forked sleep helpers per
@@ -90,12 +110,8 @@ safe_append_event_jsonl() {
             rmdir "$lock_dir" 2>/dev/null || rm -rf "$lock_dir" 2>/dev/null || true
             continue
         fi
-        attempts=$((attempts + 1))
-        if [ "$attempts" -ge "$max_attempts" ]; then
-            # Give up fast -- best-effort write so observability never blocks.
-            printf '%s\n' "$line" >> "$events_path" 2>/dev/null || true
-            return 0
-        fi
+        # (attempt counting and the give-up branch moved to the TOP of the loop
+        # so no `continue` can bypass them)
         # Sleep ~10ms WITHOUT forking when the shell supports fractional sleep
         # (bash's `read -t` needs no external process). perl/sleep are fallbacks.
         read -r -t 0.01 _unused_ < /dev/null 2>/dev/null \
@@ -116,6 +132,50 @@ if [ "${LOKI_EMIT_LIB_ONLY:-0}" = "1" ]; then
 fi
 
 set -euo pipefail
+
+#-----------------------------------------------------------------------------
+# SELF-REAPER: telemetry must never outlive the thing it observes.
+#-----------------------------------------------------------------------------
+# WHY A WATCHDOG AND NOT ANOTHER LOCK FIX. v8.1.0 fixed a specific unbounded
+# wait (bare `flock -x`, and a staleness check that ran only after 500 attempts).
+# It was a real fix and it was not sufficient: MEASURED 2026-07-30, AFTER that
+# release, 63 orphaned emit.sh processes were alive on this machine, the oldest
+# 10h51m, each burning ~5% CPU, contributing to load 63 on 14 cores. Every one
+# of them started AFTER the fix landed, so whatever wedges emit.sh is not (only)
+# the path that was fixed.
+#
+# The lesson is that patching each discovered hang is an arms race we keep
+# losing, because a hang anywhere in this script has the same user-visible cost.
+# emit.sh is FIRE-AND-FORGET telemetry: nothing waits on its result, and a
+# dropped event is strictly cheaper than a wedged process. So instead of proving
+# no path can block, we cap the lifetime of EVERY path.
+#
+# A background timer SIGKILLs this process after LOKI_EMIT_MAX_SECONDS (default
+# 10). It is deliberately blunt: no cleanup hook, no graceful drain, because the
+# failure mode being defended against is precisely "graceful paths did not run".
+# The killer is disowned so it never becomes a job the parent shell waits on,
+# and it exits immediately when the main process finishes normally.
+#
+# Set LOKI_EMIT_MAX_SECONDS=0 to disable (useful only when debugging emit.sh
+# itself -- an operator who disables it is choosing the orphan risk knowingly).
+_emit_max="${LOKI_EMIT_MAX_SECONDS:-10}"
+case "$_emit_max" in ''|*[!0-9]*) _emit_max=10 ;; esac
+if [ "$_emit_max" -gt 0 ]; then
+    _emit_target=$$
+    (
+        # Poll rather than one long sleep so the watchdog exits promptly on the
+        # normal path instead of lingering for the full window.
+        _waited=0
+        while [ "$_waited" -lt "$_emit_max" ]; do
+            sleep 1
+            kill -0 "$_emit_target" 2>/dev/null || exit 0
+            _waited=$((_waited + 1))
+        done
+        kill -9 "$_emit_target" 2>/dev/null || true
+    ) >/dev/null 2>&1 &
+    # Disown so the watchdog is not a tracked job of the caller's shell.
+    disown 2>/dev/null || true
+fi
 
 # Configuration
 LOKI_DIR="${LOKI_DIR:-.loki}"

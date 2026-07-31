@@ -122,6 +122,33 @@ if [ -f "$_loki_claude_flags_helper" ]; then
     . "$_loki_claude_flags_helper"
 fi
 
+# Absolute path to the curated design archetype library appended to the
+# iteration-1 system prompt by _loki_autonomy_override_text below. Resolved via
+# the same LOKI_SKILL_DIR / PROJECT_DIR precedence run.sh uses (run.sh:1311)
+# rather than BASH_SOURCE: this file is sourced, and under a plain
+# `. providers/claude.sh` BASH_SOURCE[0] can be EMPTY, which silently resolves a
+# dirname-based path one level above the repo root. The two helper paths above
+# still carry that latent defect; they survive it only because each is guarded by
+# a `[ -f ]` that quietly fails open.
+# Resolved FILE-RELATIVE first, matching how the Bun route resolves it from
+# import.meta.url. Deliberately no $PWD anywhere in this chain: at source time
+# $PWD is the TARGET PROJECT's directory during a real build, so a project that
+# happened to contain references/design-archetypes.md would have its own file
+# read straight into the autonomy system prompt (arbitrary user-controlled text,
+# and silent drift from the Bun route, which can never pick up a project file).
+# The env vars are the fallback only for the empty-BASH_SOURCE case.
+_loki_design_archetypes_path=""
+for _loki_dap_root in \
+    "$([ -n "${BASH_SOURCE[0]:-}" ] && cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && cd .. 2>/dev/null && pwd)" \
+    "${LOKI_SKILL_DIR:-}" \
+    "${PROJECT_DIR:-}"; do
+    if [ -n "$_loki_dap_root" ] && [ -f "$_loki_dap_root/references/design-archetypes.md" ]; then
+        _loki_design_archetypes_path="$_loki_dap_root/references/design-archetypes.md"
+        break
+    fi
+done
+unset _loki_dap_root
+
 # Source the v7.5.22 Phase D mcp-config helper (idempotent).
 # shellcheck source=../autonomy/lib/mcp-config.sh
 _loki_mcp_config_helper="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/autonomy/lib/mcp-config.sh"
@@ -302,6 +329,15 @@ LOKI_AUTONOMY_EOF
 4. DESIGN: commit to ONE named aesthetic direction up front (editorial, brutalist, luxury, retro-futuristic, soft/pastel, industrial, etc. -- chosen from the product domain) and hold it on every surface. Use real content (never lorem). AVOID the AI-slop tells that instantly read as machine-generated: NO indigo/blue-to-purple gradient (the #1 tell), NO Inter/Roboto/system-font headlines (pick a real display+body pairing), NO three-equal-rounded-cards-in-a-row skeleton, NO flat 1px gray card borders or colored left-border strips, NO untouched shadcn defaults, NO reflexive dark mode. Cap the palette at ~3 hues (60/30/10), tinted not pure #fff/#000, separate sections by whitespace then a slight background shift before any border. Aim for Linear/Stripe/Duolingo-tier taste: "this does not look AI-generated".
 Deliver the finished, self-verified, genuinely-designed result in THIS pass. Additional iterations should be the exception, not the plan.
 LOKI_FIRSTPASS_EOF
+
+        # Positive half of the DESIGN directive. Item 4 above only says what NOT
+        # to do, which leaves the model on the priors that ARE the slop. This
+        # appends a curated archetype library (real Radix hexes, real OFL fonts)
+        # so it has something concrete to commit to. Emitted VERBATIM on both
+        # routes -- no interpolation, no selection logic -- so the byte-parity
+        # surface stays a plain file compare and the MODEL picks the archetype.
+        # Fails open: a missing file degrades to the negative-only directive.
+        [ -f "$_loki_design_archetypes_path" ] && cat "$_loki_design_archetypes_path"
     fi
 }
 
@@ -316,6 +352,42 @@ provider_invoke() {
     # variable" on bash 3.2 (stock macOS /bin/bash). ${arr[@]+...} expands to
     # nothing when unset/empty and preserves spaced elements otherwise.
     claude --dangerously-skip-permissions "${_LOKI_CLAUDE_AUTO_FLAGS[@]+"${_LOKI_CLAUDE_AUTO_FLAGS[@]}"}" -p "$prompt" "$@"
+}
+
+# provider_invoke_argv <tier> <prompt> -- populate _LOKI_INVOKE_ARGV with the
+# exact command line, WITHOUT executing it.
+#
+# WHY THIS EXISTS (the timeout seam)
+#   Eight auxiliary judge sites bypass provider_invoke entirely and shell out to
+#   `claude ... -p` directly. The reason is documented in the source
+#   (done-recognition.sh:49, prd-enrich.sh:40): "`timeout` needs a real command,
+#   not a shell function." That is true -- `timeout provider_invoke ...` cannot
+#   work, because timeout(1) execs a binary.
+#
+#   So the naive fix ("route the judges through provider_invoke") would have to
+#   drop the timeout, reintroducing exactly the hang class that left 59 orphaned
+#   emit.sh processes alive for 21 hours (v8.1.0). Never trade a hang guard for
+#   an abstraction.
+#
+#   The seam that satisfies both: a builder that PRINTS argv into an array the
+#   caller can hand to `timeout`:
+#
+#       provider_invoke_argv development "$prompt"
+#       timeout 120 "${_LOKI_INVOKE_ARGV[@]}"
+#
+#   Now the judges get provider-agnostic dispatch AND keep their timeout.
+provider_invoke_argv() {
+    local tier="${1:-development}"
+    local prompt="${2:-}"
+    _loki_build_claude_auto_flags "$tier" "${LOKI_COMPLEXITY:-standard}" ""
+    local model
+    model="$(loki_tier_route_model "$tier" 2>/dev/null || provider_get_tier_param "$tier")"
+    _LOKI_INVOKE_ARGV=(
+        claude --dangerously-skip-permissions
+        "${_LOKI_CLAUDE_AUTO_FLAGS[@]+"${_LOKI_CLAUDE_AUTO_FLAGS[@]}"}"
+    )
+    [ -n "$model" ] && _LOKI_INVOKE_ARGV+=(--model "$model")
+    _LOKI_INVOKE_ARGV+=(-p "$prompt")
 }
 
 # Model tier to Task tool model parameter value

@@ -628,7 +628,7 @@ async function runAutonomousCore(
     if (ctx.iterationCount >= ctx.maxIterations) {
       log(`[runner] max iterations reached (${ctx.iterationCount}/${ctx.maxIterations})`);
       await persistState(stateMod, ctx, "max_iterations_reached", 0);
-      return 0;
+      return ent3ExitCode("max_iterations_reached", 0);
     }
 
     // Build prompt (run.sh:10342). Wrap in try/catch -- a thrown buildPrompt
@@ -877,7 +877,7 @@ async function runAutonomousCore(
               `Set LOKI_SMART_RETRY=0 to retry regardless.`,
           );
           await persistState(stateMod, ctx, "failed", 1);
-          return 1;
+          return ent3ExitCode("failed", 1);
         }
       }
 
@@ -902,8 +902,8 @@ async function runAutonomousCore(
   }
 
   log(`[runner] max retries (${ctx.maxRetries}) exceeded`);
-  await persistState(stateMod, ctx, "failed", 1);
-  return 1;
+  await persistState(stateMod, ctx, "max_retries_exceeded", 1);
+  return ent3ExitCode("max_retries_exceeded", 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -1096,6 +1096,54 @@ function makeIterationOutputPath(ctx: RunnerContext): string {
     // surfaced by downstream readers
   }
   return path;
+}
+
+// ENT-3 process-exit contract, mirrored from autonomy/run.sh:24260-24299.
+//
+// WHY THIS EXISTS ON THIS ROUTE. The bash runner translates a terminal run
+// STATUS into a stable process exit code so a k8s Job's podFailurePolicy can
+// tell "completed but failed the gate -> do NOT retry" from "crashed -> retry
+// and resume". The Bun route returned only 0/1/2 and never 20, so a build
+// routed through here (LOKI_SDK_LOOP) silently lost the no-retry signal: a
+// deterministically-failing build burned the entire backoffLimit re-running
+// something that cannot succeed. That is exactly the failure the bash contract
+// was written to prevent, reintroduced on the route we are moving toward.
+//
+// GATED IDENTICALLY to bash: LOKI_DURABLE_STATE=1 only, so local and CI exit
+// codes are unchanged. A caller that has not opted in sees the old behavior.
+//
+// The status lists must stay byte-equivalent to the bash case arms. Note
+// budget_exceeded sits with the DETERMINISTIC failures, not the clean stops:
+// re-running the same inputs against the same cap exhausts the same budget and
+// fails identically, and inside a Job there is no human to resume it.
+const ENT3_CLEAN_STOP = new Set([
+  "council_approved",
+  "council_force_approved",
+  "deterministic_gates_passed",
+  "completion_promise_fulfilled",
+  "force_stopped",
+  "paused",
+  "interrupted",
+  "stopped",
+]);
+
+const ENT3_TERMINAL_FAILURE = new Set([
+  "failed",
+  "max_iterations_reached",
+  "max_retries_exceeded",
+  "budget_exceeded",
+  "max_duration_reached",
+  "policy_blocked",
+  "inconclusive_spec_contradiction",
+]);
+
+export function ent3ExitCode(status: string, fallback: number): number {
+  if (process.env.LOKI_DURABLE_STATE !== "1") return fallback;
+  if (ENT3_CLEAN_STOP.has(status)) return 0;
+  if (ENT3_TERMINAL_FAILURE.has(status)) return 20;
+  // Unknown / "running" / "exited": a crash the platform SHOULD retry. Never
+  // report 0 here -- a SIGKILL mid-run must not look like success.
+  return fallback === 0 ? 1 : fallback;
 }
 
 async function persistState(

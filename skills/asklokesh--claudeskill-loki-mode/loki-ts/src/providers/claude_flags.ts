@@ -13,7 +13,8 @@
 // Side-effect free: reads env + filesystem only. Returns flags as an array of
 // alternating ["--flag", "value", ...] that the caller appends to its CLI argv.
 import { existsSync, readFileSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
+import { resolve as resolvePath, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { buildMcpConfigArgv } from "./mcp_config.ts";
 
@@ -332,17 +333,44 @@ export const AUTONOMY_OVERRIDE_TEXT =
   "Commit hygiene still applies: git checkpoints are LOCAL only. Never push or force-push. Stage files by explicit path, never `git add -A` or `git add .`, and never commit secrets, credentials, .env files, or untracked files you did not author this session.\n\n" +
   "This precedence override is narrow. It does NOT relax any safety rule. Every safety prohibition in CLAUDE.md or memory still fully binds: anything genuinely destructive or irreversible remains out of scope unless the task explicitly calls for it. This includes (not limited to) force-pushing, deleting or overwriting the user's data, dropping or truncating databases, publishing or releasing, rotating or exfiltrating secrets, touching production systems, and anything a CLAUDE.md safety rule explicitly forbids. When in doubt about whether an action is destructive, treat it as destructive and do not do it.\n";
 
+// The curated design archetype library, read VERBATIM from
+// references/design-archetypes.md. Item 4 of the first-pass directive is purely
+// negative ("NO purple gradient, NO Inter"), which leaves the model on exactly
+// the priors that produce the slop; this file is the positive half, giving it a
+// concrete aesthetic to commit to. Deliberately no interpolation and no
+// archetype-selection logic on either route: the MODEL picks, so the bash/Bun
+// parity surface is a plain byte compare of one shared file. Mirror of
+// providers/claude.sh _loki_design_archetypes_file. Fails open -- a missing file
+// degrades to the negative-only directive rather than erroring.
+function designArchetypesText(): string {
+  try {
+    const moduleDir = dirname(fileURLToPath(import.meta.url));
+    for (const rel of [
+      ["..", "..", "..", "references", "design-archetypes.md"], // src/providers -> repo root
+      ["..", "..", "references", "design-archetypes.md"], // dist -> repo root
+    ]) {
+      const p = resolvePath(moduleDir, ...rel);
+      if (existsSync(p)) return readFileSync(p, "utf8");
+    }
+  } catch {
+    // fall through to the empty string (fail open)
+  }
+  return "";
+}
+
 // First-pass excellence directive appended to the iteration-1 system prompt.
 // MUST stay byte-identical to the LOKI_FIRSTPASS_EOF heredoc in
 // providers/claude.sh _loki_autonomy_override_text (the bash `cat` emits a
-// leading newline before the heredoc body, reproduced here). No emojis, no dashes.
+// leading newline before the heredoc body, reproduced here), INCLUDING the
+// design-archetype library both routes append after it. No emojis, no dashes.
 export const FIRST_PASS_EXCELLENCE_TEXT =
   "\n[FIRST-PASS EXCELLENCE] Treat THIS pass as your one shot to ship a complete, working, verified solution. Do not produce a rough draft to refine later; the loop exists as a safety net, not a plan. Before you finish this iteration:\n" +
   "1. BUILD IT FULLY. Implement every requirement end to end. No stubs, no TODOs, no \"coming soon\", no placeholder or hardcoded/mock data where real logic belongs. If the spec implies a backend (auth, persistence, a form that submits, a list that saves), WIRE IT so it actually works and persists -- a beautiful UI whose buttons do nothing is the single most common failure, not a draft. Every list/table must trace to a real query, never an inline mock array.\n" +
   "2. SELF-VERIFY BY RUNNING, not by reading. Run the build and the tests yourself; for each acceptance criterion, DRIVE the actual path and observe the result (submit the form, then reload and confirm the record persisted; hit a protected route logged-out and confirm it is rejected). Fix what fails now, in this pass. Do not mark done on \"looks right\" or a self-claim -- observed behavior is the only proof.\n" +
   "3. LOCK THE ARCHITECTURE on this pass so later edits are small and additive. Decide the data model, routes, and component structure up front and build to them; never rewrite whole files later to patch a small thing (that is the doom loop that breaks working features).\n" +
   "4. DESIGN: commit to ONE named aesthetic direction up front (editorial, brutalist, luxury, retro-futuristic, soft/pastel, industrial, etc. -- chosen from the product domain) and hold it on every surface. Use real content (never lorem). AVOID the AI-slop tells that instantly read as machine-generated: NO indigo/blue-to-purple gradient (the #1 tell), NO Inter/Roboto/system-font headlines (pick a real display+body pairing), NO three-equal-rounded-cards-in-a-row skeleton, NO flat 1px gray card borders or colored left-border strips, NO untouched shadcn defaults, NO reflexive dark mode. Cap the palette at ~3 hues (60/30/10), tinted not pure #fff/#000, separate sections by whitespace then a slight background shift before any border. Aim for Linear/Stripe/Duolingo-tier taste: \"this does not look AI-generated\".\n" +
-  "Deliver the finished, self-verified, genuinely-designed result in THIS pass. Additional iterations should be the exception, not the plan.\n";
+  "Deliver the finished, self-verified, genuinely-designed result in THIS pass. Additional iterations should be the exception, not the plan.\n" +
+  designArchetypesText();
 
 // ---------------------------------------------------------------------------
 // v7.34.0 Claude session-id stamping (Phase 1, correlation-only).

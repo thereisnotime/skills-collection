@@ -159,12 +159,24 @@ except Exception:
     return 0
 }
 
-# Decide whether model verification can be attempted. Returns 0 (ok) only when
-# the active provider is claude and not degraded. Mirrors
-# _loki_prd_enrich_provider_ok (autonomy/lib/prd-enrich.sh:65).
+# Decide whether model verification can be attempted.
+#
+# v8.2.0: this used to require LOKI_PROVIDER=claude specifically, so a user on
+# codex/opencode/cline/aider silently lost done-recognition. That is a
+# CAPABILITY question, not an identity question -- the real requirement is "can
+# we reach a model AND bound the call with a timeout". Any provider exposing the
+# argv seam (provider_invoke_argv, see providers/claude.sh) satisfies both.
+#
+# Falls back to the historical claude-binary check when the seam is absent, so
+# nothing regresses for existing installs.
 _loki_done_recog_provider_ok() {
-    [ "${LOKI_PROVIDER:-claude}" = "claude" ] || return 1
     [ "${PROVIDER_DEGRADED:-false}" != "true" ] || return 1
+    # Preferred: a provider that can build a timeout-able argv.
+    if type provider_invoke_argv >/dev/null 2>&1; then
+        return 0
+    fi
+    # Legacy path: claude binary present.
+    [ "${LOKI_PROVIDER:-claude}" = "claude" ] || return 1
     command -v claude >/dev/null 2>&1 || return 1
     return 0
 }
