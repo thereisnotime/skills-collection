@@ -92,6 +92,20 @@ class BuildSupervisorTests(unittest.TestCase):
             # same lesson as several other bugs fixed this session -- read what
             # the failure actually says before inspecting code around it.
             details = [f"run_supervisor exited {rc}"]
+            # rc 127 from run_supervisor is NOT the shell's "command not found":
+            # build_supervisor.py returns 127 on a LAUNCH FAILURE and stores the
+            # real reason in state.launch_error. Without printing it, an empty
+            # runner.log looks like a missing binary and sends the reader hunting
+            # through PATH -- which cost three investigations on this exact
+            # failure. Print the stored reason first.
+            try:
+                st = supervisor.read_state(self.execution_id)
+                if isinstance(st, dict):
+                    for key in ("launch_error", "termination_reason", "state"):
+                        if st.get(key):
+                            details.append(f"{key}: {st[key]}")
+            except Exception as exc:  # diagnostics must never mask the failure
+                details.append(f"state: unreadable ({exc})")
             try:
                 log = supervisor.execution_dir(self.execution_id) / "runner.log"
                 if log.is_file():

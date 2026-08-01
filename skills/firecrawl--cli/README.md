@@ -286,6 +286,9 @@ firecrawl search "web data python" --categories github
 firecrawl search "transformer architecture" --categories research
 firecrawl search "machine learning" --categories github,research
 
+# Developer search: GitHub issues, merged PRs, READMEs, and docs
+firecrawl search "axum middleware ordering" --categories developer
+
 # Time-based search
 firecrawl search "AI announcements" --tbs qdr:d   # Past day
 firecrawl search "tech news" --tbs qdr:w          # Past week
@@ -308,7 +311,7 @@ firecrawl search "AI data tools"
 | ---------------------------- | ------------------------------------------------------------------------------------------- |
 | `--limit <n>`                | Maximum results (default: 5, max: 100)                                                      |
 | `--sources <sources>`        | Comma-separated: `web`, `images`, `news` (default: web)                                     |
-| `--categories <categories>`  | Comma-separated: `github`, `research`, `pdf`                                                |
+| `--categories <categories>`  | Comma-separated: `github`, `research`, `pdf`, `developer`                                   |
 | `--tbs <value>`              | Time filter: `qdr:h` (hour), `qdr:d` (day), `qdr:w` (week), `qdr:m` (month), `qdr:y` (year) |
 | `--location <location>`      | Geo-targeting (e.g., "Germany", "San Francisco,California,United States")                   |
 | `--country <code>`           | ISO country code (default: US)                                                              |
@@ -337,11 +340,43 @@ firecrawl search "firecrawl documentation" --scrape --scrape-formats markdown --
 # Find research papers
 firecrawl search "large language models" --categories research --json
 
+# Answer a programming question from issues, merged PRs, READMEs, and docs
+firecrawl search "tokio select cancellation safety" --categories developer --json
+
 # Search with location targeting
 firecrawl search "best coffee shops" --location "Berlin,Germany" --country DE
 
 # Get news from the past week
 firecrawl search "AI startups funding" --sources news --tbs qdr:w --limit 15
+```
+
+---
+
+### `developer` - Search developer sources
+
+Search an index built for coding agents: GitHub issues, merged pull requests, repository READMEs, and curated documentation sites. Use it for a programming question: code behaviour, a library or framework, an API contract, an error message, or a known bug.
+
+```bash
+firecrawl developer "axum middleware ordering"
+```
+
+#### Options
+
+| Option                | Description                               |
+| --------------------- | ----------------------------------------- |
+| `--limit <n>`         | Number of results (default: 20, max: 100) |
+| `-o, --output <path>` | Save to file                              |
+| `--json`              | Output as compact JSON                    |
+| `--pretty`            | Pretty print JSON output                  |
+
+#### Examples
+
+```bash
+# Investigate a known bug
+firecrawl developer "tokio spawn_blocking panics thread limit" --limit 10
+
+# Keep the full passages for an agent
+firecrawl developer "tokio select cancellation safety" --json -o results.json
 ```
 
 ---

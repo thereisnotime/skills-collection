@@ -3,10 +3,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { executeSearch } from '../../commands/search';
+import { executeSearch, handleSearchCommand } from '../../commands/search';
 import { getClient } from '../../utils/client';
 import { initializeConfig } from '../../utils/config';
+import { writeOutput } from '../../utils/output';
 import { setupTest, teardownTest } from '../utils/mock-client';
+
+vi.mock('../../utils/output', () => ({ writeOutput: vi.fn() }));
 
 // Mock the Firecrawl client module
 vi.mock('../../utils/client', async () => {
@@ -196,6 +199,23 @@ describe('executeSearch', () => {
         expect.objectContaining({
           query: 'web scraping python',
           categories: [{ type: 'github' }],
+        })
+      );
+    });
+
+    it('should include the developer category when provided', async () => {
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
+
+      await executeSearch({
+        query: 'tokio select cancellation safety',
+        categories: ['developer'],
+      });
+
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
+        expect.objectContaining({
+          query: 'tokio select cancellation safety',
+          categories: [{ type: 'developer' }],
         })
       );
     });
@@ -436,6 +456,28 @@ describe('executeSearch', () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual({ web });
+    });
+
+    it('should return the developer group beside the web results', async () => {
+      const web = [{ url: 'https://example.com', title: 'Example' }];
+      const developer = [
+        {
+          url: 'https://github.com/tokio-rs/tokio/issues/7364',
+          title: 'select! cancellation safety',
+          description: 'The matched passage.',
+          position: 1,
+          category: 'developer',
+        },
+      ];
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web, developer }));
+
+      const result = await executeSearch({
+        query: 'tokio select cancellation safety',
+        categories: ['developer'],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ web, developer });
     });
 
     it('should return success result with image results', async () => {
@@ -703,10 +745,11 @@ describe('executeSearch', () => {
     });
 
     it('should accept valid category types', async () => {
-      const categoryList: Array<'github' | 'research' | 'pdf'> = [
+      const categoryList: Array<'github' | 'research' | 'pdf' | 'developer'> = [
         'github',
         'research',
         'pdf',
+        'developer',
       ];
       mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
@@ -738,6 +781,81 @@ describe('executeSearch', () => {
         });
         expect(result.success).toBe(true);
       }
+    });
+  });
+
+  describe('Developer results in the readable output', () => {
+    // Read the text that `handleSearchCommand` sent to the writer.
+    const writtenOutput = () =>
+      vi.mocked(writeOutput).mock.calls.at(-1)?.[0] as string;
+
+    it('should label both groups and print each developer hit', async () => {
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          web: [{ url: 'https://example.com', title: 'Example' }],
+          developer: [
+            {
+              url: 'https://github.com/tokio-rs/tokio/issues/7364',
+              title: 'select! cancellation safety',
+              description: 'The matched passage.',
+            },
+          ],
+        })
+      );
+
+      await handleSearchCommand({ query: 'tokio select cancellation safety' });
+
+      const output = writtenOutput();
+      expect(output).toContain('=== Web Results ===');
+      expect(output).toContain('=== Developer Results ===');
+      expect(output).toContain('select! cancellation safety');
+      expect(output).toContain(
+        'URL: https://github.com/tokio-rs/tokio/issues/7364'
+      );
+      expect(output).toContain('The matched passage.');
+    });
+
+    it('should truncate a long passage and name the flag that keeps it', async () => {
+      const passage = 'x'.repeat(900);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          developer: [
+            {
+              url: 'https://github.com/firecrawl/firecrawl/issues/1',
+              title: 'Long passage',
+              description: passage,
+            },
+          ],
+        })
+      );
+
+      await handleSearchCommand({ query: 'long passage' });
+
+      const output = writtenOutput();
+      expect(output).toContain('x'.repeat(500));
+      expect(output).not.toContain('x'.repeat(501));
+      expect(output).toContain('use --json for the full passage');
+    });
+
+    it('should keep the full passage in the JSON output', async () => {
+      const passage = 'y'.repeat(900);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          developer: [
+            {
+              url: 'https://github.com/firecrawl/firecrawl/issues/2',
+              title: 'Long passage',
+              description: passage,
+            },
+          ],
+        })
+      );
+
+      await handleSearchCommand({ query: 'long passage', json: true });
+
+      expect(JSON.parse(writtenOutput()).data.developer[0].description).toBe(
+        passage
+      );
     });
   });
 });

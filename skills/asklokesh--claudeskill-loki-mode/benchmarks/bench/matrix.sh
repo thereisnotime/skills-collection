@@ -27,7 +27,19 @@ TRIALS="${LOKI_BENCH_TRIALS:-2}"
 TIMEOUT="${LOKI_BENCH_TIMEOUT:-}"
 RESULTS="$SCRIPT_DIR/results"
 
-HARD_TASKS="hard-1-order-api multifail-1-two-modules tokenheavy-1-crm"
+# hard-2-ledger added 2026-07-31. MEASURED reason: haiku with the harness
+# DISABLED passed hard-1-order-api 1/1, and every baseline failure in the whole
+# corpus was on simple-2-fizzbuzz. A suite whose only failures are on its
+# simplest task cannot separate arms -- more trials buy a tighter interval
+# around a ceiling at any spend.
+#
+# hard-1-order-api states every rule, boundary and worked example, so it
+# measures instruction-following. hard-2-ledger withholds them: it says "obey
+# the fundamental accounting rule" without naming double-entry, requires
+# atomicity without describing rollback, and says money "must not drift"
+# without naming Decimal. Verified both directions before adoption -- a
+# plausible naive draft fails 6 assertions, a correct implementation passes.
+HARD_TASKS="hard-1-order-api hard-2-ledger multifail-1-two-modules tokenheavy-1-crm"
 
 # Baseline (raw model): minimal orchestration -- the giants' "throw the model at it".
 baseline_env() {

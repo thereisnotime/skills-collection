@@ -61,6 +61,16 @@ if [ -f "$_LOKI_SCRIPT_DIR/tui.sh" ]; then
     source "$_LOKI_SCRIPT_DIR/tui.sh"
 fi
 
+# Portable lock helper -- provides safe_acquire_lock / safe_release_lock.
+# Needed here (not just in run.sh) because ensure_dashboard_venv tears down and
+# rebuilds the HOST-GLOBAL ~/.loki/dashboard-venv, so two concurrent CLI
+# invocations can otherwise delete the venv the other is importing from.
+# Self-guarded against double-source.
+if [ -f "$_LOKI_SCRIPT_DIR/lib/lock.sh" ]; then
+    # shellcheck source=lib/lock.sh
+    source "$_LOKI_SCRIPT_DIR/lib/lock.sh"
+fi
+
 # Crash-reporting helpers (provides loki_collection_enabled, used by
 # cmd_telemetry status and cmd_crash). Self-guarded against double-source.
 if [ -f "$_LOKI_SCRIPT_DIR/crash.sh" ]; then
@@ -446,6 +456,33 @@ ensure_dashboard_venv() {
         return 0
     fi
 
+    # The venv is HOST-GLOBAL, so concurrent runs must not rebuild it at once:
+    # one run's `rm -rf` would delete the tree another is importing from. Lock
+    # the venv path itself -- safe_acquire_lock appends ".lockdir", giving a
+    # SIBLING mutex that the teardown below cannot destroy. Timeout must outlast
+    # a real cold `python3 -m venv` + `pip install` (not the 5s used by the
+    # JSON read-modify-write call sites).
+    local _venv_locked=false
+    if type safe_acquire_lock >/dev/null 2>&1; then
+        if safe_acquire_lock "$dashboard_venv" "${LOKI_VENV_LOCK_TIMEOUT:-300}"; then
+            _venv_locked=true
+            # The winner may have finished the build while we waited -- re-probe
+            # before tearing anything down.
+            DASHBOARD_PYTHON="python3"
+            [ -x "${dashboard_venv}/bin/python3" ] && DASHBOARD_PYTHON="${dashboard_venv}/bin/python3"
+            if "$DASHBOARD_PYTHON" -c "import fastapi; import sqlalchemy; import aiosqlite" 2>/dev/null; then
+                safe_release_lock "$dashboard_venv"
+                return 0
+            fi
+        else
+            # Do NOT fall through into the rm -rf unlocked -- that is the exact
+            # race this lock exists to prevent.
+            echo -e "${RED}Timed out waiting for another run to finish building the dashboard venv${NC}"
+            echo "  Retry, or remove a stale lock: rm -rf ${dashboard_venv}.lockdir"
+            return 1
+        fi
+    fi
+
     echo -e "${YELLOW}Setting up dashboard virtualenv...${NC}"
 
     # Create venv if missing or broken
@@ -461,6 +498,7 @@ ensure_dashboard_venv() {
             echo "You may need to install python3-venv:"
             echo "  sudo apt install python3-venv    (Debian/Ubuntu)"
             echo "  brew install python3              (macOS)"
+            [ "$_venv_locked" = true ] && safe_release_lock "$dashboard_venv"
             return 1
         }
     fi
@@ -485,6 +523,7 @@ ensure_dashboard_venv() {
         if ! "${dashboard_venv}/bin/pip" install fastapi uvicorn pydantic websockets sqlalchemy aiosqlite httpx pexpect watchdog 2>&1 | tail -1; then
             echo -e "${RED}Failed to install dashboard dependencies${NC}"
             echo "Try manually: ${dashboard_venv}/bin/pip install fastapi uvicorn sqlalchemy aiosqlite"
+            [ "$_venv_locked" = true ] && safe_release_lock "$dashboard_venv"
             return 1
         fi
         # Try greenlet separately (optional, needs C compiler on some platforms)
@@ -497,9 +536,11 @@ ensure_dashboard_venv() {
         echo "Try removing the venv and retrying:"
         echo "  rm -rf ${dashboard_venv}"
         echo "  loki dashboard start"
+        [ "$_venv_locked" = true ] && safe_release_lock "$dashboard_venv"
         return 1
     fi
 
+    [ "$_venv_locked" = true ] && safe_release_lock "$dashboard_venv"
     return 0
 }
 
@@ -985,9 +1026,39 @@ show_help() {
     echo "  loki cockpit                  # Live multi-repo cockpit (terminal image)"
     echo "  loki remote                   # Remote session (phone/browser)"
     echo ""
+    # COMPLETE COMMAND INDEX. The curated sections above stay curated -- they
+    # are the onboarding path and stuffing 112 commands into them would make
+    # the first screen useless. But a command that appears NOWHERE in help does
+    # not exist to a user: measured, 43 of 112 were unreachable from here,
+    # including `loki proof` -- the Evidence Receipt, which is the whole trust
+    # argument. Discoverability is an adoption lever, not tidiness.
+    #
+    # tests/test-help-discoverability.sh fails the build when a real command is
+    # missing from this list, so a new command cannot ship invisible.
+    echo ""
+    echo "All commands:"
+    echo "  agent analyze api assets audit bench checkpoint (cp) ci cleanup"
+    echo "  cluster cockpit code compliance completions compound config context (ctx)"
+    echo "  cost council crash dashboard demo deploy docker docs doctor dogfood"
+    echo "  enterprise explain export failover github grill heal help import init"
+    echo "  issue kpis logs magic mcp memory metrics migrate modernize monitor"
+    echo "  next notify onboard open optimize otel own (handoff) pause plan preview"
+    echo "  projects proof (receipt) provider quick quickstart rc remote report reset"
+    echo "  resume review rollback run sandbox secrets secure self-update sentrux"
+    echo "  serve setup-skill share ship spec start state stats status steer stop"
+    echo "  syslog telemetry template test tour trigger trust trust-metrics"
+    echo "  ultracode update verify version voice watch watchdog web welcome why"
+    echo "  wiki worktree (wt)"
+    echo ""
+    echo "Any command: loki <command> --help"
+    echo ""
     echo "Phase A-J features (v7.5.18 - v7.5.28) are default-on. See CHANGELOG."
     echo ""
     echo "Environment variables an operator would set: docs/environment-variables.md"
+    echo "Cost controls (budget, iteration and wall-clock caps): docs/cost-controls.md"
+    echo "Already have a codebase? Start read-only: docs/brownfield.md"
+    echo "No egress allowed? What runs disconnected: docs/air-gapped.md"
+    echo "Where this is going: docs/STRATEGY-2026-2028.md"
     echo ""
     echo "Scripting Loki? Exit codes for every command are documented in"
     echo "docs/exit-codes.md. Severity rises with the code, and 'loki start'"
@@ -3946,7 +4017,8 @@ cmd_why() {
         _why_json_head_sha="$(git rev-parse HEAD 2>/dev/null || echo "")"
         _LOKI_WHY_STATE="$state_file" _LOKI_WHY_COMPLETION="$completion_file" \
         _LOKI_WHY_HEAD_SHA="$_why_json_head_sha" \
-        _LOKI_WHY_LAST_ERROR="$loki_dir/state/LAST_ERROR.json" python3 - <<'WHYJSON'
+        _LOKI_WHY_LAST_ERROR="$loki_dir/state/LAST_ERROR.json" \
+        _LOKI_WHY_EFFICIENCY="$loki_dir/metrics/efficiency" python3 - <<'WHYJSON'
 import json, os
 def load(p):
     try:
@@ -3968,12 +4040,53 @@ comp_head = comp.get("head_sha", "")
 comp_is_stale = bool(state.get("status") in live_statuses) or bool(
     head_sha and comp_head and comp_head != head_sha
 )
+# Rework attribution, same source the human report and the completion summary
+# read. Without it the JSON surface -- the one CI and automation consume -- knew
+# only that a run hit its cap, not whether it was converging or thrashing. That
+# is exactly the distinction the human output was taught to make, so omitting it
+# here left the machine-readable path giving less than the printed one.
+#
+# Absent or unreadable records emit null rather than a zeroed object: a 0-of-0
+# split would read as "no rework", a claim the data does not support.
+_rework = None
+_effdir = os.environ.get("_LOKI_WHY_EFFICIENCY", "")
+if _effdir:
+    try:
+        import glob as _g
+        _prog = _rew = 0
+        _rcost = 0.0
+        for _f in _g.glob(os.path.join(_effdir, "iteration-*.json")):
+            try:
+                _d = json.load(open(_f))
+            except Exception:
+                continue
+            _st = str(_d.get("status", "")).lower()
+            if _st in ("completed", "ok", "success"):
+                _prog += 1
+            elif _st in ("failed", "error", "blocked"):
+                _rew += 1
+                _rcost += float(_d.get("cost_usd") or 0)
+        if _prog + _rew > 0:
+            _rework = {
+                "progress_iterations": _prog,
+                "rework_iterations": _rew,
+                "total_iterations": _prog + _rew,
+                "rework_cost_usd": round(_rcost, 4),
+                # The verdict a caller actually branches on, so every consumer
+                # does not re-derive the threshold and drift from the human
+                # report's wording.
+                "verdict": "thrashing" if _rew * 2 >= _prog + _rew else "converging",
+            }
+    except Exception:
+        _rework = None
+
 print(json.dumps({
     "state": state,
     "completion": comp,
     "last_error": last_error,
     "completion_is_stale": comp_is_stale,
     "head_sha": head_sha or None,
+    "rework": _rework,
 }, indent=2))
 WHYJSON
         return 0
@@ -3988,6 +4101,7 @@ WHYJSON
     _LOKI_WHY_HEAD_SHA="$_why_head_sha" \
     _LOKI_WHY_LAST_ERROR="$loki_dir/state/LAST_ERROR.json" \
     _LOKI_WHY_UNCERTAINTY="$loki_dir/signals/UNCERTAINTY_ESCALATION" \
+    _LOKI_WHY_EFFICIENCY="$loki_dir/metrics/efficiency" \
     _LOKI_WHY_CONVERGENCE="$loki_dir/council/convergence.log" \
     _LOKI_WHY_GATE="$loki_dir/signals/GATE_ESCALATION.json" \
     _LOKI_WHY_TARGET="${TARGET_DIR:-$(dirname "$loki_dir")}" \
@@ -4056,6 +4170,52 @@ GUIDE = {
 }
 meaning, action = GUIDE.get(status, ("No diagnosis mapping for this status; see the raw fields below.",
                                      "Check loki status and .loki/logs/ for detail."))
+
+# Rework-aware advice for the iteration cap. The static line said "raise
+# LOKI_MAX_ITERATIONS", which is right for a run that was CONVERGING and wrong
+# for one that was THRASHING -- there, a higher cap buys more thrashing at full
+# price. The completion summary already splits those cases; this command is
+# where v8.14.0 sends the user, so it must not contradict it.
+#
+# Reads the same attribution the summary and the prompt trend use, so all three
+# surfaces cannot disagree about one run. Falls back to the static line when
+# the split is unknown: guessing which case applies would be worse than the
+# generic advice.
+if status == "max_iterations_reached":
+    try:
+        import glob as _glob
+        _prog = _rew = 0
+        _rcost = 0.0
+        _effdir = os.environ.get("_LOKI_WHY_EFFICIENCY", "")
+        for _f in (_glob.glob(os.path.join(_effdir, "iteration-*.json")) if _effdir else []):
+            try:
+                _d = json.load(open(_f))
+            except Exception:
+                continue
+            _st = str(_d.get("status", "")).lower()
+            if _st in ("completed", "ok", "success"):
+                _prog += 1
+            elif _st in ("failed", "error", "blocked"):
+                _rew += 1
+                _rcost += float(_d.get("cost_usd") or 0)
+        if _prog + _rew > 0:
+            _tot = _prog + _rew
+            if _rew * 2 >= _tot:
+                action = (
+                    f"{_rew} of {_tot} iterations redid earlier work"
+                    + (f" (${_rcost:.2f})" if _rcost > 0 else "")
+                    + ". Raising LOKI_MAX_ITERATIONS buys more of the same at full price. "
+                      "Read the last reviewer findings in .loki/quality/reviews/ and fix the "
+                      "blocker, or narrow the spec."
+                )
+            else:
+                action = (
+                    f"Converging: {_prog} of {_tot} iterations made progress"
+                    + (f", {_rew} redid work (${_rcost:.2f})" if _rew else "")
+                    + ". Raise LOKI_MAX_ITERATIONS and resume."
+                )
+    except Exception:
+        pass
 
 # The completion.json branch/changes/PR belong to the LAST COMPLETED run. When
 # the live state shows a build that is still running or crashed mid-iteration
@@ -5307,7 +5467,14 @@ cmd_provider_models() {
     echo -e "${BOLD}Model Configuration (resolved):${NC}"
     echo ""
 
-    local providers=("claude" "codex" "cline" "aider")
+    echo -e "  ${CYAN}Ask for a tier by capability -- small, medium or high -- and each"
+    echo -e "  provider supplies its own latest model in that class. medium is the"
+    echo -e "  default. Set one with LOKI_SESSION_MODEL=small or --session-model small.${NC}"
+    echo ""
+
+    # opencode ships a provider file and a catalog entry, so omitting it here
+    # under-reported what this command claims to show ("all providers").
+    local providers=("claude" "codex" "cline" "aider" "opencode")
     for provider in "${providers[@]}"; do
         local provider_file="$script_dir/providers/${provider}.sh"
         [ -f "$provider_file" ] || continue
@@ -5377,7 +5544,34 @@ cmd_provider_models() {
                 fast)        value="$fast" ;;
             esac
 
-            printf "    %-12s %-30s (source: %s)\n" "${tier^}:" "$value" "$source"
+            # Label each tier with the GENERIC vocabulary users actually select
+            # (small|medium|high), so this command answers "what do I really get
+            # if I ask for medium on this provider" without anyone having to know
+            # a vendor model name. The canonical tier name stays alongside it
+            # because every env var, log line and state file still uses it -- and
+            # a user reading LOKI_CLAUDE_MODEL_DEVELOPMENT needs to see the two
+            # spellings connected. Mapping mirrors loki_tier_alias() in
+            # providers/models.sh.
+            local generic
+            case "$tier" in
+                fast)        generic="small" ;;
+                development) generic="medium" ;;
+                planning)    generic="high" ;;
+                *)           generic="$tier" ;;
+            esac
+
+            # An EMPTY resolved model is a real, supported state, not a lookup
+            # failure: providers/codex.sh sets CODEX_DEFAULT_MODEL="" on purpose
+            # so no --model flag is passed and Codex resolves an
+            # account-appropriate default (a hardcoded name broke ChatGPT-account
+            # users outright). Say that plainly instead of printing a blank
+            # column. Deliberately NOT filled in from the catalog: this table
+            # reports what will be DISPATCHED, and the catalog id would be a
+            # guess this file is documented as unable to make.
+            [ -n "$value" ] || value="(provider default -- no --model sent)"
+
+            printf "    %-8s %-14s %-38s (source: %s)\n" \
+                "$generic" "(${tier})" "$value" "$source"
         done
 
         # Show extra info per provider
@@ -11311,6 +11505,49 @@ except Exception:
     fi
     echo ""
 
+    # Model catalog freshness. Providers ship models constantly and this catalog
+    # is hand-maintained, so it rots silently -- nothing else in the system ever
+    # reports its age. Reads ONLY the local file's "updated" field: zero network
+    # I/O, so `loki doctor` stays air-gapped-safe (docs/air-gapped.md). We do not
+    # and will not auto-fetch or guess model IDs; inventing a model that does not
+    # exist is worse than being stale, so refresh stays a human-verified step.
+    #
+    # Informational only -- like Runtime route and Cockpit above, it does NOT
+    # touch pass/warn/fail counts and never calls _doctor_block, so a stale
+    # catalog can never flip doctor's exit code or block a build. Advisory by
+    # construction, not by convention.
+    #
+    # Mirrored byte-for-byte in loki-ts/src/commands/doctor.ts -- the bun-parity
+    # matrix diffs this section (it is NOT in the normalizer's strip list), so
+    # edit BOTH routes or parity fails.
+    echo -e "${CYAN}Model catalog:${NC}"
+    _catalog_path="${LOKI_MODEL_CATALOG:-${_LOKI_SCRIPT_DIR}/../providers/model_catalog.json}"
+    _catalog_line=$(LOKI_CATALOG_PATH="$_catalog_path" python3 -c "
+import json, os, datetime
+# Threshold: 90 days. The upstream probe workflow runs weekly, so a catalog
+# untouched for a quarter means the probe PRs are going unread.
+STALE_DAYS = 90
+p = os.environ['LOKI_CATALOG_PATH']
+try:
+    updated = json.load(open(p))['updated']
+    age = (datetime.date.today() - datetime.date.fromisoformat(updated)).days
+except Exception:
+    print('warn|Catalog unreadable or missing an ISO \"updated\" date -- cannot determine age')
+else:
+    if age > STALE_DAYS:
+        print(f'warn|Last updated {updated} ({age} days ago) -- may be missing newer models. Refresh: python3 tools/probe-model-catalog.py (reports new model IDs from provider docs; you verify and edit the catalog by hand -- never auto-applied)')
+    else:
+        print(f'pass|Last updated {updated} ({age} days ago)')
+" 2>/dev/null)
+    # Fail-open: if python3 is missing or the probe dies, say so and move on.
+    [ -n "$_catalog_line" ] || _catalog_line="warn|Could not probe catalog age"
+    if [ "${_catalog_line%%|*}" = "pass" ]; then
+        echo -e "  ${GREEN}PASS${NC}  ${_catalog_line#*|}"
+    else
+        echo -e "  ${YELLOW}WARN${NC}  ${_catalog_line#*|}"
+    fi
+    echo ""
+
     # Cockpit capability (E5): report what `loki cockpit` will actually do in
     # this terminal. Informational only (does NOT touch pass/warn/fail counts,
     # like Runtime route above), so the bun-parity matrix stays reconcilable.
@@ -11376,6 +11613,25 @@ except Exception:
         echo ""
         echo "Then re-run: loki doctor"
         echo "Meanwhile 'loki tour' works right now -- no provider, no key, no spend."
+        # Adoption signal: which CLASS of dependency stopped this first run.
+        # Mapped to an enum here rather than forwarding the blocker TEXT, so
+        # the payload can never carry a path or a version. Best-effort and
+        # backgrounded: telemetry must never delay or fail a doctor run, and
+        # every existing opt-out still gates it downstream.
+        if declare -f loki_emit_first_run_blocked >/dev/null 2>&1; then
+            local _blk_key="other"
+            case "$_doctor_blockers" in
+                *"No AI provider CLI"*) _blk_key="no_provider" ;;
+                *"Node.js is not installed"*|*"Node.js must be"*) _blk_key="node" ;;
+                *"Python 3 is not installed"*|*"Python 3 must be"*) _blk_key="python3" ;;
+                *"jq is not installed"*) _blk_key="jq" ;;
+                *"git is not installed"*) _blk_key="git" ;;
+                *"curl is not installed"*) _blk_key="curl" ;;
+                *"Free up disk"*) _blk_key="disk" ;;
+                *"broken symlink"*) _blk_key="skill_symlink" ;;
+            esac
+            ( loki_emit_first_run_blocked "$_blk_key" >/dev/null 2>&1 </dev/null & ) 2>/dev/null || true
+        fi
         return 1
     elif [ "$warn_count" -gt 0 ]; then
         echo -e "${YELLOW}All required checks passed with some warnings.${NC}"
@@ -11399,7 +11655,9 @@ except Exception:
 cmd_doctor_json() {
     local _loki_version
     _loki_version=$(get_version)
-    LOKI_VERSION="$_loki_version" python3 -c "
+    LOKI_VERSION="$_loki_version" \
+    LOKI_CATALOG_PATH="${LOKI_MODEL_CATALOG:-${_LOKI_SCRIPT_DIR}/../providers/model_catalog.json}" \
+    python3 -c "
 import json, os, subprocess, sys, shutil
 
 def get_version(cmd, args=None):
@@ -11574,6 +11832,32 @@ if _any_provider:
 else:
     fail_count += 1
 
+# Model catalog freshness. Local read only -- no network. Advisory: deliberately
+# excluded from pass/fail/warn counts and from 'ok', so a stale catalog can never
+# flip doctor's exit code. Mirrors describeCatalogFreshness() in
+# loki-ts/src/commands/doctor.ts.
+CATALOG_STALE_DAYS = 90
+_cat_path = os.environ['LOKI_CATALOG_PATH']
+try:
+    import datetime as _dt
+    _cat_updated = json.load(open(_cat_path))['updated']
+    _cat_age = (_dt.date.today() - _dt.date.fromisoformat(_cat_updated)).days
+    if _cat_age > CATALOG_STALE_DAYS:
+        # Deliberately NOT counted. The block comment above states catalog age is
+        # excluded from pass/fail/warn and from 'ok' so a stale catalog can never
+        # fail a build -- this increment contradicted that contract, and it also
+        # broke route parity: the Bun route (doctor.ts) never counted it, so the
+        # same host reported warnings: 2 on bash and 1 on Bun. bun-parity
+        # compares these byte for byte, so it would have gone red on day 91.
+        model_catalog = {'status': 'warn', 'updated': _cat_updated, 'age_days': _cat_age,
+                         'detail': f'Last updated {_cat_updated} ({_cat_age} days ago) -- may be missing newer models'}
+    else:
+        model_catalog = {'status': 'pass', 'updated': _cat_updated, 'age_days': _cat_age,
+                         'detail': f'Last updated {_cat_updated} ({_cat_age} days ago)'}
+except Exception:
+    model_catalog = {'status': 'warn', 'updated': None, 'age_days': None,
+                     'detail': 'Catalog unreadable or missing an ISO \"updated\" date -- cannot determine age'}
+
 result = {
     'loki_mode_version': os.environ.get('LOKI_VERSION', 'unknown'),
     'checks': checks,
@@ -11585,6 +11869,7 @@ result = {
     'sentrux': sentrux,
     'receipt_signing': receipt_signing,
     'memory': memory,
+    'model_catalog': model_catalog,
     'summary': {
         'passed': pass_count,
         'failed': fail_count,
@@ -15687,6 +15972,35 @@ for fn in sorted(os.listdir(root)) if os.path.isdir(root) else []:
 # dependency staleness is NOT computed offline -> reported as 'unknown', never guessed.
 dep_lock_present = len(found_lockfiles) > 0 if found_manifests else None
 
+# RUNTIME + TOP DEPENDENCIES, read from the manifest itself. Offline-safe: this
+# reports what the file DECLARES, never what is current upstream (that stays
+# 'unknown' -- see dependency_staleness above).
+#
+# Why it matters: after 'how far behind am I', the next question a legacy
+# modernization buyer asks is 'what is this even built on'. Answering
+# 'package.json exists' and nothing more leaves them to open the file
+# themselves, which is the work they were trying to delegate.
+runtime_info = {'declared_runtime': None, 'declared_dependencies': None, 'framework_hints': []}
+try:
+    if 'package.json' in found_manifests:
+        with open(os.path.join(root, 'package.json')) as _f:
+            _pkg = json.load(_f)
+        _eng = (_pkg.get('engines') or {}).get('node')
+        runtime_info['declared_runtime'] = ('node ' + _eng) if _eng else 'node (engine unspecified)'
+        _deps = dict(_pkg.get('dependencies') or {})
+        runtime_info['declared_dependencies'] = len(_deps)
+        # Name only frameworks actually present. A hint is a FACT from the file,
+        # not an inference about what the project "probably" is.
+        for _fw in ('express', 'react', 'next', 'vue', 'angular', 'fastify', 'koa', 'nest'):
+            if _fw in _deps:
+                runtime_info['framework_hints'].append(_fw + ' ' + str(_deps[_fw]))
+    elif 'pyproject.toml' in found_manifests or 'requirements.txt' in found_manifests:
+        runtime_info['declared_runtime'] = 'python (version unspecified in manifest)'
+except (OSError, ValueError):
+    # A malformed manifest is not a crash and not a guess: leave the fields None
+    # so the report says nothing rather than something wrong.
+    pass
+
 todo_density = round((todo_count / total_loc) * 1000, 2) if total_loc else 0.0
 
 # --- 4-level maturity model (Ad hoc -> Planned -> Systematic -> Optimized) ---
@@ -15781,6 +16095,7 @@ report = {
         'lockfiles': found_lockfiles,
         'dependency_lock_present': dep_lock_present,
         'dependency_staleness': 'unknown',  # not computable offline; never guessed
+        'runtime': runtime_info,
     },
     'maturity': {
         'level': maturity_level,
@@ -17080,8 +17395,19 @@ def _loki_norm_alias(raw):
 # pin is a tier route, so tier names ARE valid pins. This normalizer mirrors
 # run.sh's trim+lowercase (interior whitespace preserved, so 'fab le' stays junk
 # and falls through to the default tier exactly like the runner's '*' arm).
+#
+# GENERIC TIER VOCABULARY (small|medium|high): translated onto the canonical
+# tier names before the allowlist check, mirroring run.sh's entry-point case.
+# The estimator runs in its own process and reads LOKI_SESSION_MODEL directly,
+# so without this a 'medium' pin would fall through to the '' default and the
+# quote would silently price a different model than the run dispatches -- the
+# exact estimator-vs-runner divergence this file keeps paying down. Only the
+# three new words are translated; every existing value passes through unchanged.
+_LOKI_GENERIC_TIERS = {'small': 'fast', 'medium': 'development', 'high': 'planning'}
+
 def _loki_norm_session_pin(raw):
     raw = (raw or '').strip().lower()
+    raw = _LOKI_GENERIC_TIERS.get(raw, raw)
     return raw if raw in (
         'haiku', 'sonnet', 'opus', 'fable',
         'planning', 'development', 'fast',
@@ -17392,12 +17718,37 @@ else:
             integrations.append(kw)
 
     # Count database mentions
-    db_keywords = ['postgresql', 'postgres', 'mysql', 'mongodb', 'sqlite',
-                   'dynamodb', 'cassandra', 'redis', 'prisma', 'typeorm',
-                   'sequelize', 'drizzle', 'knex', 'database', 'migration']
-    for kw in db_keywords:
-        if kw in content_lower:
-            databases.append(kw)
+    # Count DISTINCT data stores. This feeds a +1-complexity-for-multiple
+    # rule, so what counts as multiple is load-bearing: it pushed a
+    # 322-word issue from moderate to complex, and complex means 18 iterations
+    # instead of 9.
+    #
+    # Three ways the old flat list over-counted a single-database project:
+    #   1. Aliases. 'postgresql' and 'postgres' were separate entries, so one
+    #      PostgreSQL app scored TWO data stores by itself. That alone tripped
+    #      the rule on a real user's issue.
+    #   2. ORMs. prisma/typeorm/sequelize/drizzle/knex are ACCESS LAYERS, not
+    #      stores. Prisma plus PostgreSQL is one database, not two.
+    #   3. Generic words. 'database' and 'migration' matched any PRD that used
+    #      the words at all, so a migration-to-the-database line scored two.
+    #
+    # Aliases collapse to one canonical name, ORMs and generic terms are gone.
+    db_aliases = {
+        'postgresql': 'postgres', 'postgres': 'postgres', 'psql': 'postgres',
+        'mysql': 'mysql', 'mariadb': 'mysql',
+        'mongodb': 'mongodb', 'mongo': 'mongodb',
+        'sqlite': 'sqlite',
+        'dynamodb': 'dynamodb',
+        'cassandra': 'cassandra',
+        'redis': 'redis',
+        'elasticsearch': 'elasticsearch',
+        'clickhouse': 'clickhouse',
+    }
+    _seen_db = set()
+    for kw, canonical in db_aliases.items():
+        if kw in content_lower and canonical not in _seen_db:
+            _seen_db.add(canonical)
+            databases.append(canonical)
 
     # Count UI components
     ui_keywords = ['dashboard', 'form', 'table', 'modal', 'navbar',
@@ -17479,6 +17830,34 @@ iteration_map = {
     'enterprise': (24, 48),
 }
 min_iter, max_iter = iteration_map[complexity]
+
+# --- Capability-aware iteration budget ---------------------------------------
+# The map above was written when a model could not hold a whole feature in one
+# pass, so work was chopped into many small iterations. On a frontier tier that
+# is now actively harmful: each iteration boundary is a context reset, and
+# re-planning mid-feature is where a run loses the thread and burns money.
+#
+# A frontier model should be handed the whole job and left to finish it. So the
+# budget is divided by the capability tier the run will actually dispatch,
+# rather than assuming the weakest case for everyone. The floor is 1, never 0.
+#
+# This scales the ESTIMATE and the ceiling, not the work. A run that genuinely
+# needs more iterations still takes them; nothing here forces an early stop.
+_tier_raw = (os.environ.get('LOKI_SESSION_MODEL') or '').strip().lower()
+_frontier = ('high', 'planning', 'opus', 'sol')
+_small = ('small', 'fast', 'haiku', 'luna')
+if _tier_raw in _frontier:
+    # Frontier: one pass for anything short of enterprise scope.
+    min_iter = 1
+    max_iter = max(1, max_iter // 4)
+elif _tier_raw in _small:
+    # Small models genuinely benefit from more, smaller steps.
+    pass
+else:
+    # medium / unset: the common default. Halve the legacy budget -- current
+    # workhorse models complete in far fewer passes than this map assumed.
+    min_iter = max(1, min_iter // 2)
+    max_iter = max(min_iter, max_iter // 2)
 
 # Adjust based on specific counts
 if endpoint_count > 10:
@@ -18049,6 +18428,23 @@ main() {
     local command="$1"
     shift
 
+    # LOKI_HELP_ONLY is set by `loki help <command>`, which delegates by
+    # re-entering dispatch as `loki <command> --help`. Asking for help must
+    # never DO anything, and dispatch reaches commands that start builds, stop
+    # runs and modify the install. Every command honours --help today; this
+    # makes that a guaranteed property of the help path rather than a fact
+    # someone has to re-verify whenever a command is added. If the delegated
+    # invocation somehow lost its --help, refuse rather than execute.
+    if [ "${LOKI_HELP_ONLY:-0}" = "1" ]; then
+        case " $* " in
+            *" --help "*|*" -h "*) : ;;
+            *)
+                echo "loki: refusing to run '$command' from the help path" >&2
+                return 1
+                ;;
+        esac
+    fi
+
     # v7.4.13: first-run telemetry moved to bin/loki shim so it fires for
     # both Bun-routed and bash-routed commands (autonomy/loki main() never
     # runs for the 8 ported commands). Marker file: ~/.loki-first-run.
@@ -18506,6 +18902,22 @@ main() {
             # deprecated-alias table; bare help prints the grouped front page.
             if [ "${1:-}" = "aliases" ]; then
                 show_help_aliases
+            elif [ -n "${1:-}" ]; then
+                # `loki help <command>` reaches the command's own help. Before
+                # this, $1 was read only for the literal "aliases" and otherwise
+                # discarded, so `loki help proof` printed the same generic front
+                # page as bare `loki help` -- while `loki proof --help` printed
+                # real help. Both spellings now agree.
+                #
+                # LOKI_HELP_ONLY makes this safe by construction rather than by
+                # audit. Delegation re-enters dispatch, and dispatch reaches
+                # commands that start, stop and modify things. Every one of them
+                # honours --help today, but "asking for help must never DO
+                # anything" is a property worth enforcing at the boundary
+                # instead of re-checking every time a command is added.
+                local _help_target="$1"
+                shift
+                LOKI_HELP_ONLY=1 "$0" "$_help_target" --help "$@"
             else
                 show_help
             fi
@@ -20834,6 +21246,13 @@ totals = {
     'iterations': len(files),
     'total_input_tokens': 0,
     'total_output_tokens': 0,
+    # Cache tiers. These DOMINATE real traffic -- a measured iteration carried
+    # 797,496 cache-read tokens against 10,272 of plain input, so a report that
+    # omits them describes 1% of the run and hides the single biggest lever a
+    # user has on cost.
+    'total_cache_read_tokens': 0,
+    'total_cache_creation_tokens': 0,
+    'cache_hit_ratio': 0.0,
     'total_tokens': 0,
     'total_cost_usd': 0.0,
     'total_duration_ms': 0,
@@ -20854,15 +21273,26 @@ for f in files:
     to = int(_num(d.get('output_tokens'), int))
     co = float(_num(d.get('cost_usd'), float))
     du = int(_num(d.get('duration_ms'), int))
+    cr = int(_num(d.get('cache_read_tokens'), int))
+    cw = int(_num(d.get('cache_creation_tokens'), int))
     totals['total_input_tokens'] += ti
     totals['total_output_tokens'] += to
-    totals['total_tokens'] += ti + to
+    totals['total_cache_read_tokens'] += cr
+    totals['total_cache_creation_tokens'] += cw
+    # total_tokens counts EVERY token the run was billed for. Leaving cache out
+    # made the headline number describe a fraction of the run.
+    totals['total_tokens'] += ti + to + cr + cw
     totals['total_cost_usd'] += co
     totals['total_duration_ms'] += du
     m = d.get('model') or 'unknown'
     totals['by_model'][m] = totals['by_model'].get(m, 0) + 1
     p = d.get('phase') or 'unknown'
     totals['by_phase'][p] = totals['by_phase'].get(p, 0) + 1
+# Cache hit ratio against everything read IN: the number that says whether the
+# prompt cache is working. Zero reads renders 0.0 rather than a divide error.
+_read_in = totals['total_input_tokens'] + totals['total_cache_read_tokens']
+if _read_in > 0:
+    totals['cache_hit_ratio'] = round(totals['total_cache_read_tokens'] / _read_in, 4)
 print(json.dumps(totals, indent=2))
 PYEOF
             elif [ -f "$_legacy_file" ]; then
@@ -24610,12 +25040,33 @@ def _fmt_usd(v):
 # benchmark adapters). On a broken install where the lib is missing, we degrade
 # honestly rather than ship a divergent 5th copy of the cost math.
 current_cost = None
+current_tokens = None
 current_model = ""
 lib_available = collect_efficiency is not None
 if lib_available:
     try:
         cost_dict, current_model = collect_efficiency(loki_dir)
         current_cost = cost_dict.get("usd")
+        # collect_efficiency ALREADY sums the token breakdown, including the
+        # cache tiers. This surface took only the dollar figure and dropped the
+        # rest, so a consumer could see WHAT a run cost but nothing about WHY --
+        # and cache reads are typically ~98% of input volume, the single
+        # biggest lever on that number.
+        current_tokens = {
+            k: int(cost_dict.get(k) or 0)
+            for k in ("input_tokens", "output_tokens",
+                      "cache_read_tokens", "cache_creation_tokens")
+        }
+        _read_in = current_tokens["input_tokens"] + current_tokens["cache_read_tokens"]
+        current_tokens["total_tokens"] = sum(
+            current_tokens[k] for k in ("input_tokens", "output_tokens",
+                                        "cache_read_tokens", "cache_creation_tokens"))
+        # Absent tokens leave the ratio null rather than 0.0: a zero would read
+        # as "the cache never hit", which is a claim about a cold cache, not an
+        # absence of data.
+        current_tokens["cache_hit_ratio"] = (
+            round(current_tokens["cache_read_tokens"] / _read_in, 4) if _read_in > 0 else None
+        )
     except Exception:
         current_cost = None
 
@@ -24704,6 +25155,7 @@ if show_json:
             "cost_usd": current_cost,
             "model": current_model or None,
             "cost_recorded": current_cost is not None,
+            "tokens": current_tokens,
             "cost_lib_available": lib_available,
         },
         "runs": runs,
@@ -26475,6 +26927,9 @@ ig = r.get("_ignored_executable_fields") or []
 if ig:
     print(f"  NOTE: ignored executable-looking fields (never run): {', '.join(ig)}")
 print("Stored in .loki/agents/installed.json -- visible to 'loki agent list/info/run'.")
+print("It also joins the code-review reviewer pool: when its focus keywords match")
+print("a diff it is dispatched as a real reviewer (appended to the built-in battery,")
+print("never replacing one). See skills/quality-gates.md 'Adding Your Own Reviewer'.")
 PYEOF
             else
                 echo -e "${RED}Install failed:${NC} $result"
@@ -32631,7 +33086,8 @@ cmd_proof() {
             echo "  show <id>            Pretty-print .loki/proofs/<id>/proof.json"
             echo "  verify <id>          Re-check a receipt against the repo (tamper + drift);"
             echo "                       exit 0 clean, 1 tamper/drift. Verify it yourself."
-            echo "  open <id>            Open .loki/proofs/<id>/index.html in a browser"
+            echo "  md <id>              Paste-able Markdown for a PR comment or Slack
+  open <id>            Open .loki/proofs/<id>/index.html in a browser"
             echo "  share <id>           Publish the proof page as a GitHub Gist (opt-in)"
             echo ""
             echo "Options for 'share':"
@@ -32714,6 +33170,38 @@ PYEOF
             else
                 LOKI_PROOF_JSON="$pj" python3 -c "import json,os; print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))"
             fi
+            exit 0
+            ;;
+        md)
+            # Paste-able Markdown for a PR comment, a Slack message, or a
+            # ticket. The renderer already existed -- render_evidence_receipt_md
+            # in lib/proof-pr.sh -- but was reachable ONLY when Loki opened a PR
+            # itself. So the one form of the receipt built for humans to forward
+            # could not be produced on demand, which is the built-and-unreachable
+            # pattern this project keeps finding.
+            #
+            # Reuses that renderer rather than adding a second one: two writers
+            # of one artifact drift, and the drift surfaces as a PR body and a
+            # pasted summary disagreeing about the same run.
+            local id="${1:-}"
+            if [ -z "$id" ]; then
+                echo -e "${RED}Missing proof id.${NC} Use 'loki proof list'." >&2
+                exit 2
+            fi
+            local pj="${proofs_dir}/${id}/proof.json"
+            if [ ! -f "$pj" ]; then
+                echo -e "${RED}Proof not found: ${id}${NC}" >&2
+                echo "Use 'loki proof list' to see available proofs." >&2
+                exit 1
+            fi
+            local _pr_lib="$_LOKI_SCRIPT_DIR/lib/proof-pr.sh"
+            if [ ! -f "$_pr_lib" ]; then
+                echo -e "${RED}Renderer not found: ${_pr_lib}${NC}" >&2
+                exit 3
+            fi
+            # shellcheck source=/dev/null
+            source "$_pr_lib"
+            render_evidence_receipt_md "$pj"
             exit 0
             ;;
         verify)

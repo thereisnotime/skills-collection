@@ -535,6 +535,43 @@ if [ -n "${LOKI_SESSION_ID:-}" ]; then
     unset _loki_sid_raw _loki_sid_safe
 fi
 
+# GENERIC TIER VOCABULARY (small|medium|high). A user should be able to ask for
+# a capability class without naming a vendor model, and get that provider's
+# latest model in the class. LOKI_SESSION_MODEL is the knob that already does
+# this -- it accepts the raw tier names planning|development|fast alongside the
+# Claude aliases -- so the generic words are normalized ONTO it here rather than
+# becoming a fourth spelling. LOKI_MAX_TIER (a cost CEILING) and LOKI_TIER (the
+# OSS/enterprise licensing seam) mean different things and are left alone.
+#
+# WHY NORMALIZE AT THE ENTRY POINT: the session-pin case block is byte-mirrored
+# in the estimator (autonomy/loki) and the dashboard (dashboard/server.py), and
+# every one of those mirrors is locked by a parity test. Translating here means
+# they keep seeing only the three canonical tier names and none of them change.
+#
+# The mapping is loki_tier_alias() in providers/models.sh -- the single source
+# of truth, not a second copy. Inlined as a case because run.sh must not source
+# a provider file this early in startup. Kept in lockstep by
+# tests/test-generic-tiers.sh.
+#
+# ONLY the three new words are translated. sonnet/haiku/opus/fable and the raw
+# tier names pass through untouched, so an unset LOKI_SESSION_MODEL still
+# defaults to sonnet and "medium" resolves to the same development-tier model
+# today's builds already use. This changes no existing run's model.
+# NORMALIZATION IS TRIM-ONLY + LOWERCASE, matching the estimator and dashboard
+# mirrors exactly. Interior whitespace is deliberately PRESERVED, so " med ium "
+# stays junk here just as it does there. Stripping interior spaces would make
+# this reader accept a value the other two reject, which is the precise kind of
+# divergence the session-pin parity tests exist to catch.
+_loki_generic_tier="${LOKI_SESSION_MODEL:-}"
+_loki_generic_tier="${_loki_generic_tier#"${_loki_generic_tier%%[![:space:]]*}"}"
+_loki_generic_tier="${_loki_generic_tier%"${_loki_generic_tier##*[![:space:]]}"}"
+case "$(printf '%s' "$_loki_generic_tier" | tr '[:upper:]' '[:lower:]')" in
+    small)  LOKI_SESSION_MODEL="fast"        ; export LOKI_SESSION_MODEL ;;
+    medium) LOKI_SESSION_MODEL="development" ; export LOKI_SESSION_MODEL ;;
+    high)   LOKI_SESSION_MODEL="planning"    ; export LOKI_SESSION_MODEL ;;
+esac
+unset _loki_generic_tier
+
 # Process Supervision (opt-in)
 WATCHDOG_ENABLED=${LOKI_WATCHDOG:-"false"}          # Enable process health monitoring
 WATCHDOG_INTERVAL=${LOKI_WATCHDOG_INTERVAL:-30}     # Check interval in seconds
@@ -591,6 +628,83 @@ PY
     fi
     LOKI_SPEC_SHA256="$computed_sha"
     export LOKI_SPEC_SHA256
+}
+
+# Scoped-change profile: a bug fix or a single feature in an EXISTING repo.
+#
+# Measured on a real user's run: a 322-word GitHub issue against an existing
+# codebase spent 25+ minutes still inside iteration 1. The work itself was
+# genuine, but the build was also running competitor web research, load and
+# performance testing, regression simulation and UAT -- all of which default to
+# true, and none of which a scoped issue fix needs. That is the difference
+# between a 5-minute fix and a 30-minute one.
+#
+# What this NEVER touches: code review, security, tests, E2E, and the
+# completion council all stay on. Speed here comes from not running phases that
+# are irrelevant to the change, never from skipping verification. A greenfield
+# build or a whole-repo refactor does not match this profile and keeps the full
+# suite.
+#
+# Auto-detected rather than another flag the user has to know: an existing git
+# repo with real history, plus a spec that reads as a scoped change. Set
+# LOKI_SCOPED_CHANGE=0 to force the full suite, or =1 to force this profile.
+loki_detect_scoped_change() {
+    # Explicit operator intent always wins, in both directions.
+    case "${LOKI_SCOPED_CHANGE:-}" in
+        0|false) return 1 ;;
+        1|true)  return 0 ;;
+    esac
+
+    # Greenfield is not a scoped change: no repo, or a repo with almost no
+    # history, means we are building something new.
+    #
+    # Ask git whether this is a work tree rather than testing for a .git
+    # DIRECTORY: in a git worktree (and in a submodule) .git is a FILE, so the
+    # old -d test rejected every worktree-based run -- including the parallel
+    # workflow streams this project runs by default. rev-parse is true for a
+    # plain clone, a worktree, and a submodule alike, and replaces two
+    # subprocesses' worth of checking with one.
+    local target="${TARGET_DIR:-.}"
+    git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+    local commits
+    commits="$(git -C "$target" rev-list --count HEAD 2>/dev/null || echo 0)"
+    [ "${commits:-0}" -ge 5 ] || return 1
+
+    # An issue-sourced spec is the canonical scoped change: someone filed a
+    # discrete request against code that already exists.
+    #
+    # The spec path is passed in by the caller ($1). It used to be read only
+    # from LOKI_PRD_FILE / LOKI_ISSUE_REF, but `loki start <issue>` writes
+    # .loki/prd-issue-N.md and hands run.sh that path as a POSITIONAL argument,
+    # so neither variable was ever set and this check could not fire.
+    local spec="${1:-${LOKI_PRD_FILE:-}}"
+    [ -n "${LOKI_ISSUE_REF:-}" ] && return 0
+    case "$spec" in
+        *prd-issue-*) return 0 ;;
+    esac
+
+    return 1
+}
+
+loki_apply_scoped_change_profile() {
+    loki_detect_scoped_change "${1:-}" || return 0
+
+    # Off: cannot affect the correctness of a scoped change to existing code.
+    : "${LOKI_PHASE_WEB_RESEARCH:=false}"
+    : "${LOKI_PHASE_PERFORMANCE:=false}"
+    : "${LOKI_PHASE_REGRESSION:=false}"
+    : "${LOKI_PHASE_UAT:=false}"
+
+    # On: every trust gate, unchanged. These are the moat.
+    : "${LOKI_PHASE_CODE_REVIEW:=true}"
+    : "${LOKI_PHASE_SECURITY:=true}"
+    : "${LOKI_PHASE_UNIT_TESTS:=true}"
+    : "${LOKI_PHASE_E2E_TESTS:=true}"
+
+    export LOKI_PHASE_WEB_RESEARCH LOKI_PHASE_PERFORMANCE LOKI_PHASE_REGRESSION
+    export LOKI_PHASE_UAT LOKI_PHASE_CODE_REVIEW LOKI_PHASE_SECURITY
+    export LOKI_PHASE_UNIT_TESTS LOKI_PHASE_E2E_TESTS
+    export LOKI_SCOPED_CHANGE_ACTIVE=1
 }
 
 loki_apply_build_profile() {
@@ -735,6 +849,36 @@ print(catalog["providers"]["claude"]["cli_aliases"].get(os.environ["_LOKI_SELECT
     export LOKI_SDK_JUDGE_MODEL LOKI_SDK_PRD_ENRICH_MODEL LOKI_SDK_REVIEW_MODEL
 }
 loki_apply_build_profile
+loki_apply_scoped_change_profile
+
+# Default hang guard for EVERY build, not just simple-web.
+#
+# The two timeouts above are set inside loki_apply_build_profile(), which
+# returns immediately unless LOKI_BUILD_PROFILE=simple-web. So on a normal
+# build both resolved to 0, and 0 means no guard at all -- verified by running
+# the deadline helper directly: `deadline.py 0 0 3 -- sleep 5` runs to
+# completion unkilled. A provider that hung had nothing to stop it.
+#
+# IDLE only, and no retry. That is what keeps this compatible with the standing
+# objection recorded above (search: "former invoke_with_timeout"), whose two
+# reasons remain correct:
+#
+#   1. "No safe generous default" applies to a fixed TOTAL timeout, which
+#      cannot tell a long legitimate iteration from a hang. An idle timeout
+#      can: it measures silence, not duration. Verified both directions --
+#      `sleep 600` under a 120s idle cap dies, while a process emitting output
+#      every second survives indefinitely. A coding agent streams constantly;
+#      one silent for two minutes is not working.
+#   2. "Wrong retry semantics" stands, so nothing here retries. The call is
+#      killed, and the existing failure path handles it. Re-running an agent
+#      that may have already edited files remains off the table.
+#
+# 7200s hard ceiling is a backstop against a process that streams forever
+# without converging; the idle cap is the load-bearing guard. Both are
+# overridable, and setting either to 0 restores the old unguarded behaviour.
+: "${LOKI_PROVIDER_IDLE_TIMEOUT:=120}"
+: "${LOKI_PROVIDER_CALL_TIMEOUT:=7200}"
+export LOKI_PROVIDER_IDLE_TIMEOUT LOKI_PROVIDER_CALL_TIMEOUT
 
 loki_background_services_enabled() {
     ! loki_is_supervised_simple_web
@@ -4023,6 +4167,162 @@ except Exception:
     print('')" "$_fp_file" 2>/dev/null)"
     fi
 
+    # Where the time went, per stage. Same "written but never read" story as
+    # first-preview above: emit_stage_complete (run.sh:2413) has appended a
+    # stage_complete record -- stage, status, duration_s, iteration -- to
+    # events.jsonl since v7.91.x, and NOTHING consumed it. A founder watching a
+    # 322-word issue take 25+ minutes inside iteration 1 had no way to see which
+    # step ate it, because the measurement existed and was never surfaced.
+    #
+    # Read-only aggregation over a file the run already wrote: no new subprocess
+    # per stage, no new writer, one python3 pass at terminal time. We deliberately
+    # render the AGENT remainder (wall clock minus summed stages) rather than
+    # stages alone. The 9 emit_stage_complete sites are all post-iteration gates,
+    # which sum to seconds; a table of only those would print "gates: 90s" on a
+    # 25-minute run and still not answer the question. The remainder is the
+    # provider/agent time, and it is usually the answer.
+    #
+    # Best-effort and honest about absence: no events file, no stage records, or
+    # unparseable lines render NOTHING rather than a fabricated zero -- same
+    # reasoning as first_preview_s. A wrong timing table is worse than silence.
+    # Rework split for the user-facing summary. Reuses the SAME
+    # iteration_attribution.py the prompt-side eval trend calls, so the number
+    # the user reads and the number the agent steers on cannot drift apart.
+    # Emits nothing unless the split is actually known.
+    local _LOKI_REWORK_LINE=""
+    if [ -r "${SCRIPT_DIR:-}/lib/iteration_attribution.py" ]; then
+        _LOKI_REWORK_LINE="$(python3 "${SCRIPT_DIR}/lib/iteration_attribution.py" \
+            --loki-dir "$loki_dir" --json 2>/dev/null | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+prog, rew = d.get('progress', {}), d.get('rework', {})
+pc, rc = prog.get('count', 0), rew.get('count', 0)
+# Unknown-only runs render nothing: a 0/0 split is not evidence of no rework,
+# it is absence of attribution, and printing it would read as a clean bill.
+if pc + rc == 0:
+    sys.exit(0)
+cost = rew.get('cost_usd', 0.0) or 0.0
+line = 'Rework: %d of %d iteration(s) redid earlier work' % (rc, pc + rc)
+if cost > 0:
+    line += ' (\$%.2f)' % cost
+print(line)
+" 2>/dev/null || true)"
+    fi
+
+    local stage_timing=""
+    local _ev_file="$loki_dir/events.jsonl"
+    if [ -f "$_ev_file" ]; then
+        stage_timing="$(LOKI_RUN_START_EPOCH="${_LOKI_RUN_START_EPOCH:-}" python3 -c "
+import json, os, sys
+tot = {}
+order = []
+first = last = None
+
+# events.jsonl is NEVER truncated between runs (no rm/rotate anywhere in the
+# tree), so a second 'loki start' in the same workspace would otherwise sum
+# stages from every previous run against THIS run's wall clock -- inflating
+# staged past wall and silently killing the total/remainder rows. Filter to
+# records at or after this run's start. The ISO timestamp is already on every
+# record, so this costs nothing extra.
+run_start_iso = None
+_es = (os.environ.get('LOKI_RUN_START_EPOCH') or '').strip()
+if _es:
+    try:
+        from datetime import datetime, timezone
+        run_start_iso = datetime.fromtimestamp(float(_es), timezone.utc)
+    except Exception:
+        run_start_iso = None
+
+def _in_run(ts):
+    if run_start_iso is None or not isinstance(ts, str) or not ts:
+        return True          # no reliable boundary: keep (old behavior)
+    try:
+        from datetime import datetime
+        t = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        return t >= run_start_iso
+    except Exception:
+        return True
+try:
+    with open(sys.argv[1], errors='replace') as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue          # malformed line: skip, never abort the summary
+            if not isinstance(rec, dict):
+                continue
+            ts = rec.get('timestamp')
+            if not _in_run(ts):
+                continue      # record belongs to an earlier run in this workspace
+            if isinstance(ts, str) and ts:
+                if first is None:
+                    first = ts
+                last = ts
+            if rec.get('type') != 'stage_complete':
+                continue
+            d = rec.get('data') or {}
+            if not isinstance(d, dict):
+                continue
+            name = d.get('stage')
+            dur = d.get('duration_s')
+            if not name or not isinstance(dur, (int, float)) or dur < 0:
+                continue
+            if name not in tot:
+                tot[name] = 0.0
+                order.append(name)
+            tot[name] += float(dur)
+except Exception:
+    sys.exit(0)
+if not tot:
+    sys.exit(0)
+
+def human(s):
+    s = int(round(s))
+    return '%dm %02ds' % (s // 60, s % 60) if s >= 60 else '%ds' % s
+
+# Wall clock: prefer the run-start epoch the runner exported; else derive from
+# the first/last event timestamps. Absent both, we print stages with no total
+# rather than inventing a denominator.
+wall = None
+env_start = os.environ.get('LOKI_RUN_START_EPOCH') or ''
+try:
+    if env_start.strip():
+        import time
+        wall = time.time() - float(env_start)
+except Exception:
+    wall = None
+if wall is None and first and last:
+    try:
+        from datetime import datetime
+        f = datetime.fromisoformat(first.replace('Z', '+00:00'))
+        l = datetime.fromisoformat(last.replace('Z', '+00:00'))
+        wall = (l - f).total_seconds()
+    except Exception:
+        wall = None
+
+staged = sum(tot.values())
+out = []
+for name in sorted(order, key=lambda n: -tot[n]):
+    out.append('  %-22s %s' % (name.replace('_', ' '), human(tot[name])))
+if wall is not None and wall >= staged:
+    rem = wall - staged
+    # The bucket that answers 'where did the 25 minutes go'.
+    # NOT labeled 'agent': the provider call is itself a bracketed stage above,
+    # so this remainder is everything else (checklist verification, app runner,
+    # playwright, council, memory). Calling it 'agent' would print two different
+    # measurements under one name.
+    out.append('  %-22s %s' % ('other (unaccounted)', human(rem)))
+    out.append('  %-22s %s' % ('total', human(wall)))
+print('\n'.join(out))
+" "$_ev_file" 2>/dev/null)"
+    fi
+
     # Branch + diff stats vs the run-start SHA (best-effort; non-git or empty
     # baseline yields empty values, which we render as "unknown"/"0").
     local start_sha="${_LOKI_RUN_START_SHA:-}"
@@ -4168,6 +4468,60 @@ except Exception:
         fi
         printf '%-14s %s\n' "Tasks:" "pending=$pending in_progress=$in_progress completed=$completed failed=$failed"
         echo ""
+        if [ -n "$stage_timing" ]; then
+            echo "Where the time went:"
+            echo "$stage_timing"
+            echo ""
+        fi
+        # Rework attribution. The AGENT has been steering on this since the eval
+        # trend shipped, but the user never saw it -- and it is the number that
+        # answers "why did this cost so much".
+        #
+        # iterations alone cannot distinguish real work from a gate false
+        # positive that forced redos. That is not hypothetical: a measured run
+        # had the agent claim done on EVERY iteration while a mock-integrity
+        # false positive blocked all six, so the run looked like six iterations
+        # of work and was one iteration of work plus five of harness bug.
+        #
+        # Renders NOTHING when the split is unknown, rather than a fabricated
+        # zero -- same rule as the timing table above. A wrong attribution is
+        # worse than silence because it points the user at the wrong culprit.
+        if [ -n "${_LOKI_REWORK_LINE:-}" ]; then
+            echo "$_LOKI_REWORK_LINE"
+            echo ""
+        fi
+        # What to DO about it. A terminal that names a bound without naming the
+        # lever leaves the user to guess which knob applies, and the wrong guess
+        # is expensive: raising an iteration cap on a run that was thrashing
+        # buys more thrashing at full price.
+        #
+        # The rework split above already distinguishes the two cases, so this
+        # points at the lever that actually matches the outcome rather than
+        # listing every environment variable.
+        case "$outcome" in
+            max_iterations)
+                echo "Next: this run hit its iteration ceiling, not a verdict."
+                echo "  Converging (low rework above)? Raise it: LOKI_MAX_ITERATIONS=<n>"
+                echo "  Thrashing (high rework above)? Raising the cap buys more"
+                echo "  of the same. Read the last reviewer findings first:"
+                echo "    loki why"
+                echo ""
+                ;;
+            budget_exceeded)
+                echo "Next: the spend cap stopped this run, not a failed gate."
+                echo "  Raise it with LOKI_BUDGET_LIMIT=<usd>, or check the cache"
+                echo "  hit ratio first -- a cold cache is the usual cause of a"
+                echo "  surprising bill:"
+                echo "    loki memory economics"
+                echo ""
+                ;;
+            force_stopped)
+                echo "Next: the council stopped this run WITHOUT approving it."
+                echo "  The work is not verified complete. See what blocked it:"
+                echo "    loki why"
+                echo ""
+                ;;
+        esac
         if [ -n "$evidence_inconclusive_line" ]; then
             echo "$evidence_inconclusive_line"
             echo ""
@@ -5767,10 +6121,13 @@ init_loki_dir() {
     mkdir -p .loki/state/checkpoints
     mkdir -p .loki/artifacts/{releases,reports,backups}
     mkdir -p .loki/memory/{ledgers,handoffs,learnings,episodic,semantic,skills}
-    mkdir -p .loki/metrics/{efficiency,rewards}
+    # metrics/rewards was created and emptied every run and NOTHING ever wrote
+    # or read it: the only reference in the whole codebase was the rm -f below.
+    # A directory that exists only to be deleted is not a feature, and
+    # documenting it as one told the agent something false.
+    mkdir -p .loki/metrics/efficiency
     # Clear stale metrics from previous sessions so loki metrics shows current run data (#75)
     rm -f .loki/metrics/efficiency/iteration-*.json 2>/dev/null || true
-    rm -f .loki/metrics/rewards/*.json 2>/dev/null || true
     mkdir -p .loki/rules
     mkdir -p .loki/signals
 
@@ -10332,17 +10689,38 @@ print("REPEATED_GATE_BLOCKER (PRIORITY): action=escalate gate=%s count=%d thresh
 # Usage: _loki_run_pytest_with_timeout <target_dir> [pytest_args...]
 # Stdout: combined pytest output
 # Exit: 0 on pass, non-zero on fail. Exit 124 indicates the timeout fired.
+# Portable timeout-prefix probe, shared by every gate that must be wall-clock
+# bounded. Stock macOS ships NEITHER `timeout` NOR `gtimeout` (gtimeout arrives
+# with coreutils), so a bare `timeout` would resolve to "command not found"
+# (exit 127) and flip test_passed=false on every macOS run -- turning a rare
+# hang into a universal false RED. When no timeout binary exists we emit an
+# EMPTY prefix and run unbounded, which is the pre-existing behaviour.
+#
+# Usage: _loki_timeout_prefix <seconds> <gate-label>   (writes words to stdout)
+#   local _cmd=(); read -r -a _cmd <<< "$(_loki_timeout_prefix 300 'go test')"
+#   "${_cmd[@]}" go test ./...
+_loki_timeout_prefix() {
+    local secs="$1" label="${2:-gate}"
+    if command -v gtimeout >/dev/null 2>&1; then
+        printf 'gtimeout %ss' "$secs"
+    elif command -v timeout >/dev/null 2>&1; then
+        printf 'timeout %ss' "$secs"
+    else
+        # >&2 is LOAD-BEARING: this function's STDOUT becomes the command-prefix
+        # array at every call site. log_warn writes to stdout (run.sh:1684), so
+        # without this redirect the warning text itself would be executed as the
+        # command -> exit 127 -> test_passed=false on every box lacking a timeout
+        # binary (stock macOS). That would be a universal false RED, strictly
+        # worse than the unbounded hang this helper exists to prevent.
+        log_warn "Neither gtimeout nor timeout available; ${label} will run unbounded (install coreutils on macOS)" >&2
+    fi
+}
+
 _loki_run_pytest_with_timeout() {
     local target_dir="$1"; shift
     local pytest_timeout="${LOKI_PYTEST_TIMEOUT:-${LOKI_GATE_TIMEOUT:-300}}"
     local _to_cmd=()
-    if command -v gtimeout >/dev/null 2>&1; then
-        _to_cmd=(gtimeout "${pytest_timeout}s")
-    elif command -v timeout >/dev/null 2>&1; then
-        _to_cmd=(timeout "${pytest_timeout}s")
-    else
-        log_warn "Neither gtimeout nor timeout available; pytest gate will run unbounded (install coreutils on macOS)"
-    fi
+    read -r -a _to_cmd <<< "$(_loki_timeout_prefix "$pytest_timeout" 'pytest gate')"
     (cd "$target_dir" && "${_to_cmd[@]}" pytest "$@" 2>&1)
 }
 
@@ -10816,9 +11194,8 @@ sys.stdout.write(t.strip())
             test_runner="unittest"
             local output unittest_exit _ut_to
             _ut_to="${LOKI_PYTEST_TIMEOUT:-${LOKI_GATE_TIMEOUT:-300}}"
-            local _ut_cmd=(timeout "${_ut_to}s")
-            command -v gtimeout &>/dev/null && _ut_cmd=(gtimeout "${_ut_to}s")
-            command -v timeout &>/dev/null || command -v gtimeout &>/dev/null || _ut_cmd=()
+            local _ut_cmd=()
+            read -r -a _ut_cmd <<< "$(_loki_timeout_prefix "$_ut_to" 'unittest gate')"
             output=$(cd "${TARGET_DIR:-.}" && "${_ut_cmd[@]}" python3 -m unittest discover -p 'test_*.py' 2>&1)
             unittest_exit=$?
             if [ "$unittest_exit" -eq 124 ]; then
@@ -10833,19 +11210,46 @@ sys.stdout.write(t.strip())
     fi
 
     # Go
+    # Wall-clock bounded like every other runner above. `go test` self-imposes
+    # -timeout 10m PER TEST BINARY, but `./...` runs one binary per package, so
+    # the AGGREGATE is unbounded -- and a test blocked in a cgo call or a syscall
+    # can outlive that panic. `cargo test` has no default timeout at all. Without
+    # this the gate hangs the whole iteration with no verdict.
+    # $gate_timeout is NOT in scope here (it is declared inside the package.json
+    # block), so read LOKI_GATE_TIMEOUT directly.
     if [ "$test_runner" = "none" ] && [ -f "${TARGET_DIR:-.}/go.mod" ] && command -v go &>/dev/null; then
         test_runner="go-test"
-        local output
-        output=$(cd "${TARGET_DIR:-.}" && go test ./... 2>&1) || test_passed=false
-        details="go test: $(echo "$output" | tail -3 | tr '\n' ' ')"
+        local output go_exit _go_to _go_cmd=()
+        _go_to="${LOKI_GATE_TIMEOUT:-300}"
+        read -r -a _go_cmd <<< "$(_loki_timeout_prefix "$_go_to" 'go test gate')"
+        output=$(cd "${TARGET_DIR:-.}" && "${_go_cmd[@]}" go test ./... 2>&1)
+        go_exit=$?
+        if [ "$go_exit" -eq 124 ]; then
+            test_passed=false
+            log_warn "go test gate timed out after ${_go_to}s (exit 124)"
+            details="go test: TIMED OUT after ${_go_to}s -- $(echo "$output" | tail -3 | tr '\n' ' ')"
+        else
+            [ "$go_exit" -ne 0 ] && test_passed=false
+            details="go test: $(echo "$output" | tail -3 | tr '\n' ' ')"
+        fi
     fi
 
     # Rust
     if [ "$test_runner" = "none" ] && [ -f "${TARGET_DIR:-.}/Cargo.toml" ] && command -v cargo &>/dev/null; then
         test_runner="cargo-test"
-        local output
-        output=$(cd "${TARGET_DIR:-.}" && cargo test 2>&1) || test_passed=false
-        details="cargo test: $(echo "$output" | tail -3 | tr '\n' ' ')"
+        local output cargo_exit _cargo_to _cargo_cmd=()
+        _cargo_to="${LOKI_GATE_TIMEOUT:-300}"
+        read -r -a _cargo_cmd <<< "$(_loki_timeout_prefix "$_cargo_to" 'cargo test gate')"
+        output=$(cd "${TARGET_DIR:-.}" && "${_cargo_cmd[@]}" cargo test 2>&1)
+        cargo_exit=$?
+        if [ "$cargo_exit" -eq 124 ]; then
+            test_passed=false
+            log_warn "cargo test gate timed out after ${_cargo_to}s (exit 124)"
+            details="cargo test: TIMED OUT after ${_cargo_to}s -- $(echo "$output" | tail -3 | tr '\n' ' ')"
+        else
+            [ "$cargo_exit" -ne 0 ] && test_passed=false
+            details="cargo test: $(echo "$output" | tail -3 | tr '\n' ' ')"
+        fi
     fi
 
     # node --test (built-in Node test runner) -- config-less fallback (task #79).
@@ -12951,6 +13355,67 @@ with open(os.environ["LOKI_DA_PROMPT_OUT"], "w", encoding="utf-8") as handle:
 BUILD_DA_PROMPT
 }
 
+# Derive a review size cap (in bytes) from the active provider's context window.
+#
+# Args: $1 = env override (wins outright when set), $2 = historical default.
+# Echoes the effective cap.
+#
+# Why this exists: the caps were fixed byte counts sized for a ~200k-token model.
+# A local 12b/14b with an 8k-32k window would be handed a 425000-byte prompt and
+# fail in a way that reads as "the model is bad" rather than "we mis-sized it".
+#
+# Two stated assumptions, kept separate so they stay auditable:
+#   1. ~3 bytes per token. Real tokenizers land around 3-4 for code-heavy text;
+#      3 is the conservative end, and under-estimating capacity errs toward a
+#      smaller cap, which is the safe direction for a fail-closed gate.
+#   2. ~75% of the window is available for review INPUT. The remainder is the
+#      reviewer's own output and reasoning, which share the same window.
+# Neither is precise, and neither needs to be: the result is only ever used to
+# LOWER a cap below the shipped default.
+#
+# The min() is load-bearing. PROVIDER_CONTEXT_WINDOW is set on every current run
+# (LOKI_PROVIDER defaults to claude, whose window is 1000000), so deriving
+# upward would raise the cap 4-8x for every existing user. Taking the smaller of
+# derived-vs-default means a cap can only ever move DOWN. Concretely, a window
+# clamps to the shipped default whenever it is >= ~188889 tokens; every provider
+# that declares a window today (1M/400k/200k/200k) clears that, and a provider
+# declaring none takes the unset path, so no shipped provider changes behavior.
+# Only a genuinely small window (a local 12b/14b) shrinks anything.
+#
+# The shipped defaults are 425000 (prompt) and 400000 (diff). That 25000-byte gap
+# is the reviewer scaffolding wrapped around the diff, and the ordering is
+# load-bearing: if both caps derived to the SAME number, a diff sized just under
+# the diff gate would build a prompt exceeding the prompt gate, so every review
+# would block fail-closed with no operator-visible cause, on exactly the
+# small-window providers this derivation exists to support. Scaling by
+# _default/425000 preserves that gap at every window size. The 425000 denominator
+# must track the prompt-cap default passed by the caller below; if that default
+# changes, change the denominator with it or the diff-cap proportion breaks.
+review_effective_cap() {
+    local _override="$1" _default="$2"
+    # Operator wins outright, at any value, over both the default and the window.
+    if [ -n "$_override" ]; then
+        printf '%s' "$_override"
+        return 0
+    fi
+    # Fail safe to the historical default unless the window is a clean positive
+    # integer. A non-numeric result here would make the caller's `[ ... -gt ... ]`
+    # exit 2, which reads as false and would dispatch an oversized review.
+    case "${PROVIDER_CONTEXT_WINDOW:-}" in
+        ''|*[!0-9]*) printf '%s' "$_default"; return 0 ;;
+    esac
+    [ "$PROVIDER_CONTEXT_WINDOW" -gt 0 ] 2>/dev/null || { printf '%s' "$_default"; return 0; }
+    # Derive the INPUT budget, then scale it to this caller's cap so the
+    # prompt/diff proportion (and thus the scaffolding gap) is preserved.
+    local _budget=$(( PROVIDER_CONTEXT_WINDOW * 3 / 4 * 3 ))
+    local _derived=$(( _budget * _default / 425000 ))
+    if [ "$_derived" -lt "$_default" ]; then
+        printf '%s' "$_derived"
+    else
+        printf '%s' "$_default"
+    fi
+}
+
 run_code_review() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local review_dir="$loki_dir/quality/reviews"
@@ -13311,16 +13776,28 @@ ${dependency_context}"
     # produces an opaque block. This remains fail-closed and never truncates.
     local _review_diff_bytes=0
     _review_diff_bytes=$(printf '%s' "$diff_content" | wc -c | tr -d ' ')
-    local _review_max_bytes="${LOKI_REVIEW_MAX_DIFF_BYTES:-400000}"
+    local _review_max_bytes
+    _review_max_bytes=$(review_effective_cap "${LOKI_REVIEW_MAX_DIFF_BYTES:-}" 400000)
     if [ "${_review_diff_bytes:-0}" -gt "$_review_max_bytes" ] 2>/dev/null; then
         local _big_dirs
         _big_dirs=$(printf '%s\n' "$changed_files" | sed 's#/.*##' | grep -v '^$' | sort | uniq -c | sort -rn | head -3 | awk '{print $2" ("$1" files)"}' | tr '\n' ' ')
-        log_error "Code review: context is ${_review_diff_bytes} bytes (limit ${_review_max_bytes}); refusing to truncate or dispatch a partial review. Biggest dirs: ${_big_dirs:-unknown}. Split the change or raise LOKI_REVIEW_MAX_DIFF_BYTES."
+        log_error "Code review: context is ${_review_diff_bytes} bytes (limit ${_review_max_bytes}, derived from PROVIDER_CONTEXT_WINDOW=${PROVIDER_CONTEXT_WINDOW:-unset}); refusing to truncate or dispatch a partial review. Biggest dirs: ${_big_dirs:-unknown}. Split the change or raise LOKI_REVIEW_MAX_DIFF_BYTES."
         emit_event_json "code_review_diff_oversized" \
             "review_id=$review_id" \
             "diff_bytes=$_review_diff_bytes" \
             "limit_bytes=$_review_max_bytes" \
             "iteration=${ITERATION_COUNT:-0}" 2>/dev/null || true
+        # Classify this as INFRASTRUCTURE, not a finding. The discriminator is
+        # otherwise set at :14912, which this early return never reaches, so the
+        # variable stayed "" from the reset at :12959 and the consumer at :22126
+        # read a file-size condition as "Critical/High findings" -- escalating to
+        # PAUSE over a diff that was merely too large to send.
+        #
+        # Still fail-closed: the review did NOT pass, and nothing here converts a
+        # skipped review into a green one. It only records WHY it could not run,
+        # which is the difference between "your code is bad" and "we could not
+        # look at it".
+        _LOKI_REVIEW_FAILURE_KIND="infrastructure_inconclusive"
         return 1
     fi
 
@@ -13617,6 +14094,42 @@ if types_file and os.path.exists(types_file):
     except Exception:
         pass  # Fall back to hardcoded specialists
 
+# R10 extension seam: agents installed by the user via `loki agent install`
+# (.loki/agents/installed.json) join the reviewer pool. Built-ins above are
+# gated on a hardcoded FOCUS_KEYWORDS allowlist, which no user-chosen type can
+# ever match, so an installed agent was silently dropped and its persona never
+# reached a reviewer. Keywords come from the manifest's own `focus` list, which
+# hub_install.py already validates as <= 200-char strings.
+# Data only: hub_install.py never executes anything from a manifest.
+# Kept in a SEPARATE dict, never merged into SPECIALISTS: entering the built-in
+# pool would let a user agent win a `ranked[:want]` slot and DISPLACE a built-in
+# reviewer (observed displacing security-sentinel before this was split out),
+# and would also flip the all-zero defaults path.
+INSTALLED_SPECIALISTS = {}
+try:
+    import importlib.util as _ilu
+    _hub_path = os.path.join(os.path.dirname(os.path.abspath(types_file)), "hub_install.py")
+    _spec = _ilu.spec_from_file_location("loki_hub_install", _hub_path)
+    _hub = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_hub)
+    for _inst in _hub.installed_agent_list():
+        _t = _inst.get("type", "")
+        # Never let an installed agent shadow a built-in reviewer perspective.
+        if not _t or _t in SPECIALISTS:
+            continue
+        _kw = [str(k).strip().lower() for k in _inst.get("focus", []) if str(k).strip()]
+        if not _kw:
+            continue  # No keywords means it could never score; skip rather than always-on.
+        INSTALLED_SPECIALISTS[_t] = {
+            "keywords": _kw,
+            "focus": _inst.get("capabilities", "") or _inst.get("name", _t),
+            "checks": "Review from " + _inst.get("name", _t) + " perspective: " + ", ".join(_inst.get("focus", [])),
+            "priority": 100 + len(INSTALLED_SPECIALISTS),
+            "persona": _inst.get("persona", ""),
+        }
+except Exception:
+    pass  # Corrupt or absent installed.json must never break code review.
+
 diff_path = os.environ.get("LOKI_REVIEW_DIFF_FILE", "")
 files_path = os.environ.get("LOKI_REVIEW_FILES_FILE", "")
 
@@ -13676,6 +14189,23 @@ if all(s == 0 for s in scores.values()):
 else:
     selected = ranked[:want]
 
+# User-installed agents are APPENDED, never allowed to compete for the `want`
+# built-in slots -- same discipline as the dependency-analyst append below, so
+# installing an agent can only ADD scrutiny, never remove a built-in reviewer.
+# Only those whose keywords actually matched this diff fire, so an installed
+# a11y auditor stays silent on a backend-only change.
+# ponytail: hard cap of 2, no env var. Each appended agent costs one more LLM
+# reviewer call every iteration. Raise the constant if that ceiling bites.
+_MAX_INSTALLED_REVIEWERS = 2
+installed_selected = []
+for _n, _spec in INSTALLED_SPECIALISTS.items():
+    scores[_n] = sum(1 for kw in _spec["keywords"] if kw in search_text)
+for _n in sorted(INSTALLED_SPECIALISTS, key=lambda n: (-scores[n], INSTALLED_SPECIALISTS[n]["priority"])):
+    if len(installed_selected) >= _MAX_INSTALLED_REVIEWERS:
+        break
+    if scores[_n] > 0:
+        installed_selected.append(_n)
+
 # A changed JavaScript manifest or lockfile always receives the specialist that
 # understands the compact Git/npm metadata. Append rather than replace so a
 # dependency change never removes another keyword-selected review perspective.
@@ -13725,6 +14255,13 @@ reviewers = mandatory + [
             "checks": SPECIALISTS[name]["checks"]
         }
         for name in selected
+    ] + [
+        {
+            "name": name,
+            "focus": INSTALLED_SPECIALISTS[name]["focus"],
+            "checks": INSTALLED_SPECIALISTS[name]["checks"]
+        }
+        for name in installed_selected
     ]
 if os.environ.get("LOKI_REVIEW_REQUIREMENTS_ONLY") == "1":
     reviewers = [
@@ -13735,7 +14272,7 @@ if os.environ.get("LOKI_REVIEW_REQUIREMENTS_ONLY") == "1":
 result = {
     "reviewers": reviewers,
     "scores": {n: scores[n] for n in scores},
-    "pool_size": len(SPECIALISTS)
+    "pool_size": len(SPECIALISTS) + len(installed_selected)
 }
 print(json.dumps(result))
 SPECIALIST_SELECT
@@ -13836,7 +14373,8 @@ REVIEW_SELECTION_RECORD
     reviewer_count=$(echo "$selected_specialists" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['reviewers']))")
     local dispatch_count
     dispatch_count=$(echo "$dispatch_specialists" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['reviewers']))")
-    local _review_max_prompt_bytes="${LOKI_REVIEW_MAX_PROMPT_BYTES:-425000}"
+    local _review_max_prompt_bytes
+    _review_max_prompt_bytes=$(review_effective_cap "${LOKI_REVIEW_MAX_PROMPT_BYTES:-}" 425000)
     local _review_max_output_bytes="${LOKI_REVIEW_MAX_OUTPUT_BYTES:-1048576}"
     local review_pending_dir="$review_dir/$review_id/.pending"
     if ! mkdir -m 700 "$review_pending_dir" 2>/dev/null; then
@@ -15422,40 +15960,71 @@ start_dashboard() {
 
     # Check all required imports
     if ! "$python_cmd" -c "import fastapi; import sqlalchemy; import aiosqlite" 2>/dev/null; then
-        log_step "Setting up dashboard virtualenv..."
-        if ! [ -x "${dashboard_venv}/bin/python3" ]; then
-            # Remove broken venv if exists
-            [ -d "$dashboard_venv" ] && rm -rf "$dashboard_venv"
-            mkdir -p "$HOME/.loki"
-            python3 -m venv "$dashboard_venv" 2>/dev/null || python3.13 -m venv "$dashboard_venv" 2>/dev/null || {
-                log_warn "Failed to create virtualenv"
-                log_warn "You may need: sudo apt install python3-venv"
-            }
+        # The venv is HOST-GLOBAL, so concurrent runs must not rebuild it at
+        # once: one run's `rm -rf` would delete the tree another is importing
+        # from. Lock the venv path itself -- safe_acquire_lock appends
+        # ".lockdir", giving a SIBLING mutex the teardown below cannot destroy.
+        # Timeout must outlast a real cold venv create + pip install (not the 5s
+        # used by the JSON read-modify-write call sites). Mirrors the same guard
+        # in ensure_dashboard_venv (autonomy/loki) -- edit BOTH.
+        local _venv_locked=false
+        if type safe_acquire_lock >/dev/null 2>&1 \
+            && safe_acquire_lock "$dashboard_venv" "${LOKI_VENV_LOCK_TIMEOUT:-300}"; then
+            _venv_locked=true
         fi
-        if [ -x "${dashboard_venv}/bin/python3" ]; then
-            python_cmd="${dashboard_venv}/bin/python3"
-            log_step "Installing dashboard dependencies..."
-            if [ -f "$req_file" ]; then
-                "${dashboard_venv}/bin/pip" install -r "$req_file" 2>&1 | tail -1 || {
-                    log_warn "Pinned deps failed, trying unpinned..."
+        # Re-probe: the run we queued behind may have just built it for us.
+        [ -x "${dashboard_venv}/bin/python3" ] && python_cmd="${dashboard_venv}/bin/python3"
+        if "$python_cmd" -c "import fastapi; import sqlalchemy; import aiosqlite" 2>/dev/null; then
+            [ "$_venv_locked" = true ] && safe_release_lock "$dashboard_venv"
+            _venv_locked=false
+        elif [ "$_venv_locked" = false ] && type safe_acquire_lock >/dev/null 2>&1; then
+            # Lock timed out and the venv is still unusable. Do NOT rm -rf
+            # unlocked -- that is the exact race this lock exists to prevent.
+            #
+            # The re-probe above may have pointed python_cmd at the OTHER run's
+            # half-built venv (bin/python3 exists, pip install not finished).
+            # Reset to the system interpreter so the server launch below does not
+            # exec a knowingly-broken one.
+            python_cmd="python3"
+            log_warn "Timed out waiting for another run to build the dashboard venv"
+            log_warn "Dashboard will not be available (stale lock? rm -rf ${dashboard_venv}.lockdir)"
+        else
+            log_step "Setting up dashboard virtualenv..."
+            if ! [ -x "${dashboard_venv}/bin/python3" ]; then
+                # Remove broken venv if exists
+                [ -d "$dashboard_venv" ] && rm -rf "$dashboard_venv"
+                mkdir -p "$HOME/.loki"
+                python3 -m venv "$dashboard_venv" 2>/dev/null || python3.13 -m venv "$dashboard_venv" 2>/dev/null || {
+                    log_warn "Failed to create virtualenv"
+                    log_warn "You may need: sudo apt install python3-venv"
+                }
+            fi
+            if [ -x "${dashboard_venv}/bin/python3" ]; then
+                python_cmd="${dashboard_venv}/bin/python3"
+                log_step "Installing dashboard dependencies..."
+                if [ -f "$req_file" ]; then
+                    "${dashboard_venv}/bin/pip" install -r "$req_file" 2>&1 | tail -1 || {
+                        log_warn "Pinned deps failed, trying unpinned..."
+                        "${dashboard_venv}/bin/pip" install fastapi uvicorn pydantic websockets sqlalchemy aiosqlite 2>&1 | tail -1 || {
+                            log_warn "Failed to install dashboard dependencies"
+                            log_warn "Dashboard will not be available"
+                        }
+                        # greenlet is optional (needs C compiler on some platforms)
+                        "${dashboard_venv}/bin/pip" install greenlet 2>/dev/null || true
+                    }
+                else
                     "${dashboard_venv}/bin/pip" install fastapi uvicorn pydantic websockets sqlalchemy aiosqlite 2>&1 | tail -1 || {
                         log_warn "Failed to install dashboard dependencies"
                         log_warn "Dashboard will not be available"
                     }
-                    # greenlet is optional (needs C compiler on some platforms)
                     "${dashboard_venv}/bin/pip" install greenlet 2>/dev/null || true
-                }
+                fi
             else
-                "${dashboard_venv}/bin/pip" install fastapi uvicorn pydantic websockets sqlalchemy aiosqlite 2>&1 | tail -1 || {
-                    log_warn "Failed to install dashboard dependencies"
-                    log_warn "Dashboard will not be available"
-                }
-                "${dashboard_venv}/bin/pip" install greenlet 2>/dev/null || true
+                log_warn "Failed to install dashboard dependencies"
+                log_warn "Run manually: python3 -m venv ${dashboard_venv} && ${dashboard_venv}/bin/pip install fastapi uvicorn sqlalchemy aiosqlite"
             fi
-        else
-            log_warn "Failed to install dashboard dependencies"
-            log_warn "Run manually: python3 -m venv ${dashboard_venv} && ${dashboard_venv}/bin/pip install fastapi uvicorn sqlalchemy aiosqlite"
         fi
+        [ "$_venv_locked" = true ] && safe_release_lock "$dashboard_venv"
     fi
 
     # Start the FastAPI dashboard server
@@ -16176,6 +16745,9 @@ pricing = {
     'sonnet': {'input': 3.00, 'output': 15.00},
     'haiku': {'input': 1.00, 'output': 5.00},
     'gpt-5.3-codex': {'input': 1.75, 'output': 14.00},
+    'gpt-5.6-sol': {'input': 2.50, 'output': 20.00},
+    'gpt-5.6-terra': {'input': 1.50, 'output': 12.00},
+    'gpt-5.6-luna': {'input': 0.50, 'output': 4.00},
 }
 for f in glob.glob('${efficiency_dir}/*.json'):
     try:
@@ -16188,7 +16760,20 @@ for f in glob.glob('${efficiency_dir}/*.json'):
             p = pricing.get(model, pricing['sonnet'])
             inp = d.get('input_tokens', 0)
             out = d.get('output_tokens', 0)
+            # Cache tiers. The writer has emitted these since v6.82.0 and they
+            # DOMINATE real traffic: a measured iteration carried 797,496
+            # cache-read tokens against 10,272 of plain input. Pricing them at
+            # zero under-counted a real iteration 5.4x, so a breaker set to
+            # stop a runaway let it run far past the cap. Published multipliers:
+            # cache read 0.1x input, cache write 1.25x input.
+            #
+            # This mirrors the TS route's calculateCostFromRecords
+            # (loki-ts/src/runner/budget.ts). Both routes must agree or the
+            # same run reports two different spends.
+            cr = d.get('cache_read_tokens', 0) or 0
+            cw = d.get('cache_creation_tokens', 0) or 0
             total += (inp / 1_000_000) * p['input'] + (out / 1_000_000) * p['output']
+            total += (cr / 1_000_000) * (p['input'] * 0.1) + (cw / 1_000_000) * (p['input'] * 1.25)
     except: pass
 print(round(total, 4))
 " 2>/dev/null || echo "0")
@@ -16490,8 +17075,64 @@ check_completion_promise() {
 }
 
 # Check if max iterations reached
+# EVIDENCE-AWARE ITERATION CAP.
+#
+# The cap used to be a bare counter: it consulted no gate, no council, and no
+# evidence. A run one step from finishing was cut off identically to a run
+# thrashing in circles, and both reported the same terminal.
+#
+# An iteration count is a PROXY for "is this converging". Where real evidence
+# exists, prefer the evidence. Two signals are already on disk at this point:
+#
+#   1. the model's own completion request (.loki/signals/COMPLETION_REQUESTED),
+#      which the agent writes when it believes the work is done
+#   2. gate state (.loki/quality/gate-failures.txt), which says whether the
+#      last verification pass actually found anything
+#
+# When the model says it is done AND no gate is failing, the run gets ONE extra
+# iteration to land it. That is the difference between a finished product and a
+# terminal failure at the buzzer.
+#
+# WHY THIS CANNOT LOOP FOREVER, which is the only thing that matters here:
+# the grace is granted at most once per run (a marker file, checked before it
+# is written), it requires POSITIVE evidence rather than the absence of a
+# signal, and it extends by exactly one iteration. A run that keeps claiming
+# done without finishing gets the cap, once, and then stops. Published
+# measurements put automated-verifier false-negative rates near 24%, so an
+# unbounded verifier-driven loop would burn real money on already-correct work.
+# This is deliberately a bounded nudge, not a verifier-driven terminal.
+#
+# LOKI_ITERATION_GRACE=0 restores the pure counter.
+_iteration_grace_available() {
+    [ "${LOKI_ITERATION_GRACE:-1}" != "0" ] || return 1
+
+    local _loki_root="${TARGET_DIR:-.}/.loki"
+    local _marker="$_loki_root/state/iteration-grace-used"
+    [ -f "$_marker" ] && return 1
+
+    # POSITIVE evidence the model believes it is done. Absence is not evidence.
+    [ -f "$_loki_root/signals/COMPLETION_REQUESTED" ] || return 1
+
+    # ...and nothing is currently failing. A non-empty gate-failures.txt means
+    # the last verification pass found real problems, so a "done" claim on top
+    # of it is exactly the case the cap should still stop.
+    local _gf="$_loki_root/quality/gate-failures.txt"
+    if [ -s "$_gf" ]; then
+        return 1
+    fi
+
+    mkdir -p "$_loki_root/state" 2>/dev/null || true
+    printf 'granted at iteration %s\n' "${ITERATION_COUNT:-0}" > "$_marker" 2>/dev/null || true
+    return 0
+}
+
 check_max_iterations() {
     if [ $ITERATION_COUNT -ge $MAX_ITERATIONS ]; then
+        if _iteration_grace_available; then
+            MAX_ITERATIONS=$((MAX_ITERATIONS + 1))
+            log_info "Iteration cap reached, but the agent reports done with no failing gate -- granting ONE final iteration to land it (once per run; LOKI_ITERATION_GRACE=0 to disable)."
+            return 1
+        fi
         log_warn "Max iterations ($MAX_ITERATIONS) reached. Stopping."
         return 0
     fi
@@ -18591,6 +19232,31 @@ if d.get('blocked'):
         memory_context_section="CONTEXT: $context_injection"
     fi
 
+    # Efficiency trend injection -- close the eval feedback loop.
+    # .loki/metrics/efficiency/iteration-N.json has been written every iteration
+    # for the engine's entire life and read back only by a stop-only budget
+    # breaker and an offline report, never by the agent producing the cost.
+    #
+    # SINGLE RENDERER: the text comes from iteration_attribution.py --prompt-block,
+    # the exact same entry point the Bun route calls (build_prompt.ts
+    # buildEfficiencyTrend), so the two routes are byte-identical by construction
+    # rather than by two renderers kept in sync forever.
+    #
+    # Emits "" on absent/empty metrics, so an unmeasured run adds NOTHING.
+    # Opt out with LOKI_EVAL_TREND=0.
+    # Accepts BOTH "0" and "false" (case-insensitive): this repo uses both
+    # toggle conventions, and honouring only one makes the other a silent no-op.
+    # Byte-mirrored in build_prompt.ts buildEfficiencyTrend().
+    local _eval_trend_optout
+    _eval_trend_optout="$(printf '%s' "${LOKI_EVAL_TREND:-1}" | tr '[:upper:]' '[:lower:]')"
+    local efficiency_trend=""
+    if [ "$_eval_trend_optout" != "0" ] && [ "$_eval_trend_optout" != "false" ] \
+        && [ -r "${SCRIPT_DIR}/lib/iteration_attribution.py" ] \
+        && [ -d ".loki" ]; then
+        efficiency_trend="$(python3 "${SCRIPT_DIR}/lib/iteration_attribution.py" \
+            --loki-dir ".loki" --prompt-block 2>/dev/null || true)"
+    fi
+
     # PRD Checklist status injection (v5.44.0)
     local checklist_status=""
     if [ -n "$prd" ] && [ ! -f ".loki/checklist/checklist.json" ]; then
@@ -18958,6 +19624,10 @@ except Exception:
     [ -n "$app_runner_info" ] && printf '%s\n' "$app_runner_info"
     [ -n "$playwright_info" ] && printf '%s\n' "$playwright_info"
     [ -n "$memory_context_section" ] && printf '%s\n' "$memory_context_section"
+    # Volatile per-iteration data: belongs below [CACHE_BREAKPOINT], never in the
+    # cache-stable prefix. Same ordinal position as the Bun route (after the
+    # context section, before the completion instruction).
+    [ -n "$efficiency_trend" ] && printf '%s\n' "$efficiency_trend"
     printf '%s\n' "$completion_instruction"
     printf '</dynamic_context>\n'
 }
@@ -20494,7 +21164,19 @@ except Exception:
                         _loki_write_last_error 0 "spec_contradiction" \
                             "Spec is internally inconsistent (${_sc_n} unresolved contradiction(s)); resolve the conflicting requirements, then re-run."
                     fi
-                    save_state "$retry" "inconclusive_spec_contradiction" 0
+                    # 20, matching what this arm actually RETURNS a few lines
+                    # below. save_state's third argument is persisted as
+                    # lastExitCode, so recording 0 here left the state file
+                    # claiming success for a run whose process exited 20.
+                    # A consumer reading the record -- `loki why`, the
+                    # dashboard, a CI script -- saw a clean stop for a spec that
+                    # was never buildable.
+                    #
+                    # The TS route already classified this status as a terminal
+                    # failure (ENT3_TERMINAL_FAILURE), and the bash ENT-3 arm
+                    # lists it beside `failed` and `policy_blocked`. Only the
+                    # persisted field disagreed.
+                    save_state "$retry" "inconclusive_spec_contradiction" 20
                     if type emit_completion_summary &>/dev/null; then
                         emit_completion_summary inconclusive_spec_contradiction 2>/dev/null || true
                     fi
@@ -20738,6 +21420,16 @@ except Exception as exc:
         if [ -f "$agent_log" ] && [ "$(stat -f%z "$agent_log" 2>/dev/null || stat -c%s "$agent_log" 2>/dev/null)" -gt 1000000 ]; then
             # Trim to last 500KB
             tail -c 500000 "$agent_log" > "$agent_log.tmp" && mv "$agent_log.tmp" "$agent_log"
+        fi
+
+        # Same cap on the daily log. agent.log has been trimmed since it was
+        # introduced; its sibling never was, and it receives the full raw
+        # stream-json of every iteration -- measured ~1.5MB per iteration, so a
+        # 500-iteration run leaves ~725MB per day per build, times however many
+        # builds share the machine. Same threshold, same trim, no new rotation
+        # scheme.
+        if [ -f "$log_file" ] && [ "$(stat -f%z "$log_file" 2>/dev/null || stat -c%s "$log_file" 2>/dev/null)" -gt 1000000 ]; then
+            tail -c 500000 "$log_file" > "$log_file.tmp" && mv "$log_file.tmp" "$log_file"
         fi
         touch "$agent_log"
         echo "" >> "$agent_log"
@@ -21611,6 +22303,11 @@ if __name__ == "__main__":
 
         log_info "${PROVIDER_DISPLAY_NAME:-Claude} exited with code $exit_code after ${duration}s"
 
+        # The provider call is the largest single bucket in any iteration and was
+        # the one the founder could not see. start_time already exists, so this
+        # costs zero extra subprocesses -- we pass the existing epoch through.
+        emit_stage_complete "agent" "$([ "$exit_code" -eq 0 ] 2>/dev/null && echo pass || echo fail)" "$start_time"
+
         # v7.5.12 Gap A: Distinguish signal-induced exits (130/143/137) from clean failure.
         # Without this, post-iteration logic may quietly proceed past a SIGINT/SIGTERM,
         # leaving stale state and confusing the next iteration. Any non-zero exit is a
@@ -22157,8 +22854,14 @@ if __name__ == "__main__":
             # Auto-generate docs (default-on) BEFORE the staleness check and the
             # gate, so neither nags the user to run 'loki docs generate' by hand.
             # Opt out with LOKI_AUTO_DOCS=false.
+            # Bracketed because this is the single biggest non-provider step in
+            # the loop (the doc suite has cost ~25min on a real build) and it was
+            # the one nobody could see. Reuses the existing helper: one date call,
+            # no new subprocess per stage.
             if [ "$ITERATION_COUNT" -gt 0 ] && ! loki_is_supervised_simple_web; then
-                auto_generate_docs_if_needed
+                local _docgen_t0=$(date +%s 2>/dev/null); local _docgen_ok=pass
+                auto_generate_docs_if_needed || _docgen_ok=fail
+                emit_stage_complete "doc_generation" "$_docgen_ok" "$_docgen_t0"
             fi
             # Documentation staleness check (v6.75.0)
             if [ "$ITERATION_COUNT" -gt 0 ] && ! loki_is_supervised_simple_web; then
@@ -22334,9 +23037,23 @@ if __name__ == "__main__":
                     run_memory_consolidation
                     # No on_run_complete: a force-stop must never open a "done" PR.
                     emit_completion_summary force_stopped
-                    save_state $retry "force_stopped" 0
+                    # Exit 20, not 0. Every other signal here already says this
+                    # run is NOT verified-complete -- the header, the warning,
+                    # the refusal to open a PR -- but the exit code said the
+                    # opposite, and the exit code is the only one a CI job, a
+                    # Kubernetes Job, or a shell `&&` actually reads. A
+                    # stagnation force-stop was therefore indistinguishable
+                    # from success to every automated caller.
+                    #
+                    # 20 is the established "deterministic terminal failure"
+                    # code, already used by max_iterations_reached
+                    # (run.sh:20796, :20877) for the same class of outcome:
+                    # the run stopped without verifying the work. Retrying is
+                    # pointless; a human needs to look. Two terminals with the
+                    # same meaning must not report opposite exit codes.
+                    save_state $retry "force_stopped" 20
                     rm -f "$iter_output" 2>/dev/null
-                    return 0
+                    return 20
                 fi
                 echo ""
                 if loki_is_supervised_simple_web; then
@@ -23672,6 +24389,15 @@ main() {
         set --
     fi
 
+    # Re-apply the scoped-change profile now that PRD_PATH is known.
+    #
+    # The module-scope call runs at source time, BEFORE this argument parsing,
+    # so the spec path was always empty there and an issue-sourced build could
+    # never be recognised. Re-running it here is idempotent: the profile assigns
+    # with := so anything already set (including an explicit operator override)
+    # is left untouched, and a non-scoped run still returns immediately.
+    loki_apply_scoped_change_profile "$PRD_PATH"
+
     # Validate PRD if provided
     if [ -n "$PRD_PATH" ] && [ ! -f "$PRD_PATH" ]; then
         log_error "PRD file not found: $PRD_PATH"
@@ -24364,8 +25090,14 @@ except Exception:
         _final_state_file="$(_loki_state_file)"
         _final_status=$(LOKI_STATE_FILE="$_final_state_file" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status','unknown'))" 2>/dev/null || echo "unknown")
         case "$_final_status" in
-            council_approved|council_force_approved|deterministic_gates_passed|completion_promise_fulfilled|force_stopped|paused|interrupted|stopped)
+            council_approved|council_force_approved|deterministic_gates_passed|completion_promise_fulfilled|paused|interrupted|stopped)
                 result=0 ;;
+            # force_stopped belongs HERE too, for the same reason. A council
+            # force-stop (stagnation, or a flood of done-signals) means the run
+            # gave up WITHOUT verifying the work -- the code already says so in
+            # its header, its warning, and its refusal to open a PR. Reporting
+            # it as a clean stop made it indistinguishable from success to the
+            # only consumer that matters to automation: the exit code.
             # budget_exceeded belongs HERE, not with the human-controlled stops.
             # It sat in the result=0 arm on the rationale that "a human will
             # resume", which is true of `paused` (a human pressed pause) and

@@ -59,6 +59,27 @@ class EvidenceLedgerTests(unittest.TestCase):
         self.assertFalse(report["valid"])
         self.assertTrue(any("duplicate" in error for error in report["errors"]))
 
+    def test_not_stated_publication_date_warns_without_crashing(self) -> None:
+        records = _load_records(ASSETS / "source_ledger_template.csv")
+        records[0]["publication_date"] = "not-stated"
+        report = validate_records(records)
+        self.assertTrue(report["valid"], report["errors"])
+        self.assertTrue(
+            any("publication date is not stated" in warning
+                for warning in report["warnings"])
+        )
+
+    def test_retrieval_before_publication_fails(self) -> None:
+        records = _load_records(ASSETS / "source_ledger_template.csv")
+        records[0]["publication_date"] = "2026-07-30"
+        records[0]["retrieval_date"] = "2026-07-01"
+        report = validate_records(records)
+        self.assertFalse(report["valid"])
+        self.assertTrue(
+            any("retrieval_date precedes publication_date" in error
+                for error in report["errors"])
+        )
+
 
 class MarketSizingTests(unittest.TestCase):
     def test_synthetic_sizing_reconciles_and_returns_scenarios(self) -> None:

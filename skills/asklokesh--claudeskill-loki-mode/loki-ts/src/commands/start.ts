@@ -59,6 +59,16 @@ const NOOP_BOOL_FLAGS = new Set(["--yes", "-y", "--no-plan", "--no-mirofish", "-
 const VALID_PROVIDERS = new Set(["claude", "codex", "cline", "aider"]);
 const VALID_TIERS = new Set(["planning", "development", "fast"]);
 
+// Generic capability tiers: small|medium|high -> the canonical tier names.
+// Callers ask for a CLASS of model and each provider supplies its own latest
+// model in that class, so no user has to name a vendor model. Translation, not
+// a widened allowlist, so every downstream consumer keeps seeing three values.
+const GENERIC_TIERS: Record<string, string> = {
+  small: "fast",
+  medium: "development",
+  high: "planning",
+};
+
 // The full set of flag names this route ACCEPTS (value + bool-env + no-op).
 // Anything else is rejected loudly (fail-closed: no silent capability loss).
 function acceptedFlags(): Set<string> {
@@ -90,7 +100,7 @@ export interface ParsedStartOpts {
 
 const START_USAGE =
   "usage: loki start <spec> [--max-iterations N] [--max-retries N] [--budget-limit USD]\n" +
-  "                        [--provider claude|codex|cline|aider] [--session-model planning|development|fast]\n" +
+  "                        [--provider claude|codex|cline|aider] [--session-model small|medium|high]\n" +
   "                        [--completion-promise TEXT] [--base-wait S] [--max-wait S]\n" +
   "                        [--prd FILE | --brief TEXT] [--simple|--complex] [--allow-haiku]\n" +
   "                        [--regen-prd] [--skip-memory]\n" +
@@ -178,9 +188,17 @@ export function parseStartArgs(
     err(`start: unknown --provider '${providerRaw}'\n`);
     return 2;
   }
-  const tierRaw = argVal(args, "--session-model");
+  // Generic capability vocabulary (small|medium|high) is translated onto the
+  // canonical tier names before validation, so this route accepts it without
+  // VALID_TIERS -- or anything downstream of sessionModel -- widening. Mirrors
+  // loki_tier_alias() in providers/models.sh and run.sh's entry-point case.
+  const tierRaw = GENERIC_TIERS[argVal(args, "--session-model") ?? ""]
+    ?? argVal(args, "--session-model");
   if (tierRaw && !VALID_TIERS.has(tierRaw)) {
-    err(`start: unknown --session-model '${tierRaw}' (planning|development|fast)\n`);
+    err(
+      `start: unknown --session-model '${tierRaw}' ` +
+        `(small|medium|high, or planning|development|fast)\n`,
+    );
     return 2;
   }
 

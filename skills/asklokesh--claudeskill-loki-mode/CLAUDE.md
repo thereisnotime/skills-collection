@@ -148,7 +148,6 @@ Conditional auditor (not numbered): Backward-compatibility / legacy-healing-audi
 
 ### Metrics System (ToolOrchestra-inspired)
 - **Efficiency**: Task cost tracking (`.loki/metrics/efficiency/`)
-- **Rewards**: Outcome/efficiency/preference signals (`.loki/metrics/rewards/`)
 
 ### v8 Harness Intelligence (v8.0.0)
 
@@ -332,7 +331,7 @@ Prompt: "Review the following claims for factual accuracy.
 
 ### Version Numbering
 Follows semantic versioning: MAJOR.MINOR.PATCH
-- Current: v8.5.2 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
+- Current: v8.18.1 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
 - MAJOR bump for architecture changes (v6.0.0 = dual-mode architecture, loki run)
 - MINOR bump for new features (v5.23.0 = Dashboard File-Based API)
 - PATCH bump for fixes (v5.22.1 = session.json phantom state)
@@ -344,19 +343,39 @@ Follows semantic versioning: MAJOR.MINOR.PATCH
 - Clear, concise comments only when necessary
 - Follow existing patterns in codebase
 
-## Local CI Before Every Push (MANDATORY -- 2026-04-26 user mandate)
+## Local CI Before Every Push (2026-07-31 mandate -- SUPERSEDES 2026-04-26)
 
-**Every change must pass `bash scripts/local-ci.sh` on this Mac before
-`git push`.** No exceptions. The script mirrors every GitHub Actions
-workflow: bun typecheck/test, bash CLI 14/14 dual-route, bun-parity
-matrix (catches doctor text drift like the v7.4.18 Bun-probe-not-rendered
-bug), npm pack contents, SBOM cyclonedx-npm, license-audit, npm audit
-(with overrides), shellcheck, YAML parse, no-emoji, no-`git add -A`,
-cleanup probe.
+**The FAST tier is the release gate. The FULL tier is not a blocker.**
 
-If `local-ci.sh` reports "DO NOT PUSH", do not push. Fix the failures
-and re-run. The Mac is the canonical pre-push gate; GitHub Actions is
-the post-push verifier, not the discovery channel.
+Founder decision 2026-07-31, on measured numbers: GitHub CI runs Tests in
+**31 seconds** and Release in **2 minutes**, because it shards the 323-suite
+shell run 4 ways. The local FULL tier took **26m50s** and had no sharding at
+all. A 26-minute gate cannot sit in front of an hourly release cadence.
+
+The rule now:
+
+- **Before push/release: `bash scripts/local-ci.sh`** (fast tier, default).
+- **Do NOT block a release on `LOCAL_CI_TIER=full`.** Ship, let GitHub Actions
+  verify, and fix what it finds in the next hourly release.
+- Run the FULL tier when diagnosing something specific, or on a quiet cycle --
+  not as a release precondition.
+
+**Why the fast tier and not nothing.** Of seven real defects found on
+2026-07-31, four were caught by the local gate ALONE -- GitHub CI has no
+equivalent check. The sharpest is **dist freshness**: CI never validates that
+the committed `loki-ts/dist/loki.js` matches src, and when that slipped we
+shipped THREE releases reporting the wrong version. At hourly cadence that
+reaches npm before anyone looks. The fast tier keeps that check and the syntax
+checks, and costs about a minute.
+
+`LOCAL_CI_SHARDS` (default 4) controls local sharding; `LOCAL_CI_SERIAL=1`
+forces serial for diagnosis, since overlapping provider-backed suites starve
+each other.
+
+**Measured 2026-07-31:** the 323-suite shell run went from ~1440s serial to
+**352s sharded 4 ways -- 4.1x, 0 failures, identical coverage** (the partition
+is index-based, so the union of shards is provably the whole suite). That step
+was the bulk of the old 26m50s gate.
 
 After a release ships, run the post-release distribution validation:
 - npm: `npm pack loki-mode@<VERSION>`, untar, run `bash package/bin/loki version`
@@ -386,8 +405,11 @@ Update the version string in every file listed below. Search for the old version
 VERSION                                  # Single line: X.Y.Z
 package.json                             # "version": "X.Y.Z"
 SKILL.md                                 # Header (line ~6) AND footer (last line)
-Dockerfile                               # LABEL version="X.Y.Z"
-Dockerfile.sandbox                       # LABEL version="X.Y.Z"
+Dockerfile                               # TWO labels: LABEL version="X.Y.Z" AND
+                                         # LABEL org.opencontainers.image.version="X.Y.Z".
+                                         # The OCI one silently drifted to 8.2.0 for four
+                                         # releases because only the first was being bumped.
+Dockerfile.sandbox                       # Same TWO labels, same drift.
 plugins/loki-mode/.claude-plugin/plugin.json  # "version": "X.Y.Z" (added v7.39.0; pins plugin updates, must track VERSION). marketplace.json carries no version.
 server.json                              # "version" AND packages[loki-mode].version -- the MCP registry submission manifest. Was absent from this list and silently drifted to 7.34.1 while the repo shipped 8.2.0 (30+ releases). Enforced by tests/test-server-json-current.sh.
 vscode-extension/package.json            # "version": "X.Y.Z" (DEPRECATED in v7.2.0 -- see CHANGELOG L2525-2533; publish-vscode workflow removed; source kept for reference, no longer published. Bump only if vendoring; otherwise skip.)

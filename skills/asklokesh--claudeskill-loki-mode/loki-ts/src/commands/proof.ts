@@ -25,6 +25,7 @@
 import { existsSync, readdirSync, readFileSync, mkdtempSync, copyFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { readFile } from "node:fs/promises";
 import { lokiDir, REPO_ROOT } from "../util/paths.ts";
@@ -42,6 +43,7 @@ Subcommands:
   verify <id>          Re-check a receipt against your code (tamper + drift)
   open <id>            Open .loki/proofs/<id>/index.html in a browser
   share <id>           Publish the proof page as a GitHub Gist (opt-in)
+  md <id>              Paste-able Markdown for a PR comment or Slack
   badge <id>           Print a copy-paste "Verified by Loki" markdown badge
 
 Options for 'share':
@@ -386,6 +388,42 @@ function printProofBadge(id: string, linkUrl?: string): void {
   }
 }
 
+// mdProof - `loki proof md <id>`: paste-able Markdown for a PR comment.
+//
+// DELEGATES to render_evidence_receipt_md in autonomy/lib/proof-pr.sh rather
+// than reimplementing the layout here. That renderer already produces the PR
+// body; a second implementation in TypeScript would drift, and the drift would
+// surface as a PR body and a pasted summary disagreeing about the same run.
+//
+// This route is the DEFAULT one users hit. `md` shipped on the bash route in
+// v8.6.0 and was unreachable here -- `loki proof md` answered "Unknown
+// subcommand" for anyone who had not set LOKI_LEGACY_BASH=1.
+function mdProof(id: string | undefined): number {
+  if (!id) {
+    process.stderr.write(`${RED}Missing proof id.${NC} Use 'loki proof list'.\n`);
+    return 2;
+  }
+  const proofPath = join(lokiDir(), "proofs", id, "proof.json");
+  if (!existsSync(proofPath)) {
+    process.stderr.write(`${RED}Proof not found: ${id}${NC}\n`);
+    process.stderr.write("Use 'loki proof list' to see available proofs.\n");
+    return 1;
+  }
+  const lib = join(REPO_ROOT, "autonomy", "lib", "proof-pr.sh");
+  if (!existsSync(lib)) {
+    process.stderr.write(`${RED}Renderer not found: ${lib}${NC}\n`);
+    return 3;
+  }
+  const r = spawnSync(
+    "bash",
+    ["-c", `source ${JSON.stringify(lib)} && render_evidence_receipt_md ${JSON.stringify(proofPath)}`],
+    { encoding: "utf8" },
+  );
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.status !== 0 && r.stderr) process.stderr.write(r.stderr);
+  return r.status === 0 ? 0 : 1;
+}
+
 // badgeProof - `loki proof badge <id>`: print the shareable badge markdown only,
 // nothing published. Useful for pasting a badge that links to an already-shared
 // receipt (or an image-only badge with no link).
@@ -574,6 +612,8 @@ export async function runProof(argv: readonly string[]): Promise<number> {
       return shareProof(rest);
     case "badge":
       return badgeProof(rest[0]);
+    case "md":
+      return mdProof(rest[0]);
     default:
       process.stderr.write(`${RED}Unknown subcommand: ${sub}${NC}\n`);
       process.stderr.write("Run 'loki proof --help' for usage.\n");

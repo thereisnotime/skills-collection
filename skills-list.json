@@ -10921,7 +10921,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
       "lines": 721,
-      "words": 9463,
+      "words": 9481,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -10934,7 +10934,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
       "lines": 280,
-      "words": 3642,
+      "words": 3669,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -10977,8 +10977,8 @@
       "description": "\"Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked for review; report-only by default, with explicit local apply available for user-directed fix workflow",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 570,
-      "words": 7939,
+      "lines": 571,
+      "words": 7988,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -11027,7 +11027,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-sweep/SKILL.md",
       "remote_path": "skills/ce-sweep/SKILL.md",
       "lines": 194,
-      "words": 2463,
+      "words": 2476,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -11172,8 +11172,8 @@
       "description": "Document a recently solved problem as a durable repo learning, or capture project vocabulary in CONCEPTS.md. Use when capturing a learning after work.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 801,
-      "words": 10301,
+      "lines": 802,
+      "words": 10341,
       "code_blocks": 19,
       "languages": [
         "bash"
@@ -11234,8 +11234,8 @@
       "description": "\"Babysits or watches an open GitHub PR until merge-ready, continuously reacting to review comments, CI failures, and routine base movement throughout the PR's life. Use when asked to 'babysit the PR',",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
-      "lines": 248,
-      "words": 11025,
+      "lines": 255,
+      "words": 11683,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -11258,8 +11258,8 @@
       "description": "Create a session handoff for another agent, or resume, find, and read any user-selected continuity source. Use when work or conversation must continue without access to the current session history.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-handoff/SKILL.md",
       "remote_path": "skills/ce-handoff/SKILL.md",
-      "lines": 137,
-      "words": 1752,
+      "lines": 139,
+      "words": 1870,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -11285,7 +11285,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
       "lines": 169,
-      "words": 3380,
+      "words": 3530,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -12420,7 +12420,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/xlsx/SKILL.md",
       "remote_path": "skills/xlsx/SKILL.md",
       "lines": 111,
-      "words": 1274,
+      "words": 1276,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -12461,7 +12461,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/exa-search/SKILL.md",
       "remote_path": "skills/exa-search/SKILL.md",
       "lines": 103,
-      "words": 705,
+      "words": 701,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -12529,7 +12529,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/nextflow/SKILL.md",
       "remote_path": "skills/nextflow/SKILL.md",
       "lines": 196,
-      "words": 1576,
+      "words": 1577,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -12650,7 +12650,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/molecular-dynamics/SKILL.md",
       "remote_path": "skills/molecular-dynamics/SKILL.md",
       "lines": 459,
-      "words": 1418,
+      "words": 1420,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -12761,7 +12761,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/rowan/SKILL.md",
       "remote_path": "skills/rowan/SKILL.md",
       "lines": 382,
-      "words": 1632,
+      "words": 1633,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -12927,7 +12927,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/tamarind/SKILL.md",
       "remote_path": "skills/tamarind/SKILL.md",
       "lines": 286,
-      "words": 3426,
+      "words": 3427,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -13213,11 +13213,11 @@
     },
     {
       "name": "citation-management",
-      "description": "Comprehensive citation management for academic research. Search Google Scholar and PubMed for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX entries. Thi",
+      "description": "Comprehensive citation management for academic research. Search OpenAlex, PubMed, and Google Scholar for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX e",
       "path": "K-Dense-AI--claude-scientific-skills/skills/citation-management/SKILL.md",
       "remote_path": "skills/citation-management/SKILL.md",
-      "lines": 322,
-      "words": 1638,
+      "lines": 330,
+      "words": 1746,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -13230,7 +13230,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/phylogenetics/SKILL.md",
       "remote_path": "skills/phylogenetics/SKILL.md",
       "lines": 410,
-      "words": 1570,
+      "words": 1572,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -13362,14 +13362,15 @@
     },
     {
       "name": "generate-image",
-      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, FLUX, Seedream, Recraft, GPT-Image). Use for photos, illustrations, artwork, concept art, visual assets, logos, and ima",
+      "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, Seedream, Recraft, GPT-Image, Riverflow). Use for photos, illustrations, artwork, concept art, visual assets, logos, an",
       "path": "K-Dense-AI--claude-scientific-skills/skills/generate-image/SKILL.md",
       "remote_path": "skills/generate-image/SKILL.md",
-      "lines": 216,
-      "words": 1166,
-      "code_blocks": 6,
+      "lines": 305,
+      "words": 2027,
+      "code_blocks": 7,
       "languages": [
         "bash",
+        "console",
         "json"
       ],
       "license": "MIT"
@@ -13445,8 +13446,8 @@
       "description": "Zero-shot time series forecasting with Google's TimesFM foundation model. Use for any univariate time series (sales, sensors, energy, vitals, weather) without training a custom model. Supports CSV/Dat",
       "path": "K-Dense-AI--claude-scientific-skills/skills/timesfm-forecasting/SKILL.md",
       "remote_path": "skills/timesfm-forecasting/SKILL.md",
-      "lines": 412,
-      "words": 1957,
+      "lines": 409,
+      "words": 1953,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -13489,8 +13490,8 @@
       "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-schematics/SKILL.md",
       "remote_path": "skills/scientific-schematics/SKILL.md",
-      "lines": 383,
-      "words": 2076,
+      "lines": 371,
+      "words": 2372,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -13901,7 +13902,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/pdf/SKILL.md",
       "remote_path": "skills/pdf/SKILL.md",
       "lines": 323,
-      "words": 1046,
+      "words": 1047,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -13954,7 +13955,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/literature-review/SKILL.md",
       "remote_path": "skills/literature-review/SKILL.md",
       "lines": 264,
-      "words": 1546,
+      "words": 1547,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -13967,7 +13968,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/tiledbvcf/SKILL.md",
       "remote_path": "skills/tiledbvcf/SKILL.md",
       "lines": 456,
-      "words": 1804,
+      "words": 1806,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -14064,7 +14065,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/scvelo/SKILL.md",
       "remote_path": "skills/scvelo/SKILL.md",
       "lines": 329,
-      "words": 1264,
+      "words": 1265,
       "code_blocks": 9,
       "languages": [
         "python"
@@ -14149,7 +14150,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/pkpd-modeling/SKILL.md",
       "remote_path": "skills/pkpd-modeling/SKILL.md",
       "lines": 382,
-      "words": 2989,
+      "words": 2990,
       "code_blocks": 20,
       "languages": [
         "bash"
@@ -14176,7 +14177,7 @@
       "path": "K-Dense-AI--claude-scientific-skills/skills/glycoengineering/SKILL.md",
       "remote_path": "skills/glycoengineering/SKILL.md",
       "lines": 340,
-      "words": 1486,
+      "words": 1487,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -19984,7 +19985,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.22.0",
+      "version": "3.22.1",
       "license": "MIT"
     },
     {
@@ -19998,7 +19999,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.22.0",
+      "version": "3.22.1",
       "license": "MIT"
     }
   ],
@@ -21060,9 +21061,9 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
-      "lines": 125,
-      "words": 869,
-      "code_blocks": 3,
+      "lines": 152,
+      "words": 1023,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ]
@@ -21861,7 +21862,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "lines": 212,
-      "words": 1662,
+      "words": 1661,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21874,7 +21875,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres-branches/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres-branches/SKILL.md",
       "lines": 292,
-      "words": 1828,
+      "words": 1827,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -21887,7 +21888,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "lines": 508,
-      "words": 5237,
+      "words": 5234,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -21899,8 +21900,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 157,
-      "words": 907,
+      "lines": 159,
+      "words": 947,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -21912,7 +21913,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "lines": 315,
-      "words": 2668,
+      "words": 2667,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -21926,7 +21927,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres-egress-optimizer/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres-egress-optimizer/SKILL.md",
       "lines": 266,
-      "words": 1520,
+      "words": 1519,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -21940,7 +21941,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/claimable-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/claimable-postgres/SKILL.md",
       "lines": 260,
-      "words": 1639,
+      "words": 1638,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -21953,8 +21954,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 394,
-      "words": 3509,
+      "lines": 396,
+      "words": 3617,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -21967,7 +21968,7 @@
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
       "lines": 212,
-      "words": 1662,
+      "words": 1661,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -21980,7 +21981,7 @@
       "path": "neondatabase--agent-skills/skills/neon-postgres-branches/SKILL.md",
       "remote_path": "skills/neon-postgres-branches/SKILL.md",
       "lines": 292,
-      "words": 1828,
+      "words": 1827,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -21993,7 +21994,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 508,
-      "words": 5237,
+      "words": 5234,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -22005,8 +22006,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 157,
-      "words": 907,
+      "lines": 159,
+      "words": 947,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -22018,7 +22019,7 @@
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
       "lines": 315,
-      "words": 2668,
+      "words": 2667,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -22032,7 +22033,7 @@
       "path": "neondatabase--agent-skills/skills/neon-postgres-egress-optimizer/SKILL.md",
       "remote_path": "skills/neon-postgres-egress-optimizer/SKILL.md",
       "lines": 266,
-      "words": 1520,
+      "words": 1519,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -22046,7 +22047,7 @@
       "path": "neondatabase--agent-skills/skills/claimable-postgres/SKILL.md",
       "remote_path": "skills/claimable-postgres/SKILL.md",
       "lines": 260,
-      "words": 1639,
+      "words": 1638,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -22059,8 +22060,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 394,
-      "words": 3509,
+      "lines": 396,
+      "words": 3617,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -23283,10 +23284,11 @@
       "description": "Export a Remotion video",
       "path": "remotion-dev--skills/skills/remotion-render/SKILL.md",
       "remote_path": "skills/remotion-render/SKILL.md",
-      "lines": 29,
-      "words": 58,
+      "lines": 30,
+      "words": 60,
       "code_blocks": 2,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "tailwind",
@@ -23303,44 +23305,48 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-create/SKILL.md",
       "remote_path": "skills/remotion-create/SKILL.md",
-      "lines": 58,
-      "words": 246,
+      "lines": 61,
+      "words": 260,
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-maps",
       "description": "Remotion Map animation knowledge",
       "path": "remotion-dev--skills/skills/remotion-maps/SKILL.md",
       "remote_path": "skills/remotion-maps/SKILL.md",
-      "lines": 36,
-      "words": 137,
+      "lines": 37,
+      "words": 139,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-best-practices",
       "description": "Router for all Remotion skills",
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
-      "lines": 47,
-      "words": 219,
+      "lines": 48,
+      "words": 221,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-interactivity",
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 248,
-      "words": 956,
+      "lines": 249,
+      "words": 958,
       "code_blocks": 10,
       "languages": [
         "tsx"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "player",
@@ -23369,10 +23375,11 @@
       "description": "Build an app with Remotion",
       "path": "remotion-dev--skills/skills/remotion-saas/SKILL.md",
       "remote_path": "skills/remotion-saas/SKILL.md",
-      "lines": 35,
-      "words": 161,
+      "lines": 36,
+      "words": 163,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "framework",
@@ -23583,13 +23590,14 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 361,
-      "words": 1321,
+      "lines": 362,
+      "words": 1323,
       "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "lottie",
@@ -23685,12 +23693,13 @@
       "description": "Transcribing, displaying and animating captions",
       "path": "remotion-dev--skills/skills/remotion-captions/SKILL.md",
       "remote_path": "skills/remotion-captions/SKILL.md",
-      "lines": 37,
-      "words": 120,
+      "lines": 38,
+      "words": 122,
       "code_blocks": 2,
       "languages": [
         "ts"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "display-captions",
@@ -23759,32 +23768,35 @@
       "description": "Interacting with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-multimedia/SKILL.md",
       "remote_path": "skills/remotion-multimedia/SKILL.md",
-      "lines": 22,
-      "words": 92,
+      "lines": 23,
+      "words": 94,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-upgrade",
       "description": "Upgrade Remotion, and related packages",
       "path": "remotion-dev--skills/skills/remotion-upgrade/SKILL.md",
       "remote_path": "skills/remotion-upgrade/SKILL.md",
-      "lines": 31,
-      "words": 207,
+      "lines": 32,
+      "words": 230,
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-docs",
       "description": "Search Remotion documentation",
       "path": "remotion-dev--skills/skills/remotion-docs/SKILL.md",
       "remote_path": "skills/remotion-docs/SKILL.md",
-      "lines": 48,
-      "words": 147,
+      "lines": 49,
+      "words": 149,
       "code_blocks": 2,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "maps-mapbox",
@@ -23831,10 +23843,11 @@
       "description": "Export a Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-render/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-render/REFERENCE.md",
-      "lines": 29,
-      "words": 58,
+      "lines": 30,
+      "words": 60,
       "code_blocks": 2,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "transparent-videos",
@@ -23855,12 +23868,13 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-create/REFERENCE.md",
-      "lines": 58,
-      "words": 246,
+      "lines": 61,
+      "words": 260,
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "tailwind",
@@ -23877,22 +23891,24 @@
       "description": "Remotion Map animation knowledge",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-maps/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-maps/REFERENCE.md",
-      "lines": 36,
-      "words": 137,
+      "lines": 37,
+      "words": 139,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-interactivity",
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 248,
-      "words": 956,
+      "lines": 249,
+      "words": 958,
       "code_blocks": 10,
       "languages": [
         "tsx"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "player",
@@ -23921,10 +23937,11 @@
       "description": "Build an app with Remotion",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-saas/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-saas/REFERENCE.md",
-      "lines": 35,
-      "words": 161,
+      "lines": 36,
+      "words": 163,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "framework",
@@ -24083,13 +24100,14 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 361,
-      "words": 1321,
+      "lines": 362,
+      "words": 1323,
       "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "3d",
@@ -24237,12 +24255,13 @@
       "description": "Transcribing, displaying and animating captions",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-captions/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-captions/REFERENCE.md",
-      "lines": 37,
-      "words": 120,
+      "lines": 38,
+      "words": 122,
       "code_blocks": 2,
       "languages": [
         "ts"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "display-captions",
@@ -24311,32 +24330,35 @@
       "description": "Interacting with Mediabunny",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-multimedia/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-multimedia/REFERENCE.md",
-      "lines": 22,
-      "words": 92,
+      "lines": 23,
+      "words": 94,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-upgrade",
       "description": "Upgrade Remotion, and related packages",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
-      "lines": 31,
-      "words": 207,
+      "lines": 32,
+      "words": 230,
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "4.0.503"
     },
     {
       "name": "remotion-docs",
       "description": "Search Remotion documentation",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-docs/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-docs/REFERENCE.md",
-      "lines": 48,
-      "words": 147,
+      "lines": 49,
+      "words": 149,
       "code_blocks": 2,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "maps-mapbox",
@@ -24383,10 +24405,11 @@
       "description": "Remotion Map animation knowledge",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/REFERENCE.md",
-      "lines": 36,
-      "words": 137,
+      "lines": 37,
+      "words": 139,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "maps-mapbox",
@@ -24433,10 +24456,11 @@
       "description": "Remotion Map animation knowledge",
       "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/REFERENCE.md",
       "remote_path": "skills/remotion-markup/remotion-maps/REFERENCE.md",
-      "lines": 36,
-      "words": 137,
+      "lines": 37,
+      "words": 139,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.503"
     },
     {
       "name": "maps-mapbox",
@@ -27413,30 +27437,6 @@
       "code_blocks": 8,
       "languages": [
         "bash"
-      ]
-    },
-    {
-      "name": "workflow-skill-reviewer",
-      "description": "\"Reviews workflow-based Claude Code skills for structural quality, pattern adherence, tool assignment correctness, and anti-pattern detection. Use when auditing an existing skill or validating a newly",
-      "path": "trailofbits--skills/plugins/workflow-skill-design/agents/workflow-skill-reviewer.md",
-      "remote_path": "plugins/workflow-skill-design/agents/workflow-skill-reviewer.md",
-      "lines": 257,
-      "words": 1421,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "designing-workflow-skills",
-      "description": ">-",
-      "path": "trailofbits--skills/plugins/workflow-skill-design/skills/designing-workflow-skills/SKILL.md",
-      "remote_path": "plugins/workflow-skill-design/skills/designing-workflow-skills/SKILL.md",
-      "lines": 253,
-      "words": 1964,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
       ]
     },
     {
@@ -55686,8 +55686,8 @@
       "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
-      "lines": 175,
-      "words": 2741,
+      "lines": 176,
+      "words": 3133,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -112017,87 +112017,6 @@
       "license": "MIT"
     },
     {
-      "name": "schema-optimization-orchestrator",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/SKILL.md",
-      "remote_path": "workspace/lab/schema-optimization/SKILL.md",
-      "lines": 288,
-      "words": 668,
-      "code_blocks": 16,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "phase-1-schema-analysis",
-      "description": "\"Phase 1 of the BigQuery schema optimization pipeline \u2014 parses schema export files to count tables and fields, detect naming patterns and type inconsistencies, flag duplicate or nullable issues, and w",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_1.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_1.md",
-      "lines": 95,
-      "words": 366,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-4-verification",
-      "description": "'Runs BigQuery field-utilization shell scripts to empirically validate phase 2-3 conclusions, reconciles manual vs. script findings, and writes a verification report. Use when phase 3 analysis is comp",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_4.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_4.md",
-      "lines": 119,
-      "words": 439,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-5-recommendations",
-      "description": "'Synthesizes BigQuery schema optimization findings from all prior phases into a prioritized implementation plan with rollback procedures, timelines, and success metrics. Use when all previous phase re",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_5.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_5.md",
-      "lines": 121,
-      "words": 443,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-2-field-utilization",
-      "description": "\"Phase 2 of the BigQuery schema optimization pipeline \u2014 reads the phase 1 report and schema exports to identify fields with >90% null rates, detect never-queried columns, and produce ranked removal an",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_2.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_2.md",
-      "lines": 100,
-      "words": 401,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-3-impact-assessment",
-      "description": "\"Phase 3 of the BigQuery schema optimization pipeline \u2014 evaluates proposed schema changes from phases 1-2 against dependent queries and systems, categorizes each change by risk level, estimates storag",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_3.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_3.md",
-      "lines": 105,
-      "words": 416,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
       "name": "airflow-operator-creator",
       "description": "'Create airflow operator creator operations. Auto-activating skill for",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/11-data-pipelines/airflow-operator-creator/SKILL.md",
@@ -149779,8 +149698,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/photo-to-scanned-pdf/SKILL.md",
       "remote_path": "daymade-docs/photo-to-scanned-pdf/SKILL.md",
-      "lines": 170,
-      "words": 1290,
+      "lines": 185,
+      "words": 1407,
       "code_blocks": 7,
       "languages": [
         "bash"

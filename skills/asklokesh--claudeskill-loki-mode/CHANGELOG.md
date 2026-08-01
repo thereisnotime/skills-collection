@@ -5,6 +5,771 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v8.18.1
+
+### The owner was told the badge was not green, but not why
+
+v8.18.0 stopped a run with disabled trust gates from showing a green "ready"
+badge. The section explaining what went wrong lists the recorded gaps, and a run
+blocked only by disabled gates has no recorded gaps at all: its verdict is
+VERIFIED and its degraded list is empty.
+
+So the owner read "no specific gaps were itemized" when the reason was precise
+and already recorded, next to a verdict line saying VERIFIED and a badge refusing
+to call it ready. Three statements on one page that could not be reconciled.
+
+The skipped gates are now named first among the gaps, which makes the three
+statements consistent: verified as far as it went, not ready, and here is exactly
+which checks did not run.
+
+The honest fallback stays for runs where nothing explains the gap, and a run that
+is genuinely unverified for other reasons keeps its own list.
+
+
+
+### A run with its trust gates switched off showed a green "ready" badge
+
+The plain-English summary restates a run for a non-technical owner. Its green
+verdict checked the headline, the tests and the build, but not whether the trust
+gates had actually run, so a build with code review and security disabled
+reported "ready" to the reader least equipped to notice what was missing.
+
+The function's own documentation already said this is the line that must never
+overclaim. It now also requires that no correctness gate was skipped.
+
+Every other surface can show a caveat beside a green badge and trust the reader
+to weigh it. On this page the badge is the message, so the caveat has to change
+the badge.
+
+Only gates bearing on correctness count: code review, security, unit tests and
+end-to-end. Turning off performance testing or competitor research still allows
+green, because a badge that turns amber for uninteresting reasons teaches owners
+to ignore the colour, which costs more than the overclaim it was meant to
+prevent.
+
+Proofs written before the field existed are unaffected, and a malformed value is
+treated as bad data rather than as evidence of a skipped gate.
+
+
+
+### The shareable receipt now shows disabled gates too
+
+The HTML receipt is the artifact that gets linked and read by people who did not
+run the build. It rendered "3 of 3 gates passed" identically whether every gate
+ran or code review and security were switched off and three lesser gates ran
+instead.
+
+This is the third renderer of the same fact, after the proof record and the
+markdown receipt, and the most public of the three. The notice appears above the
+pass counts, so a reader who stops after the first line does not stop having read
+only the good news, and it states plainly that the counts do not cover the
+skipped checks.
+
+Phase names are escaped. This is a shared document rendering values from a JSON
+file, and interpolating them raw would be an injection vector in the one artifact
+whose entire purpose is to be trusted.
+
+Both of the template's render paths carry it, since wiring only the newer one
+would leave older receipts silent. An ordinary run, a proof predating the field,
+and a malformed value all render nothing at all.
+
+
+
+### The receipt now shows the disabled gates it already recorded
+
+v8.17.0 taught the proof to record which phases were switched off. Nothing
+rendered it, so the Evidence Receipt -- the artifact that lands on a pull
+request and is the entire point of the proof pipeline -- still could not
+distinguish a fully verified run from one with code review and security
+disabled.
+
+A recorded fact nobody can see does not make a receipt more honest. The receipt
+now names the disabled gates in its facts table.
+
+Only when something was actually disabled. A permanent "all gates ran" row on
+every receipt is noise, and noise in a trust artifact trains readers to skim
+past exactly the line that matters on the one run where it appears.
+
+Proofs written before the field existed render unchanged, and a malformed value
+degrades to omitting the row rather than failing to render: a receipt that does
+not render at all is worse than one missing a line.
+
+
+
+### A receipt can now say what was not checked
+
+The proof recorded which gates ran and how many passed. A gate that never ran
+was simply absent from the list, so a receipt reading "3 of 3 gates passed" was
+identical whether every gate executed or code review and security were switched
+off and three lesser gates ran instead.
+
+Nothing in the artifact was false. The information was missing, which for a
+product whose central claim is verification is the more dangerous shape:
+recording only successes is how a green badge stops meaning anything.
+
+Proofs now carry the phases that were disabled for that run, plus an explicit
+flag for the ordinary case. Phases remain configurable; the receipt simply
+reflects the run that actually happened.
+
+An ordinary run records an empty list rather than a misleading one. A field that
+reported phantom disabled phases on every normal run would be noise, and noise
+gets ignored, which is worse than not having the field at all.
+
+
+
+### A terminal failure recorded itself as a success
+
+When a spec is internally contradictory the engine stops without building
+anything, and re-running cannot help. The process exits 20 to say so, and both
+routes classify the status as a deterministic failure. The state file recorded
+zero.
+
+Every consumer of that file reads the recorded code as what happened, so a run
+that was never buildable left a record claiming a clean stop. This is the
+hardest kind of inconsistency to notice, because every other signal was already
+correct: the exit code, the ENT-3 classification, and the TypeScript mapping all
+said failure. Only the persisted field disagreed.
+
+The accompanying test sweeps the whole contract rather than that one status.
+Every terminal treated as a failure must record a non-zero code, and a clean stop
+must still record zero, so a future terminal added with the wrong code fails
+here rather than in someone's pipeline.
+
+
+
+### A 54x token undercount in a published benchmark number
+
+Trust metrics compute cost-per-verified-task from each proof's cost block. When
+a proof records its token counts as separate components rather than a
+precomputed total, the fallback summed input and output and ignored the cache
+tiers, which the proof generator does record and which are the overwhelming
+majority of real traffic.
+
+A proof whose own record totals 893,701 tokens was reported as 16,436.
+
+This is the fourth site of the same defect, after the bash budget breaker, the
+TypeScript one, and the dashboard cost endpoint. Every one had the data
+available and dropped it.
+
+An explicit total still wins, since that figure is authoritative. A proof with
+no token data reports nothing rather than zero, because zero would read as free
+rather than as unmeasured.
+
+
+
+### The dashboard's cost endpoint was the third route pricing cache at zero
+
+`/api/cost`, the surface a user watches while a build runs, summed input and
+output tokens only, and its cost fallback took no cache arguments at all. Cache
+reads are typically about 98% of input volume, so the token count described
+roughly one percent of the run, and when an iteration record carried no recorded
+cost the estimate under-counted by about five times.
+
+That degraded path is exactly where a runaway is most likely, and it is the same
+bug already fixed in the bash budget breaker and the TypeScript one. This was the
+third route carrying it.
+
+The rates now match the other two exactly, so a single run cannot report three
+different spends depending on which surface you look at. The endpoint also
+returns the cache token counts and the hit ratio it now computes.
+
+With nothing read in the ratio is null rather than zero. A zero is a claim about
+a cold cache, which is a real and expensive condition, so reporting it for a run
+with no data would send someone hunting a problem that does not exist.
+
+
+
+### A test that catches a surface drifting from its siblings
+
+Four surfaces report on a build: the completion summary, `loki why`, `loki why
+--json`, and the efficiency trend injected into the agent's next prompt. Each was
+improved separately over the preceding releases, and three times a fix landed on
+one surface while a sibling kept the old behaviour, so the feature looked
+complete and was not.
+
+The per-surface tests could not catch that. Every one of them passed while the
+surfaces disagreed with each other, because each verifies its own surface in
+isolation.
+
+This adds the integration counterpart: one run, four surfaces, all four must
+reach the same verdict. Both directions are asserted, since a test that only
+checks the thrashing case would pass against a surface hardcoded to say
+thrashing. A run with no records must leave every surface silent rather than any
+of them inventing a verdict.
+
+Verified against a simulated drift: removing the rework field from one surface
+alone turns this test red, including the assertion that all four agree.
+
+
+
+### Six control knobs shipped without documentation
+
+The engine gained six operator-facing switches across the last several releases:
+the efficiency trend, reviewer-findings injection, the iteration grace, the
+scoped-change profile, and both provider timeouts. All are live, all default to
+on, and none of them appeared in the environment-variable reference.
+
+A switch nobody can find is not a switch. The operator is stuck with the default
+and cannot tell there is a default, which matters most for the findings
+injection: turning it off makes every iteration a blind retry, and that is a
+decision someone should be able to make deliberately rather than discover.
+
+All six are now documented with their defaults and their consequences, including
+the two timeouts, where setting either to zero restores the older behaviour of
+having no hang guard at all.
+
+The existing documentation test only checked one direction, that nothing
+documented is fiction. It now also checks the reverse, that a named operator
+knob is documented, which is the direction that actually failed.
+
+
+
+### loki cost --json said what a run cost, never why
+
+v8.13.1 taught the economics report to count cache tokens and report the hit
+ratio, after finding the old report described about one percent of a run.
+`loki cost --json`, the surface CI and dashboards consume, still emitted a bare
+dollar figure with no token breakdown at all.
+
+So an automated consumer could see that a run cost $3.60 and had no way to see
+that 240,000 of its tokens were cache reads at a 98.9% hit ratio. Cache is
+typically the overwhelming majority of input volume and the single biggest lever
+on the bill, which makes it the first thing anyone investigating cost needs.
+
+The data was never missing. The shared efficiency collector, also used by the
+proof generator, already sums the full breakdown; this surface took the dollar
+figure and discarded the rest. It now passes the whole thing through.
+
+A run with no tokens reports a null hit ratio rather than 0.0. A zero is a claim
+about a cold cache, which is a real and expensive condition, and reporting it for
+a run with no data would send someone hunting a caching problem that does not
+exist.
+
+
+
+### The machine-readable surface knew less than the printed one
+
+v8.14.1 taught `loki why` to tell a converging run from a thrashing one. It
+taught only the human output. `loki why --json`, the surface CI and scripts
+consume, is a separate code path that returns before the human report is built,
+so it still emitted a bare status.
+
+An automated caller deciding whether to retry a capped build therefore had
+strictly less information than a person reading the same terminal. It now
+carries the same split, including a verdict field so callers branch on one
+shared judgement instead of each re-deriving the threshold:
+
+  "rework": { "progress_iterations": 0, "rework_iterations": 3,
+              "total_iterations": 3, "rework_cost_usd": 3.6,
+              "verdict": "thrashing" }
+
+With no efficiency records the field is null rather than a zeroed object. A
+0-of-0 split reads as "no rework happened", which the data does not support, and
+a caller branching on it would retry a run that should not be retried.
+
+
+
+### loki why contradicted the summary that sent you to it
+
+v8.14.0 made the completion summary's cap advice rework-aware, then told the
+user to run `loki why` for detail. That command still gave the old line: raise
+LOKI_MAX_ITERATIONS, with no awareness of whether the run was converging or
+thrashing.
+
+So the two surfaces disagreed, and the one the summary pointed at was the wrong
+one. On a thrashing run it recommended exactly the action that buys more
+thrashing at full price.
+
+Both now read the same attribution. A thrashing run is told what its redos cost
+and to read the reviewer findings first; a converging run is told to raise the
+cap. With no efficiency records the original static advice stands, because
+guessing which case applies with no data is worse than generic guidance.
+
+
+
+### A run that stopped on a bound now names the lever
+
+"Max iterations" told a user what happened and nothing about what to do, and the
+obvious guess is expensive in a specific way: raising the cap on a run that was
+THRASHING buys more thrashing at full price, while raising it on a run that was
+CONVERGING is exactly right. Same message, opposite correct actions.
+
+The rework split added in v8.13.0 already separates those two cases in the same
+summary, so the advice points at it rather than listing every knob:
+
+  Next: this run hit its iteration ceiling, not a verdict.
+    Converging (low rework above)? Raise it: LOKI_MAX_ITERATIONS=<n>
+    Thrashing (high rework above)? Raising the cap buys more
+    of the same. Read the last reviewer findings first:
+      loki why
+
+A budget stop points at the cache hit ratio, since a cold cache is the usual
+cause of a surprising bill. A council force-stop states plainly that the work is
+not verified complete.
+
+A successful run prints none of this. Advice after a clean finish is noise, and
+noise in a summary is how users learn to stop reading summaries.
+
+
+
+### The token report described about one percent of the run
+
+`loki memory economics` summed input and output tokens only. Cache tokens
+dominate real traffic: a measured iteration carried 797,496 cache-read tokens
+against 10,272 of plain input. On that shape the report called 16,436 the total
+when the run was billed for 893,701.
+
+The cache hit ratio was not reported at all, so a run with a cold cache paying
+the full input rate on every token looked identical to one running almost
+entirely on cache, while costing very different amounts. That ratio is the
+single biggest lever a user has on spend.
+
+Both are now reported. The engine has recorded these fields per iteration since
+v6.82.0; the report was discarding them. Records written before those fields
+existed still total correctly.
+
+
+
+### The user can now see how much of a run was rework
+
+The agent has been steering on its own progress-versus-rework split since the
+eval trend shipped. The user's completion summary never showed it, reporting
+only task counts, which cannot distinguish real work from a gate false positive
+that forced redos.
+
+That distinction is the difference between "the model was slow" and "our own
+gate was wrong". A measured run had the agent claim done on every iteration
+while a false positive blocked all six: it looked like six iterations of work
+and was one iteration plus five of harness bug. The summary now says, for
+example, "Rework: 2 of 5 iteration(s) redid earlier work ($0.80)", so the cost
+of our own mistakes is visible rather than buried in a total.
+
+When the split is unknown the line renders nothing at all. A zero-of-zero line
+would read as a clean bill of health that has not been earned, and pointing a
+user at the wrong culprit is worse than saying nothing. That is the same rule
+the timing table follows.
+
+The line and the agent's trend come from one shared attribution source, so the
+number the user reads and the number the agent steers on cannot drift apart.
+
+
+
+### A documented feature that was only ever a delete
+
+The memory-system docs listed a rewards store as a shipped capability. The only
+reference to it anywhere in the codebase was the line that emptied it every run:
+nothing wrote it and nothing read it. A directory that exists solely to be
+deleted is not a feature, and documenting it as one told the agent something
+false about its own runtime.
+
+Both the dead code and the false claim are gone. The efficiency records, which
+are genuinely written and now feed the agent its own cost and outcome trend,
+are untouched.
+
+
+
+### The scoped-change profile was dead on every real issue run
+
+v8.10.0 added a profile that skips greenfield-only phases for a scoped issue
+fix. It never armed. Two independent reasons, both found by running the real
+code path rather than a fixture.
+
+The spec arrives as a POSITIONAL argument: `loki start owner/repo#123` writes
+.loki/prd-issue-N.md and hands run.sh that path directly. The check read only an
+environment variable that is never set on that path. It also ran at source time,
+before argument parsing, so the spec was empty even when supplied.
+
+And it tested for a .git DIRECTORY. In a git worktree or a submodule, .git is a
+FILE, so every worktree run was classified as greenfield. The check now asks git
+whether it is inside a work tree.
+
+### Test gates could hang a run forever
+
+Language test gates ran with no wall-clock bound, so a hung test suite hung the
+whole run with no terminal and no signal. They are now bounded by a shared
+timeout helper.
+
+The helper matters more than the cap: stock macOS ships neither timeout nor
+gtimeout, so a bare timeout prefix resolves to command-not-found and turns every
+gate into a false failure. The probe falls back across the available binaries and
+degrades to running unbounded rather than failing closed on a missing tool.
+
+### Skill documentation that lied to the agent
+
+The skill modules are loaded into the agent's context and acted upon, so an
+inaccurate claim is worse than no claim. Claims in the model-selection and index
+modules were verified against source and corrected, and a test now asserts they
+stay accurate.
+
+A new module documents how to extend the engine at the orchestration layer
+without editing engine files.
+
+
+
+### The iteration cap now looks at evidence before cutting a run off
+
+The cap was a bare counter. It consulted no gate, no council, and no evidence,
+so a run one step from finishing was cut off identically to a run thrashing in
+circles, and both reported the same terminal failure.
+
+An iteration count is a proxy for "is this converging". Where real evidence
+already sits on disk, the cap now prefers it: when the agent has requested
+completion and no gate is failing, the run gets one extra iteration to land the
+work. A claim of done on top of a real gate failure is still stopped, which is
+exactly the case the cap exists for.
+
+It remains a cap. The grace is granted at most once per run, requires positive
+evidence rather than the absence of a failure signal, and extends by exactly one
+iteration. Published measurements put automated-verifier false-negative rates
+near 24 percent, so an unbounded verifier-driven terminal would burn real money
+re-doing work that was already correct. This is a bounded nudge, not a new
+termination rule. LOKI_ITERATION_GRACE=0 restores the pure counter.
+
+
+
+The engine now runs on a closed feedback loop. Five principles from Alexandr
+Wang's talk on agentic systems, mapped onto what loki actually does.
+
+### Evals and metrics: the agent can finally see its own numbers
+
+The engine has written a rich per-iteration record for its entire life --
+duration, cost, tokens, cache hit rate, status -- and read it back only in a
+stop-only budget breaker and an offline report. The agent producing the cost
+never saw it.
+
+That trend is now injected into the next iteration's prompt: how long each
+iteration took, what it cost, whether the cache is working, how many iterations
+made progress versus reworked earlier output. An agent that can see it is
+getting slower and more expensive can steer on it. An unmeasured run adds
+nothing, and the block sits in the volatile part of the prompt so it never
+invalidates the cache-stable prefix.
+
+Both routes render it through one Python entry point, so they are byte-identical
+by construction rather than by two renderers kept in sync forever.
+
+### Speed and reliability: where the time actually went
+
+A run that took 25 minutes could not tell you which phase consumed them.
+Per-stage wall-clock is now recorded and surfaced in the completion summary, so
+"where did the time go" is answerable from the run's own artifacts.
+
+### Extensibility at the orchestration layer
+
+A user-supplied reviewer can now take part in a run without editing engine
+files, with the installation path tested end to end. Manifest data is treated
+as data: a postinstall field is never stored and never runs.
+
+### Cost correctness: the two routes disagreed 4.2x about the same run
+
+Found by executing both cost paths on one real record rather than reading them.
+The bash route under-counted 5.4x by pricing cache tokens at zero, on a record
+where cache reads were 98.7% of input volume. The TypeScript route over-charged
+10x on the same term, because the pricing loader copied only input and output
+and silently dropped the cache tiers the JSON defined.
+
+Both directions matter for a circuit breaker: under-counting lets a runaway pass
+the cap, over-charging stops a healthy run early and bills for a limit never
+reached. Both routes now agree.
+
+
+
+### A run that never verified its work reported success
+
+A council force-stop happens when a run stagnates or floods done-signals. It
+means the run gave up WITHOUT verifying anything, and the engine already said
+so in three places: the header reads STOPPED WITHOUT APPROVAL, the log warns
+that work is not verified-complete, and it deliberately refuses to open a pull
+request.
+
+It then exited 0. The exit code is the only signal an automated caller reads,
+so a CI job, a Kubernetes Job, or a shell && chain saw a stagnation force-stop
+as a pass. Meanwhile max_iterations_reached, which is the same class of outcome,
+exited 20. Two terminals with identical meaning reported opposite results.
+
+Force-stop now exits 20 on both routes, alongside max-iterations and
+budget-exceeded. Verified completions and human-controlled pauses are unchanged
+at 0.
+
+
+
+### The model was told to fix issues without being told which
+
+The strongest accuracy lever in the loop was disabled by a nesting bug.
+
+Structured reviewer findings were injected only when a gate had written
+gate-failures.txt. A reviewer council can BLOCK without that file, and in that
+case the prompt said "FIX THESE ISSUES BEFORE PROCEEDING" with no issues
+attached. The model re-derived what was wrong from scratch on every iteration,
+which is the slowest and least accurate way to converge and the direct cause of
+long, expensive runs.
+
+Proven by execution rather than inspection. With real reviewer findings present
+and no gate-failures.txt, the baseline prompt contained neither the offending
+file nor the defect text; with the fix it contains both, with severity, so
+iteration two is a targeted fix instead of a guess.
+
+### Runs stop being chopped into pieces a frontier model does not need
+
+The iteration budget was written when a model could not hold a whole feature in
+one pass. On a frontier tier that is now harmful: every iteration boundary is a
+context reset, and re-planning mid-feature is where a run loses the thread.
+
+The budget now scales with the capability tier actually dispatched. On a real
+322-word issue: high went from 18 estimated iterations to 3, medium to 9, small
+unchanged since smaller models genuinely benefit from more, smaller steps. This
+scales the estimate and the ceiling only. Nothing forces an early stop.
+
+### A bug fix no longer pays for greenfield orchestration
+
+Competitor web research, load and performance testing, regression simulation
+and UAT all defaulted on, so a scoped fix against an existing repository paid
+for all of them. An issue-sourced spec on a repository with real history now
+skips them, auto-detected rather than requiring another flag.
+
+Every trust gate stays on: code review, security, unit tests, end-to-end.
+Speed comes from not running phases that are irrelevant to the change, never
+from skipping verification. Greenfield builds and whole-repository refactors
+keep the full suite.
+
+### Complexity scoring stops inflating itself
+
+One PostgreSQL project counted as two data stores, because postgresql and
+postgres were separate keywords. ORMs counted as stores, as did the bare words
+database and migration, so a line about adding a migration scored two. Aliases
+now collapse to one name and access layers no longer count as storage.
+
+## v8.8.1
+
+### A running build displayed as STOPPED
+
+Reported from a real run: `loki start <issue-url>` was working normally -- the
+process alive, STATUS.txt reading BUILDING, iterations advancing -- while the
+dashboard showed STOPPED, iteration --, 0 agents.
+
+The liveness check had two sources and a background CLI run writes neither. It
+does not create .loki/loki.pid, and the engine only UPDATES .loki/session.json
+when that file already exists rather than creating it. Both checks failed, so
+every CLI-started build fell through to "stopped" the entire time it ran.
+
+Such a run does register itself in .loki/pids/. That is now a third source.
+Liveness is still proven by signalling the process, never by a file existing,
+so a stale entry from a crashed run still reads as stopped.
+
+### Capability tiers did nothing on codex
+
+Asking for small, medium or high on codex selected nothing: all three tiers
+fell back to an empty default, so no model was sent and the tier vocabulary was
+decorative. Users had to name a model by hand, which is exactly what the tiers
+exist to avoid.
+
+Each tier now resolves from the catalog to its own model:
+
+  small  -> gpt-5.6-luna    budget, high volume
+  medium -> gpt-5.6-terra   the default
+  high   -> gpt-5.6-sol     frontier work
+
+Model IDs verified against OpenAI's published model documentation. Naming a
+model explicitly still overrides the tier verbatim, and a Claude alias arriving
+through the generic chain still cannot reach codex.
+
+Displayed per-token rates for the new line are placeholders scaled from the
+previous model and are labelled as unverified in the source. They drive a
+display estimate only and never a gate.
+
+## v8.8.0
+
+### The model picker offered models it could not dispatch
+
+Starting a run with a non-Claude provider showed haiku/sonnet/opus in the model
+picker. On codex those are undispatchable, so the control offered choices that
+could never be honoured. The picker now derives its options from the provider
+actually executing, read from run-time state rather than from an environment
+variable the dashboard process never sees. A codex run offers that provider's
+model and the generic capability tiers, with no Claude alias anywhere in the
+payload. Mid-run switching is reported as unsupported where the engine does not
+support it, instead of accepting the request and ignoring it.
+
+The write half is fixed with it. The spawn endpoint validated the picked model
+against a Claude-only allowlist, so every value a codex user could choose was
+silently discarded and the run started on the provider default with no error.
+Generic tiers now pin through the provider-agnostic lever rather than the
+Claude-only environment triple, which was inert everywhere except Claude.
+
+### A runner that finished too quickly was reported as a launch failure
+
+The lineage guard proves a spawned runner is the child we launched. On Linux it
+reads /proc/<pid>/environ, which disappears the moment the process is reaped, so
+a fast-exiting runner was indistinguishable from one that never carried the
+marker. The supervisor reported it as a launch failure. A vanished process is
+now treated as unknown rather than absent, resolved against the process handle.
+A live process genuinely missing its marker still fails closed.
+
+### loki help <command> reached no command
+
+`loki help proof` printed the same generic front page as bare `loki help`, while
+`loki proof --help` printed real help. Two spellings of one request, one of them
+useless. They now agree. Because the help path re-enters dispatch, and dispatch
+reaches commands that start and stop things, asking for help is now structurally
+incapable of executing anything.
+
+### Speed and housekeeping
+
+- The pre-push gate ran all 1801 Python tests on every push regardless of
+  content. It is now scoped to what the push changes: docs-only skips, test-only
+  runs those files, anything else runs everything. Roughly 149s to 0.2s on a
+  docs push, with no loss of coverage in CI.
+- The test suite could commit into the real repository. Thirteen call sites ran
+  git with a working directory but no repository flag, which an inherited git
+  environment overrides. Fixed suite-wide.
+- The daily log grew without bound at roughly 1.5MB per iteration. It now uses
+  the same size cap its sibling log has always had.
+
+## v8.7.0
+
+Five items aimed at one goal: making the harness work with a model that is not
+Claude. Two were bugs that would have made a cheap or local model look worse
+than it is.
+
+### Fixed
+
+- **Every argv-path Claude invocation shipped with no `--model` flag.**
+  `providers/claude.sh` called `loki_tier_route_model "$tier"` with one argument
+  to a two-argument function; it returned empty at rc=0, so the `||` fallback
+  never fired. Verified live in v8.6.0/v8.6.1. The benchmark data is
+  unaffected -- `autonomy/run.sh` never uses the argv seam, so trials went
+  through `provider_invoke` with the model correctly pinned.
+- **A global tier variable silently picked three providers' models.**
+  `LOKI_MODEL_DEVELOPMENT` sat ahead of the catalog in aider, cline and
+  opencode, so setting a development model for one provider changed the others.
+  Provider-scoped variables now win. `claude.sh` deliberately keeps its global
+  chain (it genuinely reads `LOKI_MODEL_PLANNING` for max-tier pinning) and a
+  test locks that asymmetry so the fix cannot be over-applied.
+- A test required every provider to fall back to `claude-opus-4-8`, while
+  `model_catalog.json` declares aider, cline and opencode with **open-weights**
+  defaults. It asserted that our provider-agnostic CLIs default to Claude --
+  encoding the bug rather than catching it. Now derives from the catalog.
+
+### Added
+
+- **Review and prompt caps derive from `PROVIDER_CONTEXT_WINDOW`.** That value
+  was declared by all four providers and read by nothing but a display line,
+  while the caps were hardcoded at 400000/425000 bytes. A 12b-14b model with a
+  32k window would have received prompts sized for 200k and failed in a way
+  that looks like the model being bad. Measured: unset window preserves
+  400000/425000 byte-for-byte; a 32k window derives 67764/72000. The clamp only
+  ever lowers the cap.
+- `provider_invoke_argv` for aider and cline (previously in three of five
+  providers).
+- A harness signature on every benchmark row, so editing the harness
+  mid-experiment cannot silently pool incompatible arms. Rows without one are an
+  explicit "unknown" stratum rather than quietly averaged in.
+
+### Fixed (scale)
+
+- Two concurrent builds could have one delete the virtualenv the other was
+  importing from. The locking primitive already shipped; this path never called
+  it, in **both** `run.sh` and `autonomy/loki`.
+
+## v8.6.1
+
+Post-release fixes found by validating the PUBLISHED v8.6.0 artifact rather
+than the source tree, plus the first measured evidence that the harness carries
+output quality independently of the model.
+
+### Fixed
+
+- **`loki proof md` was unreachable on the default route.** It shipped in
+  v8.6.0 on the bash route only; the Bun route -- what `bin/loki` runs by
+  default -- answered "Unknown subcommand". The feature was invisible to every
+  user who had not set `LOKI_LEGACY_BASH=1`. The test passed because it drove
+  `autonomy/loki` directly, while a real user types `loki proof`, which is the
+  shim. Both routes now emit byte-identical output.
+- **An oversize diff escalated to PAUSE as if it were a code finding.**
+  `run_code_review` assigns its failure discriminator after the size guard
+  returns, so a file-size condition was reported as "Critical/High findings".
+  Now classified as infrastructure, still fail-closed.
+- **The compose test leaked a docker network per run**, eventually exhausting
+  the host's address pools and surfacing as "docker compose up failed" -- which
+  reads as a product defect and was not one.
+
+### Measured
+
+- **The harness rescues the same model on a task the bare model fails.** On
+  `hard-2-ledger`, authored so a one-shot draft fails it: haiku without the
+  harness passed 1 of 4; with the harness on, it passed -- at lower cost per
+  correct result. Same model, same prompt.
+- The task suite previously could not separate arms: the baseline passed the
+  "hard" task and every recorded failure was on fizzbuzz, so additional trials
+  bought precision around a ceiling. `hard-2-ledger` fixes that, verified in
+  both directions before adoption.
+- **Adoption baseline recorded for the first time**: ~94 downloads/day floor
+  against a 1,263 peak driven by our own release activity. `docs/STRATEGY-2026-2028.md`
+  sets the floor -- not the peak -- as the two-year metric.
+
+### Added
+
+- `docs/STRATEGY-2026-2028.md`, `docs/adoption-baseline-2026-07-31.md`,
+  `benchmarks/EQUIVALENCE-STATE-2026-07-31.md`.
+
+## v8.6.0
+
+Enterprise deployment, CLI operability, and the first adoption instrumentation.
+Twenty-five items. Fourteen were real defects, and the ones that mattered
+shared a property: every one was invisible to a green CI.
+
+### Fixed -- things that reported success while failing
+
+- **Nothing we published had ever been signed.** `provenance.yml` claimed it
+  signed image digests. It triggers on `release: published`, our releases are
+  created with the default `GITHUB_TOKEN`, and GitHub suppresses trigger events
+  for that token -- so it fired twice ever, both manual, in April. The registry
+  confirmed zero `sha256-*.sig` tags. Signing now runs inside the job that
+  pushes the image, where no trigger can skip it. A workflow that never fires
+  leaves an EMPTY run list, never a red one.
+- **A build killed by the cost breaker reported success.** `budget_exceeded`
+  exited 0 on the reasoning that a human would resume -- true at a terminal,
+  false inside a k8s Job, where the pipeline went green over incomplete work.
+  Now exit 20 (deterministic: the same cap exhausts the same way).
+- **The Bun route never returned 20 at all**, silently losing the k8s no-retry
+  signal on the route we are migrating toward. A parity test now derives its
+  expectations from run.sh rather than restating them.
+- **`doctor --json` reported `ok: true` on a host that cannot run a build**,
+  contradicting the same command's exit code. Each provider CLI is individually
+  optional, so none can be marked required; the aggregate "none at all is a
+  blocker" check existed only on the text path.
+- **A first-run dead end.** On a host with no provider CLI, one route named the
+  blockers and pointed at `loki tour` (no provider, no key, no spend) while the
+  other said "some required prerequisites are missing" and stopped.
+- `helm uninstall` deleted the audit-log PVC; `worker.mode=Deployment`
+  installed clean and rendered no worker; NetworkPolicy declared
+  `policyTypes: [Ingress, Egress]` with `egress: - {}`, restricting nothing;
+  k8s SIGKILLed builds 30s into a rolling upgrade.
+
+### Added
+
+- `LOKI_MAX_DURATION` / `--max-duration` (accepts `90m`, `2h`): spend and
+  iterations were capped, but a STALLED run was bounded by neither.
+- `loki verify --json` on stdout, and `--json` as an alias on `loki ci`.
+- `--quiet` / `LOKI_LOG_LEVEL`, with errors as a hard floor -- a verbosity
+  control that can hide why a build failed is a footgun.
+- `first_run_blocked` telemetry: names the CLASS of dependency that stops a
+  first run. One enum-clamped field, once per install, strict opt-in, every
+  existing opt-out still wins, documented in `docs/PRIVACY.md`.
+- ECS/Fargate Terraform module (we shipped Helm and nothing for ECS),
+  `values.schema.json`, a `helm test` hook, and `scripts/enterprise-smoke.sh`.
+- `docs/exit-codes.md` and `docs/environment-variables.md`, both linked from
+  `loki --help` and both guarded by tests asserting doc-matches-source.
+
+### Changed
+
+- **43 of 112 commands were unreachable from `loki help`** -- including
+  `loki proof`, the Evidence Receipt, the command the trust argument rests on.
+  A complete index now backs the curated sections, gated so a new command
+  cannot ship invisible.
+- `loki start --help` points at `loki plan` for a no-spend preview.
+- Resolved the `loki verify` 1-vs-2 exit-code contradiction in favour of the
+  implementation; severity now rises with the code everywhere.
+
 ## v8.5.2
 
 Patch. **The timeout-safe provider seam was the broken one.**

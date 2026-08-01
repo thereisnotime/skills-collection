@@ -651,12 +651,71 @@ const AIDetector = (() => {
     /\b(?:imagine|picture|envision)(?:\s*,[^,\n]{1,30},)?\s+a\s+(?:world|future|reality)\s+(?:where|in\s+which)\b/gi,
   ];
 
+  // Function words whose presence MID-title marks the AI section-header shape.
+  // Word-anchored: without \b the "A" alternative matches inside any word and
+  // the guard silently degrades to "four tokens".
+  const FUNCTION_WORD = /\b(?:And|Or|Of|The|In|For|To|A|An)\b/;
+
+  // Must accept exactly what TITLE_CASE_HEADER accepts, or the prefix survives
+  // into the token count and reintroduces the ##-as-token bug.
+  const MD_HEADING_PREFIX = /^#{1,6}[ \t]+/;
+
+  /** Byte ranges covered by fenced code blocks, computed once per scan.
+   *
+   * A document that documents Markdown is the normal case for this rule -- a
+   * fenced `## Heading` example is illustration, not the author's own section
+   * header, and flagging it makes every docs page flag itself.
+   *
+   * This tracks the opening delimiter instead of counting them, because a
+   * parity count is wrong on the very case the rule exists for. CommonMark
+   * closes a fence only on the same character at the same length or longer, so
+   * a four-backtick fence wrapping a three-backtick example -- exactly how you
+   * document fences -- nests in practice, and counting delimiters inverts on
+   * it. Up to three spaces of indent are legal. An unclosed fence runs to end
+   * of document, matching how renderers treat it.
+   *
+   * Computed once per scan rather than rescanned per hit: the previous version
+   * sliced the whole document for every candidate, which is quadratic on a
+   * heading-dense file. */
+  function fenceRanges(text) {
+    const re = /^[ \t]{0,3}(`{3,}|~{3,})[^\n]*$/gm;
+    const ranges = [];
+    let open = null;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const marker = m[1];
+      if (!open) {
+        open = { char: marker[0], len: marker.length, start: m.index };
+      } else if (marker[0] === open.char && marker.length >= open.len) {
+        ranges.push([open.start, m.index + m[0].length]);
+        open = null;
+      }
+    }
+    if (open) ranges.push([open.start, text.length]);
+
+    return ranges;
+  }
+
+  function inFenceRange(ranges, index) {
+    return typeof index === 'number' && ranges.some(([a, b]) => index >= a && index < b);
+  }
+
   // ─── Title Case Section Headers in non-technical prose ─────────────
   // "Strategic Negotiations And Key Partnerships" — every content word
   // capitalized. Acceptable in API docs, ML papers, news headlines. Tell
   // in marketing/personal/blog prose. Gated to "personal" / "marketing"
   // context modes (technical mode skips this check).
-  const TITLE_CASE_HEADER = /^([A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|and|or|of|the|in|for|to|a|an))+\s+[A-Z][a-z]+)\s*$/gm;
+  //
+  // The optional `#{1,6}` prefix is load-bearing (#62): without it the `^[A-Z]`
+  // anchor required the line to START with a capital, so `## Benefits And
+  // Strategic Considerations` never matched — the first character is `#`. The
+  // rule missed the single most common way a heading is actually written, while
+  // catching the bare-line form it is usually converted from. Reported by a
+  // downstream vendoring the detector.
+  //
+  // Setext headings (`Title`/`=====`) need no prefix: their text line is bare
+  // and already matched by this same pattern.
+  const TITLE_CASE_HEADER = /^(?:#{1,6}[ \t]+)?([A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|and|or|of|the|in|for|to|a|an))+\s+[A-Z][a-z]+)\s*$/gm;
 
   // ─── Parenthetical hedging asides ──────────────────────────────────
   // "(and increasingly, X)", "(or more precisely, Y)", "(though to be
@@ -971,11 +1030,34 @@ const AIDetector = (() => {
       // Drop matches that look like proper-noun titles (single line, all
       // tokens capitalized incl. function words) — that's headline style,
       // not the AI-section-header tell which has mid-sentence "And".
+      //
+      // The prefix strip is load-bearing. matchPatterns reports match[0], so a
+      // Markdown hit arrives as "## Terms Of Service" and `##` counts as a
+      // token — silently lowering this guard from four content words to three
+      // for headings only, which is exactly the class it exists to protect.
+      // "## Terms Of Service", "## Bank Of America" and "## Table Of Contents"
+      // all flagged as a result: ordinary human headings, on a detector whose
+      // stated first priority is not firing on human writing.
       const filtered = titleHits.filter((h) => {
-        const tokens = h.text.split(/\s+/);
-        return tokens.length >= 4 && /\b(?:And|Or|Of|The|In|For|To|A|An)\b/.test(h.text);
+        const title = h.text.replace(MD_HEADING_PREFIX, '');
+        const tokens = title.trim().split(/\s+/);
+        if (tokens.length < 4) return false;
+
+        // The function word must be MID-title, which is what the comment above
+        // has always said and what the test never enforced. A leading "The"
+        // satisfied a bare /\bThe\b/, so ordinary human headings flagged:
+        // "## The New Security Landscape", "## The Microsoft Approach to
+        // Identity", "### The Four Keys to a Successful and Secure Modern
+        // Workplace". Measured across 81 files that provably predate LLMs
+        // (2018-19 eBooks, 2020 posts): 13 false positives, every one opening
+        // with "The", against zero on main.
+        //
+        // "## Benefits And Strategic Considerations" -- the actual tell, and
+        // this rule's own fixture -- is untouched: its "And" is interior.
+        return FUNCTION_WORD.test(tokens.slice(1).join(' '));
       });
-      issues.push(...filtered);
+      const fences = filtered.length ? fenceRanges(text) : [];
+      issues.push(...filtered.filter((h) => !inFenceRange(fences, h.index)));
     }
 
     // ── Normalization-trigger flag ───────────────────────────────────

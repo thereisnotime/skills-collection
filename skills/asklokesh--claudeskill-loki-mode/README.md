@@ -121,6 +121,22 @@ usually load-bearing.
 Every coding agent tells you it finished. Loki hands you something you can
 check yourself.
 
+**We are not the only tool that checks its own work, and you should be
+suspicious of anyone who claims to be.** Lovable runs a security scan on every
+publish and can block the publish outright. Claude Code's review has a step that
+checks findings against actual code behavior. Replit says its agent tests its
+own work.
+
+The difference is what you are left holding. Their output lives in their
+dashboard: a findings count in a dialog, a check run that by design never blocks
+a merge. Ours is a **file**. It is bound to a specific diff by `diff_sha256`, it
+records what was NOT proven as prominently as what was, and someone who has
+never installed Loki can re-verify it from the repository alone. Commit it,
+attach it to the PR, hand it to an auditor.
+
+Portable, diff-bound, and honest about its gaps -- that is the claim, and it is
+the one worth checking.
+
 Each run writes a receipt to `.loki/proofs/<run_id>/` that separates
 **deterministic FACTS** (the git diff with base and head SHAs plus a
 `diff_sha256`, the test command and its exit code, the build command and its

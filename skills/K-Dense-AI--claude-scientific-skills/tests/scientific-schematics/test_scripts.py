@@ -20,6 +20,13 @@ SCRIPTS = SKILL_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 SchematicTests = skill_contract.schematic.schematic_test_case(SKILL_ROOT)
+ReviewParsingTests = skill_contract.schematic.review_parsing_test_case(
+    SCRIPTS, "generate_schematic_ai"
+)
+ReviewFailureTests = skill_contract.schematic.review_failure_test_case(
+    SCRIPTS, "generate_schematic_ai", "ScientificSchematicGenerator",
+    ("diagram.png", "a prompt", 1, "journal", 2),
+)
 CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 

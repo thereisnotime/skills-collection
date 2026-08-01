@@ -16,9 +16,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import equivalence_report as eq  # noqa: E402
 
 
-def _fixture_row(cell, task_id, task_hash, outcomes, cost=0.5, dur=100.0):
+def _fixture_row(cell, task_id, task_hash, outcomes, cost=0.5, dur=100.0,
+                 harness_sig=None):
     """FABRICATED result-row (test fixture). outcomes is a list of 0/1 successes."""
+    extra = {"harness_sig": harness_sig} if harness_sig else {}
     return {
+        **extra,
         "schema_version": "1.0",
         "task_id": task_id,
         "task_hash": task_hash,
@@ -118,10 +121,72 @@ def test_underpowered_decision():
     print("[PASS] underpowered decision line at small N")
 
 
+def test_harness_sig_refusal():
+    # THE GATE: same task, same task_hash, but the haiku-full arm was run by two
+    # different harness versions. These are two experiments; pooling them would
+    # average across engines. build_report must REFUSE rather than blend.
+    rows = [
+        _fixture_row("haiku-full", "hard-1", "H", [1, 1, 1], harness_sig="SIG_A"),
+        _fixture_row("haiku-full", "hard-1", "H", [0, 0, 0], harness_sig="SIG_B"),
+        _fixture_row("opus-baseline", "hard-1", "H", [1, 1, 1], harness_sig="SIG_A"),
+    ]
+    try:
+        eq.build_report(rows)
+    except ValueError as exc:
+        assert "harness" in str(exc).lower(), str(exc)
+        assert "SIG_A"[:12] in str(exc) and "SIG_B"[:12] in str(exc), str(exc)
+        print("PASS: harness-signature refusal -- %s" % str(exc).splitlines()[0])
+    else:
+        raise AssertionError("build_report POOLED two harness versions")
+
+    # Control: one signature per arm is fine and still computes a gap.
+    ok = [
+        _fixture_row("haiku-full", "hard-1", "H", [1, 1, 1], harness_sig="SIG_A"),
+        _fixture_row("opus-baseline", "hard-1", "H", [1, 1, 1], harness_sig="SIG_A"),
+    ]
+    rep = eq.build_report(ok)
+    assert rep["hero_correctness"]["gap"] == 0.0, rep["hero_correctness"]
+    print("PASS: single-harness arms still pool")
+
+
+def test_unsigned_rows_are_unknown_stratum():
+    # Legacy rows (written before stamping) have no harness_sig. They must be
+    # treated as an explicit "unknown" stratum, not crash and not be silently
+    # merged into a signed arm.
+    assert eq.harness_sig({}) == "unknown"
+    assert eq.harness_sig({"harness_sig": "  "}) == "unknown"
+
+    # All-legacy: one stratum ("unknown"), so the report still builds.
+    legacy = [
+        _fixture_row("haiku-full", "hard-1", "H", [1, 1, 0]),
+        _fixture_row("opus-baseline", "hard-1", "H", [1, 1, 0]),
+    ]
+    rep = eq.build_report(legacy)
+    assert rep["hero_correctness"]["harness_strata"]["haiku_full"] == ["unknown"], rep
+    print("PASS: unsigned rows form an explicit 'unknown' stratum")
+
+    # Mixing a legacy row into a signed arm is still a refusal -- we cannot show
+    # the unsigned trials came from the stamped engine.
+    mixed = [
+        _fixture_row("haiku-full", "hard-1", "H", [1, 1, 1], harness_sig="SIG_A"),
+        _fixture_row("haiku-full", "hard-1", "H", [0, 0, 0]),
+        _fixture_row("opus-baseline", "hard-1", "H", [1, 1, 1], harness_sig="SIG_A"),
+    ]
+    try:
+        eq.build_report(mixed)
+    except ValueError as exc:
+        assert "unknown" in str(exc), str(exc)
+        print("PASS: unknown + signed is refused, not merged")
+    else:
+        raise AssertionError("build_report merged unsigned rows into a signed arm")
+
+
 if __name__ == "__main__":
     test_wilson()
     test_bootstrap_gap()
     test_task_hash_refusal()
+    test_harness_sig_refusal()
+    test_unsigned_rows_are_unknown_stratum()
     test_not_run_handling()
     test_underpowered_decision()
     print("\nALL EQUIVALENCE-REPORT SELF-CHECKS PASSED")

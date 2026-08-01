@@ -71,6 +71,15 @@ PROVIDER_CONTEXT_WINDOW=1000000 # Max context tokens (Opus 4.7: 1M at standard p
 PROVIDER_MAX_OUTPUT_TOKENS=128000
 ```
 
+`PROVIDER_CONTEXT_WINDOW` also caps code-review size. The review diff and prompt
+limits derive from it (assuming ~3 bytes per token and ~75% of the window for
+input), so a small-window local model is not handed a prompt sized for a 200k
+one. The derived value is only ever used to LOWER a cap, and a window at or above
+roughly 188889 tokens clamps to the historical 400000/425000 byte defaults, so no
+provider shipping today changes behavior (a provider that declares no window
+keeps the defaults as well). `LOKI_REVIEW_MAX_DIFF_BYTES` and
+`LOKI_REVIEW_MAX_PROMPT_BYTES` still override both.
+
 #### Degraded Mode
 ```bash
 PROVIDER_DEGRADED=false        # true for Codex/Aider

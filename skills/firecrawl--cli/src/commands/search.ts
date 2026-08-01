@@ -10,6 +10,7 @@ import type {
   WebSearchResult,
   ImageSearchResult,
   NewsSearchResult,
+  DeveloperSearchResult,
 } from '../types/search';
 import { getClient, isKeylessMode, keylessRequest } from '../utils/client';
 import { writeOutput } from '../utils/output';
@@ -123,6 +124,10 @@ export async function executeSearch(
     if (payload.web) data.web = payload.web as WebSearchResult[];
     if (payload.images) data.images = payload.images as ImageSearchResult[];
     if (payload.news) data.news = payload.news as NewsSearchResult[];
+    // The `developer` category is an extra arm rather than a filter on the web
+    // results, so the API returns its hits in their own group.
+    if (payload.developer)
+      data.developer = payload.developer as DeveloperSearchResult[];
 
     return {
       success: true,
@@ -140,6 +145,18 @@ export async function executeSearch(
 }
 
 /**
+ * Shorten a matched passage for the human-readable output. A developer passage
+ * runs to several KB, which floods a terminal. `--json` keeps the full text.
+ */
+function clipPassage(passage: string): string {
+  const collapsed = passage.replace(/\s+/g, ' ').trim();
+  if (collapsed.length <= 500) {
+    return collapsed;
+  }
+  return `${collapsed.slice(0, 500)}… (truncated, use --json for the full passage)`;
+}
+
+/**
  * Format search data in human-readable way
  */
 function formatSearchReadable(
@@ -150,7 +167,13 @@ function formatSearchReadable(
 
   // Format web results
   if (data.web && data.web.length > 0) {
-    if (options.sources && options.sources.length > 1) {
+    // Label the web group whenever another group follows it, so the reader can
+    // tell the groups apart.
+    const hasDeveloperResults = !!data.developer && data.developer.length > 0;
+    if (
+      (options.sources && options.sources.length > 1) ||
+      hasDeveloperResults
+    ) {
       lines.push('=== Web Results ===');
       lines.push('');
     }
@@ -174,6 +197,24 @@ function formatSearchReadable(
           .join('\n');
         lines.push(indentedMarkdown);
         lines.push('  --- End Content ---');
+      }
+      lines.push('');
+    }
+  }
+
+  // Format developer results
+  if (data.developer && data.developer.length > 0) {
+    if (lines.length > 0) {
+      lines.push('');
+    }
+    lines.push('=== Developer Results ===');
+    lines.push('');
+
+    for (const result of data.developer) {
+      lines.push(`${result.title || 'Untitled'}`);
+      lines.push(`  URL: ${result.url}`);
+      if (result.description) {
+        lines.push(`  ${clipPassage(result.description)}`);
       }
       lines.push('');
     }
@@ -253,7 +294,8 @@ export async function handleSearchCommand(
   const hasResults =
     (result.data.web && result.data.web.length > 0) ||
     (result.data.images && result.data.images.length > 0) ||
-    (result.data.news && result.data.news.length > 0);
+    (result.data.news && result.data.news.length > 0) ||
+    (result.data.developer && result.data.developer.length > 0);
 
   if (!hasResults) {
     console.log('No results found.');

@@ -176,6 +176,13 @@ PY
             PROVIDER_NAME=claude ITERATION_COUNT=1 LOKI_GATE_DEVILS_ADVOCATE=false \
             LOKI_REVIEW_MAX_DIFF_BYTES=1000 LOKI_REVIEW_RETRY=0 \
             run_code_review >/dev/null 2>&1
+        _rcr=$?
+        # Capture the discriminator HERE: $base and the sourced function only
+        # exist inside this subshell, and the variable does not survive it.
+        # Written BEFORE the exit so the subshell still returns run_code_review's
+        # status -- letting printf be the last command silently replaced $rc.
+        printf '%s' "${_LOKI_REVIEW_FAILURE_KIND:-UNSET}" > "$FIXTURE_TWO/.kind"
+        exit "$_rcr"
     )
     local rc=$?
     local diff_file
@@ -190,6 +197,19 @@ PY
     else
         bad "rejected context was truncated or not persisted"
     fi
+
+    # An oversize diff is INFRASTRUCTURE, not a finding. The discriminator is
+    # otherwise assigned well after this early return, so it stayed "" from its
+    # reset and the consumer read a file-size condition as "Critical/High
+    # findings" -- escalating to PAUSE over a diff merely too large to send.
+    local kind
+    kind="$(cat "$FIXTURE_TWO/.kind" 2>/dev/null || printf 'UNSET')"
+    if [ "$kind" = "infrastructure_inconclusive" ]; then
+        ok "oversize rejection is classified as infrastructure, not a blocking finding"
+    else
+        bad "oversize rejection classified as '${kind}' -- a size limit would escalate to PAUSE"
+    fi
+
 }
 
 case_explicit_prompt_rejection() {

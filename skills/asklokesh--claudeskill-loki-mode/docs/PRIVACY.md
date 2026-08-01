@@ -114,10 +114,33 @@ it sits below the base telemetry gate, every telemetry opt-out (`loki telemetry
 off` / `LOKI_TELEMETRY=off` / `DO_NOT_TRACK=1`) also disables it -- opt-out
 always wins.
 
+### 5. First-run blocker (anonymous, STRICT opt-in, default OFF)
+
+A `first_run_blocked` event naming which CLASS of dependency stopped a first
+run, sent at most ONCE per install. It sits behind the same strict second
+opt-in as build-outcome analytics above (`LOKI_ANALYTICS=on`), so it is off by
+default even with telemetry enabled.
+
+It exists because we could see that a first run was ATTEMPTED and nothing about
+whether it succeeded, which made "why does a trial not convert" unanswerable.
+A real example we found and fixed: on a machine with no AI provider CLI, one
+route ended with a dead end instead of pointing at `loki tour` (which needs no
+provider, no key and no spend). Nobody could see that happening.
+
+The ONLY field is `blocker`, clamped to this fixed enum:
+
+    no_provider | node | python3 | jq | git | curl | disk | skill_symlink | other
+
+Anything not on that list becomes `other`. It is deliberately coarse: `node` is
+enough to act on, and a version string or an install path would be a leak. It
+NEVER sends paths, versions, hostnames, spec text, or command lines -- a test
+(`tests/test-first-run-blocked-signal.sh`) feeds a filesystem path through the
+real emitter and fails the build if anything but `other` reaches the payload.
+
 This document and the first-run notice describe ALL paths. The model is unified:
 opt-out always wins and disables everything; crash reporting and usage telemetry
-opt in together (default ON for individuals); build-outcome analytics needs its
-own explicit second opt-in on top (default OFF).
+opt in together (default ON for individuals); build-outcome analytics and the
+first-run blocker each need an explicit second opt-in on top (default OFF).
 
 ## What is collected (the whitelist)
 

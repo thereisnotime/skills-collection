@@ -370,6 +370,42 @@ def cell_axes(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 # task_hash safety: refuse to compare across a changed corpus
 # ---------------------------------------------------------------------------
 
+def harness_sig(row: Dict[str, Any]) -> str:
+    """The harness stratum a row belongs to.
+
+    Rows written before harness stamping existed carry no signature. They are
+    their own "unknown" stratum -- reported, never silently folded in with rows
+    from a known engine, because we cannot show they came from the same one.
+    """
+    sig = row.get("harness_sig")
+    if isinstance(sig, str) and sig.strip():
+        return sig.strip()
+    return "unknown"
+
+
+def group_by_harness(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Split rows into strata keyed by harness signature. Never pools across."""
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for r in rows:
+        out.setdefault(harness_sig(r), []).append(r)
+    return out
+
+
+def check_harness_consistency(rows: List[Dict[str, Any]], label: str) -> List[str]:
+    """A single cell must come from ONE harness. Returns problem descriptions.
+
+    Refusing loudly beats averaging silently: trials from two engines are two
+    different experiments, and their mean is a number about nothing.
+    """
+    strata = group_by_harness(rows)
+    if len(strata) <= 1:
+        return []
+    parts = ["%s (n=%d rows)" % (sig[:12], len(rs))
+             for sig, rs in sorted(strata.items())]
+    return ["cell '%s' mixes %d harness signatures: %s"
+            % (label, len(strata), ", ".join(parts))]
+
+
 def check_task_hash_consistency(hf_rows: List[Dict[str, Any]],
                                 ob_rows: List[Dict[str, Any]]) -> List[str]:
     """For each task appearing in BOTH cells, the task_hash must match.
@@ -423,12 +459,27 @@ def build_report(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     hero: Dict[str, Any] = {"haiku_full": bool(hf_rows),
                             "opus_baseline": bool(ob_rows)}
+    hero["harness_strata"] = {
+        "haiku_full": sorted(group_by_harness(hf_rows)),
+        "opus_baseline": sorted(group_by_harness(ob_rows)),
+    }
     if hf_rows and ob_rows:
         mismatches = check_task_hash_consistency(hf_rows, ob_rows)
         if mismatches:
             raise ValueError(
                 "REFUSING to compute the gap across a changed corpus:\n  - "
                 + "\n  - ".join(mismatches))
+        # Same principle one level up: an unchanged task run by a CHANGED
+        # harness is still two experiments. Pooling them would average across
+        # engine versions and quietly launder a mid-campaign run.sh edit.
+        harness_problems = (check_harness_consistency(hf_rows, "haiku-full")
+                            + check_harness_consistency(ob_rows, "opus-baseline"))
+        if harness_problems:
+            raise ValueError(
+                "REFUSING to pool trials from different harness versions:\n  - "
+                + "\n  - ".join(harness_problems)
+                + "\n  Re-run a cell so each arm has one harness, or report the "
+                  "strata separately.")
         hf = cell_axes(hf_rows)
         ob = cell_axes(ob_rows)
         gap, glo, ghi = bootstrap_gap_ci(hf["obs"], ob["obs"])

@@ -678,6 +678,37 @@ async def _push_loki_state_loop() -> None:
                             except (json.JSONDecodeError, KeyError):
                                 pass
 
+                        # Third source: the .loki/pids/ registry, which a
+                        # CLI-started background run DOES write. Without this
+                        # the dashboard reported STOPPED for a healthy build:
+                        # `loki start` writes neither loki.pid nor session.json
+                        # (run.sh only UPDATES session.json when it already
+                        # exists), so both checks above failed and every such
+                        # run fell through to "stopped" while it was actively
+                        # working. Confirmed against a live build: STATUS.txt
+                        # said BUILDING and iterations were advancing while the
+                        # dashboard showed STOPPED with 0 agents.
+                        #
+                        # Liveness is proven with os.kill(pid, 0), never by the
+                        # file's presence -- a stale entry from a crashed run
+                        # must NOT read as alive, which is the same
+                        # anti-stale rule BUG-NEW-006 established above.
+                        if not _pid_alive:
+                            try:
+                                _pid_dir = loki_dir / "pids"
+                                for _entry in _pid_dir.glob("*.json"):
+                                    _rec = _safe_json_read(_entry, {})
+                                    if _rec.get("kind") not in ("wrapper", "runner"):
+                                        continue
+                                    try:
+                                        os.kill(int(_rec.get("pid", 0)), 0)
+                                    except (ValueError, OSError, ProcessLookupError):
+                                        continue
+                                    _pid_alive = True
+                                    break
+                            except OSError:
+                                pass
+
                         status_str = raw.get("mode", "autonomous")
                         # Control files are the AUTHORITY, and they are checked
                         # first. dashboard-state.json's "mode" is written by the
@@ -2802,16 +2833,153 @@ _SESSION_MODEL_ALLOWLIST = ("haiku", "sonnet", "opus", "fable")
 # allowlist is unchanged) because it is an explicit live-run control.
 _START_MODEL_ALLOWLIST = ("haiku", "sonnet", "opus")
 
+# Provider-agnostic capability tiers. These are the vocabulary the picker offers
+# on a non-Claude provider, and they resolve per-provider through
+# providers/models.sh (loki_tier_alias): small -> fast, medium -> development,
+# high -> planning. Accepting them here is what makes the start-time picker work
+# on codex at all -- the Claude aliases above are meaningless there, so before
+# this every value a codex user could pick normalized to "" and was silently
+# dropped, and the run started on the provider default with no feedback.
+_START_MODEL_GENERIC_TIERS = ("small", "medium", "high")
+
 
 def _normalize_start_model(raw: str | None) -> str:
-    """Normalize a start-time model / advisor alias (haiku|sonnet|opus, no fable).
+    """Normalize a start-time model / advisor alias.
 
-    Same trim + lowercase + exact-match rule as _normalize_session_model, but on
-    the narrower _START_MODEL_ALLOWLIST. Returns "" for absent/invalid/fable so
+    Accepts the Claude aliases (haiku|sonnet|opus, no fable) and the generic
+    capability tiers (small|medium|high). Returns "" for absent/invalid/fable so
     callers can treat empty as "no selection" (engine uses its own default).
+
+    fable stays excluded: it is advisory-only and the runner collapses it to
+    opus, so offering it as a start-time execution model would be a cost
+    surprise. That reasoning is unchanged by adding the generic tiers.
     """
     val = (raw or "").strip().lower()
-    return val if val in _START_MODEL_ALLOWLIST else ""
+    if val in _START_MODEL_ALLOWLIST or val in _START_MODEL_GENERIC_TIERS:
+        return val
+    return ""
+
+
+# =============================================================================
+# Provider-aware model offer set
+# =============================================================================
+# The two allowlists above are WIRE values: what run.sh will actually honor in
+# .loki/state/model-override. They are Claude aliases because run.sh:20996 gates
+# the whole override block on PROVIDER_NAME=claude and feeds the file straight
+# into `claude --model`. They must not change.
+#
+# What the dashboard OFFERS is a separate question, and it was the bug: the
+# picker rendered those four Claude aliases on every run, so a codex session was
+# offered Haiku/Sonnet/Opus/Fable, none of which codex can dispatch. The offer
+# set below is derived from the RUNNING session's provider plus the canonical
+# providers/model_catalog.json, so the picker never names a model the active
+# provider cannot run.
+
+# Generic tier -> catalog key. These three tier names are provider-independent
+# (every catalog entry carries latest_fast/development/planning), which is what
+# makes the picker portable across providers.
+_TIER_LABELS = (
+    ("small", "fast"),
+    ("medium", "development"),
+    ("high", "planning"),
+)
+
+
+def _active_provider() -> str:
+    """The provider the CURRENT run is executing on.
+
+    Resolution order mirrors the CLI (autonomy/loki:5142): the per-project state
+    file run.sh writes at launch (run.sh:1458), then the environment, then the
+    stock default. The state file wins because it is the only source that
+    reflects the live run rather than the dashboard process's own environment.
+    """
+    try:
+        p = _get_loki_dir() / "state" / "provider"
+        if p.is_file():
+            val = p.read_text().strip().lower()
+            if val:
+                return val
+    except OSError:
+        pass
+    return (os.environ.get("LOKI_PROVIDER") or "claude").strip().lower() or "claude"
+
+
+def _load_model_catalog() -> dict:
+    """Read providers/model_catalog.json, the single source of truth for model ids.
+
+    Same candidate paths as GET /api/providers/models. Returns {} when the
+    catalog is unreadable; every caller degrades to "no model ids to show"
+    rather than inventing one.
+    """
+    for path in (
+        _Path(__file__).resolve().parent.parent / "providers" / "model_catalog.json",
+        _Path("providers/model_catalog.json"),
+    ):
+        try:
+            if path.exists():
+                with path.open("r", encoding="utf-8") as fh:
+                    return json.load(fh)
+        except (json.JSONDecodeError, OSError):
+            continue
+    return {}
+
+
+def _resolve_catalog_model(provider: str, catalog_tier: str) -> str:
+    """The model id `provider` dispatches for `catalog_tier` (fast/development/planning).
+
+    Python mirror of loki_latest_model (providers/models.sh:22), including its
+    env-override chain and its "generic" registry fallback for a provider the
+    catalog does not name. Kept in Python rather than shelling out to models.sh:
+    the dashboard answers this per request and a subprocess per tier per poll is
+    not worth it. Model IDS still come only from the catalog, never from here.
+    """
+    provider_env = re.sub(r"[^A-Z0-9_]", "_", provider.upper())
+    for var in (
+        f"LOKI_{provider_env}_MODEL_{catalog_tier.upper()}",
+        f"LOKI_{provider_env}_MODEL",
+    ):
+        val = (os.environ.get(var) or "").strip()
+        if val:
+            return val
+    providers = _load_model_catalog().get("providers", {})
+    entry = providers.get(provider) or providers.get("generic") or {}
+    return str(entry.get(f"latest_{catalog_tier}") or "")
+
+
+def _provider_model_offers(provider: str) -> list[dict]:
+    """The model choices to OFFER for `provider`, each with what it resolves to.
+
+    Claude keeps its established alias picker byte-for-byte: those aliases are
+    the values run.sh honors in the override file, so changing them would break
+    the one provider where mid-run switching actually works.
+
+    Every other provider is offered the generic tiers (small/medium/high), which
+    are provider-independent, each annotated with the concrete model id the
+    catalog says that provider dispatches. That is what makes the picker read
+    "medium -> gpt-5.6-terra" on codex and "medium -> claude-sonnet-5" on claude
+    without the frontend knowing a single model id.
+    """
+    if provider == "claude":
+        aliases = _load_model_catalog().get("providers", {}).get("claude", {}).get("cli_aliases", {})
+        return [
+            {"value": alias, "tier": None, "model": aliases.get(alias, "")}
+            for alias in _SESSION_MODEL_ALLOWLIST
+        ]
+    return [
+        {"value": tier, "tier": tier, "model": _resolve_catalog_model(provider, catalog_tier)}
+        for tier, catalog_tier in _TIER_LABELS
+    ]
+
+
+def _provider_supports_model_switch(provider: str) -> bool:
+    """Whether a live run on `provider` honors .loki/state/model-override.
+
+    Only claude does: run.sh:20996 gates the entire override-read block on
+    PROVIDER_NAME=claude. On any other provider the file is written and never
+    read, so the POST path rejects rather than reporting a switch that will not
+    happen.
+    """
+    return provider == "claude"
 
 
 class SessionModelRequest(BaseModel):
@@ -2890,17 +3058,28 @@ def _normalize_session_model(raw: str | None) -> str:
 # tier names ARE valid pins.
 _SESSION_PIN_ALLOWLIST = _SESSION_MODEL_ALLOWLIST + ("planning", "development", "fast")
 
+# Generic capability vocabulary. A user picks a CLASS of model (small/medium/
+# high) and each provider supplies its own latest model in that class, so nobody
+# has to know a vendor's model names. These are translated onto the canonical
+# tier names rather than added to the allowlist, keeping this mirror in step
+# with run.sh's entry-point case and the `loki plan` estimator without widening
+# what any of the three actually route on. Mirrors loki_tier_alias() in
+# providers/models.sh.
+_GENERIC_TIERS = {"small": "fast", "medium": "development", "high": "planning"}
+
 
 def _normalize_session_pin(raw: str | None) -> str:
     """Normalize a LOKI_SESSION_MODEL pin value (aliases + raw tier names).
 
     Mirrors run.sh's session-pin case: trim + lowercase, accept the four model
-    aliases and the three tier names. Interior whitespace is preserved (so
+    aliases and the three tier names, and translate the generic small/medium/
+    high vocabulary onto those tier names. Interior whitespace is preserved (so
     "fab le" stays junk and falls through to the default tier, exactly like the
     runner's "*" arm). Use this for the session-pin (no-override) derivation;
     use _normalize_session_model for the override-file / POST path.
     """
     val = (raw or "").strip().lower()
+    val = _GENERIC_TIERS.get(val, val)
     return val if val in _SESSION_PIN_ALLOWLIST else ""
 
 
@@ -3126,11 +3305,24 @@ async def get_session_model():
     # the reported effective model agrees with dispatch on BOTH routes (v7.39.1).
     if effective == "fable":
         effective = "opus"
+    provider = _active_provider()
+    offers = _provider_model_offers(provider)
+    if provider != "claude":
+        # Non-claude: the claude-alias default/effective computed above describe a
+        # dispatch that is not happening on this run. Report what the provider
+        # actually runs, from the catalog, and drop the stale override (run.sh
+        # never reads the file on this provider, so it cannot be in effect).
+        override = None
+        default = "medium"
+        effective = _resolve_catalog_model(provider, "development")
     return {
         "override": override,
         "default": default,
         "effective": effective,
-        "allowed": list(_SESSION_MODEL_ALLOWLIST),
+        "provider": provider,
+        "switchable": _provider_supports_model_switch(provider),
+        "offers": offers,
+        "allowed": [o["value"] for o in offers],
     }
 
 
@@ -3156,6 +3348,22 @@ async def set_session_model(request: SessionModelRequest):
     """
     requested_raw = (request.model or "").strip().lower()
     override_path = _model_override_path()
+    # Mid-run switching is a claude-only runtime capability: run.sh:20996 gates the
+    # override-read block on PROVIDER_NAME=claude, so on any other provider this
+    # file would be written and never read. Reject instead of writing a file that
+    # does nothing and reporting success (a false affordance is worse than no
+    # control). Clearing is still allowed everywhere: removing a stale file is
+    # always safe and never claims a switch.
+    provider = _active_provider()
+    if requested_raw != "" and not _provider_supports_model_switch(provider):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Mid-run model switching is not supported on provider '{provider}'. "
+                f"The run dispatches {_resolve_catalog_model(provider, 'development') or 'its configured model'}; "
+                "restart the run with a different model to change it."
+            ),
+        )
     if requested_raw == "":
         # Clear the override; revert to tier mapping.
         try:
@@ -3965,19 +4173,30 @@ async def start_build(request: Request, body: StartBuildRequest):
         popen_env["LOKI_TARGET_DIR"] = str(workspace_dir)
         popen_env["LOKI_DIR"] = str(loki_dir)
     if start_model:
-        # EXACT-model pin (not the session-pin tier route): set all three tier
-        # models to the chosen alias so resolve_model_for_tier returns the alias
-        # for every tier and every iteration dispatches exactly the picked model.
-        # This is the honest start-time equivalent of the mid-flight override
-        # file, which run.sh clears at iteration 0. LOKI_SESSION_MODEL is set too
-        # for internal coherence (the run's own tier accounting/logging), but the
-        # env triple is the load-bearing dispatch-honesty mechanism: on the
-        # v7.104.0 stock config the session pin alone would remap opus->planning->
-        # sonnet and haiku->fast->sonnet, dispatching sonnet for both.
-        popen_env["LOKI_CLAUDE_MODEL_PLANNING"] = start_model
-        popen_env["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = start_model
-        popen_env["LOKI_CLAUDE_MODEL_FAST"] = start_model
-        popen_env["LOKI_SESSION_MODEL"] = start_model
+        if start_model in _START_MODEL_GENERIC_TIERS:
+            # A generic capability tier is provider-agnostic BY CONSTRUCTION --
+            # it names a capability class, not a model, and each provider
+            # resolves its own latest model for that class via
+            # providers/models.sh. Pinning the LOKI_CLAUDE_MODEL_* triple here
+            # would be actively wrong: those variables are inert on codex and
+            # every other non-Claude provider, so the pin would silently do
+            # nothing. LOKI_SESSION_MODEL is the correct and only lever.
+            popen_env["LOKI_SESSION_MODEL"] = start_model
+        else:
+            # EXACT-model pin (not the session-pin tier route): set all three tier
+            # models to the chosen alias so resolve_model_for_tier returns the alias
+            # for every tier and every iteration dispatches exactly the picked model.
+            # This is the honest start-time equivalent of the mid-flight override
+            # file, which run.sh clears at iteration 0. LOKI_SESSION_MODEL is set too
+            # for internal coherence (the run's own tier accounting/logging), but the
+            # env triple is the load-bearing dispatch-honesty mechanism: on the
+            # v7.104.0 stock config the session pin alone would remap
+            # opus->planning->sonnet and haiku->fast->sonnet, dispatching sonnet
+            # for both.
+            popen_env["LOKI_CLAUDE_MODEL_PLANNING"] = start_model
+            popen_env["LOKI_CLAUDE_MODEL_DEVELOPMENT"] = start_model
+            popen_env["LOKI_CLAUDE_MODEL_FAST"] = start_model
+            popen_env["LOKI_SESSION_MODEL"] = start_model
     if advisor_model:
         # Opt-in Opus (or other) judge for code review; execution model unchanged.
         popen_env["LOKI_ADVISOR_MODEL"] = advisor_model
@@ -7079,6 +7298,15 @@ _DEFAULT_PRICING = {
     "haiku":  {"input": 1.00, "output": 5.00},
     # OpenAI Codex
     "gpt-5.3-codex": {"input": 1.50, "output": 12.00},
+    # gpt-5.6 line: sol (high) / terra (medium, default) / luna (small).
+    # UNVERIFIED RATES. The model IDs are confirmed against
+    # developers.openai.com/api/docs/models, but OpenAI's published per-token
+    # prices for this line were not, so these are placeholders scaled from the
+    # gpt-5.3 rate. They drive a display estimate only, never a gate. Replace
+    # from the pricing page; tools/probe-model-catalog.py is the refresh path.
+    "gpt-5.6-sol":   {"input": 2.50, "output": 20.00},
+    "gpt-5.6-terra": {"input": 1.50, "output": 12.00},
+    "gpt-5.6-luna":  {"input": 0.50, "output": 4.00},
 }
 
 # Active pricing - starts with defaults, updated from .loki/pricing.json
@@ -7110,13 +7338,33 @@ def _get_model_pricing() -> dict:
     return _MODEL_PRICING
 
 
-def _calculate_model_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    """Calculate USD cost for a model's token usage."""
+def _calculate_model_cost(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    cache_read_tokens: int = 0,
+    cache_creation_tokens: int = 0,
+) -> float:
+    """Calculate USD cost for a model's token usage, including cache tiers.
+
+    Cache tokens DOMINATE real traffic -- a measured iteration carried 797,496
+    cache-read against 10,272 plain input tokens. Pricing them at zero, which
+    this did, under-counted a real iteration by roughly 5x. This is the third
+    route to carry that same bug (bash check_budget_limit and the TS budget
+    breaker were fixed in v8.12); the rates match both.
+
+    An unpriced cache tier falls back to the FULL input rate rather than zero:
+    for anything driving a spend display the safe direction on an unknown rate
+    is to over-state, never to silently under-count.
+    """
     pricing_table = _get_model_pricing()
     pricing = pricing_table.get(model.lower(), pricing_table.get("sonnet", {}))
-    input_cost = (input_tokens / 1_000_000) * pricing.get("input", 3.00)
+    inp_rate = pricing.get("input", 3.00)
+    input_cost = (input_tokens / 1_000_000) * inp_rate
     output_cost = (output_tokens / 1_000_000) * pricing.get("output", 15.00)
-    return round(input_cost + output_cost, 6)
+    cache_read_cost = (cache_read_tokens / 1_000_000) * pricing.get("cache_read", inp_rate * 0.1)
+    cache_write_cost = (cache_creation_tokens / 1_000_000) * pricing.get("cache_write", inp_rate * 1.25)
+    return round(input_cost + output_cost + cache_read_cost + cache_write_cost, 6)
 
 
 @app.get("/api/cost", dependencies=[Depends(auth.require_scope("read"))])
@@ -7137,6 +7385,8 @@ def _compute_cost_snapshot() -> dict:
 
     total_input = 0
     total_output = 0
+    total_cache_read = 0
+    total_cache_creation = 0
     estimated_cost = 0.0
     by_phase: dict = {}
     by_model: dict = {}
@@ -7162,15 +7412,22 @@ def _compute_cost_snapshot() -> dict:
 
                 inp = data.get("input_tokens", 0)
                 out = data.get("output_tokens", 0)
+                # Cache tiers: recorded per iteration since v6.82.0 and
+                # typically ~98% of input volume. Omitting them made this
+                # endpoint report roughly 1% of a run's real token count.
+                cr = data.get("cache_read_tokens", 0) or 0
+                cw = data.get("cache_creation_tokens", 0) or 0
                 model = data.get("model", "sonnet").lower()
                 phase = data.get("phase", "unknown")
 
                 total_input += inp
                 total_output += out
+                total_cache_read += cr
+                total_cache_creation += cw
 
                 cost = data.get("cost_usd")
                 if cost is None:
-                    cost = _calculate_model_cost(model, inp, out)
+                    cost = _calculate_model_cost(model, inp, out, cr, cw)
                 estimated_cost += cost
 
                 # Aggregate by phase
@@ -7236,9 +7493,18 @@ def _compute_cost_snapshot() -> dict:
         except (json.JSONDecodeError, KeyError):
             pass
 
+    # Cache hit ratio against everything read IN. Null (not 0.0) when nothing
+    # was read: a zero is a claim about a COLD cache, which is a real and
+    # expensive condition, so reporting it for a run with no data would send
+    # someone hunting a caching problem that does not exist.
+    _read_in = total_input + total_cache_read
     return {
         "total_input_tokens": total_input,
         "total_output_tokens": total_output,
+        "total_cache_read_tokens": total_cache_read,
+        "total_cache_creation_tokens": total_cache_creation,
+        "total_tokens": total_input + total_output + total_cache_read + total_cache_creation,
+        "cache_hit_ratio": round(total_cache_read / _read_in, 4) if _read_in > 0 else None,
         "estimated_cost_usd": round(estimated_cost, 6),
         "by_phase": {k: {
             "input_tokens": v["input_tokens"],
@@ -7655,6 +7921,9 @@ _PROVIDER_LABELS = {
     "sonnet": "Sonnet 5",
     "haiku": "Haiku 4.5",
     "gpt-5.3-codex": "GPT-5.3 Codex",
+    "gpt-5.6-sol": "GPT-5.6 Sol",
+    "gpt-5.6-terra": "GPT-5.6 Terra",
+    "gpt-5.6-luna": "GPT-5.6 Luna",
 }
 
 # Display-only pricing notes, keyed by model. These annotate the pricing table in

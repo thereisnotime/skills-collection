@@ -16,12 +16,40 @@
 _LOKI_MODELS_SH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 LOKI_MODEL_CATALOG="${LOKI_MODEL_CATALOG:-$_LOKI_MODELS_SH_DIR/model_catalog.json}"
 
+# GENERIC CAPABILITY TIERS. Callers should ask for small|medium|high and never
+# name a vendor model. medium is the DEFAULT.
+#
+#   small  -> the cheap/fast model   (claude: haiku, codex: luna)
+#   medium -> the workhorse          (claude: sonnet, codex: terra)  [default]
+#   high   -> the expensive/best     (claude: opus,   codex: sol)
+#
+# WHY AN ALIAS LAYER RATHER THAN A RENAME: the catalog already keys models by
+# planning/development/fast and several call sites depend on those names. This
+# maps onto them instead of duplicating the mapping, so there is exactly one
+# place a model id is written down. Hardcoding "medium = claude-sonnet-5"
+# anywhere would recreate the drift class this repo keeps paying for -- a doc
+# that named a default matching neither the code nor the catalog, and a test
+# that demanded open-weights providers resolve to a Claude model.
+loki_tier_alias() {
+    case "${1:-medium}" in
+        small|fast)              printf 'fast' ;;
+        high|planning|best)      printf 'planning' ;;
+        medium|development|'')   printf 'development' ;;
+        # Unknown value falls back to the DEFAULT rather than failing the run:
+        # a typo in a pipeline config should not change which model you pay for
+        # silently, and it should not halt a build either. The caller can see
+        # what resolved via loki_latest_model.
+        *)                       printf 'development' ;;
+    esac
+}
+
 # Return the "latest_<tier>" id for a provider from the catalog.
 # Args: $1 provider (claude|codex|cline|aider)
-#       $2 tier     (planning|development|fast)
+#       $2 tier     (planning|development|fast, or small|medium|high)
 loki_latest_model() {
     local provider="${1:-claude}"
-    local tier="${2:-planning}"
+    local tier
+    tier="$(loki_tier_alias "${2:-planning}")"
     local tier_upper
     tier_upper=$(printf '%s' "$tier" | tr '[:lower:]' '[:upper:]')
     local provider_upper
@@ -74,7 +102,34 @@ if not p:
     p = providers.get("generic")
     if not p:
         sys.exit(1)
-model = p.get(f"latest_{tier}")
+
+# SINGLE SOURCE OF TRUTH: models[] is authoritative, top-level latest_<tier> is
+# derived. Before this, both existed independently and drifted -- claude
+# latest_fast said claude-sonnet-5 while models[tier=fast] said claude-haiku-4-5,
+# so asking for the cheap tier silently billed the mid tier. models[] wins
+# because it is the richer structure (context_window, max_output, open_weights,
+# alias, notes per model); the top-level keys carry nothing it does not.
+#
+# ORDER IS LOAD-BEARING: a provider may declare several models at one tier
+# (codex lists gpt-5.3-codex and o3 both as planning). First match wins, so the
+# FIRST entry at a tier is the default. Reordering models[] changes what real
+# builds dispatch. tests/test-model-catalog-single-source.sh pins this.
+models = [m for m in p.get("models", []) if isinstance(m, dict)]
+model = next((m.get("id") for m in models if m.get("tier") == tier), None)
+
+if not model:
+    # No entry at this tier. Falling back must be DECLARED, never accidental:
+    # codex genuinely runs one model for every tier and varies reasoning effort
+    # instead, so an absent tier is legitimate for it -- but silently walking to
+    # some other tier is how you end up dispatching a model nobody chose. The
+    # provider states the substitution in the catalog as tier_fallback, and we
+    # honor only that.
+    fallback_tier = (p.get("tier_fallback") or {}).get(tier)
+    if fallback_tier:
+        model = next(
+            (m.get("id") for m in models if m.get("tier") == fallback_tier), None
+        )
+
 if not model:
     sys.exit(1)
 print(model)

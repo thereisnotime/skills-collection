@@ -93,6 +93,7 @@ export type DoctorJson = {
   sentrux: SentruxCheck;
   receipt_signing: ReceiptSigningCheck;
   memory: MemoryHealth;
+  model_catalog: CatalogFreshness;
   summary: {
     passed: number;
     failed: number;
@@ -424,6 +425,51 @@ async function checkMemoryHealth(): Promise<MemoryHealth> {
   };
 }
 
+// Days after which a hand-maintained catalog is called stale. The upstream
+// probe workflow runs weekly, so a catalog untouched for a quarter means the
+// probe PRs are going unread. Mirrored in autonomy/loki:cmd_doctor.
+const CATALOG_STALE_DAYS = 90;
+
+export interface CatalogFreshness {
+  status: "pass" | "warn";
+  updated: string | null;
+  age_days: number | null;
+  detail: string;
+}
+
+// Age of providers/model_catalog.json from its own "updated" field. Local read
+// only -- no network, ever. Honours LOKI_MODEL_CATALOG so tests (and operators
+// with a vendored catalog) can point it elsewhere, matching providers/models.sh.
+export function describeCatalogFreshness(): CatalogFreshness {
+  const path = process.env["LOKI_MODEL_CATALOG"] || resolve(REPO_ROOT, "providers/model_catalog.json");
+  let updated: string;
+  let ageDays: number;
+  try {
+    updated = JSON.parse(readFileSync(path, "utf-8"))["updated"];
+    // Parse as UTC midnight on both sides so the day count never shifts with
+    // the host timezone.
+    const then = Date.parse(`${updated}T00:00:00Z`);
+    const today = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    if (Number.isNaN(then)) throw new Error("bad date");
+    ageDays = Math.round((today - then) / 86_400_000);
+  } catch {
+    return {
+      status: "warn",
+      updated: null,
+      age_days: null,
+      detail: 'Catalog unreadable or missing an ISO "updated" date -- cannot determine age',
+    };
+  }
+  return ageDays > CATALOG_STALE_DAYS
+    ? {
+        status: "warn",
+        updated,
+        age_days: ageDays,
+        detail: `Last updated ${updated} (${ageDays} days ago) -- may be missing newer models`,
+      }
+    : { status: "pass", updated, age_days: ageDays, detail: `Last updated ${updated} (${ageDays} days ago)` };
+}
+
 export async function buildDoctorJson(): Promise<DoctorJson> {
   const rows = await runAllToolChecks();
   // Strip the displayName field for JSON output -- bash JSON has bare names.
@@ -474,6 +520,9 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
     sentrux,
     receipt_signing: receiptSigning,
     memory,
+    // Advisory only: deliberately excluded from the passed/failed/warnings
+    // tally and from `ok`, so a stale catalog can never flip the exit code.
+    model_catalog: describeCatalogFreshness(),
     summary: { passed, failed, warnings, ok: failed === 0 },
   };
 }
@@ -995,6 +1044,25 @@ async function runText(): Promise<number> {
     }
   } else {
     process.stdout.write(`  ${badge("warn")}  Python 3 not on PATH -- memory + MCP integrations disabled. The rest of Loki works without them.\n`);
+  }
+  process.stdout.write(`\n`);
+
+  // Model catalog freshness -- mirrors autonomy/loki:cmd_doctor byte for byte.
+  // The bun-parity matrix diffs this section (it is NOT stripped by the
+  // normalizer), so edit BOTH routes together.
+  //
+  // Reads ONLY the local file's "updated" field: zero network I/O, keeping
+  // doctor air-gapped-safe. Informational only -- never touches the tally, so a
+  // stale catalog can never change doctor's exit code.
+  process.stdout.write(`${CYAN}Model catalog:${NC}\n`);
+  const catalogAge = describeCatalogFreshness();
+  if (catalogAge.status === "pass") {
+    process.stdout.write(`  ${badge("pass")}  ${catalogAge.detail}\n`);
+  } else {
+    process.stdout.write(`  ${badge("warn")}  ${catalogAge.detail}\n`);
+    process.stdout.write(
+      `         ${YELLOW}Refresh: python3 tools/probe-model-catalog.py${NC} (reports new model IDs from provider docs; you verify and edit the catalog by hand -- never auto-applied)\n`,
+    );
   }
   process.stdout.write(`\n`);
 

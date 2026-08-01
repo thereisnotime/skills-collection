@@ -67,14 +67,20 @@ PROVIDER_DEGRADED=false
 PROVIDER_MAX_OUTPUT_TOKENS=128000
 
 # Model defaults. opencode names models "provider/model"; the catalog supplies
-# the value and the standard LOKI_<PROVIDER>_MODEL_<TIER> chain overrides it.
+# the value and LOKI_OPENCODE_MODEL overrides it.
 _opencode_default_from_catalog() {
     if type loki_latest_model >/dev/null 2>&1; then
         loki_latest_model opencode development 2>/dev/null && return 0
     fi
     printf 'openrouter/deepseek/deepseek-v3.2'
 }
-OPENCODE_DEFAULT_MODEL="${LOKI_OPENCODE_MODEL:-${LOKI_MODEL_DEVELOPMENT:-$(_opencode_default_from_catalog)}}"
+# Resolution: provider-scoped env > catalog. The GLOBAL tier var
+# (LOKI_MODEL_DEVELOPMENT) is deliberately NOT in this chain: opencode takes
+# "provider/model" strings ("openrouter/deepseek/deepseek-v3.2"), while the
+# global tier var carries Claude CLI aliases ("sonnet"), so a global set for
+# one provider silently changed opencode's model too. Namespace-incompatible,
+# not merely mis-ordered. Do not re-add it.
+OPENCODE_DEFAULT_MODEL="${LOKI_OPENCODE_MODEL:-$(_opencode_default_from_catalog)}"
 PROVIDER_MODEL_PLANNING="$OPENCODE_DEFAULT_MODEL"
 PROVIDER_MODEL_DEVELOPMENT="$OPENCODE_DEFAULT_MODEL"
 PROVIDER_MODEL_FAST="$OPENCODE_DEFAULT_MODEL"

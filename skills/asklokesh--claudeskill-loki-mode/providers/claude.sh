@@ -381,7 +381,18 @@ provider_invoke_argv() {
     local prompt="${2:-}"
     _loki_build_claude_auto_flags "$tier" "${LOKI_COMPLEXITY:-standard}" ""
     local model
-    model="$(loki_tier_route_model "$tier" 2>/dev/null || provider_get_tier_param "$tier")"
+    # Use the SAME resolver as the non-argv path. This previously called
+    # loki_tier_route_model with one argument, but that function takes TWO
+    # (tier, model) and echoes its second arg when routing is off -- so it
+    # returned an EMPTY string with rc=0, the `||` fallback never fired, and
+    # every argv-based claude invocation shipped with no --model flag at all.
+    #
+    # Do NOT "fix" this by chaining provider_get_tier_param + loki_tier_route_model
+    # here: that reproduces base+route but SKIPS loki_apply_max_tier_clamp, so
+    # LOKI_MAX_TIER=sonnet still emitted `--model opus` and the cost ceiling was
+    # silently unenforced on exactly the timeout-safe seam. resolve_model_for_tier
+    # is base -> route -> clamp -> alt-provider in one call; keep both paths on it.
+    model="$(resolve_model_for_tier "$tier" 2>/dev/null || provider_get_tier_param "$tier")"
     _LOKI_INVOKE_ARGV=(
         claude --dangerously-skip-permissions
         "${_LOKI_CLAUDE_AUTO_FLAGS[@]+"${_LOKI_CLAUDE_AUTO_FLAGS[@]}"}"

@@ -61,7 +61,8 @@ packages = ["requests", "python-dotenv"]
 packages = ["requests", "python-dotenv"]
 
 [skills.generate-image]
-packages = ["requests"]
+# The bundled CLI is standard-library only, and a test enforces that.
+packages = []
 
 [skills.markdown-mermaid-writing]
 packages = []
@@ -86,7 +87,7 @@ packages = [
 ]
 
 [skills.scientific-schematics]
-packages = ["schemdraw", "matplotlib", "requests", "python-dotenv"]
+packages = ["requests", "python-dotenv"]
 
 [skills.scientific-visualization]
 packages = ["matplotlib", "seaborn", "plotly", "pypdf", "pillow", "numpy"]
@@ -94,15 +95,12 @@ packages = ["matplotlib", "seaborn", "plotly", "pypdf", "pillow", "numpy"]
 # --- literature and research workflow -------------------------------------
 
 [skills.citation-management]
+# The BibTeX parsing, rendering, and validation layers are standard library
+# (scripts/_common.py). `requests` covers Crossref, PubMed, OpenAlex, and the
+# DataCite fallback; `scholarly` is needed only by search_google_scholar.py.
 packages = [
-    "bibtexparser",
-    "biopython",
-    "crossref-commons",
-    "pylatexenc",
-    "scholarly",
-    "selenium",
     "requests",
-    "python-dotenv",
+    "scholarly",
 ]
 
 [skills.pyzotero]

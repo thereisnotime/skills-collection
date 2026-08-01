@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.22.1] — 2026-07-31
+
+### Fixed
+
+- **`title-case-header` never fired on a Markdown heading (#62).** The pattern was anchored `^[A-Z][a-z]+`, which requires the line to begin with a capital letter. A Markdown heading begins with `#`, so the anchor failed and `## Benefits And Strategic Considerations` produced no issue. The rule caught the bare-line form (`Benefits And Strategic Considerations`) while missing the commonest way a heading is actually written, which is also the form the bare line usually gets converted from. Now accepts and discards an optional `#{1,6}` prefix. Setext headings were already covered, since their text line is bare.
+- Reported by a downstream that vendors `detector/patterns.js` byte-identical to a pinned commit, so they filed rather than patching locally. Worth noting as the first externally-reported detection gap.
+- Two fixture groups pin it: the rule fires on `#`, `##` and `######` headings, and stays quiet on a sentence-case heading, on `##Text` with no space (not a heading), and on seven hashes (not a heading). Sentence case is the correct form, so flagging it would invert the rule.
+- **The false-positive claim in the first version of this entry was wrong, and worth recording as such.** It read "no measurable false-positive cost", citing `npm run fp` being byte-identical before and after. It is: `title-case-header` does not appear in that corpus at all, because the corpus is prose with no Markdown headings. An instrument that cannot see a change returning "no change" is not evidence, and the entry stated that limitation and drew the opposite conclusion from it in adjacent sentences. Adversarial review found the regression the measurement could not.
+
+
+### Fixed (follow-up, same day)
+
+- **The heading prefix leaked into the proper-noun guard.** `matchPatterns` reports `match[0]`, so a Markdown hit arrived as `## Terms Of Service` and `##` counted as a token — silently lowering the guard from four content words to three, for headings only. `## Terms Of Service`, `## Bank Of America`, `## Table Of Contents` and `## Pride And Prejudice` all flagged: ordinary human headings, on a detector whose first priority is not firing on human writing. The filter now strips the prefix and trims before counting.
+- **A `HUMAN_ONLY` → `MIXED` claim was removed from this entry rather than corrected.** It cited an unnamed README and could not be reproduced. Writing an unverifiable number into the entry that exists to retract an unverifiable number is the same mistake twice, so it is recorded rather than quietly deleted. The measured numbers below replace it.
+- **Headings opening with a function word are no longer flagged, and this is the measured part.** The proper-noun guard tested `/\b(?:And|Or|Of|The|…)\b/` against the whole title with no position constraint, so a leading `The` satisfied it — while the guard's own comment has always specified a *mid-sentence* "And". Across 989 real Markdown files this rule went from 0 hits on `main` (the `^[A-Z]` anchor made it dead on `#` headings) to 35. On an 81-file subcorpus that provably predates LLMs — 2018-19 eBooks stamped `year:`, 2020 posts — it produced **13 false positives against zero on main**, every one opening with `The`: "The New Security Landscape", "The Microsoft Approach to Identity", "The Four Keys to a Successful and Secure Modern Workplace". Requiring the function word to be interior eliminates all 13 and leaves the target case firing. Those six headings are now fixtures.
+- **Fence detection rewritten to track the opening delimiter instead of counting delimiters.** A parity count is wrong on the exact case the check exists for: a four-backtick fence wrapping a three-backtick example — how you document fences — inverts it. Also handles CommonMark's up-to-three-space indent and an unclosed fence running to end of document. Computed once per scan rather than re-slicing the document per candidate, which was quadratic on a heading-dense file.
+- **A latent off-by-one on the bare-line form is fixed as a side effect.** The pattern's trailing `\s*` swallowed the following newline, so `Terms Of Service` split into four tokens and fired on `main` despite having three content words. The `.trim()` corrects that, which means three-word Title Case lines are now quiet in both forms. This is a behaviour change beyond headings and a strict reduction in flags.
+- **Still fires, deliberately:** a four-content-word Title Case heading such as `# The Art Of War` or `## Notes On The Design`. The `>= 4` guard cannot distinguish those from `## Benefits And Strategic Considerations` — same shape. Pre-existing, identical for the bare-line form, out of scope here.
+- **Ten fixtures now pin this rule**, including a value assertion on `issue.text` (a presence-only check is what let the prefix defect through), the six pre-LLM human headings above, the four fence shapes a parity count gets wrong, and an indented-line case. Six mutations were run against the result — dropping the mid-title constraint, the token floor, the prefix strip, the trim, tab support, and the word anchors — and all six fail a test. The tab-support fixture had to be rewritten to catch its mutant: on a heading whose function word is interior, an unstripped `##` only raises the token count and the verdict is unchanged, so the probe has to open with a function word.
+
+### Note
+
+`#67` (em-dash carve-out for changelog headings and bold-lead parentheticals) and `#69` (hedge-stack over-matching `could not possibly`) were both fixed in 3.22.0 and verified here against the shipped detector. The issues are still open and can be closed.
+
+---
+
 ## [3.22.0] — 2026-07-31
 
 ### Added

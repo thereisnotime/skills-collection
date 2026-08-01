@@ -789,8 +789,33 @@ if [ "${LOKI_LOCALCI_FULL_SHELL:-1}" = "1" ]; then
   # above the totals, and grepping for 'FAILED|Passed:|Failed:' then tailing
   # still lost it, because member suites print their own per-suite "Passed: N"
   # lines that flood the tail. Anchoring on the ✗ marker is what survives.
-  run_check "tests/run-all-tests.sh (FULL CI shell suite -- authoritative)" \
-    "bash tests/run-all-tests.sh 2>&1 | grep -aE '(✗.*FAILED|Passed: {5,}[0-9]|Failed: {5,}[0-9])' | tail -20"
+  # SHARDED, because this one step was 90 percent of a 26m50s gate while GitHub
+  # CI ran the SAME 323 suites in 31 seconds by sharding 4 ways. The local gate
+  # had no sharding at all.
+  #
+  # Reuses LOKI_TEST_SHARD i/n, the index-based partition already proven in CI
+  # (tests/run-all-tests.sh:41-58). Index-based, not a curated list: every
+  # run_test call takes the next index, so the union of shards is provably the
+  # whole suite and a newly added suite cannot go missing.
+  #
+  # Serial fallback when LOCAL_CI_SERIAL=1 -- overlapping provider-backed suites
+  # starve each other (a review suite once sat 28 minutes at 0.06s CPU, then
+  # passed 8/8 isolated), so a serial run stays available for diagnosis.
+  _shell_suite_shards="${LOCAL_CI_SHARDS:-4}"
+  case "$_shell_suite_shards" in ''|*[!0-9]*) _shell_suite_shards=4 ;; esac
+  if [ "${LOCAL_CI_SERIAL:-0}" = "1" ] || [ "$_shell_suite_shards" -le 1 ]; then
+    run_check "tests/run-all-tests.sh (FULL CI shell suite -- authoritative)" \
+      "bash tests/run-all-tests.sh 2>&1 | grep -aE '(✗.*FAILED|Passed: {5,}[0-9]|Failed: {5,}[0-9])' | tail -20"
+  else
+    _shard_cmd=""
+    _i=0
+    while [ "$_i" -lt "$_shell_suite_shards" ]; do
+      _shard_cmd="${_shard_cmd}LOKI_TEST_SHARD=${_i}/${_shell_suite_shards} bash tests/run-all-tests.sh > \"\${TMPDIR:-/tmp}/loki-shard-${_i}.log\" 2>&1 & "
+      _i=$((_i + 1))
+    done
+    run_check "tests/run-all-tests.sh (FULL CI shell suite -- authoritative, ${_shell_suite_shards} shards)" \
+      "${_shard_cmd} wait; cat \"\${TMPDIR:-/tmp}\"/loki-shard-*.log 2>/dev/null | grep -aE '(✗.*FAILED|Passed: {5,}[0-9]|Failed: {5,}[0-9])' | tail -20; ! cat \"\${TMPDIR:-/tmp}\"/loki-shard-*.log 2>/dev/null | grep -aqE '✗.*FAILED'"
+  fi
 fi
 
 # Fast fail-early subset (also covered by the full suite above):

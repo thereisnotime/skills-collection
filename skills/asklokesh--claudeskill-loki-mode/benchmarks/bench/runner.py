@@ -29,6 +29,7 @@ shape, preserving usd=None ("not collected") semantics.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import json
@@ -402,6 +403,9 @@ def run_task(task_path: str, adapter_name: str, *,
         # outside the repo fall back to an absolute path.
         "task_path": _store_task_path(task_path),
         "task_hash": task_hash,
+        # Which engine drove these trials. The report refuses to pool rows whose
+        # signatures differ (see equivalence_report.group_by_harness).
+        "harness_sig": harness_signature(),
         "tool": adapter_name,
         "model": used_model,
         "trials": trial_rows,
@@ -487,6 +491,52 @@ def verify_result(result_path: str) -> Dict[str, Any]:
         "version_checks": version_checks,
         "problems": problems,
     }
+
+
+# ---------------------------------------------------------------------------
+# harness signature: which engine produced this row
+# ---------------------------------------------------------------------------
+# task_hash answers "was the TASK the same?". This answers "was the HARNESS the
+# same?". Without it, editing run.sh mid-campaign silently pools trials from two
+# different engines into one arm.
+#
+# Why working-tree bytes and not `git rev-parse HEAD`:
+#   - HEAD moves on every unrelated commit (docs, tests), which would shard the
+#     strata spuriously and invalidate a valid pooled record.
+#   - `git rev-parse HEAD:<file>` ignores UNCOMMITTED edits, which is exactly
+#     the threat here (edit run.sh, keep running trials, never commit).
+# Hashing the bytes on disk tracks what actually ran, committed or not.
+
+_ENGINE_FILES = (
+    "autonomy/run.sh",
+    "autonomy/loki",
+    "autonomy/completion-council.sh",
+)
+
+
+def harness_signature(repo: Optional[str] = None) -> str:
+    """sha256 over the engine files that decide how a trial is driven.
+
+    Returns "unknown" when no engine file is readable (e.g. the runner is
+    vendored without the engine) -- an honest absent marker, never a fake
+    digest that would let two different harnesses compare equal.
+    """
+    root = repo or _REPO
+    h = hashlib.sha256()
+    found = False
+    for rel in _ENGINE_FILES:
+        path = os.path.join(root, rel)
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            continue
+        found = True
+        # Length-prefix the path and body so no two file sets can collide by
+        # concatenating to the same byte stream.
+        h.update(("%s:%d:" % (rel, len(data))).encode("utf-8"))
+        h.update(data)
+    return h.hexdigest() if found else "unknown"
 
 
 def _current_tool_version(tool: str) -> Optional[str]:

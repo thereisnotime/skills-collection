@@ -57,6 +57,24 @@ import slides_to_pdf  # noqa: E402
 import validate_presentation  # noqa: E402
 
 SchematicTests = skill_contract.schematic.schematic_test_case(SKILL_ROOT)
+ReviewParsingTests = skill_contract.schematic.review_parsing_test_case(
+    SCRIPTS, "generate_schematic_ai"
+)
+ReviewFailureTests = skill_contract.schematic.review_failure_test_case(
+    SCRIPTS, "generate_schematic_ai", "ScientificSchematicGenerator",
+    ("diagram.png", "a prompt", 1, "journal", 2),
+)
+
+# `generate_slide_image_ai.py` is a fork of the schematic generator, not one of
+# the byte-identical copies, so it needs its own instantiation of the same
+# review-parsing contract.
+SlideImageReviewParsingTests = skill_contract.schematic.review_parsing_test_case(
+    SCRIPTS, "generate_slide_image_ai"
+)
+SlideImageReviewFailureTests = skill_contract.schematic.review_failure_test_case(
+    SCRIPTS, "generate_slide_image_ai", "SlideImageGenerator",
+    ("slide.png", "a prompt", 1, False, 2),
+)
 CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
 
@@ -822,63 +840,69 @@ class ReviewDecisionTests(SlideGeneratorTestCase):
 
     def test_a_score_at_the_threshold_is_accepted(self) -> None:
         # 6.5 is the threshold itself, so it must not trigger another round.
-        _, score, needs_improvement = self.review(
-            {"content": "SCORE: 6.5\nVERDICT: ACCEPTABLE"}
-        )
-        self.assertEqual(score, 6.5)
-        self.assertFalse(needs_improvement)
+        review = self.review({"content": "SCORE: 6.5\nVERDICT: ACCEPTABLE"})
+        self.assertEqual(review.score, 6.5)
+        self.assertFalse(review.needs_improvement)
 
     def test_a_score_below_the_threshold_asks_for_another_round(self) -> None:
-        _, score, needs_improvement = self.review({"content": "SCORE: 6.4"})
-        self.assertEqual(score, 6.4)
-        self.assertTrue(needs_improvement)
+        review = self.review({"content": "SCORE: 6.4"})
+        self.assertEqual(review.score, 6.4)
+        self.assertTrue(review.needs_improvement)
 
     def test_an_explicit_verdict_overrides_a_high_score(self) -> None:
         # The reviewer's words win: a 9 with NEEDS_IMPROVEMENT is not accepted.
-        _, score, needs_improvement = self.review(
-            {"content": "SCORE: 9\nVERDICT: NEEDS_IMPROVEMENT"}
-        )
-        self.assertEqual(score, 9.0)
-        self.assertTrue(needs_improvement)
+        review = self.review({"content": "SCORE: 9\nVERDICT: NEEDS_IMPROVEMENT"})
+        self.assertEqual(review.score, 9.0)
+        self.assertTrue(review.needs_improvement)
 
     def test_a_loosely_worded_score_is_still_read(self) -> None:
-        _, score, _ = self.review({"content": "Overall quality: 8.5 out of 10"})
-        self.assertEqual(score, 8.5)
+        review = self.review({"content": "Overall quality: 8.5 out of 10"})
+        self.assertEqual(review.score, 8.5)
 
     def test_an_unscored_review_does_not_block_the_pipeline(self) -> None:
-        # No parseable score: assume acceptable rather than loop pointlessly.
-        _, score, needs_improvement = self.review({"content": "Looks good to me"})
-        self.assertEqual(score, 7.0)
-        self.assertFalse(needs_improvement)
+        # No parseable score and no verdict: still no extra round, because a
+        # reviewer that said nothing measurable says nothing about the image.
+        # The score stays None -- a stand-in number here would reach the review
+        # log indistinguishable from one the reviewer actually gave.
+        review = self.review({"content": "Looks good to me"})
+        self.assertIsNone(review.score)
+        self.assertFalse(review.needs_improvement)
+        self.assertTrue(review.error)
 
     def test_a_review_returned_as_content_blocks_is_flattened(self) -> None:
-        critique, score, _ = self.review(
+        review = self.review(
             {"content": [{"type": "text", "text": "SCORE: 6.0"},
                          {"type": "text", "text": "ISSUES: crowded"}]}
         )
-        self.assertEqual(score, 6.0)
-        self.assertIn("crowded", critique)
+        self.assertEqual(review.score, 6.0)
+        self.assertIn("crowded", review.critique)
 
     def test_a_reasoning_only_reply_is_used_as_the_critique(self) -> None:
-        critique, score, _ = self.review({"content": "", "reasoning": "SCORE: 6.0"})
-        self.assertEqual(score, 6.0)
-        self.assertIn("SCORE", critique)
+        review = self.review({"content": "", "reasoning": "SCORE: 6.0"})
+        self.assertEqual(review.score, 6.0)
+        self.assertIn("SCORE", review.critique)
 
     def test_a_failed_review_is_not_treated_as_a_bad_image(self) -> None:
         with mock.patch.object(
             self.generator, "_make_request", side_effect=RuntimeError("API down")
         ):
-            critique, score, needs_improvement = self.generator.review_image(
-                str(self.image_path), "a slide", 1
-            )
-        self.assertFalse(needs_improvement)
-        self.assertEqual(score, 7.0)
-        self.assertIn("review skipped", critique)
+            review = self.generator.review_image(str(self.image_path), "a slide", 1)
+        self.assertFalse(review.needs_improvement)
+        # Nor as a passing one: the image was never actually measured.
+        self.assertIsNone(review.score)
+        self.assertFalse(review.reviewed)
+        self.assertIn("API down", review.critique)
 
 
 class RefinementLoopTests(SlideGeneratorTestCase):
     PAYLOAD = b"first-image"
     BETTER = b"second-image"
+
+    def reviewed(self, critique, score, needs_improvement):
+        """A completed review, in the shape `review_image` returns."""
+        return self.module.ReviewResult(
+            critique, score, needs_improvement, reviewed=True
+        )
 
     def generate(self, images, reviews, **kwargs):
         destination = self.root / "slides" / "01_title.png"
@@ -892,7 +916,7 @@ class RefinementLoopTests(SlideGeneratorTestCase):
 
     def test_a_good_first_image_stops_early_and_is_written(self) -> None:
         results, destination, drew = self.generate(
-            [self.PAYLOAD], [("great", 8.0, False)]
+            [self.PAYLOAD], [self.reviewed("great", 8.0, False)]
         )
         self.assertTrue(results["success"])
         self.assertTrue(results["early_stop"])
@@ -905,7 +929,7 @@ class RefinementLoopTests(SlideGeneratorTestCase):
     def test_a_weak_image_is_regenerated_from_an_improved_prompt(self) -> None:
         results, destination, drew = self.generate(
             [self.PAYLOAD, self.BETTER],
-            [("text too small", 5.0, True), ("better", 7.5, False)],
+            [self.reviewed("text too small", 5.0, True), self.reviewed("better", 7.5, False)],
         )
         self.assertTrue(results["success"])
         self.assertEqual(len(results["iterations"]), 2)
@@ -917,7 +941,7 @@ class RefinementLoopTests(SlideGeneratorTestCase):
     def test_the_iteration_ceiling_still_keeps_the_last_image(self) -> None:
         results, destination, drew = self.generate(
             [self.PAYLOAD, self.BETTER],
-            [("bad", 3.0, True), ("still bad", 4.0, True)],
+            [self.reviewed("bad", 3.0, True), self.reviewed("still bad", 4.0, True)],
             iterations=2,
         )
         self.assertEqual(drew.call_count, 2)
@@ -935,7 +959,7 @@ class RefinementLoopTests(SlideGeneratorTestCase):
 
     def test_the_mode_and_threshold_are_recorded_in_the_results(self) -> None:
         results, _, _ = self.generate(
-            [self.PAYLOAD], [("fine", 7.0, False)], visual_only=True
+            [self.PAYLOAD], [self.reviewed("fine", 7.0, False)], visual_only=True
         )
         self.assertEqual(results["mode"], "visual_only")
         self.assertEqual(results["quality_threshold"], 6.5)

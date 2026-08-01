@@ -30,6 +30,16 @@ import generate_infographic  # noqa: E402
 
 CliHelpTests = skill_contract.cli.help_test_case(SKILL_ROOT)
 
+# `generate_infographic_ai.py` is a fork of the schematic generator and shares
+# its review-parsing code, so it reuses the same contract.
+ReviewParsingTests = skill_contract.schematic.review_parsing_test_case(
+    SCRIPTS, "generate_infographic_ai"
+)
+ReviewFailureTests = skill_contract.schematic.review_failure_test_case(
+    SCRIPTS, "generate_infographic_ai", "InfographicGenerator",
+    ("infographic.png", "a prompt", "statistical", 1, "default", 3),
+)
+
 
 class SubprocessEnvironmentTests(unittest.TestCase):
     def test_only_allowlisted_variables_are_forwarded(self) -> None:

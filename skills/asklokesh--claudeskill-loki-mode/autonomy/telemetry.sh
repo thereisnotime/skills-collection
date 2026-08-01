@@ -187,6 +187,20 @@ _loki_known_command() {
     esac
 }
 
+# Clamp a doctor blocker to a FIXED ENUM. Same discipline as
+# _loki_known_command: an unrecognized value becomes "other" rather than being
+# forwarded, so a new blocker string added later cannot silently start leaking
+# text. Deliberately coarse -- we need to know WHICH CLASS of dependency stops
+# a first run, never the user's paths, versions, or hostnames.
+_loki_known_blocker() {
+    case "${1:-}" in
+        no_provider|node|python3|jq|git|curl|disk|skill_symlink)
+            printf '%s' "$1" ;;
+        *)
+            printf 'other' ;;
+    esac
+}
+
 loki_telemetry() {
     _loki_telemetry_enabled || return 0
     local event="$1"; shift
@@ -297,6 +311,37 @@ loki_emit_funnel_once() {
 # fields are excluded on purpose: headline is a bounded enum (VERIFIED / VERIFIED
 # WITH GAPS / NOT VERIFIED), never spec/project text; files_changed is a COUNT,
 # never paths.
+# loki_emit_first_run_blocked <blocker-key>: fire ONE first_run_blocked event
+# naming the CLASS of dependency that stopped a first run.
+#
+# WHY THIS EXISTS. `first_start_attempted` already fires, so we know a first run
+# was ATTEMPTED and nothing about whether it succeeded. That is the wrong half:
+# an attempt that dies at `doctor` looks identical to one that built something.
+# Without this, the question that decides an adoption strategy -- does a trial
+# fail on capability, discoverability, or trust -- has no data behind it.
+#
+# The measured motivation is concrete: on a host with no provider CLI the Bun
+# route used to print "Some required prerequisites are missing" and stop, while
+# bash pointed at `loki tour`. That was a dead end for a first-time evaluator
+# and nobody could see it happening.
+#
+# WHAT IT SENDS, and deliberately no more: one enum from _loki_known_blocker.
+# Never a path, a version, a hostname, a spec, or a command line. Coarse on
+# purpose -- "node" is actionable, "/Users/x/.nvm/versions/node/v18" is a leak.
+# An adoption tool that exfiltrates a user's environment would cost exactly the
+# trust this product sells.
+#
+# Once per install (the funnel marker), under the strict analytics gate, and
+# every existing opt-out still wins because it routes through the same
+# _loki_analytics_enabled check as everything else.
+loki_emit_first_run_blocked() {
+    local _blocker
+    _blocker="$(_loki_known_blocker "${1:-}")"
+    loki_emit_funnel_once "first-run-blocked" "first_run_blocked" \
+        "blocker=${_blocker}" 2>/dev/null || true
+    return 0
+}
+
 loki_emit_build_verified() {
     _loki_analytics_enabled || return 0
     local _proof="$1"

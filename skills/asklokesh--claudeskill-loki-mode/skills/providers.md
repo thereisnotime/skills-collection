@@ -73,6 +73,40 @@ Quality gates, the completion council, and the Evidence Receipt are all
 model-agnostic: they assert on the artifact that was built, not on which model
 built it. A cheaper or local model gets the same verification as Opus.
 
+### Keeping the model catalog current
+
+`providers/model_catalog.json` is hand-maintained and carries an `updated` date.
+Models ship constantly, so the catalog rots. `loki doctor` reports its age in a
+`Model catalog:` section and warns once it passes 90 days:
+
+```
+WARN  Last updated 2026-01-02 (210 days ago) -- may be missing newer models
+      Refresh: python3 tools/probe-model-catalog.py
+```
+
+The warning is **advisory only**. It never changes an exit code and never fails
+a build (`tests/test-model-catalog-staleness.sh` asserts exactly that). It also
+makes no network call: doctor reads the local file's `updated` field and nothing
+else, so air-gapped operation (`docs/air-gapped.md`) is unaffected.
+
+To refresh:
+
+```bash
+python3 tools/probe-model-catalog.py     # report new model IDs found in provider docs
+```
+
+The probe reads public provider documentation and reports model IDs that are not
+yet in the catalog. **It never rewrites the catalog.** You edit
+`providers/model_catalog.json` by hand -- bump the relevant `latest_<tier>` and
+add the model to `models[]` -- then set `updated` to today. Model adoption is a
+human decision: cost, capability, and behavioural changes all need a person to
+weigh them, and a model ID that does not exist would break every run that
+selects it. Being stale is recoverable; a fabricated model ID is not.
+
+The probe is also wired to a weekly CI job (`.github/workflows/model-catalog-probe.yml`)
+that opens a draft PR with its findings. That job is CI-only -- it is not on any
+runtime path.
+
 ## Claude Code (Default, Full Features)
 
 **Best for:** All use cases. Full autonomous capability.
@@ -246,7 +280,7 @@ aider --message "$prompt" --yes-always --no-auto-commits --model model_name
 **Environment Variables:**
 | Variable | Description |
 |----------|-------------|
-| `LOKI_AIDER_MODEL` | Model to use (default: claude-3.7-sonnet) |
+| `LOKI_AIDER_MODEL` | Model to use. Default comes from `providers/model_catalog.json` (`aider.latest_development`), not a hardcoded string. The global `LOKI_MODEL_*` tier vars do NOT apply to aider. |
 | `LOKI_AIDER_FLAGS` | Extra aider flags (e.g., --architect) |
 
 ---

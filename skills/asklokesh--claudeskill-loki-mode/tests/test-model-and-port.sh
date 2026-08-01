@@ -91,12 +91,25 @@ for prov in cline aider; do
         _${prov}_default_from_catalog 2>/dev/null
     " 2>/dev/null)
     rm -rf "$tmpd"
-    if [ "$result" = "claude-opus-4-8" ]; then
-        log_pass "$prov.sh no-models fallback echoes claude-opus-4-8"
+    # Assert against the CATALOG, not a hardcoded model name. This previously
+    # required every provider to fall back to claude-opus-4-8, which
+    # contradicted providers/model_catalog.json -- aider, cline and opencode
+    # are declared there with open-weights defaults
+    # (openrouter/deepseek/deepseek-v3.2). A test asserting that our
+    # provider-agnostic CLIs default to a Claude model was encoding the bug
+    # rather than catching it, and it is the same class as the stale
+    # claude-opus-4-7 it was written to detect.
+    expected=$(python3 -c "
+import json,sys
+d=json.load(open('providers/model_catalog.json'))['providers']
+print(d.get('$prov',{}).get('latest_development',''))
+" 2>/dev/null)
+    if [ -n "$expected" ] && [ "$result" = "$expected" ]; then
+        log_pass "$prov.sh no-models fallback matches the catalog ($expected)"
     elif [ "$result" = "claude-opus-4-7" ]; then
         log_fail "$prov.sh fallback echoes STALE claude-opus-4-7"
     else
-        log_fail "$prov.sh fallback echoed unexpected: '$result'"
+        log_fail "$prov.sh fallback '$result' does not match catalog '$expected'"
     fi
 done
 

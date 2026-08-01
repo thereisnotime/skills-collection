@@ -5,7 +5,7 @@
 import type { ScrapeFormat } from './scrape';
 
 export type SearchSource = 'web' | 'images' | 'news';
-export type SearchCategory = 'github' | 'research' | 'pdf';
+export type SearchCategory = 'github' | 'research' | 'pdf' | 'developer';
 
 export interface SearchOptions {
   /** Search query (required) */
@@ -18,7 +18,7 @@ export interface SearchOptions {
   limit?: number;
   /** Sources to search: web, images, news (default: web) */
   sources?: SearchSource[];
-  /** Categories to filter results: github, research, pdf */
+  /** Categories to filter results: github, research, pdf, developer */
   categories?: SearchCategory[];
   /** Time-based search parameter (e.g., qdr:h, qdr:d, qdr:w, qdr:m, qdr:y) */
   tbs?: string;
@@ -98,10 +98,25 @@ export interface NewsSearchResult {
   };
 }
 
+/**
+ * One hit from the `developer` category. The index covers GitHub issues,
+ * merged pull requests, repository READMEs, and curated documentation sites.
+ * `description` holds the matched passage, which runs to several KB.
+ */
+export interface DeveloperSearchResult {
+  url: string;
+  title?: string;
+  description?: string;
+  position?: number;
+  category?: string;
+}
+
 export interface SearchResultData {
   web?: WebSearchResult[];
   images?: ImageSearchResult[];
   news?: NewsSearchResult[];
+  /** Present when the `developer` category is requested. */
+  developer?: DeveloperSearchResult[];
 }
 
 export interface SearchResult {
