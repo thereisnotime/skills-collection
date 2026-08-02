@@ -66,7 +66,8 @@ A session is: **start → (install your app) → drive → stop.** `eas-cli` own
 ```bash
 # 1. Start a session (boots the remote sim + agent-device daemon; writes .env.eas-simulator).
 printf '# managed by eas-cli\n' > .env.eas-simulator   # clear any stale session first
-npx --yes eas-cli@latest simulator:start --platform ios --type agent-device --non-interactive
+npx --yes eas-cli@latest simulator:start --platform ios --type agent-device --non-interactive \
+  --name "Checkout flow screenshots"   # always name it — see 'Always name the session'
 #    Then confirm it's live: simulator:get --json → status IN_PROGRESS (bounded poll in run-your-app.md).
 
 # 2. Drive it through `exec` (loads the session env, then runs the command you give it).
@@ -89,14 +90,37 @@ To **watch** it live, hand the user the `webPreviewUrl` that `start` prints (an 
 
 `start` also prints a job-run URL.
 
+## Always name the session
+
+Pass `--name "<description>"` on every `simulator:start`. The name appears in `simulator:list`, `simulator:get`, and on the **Simulator sessions** page on expo.dev, where it replaces the generic title on each row. Unnamed, every row reads "Simulator session" over a random id — a wall of identical entries nobody can navigate. Write the name for a **human scanning that list days later**, not for yourself during this run.
+
+Write what the session is *for*, in a few plain words:
+
+```bash
+--name "Checkout flow screenshots"     # what you did
+--name "Dev build — dark mode fix"     # what you were testing
+--name "Login repro for issue 412"     # why it exists
+```
+
+Rules:
+- Derive it from the user's request, not from the mode or the tooling. `Mode C session`, `agent-device ios`, and `test` say nothing.
+- **Length: aim for 3–6 words, ~40 characters, and treat 50 as the practical limit.** It renders as a single-line title in a narrow table column, so a long name clips. The API accepts up to **255 characters** and rejects an empty/whitespace-only name, but 255 is a ceiling you never approach, not a target. One noun phrase, no sentences.
+- Be specific within that budget. Include a ticket or PR number when there is one.
+- **Sentence case:** capitalize the first word only, and leave identifiers in their real casing (`Dev build for expo-router v4`, `Repro for EXPO-1234`). It's a row title, so no Title Case, no all-lowercase, and no trailing period.
+- **Don't repeat what the table already shows.** Every row already displays the session id, platform, start time, duration, and who created it — so no ids, no `iOS`, no dates, no your-own-name. Spend the whole budget on what those columns can't say: the purpose.
+- If the user names it, use their name as-is.
+- Sessions are per-run, so name each new one for that run. Don't reuse an old name for different work.
+
+`--name` is newer than `simulator:start` itself, so an older installed `eas-cli` can reject it. If that happens, run via `npx --yes eas-cli@latest` or upgrade; as a last resort, retry once without `--name` (the session starts unnamed). See [references/troubleshooting.md](./references/troubleshooting.md).
+
 ## Commands at a glance
 
 | Command | Purpose |
 |---|---|
-| `npx --yes eas-cli@latest simulator:start --platform ios\|android [--type agent-device\|argent\|serve-sim] [--package-version X] [--max-duration-minutes N] [--non-interactive] [--json]` | Create a session; boot the sim + controller; write `.env.eas-simulator`; print `webPreviewUrl` + job-run URL. **`--json` suppresses the `.env.eas-simulator` write** — omit it for the `exec` flow, or set the env yourself from `remoteConfig`. |
+| `npx --yes eas-cli@latest simulator:start --platform ios\|android --name "<description>" [--type agent-device\|argent\|serve-sim] [--package-version X] [--max-duration-minutes N] [--non-interactive] [--json]` | Create a session; boot the sim + controller; write `.env.eas-simulator`; print `webPreviewUrl` + job-run URL. **Always pass `--name`** (see *Always name the session*). **`--json` suppresses the `.env.eas-simulator` write** — omit it for the `exec` flow, or set the env yourself from `remoteConfig`. |
 | `npx --yes eas-cli@latest simulator:exec <cmd> [args…]` | Load `.env.eas-simulator`, then run `<cmd>` with that env. The bridge to the controller. |
-| `npx --yes eas-cli@latest simulator:get [--id] [--json]` | Session status + connection details. **Use this to confirm readiness** (see *Operating principles*). |
-| `npx --yes eas-cli@latest simulator:list [--status …] [--type …] [--platform …]` | List an app's sessions |
+| `npx --yes eas-cli@latest simulator:get [--id] [--json]` | Session status + connection details, including the session `--name`. **Use this to confirm readiness** (see *Operating principles*). |
+| `npx --yes eas-cli@latest simulator:list [--status …] [--type …] [--platform …]` | List an app's sessions by name — this is what the `--name` you pass to `start` is for |
 | `npx --yes eas-cli@latest simulator:stop [--id]` | Stop a session (idempotent) |
 
 ## Running the user's app — pick a mode

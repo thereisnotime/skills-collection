@@ -653,6 +653,16 @@ def _collect_security(loki_dir):
     {ran, total, active, waived, high_active, status, findings:[{rule,severity}]}.
     status: not_run (no scan) | clean (ran, no active findings) | findings
     (ran, active findings present).
+
+    PARTIAL record-half. An active HIGH finding IS read by _compute_degraded and
+    becomes a gap. An UNRUN scan is not: absence of a scan is deliberately not a
+    security gap (tests/test_proof_generator.py::test_no_security_file_is_not_a_gap),
+    so a receipt can read VERIFIED with an empty gap list while no scan ever ran.
+    That matches how `functional` and `healthcheck` behave, and like them,
+    changing it is the founder-gated trust decision rather than an inference to
+    make here. Stated explicitly because those two say so in their own
+    docstrings and this one did not, leaving the behaviour to be inferred from
+    silence -- which is the exact failure the honesty ledger exists to prevent.
     """
     out = {
         "ran": False, "total": 0, "active": 0, "waived": 0,
@@ -1256,6 +1266,36 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     # signed record.
     degraded = _compute_degraded(facts)
     headline = _compute_headline(facts, degraded)
+
+    # Trust gates the operator switched off are a gap in the proof of done, and
+    # the honesty ledger exists so "a reader sees exactly what was NOT verified
+    # rather than inferring it from silence". Measured through the real
+    # generator: a run with code review and security disabled listed only
+    # "build" as its gap, while two correctness checks had not run at all.
+    #
+    # Appended AFTER the headline is computed, deliberately. Feeding these into
+    # _compute_headline would change what "Verified" MEANS, and this file
+    # already records that as a trust-semantics decision for the council and
+    # founder rather than an inference (see the FV-2 note on the functional
+    # fact). This is the record half: the gap becomes visible without the
+    # verdict silently moving under anyone.
+    _dis = (quality_gates or {}).get("disabled_phases") if isinstance(quality_gates, dict) else None
+    _dis = [str(x).strip() for x in _dis] if isinstance(_dis, list) else []
+    for _name in sorted(n for n in _dis
+                        if n.lower() in ("code_review", "security",
+                                         "unit_tests", "e2e_tests")):
+        degraded.append({
+            "item": _name,
+            "status": "disabled",
+            "reason": "switched off for this run, so the check never ran",
+            # Marks an entry appended AFTER the headline was computed. The
+            # verifier filters on this flag rather than on a status string:
+            # statuses will keep being added, and a filter keyed on one of them
+            # silently breaks the next time -- which is exactly what happened
+            # when the unrun-security entry landed with status "not_run".
+            "post_headline": True,
+        })
+
     honesty = {
         "headline": headline,
         "degraded": degraded,

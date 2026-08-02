@@ -10920,9 +10920,9 @@
       "description": "Refresh the repo's captured learnings against the current codebase. Use when auditing stale, overlapping, superseded, or drifted learnings; avoid general refactor, debugging, or code review unless the",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
-      "lines": 721,
-      "words": 9481,
-      "code_blocks": 8,
+      "lines": 202,
+      "words": 3658,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "text"
@@ -10934,7 +10934,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
       "lines": 280,
-      "words": 3669,
+      "words": 3746,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -10966,7 +10966,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
       "lines": 161,
-      "words": 3455,
+      "words": 3532,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -10978,7 +10978,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
       "lines": 571,
-      "words": 7988,
+      "words": 8065,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -10991,7 +10991,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
       "lines": 339,
-      "words": 5577,
+      "words": 5654,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -11003,7 +11003,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
       "lines": 433,
-      "words": 7032,
+      "words": 7109,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -11027,7 +11027,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-sweep/SKILL.md",
       "remote_path": "skills/ce-sweep/SKILL.md",
       "lines": 194,
-      "words": 2476,
+      "words": 2553,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -11063,7 +11063,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 847,
-      "words": 15762,
+      "words": 15839,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -11088,7 +11088,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
       "lines": 369,
-      "words": 7529,
+      "words": 7606,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11100,7 +11100,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-dogfood/SKILL.md",
       "remote_path": "skills/ce-dogfood/SKILL.md",
       "lines": 213,
-      "words": 3164,
+      "words": 3166,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -11113,7 +11113,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
       "lines": 140,
-      "words": 3331,
+      "words": 3408,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11138,7 +11138,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-proof/SKILL.md",
       "remote_path": "skills/ce-proof/SKILL.md",
       "lines": 347,
-      "words": 2351,
+      "words": 2352,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -11173,7 +11173,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
       "lines": 802,
-      "words": 10341,
+      "words": 10417,
       "code_blocks": 19,
       "languages": [
         "bash"
@@ -11185,7 +11185,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
       "lines": 83,
-      "words": 1528,
+      "words": 1605,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11197,7 +11197,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
       "lines": 695,
-      "words": 6017,
+      "words": 6094,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -11223,7 +11223,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-retune/SKILL.md",
       "remote_path": "skills/ce-retune/SKILL.md",
       "lines": 114,
-      "words": 1589,
+      "words": 1666,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11247,7 +11247,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
       "lines": 434,
-      "words": 8277,
+      "words": 8354,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11734,11 +11734,11 @@
     },
     {
       "name": "academic-paper-reviewer",
-      "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Simulates 5 independent reviewers (EIC + 3 peer reviewers + Devil's Advocate) with field-specific expertise. Supports full revi",
+      "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Simulates 5 independent reviewers (Journal-Fit Reviewer + 3 peer reviewers + Devil's Advocate) with field-specific expertise. S",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 452,
-      "words": 4135,
+      "lines": 456,
+      "words": 4382,
       "code_blocks": 4,
       "languages": []
     },
@@ -11748,7 +11748,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
       "lines": 643,
-      "words": 5961,
+      "words": 5962,
       "code_blocks": 11,
       "languages": []
     },
@@ -11757,8 +11757,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 499,
-      "words": 5549,
+      "lines": 501,
+      "words": 5657,
       "code_blocks": 4,
       "languages": []
     },
@@ -11974,8 +11974,8 @@
       "description": "\"Peer Reviewer 3; evaluates cross-disciplinary relevance, broader impact, and alternative interpretations\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
-      "lines": 378,
-      "words": 4069,
+      "lines": 381,
+      "words": 4092,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -11986,8 +11986,8 @@
       "description": "\"Identifies the papers field and dynamically configures the reviewer teams identities and expertise\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/field_analyst_agent.md",
       "remote_path": "academic-paper-reviewer/agents/field_analyst_agent.md",
-      "lines": 212,
-      "words": 1333,
+      "lines": 213,
+      "words": 1363,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -11998,8 +11998,8 @@
       "description": "\"Peer Reviewer 1; assesses methodological soundness, research design validity, and statistical rigor\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
-      "lines": 343,
-      "words": 3741,
+      "lines": 346,
+      "words": 3764,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12010,8 +12010,8 @@
       "description": "\"Synthesizes all reviewer reports into a unified editorial decision letter and revision roadmap\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
-      "lines": 441,
-      "words": 5527,
+      "lines": 444,
+      "words": 5566,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12022,8 +12022,8 @@
       "description": "\"Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
-      "lines": 363,
-      "words": 4067,
+      "lines": 366,
+      "words": 4090,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12034,8 +12034,8 @@
       "description": "\"Challenges core arguments and logical coherence as the devils advocate reviewer in the editorial panel\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
-      "lines": 396,
-      "words": 5542,
+      "lines": 399,
+      "words": 5568,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12043,11 +12043,11 @@
     },
     {
       "name": "eic_agent",
-      "description": "\"Editor-in-Chief seat; contributes the journal-fit / originality / overall-quality review card \u2014 the final editorial decision is editorial_synthesizer_agent's Phase 2 work\"",
+      "description": "\"Journal-Fit Reviewer seat; contributes the journal-fit / originality / overall-quality review card \u2014 the final editorial decision is editorial_synthesizer_agent's Phase 2 work\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
-      "lines": 289,
-      "words": 3480,
+      "lines": 292,
+      "words": 3517,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12070,7 +12070,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "lines": 1004,
-      "words": 17278,
+      "words": 17313,
       "code_blocks": 18,
       "languages": []
     },
@@ -12090,7 +12090,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/state_tracker_agent.md",
       "remote_path": "academic-pipeline/agents/state_tracker_agent.md",
       "lines": 507,
-      "words": 2303,
+      "words": 2304,
       "code_blocks": 6,
       "languages": [
         "json"
@@ -12267,8 +12267,8 @@
       "description": "\"Formats the final manuscript output to target journal style requirements\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
-      "lines": 952,
-      "words": 8080,
+      "lines": 987,
+      "words": 8377,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -20714,9 +20714,9 @@
       "description": "\"EAS service (paid). Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experim",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 181,
-      "words": 2945,
-      "code_blocks": 5,
+      "lines": 205,
+      "words": 3350,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ],
@@ -21955,7 +21955,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
       "lines": 396,
-      "words": 3617,
+      "words": 3619,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -22061,7 +22061,7 @@
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
       "lines": 396,
-      "words": 3617,
+      "words": 3619,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -55686,8 +55686,8 @@
       "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
-      "lines": 176,
-      "words": 3133,
+      "lines": 185,
+      "words": 3500,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55698,8 +55698,8 @@
       "description": "\"Reviews implementation plans against repository evidence and current authoritative guidance. Use before execution to expose gaps and risks; not for completed delivery review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
-      "lines": 149,
-      "words": 2795,
+      "lines": 148,
+      "words": 2804,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -112015,6 +112015,87 @@
       "languages": [],
       "version": "1.0.0",
       "license": "MIT"
+    },
+    {
+      "name": "schema-optimization-orchestrator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/SKILL.md",
+      "remote_path": "workspace/lab/schema-optimization/SKILL.md",
+      "lines": 288,
+      "words": 668,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "phase-1-schema-analysis",
+      "description": "\"Phase 1 of the BigQuery schema optimization pipeline \u2014 parses schema export files to count tables and fields, detect naming patterns and type inconsistencies, flag duplicate or nullable issues, and w",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_1.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_1.md",
+      "lines": 95,
+      "words": 366,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-4-verification",
+      "description": "'Runs BigQuery field-utilization shell scripts to empirically validate phase 2-3 conclusions, reconciles manual vs. script findings, and writes a verification report. Use when phase 3 analysis is comp",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_4.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_4.md",
+      "lines": 119,
+      "words": 439,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-5-recommendations",
+      "description": "'Synthesizes BigQuery schema optimization findings from all prior phases into a prioritized implementation plan with rollback procedures, timelines, and success metrics. Use when all previous phase re",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_5.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_5.md",
+      "lines": 121,
+      "words": 443,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-2-field-utilization",
+      "description": "\"Phase 2 of the BigQuery schema optimization pipeline \u2014 reads the phase 1 report and schema exports to identify fields with >90% null rates, detect never-queried columns, and produce ranked removal an",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_2.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_2.md",
+      "lines": 100,
+      "words": 401,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "phase-3-impact-assessment",
+      "description": "\"Phase 3 of the BigQuery schema optimization pipeline \u2014 evaluates proposed schema changes from phases 1-2 against dependent queries and systems, categorizes each change by risk level, estimates storag",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_3.md",
+      "remote_path": "workspace/lab/schema-optimization/agents/phase_3.md",
+      "lines": 105,
+      "words": 416,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "airflow-operator-creator",

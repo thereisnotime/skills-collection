@@ -492,6 +492,15 @@ jobs:
           python3 scripts/check_role_scoped_contract.py
           python3 scripts/check_decision_contract.py
 
+      - name: Run #611 reviewer protocol/name/calibration lints
+        # Mutation companions run through scripts/_ci_pytest_manifest.toml.
+        env:
+          PYTHONPATH: .
+        run: |
+          python3 scripts/check_reviewer_sprint_prompt_sync.py
+          python3 scripts/check_reviewer_role_label.py
+          python3 scripts/check_calibration_tiers.py
+
       - name: Run v3.10 #134 write-scope three-way name cross-check lint
         # THE FAIL-OPEN GUARD for the Slice 1 write-scope hook. Asserts the 23 Bucket A
         # agent names match across the classification roster, the scope manifest keys,
@@ -653,6 +662,9 @@ jobs:
 
       - name: Validate v3.6.7 Step 8 pattern-eval fixture manifests (Phase 6.8)
         run: python3 scripts/check_pattern_eval_manifest.py
+
+      - name: "Check venue disclosure policy database structure (#596)"
+        run: python3 scripts/check_venue_disclosure_policies.py
 
       - name: "Check policy anchor table structural lint (#108)"
         run: python3 scripts/check_policy_anchor_table.py

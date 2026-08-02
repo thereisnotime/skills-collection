@@ -239,7 +239,11 @@ A PRD enters via `loki start` (`autonomy/loki:622`), which execs `run.sh`. The `
 **Deprecated entrypoints:**
 - `loki run <issue-ref>` is a deprecated alias for `loki start <issue-ref>` since v6.84.0. Emits a `cli_command_deprecated` telemetry event. See `autonomy/loki:4436-4456`. Prefer `loki start`.
 
-See `.claude/projects/-Users-lokesh-git-loki-mode/memory/CODEBASE-KNOWLEDGE-GRAPH.md` for complete reference.
+The fuller codebase knowledge graph lives in local Claude project memory
+(`~/.claude/projects/<sanitized-repo-path>/memory/CODEBASE-KNOWLEDGE-GRAPH.md`),
+not in this repository. It is not tracked in git and is not shipped in the npm
+package, so it resolves only on a machine where that memory exists. The tables
+above are the in-repo reference and are the authority for anyone else.
 
 ## Development Guidelines
 
@@ -331,7 +335,7 @@ Prompt: "Review the following claims for factual accuracy.
 
 ### Version Numbering
 Follows semantic versioning: MAJOR.MINOR.PATCH
-- Current: v8.18.1 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
+- Current: v8.61.0 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
 - MAJOR bump for architecture changes (v6.0.0 = dual-mode architecture, loki run)
 - MINOR bump for new features (v5.23.0 = Dashboard File-Based API)
 - PATCH bump for fixes (v5.22.1 = session.json phantom state)
@@ -367,6 +371,33 @@ the committed `loki-ts/dist/loki.js` matches src, and when that slipped we
 shipped THREE releases reporting the wrong version. At hourly cadence that
 reaches npm before anyone looks. The fast tier keeps that check and the syntax
 checks, and costs about a minute.
+
+**The packaged artifact is the blind spot (2026-08-01).** Four releases were
+spent finding that the checks guarding the SHIPPED PACKAGE were themselves
+unguarded. Everything works from a git checkout, so no in-repo test and no
+GitHub CI job can see these:
+
+- four quality-gate detectors under `tests/` were never in `files[]`, so
+  mutation-integrity fail-closed on EVERY iteration for EVERY npm user --
+  first-pass completion was impossible regardless of model output (v8.38.0)
+- the committed `dist/loki.js` hardcoded version 8.11.0 for 27 releases,
+  because the dist-freshness check was DEFERRED by the fast tier it justifies
+  (v8.40.0)
+- `npm pack tarball contents` was also deferred, and when promoted turned out
+  to pass on "6 or more" matches of 6 patterns that healthily produce 8 -- it
+  tolerated losing two required artifacts (v8.61.0)
+
+Three rules that fall out, and they generalise past packaging:
+
+1. **A check that guards the shipped artifact must run in the FAST tier.** It
+   is the only tier that runs before every push, and CI has no equivalent.
+2. **Assert each required thing individually, never a count.** A threshold
+   cannot say WHICH artifact vanished, and picks up slack it was never meant
+   to have.
+3. **Guard against vacuity.** A substring search over an empty listing reports
+   nothing missing. `npm pack` writes its listing to STDERR -- `2>&1 >file`
+   captures build chatter instead and makes every assertion pass. An empty
+   result is not evidence; it is an absent measurement.
 
 `LOCAL_CI_SHARDS` (default 4) controls local sharding; `LOCAL_CI_SERIAL=1`
 forces serial for diagnosis, since overlapping provider-backed suites starve

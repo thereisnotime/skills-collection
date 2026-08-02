@@ -1111,6 +1111,41 @@ fi
 # Perpetual mode: never stop unless max iterations (ignores all completion signals)
 PERPETUAL_MODE=${LOKI_PERPETUAL_MODE:-false}
 
+# F4: bound the runaway ceiling for ORDINARY runs.
+#
+# MEASURED, not chosen. Real per-iteration wall clock across every recorded run
+# on this machine: median 718s, max 1746s. So the 1000 default is an 8.3-DAY
+# ceiling -- and it is the ONLY backstop, because the other two valves ship
+# disabled: LOKI_BUDGET_LIMIT defaults to "" (check_budget_limit returns
+# immediately) and LOKI_MAX_DURATION defaults to 0 (check_max_duration returns
+# "never stop").
+#
+# It also contradicts our own documentation. SETUP.md tells users to RAISE the
+# budget for large work with LOKI_MAX_ITERATIONS=40, and the demo uses 10 -- so
+# the shipped default is 25x the documented "large" setting.
+#
+# What real runs actually use: 1, 1, 3, 4. Every one terminated `completed` via
+# council approval or a completion promise; NONE hit a cap. Those are the
+# evidence-driven terminals, and they are unaffected by this -- the cap is a
+# backstop, not the mechanism.
+#
+# 25 is deliberately generous against that evidence (6x the observed maximum),
+# because the research is explicit that a too-small cap fails runs whose
+# approach was sound: 1-2 caps fail even when the agent was on track, and the
+# recommended range is 5-10. This is not a first-pass target; F0 (v8.45.0)
+# already stops a doomed run at its CAUSE, which is the better instrument.
+#
+# TWO GUARDS, both load-bearing:
+#   - an explicit LOKI_MAX_ITERATIONS always wins, so nobody's setting changes
+#   - PERPETUAL_MODE is untouched: it deliberately ignores every completion
+#     signal and relies on max-iterations as its ONLY stop, so lowering the cap
+#     there would silently truncate exactly the runs that opted out of stopping
+if [ -z "${LOKI_MAX_ITERATIONS:-}" ] \
+   && [ "$PERPETUAL_MODE" != "true" ] \
+   && [ "${LOKI_AUTO_FIX:-}" != "true" ]; then
+    MAX_ITERATIONS="${LOKI_MAX_ITERATIONS_DEFAULT:-25}"
+fi
+
 # Enterprise background service PIDs (OTEL bridge, audit subscriber, integration sync)
 ENTERPRISE_PIDS=()
 
@@ -3455,7 +3490,7 @@ get_provider_tier_param() {
             echo "${CLINE_DEFAULT_MODEL:-${LOKI_CLINE_MODEL:-default}}"
             ;;
         aider)
-            echo "${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
+            echo "${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-openrouter/deepseek/deepseek-v3.2}}"
             ;;
         *)
             echo "development"
@@ -4167,6 +4202,21 @@ except Exception:
     print('')" "$_fp_file" 2>/dev/null)"
     fi
 
+    # Time to first CODE CHANGE. Companion to first_preview_s for the run that
+    # never previews anything, which is most of them: a scoped issue fix has no
+    # app to bring up, so the preview number is empty and the user had no signal
+    # at all until the run ended.
+    local first_artifact_s=""
+    local _fa_read="$loki_dir/state/first-artifact.json"
+    if [ -f "$_fa_read" ]; then
+        first_artifact_s="$(python3 -c "import json,sys
+try:
+    v=json.load(open(sys.argv[1])).get('seconds_to_first_artifact')
+    print(int(v) if isinstance(v,(int,float)) and v>=0 else '')
+except Exception:
+    print('')" "$_fa_read" 2>/dev/null)"
+    fi
+
     # Where the time went, per stage. Same "written but never read" story as
     # first-preview above: emit_stage_complete (run.sh:2413) has appended a
     # stage_complete record -- stage, status, duration_s, iteration -- to
@@ -4456,6 +4506,13 @@ except Exception:
         # fabricated zero for a run where nothing ever came up.
         if [ -n "$first_preview_s" ]; then
             printf '%-14s %ss\n' "First preview:" "$first_preview_s"
+        fi
+        # First code change, for the (far more common) run with no preview at
+        # all -- a scoped issue fix produces no running app, so first_preview_s
+        # is empty and the user had no signal of any kind until the end. Same
+        # discipline: rendered only when actually recorded, never fabricated.
+        if [ -n "$first_artifact_s" ]; then
+            printf '%-14s %ss\n' "First change:" "$first_artifact_s"
         fi
         printf '%-14s %s\n' "Finished:" "$ts"
         if [ -n "$delegate_branch" ]; then
@@ -6276,7 +6333,7 @@ invoke_cline_capture() {
 invoke_aider() {
     local prompt="$1"
     shift
-    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
+    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-openrouter/deepseek/deepseek-v3.2}}"
     local extra_flags="${LOKI_AIDER_FLAGS:-}"
     # shellcheck disable=SC2086
     # < /dev/null prevents aider from blocking on stdin in non-interactive mode
@@ -6289,7 +6346,7 @@ invoke_aider() {
 invoke_aider_capture() {
     local prompt="$1"
     shift
-    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
+    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-openrouter/deepseek/deepseek-v3.2}}"
     local extra_flags="${LOKI_AIDER_FLAGS:-}"
     # shellcheck disable=SC2086
     aider --message "$prompt" --yes-always --no-auto-commits \
@@ -7773,7 +7830,7 @@ track_iteration_complete() {
         elif [ "${PROVIDER_NAME:-claude}" = "cline" ]; then
             model_tier="${CLINE_DEFAULT_MODEL:-${LOKI_CLINE_MODEL:-sonnet}}"
         elif [ "${PROVIDER_NAME:-claude}" = "aider" ]; then
-            model_tier="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
+            model_tier="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-openrouter/deepseek/deepseek-v3.2}}"
         fi
     fi
     local phase="${LAST_KNOWN_PHASE:-}"
@@ -10529,6 +10586,109 @@ for fnd in data.get("findings", []):
 # Gate Failure Tracking (v6.10.0)
 #===============================================================================
 
+# _loki_gate_stuck: has this gate failed for the SAME reason too many times?
+#
+# F0 in docs/FIRST-PASS-COMPLETION-PLAN.md. A gate that keeps failing for a
+# byte-identical reason is not going to pass on the next try, and re-running the
+# model against it burns an iteration to reach the same verdict.
+#
+# MEASURED. FireLater spent 3 iterations against mutation_integrity, which
+# failed in 0-1 SECONDS each time with the identical line:
+#
+#   [HIGH] mutation detector unavailable: .../tests/detect-test-mutations.sh
+#
+# The detector was never packaged (fixed v8.38.0), so the gate could NEVER pass.
+# The run was doomed at iteration 1 and nothing noticed; it just iterated.
+#
+# WHY "SAME REASON" AND NOT "SAME COUNT". A gate failing three times for three
+# DIFFERENT reasons is the loop working -- the agent is fixing things and finding
+# the next problem. That must keep iterating. Only an unchanging reason means no
+# progress is possible.
+#
+# FAIL-SAFE DIRECTION, load-bearing: on any doubt this returns 1 (not stuck) and
+# the run continues exactly as before. A missing reason file, an unreadable one,
+# a first failure, or a changed reason all keep iterating. This can only ever
+# SHORTEN a doomed run; it can never stop a healthy one, and it never declares
+# success -- the caller maps it to a named terminal failure.
+#
+# Threshold is deliberately 3, not 2: a reason can legitimately repeat once
+# while the agent is mid-fix (it edits, the gate re-runs before the edit lands).
+_loki_gate_stuck() {
+    local gate_name="$1" reason_file="$2" count="${3:-0}"
+    local threshold="${LOKI_GATE_STUCK_THRESHOLD:-3}"
+
+    [ "${LOKI_GATE_STUCK_ABORT:-1}" = "0" ] && return 1
+    [ -n "$reason_file" ] && [ -f "$reason_file" ] || return 1
+
+    local cur prev_file prev
+    # Extract a STABLE cause. Two artifact shapes, both real:
+    #   plain text (mutation-findings.txt) -> first line names the cause; later
+    #     lines carry per-file detail that churns while the cause is unchanged.
+    #   JSON (static-analysis.json)        -> the "summary" field names it. The
+    #     whole file can NOT be used: it carries a timestamp that differs every
+    #     run, so a byte compare would never match and the valve would be dead.
+    case "$reason_file" in
+        *.json)
+            # QUOTED heredoc, not `python3 -c "..."`. A double-quoted -c body
+            # spanning multiple lines makes the repo's $<digit> checker treat
+            # every following line as still inside the body -- it flagged the
+            # `local gate_name="$1"` of the NEXT function. A quoted heredoc also
+            # guarantees bash performs no expansion inside the program at all.
+            cur="$(LOKI_RF="$reason_file" python3 <<'LOKI_STUCK_JSON' 2>/dev/null
+import json, os
+try:
+    d = json.load(open(os.environ['LOKI_RF']))
+except Exception:
+    raise SystemExit
+v = d.get('summary') or d.get('reason') or d.get('error')
+print(str(v).strip() if v else '')
+LOKI_STUCK_JSON
+)" || return 1
+            ;;
+        *)
+            # SKIP the header. These files open with a static banner --
+            # "# Test mutation findings (HIGH blocks this iteration)" -- which is
+            # byte-identical on every run. Comparing it meant EVERY repeated
+            # failure looked "stuck", including a run making real progress
+            # through different findings each iteration. That is the one
+            # direction this valve must never fail in, and a real FireLater run
+            # is what exposed it: gate-stuck-mutation_integrity.last had
+            # recorded the banner, not a cause.
+            #
+            # Take the first line that is neither blank nor a comment, and strip
+            # ANSI colour (the detectors emit it, and the same finding rendered
+            # with and without colour would otherwise compare unequal).
+            cur="$(grep -vE '^[[:space:]]*(#|$)' "$reason_file" 2>/dev/null \
+                   | head -1 \
+                   | sed 's/\x1b\[[0-9;]*m//g')" || return 1
+            ;;
+    esac
+    [ -n "$cur" ] || return 1
+
+    # RECORD ON EVERY FAILURE, compare only at threshold.
+    #
+    # The recording used to sit behind the threshold check, so the first
+    # comparison could not happen until count == threshold+1. Replayed against
+    # the REAL FireLater artifact that motivated this feature, the abort fired
+    # at iteration 4 -- and that run ended at 3. The safety valve would have
+    # missed the exact case it was built for, by one iteration.
+    #
+    # Found only by replaying the preserved .loki/quality/mutation-findings.txt
+    # rather than trusting the unit test, which used synthetic counts and so
+    # never exercised the real arrival order.
+    prev_file="${TARGET_DIR:-.}/.loki/quality/gate-stuck-${gate_name}.last"
+    prev="$(cat "$prev_file" 2>/dev/null || true)"
+    ( mkdir -p "$(dirname "$prev_file")" 2>/dev/null \
+        && printf '%s\n' "$cur" > "$prev_file" 2>/dev/null ) || true
+
+    # Below threshold: the reason is now on record for the next comparison, but
+    # this is not yet enough evidence to stop.
+    [ "${count:-0}" -lt "$threshold" ] 2>/dev/null && return 1
+
+    [ -n "$prev" ] && [ "$prev" = "$cur" ] && return 0
+    return 1
+}
+
 track_gate_failure() {
     local gate_name="$1"
     local gate_file="${TARGET_DIR:-.}/.loki/quality/gate-failure-count.json"
@@ -12014,15 +12174,82 @@ run_magic_debate_gate() {
     local latest_name
     latest_name=$(basename "$latest_spec" .md)
 
+    # NOT guarded on "a generated artifact exists". That guard was written and
+    # then removed after measuring: the `magic update` call above GENERATES the
+    # component (verified -- a bare spec directory gains a 2689-byte
+    # generated/react/<name>.tsx), so by this point the artifact is present and
+    # its code does reach the personas. A guard here would be dead code resting
+    # on a false premise.
+    #
+    # The BLOCK observed while fixing this ("CODE TO REVIEW is still empty") came
+    # from debating a deliberately one-line stub spec, which is a legitimate
+    # verdict on genuinely thin input, not a spurious process block.
     log_info "Magic Modules: running debate on '$latest_name'"
-    local debate_out
+    local debate_out debate_rc
     debate_out=$(cd "$TARGET_DIR" && PYTHONPATH="$PROJECT_DIR" LOKI_PROVIDER="${PROVIDER_NAME:-claude}" \
-        timeout 300 "$PROJECT_DIR/autonomy/loki" magic debate "$latest_name" --rounds 2 2>&1 || true)
+        timeout 300 "$PROJECT_DIR/autonomy/loki" magic debate "$latest_name" --rounds 2 2>&1) \
+        && debate_rc=0 || debate_rc=$?
 
-    # Parse debate outcome; block if any persona set severity=block
+    # A debate that could not RUN is not a debate that found nothing. The old
+    # code ended this pipeline in '|| true' and then grepped for a blocking
+    # severity, so a crash produced no match and the gate reported PASS -- which
+    # is how a TypeError in the CLI call left Gate 12 silently fail-open.
+    #
+    # But "could not run" splits in two, and the halves need opposite handling:
+    #
+    #   ENVIRONMENT  the provider CLI is absent, timed out, or exited non-zero.
+    #                Common and not the project's fault. Blocking here would
+    #                stop every run without working provider credentials over an
+    #                advisory gate, so this DEGRADES: warn, record, return 0.
+    #   WIRING       the debate itself is broken (import error, bad arguments).
+    #                Nobody's build is judged and nobody is told, which is the
+    #                defect being fixed. This must be LOUD.
+    #
+    # Fail-safe direction is deliberate: an unrecognised failure degrades rather
+    # than blocks, so a new provider error shape can never wedge every build.
+    if [ "$debate_rc" -ne 0 ]; then
+        case "$debate_out" in
+            *"not available"*|*TypeError*|*SyntaxError*|*ImportError*|*"unexpected keyword"*)
+                log_error "Magic Modules Gate 12 is BROKEN for '$latest_name' (rc=$debate_rc): the debate could not execute, so no component is being judged."
+                printf '%s\n' "$debate_out" | tail -5 >&2
+                return 1
+                ;;
+        esac
+        if [ "$debate_rc" -eq 124 ]; then
+            log_warn "Magic Modules Gate 12: debate timed out after 300s for '$latest_name'; treating as not-judged, not as PASS"
+        else
+            log_warn "Magic Modules Gate 12: debate could not run (rc=$debate_rc, provider/environment) for '$latest_name'; treating as not-judged, not as PASS"
+        fi
+        printf '%s\n' "$debate_out" | tail -3 >&2
+        return 0
+    fi
+
+    # Parse debate outcome; block if any persona set severity=block.
+    #
+    # ADVISORY BY DEFAULT (LOKI_GATE_MAGIC_DEBATE_BLOCKING=true to enforce).
+    # This gate was fail-open from v6.77.0 until the TypeError above was fixed,
+    # so its blocking path had NEVER run against a real project. Measuring it
+    # before enabling it showed why that matters: on a deliberately thorough
+    # spec -- explicit KB budgets, a named device class, zero-JS server
+    # component, stated contrast ratio -- THREE of four personas still returned
+    # "block". Two independent specs, two blocks.
+    #
+    # A single "block" from any one persona ANDs four strict reviewers together,
+    # so the gate approves only when all four are simultaneously satisfied. That
+    # is a threshold almost nothing clears, and flipping it on would turn a gate
+    # that never blocked into one that blocks nearly every build -- a worse
+    # regression than the silent fail-open being fixed here.
+    #
+    # The finding is still surfaced and still recorded; it just does not stop
+    # the run until the threshold is tuned against real projects. Making a
+    # never-exercised gate enforcing is a separate, measured decision.
     if echo "$debate_out" | grep -qi '"severity"[[:space:]]*:[[:space:]]*"block"'; then
-        log_warn "Magic Modules Gate 12: debate returned BLOCK severity for '$latest_name'"
-        return 1
+        if [ "${LOKI_GATE_MAGIC_DEBATE_BLOCKING:-false}" = "true" ]; then
+            log_warn "Magic Modules Gate 12: debate returned BLOCK severity for '$latest_name'"
+            return 1
+        fi
+        log_warn "Magic Modules Gate 12: debate returned BLOCK severity for '$latest_name' (advisory; set LOKI_GATE_MAGIC_DEBATE_BLOCKING=true to enforce)"
+        return 0
     fi
 
     log_info "Magic Modules Gate 12: PASS"
@@ -13230,7 +13457,7 @@ _dispatch_reviewer() {
             if [ "$_review_deadline_ms" -gt 0 ]; then
                 _aider_cap=$(_loki_review_deadline_remaining "$_review_deadline_ms") || return 124
             fi
-            local _aider_model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
+            local _aider_model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-openrouter/deepseek/deepseek-v3.2}}"
             local _aider_flags=()
             [ -n "${LOKI_AIDER_FLAGS:-}" ] && read -r -a _aider_flags <<< "$LOKI_AIDER_FLAGS"
             _loki_with_deadline "$_aider_cap" aider --message "$prompt_text" \
@@ -14263,6 +14490,43 @@ reviewers = mandatory + [
         }
         for name in installed_selected
     ]
+# TOTAL council cap (LOKI_REVIEW_MAX_REVIEWERS). The tier map sizes the
+# SPECIALIST slots ({simple:2, standard:2, complex:4}), but installed agents and
+# the dependency-analyst append AFTER that sizing, so nothing bounded the total.
+# Measured consequence, from real code_review_start/complete pairs:
+#
+#     3 reviewers ->  31s        6 reviewers -> 177s
+#     7 reviewers -> 280s        7 reviewers -> 502s
+#
+# Dispatch is already concurrent, so this superlinearity is the max-of-N tail
+# plus contention on one provider -- a scoped issue was drawing a 7-member
+# council (including two overlapping security reviewers) and paying 9-16x the
+# 3-member wall clock for it.
+#
+# TRIMMING ORDER IS A SAFETY PROPERTY. Mandatory reviewers
+# (requirements-verifier, architecture-strategist, maintainer-mergeability) are
+# NEVER dropped: each carries a mandate no keyword-selected specialist has, and
+# shrinking a council must never be able to manufacture an approval. Only the
+# appended tail (installed agents, then keyword specialists beyond the floor) is
+# trimmed, and the cap can never cut below the mandatory set.
+#
+# Default 0 = uncapped, preserving today's behaviour exactly. This is a knob to
+# be turned on deliberately per route, not a silent change to every council.
+try:
+    _cap = int(os.environ.get("LOKI_REVIEW_MAX_REVIEWERS", "0") or "0")
+except ValueError:
+    _cap = 0
+if _cap > 0 and len(reviewers) > _cap:
+    _mandatory_names = {r["name"] for r in mandatory}
+    _keep = [r for r in reviewers if r["name"] in _mandatory_names]
+    for _r in reviewers:
+        if len(_keep) >= _cap:
+            break
+        if _r["name"] not in _mandatory_names:
+            _keep.append(_r)
+    # Never below the mandatory set, even if the cap is set lower than it.
+    reviewers = _keep if len(_keep) >= len(_mandatory_names) else reviewers
+
 if os.environ.get("LOKI_REVIEW_REQUIREMENTS_ONLY") == "1":
     reviewers = [
         reviewer for reviewer in reviewers
@@ -16543,6 +16807,21 @@ is_rate_limited() {
     local _err='(error|errored|failed|exceeded|http[ /]?[0-9]|status[: ]+[0-9]|too many requests)'
     local _rl='(rate.?limit|too many requests|quota exceeded|request limit|429[ )"]*too many|retry.?after)'
     if printf '%s\n' "$tail_txt" | grep -qiE "(${_rl}).*(${_err})|(${_err}).*(${_rl})" 2>/dev/null; then
+        return 0
+    fi
+
+    # SELF-SUFFICIENT phrases: unambiguous on their own, and broken by the
+    # co-occurrence rule above. "quota exceeded" CONTAINS its own error word, so
+    # the alternation consumed "exceeded" as the rate-limit half and then found
+    # no error half left to match -- "API quota exceeded for project", the
+    # canonical quota rate-limit line, did not match at all.
+    #
+    # These stay narrow deliberately. A bare "429", a bare "retry-after", or an
+    # "X-RateLimit-*" header must still NOT qualify alone: those appear in the
+    # agent's own generated source, and treating them as a limit caused the
+    # multi-minute false waits the co-occurrence rule was added to stop.
+    if printf '%s\n' "$tail_txt" \
+        | grep -qiE '(quota exceeded|rate limit exceeded|too many requests)' 2>/dev/null; then
         return 0
     fi
 
@@ -21100,7 +21379,23 @@ except Exception:
         # shellcheck disable=SC1090
         . "${SCRIPT_DIR}/spec-interrogation.sh" 2>/dev/null || true
         if type spec_interrogation_run &>/dev/null; then
+            # TIMED. Startup was completely unmeasured: on a real run, 128
+            # SECONDS elapsed between session_start and iteration_start -- over
+            # two minutes in which the user sees nothing and no agent work has
+            # begun. Nothing in .loki/events.jsonl accounted for any of it, so
+            # the interval could not be attributed, let alone optimised.
+            #
+            # This step calls the provider, so it is the prime suspect for the
+            # bulk of that window. Naming it turns "startup is slow" into a
+            # number, the same way stage timings turned "the run is slow" into
+            # "the agent call is 93% of wall clock".
+            #
+            # Uses the existing emit_stage_complete channel, so measure-run.sh
+            # and every other consumer pick it up with no new plumbing.
+            local _si_t0
+            _si_t0=$(date +%s 2>/dev/null || echo 0)
             spec_interrogation_run "$prd_path" || true
+            emit_stage_complete "spec_interrogation" "pass" "$_si_t0" 2>/dev/null || true
         fi
         # #87: no-HITL fast-fail on an unresolved spec-INTERNAL contradiction.
         # A contradiction (class=contradictory) is NEVER auto-acked (P2-4) and only
@@ -22258,6 +22553,11 @@ if __name__ == "__main__":
                 local -a _loki_codex_pipe_status=()
                 LOKI_CODEX_REASONING_EFFORT="$_loki_codex_effort" \
                 CODEX_MODEL_REASONING_EFFORT="$_loki_codex_effort" \
+                # Stamp BEFORE the call: the usage reader bounds its rollout
+                # search by mtime, so a stale session from an earlier iteration
+                # cannot be attributed to this one. Attributing the wrong
+                # session is worse than reporting nothing -- it looks like data.
+                _loki_codex_usage_since="$(date +%s 2>/dev/null || echo 0)"
                 LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
                 _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
                 codex exec --sandbox workspace-write --skip-git-repo-check \
@@ -22266,6 +22566,49 @@ if __name__ == "__main__":
                 exit_code="$(_loki_provider_pipeline_exit_code \
                     "${_loki_codex_pipe_status[0]:-125}" \
                     "${_loki_codex_pipe_status[1]:-125}" 0)"
+                # W1: recover token usage from the codex session rollout.
+                #
+                # Measured on a real FireLater run: EVERY efficiency record had
+                # input_tokens=0, output_tokens=0, cost_usd=0. Not just cost --
+                # we recorded nothing, because _read_iteration_cost looks for a
+                # result-cost file or context tracker and codex writes neither.
+                # A zero is a claim that the iteration was free.
+                #
+                # codex reports usage only under `codex exec --json`, and the
+                # dispatch above pipes stdout through tee into logs the runner
+                # parses for completion signals -- switching to JSONL would
+                # change the format every one of those readers depends on. The
+                # session rollout carries the same total_token_usage, so this
+                # reads it as a side channel with zero risk to the pipeline.
+                #
+                # Best-effort by construction: on any failure the helper prints
+                # nothing and exits non-zero, and no result-cost file is
+                # written, so cost stays UNKNOWN rather than a fabricated 0.
+                if [ -n "${_loki_codex_usage_since:-}" ] \
+                   && [ -f "${SCRIPT_DIR}/lib/codex-usage.py" ]; then
+                    _cx_usage="$(LOKI_CODEX_RESOLVED_MODEL="${LOKI_CURRENT_MODEL:-${PROVIDER_MODEL_DEVELOPMENT:-}}" \
+                        python3 "${SCRIPT_DIR}/lib/codex-usage.py" \
+                        "$_loki_codex_usage_since" 2>/dev/null)" || _cx_usage=""
+                    if [ -n "$_cx_usage" ]; then
+                        set -- $_cx_usage
+                        mkdir -p "${TARGET_DIR:-.}/.loki/metrics" 2>/dev/null || true
+                        # total_cost_usd is emitted ONLY when the model was
+                        # priced. Omitting the key leaves cost UNKNOWN; writing
+                        # 0 would claim the iteration was free.
+                        if [ -n "${5:-}" ]; then
+                            printf '{"input_tokens":%s,"output_tokens":%s,"cache_read_tokens":%s,"cache_creation_tokens":%s,"total_cost_usd":%s}\n' \
+                                "${1:-0}" "${2:-0}" "${3:-0}" "${4:-0}" "$5" \
+                                > "${TARGET_DIR:-.}/.loki/metrics/result-cost-${ITERATION_COUNT}.json" 2>/dev/null || true
+                        else
+                            printf '{"input_tokens":%s,"output_tokens":%s,"cache_read_tokens":%s,"cache_creation_tokens":%s}\n' \
+                                "${1:-0}" "${2:-0}" "${3:-0}" "${4:-0}" \
+                                > "${TARGET_DIR:-.}/.loki/metrics/result-cost-${ITERATION_COUNT}.json" 2>/dev/null || true
+                        fi
+                        log_info "Codex usage: ${1:-0} in (+${3:-0} cached), ${2:-0} out, cost=${5:-unknown}"
+                    else
+                        log_warn "Codex token usage unavailable for iteration ${ITERATION_COUNT}; cost will read UNKNOWN, not zero."
+                    fi
+                fi
                 ;;
 
             cline)
@@ -22277,8 +22620,8 @@ if __name__ == "__main__":
                 ;;
             aider)
                 # Aider: Tier 3 - degraded mode, 18+ providers
-                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}, tier: $tier_param" >> "$log_file"
-                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}, tier: $tier_param" >> "$agent_log"
+                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-openrouter/deepseek/deepseek-v3.2}}, tier: $tier_param" >> "$log_file"
+                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-openrouter/deepseek/deepseek-v3.2}}, tier: $tier_param" >> "$agent_log"
                 { invoke_aider "$prompt" 2>&1 | tee -a "$log_file" "$agent_log" "$iter_output"; \
                 } && exit_code=0 || exit_code=$?
                 ;;
@@ -22307,6 +22650,70 @@ if __name__ == "__main__":
         # the one the founder could not see. start_time already exists, so this
         # costs zero extra subprocesses -- we pass the existing epoch through.
         emit_stage_complete "agent" "$([ "$exit_code" -eq 0 ] 2>/dev/null && echo pass || echo fail)" "$start_time"
+
+        # AGENT PROMPT SIZE. The call this brackets is 93% of a run's wall clock
+        # (1814s of 1941s measured), and its INPUT was never measured -- every
+        # reviewer logs its prompt bytes, the dominant call logged nothing.
+        #
+        # Prompt size is the input side of that 93% and one of the few levers we
+        # actually control: we cannot make the provider faster, but we can send
+        # it less. Without the number, "the prompt got bigger" is invisible
+        # until it shows up as latency and cost with no attributable cause --
+        # the same gap W1 closed for tokens.
+        #
+        # Costs one `wc -c` on a string already in memory: no subprocess for the
+        # provider, no extra file read. Emitted on the existing event channel so
+        # measure-run.sh and the receipt pick it up with no new plumbing.
+        if [ -n "${prompt:-}" ]; then
+            local _agent_prompt_bytes
+            _agent_prompt_bytes=$(printf '%s' "$prompt" | wc -c 2>/dev/null | tr -d ' ')
+            case "$_agent_prompt_bytes" in
+                ''|*[!0-9]*) ;;   # unmeasurable -> emit nothing, never a zero
+                *)
+                    emit_event_json "agent_prompt" \
+                        "bytes=$_agent_prompt_bytes" \
+                        "iteration=${ITERATION_COUNT:-0}" \
+                        "duration_s=$duration" 2>/dev/null || true
+                    ;;
+            esac
+        fi
+
+        # TIME TO FIRST ARTIFACT. The companion to seconds_to_first_preview, for
+        # the case that has no preview at all.
+        #
+        # first-preview.json only fires for a previewable app. A scoped GitHub
+        # issue fix -- the shape the founder measured at 21 minutes -- produces
+        # no preview, so NOTHING marks the moment the run first changed code.
+        # The user sees an idle terminal until the whole iteration ends, which
+        # is why the felt time is worse than the measured time even when the
+        # measured time is competitive. Replit shows something at ~2 minutes;
+        # we showed nothing until the end.
+        #
+        # Write-once per run, and best-effort: a failure here must never affect
+        # the iteration. Measured against the ITERATION start, not the run
+        # start, because that is the interval the user is actually staring at.
+        if [ -z "${_LOKI_FIRST_ARTIFACT_DONE:-}" ]; then
+            local _fa_file="${TARGET_DIR:-.}/.loki/state/first-artifact.json"
+            if [ ! -f "$_fa_file" ]; then
+                local _fa_changed
+                _fa_changed="$(cd "${TARGET_DIR:-.}" 2>/dev/null \
+                    && git status --porcelain 2>/dev/null | head -1)"
+                if [ -n "$_fa_changed" ]; then
+                    mkdir -p "$(dirname "$_fa_file")" 2>/dev/null || true
+                    # Atomic: a partial read of this file must never look valid.
+                    local _fa_tmp="${_fa_file}.$$"
+                    printf '{"seconds_to_first_artifact":%s,"iteration":%s}\n' \
+                        "$((end_time - start_time))" "${ITERATION_COUNT:-0}" \
+                        > "$_fa_tmp" 2>/dev/null \
+                        && mv -f "$_fa_tmp" "$_fa_file" 2>/dev/null \
+                        && log_info "First code change after $((end_time - start_time))s"
+                    rm -f "$_fa_tmp" 2>/dev/null || true
+                    _LOKI_FIRST_ARTIFACT_DONE=1
+                fi
+            else
+                _LOKI_FIRST_ARTIFACT_DONE=1
+            fi
+        fi
 
         # v7.5.12 Gap A: Distinguish signal-induced exits (130/143/137) from clean failure.
         # Without this, post-iteration logic may quietly proceed past a SIGINT/SIGTERM,
@@ -22530,6 +22937,19 @@ if __name__ == "__main__":
                     sa_count=$(track_gate_failure "static_analysis")
                     gate_failures="${gate_failures}static_analysis,"
                     log_warn "Static analysis FAILED ($sa_count consecutive) - findings injected into next iteration"
+                    # F0, extended past mutation_integrity. Static analysis is
+                    # the second of the three gates that have ever caused an
+                    # extra iteration here, and an unchanging summary means the
+                    # same syntax/lint error survived a whole pass.
+                    if _loki_gate_stuck "static_analysis" \
+                        "${TARGET_DIR:-.}/.loki/quality/static-analysis.json" "$sa_count"; then
+                        log_error "Static analysis has failed $sa_count times for the SAME reason. Another iteration would reach the same verdict. Stopping instead of grinding."
+                        emit_event_json "gate_stuck" \
+                            "gate=static_analysis" \
+                            "consecutive=$sa_count" 2>/dev/null || true
+                        save_state "${retry:-0}" "gate_stuck_static_analysis" 20 2>/dev/null || true
+                        return 20
+                    fi
                 fi
                 emit_stage_complete "static_analysis" "$_stg_ok" "$_stg_t0"
             fi
@@ -22582,6 +23002,14 @@ if __name__ == "__main__":
                     local tc_count
                     tc_count=$(track_gate_failure "test_coverage")
                     gate_failures="${gate_failures}test_coverage,"
+                    # Fourth dead branch, found by deriving the handled-gate set
+                    # from the writer instead of hardcoding it: test_coverage
+                    # maps to quality/test-results.json and had no caller either.
+                    if [ "$(gate_failure_disposition "$tc_count")" != "block" ]; then
+                        local _tc_thresh="$GATE_CLEAR_LIMIT"
+                        [ "$GATE_ESCALATE_LIMIT" -lt "$_tc_thresh" ] && _tc_thresh="$GATE_ESCALATE_LIMIT"
+                        write_gate_escalation_guidance "test_coverage" "$tc_count" "$_tc_thresh" || true
+                    fi
                     # P0-1 Fix A: distinguish a coverage-only block (tests passed,
                     # enforced coverage below threshold) from a genuine tests-red
                     # block in the log so the operator is not misled.
@@ -22617,6 +23045,36 @@ if __name__ == "__main__":
                         mk_count=$(track_gate_failure "mock_integrity")
                         gate_failures="${gate_failures}mock_integrity,"
                         log_warn "Mock integrity gate FAILED ($mk_count consecutive) - CRITICAL/HIGH mock problems"
+                        # Escalation guidance was DEAD for this gate.
+                        # write_gate_escalation_guidance already handles
+                        # mock_integrity, mutation_integrity and test_coverage by
+                        # name -- and only code_review ever called it, so those
+                        # branches could never run.
+                        #
+                        # Measured: on a real run mock_integrity failed THREE
+                        # times (the most of any gate) and
+                        # .loki/signals/GATE_ESCALATION.json was never written.
+                        # The agent was told the gate failed and never handed the
+                        # findings file that says WHY, which is the 56%
+                        # "did not attempt to recover" failure shape.
+                        if [ "$(gate_failure_disposition "$mk_count")" != "block" ]; then
+                            local _mk_thresh="$GATE_CLEAR_LIMIT"
+                            [ "$GATE_ESCALATE_LIMIT" -lt "$_mk_thresh" ] && _mk_thresh="$GATE_ESCALATE_LIMIT"
+                            write_gate_escalation_guidance "mock_integrity" "$mk_count" "$_mk_thresh" || true
+                        fi
+                        # F0, third gate. Measured on the v8.49.0 FireLater run:
+                        # mock_integrity failed 3 times -- MORE than any other
+                        # gate -- and was not wired to the stuck check, so an
+                        # unfixable mock problem could grind indefinitely.
+                        if _loki_gate_stuck "mock_integrity" \
+                            "${TARGET_DIR:-.}/.loki/quality/mock-findings.txt" "$mk_count"; then
+                            log_error "Mock integrity has failed $mk_count times for the SAME reason. Another iteration would reach the same verdict. Stopping instead of grinding."
+                            emit_event_json "gate_stuck" \
+                                "gate=mock_integrity" \
+                                "consecutive=$mk_count" 2>/dev/null || true
+                            save_state "${retry:-0}" "gate_stuck_mock_integrity" 20 2>/dev/null || true
+                            return 20
+                        fi
                         ;;
                     *)
                         _stg_ok=not_run
@@ -22640,6 +23098,30 @@ if __name__ == "__main__":
                     mt_count=$(track_gate_failure "mutation_integrity")
                     gate_failures="${gate_failures}mutation_integrity,"
                     log_warn "Mutation integrity gate FAILED ($mt_count consecutive) - HIGH test-fitting detected"
+                    # Same dead-branch fix as mock_integrity above:
+                    # write_gate_escalation_guidance maps mutation_integrity to
+                    # mutation-findings.txt and nothing ever called it with that
+                    # gate name, so the mapping could never fire.
+                    if [ "$(gate_failure_disposition "$mt_count")" != "block" ]; then
+                        local _mt_thresh="$GATE_CLEAR_LIMIT"
+                        [ "$GATE_ESCALATE_LIMIT" -lt "$_mt_thresh" ] && _mt_thresh="$GATE_ESCALATE_LIMIT"
+                        write_gate_escalation_guidance "mutation_integrity" "$mt_count" "$_mt_thresh" || true
+                    fi
+                    # F0: an unchanging cause means the next iteration reaches
+                    # the same verdict. FireLater burned 3 iterations here on a
+                    # detector that was never packaged, failing in 0-1s each
+                    # time with an identical line. Stop honestly instead.
+                    if _loki_gate_stuck "mutation_integrity" \
+                        "${TARGET_DIR:-.}/.loki/quality/mutation-findings.txt" "$mt_count"; then
+                        log_error "Mutation integrity has failed $mt_count times for the SAME reason:"
+                        log_error "  $(head -1 "${TARGET_DIR:-.}/.loki/quality/mutation-findings.txt" 2>/dev/null)"
+                        log_error "Another iteration would reach the same verdict. Stopping instead of grinding."
+                        emit_event_json "gate_stuck" \
+                            "gate=mutation_integrity" \
+                            "consecutive=$mt_count" 2>/dev/null || true
+                        save_state "${retry:-0}" "gate_stuck_mutation_integrity" 20 2>/dev/null || true
+                        return 20
+                    fi
                 fi
                 emit_stage_complete "mutation_integrity" "$_stg_ok" "$_stg_t0"
             fi
@@ -22757,8 +23239,37 @@ if __name__ == "__main__":
                     log_warn "Invariant gate FAILED ($inv_count consecutive) - CRITICAL/HIGH invariant/property violations (advisory; surfaced to next iteration)"
                 fi
             fi
+            # SKIP THE COUNCIL WHEN A DETERMINISTIC GATE ALREADY FAILED
+            # (LOKI_REVIEW_SKIP_ON_GATE_FAIL, default off).
+            #
+            # Measured: the council costs 31s at 3 reviewers and 280-502s at 6-7.
+            # The gates above cost ~6s COMBINED (static_analysis 5s, security_scan
+            # 1s, lsp_diagnostics 1s, test_suite <1s). When one of them has already
+            # failed, the iteration cannot be accepted no matter what the council
+            # says -- gate_failures is non-empty and feeds the same completion
+            # decision -- so the review is spending 280-502s to produce advice on
+            # code that is already going back for another pass.
+            #
+            # WHAT THIS IS NOT. It does not weaken any gate: a skipped review is
+            # recorded as skipped, never as a PASS, and the failing gate still
+            # blocks exactly as before. It cannot turn a rejection into an
+            # approval -- it only declines to spend five minutes describing a
+            # rejection that is already decided.
+            #
+            # DEFAULT OFF. Review findings are also next-iteration STEERING
+            # (LOKI_INJECT_FINDINGS), so skipping trades some guidance for a large
+            # latency win. That trade is a per-route decision, not a silent
+            # global one.
+            local _skip_review=false
+            if [ "${LOKI_REVIEW_SKIP_ON_GATE_FAIL:-false}" = "true" ] \
+               && [ -n "${gate_failures:-}" ]; then
+                _skip_review=true
+            fi
+            if [ "$_skip_review" = "true" ]; then
+                log_warn "Code review SKIPPED: deterministic gates already failed (${gate_failures%,}). The iteration is already going back; not spending a full council on it. Unset LOKI_REVIEW_SKIP_ON_GATE_FAIL to always review."
+                emit_stage_complete "code_review" "skipped" "$(date +%s 2>/dev/null)"
             # Code review gate (upgraded from advisory, with escalation)
-            if [ "$PHASE_CODE_REVIEW" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
+            elif [ "$PHASE_CODE_REVIEW" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: code review..."
                 local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 if run_code_review; then
@@ -22829,8 +23340,30 @@ if __name__ == "__main__":
                     # v7.5.3 Phase 1 hook: persist structured findings +
                     # auto-write learnings (one shell-out per iteration).
                     # Best-effort; never fails the main loop.
-                    if [ "${LOKI_INJECT_FINDINGS:-1}" != "0" ] && command -v bun >/dev/null 2>&1; then
-                        bun "${SCRIPT_DIR}/../loki-ts/dist/loki.js" internal phase1-hooks reflect "$ITERATION_COUNT" 2>/dev/null || true
+                    if [ "${LOKI_INJECT_FINDINGS:-1}" != "0" ]; then
+                        if command -v bun >/dev/null 2>&1; then
+                            bun "${SCRIPT_DIR}/../loki-ts/dist/loki.js" internal phase1-hooks reflect "$ITERATION_COUNT" 2>/dev/null || true
+                        else
+                            # DEGRADED, and said so. Findings injection is what
+                            # tells the next iteration WHAT to fix; without it the
+                            # agent knows only that it failed. Research puts "the
+                            # agent did not attempt to recover from an error" at
+                            # 56% of all agent failures, and a feedback loop that
+                            # silently stops feeding back manufactures exactly that
+                            # shape -- the next iteration then looks like the model
+                            # failing, when it was never told what went wrong.
+                            #
+                            # Defaults ON but was gated on `command -v bun`, so on a
+                            # machine without bun it degraded with no signal at all.
+                            # A missing capability must be visible; a silent one is
+                            # worse than an absent feature because it misattributes
+                            # the failure.
+                            log_warn "Findings injection unavailable (bun not found): the next iteration will be told it failed but NOT what to fix. Install bun, or set LOKI_INJECT_FINDINGS=0 to silence this."
+                            emit_event_json "capability_degraded" \
+                                "capability=inject_findings" \
+                                "reason=bun_not_found" \
+                                "impact=next_iteration_lacks_structured_findings" 2>/dev/null || true
+                        fi
                     fi
                 fi
                 emit_stage_complete "code_review" "$_stg_ok" "$_stg_t0"

@@ -5,7 +5,2176 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v8.18.1
+## v8.61.0
+
+### W3: the call costing 93% of the run never reported its own input
+
+Measured on a real run: the agent call is **1814s of 1941s** wall clock. Every
+code reviewer logs its prompt bytes -- *"Reviewer security-sentinel: prompt
+160074 bytes"* -- and the dominant call logged **nothing**. Searching run.sh
+for an agent prompt-size metric returned zero.
+
+**Why prompt size specifically.** We cannot make the provider faster and we
+cannot train a model. The market's own finding is that *"the same model in a
+different harness routinely drops 10-15 points"* -- the harness is the lever,
+and prompt size is the input side of that 93%. Send less, pay less, wait less.
+
+Without the number a regression is invisible: a prompt that grows 40% surfaces
+only as latency and cost with **no attributable cause** -- the same shape as
+the cost arc, where four surfaces reported `$0.00` because nothing measured
+tokens.
+
+Now emitted with the agent stage, carrying `bytes` **and** `duration_s` so size
+and latency can be correlated, and rendered by `measure-run.sh`:
+
+```
+agent prompt      : 200 KB median (160-200 KB over 2 call(s))
+```
+
+Costs one `wc -c` on a string already in memory -- no subprocess, no file read.
+
+### Absent is not zero
+
+A run predating this emits nothing, and the report says **`not recorded`**, not
+`0 KB`. A fabricated zero would be averaged into later analysis as a real
+observation. Both directions mutation-pinned: removing the emit, and rendering
+`0 KB` for a run with no data, each turn the test red.
+
+Verified against the real FireLater workspace, which predates the event: it
+correctly reports `not recorded` rather than inventing a figure.
+
+### A harness bug caught before it became a false verdict
+
+The first version of the test used `grep -B12` and reported **three failures
+against correct code** -- the emit is a multi-line continuation, so its
+arguments live *after* the matched line while the guard lives before. A
+one-directional window cannot see both. Fixed to span `-B26 -A6`.
+
+That is the fourth time this session a harness bug produced a verdict about
+code that was actually fine. Verifying the tool before believing the verdict is
+what caught it each time.
+
+Trust-core detector: 91 invariants.
+
+## v8.60.0
+
+### One missing measurement must not become four different lies
+
+A single defect -- codex writing no token usage -- surfaced independently on
+four surfaces, and every one of them turned *"we did not measure"* into
+*"it was free"*:
+
+| release | surface | the claim it made |
+|---|---|---|
+| v8.51.0 | codex dispatch | recorded no tokens at all |
+| v8.52.0 | Evidence Receipt | `{"usd": 0.0, "available": true}` |
+| v8.53.0 | **the prompt** | `$0.00`, steering the agent |
+| v8.54.0 | **the verifier** | never checked cost, so the claim passed |
+
+Each was fixed in isolation and each has its own unit test. **None of those
+tests can see a fifth surface drift, or one of the four regress in a way its
+neighbours mask.**
+
+This asserts the property they share:
+
+> An unmeasured cost reads as UNKNOWN on every surface. Never as $0.00.
+
+Verified end to end in both directions on a real record shape:
+
+```
+measured    receipt $0.0187  |  prompt "$0.02, cache 54%"  |  verifier ok
+unmeasured  receipt None     |  prompt "90s, completed"    |  verifier rejects
+```
+
+### Why the opposite direction is tested just as hard
+
+A guard strict enough to suppress genuine data would blank the cost surface
+permanently -- its own dishonesty, and it would make the **20x
+cost-per-resolved-issue spread** unmeasurable again, which is the axis a buyer
+compares first.
+
+So the measured case asserts the cost still appears, the cache ratio survives,
+and the duration is not dropped along with it.
+
+### One test, three surfaces caught
+
+Mutating any of the three fixable surfaces turns this single test red:
+reverting the receipt guard, restoring `$0.00` in the prompt, or disabling the
+verifier check. The fourth (capture) is pinned by asserting the helper exists,
+is called by the runner, and that every shipped codex tier is priced.
+
+That is the difference between four tests that each guard a symptom and one
+that guards the property.
+
+Trust-core detector: 89 invariants.
+
+## v8.59.0
+
+### Pinning the escalation chain end to end
+
+v8.58.0 wired three dead gates into the escalation writer. This verifies the
+signal those gates now emit actually reaches the agent, and pins the contract
+so it cannot silently break.
+
+The chain, verified link by link:
+
+```
+write_gate_escalation_guidance          (writer)
+  -> .loki/signals/GATE_ESCALATION.json (signal)
+  -> build_gate_escalation_context      (reader)
+  -> gate_escalation_context            (the PROMPT)
+```
+
+**All five JSON keys match exactly** -- `action`, `count`, `gate`,
+`threshold`, `latest_artifact` -- verified by extracting both sides from the
+source rather than assuming.
+
+### Why a matching-keys test earns its place
+
+This failure mode is invisible. Rename a key on either side and the signal is
+still written, still read, and simply carries nothing. The agent receives an
+escalation with **no findings attached**, which looks identical to no
+escalation at all -- no error, no log line, no failing test.
+
+Both key sets are now derived from the code and compared, so a rename on either
+side turns the test red. Verified: renaming `latest_artifact` to
+`artifact_path` on the reader alone fails it.
+
+### A dead-branch sweep, recorded as clean
+
+The v8.58.0 lesson -- derive the expectation from the code, because a hardcoded
+list passes over the case you did not think of -- was applied to the rest of
+the name-dispatch surface: `_loki_surface_why_hint`,
+`_loki_build_self_heal_hint`, `_loki_supervised_source_hints`. All three have
+live callers.
+
+**No fifth dead branch exists.** Recorded as a finding rather than turned into
+a change that was not needed.
+
+Trust-core detector: 87 invariants.
+
+## v8.58.0
+
+### Escalation guidance was dead for three of the four gates it handles
+
+`write_gate_escalation_guidance` maps four gates to the findings artifact that
+explains their failure:
+
+```
+code_review        -> quality/reviews/<latest>/
+mutation_integrity -> quality/mutation-findings.txt
+mock_integrity     -> quality/mock-findings.txt
+test_coverage      -> quality/test-results.json
+```
+
+**Only `code_review` ever called it.** The other three branches could never
+run -- code that reads as a feature and executes as nothing.
+
+Measured, not theoretical: on a real run `mock_integrity` failed **three
+times** (more than any other gate) and `.loki/signals/GATE_ESCALATION.json` was
+**never written**. The agent was told the gate failed and never handed the
+findings file that says WHY.
+
+That is the 56% *"did not attempt to recover from an error"* failure shape
+(SlopCodeBench, arXiv 2603.24755) -- manufactured by our own harness rather
+than by the model.
+
+### The test found a fourth one I had missed
+
+I wired `mock_integrity` and `mutation_integrity`, then wrote the test to
+**derive the handled set from the writer** rather than hardcode it. It
+immediately failed on `test_coverage` -- a fourth dead branch I had not
+noticed.
+
+A hardcoded list would have passed and left it dead. That is the entire
+argument for deriving the expectation from the code under test: it covers the
+case you did not think of, which is the only kind that survives review.
+
+### Guards on the new call sites
+
+- **disposition-gated**: no guidance once the gate is already blocking -- the
+  run is stopping regardless, so that would be noise
+- **best-effort (`|| true`)**: this is hot-path guidance; a failure here must
+  never abort an iteration that was otherwise fine
+
+Trust-core detector: 86 invariants.
+
+## v8.57.0
+
+### 111 seconds of startup were completely unmeasured
+
+Timeline from a real run, relative to the first event:
+
+```
++   0s  session
++  17s  session_start
++ 128s  iteration_start      <-- 111 seconds unaccounted for
++ 872s  iteration_complete
+```
+
+Over two minutes in which the user sees nothing and **no agent work has
+begun** -- and `.loki/events.jsonl` recorded not one stage for any of it.
+Counting startup instrumentation returned literally **0**.
+
+This is the felt-latency surface. Time-to-first-signal on the same run was
+**744s**, against Replit's ~2 minutes to a visible preview. You cannot shorten
+an interval you cannot attribute -- the same gap W1 fixed for cost, on the
+surface a user notices first.
+
+`spec_interrogation_run` calls the **provider** during startup, making it the
+prime suspect for the bulk of that window. It is now timed through the existing
+`emit_stage_complete` channel, so `measure-run.sh` and every other consumer
+pick it up with no new plumbing.
+
+### A missing start epoch emits nothing, never a zero
+
+The same honesty rule as the cost work: a fabricated duration is worse than an
+absent one, because it would be averaged into later analysis as real data.
+Mutation-pinned in both directions -- removing the timing, and making a missing
+epoch produce `duration_s=0`, each turn the test red.
+
+### Correction to v8.50.0
+
+That release reported *"first code change: not recorded -- the v8.35.0 signal
+did not fire on its first real exercise."* **That was wrong.** The reading came
+from a pre-v8.35.0 run. On the current run the signal fires correctly:
+
+```
+.loki/state/first-artifact.json -> {"seconds_to_first_artifact":744,"iteration":1}
+```
+
+and `measure-run.sh` renders `first code change : 744s`. v8.35.0 works end to
+end. The 744s it measures is the real finding.
+
+Trust-core detector: 85 invariants.
+
+## v8.56.0
+
+### The dashboard showed STOPPED while the build was running
+
+Reported from a real run. A build launched with `loki start <github issue>` was
+progressing normally -- prerequisites passed, PRD parsed, 6 tasks extracted --
+while the dashboard showed:
+
+```
+SESSION: STOPPED     PHASE: BUILDING     UPTIME: 1m 14s
+```
+
+STOPPED next to BUILDING and a live uptime counter is self-contradictory, and
+it is the first thing a user sees about their own run.
+
+### Root cause: the fix was applied to one of two duplicate code paths
+
+`server.py` computed liveness **twice**, independently:
+
+| surface | function | had `.loki/pids/`? |
+|---|---|---|
+| WebSocket stream | `_push_loki_state_loop` | yes |
+| REST `/api/status` (what the UI renders) | `get_status` | **no** |
+
+A prior fix added `.loki/pids/` as a third liveness source for CLI-started runs
+and reached the WebSocket path only. `/api/status` still decided from
+`loki.pid` and `session.json` -- and a CLI run writes **neither** (run.sh only
+UPDATES `session.json` when it already exists), so both checks missed.
+
+Two decisive symptoms, both observed on the live run:
+
+- **One response contradicted itself**: `status: "stopped"` with
+  `active_sessions: 1`. The live session PID was found later in the same
+  handler; `running` had been frozen ~120 lines earlier and never reconsidered.
+- **The two surfaces disagreed about the same run in the same second**: the
+  WebSocket broadcast `running` while REST returned `stopped`.
+
+Now one shared `_registry_run_alive()` called by both, so they cannot diverge
+again.
+
+### The `kind` filter is load-bearing
+
+`.loki/pids/` also registers the dashboard itself, the status monitor and the
+resource monitor -- none carrying a `kind`. Accepting any live pid would let
+**the dashboard's own PID prove the run alive**, trading a false STOPPED for a
+permanent false RUNNING. That is the worse failure: a dead or stuck run would
+look healthy forever. Both directions are mutation-pinned.
+
+Verified independently against the live workspace (`_registry_run_alive` ->
+True on the running build) and across four synthetic cases including the
+no-`kind` dashboard pid.
+
+Trust-core detector: 83 invariants.
+
+## v8.55.0
+
+### A raw shell error was the first thing users saw
+
+Reported from a real `loki start` run. Before any Loki output:
+
+```
+.../autonomy/crash.sh: line 216: .loki/config: Is a directory
+```
+
+`loki_show_disclosure_once` appends a back-compat sentinel to
+`${LOKI_DIR:-$HOME/.loki}/config`. During a build **`LOKI_DIR` is the PROJECT
+`.loki`**, not `~/.loki` -- and a project's `.loki/config` is legitimately a
+**directory**. Appending to a directory fails.
+
+**`2>/dev/null` could never have suppressed it.** A redirection failure is
+reported by the SHELL, *before* the redirection that would silence it is
+applied. The `2>/dev/null || true` already on that line was decorative.
+
+Now guarded: a directory is a reachable, non-exceptional state, so the write is
+skipped. The sentinel is back-compat only, so the cost of skipping is zero --
+the cost of printing a `line 216:` error on a user's first screen is trust.
+
+Both directions pinned: silent on a directory, sentinel still written (once,
+idempotently) when config is a file.
+
+### W3: the prompt cache had no guard
+
+The prompt splits at `[CACHE_BREAKPOINT]` into a cache-stable prefix and a
+volatile tail. The prefix is currently clean -- **and nothing tested it.**
+
+The stakes are money, not style. Cache reads price at **0.1x input** and are
+~98% of input volume on the measured shape, so leaking `$iteration`, `$retry`,
+`$gate_failures` or the PRD body into the prefix is close to a **10x input-cost
+increase on every iteration**. And the agent call is **93% of wall clock**
+(1814s of 1941s, measured), making this the dominant cost lever we actually
+control -- we cannot train a faster model, but we can stop paying full price
+for a cache we already built.
+
+**The failure is silent**: the run still succeeds, just costs multiples more,
+forever, with nothing in any log saying so.
+
+`tests/test-cache-breakpoint-discipline.sh` asserts no per-iteration value is
+referenced between `<loki_system>` and `[CACHE_BREAKPOINT]`, that the prefix
+holds real content (so the check cannot go vacuous if the split moves), and
+that the volatile `<dynamic_context>` tail still exists. Verified by leaking
+`$iteration` into the prefix -- the test goes red.
+
+Trust-core detector: 81 invariants.
+
+## v8.54.0
+
+### The moat had a blind spot: the verifier never checked cost
+
+`benchmarks/results/competitor-verify-surface.json` records the measured
+competitive claim: of six installed coding-agent CLIs -- opencode, aider,
+codex, claude, cursor-agent, loki-mode -- **only loki-mode verifies its own
+output.** That is the differentiator.
+
+A moat with a blind spot is not a moat. `loki proof verify` checked the
+integrity hash, the diff, the gates and the headline. It **never looked at
+cost**, so a receipt could assert any spend -- $0.00 or $10,000 -- and pass.
+
+### This was not hypothetical
+
+A real FireLater receipt shipped with:
+
+```json
+"cost": {"usd": 0.0, "input_tokens": 0, ..., "available": true}
+```
+
+A shareable document asserting the run was **free**. Its integrity hash was
+**VALID** -- it passed the old verifier completely, because the collector keyed
+availability on a record file existing rather than carrying data (v8.52.0).
+Nothing downstream could see it.
+
+Replayed against the real artifact: `hash_ok=true`, `cost_coherent=false`,
+`ok=false`. A cryptographically intact receipt asserting a false fact, now
+caught.
+
+### What it checks, and what it deliberately does not
+
+**Internal coherence** -- the receipt must not contradict itself:
+
+- `available=true` with every token count and usd zero -> claims a measurement
+  it does not have
+- `available=false` carrying non-zero values -> claims unmeasured, shows numbers
+- `usd` non-zero with no tokens at all -> a cost from nowhere (the **inflation**
+  direction; under-reporting is not the only lie)
+
+It does **not** re-price the run. That would need token counts and a price
+table at verify time, and **a verifier that guesses is worse than one that
+abstains**. A receipt with no cost block abstains rather than fails -- older
+receipts predate the block and are not forgeries.
+
+### Why this over the speed work
+
+W3 targets the agent call at 93% of wall clock, which is real. But a receipt
+that can certify a false fact undermines the one claim no competitor can make.
+Fixing the moat outranks optimising throughput.
+
+Trust-core detector: 80 invariants.
+
+## v8.53.0
+
+### The prompt was telling the agent its work cost $0.00
+
+W4 in `docs/WANG-PRINCIPLES-PLAN.md` -- the half of Wang's principle 5 that
+turns telemetry into an actual feedback loop.
+
+Good news first: the loop **is** wired. `iteration_attribution.py
+--prompt-block` renders an efficiency trend and `run.sh:19909` injects it into
+the prompt. Rendered against the real FireLater run:
+
+```
+EFFICIENCY TREND (your own last 3 iteration(s); steer on it):
+  iter 2: 226s, $0.00, failed
+  iter 3: 1730s, $0.00, completed
+  iter 4: 86s, $0.00, completed
+```
+
+**Every iteration said `$0.00`.** This text goes INTO THE PROMPT, so it was not
+merely misreporting a number -- it was actively teaching the agent that its
+work costs nothing, and that belief survives into every downstream decision it
+makes about effort and iteration.
+
+The honesty rule was already written at the top of that same file -- *"cost not
+recorded for any iteration (reported as null, not as $0.00)"* -- and only the
+SUMMARY path honoured it. The per-iteration line rendered any numeric cost,
+including 0.
+
+Now omitted when unmeasured. A missing field reads as unknown; a printed
+`$0.00` reads as a fact.
+
+### Three cases pinned, including the boundary
+
+- unmeasured -> **no cost shown**, and the rest of the steer survives (duration
+  and status are not dropped along with it)
+- real cost -> still rendered (`$0.02`, with cache ratio)
+- **a genuine sub-cent cost -> still counted.** It formats as `$0.00` and that
+  is fine *because it was measured*. This case exists so a future "just hide
+  $0.00 everywhere" fix cannot silently discard real sub-cent measurements.
+
+### Same root defect, third surface
+
+v8.51.0 fixed codex recording no tokens. v8.52.0 fixed the receipt claiming
+`usd: 0.0, available: True`. This is the same fabricated zero reaching the
+prompt. One missing measurement, three surfaces -- exactly the half-shipped
+pattern W5 exists to stop.
+
+Trust-core detector: 78 invariants.
+
+## v8.52.0
+
+### The receipt was claiming runs cost $0.00
+
+W2 in `docs/WANG-PRINCIPLES-PLAN.md` -- and a receipt-integrity defect on its
+own terms.
+
+`collect_efficiency` feeds the `cost` block of the Evidence Receipt. Its guard
+keyed on whether a record FILE could be parsed, not on whether the record
+carried any data. So a run whose efficiency records were all zeros produced:
+
+```
+{'usd': 0.0, 'input_tokens': 0, ..., 'available': True}
+```
+
+**The receipt asserting the run cost nothing.** The Evidence Receipt exists to
+prevent exactly that kind of fabricated fact.
+
+Measured, not hypothetical: the real FireLater run wrote four efficiency
+records with every token field 0 (codex emitted no usage before v8.51.0), and
+this function reported `usd=0.0, available=True`.
+
+A run that did work necessarily consumed tokens. All-zero therefore means **we
+failed to measure**, not **it was free** -- different claims, and only one is
+honest. `available` now requires an OBSERVED non-zero value.
+
+### Both directions guarded
+
+A guard so strict it suppressed genuine data would blank the cost block
+permanently, which is its own dishonesty. Three cases pinned:
+
+- real tokens + real cost -> still reported ($0.0187)
+- **tokens observed, model unpriced** -> still reported. This is the v8.51.0
+  shape: codex reports tokens and never dollars, so an unpriced model yields
+  real tokens with no cost. Discarding that would throw away a measurement we
+  did make.
+- no records at all -> unavailable, as before
+
+### W2's real blocker, recorded honestly
+
+`benchmarks/datasets/swebench-lite.json` is a **placeholder**
+(`"status": "PLACEHOLDER"`, `"problems": 300` is a count, not data), `swebench`
+is not installed, and a real run is ~300 problems x ~2 iterations x ~900s =
+**~150 hours of wall clock** plus hundreds of dollars at the measured ~$14/pass.
+
+That is a founder spending decision, not an engineering one, so it was not
+launched autonomously. What WAS blocking it in code -- a cost aggregate that
+could not distinguish free from unmeasured -- is fixed here, so
+cost-per-resolved-issue becomes computable the moment a real eval runs.
+
+Trust-core detector: 77 invariants.
+
+## v8.51.0
+
+### W1: codex runs recorded NO tokens and NO cost
+
+First item of `docs/WANG-PRINCIPLES-PLAN.md`. Wang states the thesis
+conditionally -- *"the right agentic loop AND the right eval or metric for the
+agents to optimize"*. We had the loop and not the metric.
+
+Measured on the real FireLater run: **every** efficiency record showed
+`input_tokens=0, output_tokens=0, cost_usd=0`. Not just cost -- nothing at all.
+`_read_iteration_cost` looks for `.loki/metrics/result-cost-<n>.json` or
+`.loki/context/tracking.json`, and codex writes **neither**, so the whole chain
+silently resolved to zero.
+
+A zero is a claim that the iteration was free.
+
+That made cost-per-resolved-issue unmeasurable -- the axis with a measured
+**20x industry spread** (~$14/pass on Sonnet 4.5; an open harness lands tasks
+at ~1/20th Devin's cost) and the number a buyer compares first.
+
+### Recovered from the session rollout, not from `--json`
+
+codex reports usage on `turn.completed`, but only under `codex exec --json`.
+The dispatch pipes stdout through `tee` into the logs the runner parses for
+completion signals, so switching to JSONL would change the format every one of
+those readers depends on.
+
+codex **also** persists `~/.codex/sessions/**/rollout-*.jsonl` carrying
+`total_token_usage`. Reading that is a side channel with zero risk to the
+pipeline. Verified against a live call: 20420 input / 11008 cached / 23 output.
+
+End to end, cost now resolves to **0.018719** where it read 0.
+
+### unknown != free
+
+The property the feature exists for. A model we cannot price records **no cost
+field at all**, never 0. Both directions are mutation-pinned: emitting
+`0.000000` for an unpriced model turns the test red.
+
+Also fixed: codex reports `input_tokens` **inclusive** of cached, and billing
+splits them. Reporting the inclusive figure overstates cost, so the helper
+emits the uncached remainder -- also mutation-pinned.
+
+Pricing added for the shipped codex tiers (`gpt-5.6-sol` / `-terra` / `-luna`);
+only `gpt-5.3-codex` was priced before, so current runs could not be costed at
+all.
+
+Trust-core detector: 76 invariants.
+
+## v8.50.0
+
+### A real run found two defects my tests could not
+
+Re-ran FireLater issue #24 on v8.49.0 against the v8.8.0 baseline. Measured:
+
+| | baseline v8.8.0 | v8.49.0 |
+|---|---:|---:|
+| iterations | 3 | **2** |
+| `mutation_integrity` | **3 of 3 fail, 0-1s each** | 2 fail, 3s each |
+| `code_review` | 281s median | 1s (skip fired) |
+| agent share of wall clock | -- | **93%** (1814s of 1941s) |
+
+The detector fix is confirmed on a real run: `mutation_integrity` went from
+failing in 0-1 seconds every iteration (detector missing, gate could never
+pass) to executing properly. Iterations dropped 3 to 2.
+
+**Then the run exposed two defects in the F0 work itself.**
+
+### THE HEADER TRAP -- F0 was comparing a banner, not a cause
+
+`mutation-findings.txt` and `mock-findings.txt` both open with a static banner:
+
+```
+# Test mutation findings (HIGH blocks this iteration)
+```
+
+byte-identical on every run. F0 took `head -1`, so
+`gate-stuck-mutation_integrity.last` had recorded **the banner**. Two
+completely different findings therefore compared EQUAL, and the valve would
+abort a run that was making real progress through different findings each
+iteration -- **the one direction this valve must never fail in.**
+
+Now takes the first non-comment, non-blank line and strips ANSI colour (the
+detectors emit it, so the same finding rendered with and without colour would
+otherwise compare unequal). Verified against the real artifacts: extracted
+cause is now an actual `[HIGH] frontend/src/...` finding.
+
+### mock_integrity was the top failing gate and was not wired
+
+It failed **3 times** in this run -- more than any other gate -- and was not
+connected to the stuck check, so an unfixable mock problem could grind
+indefinitely. Now wired, making three gates covered.
+
+### What this says about the plan
+
+`agent` is **93%** of wall clock (1814s of 1941s). Every speed knob shipped in
+v8.33.0-v8.35.0 targets the remaining 7%. `docs/WANG-PRINCIPLES-PLAN.md` says
+this plainly and blocks further gate-latency work until the agent call is
+measured.
+
+Also unfixed and recorded: `first code change: not recorded` -- the v8.35.0
+first-artifact signal did not fire on its first real exercise.
+
+Trust-core detector: 74 invariants.
+
+## v8.49.0
+
+### F4: the 1000-iteration default was an 8.3-day runaway ceiling
+
+Last item of `docs/FIRST-PASS-COMPLETION-PLAN.md`. I had parked this as "needs a
+founder decision". Measuring instead of asking resolved it.
+
+**Measured, not chosen.** Real per-iteration wall clock across every recorded
+run: median **718s**, max 1746s. So `LOKI_MAX_ITERATIONS=1000` was an **8.3-day**
+ceiling -- and the *only* backstop, because the other two valves ship disabled:
+
+```
+LOKI_BUDGET_LIMIT  defaults to ""  -> check_budget_limit returns immediately
+LOKI_MAX_DURATION  defaults to 0   -> check_max_duration "never stop"
+```
+
+It also contradicted our own documentation: `SETUP.md` tells users to RAISE the
+budget for large work with `LOKI_MAX_ITERATIONS=40`, and the demo uses 10. The
+shipped default was **25x the documented "large" value**.
+
+What real runs actually use: **1, 1, 3, 4** iterations. Every one terminated
+`completed` via council approval or a completion promise; **none hit a cap**.
+Those evidence-driven terminals are untouched -- the cap is a backstop, not the
+mechanism.
+
+New default **25**: 6x the observed maximum, deliberately generous because the
+research is explicit that a too-small cap fails runs whose approach was sound
+(1-2 fails even when on track; 5-10 recommended). Retune with
+`LOKI_MAX_ITERATIONS_DEFAULT`.
+
+### Two guards, both mutation-pinned
+
+- **an explicit `LOKI_MAX_ITERATIONS` always wins** -- anyone who tuned this
+  sees no change, in either direction
+- **perpetual mode is untouched** (keeps 1000). It deliberately ignores every
+  completion signal and relies on max-iterations as its ONLY stop, so lowering
+  the cap there would truncate exactly the runs that opted out of stopping
+
+Hitting the cap still records `max_iterations_reached` with exit 20. A bounded
+cap is only safe because reaching it fails honestly; if it exited 0 this would
+convert long runs into fake successes -- worse than the runaway it replaces.
+
+### The test's own copy hid a real defect
+
+The explicit-setting mutation SURVIVED at first. The test drove a hand-copied
+resolution chain, so mutating `run.sh` changed nothing it executed -- while the
+real defect was severe: an explicit `LOKI_MAX_ITERATIONS=200` silently became
+25. The probe is now sliced out of `run.sh` itself.
+
+Fourth time this session a synthetic harness hid a real defect. The rule holds:
+**a re-implementation tests the RULE; only the source tests the CODE.**
+
+Plan status: **all items closed.** F0, F2, F3, F4 shipped; F1 was already built.
+
+## v8.48.0
+
+### F0 covered one of the three gates that actually cause extra iterations
+
+v8.47.0 fixed F0's off-by-one by replaying a preserved artifact. Applying the
+same method to the OTHER preserved runs exposed a scope gap: F0 was wired only
+to `mutation_integrity`.
+
+The preserved `gate-failure-count.json` files say which gates really cost
+iterations:
+
+```
+FireLater   mutation_integrity 3   code_review 2   static_analysis 1
+anonima     code_review 1                          (4 iterations)
+```
+
+So F0 covered **one of three**. `static_analysis` is now wired too.
+
+### The JSON artifact would have made the valve silently dead
+
+`static-analysis.json` records its cause in a `summary` field -- and also
+carries a `timestamp` that differs on **every run**. A whole-file compare would
+therefore never match, and the valve would have been dead on this gate while
+passing every test written against the plain-text shape.
+
+The helper now extracts a stable cause per artifact shape: first line for text,
+`summary` for JSON. Verified against the real FireLater
+`static-analysis.json` -- extracted cause
+`"Syntax error: docker-stop.sh. shellcheck (error severity): docker-stop.sh."`,
+aborting at iteration 3 with the timestamp correctly ignored, and a genuinely
+changed cause still iterating.
+
+### code_review is deliberately NOT wired
+
+It caused extra iterations in both runs (FireLater x2, anonima x1), so it looks
+like the obvious next target. It persists no single comparable cause -- reviews
+land as per-reviewer artifacts under `.loki/quality/reviews/<id>/`, and a
+council's verdict legitimately shifts between iterations even when one finding
+repeats.
+
+Inventing a synthetic key would risk aborting a run that was making progress,
+which is the one direction this valve must never fail in. Recorded as a known
+limitation rather than guessed at.
+
+### The repo's own checker caught my heredoc footgun
+
+The first version used `python3 -c "..."` with a multi-line body. The repo has a
+checker for exactly this (`check-heredoc-dollar-digit.sh`) and it failed the
+push -- flagging `local gate_name="$1"` in the NEXT function, because an
+unterminated double-quoted `-c` body makes everything after it look like it is
+still inside the program.
+
+Now a QUOTED heredoc, which also guarantees bash performs no expansion inside
+the Python at all. The gate caught a real footgun before it shipped.
+
+Trust-core detector: 73 invariants.
+
+## v8.47.0
+
+### F0 would have missed the exact run it was built for, by one iteration
+
+v8.45.0 shipped the stuck-gate abort with 11 passing tests and three caught
+mutations. Then I replayed it against the **preserved FireLater artifact** --
+the real `.loki/quality/mutation-findings.txt` from the run that motivated the
+feature -- and it did not fire:
+
+```
+iteration 1 -> continue
+iteration 2 -> continue
+iteration 3 -> continue      <- FireLater ended here
+iteration 4 -> ABORT         <- one too late
+```
+
+**Cause:** the failure reason was recorded only *after* the threshold check, so
+the first comparison could not happen until `count == threshold + 1`. With a
+threshold of 3, the abort landed on iteration 4. FireLater ended at 3.
+
+The valve was correct in every unit case and useless on the one real case.
+
+Fixed by recording the reason on **every** failure and comparing only at
+threshold. Re-replayed against the same artifact: aborts at iteration 3.
+
+### Why the tests did not catch it
+
+The unit cases drove synthetic counts out of order (`probe 3`, then `probe 3`
+again) which happened to prime the prior. Real iterations arrive **1, 2, 3** --
+an ordering the tests never exercised.
+
+A regression case now replays that exact sequence and asserts the abort lands
+*on* the threshold iteration, not past it. Restoring the off-by-one turns it
+red.
+
+The generalisable rule, and the third time this session a synthetic harness hid
+a real defect:
+
+> Unit cases prove the RULE. Only the recorded artifact proves the CASE.
+> If a preserved artifact from the motivating failure exists, replay it.
+
+No behaviour changed for healthy runs: below-threshold, first-sighting,
+changed-reason, missing-file, empty-file and opt-out all still continue, and a
+stuck gate still exits 20 rather than reporting success.
+
+## v8.46.0
+
+### F3: the agent was never told which gates would judge it
+
+The first-pass directive already said *"self-verify by running, not by
+reading"* -- the right instruction, and it named **zero** of the gates that
+actually block.
+
+That matters because of what our own telemetry shows. Across every recorded
+run, **every** multi-iteration run had a failing gate and **every**
+single-iteration run had none. Iterations are gates rejecting work, not the
+model failing to finish. An agent cannot aim at a gate nobody named.
+
+Iteration 1 now names the four, with the concrete failure mode for each rather
+than a label:
+
+- **static analysis** -- no syntax errors, no unused/undefined symbols, no lint
+  errors in touched files
+- **test suite** -- existing tests must still pass; *run them, do not assume*
+- **mutation/mock integrity** -- no tautological assertions, no test that
+  passes whether or not the code works, no mocking the unit under test, no
+  inline mock data standing in for a real query
+- **code review** -- no scope creep, no dead or commented-out code, no leftover
+  debug output, follow the surrounding conventions
+
+Those are not an arbitrary list: `mutation_integrity`, `code_review` and
+`static_analysis` are the only gates that have ever failed here.
+
+### Iteration-1 only, and byte-mirrored
+
+Repeating it every iteration would waste tokens and risk drifting into the
+cache-stable half of the prompt (split at `[CACHE_BREAKPOINT]`), busting the
+prompt cache every pass. Asserted: present at iteration 1, absent at 3, with
+the autonomy preamble still shipping on both.
+
+The directive is byte-mirrored into `loki-ts/src/providers/claude_flags.ts`.
+Editing one route alone silently diverges the two runtimes -- deleting the
+mutation-integrity line from the Bun copy turns the test red.
+
+### A mutation that survived, and what it taught
+
+Rewording the header to "5. Do your best." left all four gate names in place,
+so every name assertion still passed while the list stopped being an
+instruction. **The substance and the framing are separate properties**, and a
+test that checks only the list cannot see the difference. Both are now pinned.
+
+Trust-core detector: 71 invariants.
+
+## v8.45.0
+
+### F0: stop grinding against a gate that can never pass
+
+The item that would have saved the founder's FireLater run.
+
+That run spent **3 iterations** against `mutation_integrity`, which failed in
+**0-1 SECONDS** each time with the identical line:
+
+```
+[HIGH] mutation detector unavailable: .../tests/detect-test-mutations.sh
+```
+
+The detector was never packaged (fixed v8.38.0), so the gate could **never**
+pass. The run was doomed at iteration 1 and nothing noticed -- it just kept
+going, burning paid provider calls to re-derive the same verdict.
+
+A gate that fails for a byte-identical reason now stops the run with a named
+terminal status instead of iterating.
+
+### The distinction this turns on
+
+**"Failed 3 times" is not the signal.** A gate failing three times for three
+DIFFERENT reasons is the loop *working* -- the agent fixes one thing and finds
+the next. Only an **unchanging** reason means no progress is possible.
+
+Both directions are tested, and the protective case (changed reason keeps
+iterating) is mutation-pinned: making the check ignore whether the reason
+changed turns the test red.
+
+### Fail-safe direction, deliberately
+
+On any doubt -- missing reason file, unreadable, empty, first sighting, below
+threshold -- the helper returns "not stuck" and the run continues exactly as
+before. It can only ever SHORTEN a doomed run, never stop a healthy one.
+
+And it never reports success: a stuck gate maps to exit **20** (terminal
+failure) with `gate_stuck_mutation_integrity` recorded. A stuck gate that
+exited 0 would report a doomed run as done -- strictly worse than grinding, and
+that is mutation-pinned too.
+
+Threshold is 3, not 2: a reason can legitimately repeat once while the agent is
+mid-fix. `LOKI_GATE_STUCK_THRESHOLD` / `LOKI_GATE_STUCK_ABORT=0` to tune or
+disable.
+
+Trust-core detector: 69 invariants.
+
+## v8.44.0
+
+### F2: the feedback loop could stop feeding back, silently
+
+First item shipped from `docs/FIRST-PASS-COMPLETION-PLAN.md`.
+
+Findings injection is what tells the next iteration **what to fix**. It defaults
+ON -- but the call was gated on `command -v bun`, so on a machine without bun it
+degraded with **no signal at all**. The agent was told only that it failed.
+
+That is the single largest failure shape in the research: *"the agent did not
+attempt to recover from an error"* accounts for **56% of agent failures**
+(SlopCodeBench, arXiv 2603.24755). A silently-dead feedback loop manufactures
+exactly that -- and misattributes it, because the next iteration then looks like
+the model failing when it was never told what went wrong.
+
+Now it warns, names the consequence rather than just the missing binary, and
+records a `capability_degraded` event so the receipt can show it. Opting out
+(`LOKI_INJECT_FINDINGS=0`) stays silent -- a warning for a deliberate choice is
+noise, and noise trains users to ignore the channel carrying the real warning.
+
+### Why this is the first F-item shipped
+
+Our own telemetry, across every recorded run:
+
+| project | iterations | failing gates |
+|---|---:|---|
+| FireLater | 3 | static_analysis 2, mutation_integrity 3, code_review 2 |
+| anonima | 4 | code_review 1 |
+| autonomi-engine-runs | 1 | none |
+| loki-mode | 1 | none |
+
+**Perfect correlation: every multi-iteration run had a failing gate; every
+single-iteration run had none.** Iterations are not the model failing to finish;
+they are gates rejecting work. So the quality of what the agent is told after a
+rejection *is* the first-pass lever.
+
+### One assertion was reading the payload, not the call
+
+The wiring check first matched the literal string `capability_degraded`. A
+mutation replacing `emit_event_json` with `false` left that argument in place,
+so the assertion passed while nothing was emitted. Now matches
+`emit_event_json "capability_degraded"` -- the call, not its payload.
+
+Trust-core detector: 66 invariants.
+
+## v8.43.0
+
+### doctor could not see the worst breakage this package has shipped
+
+The quality gates shell out to detector scripts under `tests/`. Before v8.38.0
+those were never packaged, so **every npm install had zero detectors** and four
+gates fail-closed on every iteration -- correct behaviour, but it means the
+build can never pass and first-pass completion is impossible regardless of
+model output.
+
+`loki doctor` reported a healthy system the entire time. It only ever checked
+for external COMMANDS (git, node, bun) -- never for the files this package is
+supposed to contain. **A broken install and a healthy one were
+indistinguishable from the one command meant to tell them apart.**
+
+`doctor` now has an Install integrity section:
+
+```
+Install integrity:
+  OK    Quality-gate detectors present (4/4)
+```
+
+and on a broken install:
+
+```
+  FAIL  Quality-gate detectors MISSING: detect-test-mutations.sh ...
+        These gates fail-closed, so every iteration will be blocked.
+```
+
+with `Incomplete install: ... Reinstall: bun install -g loki-mode` in the
+blocker list -- the same funnel-fix contract doctor already follows for every
+other hard failure: name it, say what it costs, give the exact command.
+
+### Verified in both directions
+
+Tested against the real CLI on the exact shape 8.8.0 shipped -- a `tests/`
+directory that exists but is empty. A check that cannot fail is decoration, so
+the negative case is the one that matters, and both halves are mutation-pinned:
+removing the blocker registration, and short-circuiting the file check to
+always-present, each turn the test red.
+
+Trust-core detector: 64 invariants.
+
+## v8.42.0
+
+### A stale install was invisible on the command people actually run
+
+The update hint existed and worked -- wired into `loki doctor` and
+`loki version`. Neither is run before a build, so a stale install stayed
+invisible until someone went looking.
+
+This machine was **4 releases behind** (8.8.0 vs 8.41.0) while running builds,
+and that gap was not cosmetic: v8.38.0 fixed four quality-gate detectors that
+had **never been packaged**, so on 8.8.0 mutation-integrity fail-closed on every
+iteration and first-pass completion was impossible regardless of model output.
+The tool gave the user no way to know.
+
+`loki start` now prints the one-line nudge. Cheap and fail-silent by
+construction: the result is cached 24h, the registry call has a 1.5s hard
+timeout, and CI / non-TTY / `LOKI_NO_UPDATE_CHECK=1` all return without output.
+
+### The first draft was silently dead
+
+I wrote it as:
+
+```bash
+maybe_print_update_hint 2>/dev/null || true
+```
+
+The hint prints **on stderr**. Redirecting stderr discards the only thing the
+call produces -- a defensive habit that turned a feature into a no-op which
+reads as correct in any source review, and which no existing test could see
+because a suppressed message and an absent message are identical.
+
+Both are now pinned by mutation: re-adding `2>/dev/null`, and removing the call
+outright, each turn `tests/test-start-update-hint.sh` red.
+
+### Two test-harness bugs found on the way
+
+- **`[ ! -t 1 ]`**: the hint deliberately stays silent when stdout is not a
+  terminal, so piping to `grep` suppressed it. Every early "it does not work"
+  reading was the harness, not the feature. Fixed with `script(1)`.
+- **`| grep -qi`**: `-q` exits on first match and closes the pipe, which races
+  with output delivery under a pty -- the assertion failed intermittently while
+  the identical command passed by hand. Now captures first, matches second.
+
+Trust-core detector: 62 invariants.
+
+## v8.41.0
+
+### Two more packaging checks were deferred, and one of them was broken
+
+v8.40.0 found the dist-freshness gate deferred by the tier that justifies it.
+The obvious follow-up: are the OTHER local-only packaging checks skipped too?
+
+Yes -- `npm pack tarball contents` and the Agent SDK dependency check. Both
+validate the PACKAGED ARTIFACT, which GitHub CI never inspects and no in-repo
+test can see, because everything works fine from a git checkout.
+
+`npm pack tarball contents` is **exactly the check that would have caught
+v8.38.0** -- four quality-gate detectors that never shipped, making first-pass
+completion impossible for every npm user. It was being skipped at push time.
+The SDK check's own comment says it "would have caught the whole-arc council's
+packaging finding". Also skipped.
+
+Both promoted. Measured cost: npm pack 1.6s, SDK check 21ms; the whole fast
+tier runs in 35s.
+
+### The check itself tolerated losing a third of its artifacts
+
+Promoting it exposed a defect in it. The old form was:
+
+```
+... | grep -E "<six patterns>" | wc -l | grep -qE "[6-9]|[1-9][0-9]"
+```
+
+That means "6 or more, or any 2-digit number". With everything present the
+count is **8** (some patterns match twice), so the guard tolerated losing TWO
+required artifacts. Verified: deleting the `autonomy/` entry from `files[]`
+drops `provider-offer.sh` and `quickstart.sh` from the tarball -- the count
+falls to 6 and the check **still passed**.
+
+A count threshold also cannot say WHICH artifact vanished.
+
+Now each of the six is asserted individually, the failure names the missing
+paths, and the listing is vacuity-guarded first (npm writes it to STDERR, so a
+reversed redirect captures build chatter and makes every assertion vacuous --
+the same false-alarm mechanism recorded in v8.39.0).
+
+Verified: the same break now exits 1 with
+`MISSING FROM TARBALL: autonomy/provider-offer.sh autonomy/quickstart.sh`.
+
+## v8.40.0
+
+### The dist-freshness check was deferred by the tier it justifies
+
+CLAUDE.md names dist freshness the **sharpest** reason the fast tier exists:
+
+> CI never validates that the committed `loki-ts/dist/loki.js` matches src, and
+> when that slipped we shipped THREE releases reporting the wrong version.
+
+The check was in `local-ci.sh` -- and `_FAST_KEEP` did not list it, so the fast
+tier **deferred the very check it is justified by**. Every pre-push run printed
+`SKIP: dist/loki.js is a fresh build of src`.
+
+The cost was not theoretical. It slipped twice more before anyone noticed:
+
+- the committed bundle hardcoded **8.11.0 for 27 releases** (fixed in v8.38.0)
+- **v8.39.0 shipped a dist still reporting 8.38.0** -- caught only because the
+  rebuild left the working tree dirty after an otherwise clean commit
+
+Both are exactly the failure the check was written to stop, both slipped past a
+green pre-push gate, and the second happened while actively fixing the first.
+
+Now in `_FAST_KEEP`. Measured cost: one `bun run build`, ~40ms.
+
+Verified by staling the dist to `8.11.0` and re-running: the fast tier exits 1
+with `DIST STALE`. Restored afterwards.
+
+### The second mechanism: tracked-but-ignored
+
+`loki-ts/dist/` is gitignored while `dist/loki.js` is **tracked**. A plain
+`git add loki-ts/dist/loki.js` is therefore refused with a hint that is easy to
+skim past, and the stale bundle ships silently. It needs `git add -f`.
+
+That is why v8.39.0's dist commit landed empty of its intended change. The gate
+above is the durable fix -- it fails the push rather than relying on anyone
+reading a git hint.
+
+## v8.39.0
+
+### Auditing the rest of the packaging, and a false alarm worth recording
+
+v8.38.0 fixed four detectors that never shipped. That gap was found by
+accident, from telemetry -- so this audits the general case: **every** file the
+runtime shells out to, derived from all four entry points (`loki`, `run.sh`,
+`completion-council.sh`, `app-runner.sh`).
+
+**Result: no other gaps.** The detectors were the only ones. That is a real
+finding, recorded rather than turned into a fix that was not needed.
+
+### The 55-file false alarm
+
+The first audit reported 55 missing files -- including `autonomy/run.sh` itself,
+which is obviously shipped. Cause:
+
+```
+npm pack --dry-run 2>&1 > file     # WRONG: listing goes to the terminal
+npm pack --dry-run > file 2>&1     # right
+```
+
+npm writes the file listing to **stderr**. With the redirects in the wrong
+order, the capture held 10 lines of build chatter instead of 730, and every
+"is X in the listing" check failed against an empty haystack.
+
+Same shape as the grep-absence errors that appeared three times earlier in this
+session: **an empty result is not evidence, it is an absent measurement.**
+
+### Both directions now guarded
+
+- a **vacuity guard**: if the `npm pack` listing has fewer than 50 entries, the
+  test fails loudly rather than passing on assertions that prove nothing
+- the check is **generalised** beyond detectors: dropping `learning/` from
+  `files[]` -- unrelated to any detector -- now turns the test red, where the
+  original assertions would not have noticed
+
+Trust-core detector: 60 invariants.
+
+## v8.38.0
+
+### Four quality gates were broken for every npm user, on every iteration
+
+The measurement harness shipped one release ago paid for itself immediately.
+Running it against a real FireLater run showed `mutation_integrity` failing
+**3 of 3 iterations in 0-1 SECONDS each**. Real mutation analysis cannot run in
+zero seconds -- that was a fail-closed branch firing instantly, forever.
+
+The recorded finding:
+
+```
+[HIGH] mutation detector unavailable:
+  /opt/homebrew/.../node_modules/loki-mode/autonomy/../tests/detect-test-mutations.sh
+```
+
+**`package.json`'s `files[]` had no `tests/` entry**, so the published package
+shipped ZERO files in `tests/`. Four gates shell out to detectors there:
+
+```
+enforce_mock_integrity        tests/detect-mock-problems.sh
+enforce_mutation_integrity    tests/detect-test-mutations.sh
+(semantic)                    tests/detect-semantic-test-problems.sh
+(invariants)                  tests/detect-invariant-violations.sh
+```
+
+Mutation-integrity is fail-CLOSED by design, which is correct -- a missing
+detector must never read as "nothing found". The consequence is that it could
+**never pass** for an installed user, forcing another iteration every single
+time.
+
+That is precisely the founder's complaint. First-pass completion was impossible
+for any npm user regardless of how good the model's output was, and no amount of
+model quality could have fixed it.
+
+The four detectors are now in `files[]`, verified present in the real
+`npm pack` tarball.
+
+### Why nothing caught this
+
+The detectors exist in the repo and run fine from a git checkout, so every
+in-repo test passed. Only the PACKAGED artifact was broken -- invisible to unit
+tests by construction, and invisible to the trust-core detector, which also runs
+from the checkout.
+
+`tests/test-detectors-are-packaged.sh` derives the required list FROM `run.sh`
+rather than hardcoding it, so a fifth gate added later is covered automatically,
+and asserts against the real tarball rather than only `files[]`.
+
+### Two corrections made while writing that test
+
+- The first fail-closed assertion keyed on the log phrase `-- BLOCK
+  (fail-closed)`. A mutation that changed both the message and `return 1` ->
+  `return 0` slipped through, because the assertion read the part of the line
+  carrying no authority. Now asserted on the **return value**.
+- The assertion then claimed all four gates fail-closed. They do not:
+  mock-integrity deliberately returns 0 while recording
+  `_LOKI_MOCK_INTEGRITY_REASON="detector_missing"`. Both directions are correct
+  for their own gate, so the invariant is now per-gate: a missing detector
+  either blocks, or records why it did not run -- never silence.
+
+## v8.37.0
+
+### Make the unproven measurement one command
+
+v8.33.0-v8.36.0 shipped three speed knobs and verified they BIND on production
+code. The end-to-end win stayed unproven, because proving it needs a real build
+-- and reading the result meant hand-parsing `.loki/events.jsonl`, which is how
+the original numbers were derived. That is not something to re-derive under time
+pressure with a paid build already spent.
+
+`scripts/measure-run.sh <workspace>` reports where a run's wall clock went. It
+reads only what a run already wrote: it starts nothing, costs nothing, and never
+contacts a provider.
+
+Verified against the real FireLater run that produced the original analysis --
+it reproduces those numbers exactly:
+
+```
+stage                    n   median    total   share
+code_review              2     504s     785s     96%
+static_analysis          3       7s      26s      3%
+...
+TOTAL                                   817s
+
+CODE REVIEW, per council
+  seconds  reviewers  pass  fail
+      502          7     0     7
+      280          7     1     6
+```
+
+It also correctly reports `first code change: not recorded` for that pre-v8.35.0
+run rather than inventing a value -- the same silence-over-fabrication rule the
+signal writers follow.
+
+Degrades safely: a truncated or corrupt JSONL tail is skipped rather than
+aborting the report, a missing workspace exits 66, and `--json` emits a parseable
+object. The "Nx" scaling line prints only when the data contains more than one
+council size, because a single sample cannot support a claim about scaling.
+
+### The comparison it exists to make
+
+```
+baseline:  (knobs unset)
+capped:    LOKI_REVIEW_MAX_REVIEWERS=3 LOKI_REVIEW_SKIP_ON_GATE_FAIL=true
+```
+
+Run the same issue twice, diff the `code_review` row and the total. That is the
+number that answers the 21-minute complaint, and it still requires a real build
+-- this release removes the friction, not the requirement.
+
+## v8.36.0
+
+### Verifying the shipped knobs against production code, not a copy of it
+
+v8.33.0-v8.35.0 shipped three speed knobs, all default-OFF. This release
+verifies the council cap works on run.sh's **actual selector** -- extracting the
+real `python3 << 'SPECIALIST_SELECT'` heredoc and running it end to end through
+the same environment the runner sets:
+
+```
+cap=0 -> 6: architecture-strategist, maintainer-mergeability, security-sentinel,
+            test-coverage-auditor, performance-oracle, dependency-analyst
+cap=4 -> 4: architecture-strategist, maintainer-mergeability, security-sentinel,
+            test-coverage-auditor
+cap=3 -> 3: architecture-strategist, maintainer-mergeability, security-sentinel
+```
+
+The safety property holds in production code: the mandatory pair survives at
+every level, and only the appended tail is trimmed.
+
+### The mutation that survived, and the real defect behind it
+
+Breaking the trim loop's mandatory-exclusion did NOT fail the existing test. It
+turned out to produce a genuinely broken council:
+
+```
+cap=3 -> architecture-strategist, maintainer-mergeability, architecture-strategist
+```
+
+Every mandatory reviewer is still **present**, so a presence-only assertion
+stays green -- while a capped slot is wasted on a DUPLICATE and the council pays
+full latency for one fewer perspective.
+
+Presence is not distinctness. The test now asserts both, and the mutation goes
+red.
+
+### Why a second cap test exists
+
+`test-review-council-cap.sh` drives a faithful re-implementation of the trimming
+rule. That is useful and insufficient: three mutations across v8.28.0, v8.34.0
+and v8.35.0 survived because a test exercised its own copy while the original
+was broken. This one runs the source.
+
+> A re-implementation tests the RULE. Only the source tests the CODE.
+
+### Honest status of the speed work
+
+Verified: the knobs reach the real code path and bind correctly; `gate_failures`
+(run.sh:22697) and the skip decision (run.sh:22962) share the same function
+scope, so the skip observes real failures.
+
+**NOT yet verified: an end-to-end scoped-issue run with the knobs enabled.**
+That needs a real paid build. Until it is measured, these are selector
+behaviour plus historical stage timings -- not a demonstrated end-to-end
+improvement, and the plan says so.
+
+Trust-core detector: 57 invariants.
+
+## v8.35.0
+
+### A run with no preview told the user nothing until it ended
+
+`seconds_to_first_preview` only fires for a previewable app. The shape the
+founder measured at 21 minutes -- a scoped GitHub issue fix -- produces no
+running app, so that number is empty and **nothing marked the moment the run
+first touched the codebase**. The user watched an idle terminal until the whole
+iteration finished.
+
+That is why felt time is worse than measured time even when measured time is
+competitive: Replit shows something at roughly 2 minutes, and we showed nothing
+at all.
+
+`.loki/state/first-artifact.json` now records seconds-to-first-code-change, and
+the summary renders it as `First change:` beside `First preview:`.
+
+Costs nothing on the common path: `start_time` and `end_time` already exist at
+the write site, so this adds no subprocess to the iteration.
+
+### Deliberately silent rather than fabricated
+
+- a run that changed nothing writes **no file** -- silence, never a `0s`
+- **write-once**: a later iteration cannot overwrite the first. Otherwise the
+  number quietly changes meaning from "when this run first did something" to
+  "the most recent change", a weaker and misleading claim
+- atomic write, so a partial read can never look valid
+
+### Two probes SURVIVED, for the same reason as last release
+
+The write-once and no-fabrication guards live in run.sh's real writer, while the
+test drove a faithful copy of it -- so mutating the original left every
+assertion green.
+
+This is the third time this exact shape has appeared (v8.28.0 extraction tests,
+v8.34.0 skip condition, here). The rule, now applied on sight:
+
+> A re-implementation tests the RULE. Only reading the source tests the CODE.
+> Any test that reproduces logic must also assert against the original.
+
+Both now turn red under mutation, alongside a third proving the value is
+rendered and not merely recorded -- the half-shipped pattern that cost six
+releases earlier in this session.
+
+Trust-core detector: 54 invariants.
+
+## v8.34.0
+
+### Spending 280-502s to describe a rejection that was already decided
+
+The deterministic gates run BEFORE code review and cost ~6s combined
+(static_analysis 5s, security_scan 1s, lsp_diagnostics 1s, test_suite <1s).
+The council costs 31s at 3 reviewers and **280-502s at 6-7**.
+
+When one of those cheap gates has already failed, `gate_failures` is non-empty
+and the iteration cannot be accepted no matter what the council says -- the
+same variable feeds the completion decision. So the review was spending up to
+502 seconds producing advice on code that was already going back for another
+pass.
+
+`LOKI_REVIEW_SKIP_ON_GATE_FAIL=true` skips the council in exactly that case.
+
+### What this deliberately is NOT
+
+It does not weaken any gate. A skipped review is recorded as **SKIPPED, never
+as a PASS**, the failing gate still blocks unchanged, and the skip branch
+touches neither `clear_gate_failure` nor `gate_failures`. It cannot turn a
+rejection into an approval -- it only declines to spend five minutes narrating
+one.
+
+**Default OFF.** Review findings are also next-iteration steering
+(`LOKI_INJECT_FINDINGS`), so skipping trades some guidance for a large latency
+win. That is a per-route call, not a silent global one.
+
+Three mutations pin it, covering both directions of error:
+
+- recording a skip as `pass` (**this would approve every failing build**)
+- breaking the `elif` so the skip is a no-op
+- dropping the `gate_failures` condition, which would skip review on GREEN
+  builds -- losing it entirely rather than deferring it
+
+### A re-implementation tests the rule; only the source tests the code
+
+The third mutation initially SURVIVED. The test drove a faithful copy of the
+skip condition, so weakening run.sh's actual condition left every assertion
+green. Fixed by asserting against the source text, not a reproduction of it.
+
+Same lesson as v8.31.0's council finding and v8.28.0's blind extraction tests,
+arriving from a third direction.
+
+### Also corrected: P1 in the speed plan was already half-done
+
+The plan proposed reordering cheap gates before the council. They already run
+first (run.sh:22653, 22714 precede 22883). The actual gap was that nothing
+CONSULTED the result -- which is what this release fixes.
+
+Trust-core detector: 50 invariants.
+
+## v8.33.0
+
+### The council was never sequential. It was oversized.
+
+Measured from real `code_review_start`/`code_review_complete` pairs:
+
+| reviewers | seconds |
+|---:|---:|
+| 7 | 502 |
+| 7 | 280 |
+| 6 | 177 |
+| **3** | **31** |
+
+Roughly 2x the council for **9-16x the wall clock**. Since reviewers are
+already dispatched concurrently (`run.sh:14803` forks with `) &`), that
+superlinearity is the max-of-N tail plus contention on one provider.
+
+And the 7-member council was partly redundant -- `security-sentinel` AND
+`review-security` reviewing the same diff:
+
+```
+architecture-strategist, maintainer-mergeability,
+security-sentinel, review-security,        <- two security reviewers
+performance-oracle, eng-qa, dependency-analyst
+```
+
+**Root cause:** the tier map sizes only the SPECIALIST slots
+(`{simple:2, standard:2, complex:4}`). Installed agents and `dependency-analyst`
+append AFTER that sizing, so nothing bounded the total -- which is how a
+4-reviewer battery becomes 7 on a scoped issue.
+
+`LOKI_REVIEW_MAX_REVIEWERS` caps the total. **Default 0 = uncapped**, so this
+release changes no existing behaviour; it is a knob to turn on per route.
+
+### Trimming order is a safety property
+
+Shrinking a council must never be able to manufacture an approval. So:
+
+- mandatory reviewers (requirements-verifier, architecture-strategist,
+  maintainer-mergeability) are **never** trimmed -- each carries a mandate no
+  keyword-selected specialist has
+- a cap set **below** the mandatory count is refused, not honoured
+- only the appended tail is trimmed
+
+Both halves are mutation-proven: removing the below-mandate guard, and letting
+the trim loop drop mandatory reviewers, each turn `tests/test-review-council-cap.sh`
+red.
+
+### Correction to the plan committed one release earlier
+
+`docs/SPEED-AND-FIRST-PASS-PLAN.md` originally claimed reviewers ran
+sequentially and made "parallelize the council" its headline P0. **That was
+wrong** -- the council has always been parallel. The grep behind that claim
+searched the wrong line range and returned nothing, and I read the silence as
+evidence.
+
+The plan now records the error rather than hiding the edit, and carries the
+rule that produced this release instead:
+
+> No optimization ships without a before-number, and no claim about how the
+> code behaves ships without reading the code that does it. An absent grep
+> match is not evidence of absence.
+
+Trust-core detector: 47 invariants.
+
+## v8.32.0
+
+### Aider's fallback named a Claude model
+
+`autonomy/run.sh` hardcoded `claude-opus-4-7` in seven places as the aider
+default. That id appears NOWHERE in `providers/model_catalog.json`, and
+`providers/aider.sh`'s own comment explains why it is worse than merely stale:
+aider takes litellm full model strings while Claude aliases are
+namespace-incompatible, so the fallback would have dispatched a Claude model
+name to aider. Now `openrouter/deepseek/deepseek-v3.2`, matching the catalog.
+
+Reachable only when the provider config was never sourced -- `aider.sh` already
+derives its default from the catalog -- so this hardens a fallback rather than
+changing normal operation.
+
+### On Claude, nothing needed changing
+
+That route already dispatches BARE aliases (`sonnet`, `haiku`), which always
+resolve to the provider's latest model with no catalog maintenance at all.
+Verified against the live CLI: `claude --model opus` reports `claude-opus-5`.
+
+### Codex tier pinning was investigated and deliberately NOT changed
+
+`providers/codex.sh` resolves all three tiers to the empty string on the real
+loader path, so selecting `high` does not select `gpt-5.6-sol`. That looks like
+a bug and a fix was written -- then reverted, because
+`tests/test-codex-model-trusted.sh` caught it and records why:
+
+**codex-cli rejects `gpt-5.3-codex` with "not supported when using Codex with a
+ChatGPT account", and Codex ships free with every ChatGPT plan.** A pinned
+default breaks the only zero-cost on-ramp in the category outright. Resolving
+tiers to catalog models re-introduces exactly that failure.
+
+The empty default is therefore correct: when a model cannot be known to be
+valid for the account tier, sending no `--model` and letting codex choose beats
+guessing. Making codex tiers work needs account-tier awareness, not a catalog
+lookup -- recorded here so the fix is not re-attempted from scratch.
+
+## v8.31.0
+
+### The planning tier was pointing at a superseded flagship
+
+The founder's standing instruction is to re-check model tiers against provider
+docs after every release. Doing that found real drift:
+`providers/model_catalog.json` resolved the **planning** tier -- the most
+expensive tier, used for architecture decisions -- to `claude-opus-4-8` while
+`claude-opus-5` was already shipping.
+
+Verified against the live CLI before changing anything: `claude-opus-5`
+dispatches successfully, and so does `claude-opus-4-8`. This was staleness, not
+breakage -- runs were working, just on a previous-generation flagship.
+
+The promotion moves all three references together (`models[]`, the derived
+`latest_planning` mirror, and the `opus` CLI alias), because the catalog's own
+`_source_of_truth` note requires it and
+`tests/test-model-catalog-single-source.sh` fails when they disagree.
+
+Cost tracking is unaffected: `loki-ts/data/model-pricing.json` is keyed by
+ALIAS (`opus`), not by model id, so promoting the alias target does not orphan
+the pricing entry. Checked rather than assumed.
+
+### Catalog AGE could not have caught this
+
+`loki doctor` already reports catalog age and warns past 90 days. That check was
+useless here: the catalog was **3 days old**. A provider shipping mid-window
+makes age a poor proxy for correctness.
+
+`tests/test-model-catalog-current-flagship.sh` closes that gap offline, with no
+network and no hardcoded knowledge of what the newest model is (which would rot
+exactly like the catalog). It fails when the catalog contradicts ITSELF:
+
+- a tier resolves to an id absent from that provider's `models[]`
+- a tier points at a version superseded by another model of the same family
+  already listed in the catalog
+- a `cli_aliases` entry and its tier resolve to different ids -- the tier a user
+  picks and the model actually dispatched would silently differ
+- `updated` is not a valid ISO date (which degrades doctor's age check into a
+  vague "unreadable" warning)
+
+Both real drift shapes are pinned by mutation: restoring the pre-fix
+`latest_planning` and the pre-fix `opus` alias each turn the test red.
+
+Also ships `tests/test-model-catalog-staleness.sh` (13 assertions), which was
+written earlier in this session, passes, and had never been committed.
+
+Trust-core detector: 47 invariants.
+
+## v8.30.0
+
+### The baseline guard found two probes running zero tests
+
+v8.29.0 added a baseline check to `mutation-probe.sh`: run the test on
+UNMODIFIED code first, and refuse (rc 67) if it is already red. Its first full
+run across all 45 trust-core invariants immediately found three cases whose
+prior PASS verdicts meant nothing.
+
+**Two probes had been executing zero tests.** They invoked
+`bun test test/budget_cache_pricing.test.ts` from the repo root, but that file
+lives under `loki-ts/`. Bun searched 536 files, matched nothing, and **exited
+0** -- so the probe saw success, reported the invariant proven, and never ran a
+line of it. Both now run via `cd loki-ts` and genuinely detect their mutations.
+
+This is the exit-code false-green shape: a command that never did the work
+returns the same 0 as one that did.
+
+### A rate-limit signal that could not match, and two stale expectations
+
+`tests/test-rate-limiting.sh` was genuinely red on unmodified code (24 passed,
+3 failed) and had been for some time. The three failures split two ways:
+
+**One was a real defect.** `is_rate_limited` requires a rate-limit token and an
+error token to co-occur, but "quota exceeded" CONTAINS its own error word: the
+alternation consumed `exceeded` as the rate-limit half and found no error half
+left. `API quota exceeded for project` -- the canonical quota rate-limit line --
+did not match at all, so the runner would treat a quota limit as a hard failure
+instead of backing off. Self-sufficient phrases now match on their own.
+
+**Two were stale expectations.** The cases asserted that a bare
+`X-RateLimit-Remaining: 0` and a bare `Retry-After: 60` must trigger a wait.
+That contradicts a deliberate design decision: those strings appear in the
+agent's OWN generated source, and treating them as a live provider limit caused
+multi-minute false waits mid-build. The expectations predate the co-occurrence
+rule and were never updated when it landed. They now assert the correct
+behaviour, with companion cases proving the same headers DO trigger inside a
+real error frame.
+
+Deliberately NOT widened: a bare `429`, a bare `retry-after`, or an
+`X-RateLimit-*` header still must not qualify alone.
+
+## v8.29.0
+
+### The same blind spot on the Python side, on an input-validation boundary
+
+The extraction-test sweep (v8.27.0, v8.28.0) covered the shell. The Python
+tests have the same isolation shape -- exec a function out of `server.py` and
+drive it directly -- and had never been checked. Of the two, one was blind:
+
+**`_normalize_start_model`** could be bypassed at its call site with every
+assertion still green. Two consequences, and the second is the serious one:
+
+- a user picking the generic capability tier `high` would get the literal
+  string `"high"` passed through instead of a resolved model
+- **the function IS the allowlist.** Bypassing it forwards arbitrary
+  caller-supplied text to the engine, so this is an input-validation boundary,
+  not only a correctness one
+
+Both call sites are now pinned separately. A presence-grep passes while one of
+the two is removed, and losing only the advisor path leaves the primary path
+correct -- the asymmetric shape that is hardest to notice. The allowlist
+membership test is pinned as well, since dropping it makes the function a
+pass-through that still looks wired everywhere it is called.
+
+### A test that always fails proves nothing either
+
+The first version of these assertions had a bug (`_SERVER` is a path string in
+this module, not a `Path`), so they raised `AttributeError` unconditionally.
+All three mutation probes reported OK -- the tests did "fail" under mutation,
+but they failed identically without it.
+
+`mutation-probe.sh` distinguishes three outcomes, and this is a fourth it
+cannot see: a test that fails for its own reasons is as useless as one that
+always passes, and it reads as success. The fix was verified by confirming a
+GREEN baseline first, then re-running all three probes.
+
+Trust-core detector: 45 invariants.
+
+## v8.28.0
+
+### The extraction-test sweep is finished: 6 of 8 were blind
+
+v8.27.0 probed four of the eight extraction-style tests in this repository and
+found three blind. This finishes the remaining four. One was already sound
+(`_loki_app_sandbox_dir`); the other three were not:
+
+- **`lookup_license`** (`scripts/license-audit.sh`) -- the sharpest of the set.
+  Hardcoding the caller to `"MIT"` left every assertion green. The result feeds
+  `is_permissive`, which builds the offenders list, so a GPL or AGPL dependency
+  would pass the license audit **silently**. A compliance hole behind a green
+  test.
+- **`_loki_state_file`** -- emptying the baseline reader left all assertions
+  green; state would silently stop being read or written.
+- **`_loki_iteration_spec_summary`** -- emptying the caller left all assertions
+  green; the card a user reads each iteration would lose its spec summary while
+  the tests still described one.
+
+Final tally across v8.27.0 and this release: **6 of 8 extraction tests were
+blind**. Every one is now pinned by a mutation that goes red.
+
+### An assertion loose enough to never fail is the same bug, one level up
+
+The state-file fix was wrong on the first attempt and the probe caught it. The
+first version asserted a call-site COUNT of at least three -- but the resolver
+has SEVEN call sites, so deleting one still cleared the bar and the mutation
+survived a second time.
+
+A count threshold that the defect cannot trip is exactly the failure mode this
+detector exists to find, just relocated from the test into the assertion. Now
+pinned to three specific call sites by exact text: the baseline reader, the
+terminal-status writer, and the final-status writer.
+
+Trust-core detector: 42 invariants.
+
+## v8.27.0
+
+### Four more gates could be disconnected with every test green
+
+This release stops chasing the pattern one gate at a time and sweeps for it.
+
+An extraction test -- one that pulls a shell function out of `run.sh` and drives
+it directly -- proves the FUNCTION is correct and says nothing about whether
+anything still CALLS it. Eight tests in this repository have that shape. Four
+were probed by mutation; **three were blind**, and each blind one guards
+something a user relies on:
+
+- **`enforce_build_check`** -- replacing its call site with `if true;` left all
+  28 of its own assertions green. A failed production build would silently stop
+  blocking completion on the hosted simple-web route.
+- **`_loki_test_provenance`** -- emptying the council's call left all 8
+  assertions green. The council would stop checking test provenance entirely.
+- **`_loki_claude_login_state`** -- hardcoding the caller to `loggedin` left all
+  8 assertions green. A never-logged-in user would stop getting the fail-fast
+  with a one-step fix, and would instead enter the build, make a failing call,
+  and 401 -- the worst possible first impression.
+
+All three now carry wiring assertions, and all three previously-surviving
+mutations go red. Four cases added to the trust-core detector (now 39).
+
+The two probed paths that were already sound are recorded as such rather than
+"fixed": the sentrux security gate and the evidence-gate detail surface both
+end in `|| true`, but each captures its verdict separately and returns it
+intact -- the same shape v8.26.0's fix converged on.
+
+Nine subsystems have now been found with this caller-vs-callee gap. An
+isolation test without a wiring assertion is half a test.
+
+## v8.26.0
+
+### Gate 12 (Magic Modules debate) has never blocked anything
+
+It was broken in three independent ways, any one of which alone was fatal:
+
+1. The CLI called `run_debate(react_path=..., wc_path=...)`. Those are not
+   parameters of that function -- it takes `component_path` -- so every
+   invocation raised `TypeError` before a debate ever started.
+2. `run_debate` RETURNS a dict and prints nothing. The CLI discarded the
+   return value, so even a successful debate produced no output.
+3. The gate grepped stdout for `"severity": "block"`, a string that only ever
+   existed inside the discarded dict.
+
+The failure was invisible because the gate captured output with `|| true` and
+then looked for a blocking severity. A crash produces no match, and no match
+read as "nothing to block on", so a totally broken gate reported PASS on every
+iteration since v6.77.0 -- contributing a green result to the completion
+decision while judging nothing.
+
+Reproduced end to end before fixing: `TypeError` -> "Debate failed" -> gate
+returns PASS.
+
+### Enforcement is opt-in, because the fix was measured before being trusted
+
+Fixing the plumbing made the blocking path reachable for the first time. That
+path had never run against a real project, so it was measured rather than
+assumed -- and the result is why it ships advisory:
+
+On a deliberately thorough spec (explicit KB budgets, a named device class, a
+zero-JS server component, a stated contrast ratio), **three of four personas
+still returned "block"**. Two independent specs, two blocks. A single "block"
+from any one persona fails the gate, so it approves only when four strict
+reviewers are simultaneously satisfied -- a threshold almost nothing clears.
+
+Turning that on would have replaced a gate that never blocked with one that
+blocks nearly every build: a worse regression than the silent fail-open being
+fixed. The finding is surfaced and recorded; enforcement waits on tuning
+against real projects. Set `LOKI_GATE_MAGIC_DEBATE_BLOCKING=true` to enforce.
+
+### A gate that cannot run no longer reports PASS
+
+"Could not run" splits in two, and the halves need opposite handling:
+
+- **environment** (provider CLI absent, timeout, non-zero exit): degrades with
+  a warning. Blocking here would wedge every machine without provider
+  credentials over an advisory gate.
+- **wiring** (`TypeError`, `ImportError`, bad arguments): blocks loudly. Nobody's
+  build is being judged and nobody is being told -- the exact class that hid
+  here for so long.
+
+Unrecognised failures degrade rather than block, so a new provider error shape
+can never wedge every build.
+
+`tests/test-magic-debate-gate.sh` (20 assertions) and five cases in the
+trust-core detector (now 35) pin all of it, including that enforcement stays
+opt-in: flipping the default to `true` turns the test red.
+
+## v8.25.0
+
+### The startup preflight had no tests at all
+
+`validate_api_keys` runs four environment checks before a build begins. Nothing
+tested any of them. Four checks deciding whether a run may start, with no
+evidence any still fired -- the same shape as the three safety valves in
+v8.24.0, which all turned out to be disconnectable while their own tests stayed
+green.
+
+What a silent regression costs here is specific. Without the preflight, a user
+with no git, or a working directory they cannot write to, does not get a
+one-line fix at second zero. They enter the loop, spend a paid provider call,
+and fail deep inside the build with an error about something else. Turning that
+into an instant actionable message is the preflight's entire value.
+
+`tests/test-preflight-checks.sh` (14 assertions) now covers it, and asserts
+BOTH directions, because the two failure modes are opposite:
+
+- git and workspace **block**. A build cannot initialize a repo without git, and
+  cannot record anything if `.loki` is unwritable.
+- node and the network probe are **advisory**. node is optional -- Python, Go
+  and Rust builds never touch it -- and a 3s curl probe failing does not prove
+  the provider CLI cannot connect (proxy, VPN, transient DNS all curl-fail while
+  the real build succeeds).
+
+Inverting either direction is a real defect: a fail-closed network probe locks
+working users out on a transient blip, and a fail-open workspace check lets a
+build run with nowhere to write its receipt.
+
+Three cases added to `tests/test-trust-core-tests-detect.sh` (now 30) pin this
+with real mutations: making the git check fail-open, disconnecting the workspace
+check from its caller, and making the node advisory block all turn the test red.
+
+The wiring assertions pin the call sites by count rather than presence. A
+presence-grep passes while one of four calls is deleted -- the exact gap found
+in eight subsystems in this codebase.
+
+## v8.24.0
+
+### The three safety valves could all be disconnected
+
+The spend cap, the iteration cap and the wall-clock cap are the only things that
+stop a run on its own. All three could be disconnected from the loop with every
+test still passing, including the one written specifically for the duration cap.
+
+Without them a build spends and runs until something external kills it.
+
+All three connections are now asserted. The iteration cap needed more than a
+presence check: it has two call sites, one before the loop and one inside it,
+and a test that merely found the name passed while the in-loop check was
+removed. The assertion pins the exact number of call sites, so losing either one
+fails.
+
+Each valve is also required to record its own terminal status, so a run that
+stopped on time is not reported as one that stopped on cost.
+
+The detection audit covers twenty-six invariants.
+
+
+
+### The vote itself could be skipped
+
+Finishing the enumeration found the last and largest instance. The four hard
+gates were guarded a release ago, but the call that runs the actual evaluation
+was not. A true return from it is what prints project approved and writes the
+completion marker, so bypassing it approves every run with no vote taken.
+
+That is a stronger failure than any single gate: the gates each check one thing,
+while the evaluation is the decision.
+
+The safety valve beside it was probed at the same time and was already guarded.
+Both are now pinned, along with the completion marker still being written from
+the approval path rather than anywhere else.
+
+The council enumeration is complete: seven guards, all now proven to fail when
+disconnected. The detection audit covers twenty-three invariants.
+
+
+
+### The other three completion gates had the same hole
+
+Fixing the evidence gate one release ago and stopping there was the wrong
+instinct. It sits in a run of four hard gates that each block completion for a
+different reason: an unmet checklist, failing held-out evaluations, missing
+evidence, and unresolved assumptions. Only one had been checked. All four were
+disconnectable with every test still passing.
+
+Bypassing any one lets a run complete while the thing that gate exists to check
+was never checked, and the receipt still reads verified.
+
+All four connections are now asserted as a group, so a future gate added beside
+them without a call-site assertion is visible rather than silently unguarded.
+
+The detection audit covers twenty-one invariants.
+
+
+
+### Two more gates could be bypassed with every test still green
+
+The code-review gate and the evidence gate were both disconnectable without any
+test failing. Both fail in the dangerous direction.
+
+Bypassing the review gate makes every iteration pass review without the review
+running. Bypassing the evidence gate lets the completion council approve a run
+with no diff and no green tests, which is the exact claim the product exists to
+make honestly.
+
+Both were invisible for the same reason as the four before them: the suites test
+each gate's own logic thoroughly and never assert that anything still calls it.
+
+Both connections are now asserted, along with the phase toggle still being
+consulted so the review gate cannot be silently hardcoded on or off. The
+detection audit covers eighteen invariants.
+
+
+
+### The completion gates could be disconnected with every test still green
+
+The completion council decides when a run is done. The supervised path has its
+own gate that blocks completion when an iteration reported failures. Both live in
+the same conditional in the runner, and neither connection was tested.
+
+Disconnecting the council means no run can ever be approved, which then looks
+like a model problem rather than a wiring bug. Bypassing the supervised gate
+means every supervised run reports complete with its gates unchecked. Both
+failure modes were silent: the council suites test the decision logic directly
+and never asked whether the runner still consults it.
+
+Both connections are now asserted, along with the helpers still being defined
+under the names their callers use, since a rename touching one side leaves the
+guard permanently false with no error anywhere.
+
+The detection audit covers sixteen invariants, each proven to fail when broken.
+
+
+
+### The last cost route was checked and is clean
+
+Four cost routes had the same defect: a correct calculator receiving records
+that had already lost their cache tokens. The TypeScript path was the remaining
+one that had never been checked end to end, only through hand-built records.
+
+Driving the real file-to-cost flow shows it preserves the fields and produces
+the same total the other routes do, so there is no fifth instance. The test now
+exercises that flow rather than assuming it, and it is pinned in the detection
+audit, which covers fourteen invariants.
+
+Recording a clean result matters as much as recording a fix. Without it the next
+person has to re-derive whether this route was ever verified.
+
+
+
+### The budget breaker under-counted the tokens that dominate a bill
+
+Applying the isolation-versus-wiring check to the Python tests found a second
+caller of the cost calculator that never passed cache tokens. It feeds the
+budget snapshot, which decides when to warn at eighty percent and when to stop
+at the cap.
+
+On a real record it saw $0.12 where the true spend was $0.66, so a run could
+sail past its limit unwarned. The same bug, in its fourth location: the earlier
+three were fixed while this one stayed hidden because every test exercised the
+calculator directly and none checked what the callers pass it.
+
+All call sites now pass cache tokens, and a test asserts that for each of them
+rather than for the calculator alone.
+
+
+
+### A security guard could be bypassed with every test still green
+
+Several tests extract a helper from the engine and verify it in isolation. That
+proves the helper works and proves nothing about whether anything still calls
+it. Sweeping for that specific shape found three blind tests, one of them on a
+security boundary.
+
+The app-runner validates a user-supplied command against a whitelist before
+executing it. Replacing that guard so an unvalidated command runs left the
+entire injection test suite passing, because every case tested the validator
+directly and none checked that execution still went through it.
+
+Two more had the same shape: the interactive handoff every launch shows could be
+disabled silently, and the language-gate timeout wiring fixed in the previous
+release. Rate-limit detection was checked and turned out to be genuinely
+guarded.
+
+All three now assert their call sites, and each is pinned in the detection audit,
+which grew from ten invariants to thirteen. Every one is proven to fail when
+broken.
+
+
+
+### A gate could lose its timeout and every test would stay green
+
+The language-gate timeout tests extract the helper into a scratch harness and
+verify it there. That proves the helper works and says nothing about whether the
+gates call it. The connection was untested, so a gate reverting to unbounded
+execution, which can hang an entire run, would not have failed anything.
+
+The tests now assert the call sites too, and that assertion catches the real
+regression: removing the timeout from the go gate turns them red.
+
+The detection audit grew from seven invariants to ten, adding the TypeScript
+cost path, codex tier resolution, and the gate timeout wiring. All ten are
+proven to fail when broken.
+
+One note for whoever extends this: probing a function's DEFINITION is not the
+same as probing its use. Renaming a helper leaves its call sites pointing at the
+old name, which no real change would do, and the resulting report reads as a
+blind test. Target the call site.
+
+
+
+### Proof that the trust-core tests would fail if the trust core broke
+
+Every test here passes. That was never evidence any of them would fail if the
+code broke, and for the trust core that gap is the product: a receipt claiming
+verification, guarded by a test that cannot tell when verification stopped
+happening.
+
+Seven load-bearing invariants are now proven detectable by breaking each one and
+requiring its test to go red. All seven pass, and the audit is a test itself, so
+it re-runs whenever anything changes rather than being a one-off exercise.
+
+The audit found a real coverage hole while being built. The verifier keeps its
+post-headline filter in two places, and every existing fixture exercised only
+the legacy arm, so the arm that real receipts actually take was unguarded. Two
+cases now pin the arms apart.
+
+It also found a trap in the method itself: probing the wrong copy of duplicated
+code reports that the mutation survived, which is indistinguishable from a blind
+test. The probe now takes a marker to pin which copy is under test, and the
+audit records why that matters where the next reader will hit it.
+
+
+
+### A mutation test that does not mutate looks exactly like one that passes
+
+Verifying a test by breaking the code and watching it go red depends entirely on
+the break landing. When the search string does not match, nothing breaks, the
+test passes, and the result is indistinguishable from a working test. A checker
+then ships with no evidence it detects anything.
+
+That happened twice here in consecutive releases. Both times the only clue was a
+debug line that existed by luck.
+
+There is now a probe that makes the distinction structural, with three separate
+exit codes: the mutation applied and the test caught it, the mutation did not
+apply, or the mutation applied and the test missed it. The middle case used to
+look like success and now fails loudly. The target file is restored in every
+outcome, including errors.
+
+Building it surfaced two of its own bugs, both found by pointing it at itself: a
+restore that ran twice and printed an error on a healthy run, and a self-test
+that recursed without bound and left the probe on disk with its own guard
+deleted. The second is recorded in the test file so the idea is not retried from
+scratch.
+
+
+
+### The release checklist pointed at a file that never existed
+
+skills/sdlc-fleet.md has a section headed "Per-release checklist (always)". It
+sent the reader to a roadmap file for the binding fourteen steps. That file has
+never been tracked in this repository, and the only mention of the checklist
+anywhere is the pointer itself, so an agent following it for the binding
+procedure found nothing and had to guess.
+
+It now points at the Release Workflow section of CLAUDE.md, which is the real
+procedure and stays current because every release edits it.
+
+The pointer checker now covers the skills modules as well as the two entry
+documents, ninety-nine paths in total. Fenced code blocks are excluded, because
+one module shows an example learning note whose file names are illustrative, and
+two runtime paths are excluded by name for the same reason: a checker that flags
+correct things gets ignored.
+
+
+
+### The project instructions pointed at a file nobody else has
+
+CLAUDE.md is loaded into the context of every agent that works on this
+repository. It ended its architecture section by pointing at a codebase
+knowledge graph under a path that is machine-local Claude memory, under a
+previous repository name, neither tracked in git nor shipped in the package.
+
+It resolved on exactly one machine. Every other reader, human or agent,
+followed it to nothing.
+
+The reference now says where that file actually lives and states plainly that it
+is not in the repository, so a reader stops looking instead of assuming they
+have the wrong checkout. The in-repo tables are named as the authority for
+everyone else.
+
+A test now resolves every repository path cited in CLAUDE.md and SKILL.md.
+Scoped narrowly on purpose: runtime state paths and bare prose filenames are
+skipped, because a checker that flags those is noise, and a noisy checker gets
+muted.
+
+
+
+### A month-old decision list was reading as current
+
+The founder decision list from 2026-07-01 presents eight decisions awaiting an
+answer. Re-checked against the repository a month later, four of them concern a
+package that does not exist here at all: it lives in a separate repository, so
+those decisions cannot be acted on where they are being read. One more cites a
+benchmark progress figure that cannot be confirmed or refuted from this repo,
+because the results directory is not tracked.
+
+The document now opens with what was re-verified and what was not, item by item,
+and points at the current decision list. Nothing was deleted: the decisions were
+real when written, and a reader deserves to see both the original and what has
+since become unverifiable.
+
+The accuracy test now covers this document too, including the claim that the
+package really is absent. If it is ever vendored in, the note becomes wrong and
+the test says so.
+
+
+
+### The open question was narrower than it looked
+
+Sweeping every fact the proof records showed that keeping an unrun check out of
+the honesty ledger is a deliberate, consistent pattern rather than a gap in one
+place. Three facts behave that way, and two of them said so in their own
+documentation while the third did not.
+
+The security collector now carries the same explicit note the other two have, so
+the behaviour is documented where a reader will find it instead of inferred from
+its absence. No verdict changes and no question is answered.
+
+The decision document was corrected: answering the security question alone would
+leave the receipt internally inconsistent, since a reader who sees an unrun scan
+flagged will ask why an unrun healthcheck is not. It is one decision about a
+tier, not three about separate facts. The recommendation that said otherwise was
+written before the sweep and has been replaced.
+
+
+
+### The two open trust questions are written down
+
+Two questions surfaced during this work that change what "Verified" means on a
+receipt, so they were deliberately left unanswered. They were recorded only in
+commit messages, which is where decisions go to be forgotten.
+
+They are now a document, each with the measurement that raised it, both sides of
+the argument, and the exact function where the change would go. The sharper of
+the two: a receipt can read VERIFIED with an empty gaps list while the security
+scan never ran, because an absent scan is deliberately not counted as a gap and
+there is a test asserting that.
+
+A test keeps the document honest. It re-checks every quotation against the
+source and re-measures the behaviour the document describes, so answering either
+question turns it red and forces the record to be updated rather than left
+stale.
+
+
+
+### The forgery-accusation fix was one status string from breaking again
+
+v8.19.2 stopped the verifier accusing honest receipts of tampering, by skipping
+the gap entries the generator appends after computing the headline. That filter
+matched a single status string, which works only until a second kind of
+post-headline entry exists.
+
+Entries now carry an explicit marker saying they were appended after the
+headline, and the verifier filters on that intent rather than on a status it has
+to keep guessing. Any future entry is covered by construction. Receipts written
+by earlier versions, which predate the marker, are still recognised.
+
+
+
+### An honest receipt was being accused of forgery
+
+The verifier re-derives a receipt's headline from its recorded facts and reports
+any mismatch as evidence the headline was edited to misrepresent them. That is
+the strongest claim the tool makes.
+
+v8.19.0 added a gap entry for each disabled trust gate, appended after the
+headline is computed so the verdict does not move. The verifier re-derived using
+those entries, and the derivation only cares whether the gap list is empty, so a
+run with security switched off recorded one headline and re-derived another.
+
+The result was a user being told their honest proof had been edited to
+misrepresent the facts. For a product whose claim is verifiable trust, a false
+accusation of tampering is worse than the gap it was meant to surface.
+
+The re-derivation now uses exactly the list the generator used. Excluding those
+entries does not blind it: a genuinely edited proof is still caught, and a real
+gap recorded before the headline still counts, both asserted.
+
+
+
+### The owner read the same problem three times
+
+Rendering a real generated proof through the owner-facing page showed a gate
+named three times in four lines: once by a summary line added in v8.18.1, then
+twice more by the per-gate entries the honesty ledger gained in v8.19.0.
+
+Repetition in a section about what went wrong reads as separate problems, which
+is the opposite of what a plain-English summary is for. The ledger is the
+canonical source now, so the redundant summary line is gone and each skipped
+check is named exactly once.
+
+The verdict is unchanged: a run with correctness gates disabled still does not
+show a green badge, and the unhelpful fallback that says no gaps were itemized
+still stays suppressed when the ledger explains the gap.
+
+
+
+### A switched-off gate now appears in the honesty ledger
+
+The ledger exists so a reader sees exactly what was not verified rather than
+inferring it from silence. A gate the operator switched off is exactly that, and
+it was missing.
+
+Measured through the real generator rather than a hand-built proof: a run with
+code review and security disabled listed only "build" as its gap, while two
+correctness checks had not run at all. The receipt was accurate about what it
+mentioned and silent about what mattered most.
+
+The entries are appended after the headline is computed, deliberately. Feeding
+them into the headline would change what "Verified" means, and this project
+already treats that as a decision for the council and founder rather than
+something to infer. The same run produces the same verdict as before; only the
+gap list is now complete.
+
+Phases that do not bear on correctness, such as performance testing and
+competitor research, are not listed. Padding the ledger with entries that do not
+mean the work is less verified is how a ledger gets skimmed.
+
+
 
 ### The owner was told the badge was not green, but not why
 
