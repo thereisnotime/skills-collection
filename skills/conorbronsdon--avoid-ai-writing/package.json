@@ -1,7 +1,7 @@
 {
   "name": "avoid-ai-writing-detector",
-  "version": "3.22.1",
-  "description": "Deterministic detection engine for the Avoid AI Writing skill — 45-type pattern + stylometric analysis of AI-generated text.",
+  "version": "3.23.0",
+  "description": "Deterministic detection engine for the Avoid AI Writing skill — pattern + stylometric analysis of AI-generated text.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -16,7 +16,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node detector/patterns.test.js && node detector/categories.test.js && node detector/validate.test.js && node scripts/corpus.test.js",
+    "test": "node detector/patterns.test.js && node detector/categories.test.js && node detector/validate.test.js && node scripts/corpus.test.js && node scripts/check-style.test.js",
     "self-scan": "node scripts/self-scan.js",
     "self-scan:check": "node scripts/self-scan.js --check",
     "corpus": "node scripts/corpus.js list",

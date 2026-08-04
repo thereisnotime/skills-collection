@@ -77,7 +77,21 @@ run_test() {
 
     TESTS_RUN=$((TESTS_RUN + 1))
 
-    if bash "$test_file"; then
+    # Most callers pass a bare path; two pass a full command line
+    # ("python3 .../x.py"). `bash "$cmd"` treats the whole string as ONE
+    # filename, so those two died with "No such file or directory" and reported
+    # as a product failure. Branch on what the argument actually is.
+    #
+    # Deliberately NOT `bash -c "$test_file"` for everything: -c execve's the
+    # file, which requires the exec bit, and 46 shell suites here are committed
+    # mode 100644. That swap turns every one of them into rc 126.
+    if [ -f "$test_file" ]; then
+        _run_suite() { bash "$test_file"; }
+    else
+        _run_suite() { bash -c "$test_file"; }
+    fi
+
+    if _run_suite; then
         echo ""
         echo -e "${GREEN}✓ ${test_name} PASSED${NC}"
         TOTAL_PASSED=$((TOTAL_PASSED + 1))
@@ -723,7 +737,11 @@ run_test "review skip on gate failure never records a pass" "$SCRIPT_DIR/test-re
 run_test "time-to-first-artifact is recorded and rendered" "$SCRIPT_DIR/test-first-artifact-signal.sh"
 run_test "council cap binds on the REAL selector" "$SCRIPT_DIR/test-review-cap-real-selector.sh"
 run_test "gate detectors ship in the npm package" "$SCRIPT_DIR/test-detectors-are-packaged.sh"
+run_test "runtime python libs ship in the npm package" "$SCRIPT_DIR/test-runtime-libs-are-packaged.sh"
+run_test "loki why maps each error class to an action" "$SCRIPT_DIR/test-why-actions.sh"
 run_test "loki start surfaces a stale install" "$SCRIPT_DIR/test-start-update-hint.sh"
+run_test "loki help does not recurse into itself" "$SCRIPT_DIR/test-help-no-recursion.sh"
+run_test "no test uses a platform-divergent construct" "$SCRIPT_DIR/test-ci-only-divergence.sh"
 run_test "doctor detects an incomplete install" "$SCRIPT_DIR/test-doctor-install-integrity.sh"
 run_test "findings injection degrades loudly, never silently" "$SCRIPT_DIR/test-findings-injection-degrade.sh"
 run_test "a stuck gate aborts instead of grinding" "$SCRIPT_DIR/test-gate-stuck-abort.sh"
@@ -736,6 +754,22 @@ run_test "startup is instrumented, never a silent gap" "$SCRIPT_DIR/test-startup
 run_test "every handled gate escalates its findings" "$SCRIPT_DIR/test-gate-escalation-coverage.sh"
 run_test "cost honesty holds across every surface" "python3 -m pytest -q $SCRIPT_DIR/test_cost_honesty_end_to_end.py"
 run_test "the agent call reports its own prompt size" "$SCRIPT_DIR/test-agent-prompt-size.sh"
+run_test "per-turn context growth is measured" "$SCRIPT_DIR/test-context-growth-instrumentation.sh"
+run_test "provider auto-detection is wired" "$SCRIPT_DIR/test-provider-autodetect.sh"
+run_test "the two provider lists agree" "$SCRIPT_DIR/test-provider-lists-agree.sh"
+run_test "preflight verdict is honest" "$SCRIPT_DIR/test-preflight-verdict.sh"
+run_test "the provider docs match the code" "$SCRIPT_DIR/test-provider-docs-match-code.sh"
+run_test "every opencode dispatch path passes --auto" "$SCRIPT_DIR/test-provider-config-autonomous-flag.sh"
+run_test "a dropped event is visible" "$SCRIPT_DIR/test-event-drop-visible.sh"
+run_test "events carry the source the dashboard reads" "$SCRIPT_DIR/test-event-source-attribution.sh"
+run_test "proof verify --human explains a failure" "$SCRIPT_DIR/test-proof-verify-human.sh"
+run_test "the verification demo runs the real tools" "$SCRIPT_DIR/test-verify-demo.sh"
+run_test "cost and estimate are reachable from the CLI" "$SCRIPT_DIR/test-cost-cli.sh"
+run_test "quickstart names the provider that will run" "$SCRIPT_DIR/test-quickstart-provider-detect.sh"
+run_test "explicit provider preflight" "$SCRIPT_DIR/test-provider-preflight.sh"
+run_test "doctor shows provider availability" "$SCRIPT_DIR/test-doctor-providers.sh"
+run_test "interrupted runs surface how to resume" "$SCRIPT_DIR/test-resume-discoverability.sh"
+run_test "install integrity is checked on both doctor routes" "$SCRIPT_DIR/test-doctor-install-integrity-parity.sh"
 run_test "model catalog: no tier points at a superseded flagship" "$SCRIPT_DIR/test-model-catalog-current-flagship.sh"
 run_test "model catalog staleness is advisory in doctor" "$SCRIPT_DIR/test-model-catalog-staleness.sh"
 run_test "doctor blocker parity (both routes name blockers + offer loki tour)" "$SCRIPT_DIR/test-doctor-blocker-parity.sh"
@@ -772,6 +806,7 @@ run_test "a user-installed reviewer takes part in a run" "$SCRIPT_DIR/test-insta
 run_test "skill docs match source (gate flags, providers, tiers, index routing, seam)" "$SCRIPT_DIR/test-skill-doc-accuracy.sh"
 run_test "proof md (paste-able receipt, one renderer)" "$SCRIPT_DIR/test-proof-md.sh"
 run_test "air-gapped read-only path (egress severed)" "$SCRIPT_DIR/test-airgap-commands.sh"
+run_test "proof phases CLI/API parity (one reader, two surfaces)" "$SCRIPT_DIR/test_cli_phases_parity.sh"
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 
 # Summary

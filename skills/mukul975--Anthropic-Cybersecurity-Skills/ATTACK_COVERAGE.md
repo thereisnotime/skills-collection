@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Tactics-14%2F14-green?style=for-the-badge" alt="Tactics" />
 </p>
 
-This document maps all **291 unique MITRE ATT&CK techniques** (across **149 parent techniques**) referenced in our **753+ cybersecurity skills** to the 14 Enterprise ATT&CK tactics. Use this to identify coverage gaps, plan detection engineering priorities, or validate your security program against the ATT&CK framework.
+This document maps all **291 unique MITRE ATT&CK techniques** (across **149 parent techniques**) referenced in our **817 cybersecurity skills** to the 14 Enterprise ATT&CK tactics. Use this to identify coverage gaps, plan detection engineering priorities, or validate your security program against the ATT&CK framework.
 
 > **How to read this:** Each technique links to its official ATT&CK page. Skills listed under each technique are the ones in this repository that teach detection, hunting, exploitation, or response for that technique.
 
@@ -505,5 +505,5 @@ GenAI-specific subcategories applied: GOVERN-6.1, GOVERN-6.2 (responsible deploy
 ---
 
 <p align="center">
-  <sub>Part of <a href="https://github.com/mukul975/Anthropic-Cybersecurity-Skills">Anthropic Cybersecurity Skills</a> — 753+ open-source cybersecurity skills for AI agents</sub>
+  <sub>Part of <a href="https://github.com/mukul975/Anthropic-Cybersecurity-Skills">Anthropic Cybersecurity Skills</a> — 817 open-source cybersecurity skills for AI agents</sub>
 </p>

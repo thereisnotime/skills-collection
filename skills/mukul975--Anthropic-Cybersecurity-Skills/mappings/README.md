@@ -21,7 +21,7 @@ Alternatively, paste the raw JSON URL into the Navigator's "Load from URL" optio
 
 | Metric | Value |
 |--------|-------|
-| Total skills scanned | 742 |
+| Total skills scanned | 817 |
 | Unique ATT&CK techniques referenced | 218 |
 | Parent techniques | 94 |
 | Sub-techniques | 124 |

@@ -1592,12 +1592,136 @@ second"""
 
 
 def test_same_line_duplicate_severity_declarations_fail():
+    """Unchanged by #637: a mid-line second declaration is a declaration
+    (`_SEVERITY_DECL_RE`) whose value cannot parse mid-prose, so the
+    declared-but-unparseable guard still aborts. Only cross-line
+    supersession takes last-wins."""
     body = (
         "### W1: hidden critical\n"
         "**Severity**: Minor and **Severity**: Critical"
     )
     report, _ = parse_report("eic", body=body)
     with pytest.raises(phase.ConformanceError, match="FINDING-GRAMMAR"):
+        phase.check_scoring_seat_anchors(report)
+
+
+def test_same_line_pipe_separated_severity_pair_fails():
+    """`_SEVERITY_RE` also parses after a table-cell pipe, so both halves
+    of `Minor | Critical` on ONE line are parseable — but two parseable
+    declarations on one line are not a reading-order self-correction and
+    must not enter the supersession path (which could otherwise waive the
+    anchor requirement via `Critical | Minor`)."""
+    for pair in ("Minor | **Severity**: Critical",
+                 "Critical | **Severity**: Minor"):
+        body = (
+            "### W1: table smuggle\n"
+            f"**Severity**: {pair}"
+        )
+        report, _ = parse_report("eic", body=body)
+        with pytest.raises(
+            phase.ConformanceError, match="exactly one parseable Severity"
+        ):
+            phase.check_scoring_seat_anchors(report)
+
+
+def test_cross_line_severity_supersession_takes_last(capsys):
+    """#637 ms01_quant baseline r1: the domain seat declared Major, then
+    self-corrected to Critical with explicit supersession prose. The card
+    passes with the last value operative and the trail in the gate log."""
+    body = (
+        "### W1: construct mismatch\n"
+        "**Severity**: Major\n"
+        "Correction: recording this as Critical; the Severity line below "
+        "supersedes the line above.\n"
+        "**Severity**: Critical\n"
+        '**Evidence Anchor**: text: "quote" p. 1'
+    )
+    report, _ = parse_report("eic", body=body)
+    phase.check_scoring_seat_anchors(report)
+    assert (
+        "[SEVERITY-SUPERSEDED: p2.md: W1: construct mismatch: "
+        "Major -> Critical]"
+    ) in capsys.readouterr().out
+
+
+def test_unparseable_severity_declaration_still_fails():
+    body = (
+        "### W1: bad value\n"
+        "**Severity**: High"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(
+        phase.ConformanceError, match="exactly one parseable Severity"
+    ):
+        phase.check_scoring_seat_anchors(report)
+
+
+def test_revisited_severity_value_still_fails():
+    """A chain that revisits a value (Minor -> Major -> Minor) is not a
+    supersession — a non-escalating chain keeps the anti-bundling abort."""
+    body = (
+        "### W1: bundled pair\n"
+        "**Severity**: Minor\n"
+        "first\n"
+        "**Severity**: Major\n"
+        "second\n"
+        "**Severity**: Minor"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(
+        phase.ConformanceError, match="strictly escalating"
+    ):
+        phase.check_scoring_seat_anchors(report)
+
+
+def test_deescalating_severity_pair_still_fails():
+    """Critical -> Minor must abort: last-wins de-escalation would waive
+    the Critical Evidence-Anchor hard gate with one appended line. Only
+    the observed self-correction direction (escalation) is tolerated."""
+    body = (
+        "### W1: fabricated denominators\n"
+        "**Severity**: Critical\n"
+        "The paper invents denominators.\n"
+        "**Severity**: Minor"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(
+        phase.ConformanceError, match="strictly escalating"
+    ):
+        phase.check_scoring_seat_anchors(report)
+
+
+def test_distinct_severity_bundle_still_fails():
+    """Three findings bundled under one W heading with distinct descending
+    severities are not a supersession chain and keep the loud abort."""
+    body = (
+        "### W1: bundled triple\n"
+        "**Severity**: Critical\n"
+        "first\n"
+        "**Severity**: Major\n"
+        "second\n"
+        "**Severity**: Minor"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(
+        phase.ConformanceError, match="strictly escalating"
+    ):
+        phase.check_scoring_seat_anchors(report)
+
+
+def test_escalating_supersession_operative_value_needs_anchor():
+    """Minor -> Major with NO anchor must abort at ANCHOR-MISSING: the
+    LAST value (Major) is operative. Pins last-wins — if the first value
+    (Minor) were operative the card would take the no-anchor branch and
+    pass."""
+    body = (
+        "### W1: upgraded finding\n"
+        "**Severity**: Minor\n"
+        "on reflection this forecloses the design claim\n"
+        "**Severity**: Major"
+    )
+    report, _ = parse_report("eic", body=body)
+    with pytest.raises(phase.ConformanceError, match="ANCHOR-MISSING"):
         phase.check_scoring_seat_anchors(report)
 
 

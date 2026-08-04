@@ -1610,14 +1610,39 @@ COMPLEXITY_TIER=${LOKI_COMPLEXITY:-auto}
 DETECTED_COMPLEXITY=""
 
 # Multi-Provider Support (v5.0.0)
-# Provider: claude (default), codex, cline, aider
-LOKI_PROVIDER=${LOKI_PROVIDER:-claude}
+# Provider: auto-detected when unset; claude > cline > codex > aider > opencode.
+#
+# WHY NOT `:-claude`. That default was a hard failure for anyone who has Codex
+# but not Claude: run.sh would select a provider that is not installed and die,
+# even though auto_detect_provider() has existed in providers/loader.sh -- with
+# the right priority order and its own passing test -- since v5.0.0. Nothing in
+# production ever called it. Detection was built, tested, and never wired.
+#
+# An EXPLICIT choice still wins: this only fills an unset value, so
+# LOKI_PROVIDER=codex and --provider codex are untouched.
+_LOKI_PROVIDER_WAS_EXPLICIT=1
+[ -z "${LOKI_PROVIDER:-}" ] && _LOKI_PROVIDER_WAS_EXPLICIT=0
 
 # Source provider configuration
 PROVIDERS_DIR="$PROJECT_DIR/providers"
 if [ -f "$PROVIDERS_DIR/loader.sh" ]; then
     # shellcheck source=/dev/null
     source "$PROVIDERS_DIR/loader.sh"
+
+    # Detect only when the operator expressed no preference. Sourcing the
+    # loader first is required -- auto_detect_provider() is defined there.
+    if [ "$_LOKI_PROVIDER_WAS_EXPLICIT" -eq 0 ]; then
+        _detected="$(auto_detect_provider 2>/dev/null || true)"
+        if [ -n "$_detected" ]; then
+            LOKI_PROVIDER="$_detected"
+            echo "[loki] provider: $LOKI_PROVIDER (auto-detected)" >&2
+        else
+            # Nothing installed. Keep the historical default so the existing
+            # "not installed" error path reports claude, which is the actionable
+            # message -- rather than an empty provider name.
+            LOKI_PROVIDER=claude
+        fi
+    fi
 
     # Validate provider
     if ! validate_provider "$LOKI_PROVIDER"; then
@@ -19849,8 +19874,47 @@ except Exception:
 
     # STATIC PREFIX (cache-stable across iterations).
     # Order is deterministic so the prefix is byte-identical for iter N and N+1.
+    #
+    # LOKI_SIMPLE=1 -- THE ABLATION ARM. Default off; the emitted bytes are
+    # unchanged unless it is explicitly set, so parity fixtures do not move.
+    #
+    # WHY THIS EXISTS. Every instruction below was written to correct a model
+    # that needed correcting. Anthropic deleted ~80% of Claude Code's system
+    # prompt for Opus 5 on the finding that the corrections had become dead
+    # weight -- and that the model measured slightly MORE capable without them.
+    # Their method was ablation: delete, then add back only what a measured
+    # failure demands. Nothing here had ever been measured at all.
+    #
+    # THE DISTINCTION THIS FLAG IS BUILT AROUND, and the reason it strips the
+    # prefix while leaving the tail completely alone:
+    #
+    #   The prefix is COACHING -- how to work. "Use a Reason-Act-Reflect-Verify
+    #   cycle", "execute all SDLC phases", "consult memory". A frontier model
+    #   does these natively; being told costs attention and buys nothing.
+    #
+    #   The tail is STATE -- what happened. Which gate failed, what the
+    #   self-heal found, what the checklist still shows open. That is
+    #   information the model cannot derive from anywhere else, and deleting
+    #   it would be deleting the run's memory, not its lecture.
+    #
+    # So this ablates coaching ONLY. The dynamic tail below is untouched, and
+    # so is every gate, receipt, and verification path: the trust core is not
+    # prompt correction, and it is never an ablation arm.
+    #
+    # prd_anchor stays in both arms -- it names the task, which is the one
+    # thing the model genuinely cannot infer.
+    #
+    # MEASURED, with its provenance: 8090 -> 1776 bytes (-78%) from a LIVE
+    # build_prompt call under the fixture-1 ENVIRONMENT with a gate-failure
+    # file present -- not from the fixture file itself, which is 7909 bytes.
+    # The distinction matters because a number attributed to the wrong source
+    # cannot be reproduced by the next person who tries.
+    #
+    # The strip is bounded: only the block below is gated, so the anchor and
+    # the surrounding tags survive. Prefix size is a CEILING on the saving.
     printf '<loki_system>\n'
     printf '%s\n' "$prd_anchor"
+    if [ "${LOKI_SIMPLE:-0}" != "1" ]; then
     printf '%s\n' "$rarv_instruction"
     printf '%s\n' "$sdlc_instruction"
     printf '%s\n' "$autonomous_suffix"
@@ -19860,6 +19924,7 @@ except Exception:
     printf '%s\n' "$compose_instruction"
     printf '%s\n' "$lsp_grounding_instruction"
     printf '%s\n' "$agents_md_instruction"
+    fi
     # v8 (3c): goal-measurability advisory. Empty (and therefore not emitted at
     # all) for a measurable goal, an absent goal, or perpetual mode. Sits in the
     # static prefix because COMPLETION_PROMISE is fixed for the run, so it stays
@@ -22317,6 +22382,11 @@ def process_stream():
     # message. Stays False when partial messages are off (no stream_event lines).
     streamed_text_blocks = False
 
+    # Per-turn usage samples for the context-growth record (L1). Appended on
+    # every assistant message; written once at the result event. Bounded below
+    # so a pathological run cannot grow this without limit.
+    _turn_usage = []
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -22352,6 +22422,43 @@ def process_stream():
                 # Extract and print assistant text
                 message = data.get("message", {})
                 content = message.get("content", [])
+
+                # PER-TURN CONTEXT GROWTH (read-only instrumentation, L1).
+                #
+                # WHY. One measured iteration re-sent 10,651,759 cached-read
+                # tokens to produce 34,729 output tokens -- a 307:1 ratio, in a
+                # SINGLE provider call (one iteration_start, one
+                # result-cost-1.json, so cross-iteration reuse is ruled out).
+                # That call was 100% of measured stage time.
+                #
+                # The provider cache already saved us 10x ($31.96 -> $3.20 of a
+                # $4.74 iteration). We are not missing a cache; the ORDER being
+                # discounted is enormous, and cached reads are still 67% of the
+                # bill. Those tokens are prefill the model must process serially
+                # before emitting a character, so this is the only measured lever
+                # that touches BOTH cost and the 744s.
+                #
+                # "the tool loop re-accumulates history" is INFERRED from the
+                # ratio, not observed. Trimming context on an inference is how
+                # you ship an agent that forgets what it already tried and redoes
+                # the work -- raising iterations and costing more than it saves.
+                # So this MEASURES per turn and trims nothing. The cut is a
+                # separate decision, gated on iterations-to-done rather than on
+                # a token count.
+                try:
+                    _tu = (message.get("usage") or {})
+                    _tcr = _tu.get("cache_read_input_tokens")
+                    if isinstance(_tcr, int) and _tcr >= 0:
+                        _turn_usage.append({
+                            "turn": len(_turn_usage) + 1,
+                            "cache_read_tokens": _tcr,
+                            "input_tokens": _tu.get("input_tokens", 0) or 0,
+                            "output_tokens": _tu.get("output_tokens", 0) or 0,
+                            "cache_creation_tokens":
+                                _tu.get("cache_creation_input_tokens", 0) or 0,
+                        })
+                except Exception:
+                    pass
                 for item in content:
                     if item.get("type") == "text":
                         text = item.get("text", "")
@@ -22504,6 +22611,44 @@ def process_stream():
                         "cache_read_tokens": _u.get("cache_read_input_tokens", 0),
                         "cache_creation_tokens": _u.get("cache_creation_input_tokens", 0),
                     }
+                    # CONTEXT-GROWTH RECORD (L1). Written whenever turns were
+                    # observed, independently of whether cost was reported --
+                    # the growth shape is the finding, and tying it to
+                    # total_cost_usd would lose it on every provider that does
+                    # not report dollars (codex reports tokens, never cost).
+                    if _turn_usage:
+                        try:
+                            os.makedirs(".loki/metrics", exist_ok=True)
+                            _first = _turn_usage[0]["cache_read_tokens"]
+                            _last = _turn_usage[-1]["cache_read_tokens"]
+                            _growth = {
+                                "iteration": _iter,
+                                "turns": len(_turn_usage),
+                                "first_turn_cache_read": _first,
+                                "last_turn_cache_read": _last,
+                                # The headline: how much bigger the context got
+                                # between the first and last turn of ONE call.
+                                "growth_factor": (round(_last / _first, 2)
+                                                  if _first > 0 else None),
+                                "total_cache_read": sum(
+                                    t["cache_read_tokens"] for t in _turn_usage),
+                                "total_output": sum(
+                                    t["output_tokens"] for t in _turn_usage),
+                                # Bounded sample: the shape is visible in the
+                                # first and last few turns, and an unbounded
+                                # array would make this file grow with the run.
+                                "sample": (_turn_usage[:5] + _turn_usage[-5:]
+                                           if len(_turn_usage) > 10
+                                           else _turn_usage),
+                            }
+                            _gp = ".loki/metrics/context-growth-" + str(_iter) + ".json"
+                            _gt = _gp + ".tmp"
+                            with open(_gt, "w") as _gf:
+                                json.dump(_growth, _gf)
+                            os.replace(_gt, _gp)
+                        except Exception:
+                            pass
+
                     if _rec["total_cost_usd"] is not None:
                         os.makedirs(".loki/metrics", exist_ok=True)
                         _p = ".loki/metrics/result-cost-" + str(_iter) + ".json"
@@ -25625,12 +25770,19 @@ except Exception:
         case "$_final_status" in
             council_approved|council_force_approved|deterministic_gates_passed|completion_promise_fulfilled|paused|interrupted|stopped)
                 result=0 ;;
-            # force_stopped belongs HERE too, for the same reason. A council
+            # force_stopped is in the result=20 arm below, NOT here. A council
             # force-stop (stagnation, or a flood of done-signals) means the run
             # gave up WITHOUT verifying the work -- the code already says so in
             # its header, its warning, and its refusal to open a PR. Reporting
             # it as a clean stop made it indistinguishable from success to the
             # only consumer that matters to automation: the exit code.
+            #
+            # This comment previously read "belongs HERE too" while the status
+            # appeared in NEITHER arm, so it fell through to `*)` and returned
+            # the incoming code unchanged -- a force-stop after a nonzero
+            # iteration exited nonzero, and one after a zero exited 1. The
+            # diagnosis was written and never applied; the wording is corrected
+            # here so the comment cannot be read as describing current behavior.
             # budget_exceeded belongs HERE, not with the human-controlled stops.
             # It sat in the result=0 arm on the rationale that "a human will
             # resume", which is true of `paused` (a human pressed pause) and
@@ -25647,7 +25799,7 @@ except Exception:
             # The operator raises the cap (or narrows the spec) and submits a
             # NEW Job -- the same remedy as max_iterations_reached, which is why
             # it shares that code.
-            failed|max_iterations_reached|max_retries_exceeded|budget_exceeded|max_duration_reached|policy_blocked|inconclusive_spec_contradiction)
+            failed|max_iterations_reached|max_retries_exceeded|budget_exceeded|max_duration_reached|policy_blocked|inconclusive_spec_contradiction|force_stopped)
                 result=20 ;;
             *)
                 # Unknown/running/exited terminal: leave $result as-is (nonzero on a

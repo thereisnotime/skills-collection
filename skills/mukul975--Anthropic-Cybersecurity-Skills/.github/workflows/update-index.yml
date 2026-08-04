@@ -36,9 +36,33 @@ jobs:
               fm_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
               description = ""
               if fm_match:
-                  m = re.search(r"^description:\s*(.+)$", fm_match.group(1), re.MULTILINE)
-                  if m:
-                      description = m.group(1).strip().strip('"')
+                  fm = fm_match.group(1)
+                  dm = re.search(r"^description:[ \t]*(.*)$", fm, re.MULTILINE)
+                  if dm:
+                      first = dm.group(1).strip()
+                      if first[:1] in (">", "|"):
+                          # YAML block scalar: gather the following more-indented lines
+                          buf = []
+                          for ln in fm[dm.end():].split("\n"):
+                              if ln.strip() == "":
+                                  buf.append("")
+                              elif re.match(r"^[ \t]+\S", ln):
+                                  buf.append(ln.strip())
+                              else:
+                                  break
+                          if first.startswith(">"):  # folded: blank line = break, else join w/ space
+                              paras, cur = [], []
+                              for b in buf:
+                                  if b == "":
+                                      if cur: paras.append(" ".join(cur)); cur = []
+                                  else:
+                                      cur.append(b)
+                              if cur: paras.append(" ".join(cur))
+                              description = " ".join(paras).strip()
+                          else:  # literal
+                              description = " ".join(b for b in buf if b).strip()
+                      else:
+                          description = first.strip('"').strip("'")
               skills.append({
                   "name": skill_name,
                   "description": description,
@@ -80,8 +104,8 @@ jobs:
           with open("README.md", encoding="utf-8") as f:
               readme = f.read()
           readme = re.sub(r"(badge/skills-)\d+", rf"\g<1>{count}", readme)
-          # "754 production-grade", "754 structured", "754 skills", "all 754 skills",
-          # "Scans 754 skill", "contains **754 skills**", BibTeX "{754 structured"
+          # "817 production-grade", "817 structured", "817 skills", "all 817 skills",
+          # "Scans 817 skill", "contains **817 skills**", BibTeX "{817 structured"
           readme = re.sub(r"\b\d+(?=\s+production-grade cybersecurity skills)", str(count), readme)
           readme = re.sub(r"\b\d+(?=\s+structured cybersecurity skills)", str(count), readme)
           readme = re.sub(r"(all\s+)\d+(?=\s+skills)", rf"\g<1>{count}", readme)

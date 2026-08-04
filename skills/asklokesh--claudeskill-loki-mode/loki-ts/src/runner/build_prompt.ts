@@ -1581,6 +1581,40 @@ export async function buildPrompt(opts: BuildPromptOpts): Promise<string> {
   const prdAnchor = prd !== null && prd.length > 0 ? `Loki Mode with PRD at ${prd}` : "Loki Mode";
   lines.push("<loki_system>");
   lines.push(prdAnchor);
+  // LOKI_SIMPLE=1 -- THE ABLATION ARM. Byte-mirrored with run.sh; edit BOTH or
+  // the build_prompt parity fixtures diverge and the Bun Parity job blocks.
+  //
+  // Default off, so the emitted bytes are unchanged unless it is explicitly
+  // set and all 61 fixtures under tests/fixtures/build_prompt hold.
+  //
+  // WHY. Anthropic deleted ~80% of Claude Code's system prompt for Opus 5 on
+  // the finding that instructions written to correct older models had become
+  // dead weight, and that the model measured slightly MORE capable without
+  // them. Their method was ablation: delete, measure, add back only what a
+  // measured failure demands. Nothing in this prefix had ever been measured.
+  //
+  // The strip is COACHING ONLY -- how to work (RARV cycle, SDLC phases,
+  // memory habits), which a frontier model does natively. The dynamic tail is
+  // STATE -- which gate failed, what self-heal found -- and is untouched. That
+  // boundary is the safety argument: deleting coaching drops a lecture,
+  // deleting state would make the run blind to its own history.
+  //
+  // MEASURED, and the provenance matters: 8026 -> 1779 bytes (-78%, ~1562
+  // tokens/iteration) from a LIVE buildPrompt call with a gate-failure file
+  // present, not from a fixture. fixture-1 on disk is 7909 bytes; an earlier
+  // version of this comment cited "fixture-1: 8090 -> 1776" and was wrong
+  // about WHERE the number came from, which is exactly the kind of confident
+  // mis-sourcing that turns a real measurement into an unreproducible claim.
+  //
+  // Note the strip is bounded: only the nine pushes below are gated, so
+  // <loki_system>, the PRD anchor, the goal-score advisory and the closing tag
+  // all survive. The prefix size is therefore a CEILING on the saving, never
+  // the saving itself.
+  //
+  // Gates, receipts and verification are NEVER an ablation arm; the trust core
+  // is not prompt correction.
+  const simple = (env.LOKI_SIMPLE ?? "0") === "1";
+  if (!simple) {
   lines.push(rarvText);
   lines.push(sdlcText);
   lines.push(autonomyText);
@@ -1590,6 +1624,7 @@ export async function buildPrompt(opts: BuildPromptOpts): Promise<string> {
   lines.push(COMPOSE_INSTRUCTION);
   lines.push(LSP_GROUNDING_INSTRUCTION);
   lines.push(AGENTS_MD_INSTRUCTION);
+  }
   // v8 harness intelligence (3c): flag a goal the loop cannot hill-climb.
   // Derived from COMPLETION_PROMISE, fixed for the run, so it is cache-stable
   // and belongs here in the prefix (above [CACHE_BREAKPOINT]) rather than in

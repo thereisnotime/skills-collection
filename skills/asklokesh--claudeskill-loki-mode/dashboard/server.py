@@ -7,6 +7,7 @@ Provides REST API and WebSocket endpoints for dashboard functionality.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -184,6 +185,150 @@ def _rate_key(base: str, request: Optional[Request]) -> str:
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+# Reads that expose operational or credential-adjacent state. These stay open
+# to a LOCAL caller (zero-config use is the point) but must not be readable by
+# an anonymous remote caller when the dashboard is bound to 0.0.0.0.
+#
+# Measured before this list existed, from a routable remote address with auth
+# off: /api/logs, /api/secrets/status, /api/github/status, /api/tasks,
+# /api/council/transcripts and /api/proofs all returned 200.
+#
+# /health and /metrics are deliberately ABSENT: a container health probe and a
+# Prometheus scrape must keep working with no configuration, and neither
+# carries workspace content.
+_SENSITIVE_READ_PREFIXES = (
+    "/api/logs",
+    "/api/secrets",
+    "/api/github",
+    "/api/tasks",
+    "/api/projects",
+    "/api/council",
+    "/api/proofs",
+    "/api/memory",
+    "/api/learnings",
+    "/api/learning",
+    "/api/escalations",
+    "/api/spec",
+    "/api/checkpoints",
+    "/api/enterprise",
+    "/api/collab",
+    "/api/cost",
+    "/api/budget",
+    "/api/findings",
+    "/api/operator",
+    "/api/fleet",
+    "/api/registry",
+    "/api/wiki",
+    "/api/activity",
+    "/api/session",
+    "/api/failures",
+    "/api/prompt",
+    "/api/quality",
+    "/api/migration",
+    "/api/managed",
+    "/api/app-runner",
+    "/api/playwright",
+    "/api/checklist",
+    "/api/control",
+)
+
+
+def _trusted_proxies() -> frozenset:
+    """Proxy addresses whose forwarded-for header may be believed.
+
+    EXPLICIT, never inferred. A reverse proxy on the same host presents
+    127.0.0.1 as the peer, so "the peer is loopback" cannot mean "the caller is
+    local" -- that was a real bypass: a remote request through a same-host
+    proxy reached POST /api/control/stop with a 200. Trusting X-Forwarded-For
+    unconditionally is the opposite mistake, since any direct caller can send
+    that header themselves.
+
+    So the operator names the proxies. Anything not named is not trusted, and
+    its forwarded headers are ignored rather than believed.
+    """
+    raw = os.environ.get("LOKI_TRUSTED_PROXIES", "")
+    return frozenset(x.strip() for x in raw.split(",") if x.strip())
+
+
+def _real_client_host(request: Request):
+    """The address to make the decision on, or None if it cannot be known.
+
+    Returns the peer address normally. When the peer is a TRUSTED proxy, the
+    left-most X-Forwarded-For entry is used instead, because that is the
+    originating client the proxy is reporting.
+    """
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None) if client else None
+    if host is None:
+        return None
+    if host in _trusted_proxies():
+        fwd = request.headers.get("x-forwarded-for", "")
+        first = fwd.split(",")[0].strip()
+        if first:
+            return first
+    return host
+
+
+def _is_local_caller(host) -> bool:
+    """True only for a caller we can positively identify as non-routable.
+
+    A peer that is not an IP literal (ASGI test transports report
+    "testclient", UDS transports report names) is treated as local: a name is
+    not evidence of a remote caller, and refusing every non-IP string broke 17
+    existing tests without closing any real hole.
+    """
+    if host is None:
+        return False
+    if host in ("127.0.0.1", "::1", "localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return True
+
+
+def require_local_or_authenticated(request: Request) -> None:
+    """Refuse an anonymous REMOTE caller on a mutation or a sensitive read.
+
+    THE HOLE THIS CLOSES. Every mutating route already carries
+    Depends(auth.require_scope(...)), and all 46 were bypassable, because
+    require_scope returns True when enterprise auth is DISABLED -- the default.
+    Bound to 127.0.0.1 that is harmless. But LOKI_DASHBOARD_HOST=0.0.0.0 is a
+    documented container configuration, and there an anonymous request from
+    anywhere on the network could stop a build or read the logs.
+
+    Measured with auth off, from a routable remote address:
+
+        POST /api/control/stop        -> 200
+        GET  /api/logs                -> 200
+        GET  /api/secrets/status      -> 200
+
+    The rule, chosen so zero-config local use does not change:
+
+        auth enabled                 require_scope decides, unchanged
+        loopback / non-IP peer       allowed, exactly as today
+        trusted proxy                decided on the FORWARDED client
+        routable remote, no auth     403
+
+    An untrusted proxy's forwarded headers are IGNORED, not believed: any
+    direct caller can set X-Forwarded-For.
+    """
+    if auth.ENTERPRISE_AUTH_ENABLED or auth.OIDC_ENABLED:
+        return
+    host = _real_client_host(request)
+    if host is None:
+        raise HTTPException(
+            status_code=403,
+            detail="control requires an identifiable client; enable "
+                   "LOKI_ENTERPRISE_AUTH to allow remote access")
+    if _is_local_caller(host):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="this endpoint is restricted to local callers unless "
+               "LOKI_ENTERPRISE_AUTH is enabled")
 
 
 # Pydantic schemas for API
@@ -978,11 +1123,168 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
+# RESPONSE COMPRESSION. Measured, not assumed: the served dashboard bundle
+# (dashboard/static/index.html) is 779,725 bytes raw and 150,341 gzipped --
+# an 81% reduction. Until now only CORS and the collab WS auth middleware were
+# registered, so every dashboard load shipped the full 780KB.
+#
+# That single fact is the most plausible cause of "the dashboard feels slow":
+# it is not a rendering problem, it is 630KB of avoidable transfer on first
+# paint, and it costs one middleware to fix.
+#
+# minimum_size=1024 leaves small JSON responses uncompressed, where the CPU
+# round-trip outweighs the saving. GZipMiddleware is stdlib-backed and does
+# not negotiate brotli, so it cannot fail closed on a client that only sends
+# `Accept-Encoding: gzip` -- responses stay correct either way.
+#
+# Streaming endpoints are unaffected in a way that matters: Starlette's
+# GZipMiddleware passes through responses it cannot buffer, so SSE and the
+# WebSocket upgrade path keep their existing behaviour.
+try:
+    from starlette.middleware.gzip import GZipMiddleware
+
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
+except Exception as _gzip_exc:  # pragma: no cover - starlette always ships it
+    # Never fatal: a dashboard that starts uncompressed is strictly better
+    # than one that does not start.
+    logger.warning("gzip compression unavailable: %s", _gzip_exc)
+
+# THE DASHBOARD BOUNDARY. One central fail-closed check, not a per-route flag.
+#
+# WHY MIDDLEWARE AND NOT A DEPENDENCY PER ROUTE. All 46 mutating routes already
+# carry Depends(auth.require_scope(...)). Every one of them is a NO-OP when
+# enterprise auth is disabled, which is the default -- require_scope returns
+# True in that mode. So "42 of 46 are scoped" described the code accurately and
+# the security posture not at all: a remote anonymous caller could invoke any
+# of them. Measured before this guard, with LOKI_ENTERPRISE_AUTH unset:
+#
+#     POST /api/control/stop      -> 200
+#     POST /api/control/app-stop  -> 200
+#
+# A first attempt added a dependency to six control routes by hand. That is the
+# wrong shape: it protects the six someone remembered, leaves the other forty,
+# and every route added later starts unprotected. The boundary is one place.
+#
+# THE RULE, chosen so zero-config local use does not change:
+#
+#     auth enabled                 -> require_scope decides, unchanged
+#     loopback caller              -> allowed, exactly as today
+#     non-IP peer (test/UDS)       -> allowed; a name is not evidence of remote
+#     routable remote + no auth    -> 403
+#
+# Only MUTATIONS are gated. Reads stay open so a container health probe, a
+# metrics scrape and the SPA itself keep working with no configuration.
+class WebSocketBoundaryMiddleware:
+    """The same local-or-authenticated rule, for WebSocket scopes.
+
+    WHY A SEPARATE MIDDLEWARE. @app.middleware("http") only wraps HTTP
+    scopes, so every WebSocket route was outside the boundary. Measured with
+    auth off, from a routable remote address, both accepted the connection:
+
+        /ws          CONNECTED
+        /ws/collab   CONNECTED   (and it is WRITABLE -- collaboration state
+                                  could be pushed by a network caller)
+
+    The routes are not careless: /ws checks a query-parameter token when
+    enterprise auth is ON, and dashboard/server.py:2732 records that
+    FastAPI's Depends() does not work on websocket routes. The hole is the
+    auth-OFF default, where that check is skipped -- exactly the case the
+    HTTP boundary already covers for requests.
+
+    This is plain ASGI rather than a Starlette BaseHTTPMiddleware because the
+    latter has no websocket hook. Registering it here also covers routes
+    added by OTHER modules (collab registers /ws/collab from its own file),
+    which a per-route decorator would miss.
+
+    The decision is shared with the HTTP path: same trusted-proxy resolution,
+    same loopback rule, same auth-enabled deferral. A refused upgrade is
+    closed with policy code 1008 rather than being silently dropped, so a
+    client can tell refusal from a network fault.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "websocket":
+            await self.app(scope, receive, send)
+            return
+        if not (auth.ENTERPRISE_AUTH_ENABLED or auth.OIDC_ENABLED):
+            client = scope.get("client")
+            host = client[0] if client else None
+            if host in _trusted_proxies():
+                for raw_name, raw_value in scope.get("headers", []):
+                    if raw_name == b"x-forwarded-for":
+                        first = raw_value.decode("latin-1").split(",")[0].strip()
+                        if first:
+                            host = first
+                        break
+            if not _is_local_caller(host):
+                # 1008 = policy violation. Closing with a code beats an
+                # accept-then-drop, which reads to a client as a flaky network.
+                await send({"type": "websocket.close", "code": 1008})
+                return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(WebSocketBoundaryMiddleware)
+
+
+@app.middleware("http")
+async def dashboard_control_boundary(request: Request, call_next):
+    # EVERY mutation, plus reads that expose operational or credential-adjacent
+    # state. Gating mutations alone left /api/logs, /api/secrets/status and
+    # /api/council/transcripts readable by an anonymous remote caller on a
+    # 0.0.0.0 bind -- measured at 200 before this was widened.
+    #
+    # /health and /metrics are intentionally NOT in the sensitive list, so a
+    # container health probe and a Prometheus scrape keep working unconfigured.
+    gated = request.method in ("POST", "PUT", "PATCH", "DELETE")
+    if not gated:
+        path = request.url.path
+        gated = any(path.startswith(pfx) for pfx in _SENSITIVE_READ_PREFIXES)
+    if gated:
+        try:
+            require_local_or_authenticated(request)
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code,
+                                content={"detail": exc.detail})
+    return await call_next(request)
+
+
 # Static file serving is configured at the end of the file (after all API routes)
 
 # Mount V2 API router
 from .api_v2 import router as api_v2_router
 app.include_router(api_v2_router)
+
+# Mount the operator router: the filesystem evidence readers (run detail, gate
+# results, receipts, releases) reachable over HTTP. Before this they were
+# libraries only the test suite imported -- four readers, none of them
+# reachable by a user.
+#
+# THIS MOUNT FAILS CLOSED, and the first version did not. It was wrapped in a
+# bare `except Exception: logger.warning(...)`, which swallows a typo, a
+# refactor that breaks an import, or a syntax error just as happily as a
+# genuinely absent optional dependency. The dashboard then starts perfectly,
+# reports healthy, and serves 404 on every operator path -- the exact
+# "monitoring surface that is silently blind" failure this whole module exists
+# to prevent. It also makes the mount test fail on CI with no stated cause,
+# which is how it was found.
+#
+# A missing OPTIONAL dependency is the only tolerable degradation, so only
+# ImportError is caught, and even that is logged at error level rather than
+# warning. Every other exception propagates and takes the dashboard down,
+# because a dashboard that cannot show run evidence is not a dashboard that
+# should quietly claim to be up.
+try:
+    from .api_operator import router as api_operator_router
+except ImportError as _operator_exc:  # pragma: no cover - optional dep absent
+    logger.error(
+        "operator API could not be imported, /api/operator/* will 404: %s",
+        _operator_exc)
+else:
+    app.include_router(api_operator_router)
 
 # Phase Merge-4: Mount Purple Lab FastAPI app under /lab/ so it appears as a
 # sidebar entry in Dashboard. Same `app` is also wrapped by `standalone_app`
@@ -7359,6 +7661,49 @@ def _get_model_pricing() -> dict:
     return _MODEL_PRICING
 
 
+# The five fields whose presence makes ONE efficiency record a measurement.
+# Mirrors _MEASURED_FIELDS in autonomy/lib/efficiency_cost.py, which is the
+# canonical source. Kept as a local copy deliberately: the dashboard must not
+# sys.path-hack into autonomy/lib at request time just to read a constant.
+_MEASURED_FIELDS = (
+    "cost_usd",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_creation_tokens",
+)
+
+
+def _record_is_measured(rec: Any) -> bool:
+    """True when ONE efficiency record actually carries an observed value.
+
+    Mirrors record_is_measured() in autonomy/lib/efficiency_cost.py. Same field
+    list, same bool exclusion, same semantics -- read that docstring for the
+    reasoning. Do not let the two drift.
+
+    A PRESENT FILE IS NOT A MEASUREMENT. A run that did work necessarily
+    consumed tokens, so an all-zero record means we FAILED TO MEASURE, and
+    unmeasured must read as unknown rather than as free. This is the same
+    defect fixed on the receipt (v8.52.0), the prompt (v8.53.0), the verifier
+    (v8.54.0), the cost summary (v8.69.0) and kpis.ts (v8.72.0/v8.74.0); the
+    two dashboard cost readers were never audited for it.
+
+    Note the `and v` is a truthiness test on ONE field of ONE record, which is
+    the intended rule (zero contributes no evidence). It is NOT a guard on the
+    aggregate: a set of measured records summing to $0.00 is a real measured
+    zero and must still render 0.0, never null.
+    """
+    if not isinstance(rec, dict):
+        return False
+    for key in _MEASURED_FIELDS:
+        v = rec.get(key)
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)) and v:
+            return True
+    return False
+
+
 def _calculate_model_cost(
     model: str,
     input_tokens: int,
@@ -7414,6 +7759,8 @@ def _compute_cost_snapshot() -> dict:
     budget_limit = None
     budget_used = 0.0
     budget_remaining = None
+    # Did ANY record carry an observed value? Not "was a file present".
+    cost_recorded = False
 
     # Read efficiency files (one JSON file per iteration/task).
     # Use the iteration-*.json pattern so this reader sees the same
@@ -7430,6 +7777,8 @@ def _compute_cost_snapshot() -> dict:
                 # AttributeError. Skip such files rather than 500 the endpoint.
                 if not isinstance(data, dict):
                     continue
+                if _record_is_measured(data):
+                    cost_recorded = True
 
                 inp = data.get("input_tokens", 0)
                 out = data.get("output_tokens", 0)
@@ -7483,6 +7832,10 @@ def _compute_cost_snapshot() -> dict:
                 total_input = totals.get("total_input", 0)
                 total_output = totals.get("total_output", 0)
                 if total_input > 0 or total_output > 0:
+                    # Real observed tokens from the context tracker: this IS a
+                    # measurement, even if the recorded USD total happens to
+                    # be 0.
+                    cost_recorded = True
                     estimated_cost = totals.get("total_cost_usd", 0.0)
                     # Rebuild by_model and by_phase from per_iteration data
                     for it in ctx.get("per_iteration", []):
@@ -7519,14 +7872,21 @@ def _compute_cost_snapshot() -> dict:
     # expensive condition, so reporting it for a run with no data would send
     # someone hunting a caching problem that does not exist.
     _read_in = total_input + total_cache_read
+    # Unmeasured reads as null, never as 0/$0.00. `cost_recorded` is True when
+    # at least one record carried an OBSERVED value (_record_is_measured), so a
+    # set of measured records that genuinely sums to zero still renders 0.0 --
+    # the direction that would otherwise blank real data (the v8.72.0 trap).
     return {
-        "total_input_tokens": total_input,
-        "total_output_tokens": total_output,
-        "total_cache_read_tokens": total_cache_read,
-        "total_cache_creation_tokens": total_cache_creation,
-        "total_tokens": total_input + total_output + total_cache_read + total_cache_creation,
+        "total_input_tokens": total_input if cost_recorded else None,
+        "total_output_tokens": total_output if cost_recorded else None,
+        "total_cache_read_tokens": total_cache_read if cost_recorded else None,
+        "total_cache_creation_tokens": total_cache_creation if cost_recorded else None,
+        "total_tokens": (
+            total_input + total_output + total_cache_read + total_cache_creation
+        ) if cost_recorded else None,
         "cache_hit_ratio": round(total_cache_read / _read_in, 4) if _read_in > 0 else None,
-        "estimated_cost_usd": round(estimated_cost, 6),
+        "estimated_cost_usd": round(estimated_cost, 6) if cost_recorded else None,
+        "cost_recorded": cost_recorded,
         "by_phase": {k: {
             "input_tokens": v["input_tokens"],
             "output_tokens": v["output_tokens"],
@@ -7785,7 +8145,13 @@ def _compute_cost_timeline() -> dict:
         records.sort(key=_iter_key)
         cumulative = 0.0
         for data in records:
-            cost_recorded = True
+            # A PRESENT FILE IS NOT A MEASUREMENT. This previously flipped on
+            # for any parseable record, so the all-zero records a pre-v8.51.0
+            # codex run wrote reported total_usd $0.00 with cost_recorded True
+            # -- the endpoint asserting the run was FREE. Same predicate as
+            # /api/cost so the two cost readers cannot disagree.
+            if _record_is_measured(data):
+                cost_recorded = True
             inp = data.get("input_tokens", 0) or 0
             out = data.get("output_tokens", 0) or 0
             # Cache tiers, same as the /api/cost path. This snapshot drives the

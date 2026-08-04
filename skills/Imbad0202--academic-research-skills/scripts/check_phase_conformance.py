@@ -853,11 +853,46 @@ def check_scoring_seat_anchors(report: panel.ReviewerReport) -> None:
             )
         if not is_finding:
             continue
-        if len(severities) != 1 or severity_declarations != 1:
+        # A finding needs at least one parseable Severity declaration, and
+        # every declaration must parse. When a card declares more than one
+        # ACROSS lines and the chain strictly ESCALATES (Minor < Major <
+        # Critical), the LAST in reading order is operative — the current
+        # model generation self-corrects mid-card with explicit supersession
+        # prose ("See the Severity line below, which supersedes the line
+        # above", #637 ms01_quant r1: Major -> Critical), and Phase 2 permits
+        # no retry for this class, so a strict exactly-one rule turns a
+        # visible, reader-unambiguous correction into a whole-panel abort.
+        # Every other multi-declaration shape keeps the loud abort:
+        # de-escalation could waive the Critical/Major Evidence-Anchor
+        # requirement by appending one weaker line; a non-monotone or
+        # repeated-value chain signals several findings bundled under one W
+        # heading (the one-finding-per-heading accounting feeds the severity
+        # ladder); and two parseable declarations on ONE line are not a
+        # reading-order correction at all. The advisory line below keeps the
+        # full declaration trail in the gate log for adjudication.
+        parseable_per_line = [
+            sum(1 for _ in _SEVERITY_RE.finditer(line)) for line in block
+        ]
+        if (not severities or len(severities) != severity_declarations
+                or any(count > 1 for count in parseable_per_line)):
             raise ConformanceError(
                 f"[FINDING-GRAMMAR: {report.path}: {title} must contain "
                 "exactly one parseable Severity declaration]"
             )
+        severity_rank = {"Minor": 0, "Major": 1, "Critical": 2}
+        if any(severity_rank[later] <= severity_rank[earlier]
+               for earlier, later in zip(severities, severities[1:])):
+            raise ConformanceError(
+                f"[FINDING-GRAMMAR: {report.path}: {title}: multiple "
+                "Severity declarations must form a strictly escalating "
+                "self-correction chain]"
+            )
+        if len(severities) > 1:
+            print(
+                f"[SEVERITY-SUPERSEDED: {report.path}: {title}: "
+                + " -> ".join(severities) + "]"
+            )
+        operative_severity = severities[-1]
         anchor_declarations = sum(
             len(_ANCHOR_DECL_RE.findall(line)) for line in block
         )
@@ -865,7 +900,7 @@ def check_scoring_seat_anchors(report: panel.ReviewerReport) -> None:
             match.group("value") for line in block
             for match in _ANCHOR_RE.finditer(line)
         ]
-        if severities[0] not in {"Critical", "Major"}:
+        if operative_severity not in {"Critical", "Major"}:
             if anchor_declarations > 1 or len(anchors) != anchor_declarations:
                 raise ConformanceError(
                     f"[FINDING-GRAMMAR: {report.path}: {title} may contain "
@@ -877,7 +912,8 @@ def check_scoring_seat_anchors(report: panel.ReviewerReport) -> None:
         if len(anchors) != 1 or anchor_declarations != 1:
             raise ConformanceError(
                 f"[ANCHOR-MISSING: {report.path}: {title} "
-                f"{severities[0]} finding needs exactly one Evidence Anchor]"
+                f"{operative_severity} finding needs exactly one "
+                "Evidence Anchor]"
             )
         _validate_anchor(anchors[0], f"{report.path}:{title}")
 

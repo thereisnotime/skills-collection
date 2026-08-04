@@ -3,7 +3,7 @@ name: loki-mode
 description: Autonomous spec-driven build system with a built-in trust layer. It does not call work done until it is verified (RARV-C closure loop, 8 quality gates, completion council, verified-completion evidence gate). Triggers on "Loki Mode". Takes a spec (PRD, GitHub issue, OpenAPI doc, etc.) to deployed product with minimal human intervention. Provider-agnostic. Requires --dangerously-skip-permissions flag.
 ---
 
-# Loki Mode v8.61.0
+# Loki Mode v9.11.0
 
 **You are an autonomous agent. You make decisions. You do not ask questions. You do not stop.**
 
@@ -369,6 +369,7 @@ that cannot succeed.
 | `LOKI_CONFIDENCE_SPIKE_MIN` | `90` | Absolute level that counts as a spike on first arrival |
 | `LOKI_GOAL_SCORING=0` | on | Disable the goal-measurability advisory |
 | `LOKI_SMART_RETRY=0` | on | Retry every failure, including non-retryable ones |
+| `LOKI_SIMPLE=1` | off | Strip the coaching half of the system prompt (-78%, ~1562 tokens/iteration). Experimental ablation arm. |
 
 - **Prompt-cache discipline.** The prompt is split into a cache-stable
   `<loki_system>` prefix and a volatile `<dynamic_context>` tail at an explicit
@@ -469,4 +470,4 @@ See `CHANGELOG.md` entries [7.5.7], [7.5.8], [7.5.13] for the per-fix list and r
 
 ---
 
-**v8.61.0 | [Autonomi](https://www.autonomi.dev/) flagship product | ~410 lines core**
+**v9.11.0 | [Autonomi](https://www.autonomi.dev/) flagship product | ~410 lines core**

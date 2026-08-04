@@ -147,6 +147,14 @@ declare -a _FAST_KEEP=(
   # hardcoded 8.11.0 for 27 releases, and v8.39.0 shipped a dist still saying
   # 8.38.0. Both are exactly the failure this check was written to stop.
   "dist/loki.js is a fresh build of src"
+  # Repo integrity. The parent checkout is NON-BARE (it has .git/, a working
+  # tree and .git/index) yet core.bare keeps being set true by something
+  # outside this repo: fixed 05:33, found true again 06:44 on 2026-08-03.
+  # While true, git status/log there fail with "must be run in a work tree"
+  # and CI cannot be inspected -- but worktrees keep working, so it goes
+  # unnoticed until someone tries the parent. FAST tier because it is a
+  # sub-second read and the fault is recurring, not theoretical.
+  "parent checkout is not falsely marked bare"
   # Same class as dist freshness, and deferred for the same reason nobody
   # noticed: these validate the PACKAGED ARTIFACT, which GitHub CI never
   # inspects and which no in-repo test can see, because everything works fine
@@ -520,8 +528,25 @@ fi
 # The parallelism win is still real: the bash -n and shellcheck lanes launched
 # ABOVE run concurrently with this pytest block. The per-name array entries the
 # comments below justify are preserved.
+# CI's interpreter, not the newest one on the box. GitHub CI runs Python 3.12;
+# a dev Mac may run 3.14, and the two DISAGREE in ways that reached main twice
+# in one day:
+#
+#   v8.61.0  Release red on `NameError: name 'Any' is not defined`, green
+#            locally. 3.14 defers annotations unconditionally (PEP 649) so an
+#            exec'd source slice never evaluates them; 3.12 does.
+#   (same)   A code-index skip filter matched substrings of the ABSOLUTE path,
+#            emptying the index for any checkout under `.claude/`. Visible only
+#            on 3.12: on 3.14 chromadb fails to import and the caller silently
+#            falls back to a different file list.
+#
+# Deliberately ONE run, not both. 3.12 is the pass that predicts CI, and this
+# tier is the release gate the founder shortened for cadence -- a second
+# blanket run costs ~92s to protect a runtime CI does not use. Newer-runtime
+# coverage belongs in the FULL tier, not in front of every push.
 if command -v python3.12 >/dev/null 2>&1; then
-  run_check "python3.12 -m pytest -q" "python3.12 -m pytest -q 2>&1 | tail -10"
+  run_check "python3.12 -m pytest -q (CI interpreter)" \
+    "python3.12 -m pytest -q 2>&1 | tail -10"
 elif command -v python3 >/dev/null 2>&1; then
   run_check "python3 -m pytest -q" "python3 -m pytest -q 2>&1 | tail -10"
 else
@@ -628,6 +653,18 @@ if command -v bun >/dev/null 2>&1; then
   # rebuild silently ships old behavior (bit v7.68.0; nearly v7.69.0). Rebuild
   # and assert the committed bundle matches a fresh build, ignoring only the
   # per-build debugId line which legitimately varies.
+  run_check "parent checkout is not falsely marked bare" '
+    # Read-only. The watcher does NOT restore by default, deliberately: an
+    # auto-repair loop would hide a recurring mutation, and the recurrence is
+    # the finding. Repair is a human action (--restore).
+    if [ -x scripts/watch-core-bare.sh ]; then
+      bash scripts/watch-core-bare.sh
+    else
+      echo "watch-core-bare.sh missing; repo-integrity check SKIPPED (not a pass)"
+      exit 0
+    fi
+  '
+
   run_check "dist/loki.js is a fresh build of src" '
     cd loki-ts
     cp dist/loki.js /tmp/loki-ci-dist-committed.js
@@ -1327,16 +1364,26 @@ run_check "npm pack tarball contents" '
     exit 1
   fi
   _missing=""
+  _total=0
+  # The autonomy/lib/*.py entries carry the receipt verifier and the
+  # cost-honesty rule ("unmeasured reads UNKNOWN, never $0.00"). They ship today
+  # only because files[] happens to hold a broad "autonomy/" entry; narrowing it
+  # would drop them silently, surfacing as a receipt that cannot be verified
+  # rather than as an error.
   for _f in loki-ts/dist/loki.js bin/loki dashboard/static/index.html \
             web-app/dist/index.html autonomy/provider-offer.sh \
-            autonomy/quickstart.sh; do
+            autonomy/quickstart.sh autonomy/lib/proof-verify.py \
+            autonomy/lib/efficiency_cost.py autonomy/lib/cost-summary.py; do
+    _total=$((_total + 1))
     case "$_pack" in *"$_f"*) ;; *) _missing="$_missing $_f" ;; esac
   done
   if [ -n "$_missing" ]; then
     echo "MISSING FROM TARBALL:$_missing"
     exit 1
   fi
-  echo "all 6 required artifacts present in the tarball ($_n entries)"'
+  # Counted from the loop, not hardcoded: a literal "all 6" goes stale the
+  # moment the list grows and then understates what is being guarded.
+  echo "all $_total required artifacts present in the tarball ($_n entries)"'
 
 # 10a-v8. The Agent SDK (@anthropic-ai/claude-agent-sdk) is a DYNAMIC import in
 # dist/loki.js (the opt-in LOKI_SDK_LOOP=1 RARV loop) + a per-platform native

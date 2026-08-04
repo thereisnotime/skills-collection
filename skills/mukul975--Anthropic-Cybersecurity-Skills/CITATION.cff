@@ -3,7 +3,7 @@ message: "If you use this repository in your research, tools, or publications, p
 type: software
 title: "Anthropic-Cybersecurity-Skills"
 abstract: >
-  A structured collection of 753 cybersecurity skills for AI agents, covering
+  A structured collection of 817 cybersecurity skills for AI agents, covering
   penetration testing, digital forensics, threat intelligence, incident response,
   cloud security, OT/SCADA security, AI security, and more. Each skill follows
   a standardized format with YAML frontmatter metadata, step-by-step procedures,

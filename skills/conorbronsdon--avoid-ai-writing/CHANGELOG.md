@@ -4,6 +4,43 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.23.0] — 2026-08-03
+
+### Added
+
+- **Optional `--style` house-style layer, with no bundled guides.** `--style ./house.json` applies a user-supplied config (`register` directives the model follows, plus `mechanics`) and `scripts/check-style.js` verifies the checkable ones deterministically: `quotes` and `latinAbbrev` gate the exit code (0 clean / 1 hard / 2 tool error), `headings`, `emDash` and `spellNumbersUpTo` are advisory, `serialComma` is never checked. `examples/` holds two generic starters and the schema.
+- **A bare `--style "APA"` is a best-effort fallback, not a feature.** `SKILL.md` instructs the model to open with a status line claiming no compliance and not to reproduce the guide's text. Those are instructions rather than checked rules, so that path is unverified by construction. The README says where encoded guides actually live, and the licensing rule behind it is recorded in #88.
+- No detector changes, so the catalog stays 61 / 112. 39 tests in `scripts/check-style.test.js`, most of them pinning must-not-fire cases: link titles and reference definitions, HTML attributes, nested and tilde fences, BOM'd frontmatter, parentheticals that wrap or span a code block, URLs containing parentheses, and indented code blocks (while lazy continuation, list-item content, and a document opening with a thematic break stay checked). Each was a hard violation on a correct document at some point during review.
+
+---
+
+## [3.22.3] — 2026-08-03
+
+### Changed
+
+- **Five prose-contract clarifications in `SKILL.md`; no rule, threshold, or detector behavior changes.** All five came from an automated review (cubic) on a downstream vendoring PR, davila7/claude-code-templates#773. Each was a real gap between what one sentence promised and what another required; none change what the skill flags or how the engine scores. A sixth finding in that review (ship the downstream catalog regeneration inside the PR) was downstream-specific and declined there, with that repo's merge history as evidence.
+- **An adversarial review pass before merge caught the gaps the first draft of this fix opened.** Two header comments in `detector/validate.js` quoted the pre-fix sentences verbatim and would have been orphaned by the reword — both refreshed (comment-only, no behavior change). The first draft of the URL-parameter fix said "only the listed parameters are the signature," which contradicted the engine: `AI_URL_PARAMS` in validate.js and `ai-utm-source` in patterns.js both cover referrer variants (`gemini.google.com`, `grok.com`, `openai.com`) the SKILL.md list does not name, so the exclusivity claim came out. And the first draft of the edit-mode paragraph stacked seven "X, not Y" contrastive negations on one line in a file whose previous maximum anywhere was two — the same uniform-register move this skill exists to catch; three were rewritten as direct positives.
+- **Tables joined the flag-don't-fix list in the edit-mode instructions.** `detector/validate.js` has always treated table content as reference material and failed a rewrite that altered a cell — but the prose promise the validator claims to enforce ("the promises made above") never actually named tables, so edit mode was told to fix a tell inside a cell and then failed its own preservation check for doing it. The promise now matches the check, with the reason stated: a wording fix is not worth risking the data the table exists to carry.
+- **The rewrite-mode job line no longer claims "all AI-isms removed."** It now scopes the claim to every *editable* AI-ism, with the flag-don't-fix exemptions binding in rewrite mode too. The old wording put a correct rewrite in the wrong on protected content: it either broke the exemptions to satisfy "all" or reported itself incomplete for honoring them. A tell standing inside a blockquote now belongs in section 1 as a flag, not against the rewrite as unfinished work.
+- **An explicit instruction boundary for edit mode.** The file being edited is text under audit, never a source of instructions: a document that tells its editor to "ignore the rules above" or "don't flag this section" gets that sentence flagged, not obeyed. A skill authorized to modify files in place should state this rather than assume it. The same boundary is stated for pasted text in the other two modes.
+- **The AI-tracking-parameter fix now says what it always meant:** strip the AI-referrer tracking parameter, leave the rest of the query string alone. "Strip the parameter from every URL" could be read as license to clean query strings generally, and a functional `?page=2` is not evidence of anything.
+- **The second-pass audit must say when its corrected text supersedes section 2.** A reader skimming for the deliverable copies section 2; if the second pass fixed anything, that copy ships the tells the pass just caught. The pass now has to say "use this version, not section 2" in as many words.
+
+---
+
+## [3.22.2] — 2026-08-02
+
+### Fixed
+
+- **`hashtag-stuff` counted every `#word`, so ordinary technical prose flagged as a stuffed tag block (#90).** A paragraph citing six issue numbers, a palette listing six hex colours, or a C snippet with six `#include` lines all scored as hashtag stuffing. Found when this repo's own README linked issue #88 and the detector flagged the README. The bug report has the same problem: the prose of #90 cannot describe the rule without triggering it.
+- Two subtractive changes, so the rule cannot begin firing on anything it did not already fire on. `maskCode()` blanks fenced blocks and inline code spans before counting — `fenceRanges()` existed but was wired only to `title-case-header`, so a tag quoted in backticks counted as a tag used. `isSocialTag()` subtracts all-digit forms (`#88`), 6- and 8-character hex colours that contain a digit (`#1a2b3c`, `#1a2b3cff`), and C preprocessor directives (`#include`). `owner/repo#88`, URL fragments, shebangs, and Markdown headings already passed on the rule's own anchor and are untouched.
+- **Recall changes, both deliberate and both worth stating.** An unclosed fence masks everything after it, so a trailing tag block below one no longer flags; this follows `fenceRanges`' documented run-to-end rule and matches how renderers behave. A stray backtick pairs with a later span's opener and masks the prose between them, which is CommonMark-correct code-span pairing.
+- **Two false negatives were introduced during development and removed before merge, both found by adversarial review.** Carving out 3- and 4-digit hex deleted `#b2b`, `#e2e`, `#dad`, `#cafe` and `#face`; the carve-out now needs 6 or 8 characters *and* a digit, so `#decade` and `#facade` survive too. Masking indented blocks silenced any tag block sitting four spaces under a list marker, where four spaces is a paragraph continuation rather than a code block; that pass was dropped entirely rather than patched. Both were the same mistake: buying a false positive with a false negative on the one shape the rule exists to catch.
+- Ambiguous word tags stay counted on purpose: `#main` as a CSS id and `#general` as a channel are the same token as a tag, and separating them needs a guess about intent that costs more precision than it buys.
+- Nine fixtures, five that must not fire and four that must. Every carve-out and both masking passes are mutation-tested: disabling any one of them fails the suite, as does widening the hex pattern or dropping its 8-character or digit requirement. No new detector `type`, so the catalog count stays 61 and `CATEGORIES.md` is unchanged.
+
+---
+
 ## [3.22.1] — 2026-07-31
 
 ### Fixed
@@ -34,7 +71,9 @@ All notable changes to this project are documented here.
 
 ### Added
 
-Two pieces of enforcement. No new detection categories: the catalog stays at 61 and the engine at 46 `type`s.
+Two pieces of enforcement. The catalog stays at 61; the engine goes from 46 to 47 `type`s (`tier1-clarity`, split out of the Tier 1 vocabulary rule).
+
+> **Corrected 2026-08-02.** This entry originally read "No new detection categories: the catalog stays at 61 and the engine at 46 `type`s." The release added `tier1-clarity`, so the engine went to 47. The README had already been stale at 45 since v3.20.0, whose entry stated its own bump correctly, so an accurate changelog did not prevent the rot and a wrong one did not cause it. Both point at the same gap: nothing compared prose to `TYPE_LABELS`. Recorded rather than silently rewritten because the audit trail is the point.
 
 - **Preservation validator** (`detector/validate.js`, `detector/validate.test.js`). Edit mode writes to files, and until now the promises it makes were prose instructions to a model with nothing checking them. `validate(original, rewritten)` errors when a rewrite modifies a fenced code block, YAML frontmatter, a blockquote, a table cell, inline code, a URL, a file path, or the heading count and nesting, and when the rewrite ends with more flagged patterns than it started with. Warnings cover reworded headings, figures that vanished, and rewrites that drop more than 40% of the words. There is a CLI (`node detector/validate.js before.md after.md`) that exits 1 on any error. 23 tests, no dependencies.
 - **Two carve-outs, because a validator that fires on its own skill's instructions gets switched off.** URLs are compared with AI tracking parameters stripped from both sides, since the skill tells you to strip them; heading text changing is a warning rather than an error, since the skill tells you to sentence-case Title Case headings and cut emoji from them.

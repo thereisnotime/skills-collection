@@ -5,6 +5,2990 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.12.5
+
+### Fixed
+
+- **A running build displayed the badge "PENDING".** This was a direct
+  consequence of 9.12.4: making the runs API read the orchestrator's
+  `currentPhase` widened the status vocabulary it emits to include `building`,
+  `bootstrap` and `complete`. The dashboard's `RUN_STATUS_CONFIG` did not know
+  those, and the lookup falls back to `pending`:
+
+      const cfg = RUN_STATUS_CONFIG[status] || RUN_STATUS_CONFIG.pending;
+
+  So an actively building run told an operator it was queued -- worse than
+  showing nothing, because it states something false with confidence to
+  someone deciding whether their build is stuck.
+
+  `unknown` had the same defect and is arguably worse: the API returns it when
+  NO signal could be read at all, and rendering "Pending" claims the run is
+  queued when the truth is that nothing is known. It now renders "Unknown".
+
+  The regression test DERIVES the required vocabulary from `autonomy/run.sh`'s
+  own `currentPhase` writes rather than hand-copying a list, so it fails if the
+  runtime gains a phase the UI cannot render, and includes a vacuity guard so
+  an empty match set fails rather than passing silently.
+
+## v9.12.4
+
+### Fixed
+
+- **The runs API reported `unknown` for every live run.** Found by running a
+  real build, not by reading code: during an actual `loki start`, the CLI and
+  the API disagreed about the same workspace at the same instant --
+  `loki status --json` reported `phase=BUILDING` while `api_runs.list_runs`
+  reported `status=unknown`.
+
+  `_current_status` read only `.loki/session.json`, which the current runtime
+  does not write. A live run writes `.loki/state/orchestrator.json`, and the
+  CLI reads its `currentPhase` (`autonomy/loki:4782`). The API was keyed on a
+  file that never appears, so every live run read `unknown` while the truth sat
+  one directory away with 24-second freshness.
+
+  Precedence is preserved: PAUSE wins, then STOP, then `session.json` if a
+  deployment writes it, and `orchestrator.json` is consulted last. A missing
+  signal still yields `unknown` and never `completed`, because absence of a
+  signal is not evidence of success.
+
+  Verified against the live run that exposed it: after the fix the CLI reported
+  BUILDING and the API reported building on the same workspace. That run went
+  on to build working code from its spec, pass its own test, complete a
+  four-reviewer blind council, and write a receipt recording $0.7381 of
+  measured cost.
+
+## v9.12.3
+
+### Security
+
+- **WebSockets were outside the boundary added in 9.12.2.** That guard is an
+  `@app.middleware("http")`, which only wraps HTTP scopes, so every WebSocket
+  route stayed reachable. Measured with auth off from a routable remote
+  address, both accepted the upgrade:
+
+      /ws          CONNECTED
+      /ws/collab   CONNECTED
+
+  `/ws/collab` is writable, so a network caller could push collaboration
+  state. The routes are not careless -- `/ws` validates a query-parameter
+  token when enterprise auth is ON, and FastAPI's `Depends()` does not work on
+  websocket routes -- the hole is the auth-OFF default.
+
+  A plain ASGI middleware now applies the same decision to websocket scopes:
+  same trusted-proxy resolution, same loopback rule, same deferral when auth
+  is enabled. Registering it centrally also covers sockets declared by other
+  modules, which a per-route decorator would miss. A refused upgrade closes
+  with policy code 1008 rather than being dropped, so a client can tell
+  refusal from a network fault.
+
+  Verified: direct remote refused on both sockets, loopback still connects
+  (the SPA depends on it), an untrusted `X-Forwarded-For` is ignored, a
+  trusted proxy forwarding a remote client is refused, and a scope with no
+  peer address fails closed.
+
+## v9.12.2
+
+### Security
+
+- **A remote anonymous caller could stop a running build.** Every mutating
+  dashboard route carried `Depends(auth.require_scope(...))`, and all 46 of
+  them were bypassable: `require_scope` returns True when enterprise auth is
+  disabled, which is the default. Measured with `LOKI_ENTERPRISE_AUTH` unset,
+  `POST /api/control/stop` and `POST /api/control/app-stop` both returned 200
+  with no credentials.
+
+  Bound to 127.0.0.1 that is harmless. But running with
+  `LOKI_DASHBOARD_HOST=0.0.0.0` is a documented container configuration
+  (`docs/architecture/DASHBOARD_V2_ARCHITECTURE.md`), and there anyone on the
+  network could stop a build.
+
+  Mutations now pass through ONE central boundary rather than per-route
+  checks, so a route added later is covered the moment it exists:
+
+      auth enabled              require_scope decides, unchanged
+      loopback caller           allowed, exactly as before
+      non-IP peer (test/UDS)    allowed; a name is not evidence of remote
+      routable remote, no auth  403
+
+- **A reverse proxy on the same host defeated that check.** A proxy presents
+  127.0.0.1 as the peer, so "the peer is loopback" did not mean "the caller is
+  local": a remote request carrying `X-Forwarded-For` through a same-host proxy
+  reached `POST /api/control/stop` and got 200. Proxies are now named
+  explicitly in `LOKI_TRUSTED_PROXIES`; the forwarded client is believed only
+  when the peer is a declared proxy, and an undeclared proxy's headers are
+  ignored rather than trusted, because any direct caller can set them.
+
+- **Sensitive reads were open too.** Gating mutations alone left `/api/logs`,
+  `/api/secrets/status`, `/api/github/status`, `/api/tasks`,
+  `/api/council/transcripts` and `/api/proofs` returning 200 to an anonymous
+  remote caller. Reads that expose workspace or credential-adjacent state now
+  pass through the same boundary.
+
+  `/health` and `/metrics` are deliberately excluded, so container health
+  probes and Prometheus scrapes keep working with no configuration -- neither
+  carries workspace content. Zero-config local use is unchanged, proven on a
+  real socket bound to 0.0.0.0 with a trusted proxy declared:
+
+      loopback mutation                    200
+      loopback + X-Forwarded-For remote    403
+      loopback sensitive read              200
+      loopback health probe                200
+      remote LAN address sensitive read    403
+
+## v9.12.1
+
+### Fixed
+
+- **`loki proof phases` and `loki proof releases` were unreachable through
+  `bin/loki`.** Both shipped in 9.12.0 and worked when invoked through
+  `autonomy/loki`, but the entry point npm users actually get returned
+  `Unknown subcommand`. The Bun runtime kept its own `loki proof` subcommand
+  list and rejected anything not in it, so every bash-side subcommand added
+  after that file was written was invisible to the shipped CLI.
+
+  The TypeScript dispatch now delegates unknown subcommands to the bash CLI
+  instead of rejecting them, so bash stays the single source of truth for what
+  the surface is. A genuinely unknown subcommand still exits non-zero.
+
+  Found by verifying the PUBLISHED package rather than the repository. The
+  parity suite had 14 passing assertions at the time, all of which invoked
+  `autonomy/loki` directly -- they tested the implementation, not the surface
+  a user touches. Three assertions now run through `bin/loki`.
+
+## v9.12.0
+
+### Dashboard honesty
+
+The dashboard reported things it had not measured. Four fixes, each verified by
+mutation testing:
+
+- **Unmeasured cost read `$0.00`.** `null + null` is `0` in JavaScript, so a run
+  nobody measured summed to a confident zero while individual phases beside it
+  correctly read "unknown". Now `unknown`; a genuinely measured zero still reads
+  `$0.00`.
+- **Blind panels claimed "No runs found."** A failed fetch rendered identically
+  to an empty result, so a panel that could not reach the server looked like a
+  healthy idle one. Empty and unreadable are now distinct states, and an empty
+  result carries the server's own reason and names the sources it read.
+- **Data age was invisible.** `freshness_s` was consumed by 0 of 43 components,
+  so a 40-minute-old poll looked identical to a fresh one. Age is now shown,
+  preferring the server's measurement of the FILE over client receive time.
+- **The session timeline was fabricated.** Phase names came from a fixed
+  rotation and durations from `Math.random()`, rendered as history. It now reads
+  real `phase_change` events; boundaries that were never emitted read UNKNOWN
+  rather than being back-computed from process uptime.
+
+### Operator API and CLI parity
+
+- Five read-only routes under `/api/operator/*`, all carrying the read scope:
+  run detail, gate results, receipts, releases, and phase history. Four readers
+  existed before this and were reachable by no user.
+- `loki proof phases [--json]` and `loki proof releases [--json]` read the SAME
+  modules the API serves, so the two surfaces cannot drift about the same run.
+  An empty result exits 3 (nothing to check) and states why.
+- Measured against real `--help` output, the other operator surfaces were
+  already covered: receipts by `proof list/show/verify`, gate results by
+  `loki verify`, run state by `loki status --json`.
+- Two defects found in this work and fixed: `proof phases` worked but was
+  absent from `--help` (a command nobody can discover), and `proof releases`
+  failed with "No module named dashboard" from any other directory WHILE
+  EXITING 0 -- a failure reported as success. Both are now asserted by the
+  parity suite, which checks discoverability and cwd-independence rather than
+  only behaviour.
+
+### Security
+
+- `GET /api/operator/receipts?workspace=` forwarded a caller-supplied path into
+  an unbounded filesystem walk. Measured: walking `/` visits over 200,000
+  entries in 6 seconds. Now confined to configured roots, compared on realpath
+  so `..` and symlink escapes cannot pass, and bounded with honest PARTIAL
+  semantics when a limit stops the walk.
+- The release gate required only Python 3.12 before publishing to every
+  channel. It now waits for Tests, Bun Parity and Security Audit at the EXACT
+  release SHA and fails closed: missing, queued, cancelled, timed_out and
+  skipped are all not-a-pass.
+
+### Fixed
+
+- Route tests asserted membership of `app.routes`, an implementation detail
+  FastAPI changed in 0.141 (an included router is now stored as one lazy
+  wrapper). They assert reachability by routing a request instead, which is
+  version-independent.
+
+## v9.11.0
+
+### Two verification tools, released as features rather than as a fix
+
+v9.10.1 committed `receipt-stats.py` and `receipt-verify-batch.py` to unbreak
+collection. They are user-facing capabilities, and this is what they do.
+
+**`receipt-stats.py`** summarises an archive of receipts:
+
+```
+2 receipt(s): 2 FAILED. Cost: total $2.5000, median $2.5000 across 1 measured
+receipt(s). 1 receipt(s) EXCLUDED from both figures: cost was never measured,
+and summing an absent measurement as 0 would understate the total and drag the
+median down.
+```
+
+The exclusion is the feature. With the unmeasured receipt summed as 0 the
+median reads $1.25 instead of $2.50 -- a 2x understatement of real spend,
+produced by a number nobody measured. An empty archive exits 3: zero receipts
+is not a clean archive.
+
+**`receipt-verify-batch.py`** verifies an explicit LIST, so CI can check
+exactly the receipts a PR touched rather than walking a whole workspace.
+
+A path that does not exist is NAMED and exits 66, never silently skipped -- a
+batch that quietly drops an input reports a stronger claim than it earned. An
+empty list exits 3: verifying nothing is not a pass. The rollup is
+weakest-link, so one FAILED sinks the batch; "9 of 10 passed" is not a verdict
+an auditor can use.
+
+Both reuse `verify()` and `record_is_measured()` rather than restating them.
+34 tools now ship, each asserted individually in the packaging guard.
+
+## v9.10.1
+
+### A test shipped without the tool it tests, and every Python job died
+
+v9.10.0 staged with `git add -A tests/`, which swept in
+`test_receipt_stats.py` and `test_receipt_verify_batch.py`. Their tools were
+UNTRACKED, so the tests were committed and the tools were not:
+
+```
+ERROR collecting tests/test_receipt_stats.py
+E  FileNotFoundError: tools/receipt-stats.py
+```
+
+pytest fails at COLLECTION, so all four Python versions died before running a
+single test -- 2635 items collected, 2 errors, zero executed.
+
+Both tools exist and work: 66 tests pass once they are present. The fix is to
+commit them, not to delete working code.
+
+### `git add -A <dir>` is how this happened
+
+A directory-wide add cannot tell a file that belongs in this commit from one
+that happens to be sitting there. Every other release in this session staged
+files BY NAME, which is why this is the first time it bit.
+
+Both tools are now in `tests/test-runtime-libs-are-packaged.sh`, which asserts
+each shipped artifact individually -- so a tool that goes missing from the
+package is named, rather than inferred from a count.
+
+## v9.10.0
+
+### Two security controls were documented that do not exist
+
+These are the sharpest findings of the docs sweep, because a reader believed
+they had a control they did not have.
+
+**Egress policy.** `docs/network-security.md` presented
+`LOKI_NETWORK_EGRESS_POLICY`, `LOKI_ALLOWED_HOSTS` and
+`LOKI_BLOCK_METADATA_ENDPOINT` as live configuration. **None is implemented.**
+Anyone who set them had no application-level egress control at all.
+`wiki/Network-Security.md` already said "Planned"; `docs/` contradicted it.
+
+**Metrics exposure.** `docs/metrics.md` implied `/metrics` could be turned off.
+It is an unconditional route (`dashboard/server.py:9637`) with **no auth scope
+dependency**, unlike `/api/*`. `LOKI_METRICS_ENABLED=false` never closed it.
+
+### A 572-line document for a feature that does not exist
+
+`docs/openclaw-integration.md` documented seven CLI subcommands, REST
+endpoints, six env vars, a config block and Prometheus metrics.
+
+```
+grep -c openclaw autonomy/loki   ->   0
+```
+
+What exists is `integrations/openclaw/bridge/`, whose own docstring says "This
+is a foundation/skeleton. The WebSocket gateway client is not yet implemented."
+Replaced with an accurate 52-line stub quoting that limitation.
+
+### The rest, all verified against source
+
+- **A broken install command**: `npm i -g @anthropic-ai/cline` returns 404. The
+  real package is `cline`.
+- **`opencode` missing from the provider list in 9 places**, including
+  `INSTALLATION.md:846`, which was directly contradicted by
+  `completions/loki.bash:24`.
+- **~15 fictional env vars and subcommands**: `LOKI_RBAC_*`, `LOKI_TLS_ENABLED`,
+  `LOKI_AUDIT_*`, `loki enterprise rbac check`, `loki audit verify`. RBAC is
+  real, but the variable is `LOKI_OIDC_DEFAULT_ROLE`; HTTPS turns on when BOTH
+  `LOKI_TLS_CERT` and `LOKI_TLS_KEY` are set.
+- **An unsupported self-audit claim** ("35/45 capabilities, 1,314 tests
+  passing") with zero support anywhere. Deleted rather than sourced.
+- **Gemini presented as a live provider** in 7 places including an iptables
+  egress allowlist rule -- a hole for a provider removed in v7.5.18.
+- **`docs/DEMOS.md` listed 5 files that do not exist.** 11 claimed, 6 real.
+
+Verified and left alone: 34 MCP tools, 41 agent roles across 8 domains, 8
+quality gates. `docs/EVALUATING.md` was already exemplary, scoping its
+competitive claim to six installed CLIs and explicitly excluding Devin and
+Replit.
+
+### The tool that finds this class
+
+`tools/audit-docs.py` scans markdown for checkable claims and verifies each
+against the repo. On this repo, at the moment it shipped:
+
+```
+docs scanned:  474
+claims checked: 2205  (false 178, passed 1949, uncheckable 78)
+```
+
+**Seventy-eight claims read UNCHECKABLE, not passing.** A claim the tool cannot
+verify is reported as unverified rather than counted as correct, which is the
+same absent-is-not-zero rule the cost surfaces enforce.
+
+`docs/TOOLS.md` is new: all 34 tools, grouped by what a user is trying to do,
+with every example verified by running it.
+
+## v9.9.0
+
+### Main is green: five shard failures, all of them my own guards lying
+
+Every one was a false alarm in a test, not a product defect. That is worse than
+it sounds -- a guard that cries wolf is a guard nobody reads.
+
+**1. SIGPIPE (v9.7.0).** `printf | grep -qF` had grep exit on first match and
+close the pipe, so the FIRST library in the loop was reported MISSING while
+shipping fine.
+
+**2. `stat` ordering (v9.8.0).** macOS-first at four call sites; the portability
+guard exists to catch exactly that before it bites on a Linux runner.
+
+**3. Caveman moat audit (v9.8.0).** Flagged `LOKI_PROVIDER=claude` as an
+unnamed claude subcall. It is a variable ASSIGNMENT, and the exclusion list
+already exempted every other way this file names claude as a value.
+
+**4. jest (v9.8.1).** My own version bump string-replaced `9.7.0` into
+`"jest": "^29.7.0"`, producing a version that never existed. `npm install`
+died with ETARGET and ALL ELEVEN JOBS failed before running a test. The bump
+now edits the JSON field.
+
+**5. pre-push scoping.** The test stubs `bin/python3`; the hook now prefers
+`python3.12` (v8.63.0), so the stub was never invoked and recorded no argv.
+Four assertions read as failures while the hook worked correctly.
+
+### Three trust-core probes were blind, and one hid a real hole
+
+The detector reported `the test PASSED with the invariant broken -- it is
+blind` three times.
+
+**Two were ambiguity.** `return 20` now appears twice, so the probe mutated
+static_analysis while the test drives mutation_integrity. And the JSON compare
+moved from `python3 -c` to a heredoc, so its search string matched nothing.
+Both re-anchored on unique, verified strings.
+
+**The third was a genuine coverage hole.** The wiring test asserted that an
+incoherent cost fails `ok` -- but its fixture used a `deadbeef` hash, so
+`hash_ok` was ALREADY False and `ok` was False regardless. Deleting
+`and result["cost_coherent"] is not False` from the verdict left the suite
+GREEN: a receipt claiming `$0.00` as measured would have verified clean.
+
+The fixture now carries a genuinely valid hash, computed the way the verifier
+computes it, so only the cost gate can fail it. Deleting that line now turns
+the suite red.
+
+Trust-core detector: 95 invariants, 0 blind.
+
+### What actually kept main red
+
+Not the defects -- each took minutes. It was releasing faster than a Tests run
+completes, so every run was cancelled by the next push and none ever reported.
+Two of the five do not reproduce on macOS at all, so the local gate stayed
+green throughout. A cancelled run is an absent measurement.
+
+## v9.8.1
+
+### My own release script took down all eleven CI jobs
+
+The v9.8.0 bump did a blind string replace of `9.7.0` -> `9.8.0` across
+package.json. That string also lives inside a dependency spec:
+
+```
+"jest": "^29.7.0"   ->   "jest": "^29.8.0"
+```
+
+**jest 29.8.0 has never existed** -- 29.7.0 is the highest 29.x. `npm install`
+failed with ETARGET, so every job died before running a single test: four shell
+shards, every Bun matrix entry, every Node version.
+
+The three red shards before this were genuine test failures, now fixed. This
+one was pure collateral from the release process itself, and it was worse: it
+turned three specific failures into eleven wholesale ones.
+
+### The bump now edits the version FIELD, not the file text
+
+`json.load`, set `["version"]`, `json.dump`. A blind replace cannot tell a
+project version from a dependency's, and on this release it could not tell a
+real version from one that does not exist.
+
+`tests/test_version_bump_safety.py` asserts the property that catches the
+CLASS: every exactly-pinned dependency must resolve to a published version. It
+skips, and says so, when npm is unreachable -- an absent measurement is not a
+pass. Restoring `^29.8.0` turns it red.
+
+An audit of every other pinned dependency found no further collateral.
+
+## v9.8.0
+
+### The remaining two red shards, both false alarms in my own guards
+
+v9.7.0 fixed the SIGPIPE one. These are the other two, and neither was a
+product defect.
+
+**`stat` portability.** `tests/test-help-and-log-cap.sh` tried
+`stat -f%z` (macOS) before `stat -c%s` (GNU) at four call sites. On a Linux
+runner the macOS form fails, falls through, and works -- so the code was not
+broken, but the ordering is a latent trap and the portability guard exists
+precisely to catch it before it becomes one. All four are now GNU-first.
+
+**The caveman moat audit.** It flagged `autonomy/run.sh:1643`:
+
+```
+LOKI_PROVIDER=claude
+```
+
+as an "unsuppressed parsed claude subcall". It is a variable ASSIGNMENT, not a
+subcall -- the auto-detect fallback added in v8.64.0, which keeps the historical
+default so the "not installed" error names an actionable provider rather than an
+empty string.
+
+The audit's exclusion list already exempts every other way this file names
+claude as a VALUE (`--provider`, `Provider:`, `(claude default)`,
+`supports the claude`). This form was simply never added. The fix belongs in
+the exclusion, not in production code.
+
+### Widening a moat guard requires proving it still bites
+
+The exemption is one literal string. Replacing that exact line with a genuine
+unnamed subcall:
+
+```
+claude --print "leak"
+```
+
+still fails the audit, verified by mutation probe. The guard was narrowed by
+one false positive, not blunted.
+
+### What actually kept main red
+
+Not these three defects -- they were findable in minutes. It was releasing
+faster than a Tests run takes to finish, so every run was cancelled by the next
+push and nothing ever reported a verdict. Two of the three failures do not
+reproduce on macOS at all, so the local gate stayed green throughout.
+
+## v9.7.0
+
+### Three CI shards were red for a packaging failure that did not exist
+
+```
+tests/test-runtime-libs-are-packaged.sh: line 131:
+  printf: write error: Broken pipe
+FAIL: tarball is MISSING autonomy/lib/proof-verify.py
+PASS: tarball contains autonomy/lib/efficiency_cost.py
+PASS: tarball contains autonomy/lib/cost-summary.py
+```
+
+`proof-verify.py` ships. Every other library in the same list passed against
+the same listing. Only the FIRST one failed, because
+`printf '%s' "$_listing" | grep -qF` has grep exit on its first match and close
+the pipe, so printf takes SIGPIPE and the pipeline reports failure.
+
+**A checker that fabricates a MISSING is worse than one that fabricates a
+PASS.** It burns trust in the only guard watching the shipped artifact, and the
+next real miss reads as another false alarm. This is the guard that has caught
+two genuine packaging breaks.
+
+grep now reads from a here-string, so nothing writes into a pipe grep may close
+early. Same assertion, no SIGPIPE surface.
+
+### It does not reproduce on macOS, which is why it survived
+
+Verified directly: with the real 36,421-byte `npm pack` listing, the old form
+produces NO error locally. The failure is Linux-specific, so a green local gate
+was compatible with three red shards for hours.
+
+Same class as the Python 3.14-vs-3.12 divergence in v8.63.0: the local gate and
+CI were not running the same thing, and the local green was not evidence.
+
+### The honest note on how long this stood
+
+Releases were going out faster than a full Tests run takes to finish, so each
+push cancelled the previous run. The last two Tests runs before this one were
+CANCELLED, not passed. The 2,539 passing tests reported alongside those
+releases were the pytest suite; the shell suite that was failing is DEFERRED by
+the fast tier.
+
+A cancelled run is an absent measurement. Reading it as a pass is the same
+error this codebase has spent sixteen surfaces removing, applied to my own
+release process.
+
+## v9.6.0
+
+### Four gates were exempt from the strictest rule in the repo
+
+`_is_gate()` matched only the SUFFIX form, `"-gate." in name`. Every
+prefix-named tool escaped:
+
+```
+gate-status.py   gate=False
+gate-log.py      gate=False
+gate-explain.py  gate=False
+gate-badge.py    gate=False
+ci-gate.py       gate=True
+```
+
+Only `ci-gate.py` was covered. The other four were silently classified as
+advisors and exempted from the green-leak check -- the rule that stops a tool
+exiting 0 while its own output says it could not evaluate.
+
+All four already comply, verified by running each against a blind workspace
+(exit 2, 64, 64, 64; never 0). So this closes a COVERAGE gap rather than a
+defect, and that is exactly why it was worth closing: an exemption nobody
+noticed is one that is still there when a tool eventually stops complying.
+
+### The guard restated the rule it was meant to guard
+
+The membership test hardcoded the same suffix-only pattern:
+
+```python
+if "-guard." in tool.name or "-gate." in tool.name:
+    self.assertTrue(_is_gate(tool.name), ...)
+```
+
+So it was blind to prefix-named tools BY CONSTRUCTION. A guard that reuses the
+predicate's own rule cannot detect a gap in that rule -- it agrees with the bug.
+
+The first mutation probe proved it: reverting the pattern SURVIVED, because
+nothing asserted the membership independently. The expectation is now derived
+from the tool NAME rather than from `_is_gate`, plus a second test naming all
+seven gates explicitly. A count would pass while silently losing one.
+
+Reverting the pattern now turns the suite red.
+
+### On the verifier that found it
+
+A wave-D verifier flagged this as a one-tool judgement call about
+`gate-status.py`. Checking it directly showed FOUR tools affected, not one, and
+the guard itself was the reason none had been caught. The report was right to
+raise it and wrong about the scope, which is why the flag was checked rather
+than filed.
+
+## v9.5.0
+
+### Is the merge gate actually set up, and does the badge tell the truth
+
+`gate-status.py` answers "is this repo's gate real?" in one screen, composing
+the existing tools by subprocess rather than reimplementing any of them.
+
+```
+would_run      PROBLEM   no: the policy does not load, so ci-gate would run with
+                         nothing to enforce, which is green without checking
+
+GATE: UNKNOWN -- the merge gate cannot be fully verified from here, so it is
+                 not known to be working
+exit=2
+```
+
+UNKNOWN is the state the file exists to keep. A component that cannot be
+checked is neither OK nor a failure, and the overall verdict is weakest-link,
+never a count.
+
+`gate-badge.py` renders the live verdict for a README:
+
+```
+{"schemaVersion":1,"label":"gate","message":"unevaluable","color":"orange"}
+```
+
+A badge is read at a glance, so a blind gate showing green is the worst
+possible rendering of that state. UNEVALUABLE gets its own colour, and
+recolouring it green turns the suite red.
+
+### A tool was built, tested green by its author, and dropped here
+
+`cost-forecast.py` reported "26 passed" in its own worktree. Integrated here it
+failed 6 tests and crashed outright on an empty history:
+
+```
+AssertionError: 0.0 is not None : zero recorded runs produced a forecast;
+absent is not zero
+AssertionError: 0.0 is not None : three unmeasured runs were averaged as 0 and
+projected; that is the $0.00-means-free lie pointed at the future
+TypeError: must be real number, not NoneType
+```
+
+Its own tests were correct and caught it; the reported green did not match this
+tree. Stale bytecode was ruled out by clearing `__pycache__` and re-running.
+
+It is NOT in this release. A cost forecaster that projects $0.00 from zero
+measured runs is the exact defect this codebase has spent sixteen surfaces
+removing, aimed at a number someone would budget against. Shipping it because
+three of four were ready would have been the worst trade available.
+
+## v9.4.0
+
+### Four tools, and the same rule holds in all four
+
+```
+gate-log.py         verdict history: how often does the gate block, on what
+receipt-export.py   one evidence file a third party can check
+cost-attribute.py   where a run's cost actually went, per stage
+gate-explain.py     a verdict a human can act on
+```
+
+Each was built in an isolated worktree, then handed to an adversarial verifier
+that re-ran its mutation probe BY HAND to confirm the failure was a clean
+assertion rather than a traceback. All four probes were then re-run
+independently here; all four bind.
+
+### A blind gate never reads as healthy
+
+```
+$ ci-gate <blind run> --json | gate-log record | gate-log report
+  pass                       0
+  unevaluable (NOT a pass)   1
+exit=2
+```
+
+`gate-log` keeps UNEVALUABLE in its own bucket, and blind OUTRANKS failed in
+the rollup -- the same precedence `ci-gate` uses, because "your gate is partly
+blind" is worse news than "this run breached". Collapsing it into pass makes
+the tool loudest, a confident green, exactly when its instrumentation broke.
+
+`gate-explain` states the third state in words:
+
+```
+POLICY: cost [UNEVALUABLE]
+  CHECKED: the gate could not check this, so it is neither a pass nor a
+           failure -- the axis is unverified
+```
+
+### Defects the builders found in their OWN code before reporting
+
+A 100%-corrupt log printed *"most failing policy: none -- no FAIL in any
+readable record"*. Nothing was read, so that was an unmeasured value claiming
+to be a measured none. It now prints UNKNOWN, with a test.
+
+A stored `"corrupt"` state was double-counted against the real unreadable-line
+tally, so the buckets no longer summed to the record total.
+
+An unreadable log path escaped as a traceback and exited 1 -- "checked and
+FAILED" under this convention, when the truth is 2 (could not check).
+
+### The contract adopted all four without a violation
+
+`tests/test_tool_exit_contract.py` globs `tools/*.py`, so these four were
+subject to the exit convention from their first run: `--help` exits 0 without a
+verdict, a nonexistent path never exits 0, and no tool exits 0 while its own
+output says it could not evaluate. Six contract tests pass with the new tools
+adopted.
+
+`gate-log` deliberately uses exit 64 for usage errors rather than argparse's
+default 2, so a typo can never be mistaken for a blind gate.
+
+## v9.3.0
+
+### A policy edit now shows its safety DIRECTION, not just its diff
+
+Once a gate policy is in version control, the dangerous change is a LOOSENING.
+Raising a ceiling or dropping `require_receipt` weakens the gate, and inside a
+large PR it looks like any other one-line JSON edit.
+
+```
+$ policy-diff.py old.json new.json --fail-on-weaken
+policy-diff: 2 weakening(s) require an explicit human ack
+WEAKENS: max_usd: 5.0 -> 50.0
+WEAKENS: require_receipt removed (was true) -- this axis is no longer enforced at all
+exit=1
+```
+
+A tightening passes:
+
+```
+TIGHTENS: max_usd: 5.0 -> 2.0
+exit=0
+```
+
+A diff that only reports `max_usd: 5 -> 50` makes the reviewer do the safety
+reasoning. Doing it for them is the entire value.
+
+**Removing a key is treated as the most dangerous edit**, not as a neutral
+"removed": the gate then stops enforcing that axis completely, and the message
+says so.
+
+An unclassifiable change reads UNKNOWN DIRECTION, never "unchanged" and never
+assumed safe -- an unrecognized key is exactly where a silent loosening hides.
+Both files must be VALID policies first, because diffing garbage produces a
+confident nonsense verdict.
+
+### An exit-code collision worth recording
+
+`tests/test_tool_exit_contract.py` globs `tools/*.py` and auto-adopts any new
+tool, so `policy-diff.py` had to obey the convention from its first commit.
+argparse defaults a usage error to exit 2, which in this repo means "could not
+be checked" -- a usage typo would have been indistinguishable from a blind
+gate. `ArgumentParser.error()` is overridden to exit 64, leaving `--help`'s
+exit-0 path intact.
+
+66 (file absent) and 2 (present but invalid) are separated by an explicit
+existence check, since `policy-load` collapses both into one error.
+
+### A requirement collision, resolved rather than papered over
+
+Requirement 2 (an unclassifiable key reads UNKNOWN) collides with requirement 5
+(both files must be valid): `policy-load` rejects unknown keys, so an
+unclassifiable key can never reach the diff through a file. Handling it at the
+parse layer would be untestable dead code.
+
+Instead the direction table defaults to UNKNOWN and is tested by calling
+`classify()` directly, plus a guard that walks the real
+`policy_load.KNOWN_KEYS`. That catches the REACHABLE version of the bug:
+`KNOWN_KEYS` growing while the direction table does not.
+
+## v9.2.0
+
+### The exit-code convention is now enforced, and it found a third violation
+
+Twenty-five tools compose in CI: `ci-gate` maps child exit codes, shell chains
+use `&&`, `gate-report` re-emits a verdict. The convention that emerged --
+0 passed, 1 FAILED, 2 could not check, 3 nothing to check, 64 usage, 66 input
+missing -- was enforced nowhere.
+
+Two violations had already been found one at a time (`model-advisor` exiting 0
+on a nonexistent workspace in v8.96.0, `receipt-attest` judging `--help` as a
+proof path in v8.95.0). Written as a CONTRACT over the real `tools/` directory,
+it immediately found a third:
+
+```
+AssertionError: estimate-run.py reported success for a path that does not exist
+```
+
+`preflight.sh` consumes that tool, so a mistyped or unmounted path silently
+became "NO BASIS: no measured, priced iteration to project from" instead of an
+error. Now exit 66, while a REAL workspace with no history still exits 0.
+
+### The distinction the rule had to make: gate versus advisor
+
+A GATE exiting 0 while its own output says it could not evaluate is a
+green-leak -- CI reads the code, sees success, merges on an unchecked axis.
+That is the defect this whole tool line exists to prevent.
+
+An ADVISOR is genuinely different. `model-advisor` answering "NO BASIS" HAS
+answered honestly: there is no recommendation to make, the output says so, and
+no gate consumes its exit code. Forcing it non-zero would train operators to
+ignore a failing advisor, which is worse than the gap.
+
+So the green-leak rule applies to gates only -- and the membership of that list
+is itself asserted. Anything named `*-guard` or `*-gate` is covered by
+construction, so a new gate cannot silently escape the stricter rule, and
+`model-advisor`'s exemption is pinned with its reasoning so a later reader does
+not "fix" it into a worse state.
+
+### On the agent that died
+
+The subagent assigned this stalled after reporting "four failures, two distinct
+tools" and never wrote its test. That claim was NOT taken on trust: the file it
+appeared to have produced turned out to be a pre-existing ENT-3 test with a
+different purpose, passing 2 of 2. The contract was re-derived by running the
+rules against the real tools, which is how the `estimate-run` violation was
+actually found.
+
+## v9.1.0
+
+### Gate on tokens, because dollars move under you
+
+`cost-guard` gates on DOLLARS, which depend on model pricing: a dollar ceiling
+silently loosens on a cheaper model and tightens on a dearer one. Tokens are
+the provider-independent unit of work.
+
+Demonstrated on this project's own 307:1 measurement, one real iteration:
+
+```
+--max-output-tokens 50000   exit 0   (34,729 out: the WORK signal)
+--max-total-tokens  50000   exit 1   (10.6M total: the CONTEXT signal)
+```
+
+Same run, two verdicts. That distinction is invisible in dollars, which is why
+a token gate is not a duplicate of the cost gate. The total's field list is one
+constant used by BOTH the sum and the printed definition, so the two can never
+disagree.
+
+### The predicate had to be asked a narrower question
+
+`record_is_measured()` is satisfied by cost OR tokens. Feeding it all five
+fields the way `cost-guard` does would be a hole in a TOKEN gate: a record with
+a real cost and no usage (the codex shape) would have printed
+"0 output tokens, WITHIN BUDGET" for a run whose tokens were never recorded.
+
+Verified against the real library before deciding:
+
+```
+all five fields   -> measured: True
+four token fields -> measured: False
+```
+
+It is fed the four token fields only. That is choosing which fields to ask
+about, not restating the rule.
+
+### An inherited limit, stated rather than defended
+
+A JSON `true` in `output_tokens` DOES fabricate a 1-token measurement and exits
+0. `collect_efficiency()` runs `_to_int()` over every field, so `True` is a
+genuine `int` 1 before the guard sees it. The bool check in the tool is dead on
+the CLI path, the fix belongs in `_to_int()` upstream, and the test pins the
+ACTUAL behaviour with a note to re-examine if upstream changes. Claiming a
+defense that does not exist would be worse than the gap.
+
+### Finding receipts without pretending unmeasured means cheap
+
+`receipt-find.py` filters by cost range, failure, and date.
+
+**An unmeasured receipt matches NEITHER `--min-usd` NOR `--max-usd`**, and is
+reported as excluded:
+
+```
+EXCLUDED from the cost filter: cost was never measured, so it is neither above
+nor below the threshold
+```
+
+Both directions are asserted deliberately: a tool substituting `0.0` still
+passes a `--min-usd`-only suite, because 0.0 correctly fails to match a
+positive floor. Testing one direction would have let the exact defect through.
+
+Zero matches and no receipts are DIFFERENT facts with different exits (1 and
+3): one means the filter ran, the other means nothing was searched. Malformed
+receipts are counted separately and never silently dropped.
+
+`--failed-only` matches `NOT VERIFIED` only. `VERIFIED WITH GAPS` verified with
+recorded gaps and does not match; a receipt with no headline is never claimed
+as failed, because "we cannot tell" is not "it failed".
+
+## v9.0.0
+
+### Adopting the merge gate is now two commands
+
+`gate-init.py` scaffolds a reviewable policy, `baseline-pin.py` fixes the
+reference run it compares against. Together with the existing chain that closes
+CI cost-governance end to end.
+
+```
+$ tools/gate-init.py .
+max_usd = 2.6, derived from: median of 4 measured run(s) = $1.3000, times 2.0x headroom
+validated by policy-load.py; ci-gate args: --max-usd 2.6 --require-receipt
+```
+
+**With no history it invents nothing.** The `max_usd` key is ABSENT, not
+guessed, and stderr says the operator must choose one. A fabricated ceiling is
+worse than none: CI goes green while enforcing an arbitrary limit nobody chose.
+
+The shape was probed rather than assumed. `policy-load` rejects
+`"max_usd": null` ("must be a number, got None") AND rejects a JSON-embedded
+note ("unknown policy key"), so the only form satisfying both the no-invention
+rule and the must-load rule is key-absent with the note on stderr.
+
+**The 2.0x headroom is a CHOSEN constant, not derived.** The median has a basis
+in measured runs; the multiplier is judgment (a ceiling at the median blocks
+half of all normal runs). Only half of "derived from measured spend" is
+evidence, and the output says which half.
+
+### The tampered-baseline hole cost-guard documented against itself
+
+`cost-guard.py`'s own docstring recorded the gap: *"NON-GOAL: the baseline
+receipt's integrity hash is not verified. A tampered baseline that inflates the
+allowed ceiling is out of scope."*
+
+`baseline-pin.py` closes it. It REFUSES to pin a receipt that fails integrity
+("every later comparison would be against a number nobody can verify") or one
+with no measured cost ("a percentage increase against an unmeasured number is
+undefined. Unmeasured is not $0.00"). It records the hash, the cost and the
+time, so `show` detects a receipt edited AFTER pinning, and `path` refuses to
+emit a drifted baseline rather than quietly feeding it to the gate.
+
+Proven composing end to end: pinned $1.25 against an actual $1.30 passes at
+`--max-increase-pct 10` and fails at 1.
+
+**It hashes raw file bytes, not the canonical verification-stripped digest.**
+That digest is blind to edits confined to the `verification` block, so swapping
+a whole verification block would have read as "unchanged".
+
+## v8.99.0
+
+### `--json` produced non-JSON on the path a consumer most needs to read
+
+Twelve tools accept `--json`, and CI composes them by piping stdout into
+`json.load`. Every one handled SUCCESS correctly. `run-replay.py` did not
+handle failure: on a workspace with no artifacts it printed a bare text line
+and raised `SystemExit` before `--json` was consulted, so the caller got
+
+```
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1
+```
+
+The failure was unreadable to precisely the automation the flag exists for. A
+structured error is still structured output:
+
+```json
+{ "status": "no_data", "exit_code": 66, "workspace": "...", "iterations": [] }
+```
+
+The process still exits 66. Both halves are pinned, because a tool that started
+emitting JSON but LOST its exit code would turn a blind gate green -- the exact
+defect this tool line exists to prevent, reintroduced through the fix for a
+different one.
+
+### Asserted as a CONTRACT, not per tool
+
+`tests/test_json_contract.py` walks the real `tools/` directory rather than
+listing cases, so a new tool is covered the day it lands instead of whenever
+someone remembers. The rule only has value if EVERY tool obeys it; a per-tool
+test proves one is fine while the next quietly breaks the convention.
+
+The contract is deliberately narrow: *if a tool writes to stdout under
+`--json`, that text parses.* Some tools legitimately put their payload on
+stderr and keep stdout clean, and asserting "stdout is always non-empty" would
+have failed them for a choice that is correct.
+
+`cost-history.py` was initially suspected of the same defect and cleared: it
+emits a full structured payload, and the first probe simply captured the wrong
+stream.
+
+## v8.98.0
+
+### See the verification work, without running a build
+
+`tools/verify-demo.sh` demonstrates the whole chain at zero cost. Run for real:
+
+```
+ THESE RECEIPTS ARE SYNTHETIC.
+VERIFIED -- every axis checked here passed
+  integrity VERIFIED  drift VERIFIED  headline VERIFIED  cost VERIFIED  tree VERIFIED
+  -> exit 0.
+
+FAILED -- drift, integrity did not pass here
+  integrity FAILED
+    hash mismatch: recorded 67e6f0a9..., computed 83319644... -- proof.json was
+    edited after it was written
+  drift FAILED
+  -> exit 1. Caught, with the reason printed above.
+
+GATE: FAIL -- 0 of 1 policies passed
+```
+
+The differentiator was previously invisible without a full paid build: of six
+installed competitor CLIs, none verifies its own output, and a prospective user
+could not see ours do it.
+
+### The good receipt is REAL, not hand-built
+
+`tests/test_ci_gate.py` records that a clean attestation "needs git state this
+test cannot honestly fabricate". That was probed rather than accepted: a
+scratch `git init` plus the actual `proof-generator.py` DOES reach exit 0. So
+the demo generates a genuine receipt and the real verifier passes it.
+
+SYNTHETIC means no build was run, no provider contacted and no money spent --
+it does NOT mean a fake receipt. The disclosure prints BEFORE the first
+verdict, because a reader who stops at the first `VERIFIED` must already have
+seen it.
+
+The tamper is caught on TWO independent axes, integrity and drift, which was
+not designed for and is a stronger result than one.
+
+### Two probes that survived, and what they exposed
+
+**Deleting the tamper guard survived at first.** The attester and the
+downstream gate BOTH cover that scenario, so blinding every tool at once proved
+the demo failed somewhere without isolating which guard fired. Fixed with a
+fixture that blinds only the attester while stubbing the gate to correctly
+FAIL, so nothing can supply the exit code on the guard's behalf.
+
+**Falsifying the SYNTHETIC banner survived**, because the word appears twice
+and the grep found the surviving one. It now asserts the disclosure precedes
+the first verdict.
+
+Both are the "asserts a string, not a behaviour" class this repo has paid for
+repeatedly. The required probe -- printing `VERIFIED` without running the
+verifier -- is caught even though the keyword IS present, because the test
+re-derives the receipt digest the way `receipt-attest.py:182` does rather than
+grepping for a word.
+
+## v8.97.0
+
+### The merge gate is now driveable from version control and visible on the PR
+
+Three tools complete the CI cost-governance chain. Verified end to end through
+a real shell pipe:
+
+```
+$ ci-gate.py $(policy-load.py --as-args)   -> exit 0 within budget, 1 over
+$ ci-gate.py ... --json | gate-report.py --format github
+::warning title=gate: cost (UNEVALUABLE)::cost is UNMEASURED ... this gate
+cannot say whether the run complied, so it reports no verdict rather than a
+green one.
+```
+
+**`policy-load.py`** makes the policy a reviewable file instead of CLI flags. An
+unknown key is an ERROR naming the key, never ignored: silently skipping
+`max_usd_` means the operator believes a ceiling is enforced when nothing is.
+An empty policy is refused for the same reason.
+
+**`gate-report.py`** renders the verdict as GitHub step-summary markdown or
+workflow annotations. UNEVALUABLE is a `::warning`, never a `::notice` and
+never silent -- a gate that could not check must not look green on the run
+page.
+
+**`signing-status.py`** proves whether this machine can produce SIGNED receipts
+by doing a real sign-and-verify round trip. `gpg installed + key id set` is NOT
+proof: the key may be expired, revoked, or need a passphrase this environment
+cannot supply. Four states, never a boolean. No key material is ever printed,
+including on error.
+
+### A probe that passed for the wrong reason
+
+`policy-load`'s unknown-key probe first reported OK -- but only the multi-key
+test failed, via an incidental `KeyError` traceback from `VALIDATORS[key]`
+being indexed with an unknown key. A crash also exits non-zero, so the check
+looked tested while the operator would have received a stack trace naming only
+the first typo.
+
+The validator loop now iterates `KNOWN_KEYS` so a crash cannot mask the named
+message, and the test asserts `"unknown policy key"` in stderr AND
+`assertNotIn("Traceback")`. Under the corrected probe,
+`{"max_usd": 5.0, "require_reciept": true}` exits 0 with the receipt
+requirement silently dropped -- which is the defect in the flesh.
+
+### A green verdict over an empty table, then a second layer beneath it
+
+`gate-report` rendered `{"state":"PASS","policies":[]}` as green. Fixing the
+row synthesis exposed a deeper one: `_verdict_state` trusted the JSON header
+independently, so the summary line still read PASS above an UNEVALUABLE table.
+It now reconciles against the rows by weakest link, and `exit_code` reuses it,
+so the exit code can never disagree with the report a human just read.
+
+### Three signing findings, stated rather than implied
+
+`proof-generator.py:_gpg_detached_sign` returns `None` on EVERY failure and
+`proof-verify.py:_verify_gpg` returns `"n/a"` when gpg is unavailable, so a
+broken key produces silently unsigned receipts with no error anywhere. That
+silence is what the tool makes visible.
+
+`ok` and `gpg_absent` were proven by PATH shim only: this keyring has zero
+secret keys and creating one was out of scope. `not_configured` and `broken`
+were verified against real gpg 2.5.20.
+
+Follow-up NOT taken: `autonomy/loki:11764` still does the boolean check and
+prints PASS for an expired or revoked key.
+
+## v8.96.0
+
+### Cost across many runs, where one null row changes the answer by 56%
+
+`tools/cost-history.py` appends each run's measured cost to a durable JSONL
+history and reports the trend. `cost-guard` gates ONE run; `receipt-diff`
+compares TWO; nothing tracked spend over time.
+
+```
+5 run(s), 4 measured
+costs oldest to newest: $0.1100, $0.1200, $0.4000, $0.4600
+median: $0.2600
+direction: rising (median of the oldest 2 ($0.1150) vs the newest 2 ($0.4300); +273.9%)
+```
+
+**The median is $0.2600. Had the unmeasured run been stored as 0 it would read
+$0.1150 -- understating real spend by 56%.** That single number is the whole
+feature.
+
+An unmeasured run is recorded with an explicit `null` and EXCLUDED from the
+trend, rather than refused. Refusal leaves no trace: a month with four
+broken-instrumentation runs would look byte-identical to a month with eight
+clean ones. A null row is countable, so the report says "5 run(s), 4 measured"
+and the gap is visible instead of inferred from a short file.
+
+A trend from one point reads INSUFFICIENT DATA, never "flat" -- flat is a
+claim. A corrupt line is COUNTED and reported, never skipped. An empty history
+exits non-zero: zero runs is not a flat trend.
+
+On durability, the append is a single `O_APPEND` write, and the reasoning is
+recorded rather than assumed: write-temp-and-rename would be WORSE here because
+it rewrites the whole history each time, turning a crash into loss of every
+prior run instead of a partial final line. The residual risk is a truncated
+last line, which is why the newline terminator is load-bearing and why the
+corrupt counter exists.
+
+### `model-advisor` reported success on a workspace that does not exist
+
+```
+$ model-advisor.py /nonexistent/path ; echo $?
+NO BASIS: no measured, priced iteration in this workspace.
+0
+```
+
+The TEXT was honest. The EXIT CODE was not: a CI job doing
+`model-advisor.py "$WS" && ...` on a mistyped or unmounted path saw green and
+carried on. "This workspace has no history" and "this workspace does not exist"
+are opposite diagnoses, and exit 0 collapsed them.
+
+A missing workspace now exits 66, matching how every sibling distinguishes the
+case (`run-replay` 66, `cost-guard` 2, `receipt-bundle` 3). A REAL workspace
+with genuinely no history still exits 0, because "no basis" is an honest answer
+rather than a tool failure -- both directions are asserted.
+
+## v8.95.0
+
+### `receipt-attest --help` issued a verification verdict about a file nobody named
+
+```
+$ receipt-attest.py --help
+UNVERIFIABLE -- proof file not found: --help
+```
+
+The flag fell through to the positional slot and was read as a proof path. On
+the tool whose entire job is issuing trustworthy verdicts, that is the worst
+available failure: to a script parsing the output, an answer about a
+nonexistent file is indistinguishable from a real finding about a real receipt.
+
+Now `--help` prints usage and exits 0, and an unrecognized flag is an ERROR
+(exit 64) rather than a filename -- a typo'd `--jsonn` previously reported
+UNVERIFIABLE, which reads as a finding about the receipt rather than about the
+command line.
+
+### Isolated, and checked as a class
+
+Every sibling tool (`receipt-diff`, `receipt-bundle`, `cost-guard`, `ci-gate`,
+`model-advisor`, `tool-index`, `run-replay`) was probed with a nonsense flag
+and all seven reject it. They use `argparse`; this one hand-rolled its parsing,
+which is exactly how it drifted alone.
+
+### The test that kept failing on correct code
+
+Three drafts asserted that the word `UNVERIFIABLE` never appears in help
+output. All three failed -- because the usage text legitimately DEFINES the
+three states, so the assertion was matching documentation rather than a
+verdict.
+
+The fix was to assert the defect's own sentence (`proof file not found`) rather
+than a state name that appears in both correct and incorrect output. An
+assertion broad enough to match the docs is not measuring the defect; it is
+measuring the vocabulary.
+
+## v8.94.0
+
+### Replay what a run actually did, iteration by iteration
+
+`tools/run-replay.py` reconstructs a completed run from artifacts alone. Run
+against a real recorded workspace it surfaces something the aggregate stage
+table cannot:
+
+```
+RUN REPLAY -- reconstructed from artifacts only.
+Nothing was started and nothing was spent; this reads .loki/ and exits.
+  unparseable lines skipped: 0 (whole recording read)
+
+ITERATION 1  [completed]
+  code_review                  57s   fail
+  test_suite                    1s   pass
+  cost                     $0.1767  in 106 / out 15241 / cache-read 439834 tok  [haiku]
+  gates failed             code_review
+```
+
+`code_review` failed in BOTH iterations and consumed 125s of 129s total stage
+time. That is a diagnosis; a single aggregate row is not.
+
+### A dropped line must be counted, not vanish
+
+`scripts/measure-run.sh` skips unparseable lines with
+`except Exception: continue` and the comment *"a truncated tail must not abort
+the report"* -- correct as far as it goes, but the drop is silent, so a corrupt
+recording reports a cleaner run than happened. The replay COUNTS skipped lines
+and prints the count. Replacing `skipped += 1` with `pass` turns the suite red.
+
+### The subtler case: a truncation that parses perfectly
+
+A cleanly truncated `events.jsonl` -- exactly what a killed run leaves -- has no
+unparseable lines at all. `skipped_lines` is 0, the recording looks whole, and
+an entire iteration is simply absent with no signal, in precisely the scenario
+this tool exists for.
+
+Efficiency records are now read as a SECOND, INDEPENDENT WITNESS to which
+iterations existed. Without it, that iteration's cost vanished from both
+headline claims silently.
+
+Also fixed: `prev_cost` carried across an unmeasured gap, so a
+measured/unmeasured/measured sequence compared iteration 3 against iteration 1
+while printing "vs previous iteration".
+
+### Absent is not zero, on every axis
+
+An iteration with no efficiency record reads `cost not recorded`, never $0.00.
+A stage that never emitted `stage_complete` reads not-recorded rather than 0s,
+because 0s reads as "instant" -- a different claim. A genuine 0s duration
+survives as 0s; collapsing it into "not recorded" is its own mutation and is
+caught.
+
+### A probe that failed for the right reason
+
+The mandated probe first reported MUTATION SURVIVED because a comment quoted
+the find-string verbatim, so the replacement hit the comment instead of the
+code -- the exact ambiguity `mutation-probe.sh`'s own header warns about. The
+comment was reworded rather than the probe weakened.
+
+## v8.93.0
+
+### An audit trail across a sequence of runs
+
+`tools/receipt-bundle.py` collects every receipt under a workspace into one
+verifiable bundle. Single-receipt verify, cross-run diff and portable
+attestation existed; proving a SEQUENCE did not.
+
+**The rollup is the weakest link, never an average.** One FAILED receipt among
+a thousand VERIFIED ones makes the bundle FAILED:
+
+```
+FAILED -- 1 of 3 receipts FAILED verification; the bundle is only as good as
+its weakest receipt. total cost $2.0600 across 3 of 3 receipts measured
+```
+
+Any scoring rule -- mean, median, majority, "90% or better" -- lets a forged
+run hide behind good ones, which is the laundering this whole product line
+exists to prevent. Replacing `min(states)` with a majority vote turns the suite
+red.
+
+An unverifiable receipt is COUNTED and NAMED, never silently dropped: a bundle
+that quietly excludes what it could not check reports a stronger claim than it
+earned. An empty workspace exits 3 with *"Zero receipts is not a passing
+audit."*
+
+### `ok` was the wrong source, and reading it would have collapsed two states
+
+`proof-verify.py:706` documents that `diff_drift: None` (unverifiable) makes
+`ok` False BY DESIGN. So `ok` is False both for a tampered receipt and for an
+honest one read from the wrong directory. Deriving state from it would have
+merged FAILED with UNVERIFIABLE and made the naming requirement unsatisfiable.
+Per-receipt state reads the axes individually.
+
+### What a run would have cost on a cheaper model
+
+`tools/model-advisor.py` recommends a cheaper model from this workspace's
+MEASURED history and quantifies the saving:
+
+```
+  Model used:     opus        Measured cost: $1.6558  (basis: 2 of 3 priced)
+    gpt-5.6-luna  0.04x  ->  $0.0595   saving $1.5963
+    haiku         0.20x  ->  $0.3312   saving $1.3246
+    fable         2.00x  ->  $3.3116   +$1.6558 more
+```
+
+The ratio is token-weighted across the full rate card, not an input-rate ratio,
+and it scales the RECORDED cost so the saving stays anchored to a measured
+number.
+
+**MiniMax M2.5 is not in the pricing table, so it cannot be a candidate.** It
+appears only as a cited external benchmark with its figures attached (75.8 vs
+Opus 4.6's 75.6 at 7.5x lower cost), never as a recommendation about the user's
+workload. Candidates come from the rate card; the benchmark ranks nothing.
+
+No history prints `NO BASIS ... no saving is projected (not $0.00)`. Forcing
+`has_basis` true turns the suite red. Every output carries the caveat that **a
+cheaper RATE is not a cheaper RUN** -- token counts differ between models, and
+that assumption is stated as unverified rather than buried.
+
+### Two defects found by verifying rather than assuming
+
+A more-expensive candidate rendered `$-1.6558` in a column headed SAVING, which
+skims as a saving. It now reads `+$1.6558 more`.
+
+An `ok` fallback branch was decorative until a probe SURVIVED against it:
+`cost_coherent` is a real failure axis that sinks `ok` but matched none of the
+enumerated branches, so it reached FAILED only through a path nothing tested.
+Deleting it left the suite green. That branch is what stops a FUTURE upstream
+check from arriving here as a pass.
+
+## v8.92.0
+
+### One exit code over every policy
+
+`tools/ci-gate.py` is net-new: the command a CI job runs after an agent build.
+It composes the existing policy tools by subprocess and returns a single
+verdict.
+
+```
+CASE 1 ALL PASS      cost PASS within_budget                GATE: PASS         EXIT=0
+CASE 2 FAILED        cost FAIL $0.5000 exceeds $0.0001      GATE: FAIL         EXIT=1
+CASE 3 UNEVALUABLE   cost is UNMEASURED                     GATE: UNEVALUABLE  EXIT=2
+CASE 4 NO POLICY     (empty table)                          GATE: UNEVALUABLE  EXIT=2
+CASE 5 MIXED         cost UNEVALUABLE / receipt FAIL        GATE: UNEVALUABLE  EXIT=2
+```
+
+Zero policy logic is reimplemented -- `cost-guard.py` and `receipt-attest.py`
+run via `sys.executable` with `--json`. A second copy of a rule is how the rule
+drifts, which this repo proved five separate times with provider lists.
+
+### Four decisions, each one a refusal to leak green
+
+**Weakest link, no threshold.** One FAIL fails the set. A tunable threshold is a
+request to let a known-bad policy through.
+
+**Unevaluable OUTRANKS fail.** The mixed case returns 2, not 1. "Your gate is
+partly blind" beats "this run is over budget": with 1, the operator fixes the
+cost, re-runs, sees green, and is still blind on the dead axis.
+
+**No policy configured is 2, never 0.** A gate that lost its flags in a
+refactor would otherwise go green forever while enforcing nothing -- worse than
+no gate, because it is trusted. That is the "check that can report a pass
+without having checked" hole CLAUDE.md records.
+
+**Child exit codes are whitelisted to {0,1,2}.** `receipt-attest.py` returns 64
+on a usage error and an uncaught traceback exits 1, so a naive "rc != 1 means
+pass" would read the first as green and misattribute the second as a policy
+verdict.
+
+`--require-receipt` with no receipt on disk is **1**, not 2: it was checked and
+the answer is no. 2 is reserved for a receipt that exists and could not be
+attested.
+
+### A cell that looked filled in while reporting nothing
+
+Found during verification, not assumed away: the PASS case first printed a bare
+`{` as its detail, because `cost-guard` sets `reason: null` on success and the
+fallback grabbed the first line of pretty-printed JSON. A cell that reports
+nothing while looking populated is the same class of defect as the gate itself,
+so the reason resolver now prefers `status` and refuses a raw JSON body.
+
+Every unevaluable assertion pins `!= 0` as well as `== 2`, so folding that
+state into a green path under a different name still fails.
+
+## v8.91.0
+
+### Eleven tools shipped and none were discoverable
+
+```
+$ loki help | grep -cE 'receipt-diff|cost-guard|attest|preflight'
+0
+```
+
+Every tool under `tools/` was built, tested, and packaged -- and there was no
+way for a user to learn it existed. That is this repo's most-repeated defect,
+now on its eighth instance:
+
+```
+v5.0.0  -> v8.64.0   auto_detect_provider() called only by its own test
+v8.73.0 -> v8.84.0   the receipt's --human explanation reached no CLI path
+v8.87.0 -> v8.89.0   preflight.sh shipped to a directory not in files[]
+```
+
+A capability nobody can find is worth exactly what one that does not exist is
+worth. `tools/tool-index.py` lists all twelve with the descriptions their own
+authors wrote.
+
+### An index that guesses would be worse than no index
+
+Two properties carry the weight, and both are mutation-proven:
+
+**A tool with no description reads `(no description)`.** A summary inferred
+from a filename is indistinguishable, to the reader, from one the author wrote.
+The reader cannot tell a guess from a fact, so the guess is strictly worse than
+the gap. Making the fallback synthesise `"Runs <filename>"` turns the suite red.
+
+**SHIPPED is derived from `package.json` `files[]`**, the same source npm reads
+-- never assumed. A tool present in the checkout but absent from the tarball
+prints `[dev]` with an explicit note. That is the v8.87.0 defect exactly, and an
+index that listed it alongside the reachable ones would have helped that
+release lie. An unreadable manifest reads UNKNOWN (`[ ? ]`), not "not shipped":
+reporting False there would be a claim rather than an absence, and that
+mutation is caught too.
+
+Descriptions are extracted by `ast.parse`, not regex, so a `#` inside a string
+literal cannot be mistaken for a comment. A syntactically broken tool degrades
+to `(no description)` rather than crashing the index.
+
+An empty `tools/` directory exits 2 and says so. Zero tools is not a successful
+listing.
+
+## v8.90.0
+
+### A portable attestation that never claims more than it checked
+
+`tools/receipt-attest.py` is net-new: it turns a receipt into a compact record
+a third party can read without the original workspace.
+
+The design point is a THIRD state most systems do not have:
+
+```
+VERIFIED      checked, and it passed
+FAILED        checked, and it failed
+UNVERIFIABLE  could not be checked here, with the reason
+```
+
+Collapsing the third into either of the first two is the defect. An attestation
+claiming more than was checked is worse than none: it launders uncertainty into
+a credential. Axes are scored independently, so a receipt checked outside a git
+tree reports `integrity VERIFIED` alongside `drift UNVERIFIABLE ('.' is not a
+git work tree)` rather than one verdict smeared across everything.
+
+Exit `0` only when every scored axis was checked AND passed; `1` on any FAILED;
+`2` when nothing failed but something was unverifiable. `2` is non-zero
+specifically so a shell `&&` chain cannot read "unattested" as "attested",
+which would re-collapse the third state at the process boundary.
+
+### A dropped axis was attesting VERIFIED on real receipts
+
+The sharpest finding, reproduced against production shapes: `tree_sha256` is
+written on EVERY receipt by `proof-generator.py:1190` and scored by `verify()`,
+but the first attestation did not read it. A receipt that `verify()` REJECTS
+(`ok=False, tree_drift=True`) attested **VERIFIED, exit 0** -- exactly the
+laundering this feature exists to prevent.
+
+A dropped axis defaults to "passed", which makes FORGETTING one more dangerous
+than getting one wrong. The class invariant is now asserted directly: VERIFIED
+implies `verify().ok`, so a future dropped axis fails loudly instead of
+silently widening the credential.
+
+### Signature status is four states, not a boolean
+
+`_verify_gpg` returns `"n/a"` for two different facts: no signature at all, and
+a signature present with gpg unavailable. Reading `gpg_ok` alone reports a
+SIGNED receipt as unsigned on any machine without gpg. Now branched on whether
+the receipt actually carries a signature: `signed_valid`, `signed_invalid`,
+`signed_uncheckable`, `unsigned`.
+
+That probe SURVIVED at first, which proved the CLI tests could not reach the
+branch (gpg is installed here). It was closed with a function-level test rather
+than assumed covered.
+
+### One judgment call, stated
+
+Unsigned receipts still exit 0, following `verify()`'s existing rollup
+(`gpg_ok in (True, "n/a")`) rather than inventing stricter semantics -- signing
+is default-OFF, so scoring it would make exit 0 unreachable for nearly every
+receipt. Mitigated by an unmissable caveat on every summary line: *"receipt is
+UNSIGNED, so origin rests on its generator"*.
+
+## v8.89.0
+
+### v8.87.0 shipped a feature no npm user could reach
+
+`preflight.sh` was released as a user-facing command and placed in `scripts/`.
+**`scripts/` is not in `package.json` `files[]`**, so it never entered the
+tarball. Verified by unpacking the real published package:
+
+```
+$ test -f package/tools/preflight.sh
+MISSING -- scripts/ is not in files[]
+```
+
+Everything worked from a git checkout, so no in-repo test and no CI job could
+see it. That is precisely the packaging blind spot CLAUDE.md records: *a check
+that guards the shipped artifact must run in the FAST tier, because it is the
+only tier that runs before every push and CI has no equivalent.*
+
+`scripts/` correctly stays out of the package -- it holds 23 dev-only files
+(local-ci, license-audit, test cleanup). So preflight moved to `tools/`,
+alongside the siblings it composes, all of which were already shipping.
+
+### The guard now names every user-facing tool individually
+
+`tests/test-runtime-libs-are-packaged.sh` covered `autonomy/lib/*.py` but not
+`tools/`. It now asserts each of `preflight.sh`, `receipt-diff.py`,
+`cost-guard.py`, `estimate-run.py`, and `doctor-fix.py` **individually** -- a
+count cannot say WHICH artifact vanished, and this repo has paid for that
+shortcut before (the "6 or more matches" tarball hole).
+
+Proven against the real defect: moving preflight back to `scripts/` turns the
+suite red twice, once on the vacuity guard (the file is not where the check
+looks) and once on the tarball assertion.
+
+### What actually caught it
+
+Not a test -- unpacking the published tarball and running the feature from it.
+The four `tools/` and `autonomy/lib/` features all shipped correctly; only the
+one placed in an unshipped directory did not. A green CI and a green local gate
+both reported success on a release that was, for every npm user, missing the
+thing it announced.
+
+## v8.88.0
+
+### Gate a merge on cost, the way you gate on tests
+
+`tools/cost-guard.py` is net-new:
+
+```
+cost-guard.py <ws> --max-usd 5.00                        -> exit 0
+cost-guard.py <ws> --max-usd 1.00                        -> exit 1
+cost-guard.py <ws> --baseline b.json --max-increase-pct 10 -> exit 1
+```
+
+```
+OVER BUDGET: cost $2.5000 exceeds the ceiling $1.0000 by $1.5000 (150.0% over)
+OVER BUDGET: cost rose 150.0% ($1.0000 -> $2.5000, +$1.5000), over the allowed 10.0%
+```
+
+It names which number breached and by how much, never a bare FAILED.
+
+### Unmeasured exits 2, and that is the whole design
+
+A gate's exit code IS a merge decision. "We did not measure" carries zero
+information about budget compliance, so mapping absence to 0 makes the gate
+emit its most confident output -- a green -- at exactly the moment its
+instrumentation broke and it is least entitled to speak.
+
+```
+CANNOT EVALUATE: cost is UNMEASURED -- no efficiency record carried an observed
+cost or token count. Unmeasured is not within budget: this gate cannot say
+whether the run complied, so it reports no verdict rather than a green one.
+exit=2
+```
+
+Enforced structurally: **exit 0 is reachable from exactly one `return` at the
+bottom of `evaluate()`**, downstream of a measurement. No policy, half a
+policy, unreadable baseline, unmeasured baseline, unmeasured run -- all return
+2. That is the same class as the "6 or more matches" tarball hole: a check that
+can report a pass without having checked.
+
+A genuinely measured $0.00 with real tokens still passes. Those two shapes are
+the most easily confused in this codebase, and they land on 0 and 2.
+
+### Two real bugs its own tests found
+
+**Float boundary.** `1.00 -> 1.10` computes as 10.000000000000009%, so a run
+exactly at its allowance FAILED while printing "rose 10.0%, over the allowed
+10.0%" -- a verdict contradicting its own message. Same trap on the ceiling
+(`$0.10 + $0.20 > $0.30` is True in binary). Both now compare at the precision
+they report. Because that LOOSENS a fail-closed gate, two tests pin the
+tolerance ($1.01 vs $1.00 must fail; +10.2% vs 10% must fail) and a
+whole-dollar tolerance is mutation-caught.
+
+**Half-applied policy.** `--max-usd 5 --baseline old.json` never opened the
+baseline and could exit 0 having silently ignored half of what the operator
+asked for. Now exits 2.
+
+### An inherited limit, stated rather than silently owned
+
+`record_is_measured()` is satisfied by tokens OR cost, so a record with real
+token counts but no `cost_usd` field reads as a measured $0.00 and passes.
+Verified empirically. NOT fixed here: the rule that `cost_usd: 0.0` with tokens
+must pass makes those two shapes identical downstream of the sum, so the fix
+belongs in the pricing layer (`price_from_tokens` exists for exactly this),
+never in a second copy of the honesty predicate.
+
+The baseline receipt's integrity hash is not verified either -- a tampered
+baseline could inflate the allowed ceiling. `receipt-diff.py` covers that.
+
+## v8.87.0
+
+### One command that answers "will this run work, and what will it cost?"
+
+`scripts/preflight.sh` is net-new and READ-ONLY: it starts nothing, spends
+nothing, and contacts no provider.
+
+```
+Provider
+  OK    auto-detection would select: claude
+Environment
+  OK    doctor: 12 checks passed, 1 warning(s)
+Projected cost
+  measured per-iteration cost: $0.0500 (median of 3 priced iteration(s))
+  projected for 4 iteration(s): $0.20  [ESTIMATE, not a guarantee]
+VERDICT: READY
+```
+
+With no history it reads `UNKNOWN ... there is NO history to project from, so
+no cost is estimated (not $0.00)`. BLOCKED names each blocker AND its fix.
+
+It COMPOSES existing producers rather than reimplementing them --
+`auto_detect_provider`, `doctor --json`, `estimate-run.py` -- because a second
+implementation of a rule is how the rule drifts, which this repo has now proven
+five times over.
+
+### The fifth provider list, and doctor was the one lying
+
+Building preflight surfaced it: `_provider_cmds` in `autonomy/loki` backs
+`doctor --json`'s verdict and omitted opencode. On an opencode-only machine:
+
+```
+ai_provider.status : fail
+ai_provider.detail : No AI provider CLI. Fix: npm install -g @anthropic-ai/claude-code
+```
+
+The runner would have selected opencode without complaint. This is the surface
+a user consults FIRST when something looks wrong, so it sent them to install a
+provider they did not need -- the same defect as v8.76.0 and v8.82.0, on a
+fifth list. `tests/test-provider-lists-agree.sh` now pins this one too.
+
+### A test that encoded the bug as expected behaviour
+
+Preflight shipped with two assertions requiring it to REPORT the disagreement
+between the two provider checkers. That was correct when written and obsolete
+the moment the underlying list was fixed: with the checkers agreeing there is
+nothing to surface. Both assertions were rewritten to assert the RESOLVED state
+-- an opencode-only machine reads READY, and a re-emerging disagreement now
+FAILS rather than passes.
+
+### Three defects the author found by verifying rather than assuming
+
+- `timeout(1)` is homebrew-only on macOS; hardcoding it exited 127 on stock
+  bash and made the scrubbed-PATH test unrunnable. Now degrades to uncapped.
+- BLOCKED silently discarded warnings, so a user fixed the named blocker,
+  re-ran, and only then discovered a second known problem.
+- `loki resume` could not be used to detect resumable state: `cmd_resume` does
+  `rm -f "$LOKI_DIR/PAUSE"` and emits telemetry. `loki next --dry-run` was
+  verified to write nothing.
+
+One mutation probe SURVIVED and is reported as such: an `if proj is None:`
+guard is unreachable because the estimator always returns a projection when
+`has_basis` is true. It is defensive depth against a fabricated zero, not
+tested behaviour.
+
+## v8.86.0
+
+### doctor tells you what is broken; now something tells you how to fix it
+
+`autonomy/lib/doctor-fix.py` is net-new: it turns a `loki doctor --json` report
+into an ordered, copy-pasteable remediation plan.
+
+```
+Remediation plan -- 2 blockers, in order (prerequisites first).
+These commands are NOT run for you. Copy, review, then run them yourself.
+
+1. Node.js is not installed
+   Install Node.js 18+: brew install node    (macOS)  |  https://nodejs.org
+
+2. No AI provider CLI installed (at least one is required)
+   npm install -g @anthropic-ai/claude-code
+```
+
+The ordering is load-bearing rather than cosmetic: step 2's `npm` does not
+exist until step 1 runs.
+
+### It refuses to guess
+
+An unrecognized blocker prints, verbatim:
+
+```
+   no automated fix known for this blocker -- diagnose manually, then re-run: loki doctor
+```
+
+A wrong command is worse than no command, because the user runs it and trusts
+the result. It also never executes anything and says so in its own output.
+
+An empty blocker list reads `System is healthy`; unparseable input is REFUSED
+rather than rendering as healthy, which is the same absent-vs-zero distinction
+this codebase has now applied to thirteen surfaces.
+
+### It parses doctor's own remedy rather than restating it
+
+`ai_provider.detail` already carries `"...Fix: npm install -g
+@anthropic-ai/claude-code"`. That `Fix:` is parsed, so doctor stays the single
+source of truth; hardcoding a duplicate turns the suite red. `cmd_why`'s
+`PROVIDER_AUTH` map was deliberately NOT reused: it keys on a `LAST_ERROR`
+`error_class`, an orthogonal axis, and `doctor --json` has no auth blocker to
+map from. Manufacturing one to demonstrate an ordering dependency would be the
+exact fabrication the tool refuses.
+
+Commands sourced from the repo are distinguished from conventional ones, since
+only `brew install python3`, `brew install jq` and the nodejs.org URL actually
+appear in-repo.
+
+### A stale-bytecode trap worth recording
+
+A mutation probe left the suite red against a provably-correct source.
+`spec_from_file_location` had cached a `.pyc`, and the probe's restore produced
+a same-size, same-mtime file, so Python reused **stale bytecode**: the suite
+ran mutated code against a restored file. That presents exactly like a genuine
+defect. Fixed at the root with `sys.dont_write_bytecode = True` before the
+loader; this bites any mutation probe against a hyphenated module.
+
+### Known gap, stated rather than implied
+
+`doctor --json` emits no blocker list. Blockers are DERIVED from
+`status == "fail"` across `checks[]`, `ai_provider`, and `disk`. Two text-path
+blockers (broken skill symlink, missing detectors) have no JSON representation
+today, so this tool cannot see them; it handles them if they ever appear.
+Nothing invokes `doctor-fix.py` from the CLI yet -- it runs standalone via
+`--report` or stdin.
+
+## v8.85.0
+
+### Compare two runs: what actually changed, and what cannot be compared
+
+`tools/receipt-diff.py` is net-new. Verification of ONE receipt existed;
+comparing TWO did not.
+
+```
+Evidence Receipt diff
+  cost             12.421 -> 3.112    delta -$9.3090
+  cache hit ratio  0.2000 -> 0.9000   delta +70.0%
+  iterations       6 -> 2             delta -4
+  duration         2333 -> 754        delta -1579s
+
+  REGRESSED  tests: passed -> failed
+  FIXED      lint: failed -> passed
+  ADDED      security (passed), absent in A
+```
+
+### A delta against an unmeasured value is UNKNOWN, never a number
+
+Thirteen surfaces have now been through this rule, and a diff is where it would
+have been easiest to violate: subtracting an absent measurement produces a
+plausible-looking saving.
+
+```
+  cost             12.421 -> UNKNOWN   delta UNKNOWN
+
+  NOT COMPARABLE (reported UNKNOWN, not zero):
+    cost: cost was not measured in <path>
+    cache_hit_ratio: no cached-plus-fresh input tokens recorded, so no ratio
+                     was observed (this is not a 0% hit rate)
+```
+
+Iterations and duration still compute; only the unmeasurable axis abstains.
+`--json` emits the string `"UNKNOWN"`, never a number. A genuinely measured
+zero delta stays `0.0` -- `is None` is load-bearing, since `0` is falsy and a
+falsy guard would blank a real observation.
+
+### Integrity first, and comparability before arithmetic
+
+A tampered receipt is refused before any delta is computed (`verify_integrity`
+is imported, not reimplemented), and receipts for different specs are refused
+with both paths named rather than producing a meaningless number. Both exit 2.
+
+`record_is_measured()` reads `cost_usd` while receipts store `cost.usd`, so the
+key is mapped and the canonical predicate called. `cost.available` is
+deliberately NOT trusted on its own -- that flag lying is precisely the v8.52.0
+defect.
+
+### A red test that was kept red
+
+The tool was asserted to classify the v8.52.0 shape (`available: true` over an
+all-zero cost block) as unmeasured. It never gets the chance: `verify_integrity`
+already scores that incoherent, so the integrity gate refuses it upstream. That
+became two tests -- one for the coherent all-zero variant that does reach the
+diff, one asserting the shipped defect is refused before arithmetic -- rather
+than weakening either.
+
+## v8.84.0
+
+### The receipt could explain itself, but nobody could ask it to
+
+v8.73.0 taught `verify_integrity()` to return a `reasons` list naming every
+failed check, and shipped `render_reasons()` plus a `--human` flag on
+`proof-verify.py`. **Nothing in the CLI ever passed that flag.** `loki proof
+verify` printed raw JSON, so the person holding a failed receipt had to parse
+it by eye.
+
+Same shape as `auto_detect_provider()`, which sat unwired from v5.0.0 to
+v8.64.0: built, tested, unreachable.
+
+```
+$ loki proof verify <id> --human
+FAILED
+  - hash mismatch: recorded deadbeef, computed 287cf091... -- proof.json was
+    edited after it was written
+  - cost claim is incoherent: cost.available is true but every token count and
+    usd is zero or absent; the receipt claims a measurement it does not have
+    (an unmeasured run is unknown, not free)
+  - drift unverifiable: '.' is not a git work tree, so the recorded diff cannot
+    be re-derived
+```
+
+This matters more here than for a typical command. The Evidence Receipt is the
+differentiator -- of six installed CLIs, only loki-mode verifies its own output
+-- and a verifier that answers "false" without saying why spends most of that
+advantage.
+
+### JSON remains the default, deliberately
+
+Existing consumers pipe this stdout verbatim, so flipping the default would
+have been a silent breaking change dressed up as an improvement. `--human` is
+opt-in, and the test asserts the default is still parseable JSON. Making
+`--human` the default turns the suite red.
+
+The flag is STRIPPED from the positional args rather than assumed at a fixed
+index, so it works on either side of the proof id -- `id` is consumed
+positionally, and a fixed-index assumption would break one of the two orders a
+user will actually type.
+
+### A note on finding the right code
+
+The `verify)` arm was patched by locating it structurally rather than by string
+match: five separate blocks in `autonomy/loki` contain a byte-identical
+`Missing proof id.` guard, and a first-match replace silently patched a
+DIFFERENT command's arm. The symptom was an unbound-variable error at runtime,
+not a failed edit.
+
+A passing receipt still renders the verdict alone, never a fabricated reason --
+a tool that invents a complaint to look thorough is the same dishonesty in
+reverse.
+
+## v8.83.0
+
+### A quality gate reported unanimous PASS without running
+
+`magic/core/debate.py` runs four persona critics and computes:
+
+```python
+consensus = len(critiques) > 0 and all(c.approves for c in critiques)
+```
+
+When the provider CLI is absent, `_invoke_provider` raises and all four round
+paths route to `_critique_from_error`, which returned `approves=True`. So four
+FAILED invocations produced unanimous consensus. Reproduced on the shipped
+code:
+
+```
+approves: [True, True, True, True]
+consensus from 4 FAILED invocations: True
+```
+
+The verdict outlives the call: `consensus` feeds `debate_passed` into the
+registry and into the memory bridge. A gate that cannot run must not vote.
+
+The old docstring justified it as avoiding a spurious block. That is the wrong
+instinct on a machine surface -- **"the check did not run" and "the check
+passed" are opposite facts.** Failed personas now report `approves=False` while
+keeping `severity: "info"`, so an infrastructure failure is never laundered
+into a dissent that blocks; `parse_error` remains the discriminator, and Gate
+12 (which greps for `severity: "block"`) is unchanged. Verified: 20/20 gate
+tests still pass.
+
+`autonomy/loki:30593` already carries a comment about this exact class biting
+this feature once before, when a caller's `|| true` made Gate 12 report PASS on
+total failure.
+
+### Recorded, not fixed
+
+Two more findings in `magic/`, both left alone with reasons rather than
+quietly:
+
+**Fallback content is stamped as generated.** When the provider returns empty,
+`generator.py` substitutes a hardcoded button component, and `_hash_header`
+stamps `Generated by magic/core/generator.py` on both paths identically with no
+provenance flag -- so a caller asking for a DataTable gets a button, labeled
+generated. It is documented as deliberate graceful degradation, so changing it
+is a design decision across four call sites plus a return-shape change, not a
+surgical fix.
+
+**`avg_debate_score` is always 0.0.** `registry.py:224` averages
+`debate_result["score"]`, but `DebateResult.to_dict()` emits no `score` key and
+nothing in the repo writes one, so the `else 0.0` branch always fires and
+`loki_magic_stats` renders that as a measurement. The cleanest remaining
+unmeasured-reads-as-zero violation, ranked below the gate because nothing acts
+on the value.
+
+## v8.82.0
+
+### An agent that BUILT an auth feature killed its own run
+
+`retry_class.ts` classifies a failure as permanent or transient. It is handed
+the agent's **entire captured output** -- the agent's own prose, up to 64KB --
+not a provider error envelope. Several patterns were ordinary application
+vocabulary. Measured on the shipped code:
+
+```
+agent built auth: test log shows 401       -> {"klass":"non_retryable","reason":"auth"}
+implemented permission denied handling     -> {"klass":"non_retryable","reason":"auth"}
+added a payment required page to checkout  -> {"klass":"non_retryable","reason":"quota_exhausted"}
+```
+
+The consequence is not a skipped retry. `autonomous.ts:873-881` persists
+`failed` and returns exit 1, **terminating the whole run on the first
+iteration** -- default-on, triggered by writing about auth or payments.
+
+This is precisely the inversion the module header forbids: an unrecognized
+condition taking the dangerous branch. Fixed by DELETION, in the sanctioned
+direction (toward TRANSIENT): bare `401`/`403`/`402`/`400`, `unauthorized`,
+`permission denied`, `payment required`, `invalid model` are gone. Every
+provider wire-text literal stays (`invalid x-api-key`, `insufficient quota`,
+`credit balance too low`, `model_not_found`).
+
+After:
+```
+agent built auth ...        -> {"klass":"transient","reason":"unrecognized"}
+invalid x-api-key           -> {"klass":"non_retryable","reason":"auth"}
+some unrecognized failure   -> {"klass":"transient","reason":"unrecognized"}
+```
+
+No proximity or context heuristics were added: that is a natural-language arms
+race, a bigger diff for less certainty. The module had ZERO prior test
+coverage; it now has 27 tests asserting all three directions, including that
+real provider failures still stop early -- without that group, deleting the
+pattern list entirely would pass.
+
+### A competitor we could not run scored 0 and we won by default
+
+The benchmark grader set `success = (acceptance exit == 0)` on whatever was in
+the workdir. When the tool never ran, that is the untouched fixture, so the
+trial scored `success=false`. Every distinct failure collapsed to the same
+number:
+
+```
+cli_not_found -> 0.0     timeout -> 0.0     adapter_error -> 0.0
+error_rc_1    -> 0.0     completed -> 0.0
+```
+
+Published as: `| aider | 0/3 | automated (verified) |` -- a confident false
+claim about a competitor that was merely **not installed**. It failed in our
+favour, which makes it worse than a gap: a missing number invites a question,
+"0/3 (verified)" does not.
+
+`benchmarks/bench/adapters/_base.py:129-131` already said of `cli_not_found`:
+*"Honest: not an error in the run, the tool is simply absent. Report it so the
+report can render 'tool absent'."* No consumer ever did.
+
+Now:
+```
+NOT INSTALLED            success_rate=None   attempted=3  unmeasured=3
+TIMED OUT                success_rate=None   attempted=3  unmeasured=3
+real zero (ran, failed)  success_rate=0.0    attempted=3  unmeasured=0
+```
+
+Measuredness is derived at READ time from `exit_status`, so historical rows
+retro-classify rather than all becoming UNKNOWN, and an unrecognized status
+reads as MEASURED -- the fail-safe direction, since this predicate must never
+silently delete real data.
+
+### opencode was missing from four more lists
+
+`loki provider list` (BOTH routes), the bash and zsh completions, and the
+README provider matrix all named the stale four. The Bun route needed two
+edits, not one: `ALL_PROVIDERS` *and* a separate hardcoded `rows` array that
+actually renders. Both routes now print identical output.
+
+### Two documented env vars did nothing
+
+`skills/healing.md` listed `LOKI_HEAL_BASELINE_DIR` and
+`LOKI_HEAL_PRESERVE_FRICTION` in its Environment Variables table. Neither is
+read anywhere: the baseline path is hardcoded at `migration-hooks.sh:776`, and
+friction preservation is unconditional. A phantom row is worse than an absent
+one -- an undocumented var makes you read the code, a documented one makes you
+trust a lie.
+
+## v8.81.0
+
+### Every emit.sh event was attributed to "unknown"
+
+`events/emit.sh` built its flat record with a comment asserting that `source`
+is "not part of the dashboard schema", and dropped it. That claim was false
+against the very code it describes. `dashboard/server.py:6686`:
+
+```python
+s = e.get("data", {}).get("source", "unknown")
+by_source[s] = by_source.get(s, 0) + 1
+```
+
+exposed as `signalsBySource`. So every event routed through emit.sh fell into
+the `unknown` bucket and the entire by-source breakdown was meaningless.
+
+Before:
+```
+{"timestamp":"...","type":"state","data":{"action":"phase_change"}}
+dashboard attributes to: 'unknown'
+```
+
+After:
+```
+{"timestamp":"...","type":"state","data":{"source":"my-component","action":"phase_change"}}
+```
+
+The failure shape is the dangerous kind: no error, no warning, a populated
+chart that is simply wrong. Nobody goes looking for a bug in a number that
+renders.
+
+### Spliced, not appended
+
+`PAYLOAD` always opens with `{"action":...`, so `source` is inserted after the
+brace rather than the object being rebuilt. Rebuilding is where a caller's
+`key=value` pairs would silently vanish, so the test asserts those survive:
+`emit.sh task runner complete task_id=task-001` keeps `task_id` alongside the
+new field.
+
+### The test pins the writer to the reader
+
+It asserts the dashboard still reads `data.source` FIRST -- if that stops being
+true the rest of the test is measuring nothing -- then emits real events and
+parses them with the dashboard's own expression, byte for byte. A test that
+merely grepped emit.sh for the string would have passed while the reader moved.
+
+Removing the splice turns it red.
+
+## v8.80.0
+
+### Three more surfaces called an unmeasured run free
+
+The class that took v8.51.0 through v8.54.0, then v8.69.0, v8.72.0 and v8.74.0.
+Six surfaces were fixed; these three were never audited.
+
+**`/api/cost`** had no measured/unmeasured concept at all. The user-facing cost
+endpoint rendered `estimated_cost_usd: 0.0` and `total_tokens: 0` for a run
+where nothing was recorded.
+
+**`/api/cost/timeline`** already had the right FIELD and set it wrong:
+`for data in records: cost_recorded = True` -- true for any parseable file. The
+canonical docstring forbids exactly this: *a present file is not a
+measurement*.
+
+**`loki_agent_metrics`** (MCP) returned efficiency records verbatim. This one
+has the widest blast radius: it is machine-consumed, so a downstream agent doing
+budget accounting reads `cost_usd: 0`, concludes the run was free, and no human
+is present to sanity-check it.
+
+All three now mirror `record_is_measured()` rather than restating the rule, and
+the decision is made once per RECORD, never per field -- `0` is falsy, so a
+per-field test would blank genuine measured zeros.
+
+### A test was asserting the lie
+
+`test_recorded_but_zero_distinct_from_not_recorded` used an all-zero fixture
+byte-identical to the canonical UNMEASURED shape, so it locked in "present file
+== measured". The regression net had a hole shaped exactly like the defect. Its
+fixture is now a genuine measured zero (real tokens, $0 cost), with a separate
+test for the all-zero case.
+
+### An emitted event could vanish with a receipt
+
+`events/emit.sh` discarded the append result, and the exit code could not carry
+a failure anyway: both best-effort fallback paths end in `|| true; return 0`.
+Probed against an unwritable `events.jsonl`:
+
+```
+ab585200
+EXIT=0
+--- jsonl size --- 0
+```
+
+An ID printed, exit 0, zero bytes written. `measure-run.sh` skips absent lines
+by design, so the loss surfaces as "0 events for a stage" -- an absent
+measurement read as "the stage did not happen".
+
+It now warns on stderr only: stdout still carries just the event ID so the
+`ID=$(bash emit.sh ...)` contract holds, the check sits inside an `if` so a
+failing `stat` cannot trip `set -e`, and the exit status stays 0. An emit
+failure must never crash a build.
+
+A false positive was caught during development and is pinned by its own test:
+defaulting an unmeasurable size probe to `0` made EVERY successful emit warn.
+A warning that cries wolf on the hot path is worse than none, so an
+unmeasurable size stays silent.
+
+### Recorded, not fixed
+
+`emit.sh` claims `source` is "not part of the dashboard schema", but
+`dashboard/server.py:6678` filters on `data.source` and `:6687` counts
+`by_source`, so emit.sh-routed events are attributed `unknown`. Separately,
+`bus.py` and `bus.ts` `emit()` write only the pending file and never reach
+`events.jsonl`, and their timestamp format differs from emit.sh in the same
+directory while `get_pending_events` compares timestamps as strings.
+
+## v8.79.0
+
+### Every autonomous opencode run would hang
+
+`providers/opencode.sh` declared `PROVIDER_AUTONOMOUS_FLAG=""` and all three
+dispatch paths built `opencode run --model <m> <prompt>`. Verified against the
+real installed CLI (opencode **1.18.9**):
+
+```
+--auto   auto-approve permissions that are not explicitly denied (dangerous!)
+                                              [boolean] [default: false]
+```
+
+`loader.sh` justified the empty value by asserting that `opencode run <prompt>`
+is already autonomous. The CLI contradicts that outright. Without `--auto`,
+every autonomous run stalls on the first permission prompt with no TTY to
+answer it -- so it presents as a **hang**, not an error: no message, no exit
+code, nothing to grep for.
+
+This hit every opencode run, including the opencode-only machines v8.76.0 had
+just unblocked. Setting the variable alone would have been cosmetic, since
+nothing splices it into opencode's argv; the flag is spliced into all three
+paths.
+
+### The test covered one path of three
+
+The first version asserted only `provider_invoke_argv`. A mutation removing
+`--auto` from `provider_invoke` SURVIVED -- the other two paths call the binary
+directly and were unguarded, so a regression in either would have shipped
+silently.
+
+The test now runs each dispatch function against a stub `opencode` on PATH and
+asserts the real argv. All three mutations are now caught.
+
+### Checked and deliberately NOT changed
+
+**Codex "stale v0.98 assumptions" is a stale COMMENT, not a stale flag.**
+Installed codex is 0.146.0, and every element of
+`exec --sandbox workspace-write --skip-git-repo-check` was verified present in
+`codex exec --help`. An unverified flag change would break dispatch for real
+users, which is worse than an out-of-date comment.
+
+**opencode's missing cost/context scalars are cosmetic.** `review_effective_cap`
+explicitly guards unset and returns the default, so a provider declaring none
+takes the unset path. Adding values would only LOWER opencode's review cap -- a
+behaviour change dressed as a fix.
+
+**cline's `-y` flag is unverified**: cline is not installed on this machine, so
+it was left alone rather than changed on assumption.
+
+### Retrieved memories that were never in the knowledge base
+
+`build_rag_context` rendered rows matching only a category bucket -- no name,
+no description -- under a header asserting they were found in the knowledge
+base:
+
+```
+The following patterns were found in the organization knowledge base:
+
+### Unknown Pattern (retry)
+```
+
+A fabricated memory injected into the agent's prompt, burning context budget on
+nothing. Two falsy traps made the obvious guard useless, both verified against
+real code:
+
+```python
+{"category": "retry", "description": ""}.get('name', p.get('pattern', 'Unknown Pattern'))
+  -> 'Unknown Pattern'      # truthy, so `if not name` never fires
+
+{"description": "", "correct_approach": "Use a key."}.get('description', q.get(...))
+  -> ''                     # the key EXISTS, so the default never fires: real data lost
+```
+
+The second is the dangerous one -- the naive fix drops genuine memories. `or`
+chaining fixes both, and a substance guard requires a name or a description,
+since a category alone is a bucket label rather than a memory.
+
+## v8.78.0
+
+### The provider docs described the product as it was before v8.64.0
+
+`skills/providers.md` -- the page a user reading about providers lands on --
+listed FOUR providers, never mentioned opencode, and presented `LOKI_PROVIDER`
+as something you must set:
+
+```
+export LOKI_PROVIDER=claude  # or codex, cline, aider
+```
+
+That is the pre-v8.64.0 world. An opencode user reading it would conclude their
+working machine was unsupported, which is the same conclusion the v8.76.0 gate
+bug forced on them in code.
+
+The doc now leads with the fact that a provider is auto-detected
+(`claude > cline > codex > aider > opencode`), states that an explicit choice
+always wins and is never silently substituted, and points at `loki doctor` for
+which provider would actually run.
+
+### Docs are a surface, and this one is now pinned to the code
+
+v8.76.0's root cause was a SECOND list of providers that had drifted from
+`auto_detect_provider()`. `skills/providers.md` was a third. Rather than fix
+the wording and hope, a test extracts the authoritative order from
+`providers/loader.sh` and asserts:
+
+- every provider the code knows is named in the doc, asserted INDIVIDUALLY (a
+  count cannot say WHICH provider is undocumented)
+- the documented priority order matches the code exactly, since order decides
+  which provider actually runs
+- the doc still explains auto-detection at all
+
+Both drift directions are mutation-proven: adding a provider to the code turns
+it red, and reordering the doc turns it red.
+
+### Checked and correctly left alone
+
+The one `gemini` reference under `references/` is a DeepMind research citation
+(Gemini Robotics 1.5), not a stale provider claim. Gemini was removed as a
+provider upstream; nothing documents it as one.
+
+## v8.77.0
+
+### Two cost tools shipped that no user could run
+
+```
+$ grep -rn "cost-summary\|estimate-run" autonomy/loki bin/loki
+(zero matches)
+```
+
+`autonomy/lib/cost-summary.py` (v8.69.0) and `tools/estimate-run.py` (v8.71.0)
+both existed and neither had a CLI path. Same shape as
+`auto_detect_provider()`, which sat unwired from v5.0.0 until v8.64.0: built,
+tested, unreachable.
+
+```
+loki cost --detail          per-iteration rows, cache hit ratio, cost trend,
+                            and the measured/found PARTIAL flag
+loki estimate --iterations N   projects forward from measured history
+```
+
+### The premise was half wrong, and replacing the old command would have been a regression
+
+`loki cost` was ALREADY reachable via `cmd_report cost`. What was unreachable
+was `cost-summary.py` specifically -- a different renderer over the same
+records. And `cmd_cost` supports `--last N` and budget caps that
+`cost-summary.py` does not, so swapping its body would have been a regression
+dressed as wiring. `--detail` is additive; `estimate` is a genuinely new arm.
+
+### Two defects found while wiring, both of the same family
+
+**`--detail --last N` silently discarded `--last`.** A flag that looks accepted
+and does nothing is the same dishonesty as a fabricated `$0.00`: the user gets
+an answer to a question they did not ask. It now rejects the combination and
+explains why.
+
+**A hardcoded `.` workspace ignored `LOKI_DIR`**, which is genuinely
+relocatable (`autonomy/serve.sh:224` exports a non-default). `loki cost` and
+`loki cost --detail` would have described DIFFERENT workspaces while appearing
+to describe one. Both wrappers now derive from `LOKI_DIR`.
+
+### Registered everywhere, because partial registration has bitten three times
+
+Dispatch arm, the `All commands` help block, both shell completions (bash and
+zsh), and both `--help` texts. The repo's own drift gate passes across 108
+dispatch tokens, and help-discoverability passes 4/4.
+
+An empty workspace still reads `Total cost: UNKNOWN`, never `$0.00`.
+
+## v8.76.0
+
+### An opencode-only machine was told it had no AI provider
+
+Two lists name the supported providers, and they disagreed:
+
+```
+providers/loader.sh    auto_detect_provider()  claude cline codex aider opencode
+autonomy/provider-offer.sh  detect_any_provider()   claude codex cline aider
+```
+
+`detect_any_provider` is the PRE-FLIGHT GATE -- `provider_offer_gate` routes
+through it and `cmd_start` exits 2 when it fails. So a machine with opencode
+installed and working got:
+
+```
+No AI provider CLI found; cannot prompt to install in a non-interactive shell.
+Run: npm install -g @anthropic-ai/claude-code
+No provider available; cannot start a build.
+```
+
+A redundant install instruction for a provider they did not need, and no build.
+That is a REQUIRED step added before first value, on hardware that was already
+ready.
+
+The order was wrong too, not just the membership: with codex and cline both
+installed, quickstart printed `Found: codex` while the runner would actually
+select cline.
+
+### Why the fix is a name, not a shared function
+
+`detect_any_provider` is deliberately PATH-only. Its callers (`cmd_demo`,
+`cmd_quick`) stay on the bash route and genuinely need a binary present, so
+routing it through the richer detector would be a fail-OPEN: a green pre-flight
+followed by a runner that cannot invoke anything.
+
+The bug was the missing NAME. The list is corrected, the mechanism is
+untouched, and a new test pins the two lists together -- membership AND order,
+since the order IS the selection priority. Both directions are mutation-proven:
+dropping opencode turns it red, and so does making the gate always pass.
+
+### quickstart now names the provider that will actually run
+
+`autonomy/quickstart.sh` re-derived its own provider list instead of asking
+`auto_detect_provider`. It now consults the single source of truth, so step 1
+cannot name a provider the runner would not pick.
+
+## v8.75.0
+
+### The 3.12 guard reported a defect that did not exist
+
+v8.63.0 added a guard that re-runs the dashboard liveness tests under Python
+3.12, because a local 3.14 physically cannot observe the PEP 649 annotation bug
+that took down two releases. That guard then failed CI's Python 3.13 job.
+
+Not a real defect. `shutil.which("python3.12")` on that runner resolves to
+`/usr/bin/python3.12`, a SYSTEM python with no pytest installed, so the
+subprocess exited non-zero for a missing dependency. The guard read that exit
+code as "the liveness tests fail on 3.12".
+
+**A tool that cannot run is an ABSENT measurement, not a failing one** -- the
+same rule the cost work established, applied to a test harness instead of a
+receipt. It now probes `python3 -c "import pytest"` first and SKIPS when the
+interpreter cannot run the check, rather than converting a missing dependency
+into a false alarm.
+
+It still runs and still passes where pytest exists, so the guard has not been
+hollowed out. Both directions are asserted, and removing the availability probe
+turns the suite red.
+
+### A cadence hazard worth recording
+
+The `Tests` workflow sets `cancel-in-progress: true` grouped by branch and
+takes about 25 minutes. Releases in this session have been landing every ~5
+minutes, so each push cancelled the previous run: **Tests completed on none of
+the last five releases.**
+
+The config is correct for normal cadence and is left alone. It is recorded here
+because "no red X" on those runs means *cancelled*, not *passed*, and reading
+it as a pass would be exactly the kind of absent-measurement-as-success this
+codebase keeps paying for. The local gate does run the full pytest suite before
+every push, which is what actually verified them.
+
+## v8.74.0
+
+### Unmeasured token counts also stopped reading as zero
+
+v8.72.0 fixed `total_cost_usd` in `kpis.ts` and deliberately left the TOKEN
+fields for a follow-up. This is it: `total_input_tokens` and
+`total_output_tokens` reported `0` for an unmeasured run, so a reader could not
+tell a run that genuinely emitted no output tokens from one where nothing was
+ever recorded.
+
+Python nulls **five** keys together on ONE condition
+(`efficiency_cost.py:174-185`): `usd`, `input_tokens`, `output_tokens`,
+`cache_read_tokens`, `cache_creation_tokens`. Cost and tokens are not separate
+rules there, and they are not separate rules here now: `recordsMeasured()` is
+hoisted once and gates all three totals. No second predicate was introduced.
+
+### The half of this bug that is easy to get wrong
+
+A genuinely MEASURED zero must stay `0`. The renderer uses `??`, never `||` --
+`0` is falsy, so a `||` fallback would blank real data into UNKNOWN, which is
+its own dishonesty in the opposite direction.
+
+That is what the mutation probe pins. Swapping `??` for `||` still renders
+UNKNOWN correctly for the unmeasured case and would pass on that alone; it
+fails only through the measured-zero assertion, which uses a cache-only fixture
+(`input_tokens: 0, output_tokens: 0, cache_read_tokens: 797496`) where the run
+IS measured and both token totals are honest zeros.
+
+### A type-only mutation survived, and is reported as a non-proof
+
+Changing `number | null` back to `number` does NOT fail `bun test`, because
+TypeScript types are erased and the runner does not typecheck. That was
+established in v8.72.0 and held again here. It is recorded as a documented
+non-proof rather than presented as evidence; the three probes that bind all
+change runtime behaviour.
+
+### Two stale notes corrected
+
+The operator note claimed `token/duration KPIs zeroed`, which this change makes
+false. It now reads `cost UNKNOWN, tokens UNKNOWN, duration zeroed`.
+`total_duration_ms` stays a real `0`: it is wall clock, not provider-reported
+usage, and Python does not null it either.
+
+## v8.73.0
+
+### A failed receipt verification now says exactly what is wrong
+
+The Evidence Receipt is the differentiator: of six installed CLIs (opencode,
+aider, codex, claude, cursor-agent, loki-mode), only loki-mode verifies its own
+output. A verifier that returns `ok: False` and nothing else spends that
+advantage -- the user learns the receipt is bad, not why.
+
+`verify_integrity()` now returns a `reasons` list naming every failed check:
+
+```
+FAILED
+  - hash mismatch: recorded 94b4f487..., computed 981d39c2... -- proof.json was
+    edited after it was written
+  - cost claim is incoherent: cost.available is true but every token count and
+    usd is zero or absent; the receipt claims a measurement it does not have
+    (an unmeasured run is unknown, not free)
+  - diff drift: the receipt recorded 99 files / +4242 / -1717, the repository
+    now has 1 files / +2 / -0
+```
+
+Three failures reported at once. A pre-existing singular `reason` field was
+first-wins, and its precedence is asserted by four existing suites, so it was
+left exactly as-is; `reasons` is additive alongside it. A `--human` flag renders
+the list.
+
+### The half-fix this avoided
+
+Building the list only inside `verify_integrity()` would have left `verify()`'s
+own eight failure sites -- diff drift, tree drift, unresolvable base --
+returning `ok: False` with an EMPTY list. That is the same generic-failure
+problem relocated rather than fixed, and it would have looked complete. All
+fourteen sites append.
+
+### Verdicts are unchanged, and that is asserted
+
+This explains a verdict; it never changes one. A verifier made more talkative
+but more permissive would be strictly worse than a quiet one. 244 proof-related
+tests pass unchanged, and the moat-breaking mutation -- forcing
+`cost_coherent` to always be true -- turns the suite red.
+
+A passing receipt reports an empty list, never a fabricated reason.
+
+## v8.72.0
+
+### The sixth and last surface that called an unmeasured run free
+
+```
+  v8.51.0  codex dispatch   recorded no tokens at all
+  v8.52.0  receipt          {"usd": 0.0, "available": true}
+  v8.53.0  the PROMPT       "$0.00" per iteration, steering the agent
+  v8.54.0  the verifier     never checked cost, so the claim passed
+  v8.69.0  cost summary     the per-run reader
+  v8.72.0  kpis.ts          this one
+```
+
+`loki-ts/src/metrics/kpis.ts` typed `total_cost_usd` as a bare `number` and
+produced it unconditionally, with the empty snapshot seeded to `0`. An
+unmeasured run -- efficiency records present, every token and cost field zero,
+the pre-v8.51.0 codex shape -- rendered:
+
+```
+  Total cost USD:       0
+```
+
+certifying the run as free. Now `number | null`, rendering
+`UNKNOWN (not measured)`.
+
+### The predicate reads the records, not the derived total
+
+`recordsMeasured()` mirrors `record_is_measured` from `efficiency_cost.py`,
+summing the same five fields on the RAW records. Reading the derived
+`total_cost_usd` instead would have been wrong in a way that looks right:
+that value comes from `calculateCostFromRecords()`, which *prices* tokens, so
+it is non-zero even when no cost was ever observed. It answers "did we compute
+a number", not "did we measure one".
+
+### Measured-zero and unmeasured stay distinguishable
+
+`cost_usd: 0` with non-zero tokens is MEASURED and stays `0`. All five fields
+zero is UNMEASURED and becomes `null`. The average uses an explicit
+`=== null` guard rather than a falsy check, so a genuine measured zero is not
+blanked into UNKNOWN. Blanking real data would be its own dishonesty.
+
+Mutation-proven at the runtime layer: seeding the empty snapshot back to `0`
+turns the suite red. Note the type annotation alone is NOT sufficient evidence
+-- TypeScript types are erased, so a type-only mutation survives `bun test`.
+The probe that binds is the one that changes runtime behaviour.
+
+### Known remaining, stated rather than implied
+
+Python also nulls the TOKEN fields when unmeasured; `total_input_tokens` and
+`total_output_tokens` in kpis.ts still read `0`. Same class, deliberately not
+in scope here.
+
+## v8.71.0
+
+### `loki why` gave the same advice for a 401 and a timeout
+
+`cmd_why` already read `.loki/state/LAST_ERROR.json` and already printed the
+error class. What it did NOT have was any mapping from that class to a remedy:
+
+```
+sed -n '/^cmd_why()/,/^}/p' autonomy/loki | grep -cE 'rate_limited|auth_error|build_timeout'
+0
+```
+
+So every failure got the same status-keyed line: "Read .loki/logs/ + the
+handoff below for the failure, fix it, then re-run." Identical whether the
+provider returned HTTP 401 or the build timed out.
+
+Now:
+
+```
+  Last error  : auth_error (iteration 3)
+                Provider returned HTTP 401.
+  What to do  : Re-authenticate claude: claude login   (or set ANTHROPIC_API_KEY)
+```
+
+### The honesty call inside it
+
+The LAST_ERROR schema has **no provider field**. Rather than defaulting to
+claude and presenting a guess as the fix, `auth_error` uses `LOKI_PROVIDER`
+when set, and otherwise lists every provider's command while stating plainly
+that the provider was not recorded.
+
+The map is defined once and injected into both python heredocs `cmd_why` runs,
+so the human and `--json` paths cannot drift. `--json` also gains an honesty
+triple (`last_error_present` / `last_error_readable` / `last_error_recognized`)
+so a consumer can tell "no failure recorded" from "malformed" from "unmapped
+class" instead of one indistinguishable null.
+
+A latent bug surfaced while wiring this: `load()` collapsed *absent* and
+*unparseable* into `{}`, so a corrupt LAST_ERROR.json printed nothing and read
+as "no failure". Those are now distinguished.
+
+### What a run will cost, before you start it
+
+`tools/estimate-run.py` projects forward from **this workspace's own measured
+history**, which nothing did before. Three existing surfaces were checked
+first: `cost-summary.py` is backward-looking, `show_prd_plan()` estimates from
+PRD text rather than measurement, and `effort_estimator.py` reports hours.
+
+Two findings shaped it:
+
+**`record_is_measured` is field-agnostic**, so a record with real tokens but
+`cost_usd: 0` (an unpriced model) returns true. Filtering on it alone would
+pull a `0.0` into the median and ship a fabricated-low estimate -- the exact
+defect class this guards. The basis is measured AND non-zero cost, and the
+output reports three counts: found, measured, priced.
+
+**No multi-run history exists** to derive a horizon from, so `--iterations` is
+required rather than invented. With no basis at all it prints `NO BASIS` and
+`UNKNOWN`, never a number. If the basis model differs from the model that would
+run now, it says the projection may not transfer.
+
+## v8.70.0
+
+### The libs carrying the receipt verifier had no packaging guard
+
+Four releases were spent discovering that the checks guarding the SHIPPED
+PACKAGE were themselves unguarded. Everything works from a git checkout, so no
+in-repo test and no GitHub CI job can see a packaging break:
+
+- v8.38.0: four gate detectors were never in `files[]`, so mutation-integrity
+  failed closed on EVERY iteration for EVERY npm user
+- v8.63.0: the tarball check passed on "6 or more" matches of 6 patterns that
+  healthily produce 8, tolerating the loss of two required artifacts
+
+`tests/test-detectors-are-packaged.sh` now guards the detectors. **Nothing
+guarded `autonomy/lib/*.py`** -- which is where the Evidence Receipt verifier
+and the cost-honesty rule live. They ship today only because `files[]` happens
+to contain a broad `autonomy/` entry. Narrowing that entry for any reason would
+drop them silently, and the failure would surface as a receipt that cannot be
+verified rather than as an error.
+
+The fast-tier tarball check now asserts nine artifacts individually, adding
+`proof-verify.py`, `efficiency_cost.py`, and `cost-summary.py`.
+
+### Two rules applied, both learned expensively
+
+**Assert each thing individually, never a count.** A threshold cannot say WHICH
+artifact vanished. The check's closing line also stopped hardcoding "all 6" and
+now counts from the loop, because a literal count goes stale the moment the
+list grows and then understates what is guarded.
+
+**Guard against vacuity.** A substring search over an EMPTY listing reports
+nothing missing. `npm pack` writes its listing to STDERR, so `2>&1 >file`
+captures build chatter instead and makes every assertion pass. The new suite
+fails loudly on an empty or non-listing capture, and that path is
+mutation-proven: forcing the listing to empty turns it red rather than green.
+
+Narrowing `files[]` from `autonomy/` to `autonomy/loki` also turns it red.
+
+## v8.69.0
+
+### What did this run cost, and how much of that is honest
+
+`autonomy/lib/cost-summary.py` reads `.loki/metrics/efficiency/` and reports
+per-run cost, the per-iteration breakdown, the cost trend, and the cache hit
+ratio (the metric that dominates cost at a 97.5% hit rate).
+
+The whole point is the accounting rule this repo paid four releases to learn:
+**an unmeasured cost reads UNKNOWN, never $0.00.** Free and unmeasured are
+different claims and only one is honest.
+
+A partially-measured run says so, and excludes rather than zero-fills:
+
+```
+Iterations:  3 found, 2 measured  <- PARTIAL
+Total cost:  $0.0599
+Cache ratio: 77.8%   (cache_read / (input + cache_read))
+Cost trend:  CLIMBING (2 measured point(s))
+  iter 3: UNKNOWN (excluded from totals)
+
+note: PARTIAL: 2 of 3 iterations measured. The total covers only the measured
+ones; unmeasured iterations are excluded, not counted as zero, so the real cost
+is HIGHER than shown.
+```
+
+$0.0599 is exactly the sum of the two measured iterations. A fully unmeasured
+run reads `Total cost: UNKNOWN`, and `--json` emits `null`, never `0`.
+
+### One definition of "measured", not two
+
+`collect_efficiency()` already had the honesty guard, but only in aggregate: it
+summed everything and then checked the TOTAL, so it could not say WHICH
+iterations were measured. Rather than write a second rule that can drift,
+`record_is_measured()` was extracted as the single definition and
+`collect_efficiency` rewired to call it. Both surfaces now run the same code;
+renaming that function turns both suites red.
+
+### The failure mode that survived the first implementation
+
+A record with real tokens but `cost_usd: 0` -- an unpriced model, the exact
+shape codex tiers produce -- counted as measured on the strength of its tokens
+and rendered `Total cost: $0.0000`. The headline rule, inverted.
+
+The original fixtures could not reach it: they zero tokens AND cost, so the
+predicate short-circuits before the disagreement matters. The cost slot now
+reads UNKNOWN with an explanatory note while the token counts still render,
+since blanking real data would be its own dishonesty.
+
+### Known remaining surface
+
+`loki-ts/src/metrics/kpis.ts` types `total_cost_usd` as a bare `number`, which
+is a sixth surface with the same `$0.00` shape. Untouched here and recorded
+rather than implied.
+
+## v8.68.0
+
+### An interrupted run told you there was nothing to resume
+
+Ctrl-C at iteration 7, then `loki resume`:
+
+```
+No session to resume.
+Start a session with: loki start
+```
+
+Every part of the machinery was already correct. `run.sh` saves
+`status: "interrupted"` on Ctrl-C, `load_state` deliberately PRESERVES
+`iterationCount` for interrupted runs, `_loki_resolve_run_status` resolves
+`interrupted`, and `_loki_next_action` already maps it to `loki resume`. The
+state was saved, the status resolved, the action mapped -- and then
+`cmd_resume` hit an early exit that only ever handled explicit PAUSE/STOP
+signal files, and told the user their work was gone.
+
+Because `loki next` dispatches to `cmd_resume`, the one command whose job is
+"do the right next thing" ended at the same dead end. One function was the root
+cause; fixing it fixed `loki next` for free. No new command was added.
+
+Now:
+
+```
+Interrupted run found. Stopped at iteration 7 (last activity: 2026-08-02T09:14:02Z).
+Saved progress is intact. Resume it with:
+
+  loki start
+
+It picks up from iteration 7; verification re-runs, so nothing inherits a stale PASS.
+```
+
+### It reports the real iteration, and this is where the first version was wrong
+
+The hint read `iterationCount`. `save_state()` writes **`iteration`**
+(`autonomy/run.sh:6707`). So every REAL interrupted run would have reported
+**"Stopped at iteration 0"** -- the one number that makes the message
+reassuring rather than alarming.
+
+The test suite was green throughout, because its fixture used the same spelling
+the reader expected. A test that only ever sees its own fixture cannot catch a
+field-name mismatch with the production writer. It was caught by running the
+actual command against the shape `save_state` really emits, and is now pinned
+by a test that builds its fixture from the production key; reverting the reader
+turns the suite red.
+
+### It stays quiet when there is nothing to resume
+
+Keyed on `interrupted` ONLY, deliberately excluding `running`. A SIGKILL or
+power loss leaves `status: "running"`, which looks resumable, but `load_state`
+resets it to iteration 0 unless `LOKI_DURABLE_STATE=1`. Advertising "resume
+from iteration 47" there would promise progress the runner is about to discard.
+Widening the key to include `running` also turns the suite red.
+
+## v8.67.0
+
+### doctor now tells you which provider will actually run
+
+`loki doctor` gained a Provider Availability section on both routes, and a
+`provider_availability` key in `--json`:
+
+```
+Provider Availability:
+  PASS  claude - installed (auto-selected)
+  PASS  codex - installed
+  WARN  cline - not installed
+  PASS  aider - installed
+  PASS  opencode - installed
+  Auto-selected provider: claude (override with LOKI_PROVIDER)
+```
+
+With auto-detection landing in v8.64.0, "which provider will run" became a
+question the user could no longer answer by reading their own command. This
+answers it before a run starts.
+
+### One renderer, in bash, on purpose
+
+Doctor stdout is compared byte-for-byte between the bash and Bun routes. Two
+renderers drift; one cannot. The section is rendered by
+`autonomy/provider-offer.sh` and the Bun route shells out to the same helper,
+reusing the seam the install offer and the `detect-sdk` probe already use.
+
+### The ordering trap this pinned down
+
+`auto_detect_provider()` walks `claude cline codex aider opencode`, but
+`SUPPORTED_PROVIDERS` is declared `claude codex cline aider opencode` -- codex
+and cline are **swapped**. Marking "the first installed entry in
+`SUPPORTED_PROVIDERS`" would name codex on a machine where a build actually
+runs cline.
+
+The selected provider therefore always comes from `auto_detect_provider()`;
+the declaration order is used only to order the rows. A test pins this with a
+fake PATH holding cline and codex but no claude, where the two candidate
+answers differ, and swapping the priority order turns the suite red.
+
+### A note on how this was integrated
+
+The work was built on a branch that predated v8.65.0, so its `dist/` did not
+contain the install-integrity check. Taking that dist wholesale would have
+silently reverted v8.65.0 and returned Bun Parity to red. Only the source
+changes were applied and `dist/` was rebuilt, with both features asserted
+present afterwards.
+
+## v8.66.0
+
+### Asking for a provider you do not have now fails immediately, and never substitutes
+
+`--provider codex` on a machine without Codex used to get most of the way into
+a run first. The existing guard sat after `load_memory_context`, the event
+emit, the cli-provider marker write, and the "Starting Loki Mode... Provider:
+codex" banner -- so the operator watched it announce a provider it was about to
+reject.
+
+The preflight now runs before any of that, and only for an EXPLICIT choice
+(`--provider` or `LOKI_PROVIDER`):
+
+```
+Error: you asked for provider 'codex', but its CLI is not installed.
+
+Install it:
+  npm install -g @openai/codex
+
+Installed providers on this machine: claude
+Re-run with one of those, e.g. loki start --provider claude
+
+Loki will not silently run a different provider than the one you asked for.
+```
+
+**It never falls back.** Quietly running a different model than the one asked
+for is worse than failing, so substitution is asserted against as its own test
+and mutation-proven: dropping the `exit 1` lets the run fall through to the
+start path, and the suite turns red.
+
+### Why the existing check was not enough, and why it stays
+
+`provider_offer_gate` passes when **any** provider is on PATH, so an explicit
+`--provider codex` on a claude-only box sailed straight through it. The later
+check at `autonomy/loki:2689` did catch the case, but only after the banner --
+and it fires on the *effective* provider, which includes the auto-detected
+default. Removing it would regress "default claude, only codex installed", so
+both remain, with different scopes.
+
+### Known gaps, stated rather than implied
+
+- Scoped to `cmd_start`. The `--provider` parse sites in `cmd_quick` keep their
+  own narrower checks; this is not a global fix.
+- Neither this check nor the one at 2689 calls `validate_provider`, so
+  `--provider <any-binary-on-PATH>` still passes both. Pre-existing, unchanged.
+- Explicit provider with nothing installed now exits **1** rather than 2. The
+  default path is untouched and still exits 2.
+
+## v8.65.0
+
+### The check that guards the shipped package was missing from the default route
+
+`doctor` verifies four quality-gate detectors are present. They ship via
+package.json `files[]`, and when they were absent from the tarball,
+mutation-integrity failed closed on **every iteration for every npm user** --
+first-pass completion was impossible regardless of model output (v8.38.0).
+
+The bash route has checked this since then. The **Bun route -- the default
+runtime -- did not.** The users most likely to hit the packaging failure were
+exactly the ones whose `doctor` could not see it.
+
+Bun Parity had been **red since v8.59.0** reporting this, as a tally mismatch:
+
+```
+bash: Summary: 14 passed, 1 failed, 14 warnings
+bun:  Summary: 10 passed, 1 failed, 14 warnings
+```
+
+A difference of exactly the four detector checks. Both routes now report the
+same count.
+
+### Reproducing it needed the real CI diff, not a local guess
+
+The gap does not reproduce on a dev machine: both routes agreed locally, so a
+raw `diff` showed nothing and an early "fix confirmed" would have been wrong.
+Stripping the change and re-running still passed locally -- proof the local
+signal was not measuring the failure at all.
+
+A first reproduction attempt built a minimal PATH and appeared to reproduce it,
+showing bash omitting version strings. That was an artifact of the harness:
+the bash probes call `tr`, `awk`, and `sed`, and the stub PATH omitted `tr`.
+With full coreutils the difference vanished. **The reproduction was broken, not
+the product.** Only the actual CI log named the real diff.
+
+### Also in this release
+
+`loki doctor` on the Bun route now reports missing detectors as a BLOCKING
+failure with a reinstall instruction, rather than staying silent.
+
+## v8.64.0
+
+### You no longer pick a provider. Loki picks the one you have.
+
+`loki start ./prd.md` on a machine with **Codex but not Claude** used to fail.
+Not because Codex is unsupported -- it is a first-class provider -- but because
+`autonomy/run.sh` hardcoded:
+
+```sh
+LOKI_PROVIDER=${LOKI_PROVIDER:-claude}
+```
+
+so an operator who expressed no preference got a provider they may not have
+installed, and a failure naming a tool they never chose.
+
+The detection has existed since **v5.0.0**. `auto_detect_provider()` sits in
+`providers/loader.sh` with the correct priority order
+(claude > cline > codex > aider > opencode) and its own passing test. Nothing
+in production ever called it: the only caller in the entire repo was its own
+unit test. Built, tested, and never wired.
+
+Now, when `LOKI_PROVIDER` is unset, the default consults it:
+
+```
+[loki] provider: codex (auto-detected)
+```
+
+### An explicit choice still wins
+
+This fills an UNSET value only. `LOKI_PROVIDER=codex` and `--provider codex`
+behave exactly as before, including when a higher-priority provider is
+installed. Silently running a different model than the operator asked for would
+be worse than the bug being fixed, so that direction is asserted as its own
+test and mutation-proven: forcing detection to run unconditionally turns the
+suite red.
+
+With nothing installed at all, the default stays `claude` so the existing
+"not installed" error names a real, actionable provider rather than an empty
+string.
+
+### Wiring, not the function
+
+The test asserts the CALL SITE, because the function was never the broken part.
+It extracts the real selection block out of run.sh and executes it -- a
+re-implementation would test the rule while the production default stayed
+hardcoded.
+
+That extraction earned its own assertion. An earlier slice cut the block
+mid-conditional; the resulting shell parse error was swallowed by a
+`2>/dev/null` and every unset case read as empty, which looks exactly like a
+broken feature instead of a broken harness. The slice is now `bash -n` checked
+before any behaviour is asserted.
+
+## v8.63.0
+
+### Two releases died to one blind spot: the local gate ran the wrong Python
+
+GitHub CI runs **Python 3.12**. This Mac runs **3.14**. `.githooks/pre-push`
+invoked bare `python3`, so every local green was measured on an interpreter CI
+does not use. Two bugs walked straight through it.
+
+**1. `NameError: name 'Any' is not defined`** (5 dashboard liveness tests).
+`tests/dashboard/test_status_registry_liveness.py` `exec`s a sliced function
+out of `dashboard/server.py`. The `from __future__ import annotations` at the
+top of server.py does NOT travel with a slice, and
+`_safe_json_read(default: Any = None)` puts an annotation in a **default
+value**, which evaluates at def time. Python 3.14 defers annotations
+unconditionally (PEP 649) and never evaluates it; 3.12 does, and raises. The
+slice now declares its own deferral.
+
+This is what failed v8.61.0's Release, which is why **v8.61.0 and v8.62.0 were
+both built but never tagged or published**. This release unblocks both.
+
+**2. The code index was empty for any checkout under `.claude/`.**
+`tools/index-codebase.py` filtered with
+`any(skip in str(p) for skip in SKIP_DIRS)` -- a substring test against the
+**absolute** path. `SKIP_DIRS` contains `.claude`, so a worktree at
+`.../.claude/worktrees/<name>/` matched on every file and collected **zero**
+Python sources. Now matched by path COMPONENT relative to the project root:
+515 -> 581 files, `memory/` restored (18 files), skip dirs still excluded.
+
+The failure mode is the dangerous kind: no error, just a code search that
+quietly returns nothing. It surfaced only on 3.12 -- on 3.14 chromadb fails to
+import and the caller silently falls back to a *different* file list that
+happens to include `memory/`.
+
+### The fix is to the gate, not just the bugs
+
+`.githooks/pre-push` (the tracked hook, wired via `core.hooksPath`) now prefers
+`python3.12` when present, so a local green predicts a CI green.
+
+`scripts/local-ci.sh` labels its run the CI interpreter but deliberately runs
+**one** interpreter, not two: 3.12 is the pass that predicts CI, and the fast
+tier is the release gate kept short for cadence. A second blanket run costs
+~92s to protect a runtime CI never uses.
+
+Mutation-proven both directions: reverting the substring filter turns the suite
+red, and neutering the filter entirely (so `node_modules` leaks in) also turns
+it red.
+
+Trust-core detector: 93 invariants.
+
+## v8.62.0
+
+### Why we are slower: 10.65M tokens in, 34.7K tokens out
+
+Measured on one real iteration of GitHub issue #24:
+
+```
+cache_read : 10,651,759 tokens
+output     :     34,729 tokens
+ratio      :        307 : 1
+```
+
+in a **single** provider call -- one `iteration_start`, one
+`result-cost-1.json`, so cross-iteration reuse is ruled out. That call was
+**100% of measured stage time** (744s to first code change).
+
+**The gap is ~6x on time-to-first-signal, not 100x.** Replit shows a preview at
+~120s against our 744s; on first working version (~600s) it is 1.2x. Stating
+that plainly matters more than a dramatic number.
+
+### What is NOT wrong
+
+The provider cache is working: **97.5% hit rate**, already discounting the call
+**10x** ($31.96 -> $3.20). We are not missing a cache.
+
+The problem is that the order being discounted is enormous. Cached reads are
+still **67% of a $4.74 iteration**, and they are **prefill the model must
+process serially** before emitting a single character -- which makes this the
+only measured lever touching **both** cost and the 744s.
+
+Three other candidate levers were adversarially refuted and are recorded so
+they are not re-proposed: reviewer-prompt cache sharing (<3% of run cost, and
+mechanically inert -- no user-turn cache flag exists on the bash route),
+`LOKI_SDK_PROMPT_CACHE` (reaches only the one-shot judge path), and wiring
+`[CACHE_BREAKPOINT]` (a documentation anchor with no provider-side effect).
+
+### This measures. It does not trim.
+
+*"The tool loop re-accumulates history"* is **inferred** from the ratio, not
+observed per turn. Trimming context on an inference is how you ship an agent
+that forgets what it already tried and redoes the work -- **raising** iteration
+count and costing more than it saves.
+
+So per-turn usage is now recorded to `.loki/metrics/context-growth-<n>.json`
+with a `growth_factor` (first turn vs last turn within one call). Verified
+end-to-end against the real stream parser: a 50k -> 1.6M turn sequence yields
+`growth_factor: 32.0`.
+
+The cut is a separate decision, gated on **iterations-to-done**, never on a
+token count.
+
+### Absence is not a growth factor
+
+A run with no assistant turns writes **no record**, rather than a fabricated
+`0`. Gated on turns observed, not on cost being reported -- codex reports
+tokens and never dollars, so tying it to cost would lose the shape on every
+codex run.
+
+### The embedded parser is now syntax-checked
+
+The stream filter is a `python3 -u -c '...'` heredoc inside run.sh. A syntax
+error there breaks **every Claude-route run**, and `bash -n` cannot see it. The
+test extracts and `ast.parse`s it; breaking `if _turn_usage:` turns it red.
+
+Trust-core detector: 93 invariants.
+
 ## v8.61.0
 
 ### W3: the call costing 93% of the run never reported its own input
