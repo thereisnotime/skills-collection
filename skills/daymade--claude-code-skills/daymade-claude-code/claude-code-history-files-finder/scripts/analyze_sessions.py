@@ -343,25 +343,72 @@ class SessionAnalyzer:
     def _merge_sessions_from_dirs(
         self, pairs: List[tuple]
     ) -> List[Dict[str, Any]]:
-        """Collect + de-duplicate sessions from ``(source, project_dir)`` pairs."""
-        by_id: Dict[str, Dict[str, Any]] = {}
+        """Collect + de-duplicate sessions from ``(source, project_dir)`` pairs.
+
+        Per-model profile homes (``~/.claude-profiles/<name>``) commonly
+        symlink their ``projects/`` straight to the main home's — same real
+        directory, different nominal ``source.home``. ``pairs`` is built by
+        the caller per source label, so the same physical file can arrive
+        here once per profile that happens to alias it. Group by the
+        *resolved* real path first so each physical file is opened and
+        parsed exactly once no matter how many source labels point at it.
+
+        Every group member keeps its own *nominal* (unresolved) directory
+        so per-copy paths stay distinct strings — e.g. a session aliased
+        under both ``~/.claude/projects`` and ``~/.claude-profiles/css/
+        projects`` still reports two different copy paths, matching what
+        the un-grouped code produced. Collapsing them to one shared string
+        was tried first and broke ``search``'s "Other matching copies:"
+        listing (independent review, 2026-08-04): it distinguishes the
+        primary copy from the others by path-string inequality, so giving
+        every aliased copy the identical string made all-but-one silently
+        vanish from that field even though the ``sources``/``homes``
+        label lists stayed correct.
+        """
+        groups: Dict[str, tuple] = {}
         for source, project_dir in pairs:
-            for file in project_dir.glob("*.jsonl"):
+            try:
+                key = str(project_dir.resolve())
+            except (OSError, RuntimeError):
+                key = str(project_dir)
+            group = groups.get(key)
+            if group is None:
+                groups[key] = (project_dir, [(source, project_dir)])
+            else:
+                group[1].append((source, project_dir))
+
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for scan_dir, group_members in groups.values():
+            group_sources = [source for source, _nominal_dir in group_members]
+            # any(...) — not group_sources[0].kind — because "at least one
+            # active alias in the group" must win regardless of which
+            # member happened to be discovered first; index-0 only agrees
+            # with that whenever active sources are enumerated before
+            # archives (true for both shipped call sites today, but not a
+            # contract this function should silently depend on).
+            group_has_active = any(source.kind == "active" for source in group_sources)
+            group_kind = "active" if group_has_active else group_sources[0].kind
+            for file in scan_dir.glob("*.jsonl"):
                 if file.name.startswith("agent-"):
                     continue
                 summary = scan_claude_session(file)
                 sid = summary.session_id
-                copy = {
-                    "path": file,
-                    "source": source,
-                    "created_at": summary.created_at,
-                    "updated_at": summary.updated_at,
-                }
+                copies = [
+                    {
+                        "path": nominal_dir / file.name,
+                        "source": source,
+                        "created_at": summary.created_at,
+                        "updated_at": summary.updated_at,
+                    }
+                    for source, nominal_dir in group_members
+                ]
                 candidate = {
                     "path": file,
-                    "copies": [copy],
-                    "sources": [source],
-                    "homes": [source.home],
+                    "copies": copies,
+                    "sources": list(group_sources),
+                    "homes": list(
+                        dict.fromkeys(source.home for source in group_sources)
+                    ),
                     "created_at": summary.created_at,
                     "updated_at": summary.updated_at,
                     "timestamp_source": (
@@ -369,7 +416,7 @@ class SessionAnalyzer:
                         if summary.timestamp_count
                         else "unknown"
                     ),
-                    "selected_kind": source.kind,
+                    "selected_kind": group_kind,
                     "selected_updated_at": summary.updated_at,
                     "session_id": sid,
                 }
@@ -377,15 +424,17 @@ class SessionAnalyzer:
                 if entry is None:
                     by_id[sid] = candidate
                     continue
-                entry["copies"].append(copy)
+                entry["copies"].extend(copies)
                 sources = list(entry["sources"])
-                if source.display_label not in {
-                    item.display_label for item in sources
-                }:
-                    sources.append(source)
+                existing_labels = {item.display_label for item in sources}
+                for source in group_sources:
+                    if source.display_label not in existing_labels:
+                        sources.append(source)
+                        existing_labels.add(source.display_label)
                 homes = list(entry["homes"])
-                if source.home not in homes:
-                    homes.append(source.home)
+                for source in group_sources:
+                    if source.home not in homes:
+                        homes.append(source.home)
                 existing_selected_time = (
                     entry["selected_updated_at"]
                     if entry["selected_updated_at"] is not None
@@ -398,12 +447,12 @@ class SessionAnalyzer:
                 )
                 candidate_wins = candidate_time > existing_selected_time or (
                     candidate_time == existing_selected_time
-                    and source.kind == "active"
+                    and group_kind == "active"
                     and entry["selected_kind"] != "active"
                 )
                 if candidate_wins:
                     entry["path"] = file
-                    entry["selected_kind"] = source.kind
+                    entry["selected_kind"] = group_kind
                     entry["selected_updated_at"] = summary.updated_at
                 entry["sources"] = sources
                 entry["homes"] = homes

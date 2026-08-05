@@ -542,3 +542,90 @@ Four measurement errors in one audit section. The corrective standard, now
 demonstrated three times: **an absence is a hypothesis until the real code is
 read or executed** -- and a reproduction must exercise the real function, not
 a stand-in shaped like it.
+
+## Clean checkpoint: 5605deca, all 19 jobs green
+
+Recorded per the gate discipline: the trigger-contract correction reached
+`Tests@5605deca: completed / success`, 19 of 19 jobs, zero failures. No run was
+superseded to get there.
+
+### Where the four surfaces actually stand, after all corrections
+
+| Surface | State | Confidence |
+|---|---|---|
+| Composable core-agent | modular, separable functions | read |
+| Bounded verification | verifiers run; records carry no cost/latency/criterion/effect | read + grep |
+| Event-driven trigger | auth, timeout, retry, idempotency, dedupe, backpressure all present; failures logged but not queryable | **executed** |
+| Self-improvement | `LOKI_AUTO_LEARNINGS` on the TS route only, absent from `run.sh` and the CLI | grep, unverified |
+
+The confidence column matters more than the state column. Everything I checked
+by execution survived scrutiny; three of the four things I checked by grep did
+not.
+
+### The smallest next slice, and why it is not code
+
+The directive's bar for any verifier change is a matched ablation showing lift
+above p95 latency and cost, on the same task, across seeds. Nothing in this
+repo can currently produce that number:
+
+- verifier records carry no cost or latency at all, so the denominator is
+  missing
+- the routing corpus holds two real rows from two DIFFERENT specs, which is
+  explicitly excluded ("do not infer this from different tasks or one seed")
+
+So the smallest honest next slice is **the same spec run twice under two
+models**, which is the minimum a matched ablation admits. That is one command
+and no code. Until it exists, any harness or eval built on top would be
+measuring a corpus that cannot support the claim.
+
+The one surface still unverified by execution is self-improvement: the
+`LOKI_AUTO_LEARNINGS` asymmetry was found by grep, and grep has been wrong
+three times in this audit. It should be confirmed by running before it is
+treated as a finding.
+
+## The matched pair, executed
+
+The previous entry said the smallest honest next step was the same spec run
+twice under two models. That has now been done: identical `prd.md` (byte-for-byte,
+`diff -q` verified), identical iteration cap, run SEQUENTIALLY so CPU contention
+could not confound latency, logs written OUTSIDE each workspace so the run could
+not invalidate its own receipt.
+
+| | sonnet | opus |
+|---|---|---|
+| cost_usd | 0.7177 | **0.6257** |
+| output tokens | 3658 | 3547 |
+| wall_clock_sec | 458 | **406** |
+| progress duration_ms | 65000 | 67000 |
+| iterations | 1 of 1 succeeded | 1 of 1 succeeded |
+| produced code | 1 test passing | 1 test passing |
+
+Both arms solved the task. On this pair, opus was 12.8% cheaper and 11% faster
+in wall clock, while taking marginally longer in measured progress duration --
+the wall/duration split suggests the difference sits in orchestration overhead,
+not model latency.
+
+### What this does and does not license
+
+It **does** establish that the corpus can now produce a matched comparison: same
+task, same budget, controlled ordering, both outcomes verified by running the
+produced tests rather than trusting the receipt.
+
+It **does not** clear the directive's bar. That requires lift above p95 latency
+and cost across seeds, and this is n=1 per arm. A single pair cannot separate
+model effect from run-to-run variance, and the two prior unmatched runs
+(sonnet $1.3828, opus $0.6823) differ from these by more than the arms differ
+from each other -- which is itself the evidence that one pair proves nothing
+about the population.
+
+The honest reading: the *method* is now demonstrated end to end. The *finding*
+needs repetition, and repetition is provider spend, which is a founder call.
+
+### Method notes worth keeping
+
+Three procedural constraints were learned by getting them wrong first:
+
+1. log outside the workspace, or the run invalidates its own receipt
+2. run arms sequentially, or contention confounds the latency column
+3. verify the produced artifact by executing it -- a receipt records what a run
+   claimed to do, not whether the code works

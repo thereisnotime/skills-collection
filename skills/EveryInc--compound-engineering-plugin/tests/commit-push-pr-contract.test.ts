@@ -34,6 +34,78 @@ describe("ce-commit-push-pr contract", () => {
     expect(auditSection).toContain("every material outcome")
   })
 
+  test("elevates multi-PR program altitude with lead-in and lead-out", async () => {
+    const content = await readRepoFile(
+      "skills/ce-commit-push-pr/references/pr-description-writing.md",
+    )
+
+    const sizingSection = content.match(
+      /## Step A: Size the description([\s\S]+?)## Step B:/,
+    )?.[1]
+    expect(sizingSection).toBeDefined()
+    expect(sizingSection).toContain("Program altitude")
+    expect(sizingSection).toContain("lead-in")
+    expect(sizingSection).toContain("lead-out")
+    expect(sizingSection).toContain("Program outcome")
+    expect(sizingSection).toMatch(/this PR's contribution/i)
+    expect(sizingSection).toContain("Do **not** invent a series")
+    expect(sizingSection).toMatch(
+      /program → lead-in \(if any\) → this contribution → lead-out \(if any\)/,
+    )
+    // Bidirectional contrast: middle PR needs prior + residual, not local-only
+    expect(sizingSection).toContain("too local for a middle PR")
+    expect(sizingSection).toContain("Continues the session-revocation rewrite")
+
+    const auditSection = content.match(
+      /## Step E: Pre-apply coverage audit([\s\S]+)\s*$/,
+    )?.[1]
+    expect(auditSection).toBeDefined()
+    expect(auditSection).toMatch(
+      /program context was present.+lead place this PR on the arc/is,
+    )
+    expect(auditSection).toMatch(
+      /program context was absent.+invent a multi-PR series/is,
+    )
+
+    // Tracker refs stay separate from series narrative
+    const relatedSection = content.match(
+      /## Step B1: Resolve related work references([\s\S]+?)## Step B2:/,
+    )?.[1]
+    expect(relatedSection).toBeDefined()
+    expect(relatedSection).toMatch(
+      /Sibling PR \/ series narrative belongs in Step A's program altitude/i,
+    )
+  })
+
+  test("scopes STE-inspired prose to non-load-bearing wording", async () => {
+    const content = await readRepoFile(
+      "skills/ce-commit-push-pr/references/pr-description-writing.md",
+    )
+
+    expect(content).toContain("ASD-STE100 Simplified Technical English")
+    expect(content).toMatch(
+      /Prefer plain wording wherever domain terms are not load-bearing/i,
+    )
+    expect(content).toMatch(
+      /Keep necessary technical jargon.+where they \*are\* the claim/is,
+    )
+    expect(content).toMatch(
+      /do not dilute mechanism language into vague plain English/i,
+    )
+    // Contrast pins both failure directions: decorative jargon vs load-bearing terms
+    expect(content).toContain("jargon without need")
+    expect(content).toContain("jargon is the claim")
+    expect(content).toContain("`TokenStore.invalidate` is now atomic under concurrent refresh.")
+
+    const auditSection = content.match(
+      /## Step E: Pre-apply coverage audit([\s\S]+)\s*$/,
+    )?.[1]
+    expect(auditSection).toBeDefined()
+    expect(auditSection).toMatch(
+      /domain jargon that is not load-bearing/i,
+    )
+  })
+
   test("repository PR-body contracts set structure without replacing editorial guidance", async () => {
     const content = await readRepoFile(
       "skills/ce-commit-push-pr/references/pr-description-writing.md",
@@ -121,9 +193,10 @@ describe("ce-commit-push-pr contract", () => {
   test("babysit handoff is default-on with off-switches and drivable fork PRs", async () => {
     const content = await readRepoFile("skills/ce-commit-push-pr/SKILL.md")
 
-    // Default-on: auto-invoke, announce, never block on a yes/no.
-    expect(content).toMatch(/auto-invoke `ce-babysit-pr`/i)
-    expect(content).toMatch(/never block on a yes\/no/i)
+    // Default-on: completion gate, announce, transfer ownership, never ask yes/no.
+    expect(content).toMatch(/completion gate/i)
+    expect(content).toMatch(/Auto-hand off by default/i)
+    expect(content).toMatch(/never ask yes\/no/i)
     // Off is the explicit choice: per-run token + standing config opt-out.
     expect(content).toContain("babysit:off")
     expect(content).toContain("auto_babysit: false")
@@ -213,25 +286,39 @@ describe("PR concept teaching contract", () => {
     expect(template).toContain("pr_teaching_archive")
   })
 
-  test("babysit handoff is a hard skill invocation, never ad-hoc babysit mechanics", async () => {
+  test("babysit handoff requires ownership transfer, forbids substitutes, hard-fails on load failure", async () => {
     const content = await readRepoFile("skills/ce-commit-push-pr/SKILL.md")
 
-    const handoff = content.match(/\*\*Babysit handoff — default on\.\*\*[\s\S]+?(?=\n\n)/)?.[0]
+    const handoff = content.match(/\*\*Babysit handoff — default on; completion gate\.\*\*[\s\S]+?(?=\n\n)/)?.[0]
     expect(handoff).toBeDefined()
-    // Observed drift (Nugget PR #1933): the shipping agent ran a bare
-    // `pr-snapshot watch --pr N` instead of invoking ce-babysit-pr, skipping its
-    // Step 2 bootstrap. The handoff must pin the invocation mechanism and forbid
-    // reconstructing babysit's loop at this seam.
-    expect(handoff).toContain("skill-invocation primitive")
+    // Completion gate: PR URL alone is not done; ce-babysit-pr must own follow-on.
+    expect(handoff).toMatch(/not done.+until `ce-babysit-pr` owns/is)
+    expect(handoff).toMatch(/Reporting the PR URL alone is not success/)
+    expect(handoff).toMatch(/\*\*Success\*\*.+`ce-babysit-pr` has started/is)
+    // Harness-agnostic load: use the host's normal skill mechanism without a platform matrix.
+    expect(handoff).toMatch(/host's normal skill-invocation mechanism/)
+    expect(handoff).not.toContain("Claude Code `Skill` tool")
+    // Observed drift (Nugget PR #1933): bare `pr-snapshot watch` instead of loading
+    // ce-babysit-pr. Keep anti-reinvention at this seam.
     expect(handoff).toContain("Never start babysit mechanics yourself")
     expect(handoff).toContain("`pr-snapshot`")
+    // Observed drift (Nugget PR #1983): Cursor agent substituted Task(ci-watcher)
+    // when skill load failed. Name non-substitutes and require hard-fail.
+    expect(handoff).toContain("`ci-watcher`")
+    expect(handoff).toContain("`gh pr checks --watch`")
+    expect(handoff).toMatch(/Handoff blocked/i)
+    expect(handoff).toMatch(/cannot be loaded or started/i)
+    expect(handoff).toMatch(/Do not invent a parallel or narrower watch/)
 
     // Observed drift (Nugget PR #1934): auto-babysit fired on a draft design PR, forcing the
     // session to improvise "never mark ready" caveats. Drafts are a not-ready signal; the
     // auto-handoff must not fire on them (explicit babysit tokens still force it).
+    // Soft-degrade is checkpoint-only after successful ownership — not a failed-handoff fallback.
     const doNotFire = content.match(/\*\*Do not fire \(auto-detected[\s\S]+?(?=\n\n)/)?.[0]
     expect(doNotFire).toBeDefined()
     expect(doNotFire).toContain("draft")
     expect(doNotFire).toContain("`babysit:continuous`")
+    expect(doNotFire).toMatch(/after successful handoff only/i)
+    expect(doNotFire).toMatch(/not a substitute for a failed handoff/i)
   })
 })
