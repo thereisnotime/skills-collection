@@ -11002,8 +11002,8 @@
       "description": "Execute a plan or concrete work prompt end-to-end. Use when implementing from a plan document, a spec path, or a clear build request; use ce-debug for open-ended bugs. Standalone use owns the shipping",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
-      "lines": 433,
-      "words": 7109,
+      "lines": 436,
+      "words": 7305,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -11014,8 +11014,8 @@
       "description": "\"Run the full autonomous shipping pipeline end-to-end, hands-off with no check-ins: plan, implement, review and fix, commit, push a branch, open a PR, and watch CI to green. Use only when the user exp",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 142,
-      "words": 3832,
+      "lines": 149,
+      "words": 4010,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11234,8 +11234,8 @@
       "description": "\"Babysits or watches an open GitHub PR until merge-ready, continuously reacting to review comments, CI failures, and routine base movement throughout the PR's life. Use when asked to 'babysit the PR',",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
-      "lines": 256,
-      "words": 11776,
+      "lines": 272,
+      "words": 12810,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -11284,8 +11284,8 @@
       "description": "Commit, push, and open a PR. Use when asked to ship/open a PR, or for PR-description-only flows like writing, rewriting, or describing a PR body.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
-      "lines": 166,
-      "words": 3221,
+      "lines": 176,
+      "words": 3685,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -12164,8 +12164,8 @@
       "description": "\"Peer Reviewer 1; assesses methodological soundness, research design validity, and statistical rigor\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
-      "lines": 346,
-      "words": 3764,
+      "lines": 403,
+      "words": 5572,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -15800,7 +15800,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/skills/plan-task/SKILL.md",
       "remote_path": "plugins/sdd/skills/plan-task/SKILL.md",
       "lines": 1262,
-      "words": 6522,
+      "words": 6558,
       "code_blocks": 28,
       "languages": [
         "bash",
@@ -15814,8 +15814,8 @@
       "description": "Implement a task with automated LLM-as-Judge verification per step",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/skills/implement-task/SKILL.md",
       "remote_path": "plugins/sdd/skills/implement-task/SKILL.md",
-      "lines": 1940,
-      "words": 10262,
+      "lines": 1948,
+      "words": 10495,
       "code_blocks": 42,
       "languages": [
         "bash",
@@ -16197,8 +16197,8 @@
       "description": "Run independent tasks concurrently across multiple files or targets using parallel sub-agents, with per-task model selection and LLM-as-a-judge verification. Use when tasks do not depend on each other",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/skills/do-in-parallel/SKILL.md",
       "remote_path": "plugins/sadd/skills/do-in-parallel/SKILL.md",
-      "lines": 2235,
-      "words": 13258,
+      "lines": 2248,
+      "words": 13391,
       "code_blocks": 49,
       "languages": [
         "markdown",
@@ -16210,8 +16210,8 @@
       "description": "Execute a task with sub-agent implementation and LLM-as-a-judge verification with automatic retry loop",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/skills/do-and-judge/SKILL.md",
       "remote_path": "plugins/sadd/skills/do-and-judge/SKILL.md",
-      "lines": 1158,
-      "words": 5922,
+      "lines": 1157,
+      "words": 5930,
       "code_blocks": 32,
       "languages": [
         "markdown",
@@ -16224,7 +16224,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/skills/do-in-steps/SKILL.md",
       "remote_path": "plugins/sadd/skills/do-in-steps/SKILL.md",
       "lines": 1452,
-      "words": 8338,
+      "words": 8346,
       "code_blocks": 35,
       "languages": [
         "bash",
@@ -20163,7 +20163,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.23.0",
+      "version": "3.23.1",
       "license": "MIT"
     },
     {
@@ -20177,7 +20177,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.23.0",
+      "version": "3.23.1",
       "license": "MIT"
     }
   ],
@@ -20892,8 +20892,8 @@
       "description": "\"EAS service (paid). Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experim",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 206,
-      "words": 3381,
+      "lines": 209,
+      "words": 3513,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -21582,6 +21582,46 @@
       "remote_path": "skills/resume-team/SKILL.md",
       "lines": 90,
       "words": 969,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "job-fit",
+      "description": "Run the deterministic, digest-bound candidate-fit gate before any resume tailoring.",
+      "path": "jananthan30--Resume-Builder/skills_server/job-fit/SKILL.md",
+      "remote_path": "skills_server/job-fit/SKILL.md",
+      "lines": 60,
+      "words": 405,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "tailor-resume",
+      "description": "Tailor a resume to a job description, score it against ATS and HR rubrics, create a DOCX, and update the tracker.",
+      "path": "jananthan30--Resume-Builder/skills_server/tailor-resume/SKILL.md",
+      "remote_path": "skills_server/tailor-resume/SKILL.md",
+      "lines": 168,
+      "words": 1054,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "writing-coach",
+      "description": "Human-voice writing coach \u2014 rewrite resumes and cover letters with brevity, burstiness, plain language, and authentic impact. Blocks AI-sounding prose.",
+      "path": "jananthan30--Resume-Builder/skills_server/writing-coach/SKILL.md",
+      "remote_path": "skills_server/writing-coach/SKILL.md",
+      "lines": 301,
+      "words": 1784,
+      "code_blocks": 4,
+      "languages": []
+    },
+    {
+      "name": "cover-letter",
+      "description": "Create a one-page cover letter for a job description and generate the final DOCX.",
+      "path": "jananthan30--Resume-Builder/skills_server/cover-letter/SKILL.md",
+      "remote_path": "skills_server/cover-letter/SKILL.md",
+      "lines": 57,
+      "words": 416,
       "code_blocks": 0,
       "languages": []
     },
@@ -26685,26 +26725,14 @@
       ]
     },
     {
-      "name": "trailofbits:variants",
-      "description": "Finds similar vulnerabilities using pattern-based analysis",
-      "path": "trailofbits--skills/plugins/variant-analysis/commands/variants.md",
-      "remote_path": "plugins/variant-analysis/commands/variants.md",
-      "lines": 19,
-      "words": 71,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "variant-analysis",
-      "description": "Find similar vulnerabilities and bugs across codebases using pattern-based analysis. Use when hunting bug variants, building CodeQL/Semgrep queries, analyzing security vulnerabilities, or performing s",
+      "description": "Hunts for the other instances of a bug already found \u2014 the variants of one root cause across a codebase. Use immediately after a vulnerability, logic bug, or bad pattern turns up in a specific file an",
       "path": "trailofbits--skills/plugins/variant-analysis/skills/variant-analysis/SKILL.md",
       "remote_path": "plugins/variant-analysis/skills/variant-analysis/SKILL.md",
-      "lines": 143,
-      "words": 818,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 77,
+      "words": 582,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "vulnerability-triage-brocards",
@@ -28702,32 +28730,22 @@
       "languages": []
     },
     {
-      "name": "trailofbits:audit-context",
-      "description": "Builds deep architectural context before vulnerability hunting",
-      "path": "trailofbits--skills/plugins/audit-context-building/commands/audit-context.md",
-      "remote_path": "plugins/audit-context-building/commands/audit-context.md",
-      "lines": 17,
-      "words": 59,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "function-analyzer",
-      "description": "\"Performs ultra-granular per-function deep analysis for security audit context building. Use when analyzing dense functions, data-flow chains, cryptographic implementations, or state machines.\"",
+      "description": "\"Analyzes one function in depth for audit context: invariants, assumptions, and what its callees establish. Writes the prose analysis to disk and returns a compact record. Use for dense functions, dat",
       "path": "trailofbits--skills/plugins/audit-context-building/agents/function-analyzer.md",
       "remote_path": "plugins/audit-context-building/agents/function-analyzer.md",
-      "lines": 141,
-      "words": 745,
+      "lines": 70,
+      "words": 673,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "audit-context-building",
-      "description": "Enables ultra-granular, line-by-line code analysis to build deep architectural context before vulnerability or bug finding.",
+      "description": "Understand a codebase before looking for bugs in it - what each function assumes, what it guarantees, and what it depends on elsewhere. Use when starting an audit, threat model, or architecture review",
       "path": "trailofbits--skills/plugins/audit-context-building/skills/audit-context-building/SKILL.md",
       "remote_path": "plugins/audit-context-building/skills/audit-context-building/SKILL.md",
-      "lines": 303,
-      "words": 1341,
+      "lines": 73,
+      "words": 630,
       "code_blocks": 0,
       "languages": []
     },
@@ -28769,32 +28787,22 @@
       ]
     },
     {
-      "name": "trailofbits:spec-compliance",
-      "description": "Verifies code implements specification requirements",
-      "path": "trailofbits--skills/plugins/spec-to-code-compliance/commands/spec-compliance.md",
-      "remote_path": "plugins/spec-to-code-compliance/commands/spec-compliance.md",
-      "lines": 17,
-      "words": 62,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
       "name": "spec-compliance-checker",
-      "description": "\"Performs full specification-to-code compliance analysis for blockchain audits. Use when verifying that smart contract implementations correctly match their formal specifications or whitepapers.\"",
+      "description": "\"Checks one documented requirement against the code that should implement it, and returns a verdict with the lines that evidence it. Writes its analysis to disk and returns a compact record. Use for a",
       "path": "trailofbits--skills/plugins/spec-to-code-compliance/agents/spec-compliance-checker.md",
       "remote_path": "plugins/spec-to-code-compliance/agents/spec-compliance-checker.md",
-      "lines": 87,
-      "words": 758,
+      "lines": 96,
+      "words": 922,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "spec-to-code-compliance",
-      "description": "Verifies code implements exactly what documentation specifies for blockchain audits. Use when comparing code against whitepapers, finding gaps between specs and implementation, or performing complianc",
+      "description": "Check code against the documentation that specifies it - which requirements hold, which the code contradicts, which are absent, and what the code does that no document mentions. Use when comparing an ",
       "path": "trailofbits--skills/plugins/spec-to-code-compliance/skills/spec-to-code-compliance/SKILL.md",
       "remote_path": "plugins/spec-to-code-compliance/skills/spec-to-code-compliance/SKILL.md",
-      "lines": 358,
-      "words": 1434,
+      "lines": 116,
+      "words": 1170,
       "code_blocks": 0,
       "languages": []
     },
@@ -28832,16 +28840,6 @@
         "bash",
         "go"
       ]
-    },
-    {
-      "name": "insecure-defaults",
-      "description": "\"Detects fail-open insecure defaults (hardcoded secrets, weak auth, permissive security) that allow apps to run insecurely in production. Use when auditing security, reviewing config management, or an",
-      "path": "trailofbits--skills/plugins/insecure-defaults/skills/insecure-defaults/SKILL.md",
-      "remote_path": "plugins/insecure-defaults/skills/insecure-defaults/SKILL.md",
-      "lines": 114,
-      "words": 671,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "trailofbits:burp-search",
@@ -29112,8 +29110,8 @@
       "description": ">",
       "path": "typefully--agent-skills/skills/typefully/SKILL.md",
       "remote_path": "skills/typefully/SKILL.md",
-      "lines": 315,
-      "words": 2270,
+      "lines": 321,
+      "words": 2439,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -55943,8 +55941,8 @@
       "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
-      "lines": 187,
-      "words": 3678,
+      "lines": 194,
+      "words": 4120,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55955,8 +55953,8 @@
       "description": "\"Reviews implementation plans against repository evidence and current authoritative guidance. Use before execution to expose gaps and risks; not for completed delivery review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
-      "lines": 151,
-      "words": 2960,
+      "lines": 160,
+      "words": 3430,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -149574,8 +149572,8 @@
       "description": "Analyze and reclaim macOS disk space through intelligent cleanup recommendations. This skill should be used when users report disk space issues, need to clean up their Mac, or want to understand what'",
       "path": "daymade--claude-code-skills/macos-cleaner/SKILL.md",
       "remote_path": "macos-cleaner/SKILL.md",
-      "lines": 782,
-      "words": 3760,
+      "lines": 784,
+      "words": 3849,
       "code_blocks": 27,
       "languages": [
         "bash",
@@ -150197,7 +150195,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
       "lines": 1679,
-      "words": 24240,
+      "words": 24394,
       "code_blocks": 54,
       "languages": [
         "bash",
@@ -150296,9 +150294,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 1019,
-      "words": 15793,
-      "code_blocks": 26,
+      "lines": 1069,
+      "words": 16269,
+      "code_blocks": 27,
       "languages": [
         "bash",
         "json",
@@ -150350,9 +150348,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-web-conversation/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-web-conversation/SKILL.md",
-      "lines": 415,
-      "words": 3494,
-      "code_blocks": 10,
+      "lines": 459,
+      "words": 3911,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "js"
@@ -150398,9 +150396,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-history-files-finder/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-history-files-finder/SKILL.md",
-      "lines": 483,
-      "words": 2760,
-      "code_blocks": 17,
+      "lines": 554,
+      "words": 3303,
+      "code_blocks": 19,
       "languages": [
         "bash",
         "text"
@@ -150471,9 +150469,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 366,
-      "words": 3363,
-      "code_blocks": 8,
+      "lines": 429,
+      "words": 3924,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "json"
@@ -150499,8 +150497,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 795,
-      "words": 8556,
+      "lines": 873,
+      "words": 9503,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -150511,8 +150509,8 @@
       "description": "|",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
       "remote_path": "daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
-      "lines": 714,
-      "words": 2754,
+      "lines": 764,
+      "words": 3161,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -154645,8 +154643,8 @@
       "description": "Query live GPU inventory, submit an authenticated It\u00f4 fixed-rate RFQ, inspect RFQ or procurement status, and run explicitly gated node qualification through the separately installed canonical CLI. Use",
       "path": "affaan-m--everything-claude-code/skills/ito-compute/SKILL.md",
       "remote_path": "skills/ito-compute/SKILL.md",
-      "lines": 130,
-      "words": 570,
+      "lines": 141,
+      "words": 684,
       "code_blocks": 5,
       "languages": [
         "json",
@@ -167778,16 +167776,6 @@
         "bash",
         "markdown"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "qmd-search",

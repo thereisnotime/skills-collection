@@ -38,6 +38,8 @@ if os.path.isfile(_env_path):
 import base64
 import tempfile
 import json
+import statistics
+import uuid
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from collections import defaultdict
@@ -45,7 +47,7 @@ from datetime import datetime
 
 import asyncio
 
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -67,6 +69,19 @@ import hr_scorer
 _elapsed = time.time() - _start
 print(f"Models loaded in {_elapsed:.1f}s")
 
+# ─── Agent tool registry (cloud-hostable; imports cleanly with no cloud/
+# package present and no vendor SDK installed -- see agent/tools.py's own
+# module docstring). /rewrite and /cover-letter dispatch into this registry
+# instead of talking to the model or the four-role pipeline directly, so
+# every draft they can ever return is produced (and audited/recorded) by the
+# exact same code path Task 8's tests already cover. ───
+import agent.tools as agent_tools
+
+# ─── Async run bookkeeping for POST /agent/tailor + /agent/cover-letter
+# (Task 10; see agent/runner.py's own module docstring). Imports cleanly
+# without cloud/ present, same as agent.tools above. ───
+import agent.runner as agent_runner
+
 # ─── Cloud modules (graceful import — works locally without cloud deps) ───
 try:
     from cloud.config import settings as cloud_settings
@@ -84,9 +99,29 @@ try:
         is_billing_configured, create_checkout_session,
         handle_webhook_event, create_portal_session,
     )
+    from cloud.db import get_conn as db_get_conn, run_migrations, scoped
+    from cloud.quotas import QuotaExceeded, check_quota
     CLOUD_AVAILABLE = True
 except ImportError:
     CLOUD_AVAILABLE = False
+
+# ─── Run database migrations at startup (graceful on failure) ───
+if CLOUD_AVAILABLE:
+    _mig_conn = None
+    try:
+        _mig_conn = db_get_conn(cloud_settings.DB_PATH)
+        _applied = run_migrations(_mig_conn)
+        if _applied:
+            print(f"Applied {len(_applied)} database migrations: {', '.join(_applied)}")
+    except Exception as e:
+        print(f"Warning: Database migrations failed (non-critical): {e}")
+        print("Server will continue, but cloud features may be degraded.")
+    finally:
+        if _mig_conn is not None:
+            try:
+                _mig_conn.close()
+            except Exception:
+                pass
 
 # ─── App ───
 app = FastAPI(
@@ -200,6 +235,12 @@ class TrackerAddRequest(BaseModel):
     hr_score: float = Field(0.0, description="HR score")
     llm_score: float = Field(0.0, description="LLM score")
     notes: str = Field("", description="Notes")
+    applied_at: Optional[str] = Field(None, description="Date the application was submitted (ISO date/datetime)")
+    jd_ref: Optional[str] = Field(None, description="Reference/filename for the job description used")
+    target_tier: Optional[str] = Field(None, description="IC | Sr | Manager | AD | Director")
+    fit_label: Optional[str] = Field(None, description="MEETS | STRETCH | MISS (from job_fit_scorer)")
+    hard_reqs_missed: Optional[int] = Field(None, description="Count of hard-requirement knockouts at apply time")
+    referral_source: Optional[str] = Field(None, description="cold | alumni | recruiter | network | referral")
 
 
 class TrackerUpdateRequest(BaseModel):
@@ -208,6 +249,55 @@ class TrackerUpdateRequest(BaseModel):
     notes: Optional[str] = None
     resume_file: Optional[str] = None
     cover_letter_file: Optional[str] = None
+    applied_at: Optional[str] = None
+    jd_ref: Optional[str] = None
+    target_tier: Optional[str] = None
+    fit_label: Optional[str] = None
+    hard_reqs_missed: Optional[int] = None
+    referral_source: Optional[str] = None
+
+
+# Tracker classification whitelists. SQLite ALTER TABLE cannot add CHECK
+# constraints (see cloud/db.py migrations), so valid values are enforced
+# here, at the API boundary, instead.
+_VALID_TARGET_TIERS = {"IC", "Sr", "Manager", "AD", "Director"}
+_VALID_FIT_LABELS = {"MEETS", "STRETCH", "MISS"}
+_VALID_REJECTION_REASONS = {
+    "no_response", "auto_reject", "screen_reject",
+    "interview_reject", "offer_declined", "withdrawn",
+}
+
+
+def _validate_tracker_classification(target_tier, fit_label, hard_reqs_missed) -> None:
+    """Raise HTTP 422 with a clear detail if a tracker classification field is
+    invalid. None always passes for every field here — they're all optional."""
+    if target_tier is not None and target_tier not in _VALID_TARGET_TIERS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"target_tier must be one of {sorted(_VALID_TARGET_TIERS)} or null; got {target_tier!r}.",
+        )
+    if fit_label is not None and fit_label not in _VALID_FIT_LABELS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"fit_label must be one of {sorted(_VALID_FIT_LABELS)} or null; got {fit_label!r}.",
+        )
+    if hard_reqs_missed is not None and hard_reqs_missed < 0:
+        raise HTTPException(
+            status_code=422,
+            detail=f"hard_reqs_missed must be an integer >= 0 or null; got {hard_reqs_missed!r}.",
+        )
+
+
+class TrackerOutcomeRequest(BaseModel):
+    """Record a terminal (or interview-stage) outcome for a tracker entry."""
+    rejection_reason: str = Field(..., description=(
+        "no_response | auto_reject | screen_reject | interview_reject | "
+        "offer_declined | withdrawn"
+    ))
+    interview_stage: Optional[int] = Field(
+        None, description="0=applied, 1=phone screen, 2=hiring mgr, 3=panel, 4=onsite, 5=offer"
+    )
+    detail: Optional[str] = Field(None, description="Free-text note about the outcome")
 
 
 class FetchJDRequest(BaseModel):
@@ -222,6 +312,34 @@ class ResumeUploadRequest(BaseModel):
     resume_text: Optional[str] = Field(None, description="Plain text resume content")
     resume_file: Optional[str] = Field(None, description="Base64-encoded file (PDF/DOCX/TXT)")
     resume_filename: Optional[str] = Field(None, description="Original filename for format detection")
+
+
+class AgentTailorRequest(BaseModel):
+    """Enqueue an async tailored-resume run (POST /agent/tailor)."""
+    jd_text: Optional[str] = Field(None, description="Job description text")
+    application_id: Optional[int] = Field(
+        None, description="Tracker entry to read a stored job description from, if jd_text is omitted"
+    )
+    instruction: Optional[str] = Field(None, description="Optional free-text guidance for this run")
+    resume_text: Optional[str] = Field(
+        None, description="Optional one-off resume text for this run only; never saved to the account"
+    )
+
+
+class AgentCoverLetterRequest(BaseModel):
+    """Enqueue an async cover-letter run (POST /agent/cover-letter)."""
+    jd_text: Optional[str] = Field(None, description="Job description text")
+    application_id: Optional[int] = Field(
+        None, description="Tracker entry to read a stored job description from, if jd_text is omitted"
+    )
+    instruction: Optional[str] = Field(
+        None, description="Accepted for shape parity with /agent/tailor; not yet wired into generation"
+    )
+    resume_text: Optional[str] = Field(
+        None, description="Optional one-off resume text for this run only; never saved to the account"
+    )
+    company_name: str = Field("", description="Company name (auto-detected if empty)")
+    job_title: str = Field("", description="Job title (auto-detected if empty)")
 
 
 class APIKeyRequest(BaseModel):
@@ -776,9 +894,67 @@ def _get_penalty_mitigation(penalty_name: str) -> str:
 # ENDPOINTS — v2.0 (text input, caching, explanations)
 # =============================================================================
 
+_agent_key_state: Dict[str, Any] = {"checked": False, "status": "unchecked", "detail": None}
+
+
+def _agent_key_status() -> Dict[str, Any]:
+    """Report whether the Anthropic key is present AND actually accepted.
+
+    'Configured' is not the same as 'working'. A revoked key is a non-empty
+    string that passes every local check and fails only when the API is
+    finally called -- which, for this deployment, meant a key died in March
+    and nobody found out until August, because the endpoint that would have
+    used it was a 409 stub and nothing else ever touched it.
+
+    So this makes one real request (cheapest model, one output token,
+    a fraction of a cent) the first time it is asked, then caches the answer
+    for the life of the process. A deploy restarts the process, so every
+    deploy re-checks. Health checks poll this endpoint every 30s and must
+    stay fast, hence the cache.
+
+    A dead key is REPORTED, never fatal: the free tier, billing, tracker,
+    and job search do not touch Anthropic, and failing the health check
+    would have Fly kill a machine that is serving all of them correctly.
+    """
+    if _agent_key_state["checked"]:
+        return {"status": _agent_key_state["status"], "detail": _agent_key_state["detail"]}
+
+    key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    if not key:
+        _agent_key_state.update(checked=True, status="missing",
+                                detail="ANTHROPIC_API_KEY is not set.")
+    else:
+        try:
+            import anthropic
+
+            anthropic.Anthropic(api_key=key).messages.create(
+                model="claude-haiku-4-5",
+                max_tokens=1,
+                messages=[{"role": "user", "content": "ping"}],
+            )
+            _agent_key_state.update(checked=True, status="ok", detail=None)
+        except ImportError:
+            _agent_key_state.update(checked=True, status="unavailable",
+                                    detail="anthropic SDK is not installed.")
+        except Exception as exc:  # noqa: BLE001 -- any failure is a report, not a crash
+            name = type(exc).__name__
+            if "Authentication" in name or "PermissionDenied" in name:
+                detail = "ANTHROPIC_API_KEY is rejected by the API (invalid or revoked)."
+            elif "RateLimit" in name:
+                # Transient: don't cache, so the next poll re-checks.
+                return {"status": "rate_limited",
+                        "detail": "Rate limited while checking; will retry."}
+            else:
+                detail = f"Anthropic API unreachable ({name})."
+            _agent_key_state.update(checked=True, status="invalid", detail=detail)
+
+    return {"status": _agent_key_state["status"], "detail": _agent_key_state["detail"]}
+
+
 @app.get("/health")
 def health():
     """Server status, model availability, and usage stats."""
+    agent_key = _agent_key_status()
     return {
         "status": "ok",
         "version": "3.0.0",
@@ -794,6 +970,13 @@ def health():
         },
         "job_discovery": {
             "adzuna_configured": bool(os.getenv("ADZUNA_APP_ID")) and bool(os.getenv("ADZUNA_APP_KEY")),
+        },
+        # Paid AI features (tailoring, cover letters). "ok" here means the key
+        # was actually accepted by Anthropic, not merely that it is non-empty.
+        "agent": {
+            "api_key": agent_key["status"],
+            "detail": agent_key["detail"],
+            "features_available": agent_key["status"] == "ok",
         },
         "cache_size": len(_score_cache),
         "auth_required": _config["require_auth"],
@@ -1548,17 +1731,123 @@ async def coach_redflags(req: RedFlagCoachRequest):
 
 
 # =============================================================================
-# LEGACY RESUME REWRITING — DISABLED
+# RESUME REWRITE — thin wrapper around the audited agent pipeline
 # =============================================================================
 
+_TAILOR_UNAVAILABLE_DETAIL = (
+    "We couldn't finish tailoring your resume just now. Please try again in "
+    "a few minutes."
+)
+
+
+def _friendly_tier_required_detail(feature: str) -> str:
+    return f"{feature} requires a Pro ($12/month) or Ultra ($29/month) subscription."
+
+
+def _safe_agent_scores(ctx: "agent_tools.ToolContext", resume_text: str, jd_text: str):
+    """Best-effort ATS/HR score for a piece of resume text. Never raises --
+    a scoring hiccup must not take down an otherwise-successful rewrite."""
+    try:
+        scored = agent_tools.dispatch(
+            "score_resume", ctx, resume_text=resume_text, jd_text=jd_text
+        )
+        return scored.get("ats_score"), scored.get("hr_score")
+    except Exception:
+        return None, None
+
+
 @app.post("/rewrite")
-async def rewrite_resume_endpoint(req: ScoreRequest, request: Request):
+async def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
     """
-    Reject the legacy REST rewrite path before auth usage, input resolution,
-    scoring, model access, streaming, or output construction.
+    Tailor the caller's resume via the audited four-role Resume Team pipeline
+    (agent.tools.run_resume_team) and return it in the legacy REST shape the
+    deployed PWA's Ultra "Rewrite" feature already reads:
+    ``{"rewritten_resume": str, "ats_before", "ats_after", "hr_before",
+    "hr_after"}`` (scores are null when unavailable, but ``rewritten_resume``
+    is always present on a 200).
+
+    403 for free tier, 402 for an exhausted Pro/Ultra monthly quota, 400 when
+    no resume text is available from either the request or the account, and
+    a 5xx with no internal error codes if the pipeline runs but does not
+    publish a draft.
     """
-    del req, request
-    return JSONResponse(status_code=409, content=native_resume_team_required_response())
+    if not CLOUD_AVAILABLE or not isinstance(auth, dict):
+        raise HTTPException(
+            status_code=501, detail="Resume tailoring requires cloud authentication."
+        )
+
+    user_id = auth["user_id"]
+    tier = auth.get("tier", "free")
+
+    if tier not in ("pro", "ultra"):
+        raise HTTPException(
+            status_code=403,
+            detail=_friendly_tier_required_detail("Tailored resume rewriting"),
+        )
+
+    jd_text = (req.jd_text or "").strip()
+    if not jd_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Include the job description you want this resume tailored for.",
+        )
+
+    provided_resume = (req.resume_text or "").strip()
+    if provided_resume:
+        # A resume_text in the request is a ONE-OFF source for this call
+        # only. It is passed straight through to run_resume_team, which
+        # tailors from it directly without ever touching the account's
+        # saved resume (see agent/tools.py) -- this is what makes "request
+        # resume_text if provided" take effect without silently clobbering
+        # a carefully maintained saved resume.
+        source_resume_text = provided_resume
+    else:
+        record = _get_resume_db(user_id)
+        if not record or not record.get("resume_text"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "We don't have a resume on file for your account yet. "
+                    "Upload one, or include resume_text with this request."
+                ),
+            )
+        source_resume_text = record["resume_text"]
+
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        ctx = agent_tools.ToolContext(
+            user_id=user_id, tier=tier, conn=conn, run_id=str(uuid.uuid4())
+        )
+        try:
+            result = agent_tools.dispatch(
+                "run_resume_team",
+                ctx,
+                jd_text=jd_text,
+                resume_text=provided_resume or None,
+            )
+        except QuotaExceeded as exc:
+            raise HTTPException(status_code=402, detail=exc.detail)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
+
+        if result.get("status") != "succeeded" or not result.get("draft"):
+            raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
+
+        draft_text = result["draft"]
+        ats_before, hr_before = _safe_agent_scores(ctx, source_resume_text, jd_text)
+        ats_after, hr_after = _safe_agent_scores(ctx, draft_text, jd_text)
+    finally:
+        conn.close()
+
+    return JSONResponse(content={
+        "rewritten_resume": draft_text,
+        "ats_before": ats_before,
+        "ats_after": ats_after,
+        "hr_before": hr_before,
+        "hr_after": hr_after,
+    })
 
 
 # =============================================================================
@@ -1566,50 +1855,400 @@ async def rewrite_resume_endpoint(req: ScoreRequest, request: Request):
 # =============================================================================
 
 
+_COVER_LETTER_UNAVAILABLE_DETAIL = (
+    "We couldn't generate your cover letter just now. Please try again in a "
+    "few minutes."
+)
+
+
 @app.post("/cover-letter")
 async def cover_letter_endpoint(req: CoverLetterRequest, auth=Depends(verify_api_key_with_usage)):
-    """Generate a tailored cover letter. Requires Pro or Ultra tier."""
-    # Enforce tier
-    if CLOUD_AVAILABLE and isinstance(auth, dict):
-        tier = auth.get("tier", "free")
-        if tier not in ("pro", "ultra"):
-            raise HTTPException(
-                status_code=403,
-                detail="Cover letter generation requires a Pro ($12/month) or Ultra ($29/month) subscription.",
-            )
+    """Generate a tailored cover letter via agent.tools.run_cover_letter.
 
-    # Auto-fill saved resume if none provided
-    if not req.resume_text and CLOUD_AVAILABLE and isinstance(auth, dict):
-        record = _get_resume_db(auth["user_id"])
-        if record:
-            req = req.model_copy(update={"resume_text": record["resume_text"]})
+    Requires Pro or Ultra tier. Response shape is unchanged from the prior
+    direct-generation implementation (paragraphs/full_text/company/
+    job_title/word_count) -- only the path producing it changed, so both
+    the PWA and mcp_scorer.py's cloud fallback (which checks for
+    "paragraphs" in the response) keep working. Quota is now enforced (Pro:
+    30/month, Ultra: 1000/month -- see cloud/quotas.py) and every run is
+    recorded in agent_runs, matching /rewrite.
+    """
+    if not CLOUD_AVAILABLE or not isinstance(auth, dict):
+        raise HTTPException(
+            status_code=501, detail="Cover letter generation requires cloud authentication."
+        )
 
-    if not req.resume_text:
-        raise HTTPException(status_code=400, detail="Provide resume_text or upload a resume via POST /resume/upload.")
+    user_id = auth["user_id"]
+    tier = auth.get("tier", "free")
+    if tier not in ("pro", "ultra"):
+        raise HTTPException(
+            status_code=403,
+            detail=_friendly_tier_required_detail("Cover letter generation"),
+        )
+
+    jd_text = (req.jd_text or "").strip()
+    if not jd_text:
+        raise HTTPException(status_code=400, detail="Provide jd_text for the job description.")
+
+    provided_resume = (req.resume_text or "").strip()
+    if not provided_resume and not _get_resume_db(user_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide resume_text or upload a resume via POST /resume/upload.",
+        )
+    # A resume_text in the request is a ONE-OFF source for this call only --
+    # passed straight through to run_cover_letter (mirrors /rewrite), which
+    # never touches the account's saved resume (see agent/tools.py).
 
     _log_score_usage(auth, "/cover-letter")
 
+    conn = db_get_conn(cloud_settings.DB_PATH)
     try:
-        from llm_scorer import generate_cover_letter, ANTHROPIC_AVAILABLE
-        if not ANTHROPIC_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Cover letter generation unavailable — anthropic package not installed.")
+        ctx = agent_tools.ToolContext(
+            user_id=user_id, tier=tier, conn=conn, run_id=str(uuid.uuid4())
+        )
+        try:
+            result = agent_tools.dispatch(
+                "run_cover_letter", ctx,
+                jd_text=jd_text, company=req.company_name, title=req.job_title,
+                resume_text=provided_resume or None,
+            )
+        except QuotaExceeded as exc:
+            raise HTTPException(status_code=402, detail=exc.detail)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=502, detail=_COVER_LETTER_UNAVAILABLE_DETAIL)
+    finally:
+        conn.close()
 
-        result = generate_cover_letter(
-            resume_text=req.resume_text,
-            jd_text=req.jd_text,
-            company_name=req.company_name,
-            job_title=req.job_title,
+    if result.get("status") != "succeeded" or not result.get("full_text"):
+        raise HTTPException(status_code=502, detail=_COVER_LETTER_UNAVAILABLE_DETAIL)
+
+    return JSONResponse(content={
+        "full_text": result["full_text"],
+        "paragraphs": result.get("paragraphs", []),
+        "company": result.get("company"),
+        "job_title": result.get("job_title"),
+        "word_count": result.get("word_count"),
+    })
+
+
+# =============================================================================
+# ASYNC AGENT RUNS — POST /agent/tailor, /agent/cover-letter; GET /agent/runs/{id}
+#
+# Task 10: queue-and-poll twins of /rewrite and /cover-letter above. The
+# enqueue handlers do the auth/tier/quota checks synchronously (so a refused
+# request never creates an agent_runs row) and then hand the actual work to
+# a FastAPI background task, which calls the exact same agent.tools
+# functions /rewrite and /cover-letter already use. See agent/runner.py's
+# module docstring for why the background helpers below call
+# agent_tools.dispatch(...) directly rather than agent_runner.create_run()/
+# finish_run() -- those tool functions already own the full agent_runs
+# bookkeeping for this run_id; wrapping them in agent_runner's primitives
+# too would insert/update the same primary key twice.
+# =============================================================================
+
+
+def _agent_enqueue_precheck(auth, feature: str) -> tuple:
+    """Shared auth/tier gate for the two POST /agent/* enqueue handlers.
+
+    Mirrors /rewrite and /cover-letter's own checks exactly, so a free or
+    anonymous caller sees the identical 501/403 behavior whether they hit
+    the sync or the async entry point.
+    """
+    if not CLOUD_AVAILABLE or not isinstance(auth, dict):
+        raise HTTPException(
+            status_code=501, detail="This feature requires cloud authentication."
+        )
+    # An anonymous caller can never be pro/ultra, so the tier gate below would
+    # refuse them anyway -- but 401 is the truthful answer ("sign in"), and it
+    # keeps the anonymous bucket from ever reaching a per-account code path.
+    if auth.get("anonymous"):
+        raise HTTPException(status_code=401, detail="Sign in to use this feature.")
+    user_id = auth["user_id"]
+    tier = auth.get("tier", "free")
+    if tier not in ("pro", "ultra"):
+        raise HTTPException(status_code=403, detail=_friendly_tier_required_detail(feature))
+    return user_id, tier
+
+
+def _resolve_agent_jd_text(user_id: int, jd_text: Optional[str], application_id: Optional[int]) -> str:
+    """Resolve the job description text for an async /agent/* enqueue call.
+
+    Prefers an explicit ``jd_text``. Falls back to ``application_id``, read
+    scoped to the caller from job_applications.jd_ref -- the only
+    per-application job-description reference the schema stores today (see
+    cloud/db.py's job_applications table). This is a known v1
+    simplification: jd_ref is documented elsewhere as a bare
+    filename/reference rather than guaranteed full JD text, so this path
+    only helps a caller that has actually stored real text there itself.
+    """
+    text = (jd_text or "").strip()
+    if text:
+        return text
+    if application_id is None:
+        raise HTTPException(status_code=400, detail="Provide jd_text or application_id.")
+
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        row = scoped(conn, user_id).q(
+            "SELECT jd_ref FROM job_applications WHERE id = :application_id AND user_id = :user_id",
+            {"application_id": application_id},
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    stored = (row["jd_ref"] or "").strip()
+    if not stored:
+        raise HTTPException(
+            status_code=400,
+            detail="No job description is stored for this application. Provide jd_text.",
+        )
+    return stored
+
+
+def _reserve_agent_run_slot(
+    user_id: int, tier: str, action: str, run_id: str,
+    jd_text: str, instruction: Optional[str],
+) -> None:
+    """Atomically verify quota AND claim the slot, in one write transaction.
+
+    Checking the quota without claiming anything is not enough. month_usage()
+    counts agent_runs rows, and on the async path the row was previously not
+    written until the BackgroundTasks callable ran -- i.e. after the 202 had
+    already been sent. Every request that arrived inside that window read the
+    same stale count and was admitted, so a burst bought far more paid runs
+    than the plan allows (measured: 25 accepted against a limit of 10).
+
+    BEGIN IMMEDIATE takes SQLite's RESERVED lock up front, so concurrent
+    enqueues serialize here: each one sees the rows its predecessors claimed.
+    The row is written as 'queued', which also means GET /agent/runs/{run_id}
+    can answer honestly the instant the caller gets its run_id, instead of
+    404ing until the background task happened to reach its own insert.
+
+    Raises 402 (naming the limit via QuotaExceeded's own friendly detail)
+    without leaving a row behind.
+    """
+    import multi_agent_team  # local: keeps the heavy pipeline import off startup
+
+    input_ref = multi_agent_team.canonical_digest(jd_text)
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        conn.commit()  # ensure no implicit transaction is already open
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            check_quota(conn, user_id, tier, action)
+            agent_tools._insert_agent_run(
+                conn, user_id, run_id, action,
+                input_ref=input_ref,
+                instruction=instruction,
+            )
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=402, detail=exc.detail)
+    finally:
+        conn.close()
+
+
+_FIT_REJECTED_DETAIL = (
+    "This role asks for more than your saved resume shows, so we stopped "
+    "rather than stretch your experience to fit it. Nothing was used from "
+    "your monthly allowance. Try a role that lines up more closely with your "
+    "background, or update your saved resume if it is out of date."
+)
+
+
+def _friendly_agent_error(kind: str, error_code: Optional[str] = None) -> str:
+    """Translate an internal agent_runs.error code into jargon-free copy.
+
+    Raw codes are never surfaced -- 'FAILED:AGENT_UNAVAILABLE',
+    'HUMAN_VOICE_AUDIT_FAILED' and friends name model and pipeline internals
+    that mean nothing to an end user.
+
+    But one internal outcome is not an error at all, and hiding it behind the
+    generic copy actively misled people: REJECTED:CANDIDATE_FIT means the
+    deterministic preflight judged the candidate too far from the role. Told
+    'please try again in a few minutes', a user retries and gets the byte-for-
+    byte identical refusal, because nothing about that verdict is transient.
+    They conclude the product is broken rather than learning what it decided.
+
+    So a fit rejection gets its own honest message. Everything else keeps the
+    generic transient copy, which for those codes is accurate.
+    """
+    if error_code and str(error_code).startswith("REJECTED:CANDIDATE_FIT"):
+        return _FIT_REJECTED_DETAIL
+    if kind == "cover_letter":
+        return _COVER_LETTER_UNAVAILABLE_DETAIL
+    return _TAILOR_UNAVAILABLE_DETAIL
+
+
+def _run_tailor_in_background(
+    run_id: str, user_id: int, tier: str, jd_text: str,
+    instruction: Optional[str], resume_text: Optional[str],
+) -> None:
+    """Background execution for POST /agent/tailor.
+
+    Opens its OWN fresh connection -- a request-scoped connection must never
+    cross into a BackgroundTasks callable. Starlette runs a plain ``def``
+    background callable via a worker thread pool, and cloud.db.get_conn()
+    does not pass ``check_same_thread=False``, so a connection created on
+    the request's thread would raise the moment this thread touched it.
+    """
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        # slot_reserved: the enqueue handler already claimed this run's quota
+        # slot and wrote its agent_runs row atomically.
+        ctx = agent_tools.ToolContext(
+            user_id=user_id, tier=tier, conn=conn, run_id=run_id, slot_reserved=True,
+        )
+        agent_tools.dispatch(
+            "run_resume_team", ctx,
+            jd_text=jd_text, instruction=instruction, resume_text=resume_text,
+        )
+    except Exception as exc:  # noqa: BLE001 -- fire-and-forget background task
+        # run_resume_team already converts every internal failure into a
+        # recorded 'failed' agent_runs row and returns normally rather than
+        # raising. Anything that still escapes here (e.g. a DB error before
+        # any row was written) has no HTTP response left to report to, and
+        # no row to mark failed -- there is nothing to roll back, so it is
+        # safe to drop after logging for operability.
+        print(f"[/agent/tailor background] run {run_id} did not record a result: {exc}")
+    finally:
+        conn.close()
+
+
+def _run_cover_letter_in_background(
+    run_id: str, user_id: int, tier: str, jd_text: str,
+    resume_text: Optional[str], company: Optional[str], title: Optional[str],
+) -> None:
+    """Background execution for POST /agent/cover-letter. See
+    _run_tailor_in_background's docstring -- same fresh-connection and
+    no-double-record rules apply."""
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        # slot_reserved: the enqueue handler already claimed this run's quota
+        # slot and wrote its agent_runs row atomically.
+        ctx = agent_tools.ToolContext(
+            user_id=user_id, tier=tier, conn=conn, run_id=run_id, slot_reserved=True,
+        )
+        agent_tools.dispatch(
+            "run_cover_letter", ctx,
+            jd_text=jd_text, company=company, title=title, resume_text=resume_text,
+        )
+    except Exception as exc:  # noqa: BLE001 -- fire-and-forget background task
+        print(f"[/agent/cover-letter background] run {run_id} did not record a result: {exc}")
+    finally:
+        conn.close()
+
+
+@app.post("/agent/tailor")
+def agent_tailor_enqueue(
+    req: AgentTailorRequest, background_tasks: BackgroundTasks, auth=Depends(verify_api_key)
+):
+    """Enqueue an async tailored-resume run.
+
+    Returns immediately with a run_id to poll via GET /agent/runs/{run_id};
+    the audited four-role pipeline (agent.tools.run_resume_team) executes
+    afterward in a FastAPI background task. 401 unauthenticated, 403 for free
+    tier, 402 for an exhausted Pro/Ultra monthly quota, 400 for missing input
+    -- none of these create an agent_runs row. A successful enqueue claims its
+    quota slot before returning (see _reserve_agent_run_slot), so the run is
+    immediately pollable as 'queued'.
+    """
+    user_id, tier = _agent_enqueue_precheck(auth, "Tailored resume rewriting")
+    jd_text = _resolve_agent_jd_text(user_id, req.jd_text, req.application_id)
+
+    provided_resume = (req.resume_text or "").strip()
+    if not provided_resume and not _get_resume_db(user_id):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "We don't have a resume on file for your account yet. "
+                "Upload one, or include resume_text with this request."
+            ),
         )
 
-        if result.get("error"):
-            raise HTTPException(status_code=500, detail=result["error"])
+    run_id = agent_runner.new_run_id()
+    _reserve_agent_run_slot(user_id, tier, "tailor", run_id, jd_text, req.instruction)
 
-        return JSONResponse(content=result)
+    background_tasks.add_task(
+        _run_tailor_in_background,
+        run_id, user_id, tier, jd_text, req.instruction, provided_resume or None,
+    )
+    return JSONResponse(status_code=202, content={"run_id": run_id})
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Cover letter generation failed: {str(e)}")
+
+@app.post("/agent/cover-letter")
+def agent_cover_letter_enqueue(
+    req: AgentCoverLetterRequest, background_tasks: BackgroundTasks,
+    auth=Depends(verify_api_key_with_usage),
+):
+    """Enqueue an async cover-letter run. See agent_tailor_enqueue above --
+    identical enqueue-time gating, executing agent.tools.run_cover_letter in
+    the background instead.
+    """
+    user_id, tier = _agent_enqueue_precheck(auth, "Cover letter generation")
+    jd_text = _resolve_agent_jd_text(user_id, req.jd_text, req.application_id)
+
+    provided_resume = (req.resume_text or "").strip()
+    if not provided_resume and not _get_resume_db(user_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide resume_text or upload a resume via POST /resume/upload.",
+        )
+
+    run_id = agent_runner.new_run_id()
+    _reserve_agent_run_slot(user_id, tier, "cover_letter", run_id, jd_text, None)
+    _log_score_usage(auth, "/agent/cover-letter")
+
+    background_tasks.add_task(
+        _run_cover_letter_in_background,
+        run_id, user_id, tier, jd_text, provided_resume or None,
+        req.company_name or None, req.job_title or None,
+    )
+    return JSONResponse(status_code=202, content={"run_id": run_id})
+
+
+@app.get("/agent/runs/{run_id}")
+def agent_run_status(run_id: str, auth=Depends(verify_api_key)):
+    """Poll the status of an async /agent/* run.
+
+    Returns ``{"status", "result", "error"}``. 404s for both an unknown
+    run_id and a run_id owned by a different user -- this endpoint must
+    never reveal whether a foreign run_id exists. ``error`` is always fixed,
+    jargon-free copy (see _friendly_agent_error) -- the internal terminal
+    class stored on the row is never echoed back to the caller.
+    """
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Agent runs are unavailable.")
+
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        row = agent_runner.get_run(conn, user_id, run_id)
+    finally:
+        conn.close()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Run not found.")
+
+    status = row["status"]
+    return {
+        "status": status,
+        "result": row["result"] if status == "succeeded" else None,
+        "error": (
+            _friendly_agent_error(row["kind"], row["error"])
+            if status == "failed"
+            else None
+        ),
+    }
 
 
 # =============================================================================
@@ -1759,16 +2398,20 @@ def tracker_add(req: TrackerAddRequest, auth=Depends(verify_api_key)):
         raise HTTPException(status_code=401, detail="Authentication required to use the tracker.")
     if not CLOUD_AVAILABLE:
         raise HTTPException(status_code=503, detail="Tracker unavailable — cloud auth not configured.")
+    _validate_tracker_classification(req.target_tier, req.fit_label, req.hard_reqs_missed)
     from cloud.auth import get_db
     with get_db() as conn:
         cur = conn.execute(
             """INSERT INTO job_applications
                (user_id, company, job_title, status, resume_file, cover_letter_file,
-                ats_score, hr_score, llm_score, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ats_score, hr_score, llm_score, notes,
+                applied_at, jd_ref, target_tier, fit_label, hard_reqs_missed, referral_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_id, req.company, req.job_title, req.status,
              req.resume_file, req.cover_letter_file,
-             req.ats_score, req.hr_score, req.llm_score, req.notes),
+             req.ats_score, req.hr_score, req.llm_score, req.notes,
+             req.applied_at, req.jd_ref, req.target_tier, req.fit_label,
+             req.hard_reqs_missed, req.referral_source),
         )
         return {"id": cur.lastrowid, "status": "added"}
 
@@ -1785,9 +2428,12 @@ def tracker_list(auth=Depends(verify_api_key)):
     with get_db() as conn:
         rows = conn.execute(
             """SELECT id, company, job_title, status, resume_file, cover_letter_file,
-                      ats_score, hr_score, llm_score, notes, created_at, updated_at
+                      ats_score, hr_score, llm_score, notes, created_at, updated_at,
+                      applied_at, jd_ref, target_tier, fit_label, hard_reqs_missed,
+                      referral_source, rejection_reason, rejection_detail,
+                      interview_stage, responded_at, closed_at
                FROM job_applications WHERE user_id = ?
-               ORDER BY created_at DESC""",
+               ORDER BY updated_at DESC, created_at DESC""",
             (user_id,),
         ).fetchall()
     return {"applications": [dict(r) for r in rows]}
@@ -1795,12 +2441,13 @@ def tracker_list(auth=Depends(verify_api_key)):
 
 @app.put("/tracker/{entry_id}")
 def tracker_update(entry_id: int, req: TrackerUpdateRequest, auth=Depends(verify_api_key)):
-    """Update status / notes for a tracker entry owned by the user."""
+    """Update status / notes / classification fields for a tracker entry owned by the user."""
     user_id = _get_user_id(auth)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Authentication required.")
     if not CLOUD_AVAILABLE:
         raise HTTPException(status_code=503, detail="Tracker unavailable.")
+    _validate_tracker_classification(req.target_tier, req.fit_label, req.hard_reqs_missed)
     from cloud.auth import get_db
     updates = {}
     if req.status is not None:
@@ -1811,6 +2458,18 @@ def tracker_update(entry_id: int, req: TrackerUpdateRequest, auth=Depends(verify
         updates["resume_file"] = req.resume_file
     if req.cover_letter_file is not None:
         updates["cover_letter_file"] = req.cover_letter_file
+    if req.applied_at is not None:
+        updates["applied_at"] = req.applied_at
+    if req.jd_ref is not None:
+        updates["jd_ref"] = req.jd_ref
+    if req.target_tier is not None:
+        updates["target_tier"] = req.target_tier
+    if req.fit_label is not None:
+        updates["fit_label"] = req.fit_label
+    if req.hard_reqs_missed is not None:
+        updates["hard_reqs_missed"] = req.hard_reqs_missed
+    if req.referral_source is not None:
+        updates["referral_source"] = req.referral_source
     if not updates:
         return {"status": "no_change"}
     updates["updated_at"] = "datetime('now')"
@@ -1845,9 +2504,252 @@ def tracker_delete(entry_id: int, auth=Depends(verify_api_key)):
     return {"status": "deleted"}
 
 
+@app.post("/tracker/{entry_id}/outcome")
+def tracker_outcome(entry_id: int, req: TrackerOutcomeRequest, auth=Depends(verify_api_key)):
+    """Record a rejection/withdrawal outcome for a tracker entry owned by the user.
+
+    Cross-user access returns 404 (never 403) so the endpoint never confirms
+    or denies that another user's entry_id exists.
+    """
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Tracker unavailable.")
+    if req.rejection_reason not in _VALID_REJECTION_REASONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"rejection_reason must be one of {sorted(_VALID_REJECTION_REASONS)}; got {req.rejection_reason!r}.",
+        )
+    if req.interview_stage is not None and not (0 <= req.interview_stage <= 5):
+        raise HTTPException(
+            status_code=422,
+            detail=f"interview_stage must be an integer between 0 and 5, or null; got {req.interview_stage!r}.",
+        )
+
+    new_status = "Withdrawn" if req.rejection_reason == "withdrawn" else "Rejected"
+
+    from cloud.auth import get_db
+    with get_db() as conn:
+        owned = conn.execute(
+            "SELECT id FROM job_applications WHERE id = ? AND user_id = ?",
+            (entry_id, user_id),
+        ).fetchone()
+        if owned is None:
+            raise HTTPException(status_code=404, detail="Tracker entry not found.")
+
+        # Partial-update idiom (matches tracker_update): only touch
+        # rejection_detail/interview_stage when this call actually supplied
+        # them, so a repeat call that omits one doesn't null out a value a
+        # prior call recorded. responded_at is skipped entirely for
+        # no_response -- the company never replied, so nothing should stamp
+        # a reply time (that would fabricate a 100% response_rate and a
+        # bogus days-to-response value in /insights/pipeline).
+        set_clauses = ["rejection_reason = ?"]
+        values = [req.rejection_reason]
+        if req.detail is not None:
+            set_clauses.append("rejection_detail = ?")
+            values.append(req.detail)
+        if req.interview_stage is not None:
+            set_clauses.append("interview_stage = ?")
+            values.append(req.interview_stage)
+        if req.rejection_reason != "no_response":
+            set_clauses.append("responded_at = COALESCE(responded_at, datetime('now'))")
+        set_clauses.append("closed_at = datetime('now')")
+        set_clauses.append("status = ?")
+        values.append(new_status)
+        set_clauses.append("updated_at = datetime('now')")
+        values += [entry_id, user_id]
+
+        conn.execute(
+            f"UPDATE job_applications SET {', '.join(set_clauses)} WHERE id = ? AND user_id = ?",
+            values,
+        )
+        conn.execute(
+            """INSERT INTO events (user_id, application_id, kind, payload)
+               VALUES (?, ?, ?, ?)""",
+            (
+                user_id,
+                entry_id,
+                "outcome",
+                json.dumps({
+                    "rejection_reason": req.rejection_reason,
+                    "interview_stage": req.interview_stage,
+                    "detail": req.detail,
+                }),
+            ),
+        )
+
+    return {"id": entry_id, "status": "outcome_recorded", "new_status": new_status}
+
+
+# =============================================================================
+# PIPELINE INSIGHTS — deterministic SQL aggregates only, no LLM involved
+# =============================================================================
+
+_TRACKER_BREAKDOWN_COLUMNS = {"target_tier", "fit_label", "referral_source"}
+
+
+# --- what "rejected", "closed", and "responded" actually mean -----------------
+# Three aggregates were measuring things they did not claim to measure.
+#
+# rejected matched the literal string 'Rejected', but CLAUDE.md documents
+# "Rejected after phone screen" as a legitimate status and the Excel importer
+# copies whatever the spreadsheet said, so real rejections went uncounted. The
+# typed rejection_reason is the reliable signal; status is free text.
+#
+# closed/active keyed on closed_at, which is written by exactly one endpoint
+# (POST /tracker/{id}/outcome). Anything closed by any other path -- an
+# imported row, a status edit -- stayed "active" forever, so active could
+# exceed the total.
+#
+# responded counted responded_at, which is only ever set alongside a rejection.
+# The metric therefore could not exceed the rejection rate: a user with a 100%
+# interview rate and no rejections was shown 0%. What a job seeker means by
+# "they got back to me" is that the employer engaged at all -- an interview
+# stage reached, or any outcome other than silence.
+_REJECTED_SQL = (
+    "rejection_reason IN ('auto_reject', 'screen_reject', 'interview_reject')"
+)
+_CLOSED_SQL = "(closed_at IS NOT NULL OR rejection_reason IS NOT NULL)"
+_RESPONDED_SQL = (
+    "(responded_at IS NOT NULL"
+    " OR COALESCE(interview_stage, 0) > 0"
+    " OR (rejection_reason IS NOT NULL AND rejection_reason != 'no_response'))"
+)
+
+
+def _tracker_pipeline_breakdown(conn, user_id: int, column: str) -> Dict[str, Dict[str, Any]]:
+    """Group the caller's job_applications rows by one classification column.
+
+    `column` is never derived from request input — it is always one of the
+    three hardcoded literals in _TRACKER_BREAKDOWN_COLUMNS. SQLite has no way
+    to bind column/identifier names as query parameters (only values), so the
+    identifier has to be interpolated; the whitelist check below keeps that
+    safe by construction rather than by convention.
+    """
+    if column not in _TRACKER_BREAKDOWN_COLUMNS:
+        raise ValueError(f"unsupported breakdown column: {column!r}")
+    rows = conn.execute(
+        f"""SELECT {column} AS bucket,
+                   COUNT(*) AS cnt,
+                   SUM(CASE WHEN {_REJECTED_SQL} THEN 1 ELSE 0 END) AS rejected_cnt,
+                   SUM(CASE WHEN {_RESPONDED_SQL} THEN 1 ELSE 0 END) AS responded_cnt
+            FROM job_applications
+            WHERE user_id = ? AND {column} IS NOT NULL
+            GROUP BY {column}""",
+        (user_id,),
+    ).fetchall()
+    return {
+        r["bucket"]: {
+            "count": r["cnt"],
+            "rejected": r["rejected_cnt"],
+            "response_rate": round(r["responded_cnt"] / r["cnt"], 4) if r["cnt"] else 0.0,
+        }
+        for r in rows
+    }
+
+
+@app.get("/insights/pipeline")
+def insights_pipeline(auth=Depends(verify_api_key)):
+    """Deterministic SQL pipeline-health aggregates for the caller's tracker rows.
+
+    Pure aggregation, no LLM. Empty data returns zeros/nulls, never a crash.
+    """
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Insights unavailable.")
+
+    from cloud.auth import get_db
+    with get_db() as conn:
+        total = conn.execute(
+            "SELECT COUNT(*) AS c FROM job_applications WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()["c"]
+        rejected = conn.execute(
+            f"SELECT COUNT(*) AS c FROM job_applications WHERE user_id = ? AND {_REJECTED_SQL}",
+            (user_id,),
+        ).fetchone()["c"]
+        active = conn.execute(
+            f"SELECT COUNT(*) AS c FROM job_applications WHERE user_id = ? AND NOT {_CLOSED_SQL}",
+            (user_id,),
+        ).fetchone()["c"]
+
+        by_tier = _tracker_pipeline_breakdown(conn, user_id, "target_tier")
+        by_fit = _tracker_pipeline_breakdown(conn, user_id, "fit_label")
+        by_source = _tracker_pipeline_breakdown(conn, user_id, "referral_source")
+
+        reason_rows = conn.execute(
+            """SELECT rejection_reason, COUNT(*) AS c
+               FROM job_applications
+               WHERE user_id = ? AND rejection_reason IS NOT NULL
+               GROUP BY rejection_reason""",
+            (user_id,),
+        ).fetchall()
+        by_rejection_reason = {r["rejection_reason"]: r["c"] for r in reason_rows}
+
+        day_rows = conn.execute(
+            """SELECT (julianday(responded_at) - julianday(applied_at)) AS days
+               FROM job_applications
+               WHERE user_id = ? AND applied_at IS NOT NULL AND responded_at IS NOT NULL""",
+            (user_id,),
+        ).fetchall()
+
+    day_values = [r["days"] for r in day_rows if r["days"] is not None]
+    median_days = statistics.median(day_values) if day_values else None
+
+    return {
+        "totals": {"applications": total, "rejected": rejected, "active": active},
+        "by_tier": by_tier,
+        "by_fit": by_fit,
+        "by_source": by_source,
+        "median_days_to_response": median_days,
+        "by_rejection_reason": by_rejection_reason,
+    }
+
+
+@app.get("/insights/application/{entry_id}")
+def insights_application(entry_id: int, auth=Depends(verify_api_key)):
+    """Per-application insight placeholder.
+
+    LLM post-mortems land in Phase 2; for now this just confirms ownership
+    (404 for other users' rows) and returns a clean null.
+    """
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Insights unavailable.")
+
+    from cloud.auth import get_db
+    with get_db() as conn:
+        owned = conn.execute(
+            "SELECT id FROM job_applications WHERE id = ? AND user_id = ?",
+            (entry_id, user_id),
+        ).fetchone()
+    if owned is None:
+        raise HTTPException(status_code=404, detail="Tracker entry not found.")
+
+    return {"postmortem": None}
+
+
 def _get_user_id(auth) -> Optional[int]:
-    """Extract integer user_id from auth dict (JWT/API-key result)."""
+    """Extract the integer user_id of a REAL, authenticated account.
+
+    Returns None for anonymous callers even though verify_api_key mints them
+    a usable user_id. That anonymous identity is keyed on the caller-supplied
+    X-Client-Fingerprint header (falling back to client IP), so it is a
+    shared, spoofable bucket -- fine for metering free scores, never an
+    account. Every caller of this helper owns per-account data (tracker rows,
+    pipeline insights, agent runs); treating the anonymous bucket as an
+    account would let two callers who send the same fingerprint -- or who sit
+    behind one NAT address -- read and write each other's applications.
+    """
     if not isinstance(auth, dict):
+        return None
+    if auth.get("anonymous"):
         return None
     uid = auth.get("user_id")
     try:
@@ -1905,6 +2807,10 @@ if __name__ == "__main__":
     print(f"  POST /explain        — Score explanation")
     print(f"  POST /cover-letter   — Cover letter generation (Pro/Ultra)")
     print(f"  POST /jobs/discover  — Job discovery + scoring")
+    print(f"\n  Async Agent Endpoints:")
+    print(f"  POST /agent/tailor        — Enqueue a tailored-resume run (Pro/Ultra)")
+    print(f"  POST /agent/cover-letter  — Enqueue a cover-letter run (Pro/Ultra)")
+    print(f"  GET  /agent/runs/{{run_id}} — Poll an async agent run")
     print(f"\n  Auth & Billing Endpoints:")
     print(f"  POST /auth/register  — Create account")
     print(f"  POST /auth/login     — Login (returns JWT)")

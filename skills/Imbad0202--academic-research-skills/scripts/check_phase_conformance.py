@@ -11,6 +11,7 @@ Exit 0 pass, 2 contract/infra failure, 3 reviewer conformance failure.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import sys
@@ -21,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import check_panel_synthesis as panel  # noqa: E402
+import recompute_receipts as recompute  # noqa: E402
 
 EXIT_PASS = 0
 EXIT_CONTRACT = 2
@@ -58,6 +60,147 @@ _ANCHOR_DECL_RE = re.compile(
     re.IGNORECASE,
 )
 _FINDING_H3_RE = re.compile(r"^W[1-9]\d*: \S.*$")
+# --- #610 methodology arithmetic-receipt grammar -------------------------
+# Receipt machine lines are lowercase snake_case on purpose: they can never
+# collide with the finding grammar's bold `**Severity**:` / `**Evidence
+# Anchor**:` declarations, so the receipt section cannot trip the
+# outside-Review-Body severity gate and a finding cannot satisfy a receipt
+# field. Decoration tolerance is bounded to the two shapes the finding
+# grammar already accepts (one leading list marker, bold around the key).
+# The section is read fence-transparently (#637/#638 display-form
+# discipline): a fenced receipt line is still content, so a stylistic fence
+# neither hides a receipt nor turns one into a false abort, and any other
+# decoration of a field-shaped line is detected and aborts loudly instead of
+# silently passing a forbidden-field guard or failing a required count.
+_RECEIPT_SECTION = "Arithmetic Receipts"
+_RECEIPT_H3_RE = re.compile(r"^AR[1-9]\d*$")
+_RECEIPT_PROCEDURES = frozenset(
+    {"p_from_test_statistic", "grim", "grimmer", "n_from_df"}
+)
+_RECEIPT_STATUSES = frozenset(
+    {"consistent", "mismatch", "not_computable", "not_applicable"}
+)
+_NOT_COMPUTABLE_REASONS = frozenset({
+    "missing_reported_value",
+    "test_family_ambiguous",
+    "tail_ambiguous",
+    "nonstandard_p_procedure",
+    "inequality_unresolvable",
+    "rounding_rule_ambiguous",
+    "rounding_boundary_ambiguous",
+    "scale_granularity_unknown",
+    "scale_support_unknown",
+    "analytic_n_ambiguous",
+    "aggregation_or_weighting_unknown",
+    "sd_convention_unknown",
+    "mean_grim_inconsistent",
+    "df_identity_ambiguous",
+    "model_correction_or_pooling",
+    "reachability_not_completed",
+})
+_TAIL_CONVENTIONS = frozenset(
+    {"two-tailed", "one-tailed", "upper-tail", "unstated"}
+)
+
+
+def _receipt_field_re(key: str) -> re.Pattern[str]:
+    # Bold is balanced-or-absent: a half-bold `**key:` is a decorated line
+    # for the shape guard to abort, never a canonical field (#610 round-2).
+    return re.compile(
+        rf"^(?:[-*] )?(?:{key}|\*\*{key}\*\*): (?P<value>\S.*?)\s*$"
+    )
+
+
+_RECEIPT_FIELD_RES = {
+    key: _receipt_field_re(key)
+    for key in (
+        "procedure_id",
+        "evidence_anchor",
+        "reported_inputs",
+        "assumptions",
+        "derivation",
+        "derived_value_or_range",
+        "comparison_rule",
+        "status",
+        "not_computable_reason",
+        "finding_ref",
+        "tail_convention",
+        "rounding_interval",
+        "nearest_achievable",
+        "df_identity",
+    )
+}
+_RECEIPT_ATTESTATION_RE = _receipt_field_re("no_recomputable_statistics")
+_RECEIPT_ATTESTATION_ADVISORY = (
+    "[RECEIPT-ATTESTATION: declaration-only — applicability not "
+    "machine-verified; adjudication judges the attestation]"
+)
+# Folded field-name alphabets for the decoration-agnostic shape test, the
+# same construction as `_is_dissent_field_shaped`: a line is receipt-field-
+# shaped when the letters before its first colon spell a field name after
+# markup-span strip + NFKC fold. A shaped line that the canonical grammar
+# does not parse is a loud abort, never a silently ignored decoration.
+_RECEIPT_FIELD_SHAPE_NAMES = frozenset(
+    "".join(char for char in key if char.isalpha())
+    for key in (*_RECEIPT_FIELD_RES, "no_recomputable_statistics")
+)
+_FINDING_REF_VALUE_RE = re.compile(r"^W[1-9]\d*$")
+# The back-reference value is exact: `AR<n>` up to end-of-line or the next
+# table pipe. `AR1, AR2` and trailing prose fail this parse and then abort
+# via the lenient declaration count below rather than half-reading `AR1`.
+_RECEIPT_BACKREF_RE = re.compile(
+    r"(?:^|\|\s*)\s*(?:[-*]\s*)?\*\*Arithmetic Receipt\*\*:\s*"
+    r"(?P<value>AR[1-9]\d*)\s*(?=\||$)"
+)
+# Lenient declaration shape for the back-reference, checked against the
+# canonical parse per line (`_is_dissent_field_shaped` construction): a line
+# whose letters before the first colon spell exactly `arithmeticreceipt` is
+# a declaration the seat made, so a decorated, fenced, or prose-trailed
+# back-reference the canonical regex refuses aborts instead of vanishing.
+# Prose that merely mentions the section (`the Arithmetic Receipts
+# section: ...`) carries extra letters in its head and stays prose.
+_RECEIPT_BACKREF_SHAPE_NAME = "arithmeticreceipt"
+# Both-tails value rule (#610 rounds 1-2): under an unstated tail, each tail
+# label must share its own `;`-delimited segment of `derived_value_or_range`
+# with a digit — either side of the label, so `p = .192 (two-tailed)` is a
+# shown value while a bare label in a digitless segment is not. Hyphen
+# variants (space, ASCII hyphen, U+2010-U+2015) are folded into the label
+# match, the value text is NFKC-folded first, and the label needs letter
+# boundaries so `notwo-tailed` prose cannot satisfy the rule; a fused
+# `twotailed` typo still counts as the label — it carries its value, and
+# rejecting it would be a false abort on an unretryable phase.
+_TAIL_LABEL_RES = {
+    label: re.compile(rf"(?<![a-z]){label}[\s‐-―-]?tailed(?![a-z])")
+    for label in ("two", "one")
+}
+# Conditional-field matrix, spec §4/§5 (2026-08-02 #610 spec): which
+# procedure-specific lines each procedure may carry. `tail_convention` is
+# required on every p_from_test_statistic receipt (what the paper states is
+# always statable — `unstated` exists for exactly that case); the completed-
+# procedure fields (`rounding_interval`, `nearest_achievable`, `df_identity`)
+# are required only under a verdict status, because `not_computable` may
+# legitimately stop before the field can exist, and remain permitted there
+# for a partial attempt that stopped late.
+_RECEIPT_VERDICT_STATUSES = frozenset({"consistent", "mismatch"})
+_PROCEDURE_FIELDS = {
+    "p_from_test_statistic": ("tail_convention",),
+    "grim": ("rounding_interval", "nearest_achievable"),
+    "grimmer": ("rounding_interval", "nearest_achievable"),
+    "n_from_df": ("df_identity",),
+}
+# Inverted view driving the conditional-field loop, so the matrix above is
+# the single authority: field -> the procedures that carry it.
+_PROCEDURE_FIELD_OWNERS = {
+    field: tuple(
+        procedure
+        for procedure, fields in _PROCEDURE_FIELDS.items()
+        if field in fields
+    )
+    for fields in _PROCEDURE_FIELDS.values()
+    for field in fields
+}
+_ALWAYS_REQUIRED_PROCEDURE_FIELDS = frozenset({"tail_convention"})
+# --- end #610 receipt grammar --------------------------------------------
 _DISSENT_FIELD_NAMES = frozenset({"dimensionid", "rationale"})
 _MARKUP_SPAN_RE = re.compile(
     r"<[^>]*>|\]\((?:[^()]|\([^()]*\))*\)|\]\[[^\]]*\]|\[[ xX]?\]"
@@ -180,6 +323,198 @@ def _is_dissent_field_shaped(line: str) -> bool:
     return bool(separator) and label in _DISSENT_FIELD_NAMES
 
 
+def _display_fold(line: str) -> str:
+    """Unescape HTML entities FIRST, then NFKC-fold and casefold.
+
+    Order matters (#610 round-3 P1): a fullwidth-colon entity `&#xFF1A;`
+    decodes to a fullwidth colon that only the SUBSEQUENT NFKC fold maps to
+    `:`, so folding before unescaping left the decoded colon unfolded and
+    the declaration unseen. A doubly-encoded or fullwidth-ampersand entity
+    stays literal, which matches what the renderer shows.
+    """
+    return unicodedata.normalize("NFKC", html.unescape(line)).casefold()
+
+
+_ESCAPED_PIPE_RE = re.compile(r"\\\|")
+
+
+def _blank_code_spans(line: str) -> str:
+    """Blank CommonMark inline code spans, matching runs of EQUAL length.
+
+    A regex accepting unequal delimiter runs (#610 round-4 P1) blanked
+    from a single-backtick opener to a double-backtick closer — a stretch
+    the renderer does NOT treat as code, re-opening the later-cell attack
+    — and conversely swallowed legitimate prose. This scanner pairs an
+    opening run only with the next run of exactly its length, as the
+    renderer does; an unmatched run stays literal.
+    """
+    out: list[str] = []
+    index, length = 0, len(line)
+    while index < length:
+        if line[index] != "`":
+            out.append(line[index])
+            index += 1
+            continue
+        run_end = index
+        while run_end < length and line[run_end] == "`":
+            run_end += 1
+        run = run_end - index
+        scan, close = run_end, -1
+        while scan < length:
+            if line[scan] != "`":
+                scan += 1
+                continue
+            candidate_end = scan
+            while candidate_end < length and line[candidate_end] == "`":
+                candidate_end += 1
+            if candidate_end - scan == run:
+                close = scan
+                break
+            scan = candidate_end
+        if close >= 0:
+            out.append(" " * (close + run - index))
+            index = close + run
+        else:
+            out.append(line[index:run_end])
+            index = run_end
+    return "".join(out)
+
+
+def _cell_split_form(line: str) -> str:
+    """The line with pipe-bearing non-cell constructs blanked for splitting.
+
+    A naive `split("|")` read the pipe inside a Markdown link destination,
+    an escaped `\\|`, or an inline code span as a GFM cell boundary and
+    minted a phantom field-shaped cell out of legitimate prose — a false
+    abort on an unretryable phase (#610 round-3). Those spans are literal
+    or non-tabular to the renderer, so they are blanked before the split;
+    the whole-line candidate is always tested unmodified.
+    """
+    blanked = _MARKUP_SPAN_RE.sub(" ", line)
+    blanked = _blank_code_spans(blanked)
+    return _ESCAPED_PIPE_RE.sub(" ", blanked)
+
+
+def _is_receipt_field_shaped(line: str) -> bool:
+    """True when a line spells a receipt machine field, however decorated.
+
+    Same construction as `_is_dissent_field_shaped` (#610 round-1 fix 4):
+    markup spans are stripped, the line is NFKC-folded and HTML-unescaped
+    (an entity colon `&#58;` renders as a colon and must read as one), and
+    the letters before the first colon must spell exactly a receipt field
+    name. An unenumerated decoration — `**status:** mismatch`, a table
+    cell, an indented, ordered, or blockquoted marker — is therefore a
+    declaration the seat made, and a shaped line the canonical grammar
+    refuses aborts loudly instead of silently passing a forbidden-field
+    guard or starving a required-field count.
+    """
+    stripped = _MARKUP_SPAN_RE.sub("", _display_fold(line))
+    head, separator, _ = stripped.partition(":")
+    label = "".join(char for char in head if char.isalpha())
+    return bool(separator) and label in _RECEIPT_FIELD_SHAPE_NAMES
+
+
+def _receipt_shape_candidates(line: str) -> list[str]:
+    """The line plus, when it carries pipes, each `|`-delimited cell.
+
+    The head-of-line shape test alone lets a machine declaration hide in a
+    LATER table cell (`| note | **tail_convention:** two-tailed |`), where
+    the head letters of the whole line spell nothing (#610 round-2). Cells
+    are scanned only when the line does not canonically parse, so a
+    canonical field whose free-text value happens to contain a pipe is
+    never re-partitioned against itself.
+    """
+    if "|" not in line:
+        return [line]
+    return [line, *_cell_split_form(line).split("|")]
+
+
+def _tail_value_shown(derived_fold: str, label_re: re.Pattern[str]) -> bool:
+    """Whether a tail label shares a `;`-delimited segment with a digit.
+
+    Segments are the `;`-delimited pieces of the (NFKC-folded, casefolded)
+    `derived_value_or_range` value: a bare label whose number sits in some
+    other segment — or nowhere — is a label, not a shown value, and cannot
+    satisfy the both-tails display rule. Digit-adjacency is direction-free
+    within the segment (`two-tailed p ≈ .192` and `p = .192 (two-tailed)`
+    both show the value); the one-pass any() also keeps the scan linear.
+    """
+    return any(
+        label_re.search(segment)
+        and any(char.isdigit() for char in segment)
+        for segment in derived_fold.split(";")
+    )
+
+
+def _is_backref_shaped(line: str) -> bool:
+    """True when a line spells the `**Arithmetic Receipt**:` field, however
+    decorated — the same head shape test as the receipt fields."""
+    stripped = _MARKUP_SPAN_RE.sub("", _display_fold(line))
+    head, separator, _ = stripped.partition(":")
+    label = "".join(char for char in head if char.isalpha())
+    return bool(separator) and label == _RECEIPT_BACKREF_SHAPE_NAME
+
+
+def _strip_inline_comment_spans(
+    line: str, open_: bool
+) -> tuple[str, list[str], bool]:
+    """(rendered remainder, hidden segments, state) for inline spans.
+
+    The block visibility model deliberately refuses to read a mid-paragraph
+    `prose <!--` as an opener (see `_raw_dissent_span`), but CommonMark
+    treats it as raw inline HTML whose comment hides everything until
+    `-->`. The Review Body backref walk therefore strips those spans and
+    parses only what the renderer shows (#610 rounds 3-5): content after
+    the opener on the SAME line is stripped too, and content after a
+    closing `-->` on the same line is kept and parsed — so a hidden
+    back-reference is never credited and a rendered one is never dropped.
+    The hidden segments are returned as well, because a declaration inside
+    a span must abort even when the line also carries visible content —
+    silently dropping it re-opened the hidden-declaration channel one
+    partial-visibility case at a time (#610 round-5). They stay one entry
+    PER SPAN, never joined (#610 round-6): joining let a prose span prefix
+    shield a declaration in the next span, and conversely synthesized a
+    phantom declaration out of harmless fragments. Callers pass a
+    code-span-blanked line, matching the renderer's precedence of code
+    spans over raw HTML.
+    """
+    visible_parts: list[str] = []
+    hidden_segments: list[str] = []
+    index, state = 0, open_
+    while True:
+        token = "-->" if state else "<!--"
+        position = line.find(token, index)
+        if position < 0:
+            if state:
+                hidden_segments.append(line[index:])
+            else:
+                visible_parts.append(line[index:])
+            return "".join(visible_parts), hidden_segments, state
+        if state:
+            hidden_segments.append(line[index:position])
+        else:
+            visible_parts.append(line[index:position])
+        state, index = not state, position + len(token)
+
+
+def _backref_declared_count(line: str) -> int:
+    """Back-reference declarations on the line, counted per table cell.
+
+    Counting the whole line once let a malformed second declaration ride
+    beside a canonical one (`… AR1 | **Arithmetic Receipt:** see AR2`) —
+    the canonical parse found a match, the shape test never ran, and the
+    visible second declaration vanished (#610 round-2). Cells are the
+    declaration slots the canonical regex itself recognises (its
+    start-or-pipe prefix), so declared-vs-parsed equality is exact.
+    """
+    if "|" not in line:
+        return 1 if _is_backref_shaped(line) else 0
+    return sum(
+        1 for cell in _cell_split_form(line).split("|")
+        if _is_backref_shaped(cell)
+    )
+
+
 def _lines_with_fence_state(text: str):
     """Yield every line with whether it sits inside a fenced block.
 
@@ -187,21 +522,28 @@ def _lines_with_fence_state(text: str):
     lines rather than reporting them. The dissent scan needs both facts: the
     content, so a fenced field cannot hide, and the state, so a fenced heading
     is not mistaken for a section boundary.
+
+    Fenced lines are yielded in DISPLAY form: CommonMark strips up to the
+    opener's indentation from every content line of an indented fence, so a
+    consumer reading fenced content (the receipt gate) sees what the page
+    shows rather than false-aborting on the indent (#610 round-2).
     """
-    fence_char, fence_len = None, 0
+    fence_char, fence_len, fence_indent = None, 0, 0
     for line in panel._COMMONMARK_LINE_END_RE.split(text):
         if fence_char is not None:
             if match := panel._FENCE_CLOSE_RE.fullmatch(line):
                 token = match.group("fence")
                 if token[0] == fence_char and len(token) >= fence_len:
-                    fence_char, fence_len = None, 0
+                    fence_char, fence_len, fence_indent = None, 0, 0
                     continue
-            yield line, True
+            leading = len(line) - len(line.lstrip(" "))
+            yield line[min(fence_indent, leading):], True
             continue
         if match := panel._FENCE_OPEN_RE.fullmatch(line):
             token, info = match.group("fence"), match.group("info")
             if token[0] != "`" or "`" not in info:
                 fence_char, fence_len = token[0], len(token)
+                fence_indent = len(line) - len(line.lstrip(" "))
                 continue
         yield line, False
 
@@ -252,6 +594,59 @@ def _comment_state_after(
         if position < 0:
             return commented
         commented, index = not commented, position + len(token)
+
+
+def _lines_with_hidden_state(text: str):
+    """Yield (line, fenced, hidden): fence plus HTML-comment visibility.
+
+    The comment and paragraph bookkeeping mirror `_raw_dissent_span` line
+    for line, so the receipt gate and the dissent gate share one visibility
+    model (#610 round-2, both tracks): `hidden` is True when the line sits
+    inside — or itself opens — an HTML comment at a block position, i.e.
+    when a CommonMark renderer would not display it. `code_indented` is
+    True when the line starts an indented code block (four columns at a
+    block position, no paragraph open), i.e. when the renderer shows it as
+    literal text rather than a field line (#610 round-3). Fence state is
+    layered first, exactly as in `_raw_dissent_span`: a comment marker
+    inside a fence is literal text and advances no comment state.
+    """
+    commented = False
+    paragraph_open = False
+    for line, fenced in _lines_with_fence_state(text):
+        entered_commented = commented
+        opens_comment = not fenced and _opens_comment(
+            line, paragraph_open=paragraph_open
+        )
+        if not fenced:
+            commented = _comment_state_after(
+                line, commented=commented, paragraph_open=paragraph_open
+            )
+        expanded = line.expandtabs(4)
+        code_indented = (
+            not fenced
+            and not paragraph_open
+            and bool(line.strip(" \t"))
+            and expanded.startswith("    ")
+        )
+        state_dependent = (
+            _SETEXT_UNDERLINE_RE if paragraph_open else _EMPTY_LIST_ITEM_RE
+        )
+        closes_paragraph = bool(
+            _CLOSES_PARAGRAPH_RE.match(expanded)
+            or state_dependent.match(expanded)
+        )
+        paragraph_open = (
+            not fenced
+            and bool(line.strip(" \t"))
+            and not closes_paragraph
+            and not (entered_commented or opens_comment)
+            # An indented-code line is literal, never a paragraph: letting
+            # it open one made the NEXT code line read as a live paragraph
+            # continuation and earn credit the renderer does not show
+            # (#610 round-4).
+            and not code_indented
+        )
+        yield line, fenced, entered_commented or opens_comment, code_indented
 
 
 def _raw_dissent_span(text: str) -> DissentSpan:
@@ -944,6 +1339,585 @@ def check_da_anchors(report: panel.ReviewerReport) -> None:
         _validate_anchor(anchor, f"{report.path}:DA MAJOR")
 
 
+def _one_receipt_field(
+    lines: list[str], key: str, path: str, receipt_id: str, *, required: bool
+) -> str | None:
+    hits = [
+        match.group("value")
+        for line in lines
+        if (match := _RECEIPT_FIELD_RES[key].fullmatch(line))
+    ]
+    expected = "exactly one" if required else "at most one"
+    if (required and len(hits) != 1) or (not required and len(hits) > 1):
+        raise ConformanceError(
+            f"[RECEIPT-GRAMMAR: {path}: {receipt_id} expected {expected} "
+            f"canonical {key}: line, found {len(hits)}]"
+        )
+    return hits[0] if hits else None
+
+
+def _review_body_receipt_backrefs(
+    report: panel.ReviewerReport,
+) -> tuple[set[str], dict[str, list[str]]]:
+    """W-finding ids and per-block `**Arithmetic Receipt**:` back-references.
+
+    Back-references are collected across the WHOLE Review Body — preamble and
+    non-W subsections included — so a back-reference stranded outside its
+    weakness block is a linkage failure, not invisible. The walk is
+    fence-aware: only unfenced headings delimit (agreeing with
+    `split_sections`), a fenced or decorated back-reference declaration is
+    counted by the lenient detector, and a declaration count exceeding the
+    canonical parse aborts — a back-reference the seat spelled but the
+    grammar refused is a linkage failure, never a silent drop.
+    """
+    lines = panel.strip_fences(report.text)
+    sections, _ = panel.split_sections(lines)
+    review_lines = sections.get("Review Body", [])
+    blocks, _ = panel.split_subsections(review_lines)
+    finding_ids = {
+        title.split(":", 1)[0]
+        for title in blocks
+        if _FINDING_H3_RE.fullmatch(title)
+    }
+    backrefs: dict[str, list[str]] = {}
+    current = "(preamble)"
+    inside = False
+    inline_commented = False
+    for line, fenced, hidden, code_indented in _lines_with_hidden_state(
+        report.text
+    ):
+        if not fenced and (match := panel._H2_RE.fullmatch(line)):
+            inside = match.group(1) == "Review Body"
+            current = "(preamble)"
+            inline_commented = False
+            continue
+        if not inside:
+            continue
+        parse_line = line
+        if not fenced and not hidden and not code_indented:
+            # A paragraph-inline comment span cannot cross a paragraph
+            # boundary: a blank line or an interrupting ATX heading (any
+            # level) ends the paragraph and with it the raw-HTML span, so
+            # the state resets there instead of leaking a false abort into
+            # later prose. Code spans are blanked first, matching the
+            # renderer's precedence: a literal `<!--` inside inline code
+            # opens nothing (#610 round-4).
+            if (
+                not line.strip(" \t")
+                or _ATX_HEADING_RE.match(line)
+            ):
+                inline_commented = False
+            else:
+                code_blanked = _blank_code_spans(line)
+                visible, hidden_segments, inline_commented = (
+                    _strip_inline_comment_spans(
+                        code_blanked, inline_commented
+                    )
+                )
+                if visible != code_blanked:
+                    # A declaration inside a hidden span aborts whether or
+                    # not the line also shows visible content (#610 round
+                    # 5): hidden prose is skippable, a hidden machine
+                    # declaration never is. Each span is checked on its
+                    # own (#610 round-6).
+                    if any(
+                        _backref_declared_count(segment)
+                        for segment in hidden_segments
+                    ):
+                        raise ConformanceError(
+                            f"[RECEIPT-LINKAGE: {report.path}: an "
+                            "Arithmetic Receipt back-reference "
+                            "declaration sits inside a paragraph-"
+                            "inline HTML comment span and does not "
+                            "render; it is non-conforming]"
+                        )
+                    if not visible.strip(" \t"):
+                        continue
+                    # Only the rendered remainder is parsed: content after
+                    # a closing `-->` stays live, content behind an opener
+                    # is gone.
+                    parse_line = visible
+        if fenced or hidden or code_indented:
+            # Never credited: a machine declaration the page does not show
+            # as a field line — fenced, commented, or rendered as indented
+            # code — is a loud failure, not a silent drop or a silent
+            # credit (#610 rounds 2-3).
+            if _backref_declared_count(line):
+                kind = (
+                    "fenced" if fenced
+                    else "commented-out" if hidden
+                    else "indented-code"
+                )
+                raise ConformanceError(
+                    f"[RECEIPT-LINKAGE: {report.path}: a {kind} Arithmetic "
+                    "Receipt back-reference declaration does not render as "
+                    "a field line and is non-conforming]"
+                )
+            continue
+        if match := panel._H3_RE.fullmatch(line):
+            title = match.group(1)
+            current = (
+                title.split(":", 1)[0]
+                if _FINDING_H3_RE.fullmatch(title)
+                else f"(non-finding: {title})"
+            )
+            continue
+        # Canonical parsing and the declaration count run on the SAME
+        # display form (#610 round-4 P1): parsing the raw line while
+        # counting on a blanked one let a code-span declaration be
+        # credited over the rendered field beside it.
+        display = _cell_split_form(parse_line)
+        matches = list(_RECEIPT_BACKREF_RE.finditer(display))
+        if _backref_declared_count(display) != len(matches):
+            raise ConformanceError(
+                f"[RECEIPT-LINKAGE: {report.path}: back-reference "
+                f"declaration(s) on {line.strip()!r} do not all parse "
+                "canonically — each value must be exactly "
+                "**Arithmetic Receipt**: AR<n> with no trailing text]"
+            )
+        for match in matches:
+            backrefs.setdefault(current, []).append(match.group("value"))
+    return finding_ids, backrefs
+
+
+_INDENTED_H2_RE = re.compile(r"^ {1,3}##\s+\S")
+# Any ATX heading interrupts a paragraph (CommonMark), so any level ends a
+# paragraph-inline comment span — resetting only on H3 false-aborted a
+# rendered backref after an interrupting H4 (#610 round-4).
+_ATX_HEADING_RE = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
+
+
+def _receipt_section_view(
+    text: str,
+) -> tuple[list[tuple[str, bool]], list[str], bool]:
+    """Receipt-section lines with visibility, the unfenced H2 order, and
+    whether an indented H2 renders after the section opened.
+
+    The section body is read through `_lines_with_hidden_state` rather than
+    `strip_fences` (#610 rounds 1-2, the #637/#609 convergence): a model
+    that fences its receipt block still WROTE the receipts, so the fenced
+    lines are read as content — no false abort — while a fenced `### AR<n>`
+    block sitting beside an unfenced attestation is SEEN and aborts as
+    receipts-plus-attestation instead of hiding. Each content line carries
+    its hidden flag so a machine line inside an HTML comment — which the
+    rendered card does not show — can abort rather than be credited. Only
+    an unfenced H2 delimits, agreeing with `split_sections` (a COMMENTED
+    heading therefore still delimits, as in `_raw_dissent_span`), so a
+    fenced heading can neither open nor close the section. The H2 title is
+    matched exactly, case-sensitively, consistent with every other section
+    grammar. A 1-3-space-indented `##` line is not a section to this
+    grammar but still renders as a heading, so one appearing after the
+    receipt section opens is reported for the terminal-section rule.
+    """
+    h2_titles: list[str] = []
+    section: list[tuple[str, bool, bool]] = []
+    inside = False
+    indented_h2_after = False
+    for line, fenced, hidden, _ in _lines_with_hidden_state(text):
+        if not fenced and (match := panel._H2_RE.fullmatch(line)):
+            h2_titles.append(match.group(1))
+            inside = match.group(1) == _RECEIPT_SECTION
+            continue
+        if inside:
+            if not fenced and not hidden and _INDENTED_H2_RE.match(line):
+                indented_h2_after = True
+            section.append((line, hidden, fenced))
+    return section, h2_titles, indented_h2_after
+
+
+def check_methodology_receipts(report: panel.ReviewerReport) -> None:
+    """#610 arithmetic-receipt gate, methodology seat only.
+
+    Auditability, not truth: this gate proves the receipt fields exist, use
+    the closed enums, and link mismatches to weaknesses bidirectionally. It
+    never attests that the arithmetic is correct — that judgment stays with
+    human adjudication (`VERIFIED` / `MISCOMPUTED`), per the spec's invariant
+    6 and the receipt block's leading epistemic-status note.
+    """
+    view, h2_titles, indented_h2_after = _receipt_section_view(report.text)
+    occurrences = h2_titles.count(_RECEIPT_SECTION)
+    if occurrences > 1:
+        raise ConformanceError(
+            f"[RECEIPT-GRAMMAR: {report.path}: duplicate "
+            f"## {_RECEIPT_SECTION}]"
+        )
+    if occurrences == 0:
+        raise ConformanceError(
+            f"[RECEIPT-MISSING: {report.path}: methodology card requires "
+            f"exactly one ## {_RECEIPT_SECTION} section]"
+        )
+    if h2_titles[-1] != _RECEIPT_SECTION or indented_h2_after:
+        raise ConformanceError(
+            f"[RECEIPT-GRAMMAR: {report.path}: ## {_RECEIPT_SECTION} must "
+            "be the final section of the card]"
+        )
+    in_subsection = False
+    for line, hidden, fenced in view:
+        if not fenced and ("<!--" in line or "-->" in line):
+            # Comment-free zone (#610 round-3 P1): the receipt section is
+            # machine lines, so a paragraph-inline `prose <!--` opener —
+            # which the block-position visibility model deliberately does
+            # not read — could otherwise launder the receipts below it out
+            # of the rendered card. Banning the markup outright is
+            # deterministic and costs no legitimate content; fenced lines
+            # render the markup literally and stay exempt.
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: HTML comment markup "
+                f"{line.strip()!r} is not allowed in the receipt section]"
+            )
+        if panel._H3_RE.fullmatch(line):
+            if hidden:
+                raise ConformanceError(
+                    f"[RECEIPT-GRAMMAR: {report.path}: receipt heading "
+                    f"{line.strip()!r} is inside an HTML comment; the "
+                    "rendered card does not show it]"
+                )
+            in_subsection = True
+            continue
+        canonical = bool(
+            _RECEIPT_ATTESTATION_RE.fullmatch(line)
+            or any(
+                pattern.fullmatch(line)
+                for pattern in _RECEIPT_FIELD_RES.values()
+            )
+        )
+        if canonical:
+            if hidden:
+                raise ConformanceError(
+                    f"[RECEIPT-GRAMMAR: {report.path}: receipt machine "
+                    f"line {line.strip()!r} is inside an HTML comment; the "
+                    "rendered card does not show it]"
+                )
+            if (
+                not in_subsection
+                and not _RECEIPT_ATTESTATION_RE.fullmatch(line)
+            ):
+                raise ConformanceError(
+                    f"[RECEIPT-GRAMMAR: {report.path}: receipt machine "
+                    f"line {line.strip()!r} sits outside every ### AR<n> "
+                    "subsection; the enum and linkage gates never inspect "
+                    "it there]"
+                )
+            continue
+        if any(
+            _is_receipt_field_shaped(candidate)
+            for candidate in _receipt_shape_candidates(line)
+        ):
+            # One neutral message for both visibility states: an opener
+            # line like `<!-- c --> key: value` is hidden to the model but
+            # partially renders, so claiming "commented-out" would misread
+            # the page to the seat (#610 round-3 P3).
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: receipt machine line "
+                f"{line.strip()!r} is decorated or non-canonical; write "
+                "plain unbulleted key: value text (tolerated: one "
+                "leading list marker, balanced bold around the key)]"
+            )
+    body = [line for line, _, _ in view]
+    attestations = [
+        line for line in body if _RECEIPT_ATTESTATION_RE.fullmatch(line)
+    ]
+    subsections, sub_dupes = panel.split_subsections(body)
+    if sub_dupes:
+        raise ConformanceError(
+            f"[RECEIPT-GRAMMAR: {report.path}: duplicate receipt heading(s) "
+            f"{sorted(sub_dupes)}]"
+        )
+    for title in subsections:
+        if not _RECEIPT_H3_RE.fullmatch(title):
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: invalid receipt "
+                f"subsection '### {title}'; expected ### AR<n>]"
+            )
+    if not subsections:
+        if len(attestations) != 1:
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: a receipt section with "
+                "no ### AR<n> subsection requires exactly one "
+                f"no_recomputable_statistics: line, found {len(attestations)}]"
+            )
+        # Honest-claim boundary (#610 round-1 fix 2): the gate proved only
+        # that the declaration EXISTS. Whether the manuscript really has
+        # nothing recomputable is judged at adjudication, so the pass is
+        # annotated rather than silent.
+        print(_RECEIPT_ATTESTATION_ADVISORY)
+        return
+    if attestations:
+        raise ConformanceError(
+            f"[RECEIPT-GRAMMAR: {report.path}: no_recomputable_statistics: "
+            "is forbidden when ### AR<n> receipts exist]"
+        )
+    expected_ids = [f"AR{index}" for index in range(1, len(subsections) + 1)]
+    if list(subsections) != expected_ids:
+        raise ConformanceError(
+            f"[RECEIPT-GRAMMAR: {report.path}: receipt IDs must be dense "
+            f"AR1..ARn in order; got={list(subsections)}]"
+        )
+    finding_ids, backrefs = _review_body_receipt_backrefs(report)
+    mismatch_refs: dict[str, str] = {}
+    for receipt_id, sublines in subsections.items():
+        procedure = _one_receipt_field(
+            sublines, "procedure_id", report.path, receipt_id, required=True
+        )
+        if procedure not in _RECEIPT_PROCEDURES:
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: {receipt_id} "
+                f"procedure_id '{procedure}' is not a bounded procedure]"
+            )
+        anchor = _one_receipt_field(
+            sublines, "evidence_anchor", report.path, receipt_id,
+            required=True,
+        )
+        _validate_anchor(anchor, f"{report.path}:{receipt_id}")
+        for key in (
+            "reported_inputs", "assumptions", "derivation",
+            "comparison_rule",
+        ):
+            _one_receipt_field(
+                sublines, key, report.path, receipt_id, required=True
+            )
+        derived = _one_receipt_field(
+            sublines, "derived_value_or_range", report.path, receipt_id,
+            required=True,
+        )
+        status = _one_receipt_field(
+            sublines, "status", report.path, receipt_id, required=True
+        )
+        if status not in _RECEIPT_STATUSES:
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: {receipt_id} status "
+                f"'{status}' is not in the closed status enum]"
+            )
+        reason = _one_receipt_field(
+            sublines, "not_computable_reason", report.path, receipt_id,
+            required=(status == "not_computable"),
+        )
+        if status != "not_computable" and reason is not None:
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: {receipt_id} "
+                "not_computable_reason is forbidden unless status is "
+                "not_computable]"
+            )
+        if reason is not None and reason not in _NOT_COMPUTABLE_REASONS:
+            raise ConformanceError(
+                f"[RECEIPT-GRAMMAR: {report.path}: {receipt_id} "
+                f"not_computable_reason '{reason}' is not in the closed v1 "
+                "enum]"
+            )
+        tail = None
+        for key, procedures in _PROCEDURE_FIELD_OWNERS.items():
+            if procedure in procedures:
+                required = (
+                    key in _ALWAYS_REQUIRED_PROCEDURE_FIELDS
+                    or status in _RECEIPT_VERDICT_STATUSES
+                )
+                value = _one_receipt_field(
+                    sublines, key, report.path, receipt_id, required=required
+                )
+                if key == "tail_convention":
+                    tail = value
+            else:
+                if _one_receipt_field(
+                    sublines, key, report.path, receipt_id, required=False
+                ) is not None:
+                    raise ConformanceError(
+                        f"[RECEIPT-GRAMMAR: {report.path}: {receipt_id} "
+                        f"{key} is forbidden for procedure {procedure}]"
+                    )
+        if procedure == "p_from_test_statistic":
+            if tail is not None and tail not in _TAIL_CONVENTIONS:
+                raise ConformanceError(
+                    f"[RECEIPT-GRAMMAR: {report.path}: {receipt_id} "
+                    f"tail_convention '{tail}' is not in the closed enum]"
+                )
+            if tail == "unstated" and status in _RECEIPT_VERDICT_STATUSES:
+                derived_fold = unicodedata.normalize(
+                    "NFKC", derived
+                ).casefold()
+                if not all(
+                    _tail_value_shown(derived_fold, label_re)
+                    for label_re in _TAIL_LABEL_RES.values()
+                ):
+                    raise ConformanceError(
+                        f"[RECEIPT-TAILS: {report.path}: {receipt_id} "
+                        "unstated tail requires derived_value_or_range to "
+                        "show BOTH labeled VALUES — each of the two-tailed "
+                        "and one-tailed labels sharing its own ;-segment "
+                        "with its derived number, either order]"
+                    )
+        finding_ref = _one_receipt_field(
+            sublines, "finding_ref", report.path, receipt_id,
+            required=(status == "mismatch"),
+        )
+        if status != "mismatch":
+            if finding_ref is not None:
+                raise ConformanceError(
+                    f"[RECEIPT-LINKAGE: {report.path}: {receipt_id} "
+                    "finding_ref is forbidden unless status is mismatch]"
+                )
+            continue
+        if not _FINDING_REF_VALUE_RE.fullmatch(finding_ref):
+            raise ConformanceError(
+                f"[RECEIPT-LINKAGE: {report.path}: {receipt_id} finding_ref "
+                f"'{finding_ref}' must name one W<n> weakness]"
+            )
+        if finding_ref not in finding_ids:
+            raise ConformanceError(
+                f"[RECEIPT-LINKAGE: {report.path}: {receipt_id} finding_ref "
+                f"{finding_ref} has no matching ### {finding_ref} weakness "
+                "in ## Review Body]"
+            )
+        if finding_ref in mismatch_refs:
+            raise ConformanceError(
+                f"[RECEIPT-LINKAGE: {report.path}: {finding_ref} is claimed "
+                f"by both {mismatch_refs[finding_ref]} and {receipt_id}; "
+                "no two receipts share a finding_ref]"
+            )
+        mismatch_refs[finding_ref] = receipt_id
+    for finding_id, receipt_id in mismatch_refs.items():
+        if backrefs.get(finding_id) != [receipt_id]:
+            raise ConformanceError(
+                f"[RECEIPT-LINKAGE: {report.path}: weakness {finding_id} "
+                "must carry exactly one **Arithmetic Receipt**: "
+                f"{receipt_id} back-reference, found "
+                f"{backrefs.get(finding_id, [])}]"
+            )
+    for location, values in backrefs.items():
+        for value in values:
+            if mismatch_refs.get(location) != value:
+                raise ConformanceError(
+                    f"[RECEIPT-LINKAGE: {report.path}: back-reference "
+                    f"{value} in {location} does not correspond to a "
+                    "mismatch receipt naming that weakness]"
+                )
+
+
+def check_recompute_extraction(path: str, text: str) -> None:
+    """#610 step-5 extraction gate, methodology seat only.
+
+    The isolated numeric input surface: the response must be exactly one
+    ``## Recompute Extraction`` section of machine lines. The grammar
+    authority is the calculator's own parser (`recompute_receipts`), so the
+    gate and the consumer can never disagree about what an extraction says;
+    this gate adds the response-level structure rules and the anchor-grammar
+    check the calculator deliberately does not own.
+    """
+    lines = panel.strip_fences(text)
+    sections, dupes = panel.split_sections(lines)
+    if recompute.EXTRACTION_SECTION in dupes:
+        raise ConformanceError(
+            f"[EXTRACTION-GRAMMAR: {path}: duplicate "
+            f"## {recompute.EXTRACTION_SECTION}]"
+        )
+    if recompute.EXTRACTION_SECTION not in sections:
+        raise ConformanceError(
+            f"[EXTRACTION-GRAMMAR: {path}: exactly one "
+            f"## {recompute.EXTRACTION_SECTION} section is required]"
+        )
+    extra = [
+        title for title in list(sections) + list(dupes)
+        if title != recompute.EXTRACTION_SECTION
+    ]
+    if extra:
+        raise ConformanceError(
+            f"[EXTRACTION-GRAMMAR: {path}: the response may carry no "
+            f"section other than ## {recompute.EXTRACTION_SECTION}; "
+            f"found {extra}]"
+        )
+    preamble = []
+    for line in lines:
+        if panel._H2_RE.fullmatch(line):
+            break
+        preamble.append(line)
+    if any(line.strip() for line in preamble):
+        raise ConformanceError(
+            f"[EXTRACTION-GRAMMAR: {path}: no content is allowed before "
+            f"## {recompute.EXTRACTION_SECTION}]"
+        )
+    try:
+        extraction = recompute.parse_extraction(text)
+    except recompute.ExtractionError as exc:
+        raise ConformanceError(
+            f"[EXTRACTION-GRAMMAR: {path}: {exc}]"
+        ) from exc
+    for request in extraction.requests:
+        _validate_anchor(
+            request["evidence_anchor"], f"{path}:{request.rr_id}"
+        )
+    if extraction.attestation is not None:
+        # Same declaration-only honesty boundary as the receipt attestation.
+        print(_RECEIPT_ATTESTATION_ADVISORY)
+
+
+def check_injected_receipts(
+    report: panel.ReviewerReport, injected_text: str
+) -> None:
+    """#610 step-5 identity gate: the card's receipt section must be the
+    dispatcher-injected receipts verbatim, plus only the canonical
+    ``finding_ref:`` lines the mismatch receipts require.
+
+    Runs AFTER `check_methodology_receipts`, so grammar, enum, linkage, and
+    per-subsection `finding_ref` placement are already proven; this gate
+    proves nothing else changed. The comparison ignores blank lines and
+    reads the card fence-transparently — the same view the receipt gate
+    uses — so a decorated or re-spelled injected line fails identity loudly
+    rather than being silently re-read.
+    """
+    injected_lines = [
+        line.rstrip("\r") for line in injected_text.split("\n")
+    ]
+    heading = f"## {recompute.RECEIPT_SECTION}"
+    if not injected_lines or injected_lines[0] != heading:
+        raise panel.ContractError(
+            f"[INJECTED-RECEIPTS-INVALID: the injected file must begin "
+            f"with {heading!r}]"
+        )
+    expected = [line for line in injected_lines[1:] if line.strip()]
+    view, _, _ = _receipt_section_view(report.text)
+    # Only the PLAIN spelling is the permitted addition (codex round 1,
+    # P2-4): the receipt grammar tolerates a decorated finding_ref, but
+    # under injection "add exactly one finding_ref: line" means the
+    # undecorated canonical form — a bolded or bulleted spelling stays in
+    # the comparison and fails identity loudly.
+    plain_finding_ref = re.compile(r"^finding_ref: W[1-9]\d*$")
+    actual = [
+        line for line, _, _ in view
+        if line.strip() and not plain_finding_ref.fullmatch(line)
+    ]
+    if actual != expected:
+        divergence = next(
+            (
+                f"card={card!r} vs injected={wanted!r}"
+                for card, wanted in zip(actual, expected)
+                if card != wanted
+            ),
+            f"card has {len(actual)} content lines, injected has "
+            f"{len(expected)}",
+        )
+        raise ConformanceError(
+            f"[RECEIPT-IDENTITY: {report.path}: the ## "
+            f"{recompute.RECEIPT_SECTION} section must reproduce the "
+            "dispatcher-computed receipts verbatim, adding only "
+            f"finding_ref: lines on mismatch receipts; first divergence: "
+            f"{divergence}]"
+        )
+
+
+def check_receipt_section_forbidden(report: panel.ReviewerReport) -> None:
+    # Declared boundary: this guard sees what `split_sections` sees, so a
+    # fenced or indented `## Arithmetic Receipts` on a non-methodology seat
+    # is an inert displayed block, not a section — it earns the seat
+    # nothing (no consumer reads it) and is deliberately not chased here.
+    lines = panel.strip_fences(report.text)
+    sections, dupes = panel.split_sections(lines)
+    if _RECEIPT_SECTION in sections or _RECEIPT_SECTION in dupes:
+        raise ConformanceError(
+            f"[RECEIPT-SECTION-FORBIDDEN: {report.path}: role "
+            f"{report.role} may not emit ## {_RECEIPT_SECTION}; the #610 "
+            "receipt gate is methodology-only]"
+        )
+
+
 def _parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", required=True, type=Path)
@@ -955,9 +1929,17 @@ def _parse_args(argv):
     stage = parser.add_mutually_exclusive_group(required=True)
     stage.add_argument("--phase2", type=Path)
     stage.add_argument("--phase1-only", action="store_true")
+    # #610 step 5: the methodology extraction call is its own gated stage,
+    # answerable between Phase 1 and Phase 2 like --phase1-only is before
+    # Phase 2.
+    stage.add_argument("--extraction", type=Path)
+    parser.add_argument("--injected-receipts", type=Path)
     parser.add_argument("--manuscript", required=True, type=Path)
     parser.add_argument("--metadata", required=True, type=Path)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.injected_receipts is not None and args.phase2 is None:
+        parser.error("--injected-receipts requires --phase2")
+    return args
 
 
 def main(argv=None) -> int:
@@ -971,7 +1953,8 @@ def main(argv=None) -> int:
             )
         phase1_text = panel._read_text(args.phase1)
         phase2_text = (
-            None if args.phase1_only else panel._read_text(args.phase2)
+            panel._read_text(args.phase2) if args.phase2 is not None
+            else None
         )
         manuscript_text = panel._read_text(args.manuscript)
         try:
@@ -995,6 +1978,22 @@ def main(argv=None) -> int:
         if args.phase1_only:
             print("PHASE1-CONFORMANCE: PASS")
             return EXIT_PASS
+        if args.extraction is not None:
+            # #610 step 5. The extraction call is methodology-only by
+            # design: no other seat has an extraction stage to gate.
+            if args.role != "methodology":
+                raise panel.ContractError(
+                    f"[ROLE-BINDING: --extraction is methodology-only, "
+                    f"dispatched as {args.role}]"
+                )
+            check_manuscript_leakage(
+                phase1_text, manuscript_text, metadata, contract
+            )
+            check_recompute_extraction(
+                str(args.extraction), panel._read_text(args.extraction)
+            )
+            print("EXTRACTION-CONFORMANCE: PASS")
+            return EXIT_PASS
         report = panel.parse_report(
             str(args.phase2), phase2_text, contract
         )
@@ -1017,6 +2016,24 @@ def main(argv=None) -> int:
             check_da_anchors(report)
         else:
             check_scoring_seat_anchors(report)
+        if report.role == "methodology":
+            check_methodology_receipts(report)
+            if args.injected_receipts is not None:
+                check_injected_receipts(
+                    report, panel._read_text(args.injected_receipts)
+                )
+                # A distinct witness line (security round 1, P2-5): the
+                # evidence contract names this gate as contract content, so
+                # a Phase 2 gated WITHOUT it must be distinguishable in the
+                # preserved gate log.
+                print("RECEIPT-IDENTITY: PASS")
+        else:
+            if args.injected_receipts is not None:
+                raise panel.ContractError(
+                    f"[ROLE-BINDING: --injected-receipts is "
+                    f"methodology-only, dispatched as {args.role}]"
+                )
+            check_receipt_section_forbidden(report)
     except panel.ContractError as exc:
         print(exc)
         return EXIT_CONTRACT

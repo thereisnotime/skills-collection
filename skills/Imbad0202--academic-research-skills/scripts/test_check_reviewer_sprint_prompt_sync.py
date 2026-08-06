@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+import check_reviewer_sprint_prompt_sync as sync
 from check_reviewer_sprint_prompt_sync import (
     ROLE_CONFIG,
     _parse_fragments,
@@ -208,6 +209,100 @@ def test_bounded_role_slots_are_part_of_the_content_lock(tree: Path) -> None:
     assert "bounded role-slot table drift" in result.stderr
 
 
+def test_receipt_fragment_canonical_only_edit_fails_lock_and_mirror(
+    tree: Path,
+) -> None:
+    _mutate(
+        tree,
+        CANONICAL,
+        "one receipt represents one arithmetic claim",
+        "one receipt may represent several arithmetic claims",
+    )
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "canonical content lock" in result.stderr
+    assert "Phase 2 mirror drift" in result.stderr
+
+
+def test_methodology_mirror_receipt_edit_fails_phase2_sync(tree: Path) -> None:
+    _mutate(
+        tree,
+        REVIEWERS[1],
+        "never so a calculation can be trusted unaudited",
+        "so a calculation can be trusted",
+    )
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "Phase 2 mirror drift" in result.stderr
+
+
+def test_reworded_splice_anchor_is_rejected(tree: Path) -> None:
+    _mutate(
+        tree,
+        CANONICAL,
+        "Terminal Phase 2 structural preflight (mandatory). Silently inspect "
+        "the exact text you are about to send against your supplied Phase 1:",
+        "Terminal Phase 2 preflight (mandatory). Silently inspect "
+        "the exact text you are about to send against your supplied Phase 1:",
+    )
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "receipt splice anchor must occur exactly once" in result.stderr
+
+
+def test_receipt_block_on_non_methodology_seat_fails_sync(tree: Path) -> None:
+    _mutate(
+        tree,
+        REVIEWERS[2],
+        "Terminal Phase 2 structural preflight (mandatory). Silently inspect "
+        "the exact text you are about to send against your supplied Phase 1:",
+        "**Arithmetic Recompute Receipts (#610)** — methodology seat only.\n\n"
+        "Terminal Phase 2 structural preflight (mandatory). Silently inspect "
+        "the exact text you are about to send against your supplied Phase 1:",
+    )
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "Phase 2 mirror drift" in result.stderr
+
+
+def test_receipt_slot_table_label_is_locked(tree: Path) -> None:
+    _mutate(
+        tree,
+        CANONICAL,
+        "| `methodology rigor` | scoring + receipts + extraction |",
+        "| `methodology rigor` | scoring |",
+    )
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "bounded role-slot table drift" in result.stderr
+    assert "canonical content lock" in result.stderr
+
+
+def test_canonical_digest_covers_splice_anchor(
+    tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    canonical_text = (tree / CANONICAL).read_text(encoding="utf-8")
+    errors: list[str] = []
+    fragments = _parse_fragments(canonical_text, errors)
+    assert errors == []
+    baseline = canonical_digest(canonical_text, fragments, ROLE_CONFIG)
+    monkeypatch.setattr(
+        sync, "RECEIPT_SPLICE_ANCHOR", "A reworded preflight anchor:\n"
+    )
+    assert canonical_digest(canonical_text, fragments, ROLE_CONFIG) != baseline
+
+
+def test_canonical_digest_covers_phase2_insert(tree: Path) -> None:
+    canonical_text = (tree / CANONICAL).read_text(encoding="utf-8")
+    errors: list[str] = []
+    fragments = _parse_fragments(canonical_text, errors)
+    assert errors == []
+    baseline = canonical_digest(canonical_text, fragments, ROLE_CONFIG)
+    mutated_config = deepcopy(ROLE_CONFIG)
+    del mutated_config[REVIEWERS[1]]["phase2_insert"]
+    assert canonical_digest(canonical_text, fragments, mutated_config) != baseline
+
+
 def test_source_backlink_is_required(tree: Path) -> None:
     _mutate(
         tree,
@@ -225,3 +320,43 @@ def test_missing_required_file_is_invocation_error(tree: Path) -> None:
     result = _run(tree)
     assert result.returncode == 2
     assert "required file missing" in result.stderr
+
+
+METHODOLOGY = "academic-paper-reviewer/agents/methodology_reviewer_agent.md"
+
+
+def test_extraction_mirror_is_exactly_synced(tree: Path) -> None:
+    # #610 step 5: the free-standing Phase 2E extraction section is a third
+    # dispatcher-visible mirror; a one-word drift in the agent copy fails.
+    _mutate(tree, METHODOLOGY, "you TRANSCRIBE", "you PARAPHRASE")
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "extraction" in result.stderr
+
+
+def test_extraction_fragment_edit_requires_repin(tree: Path) -> None:
+    # Editing the canonical extraction fragment (with the agent mirror kept
+    # in sync) still fails until the content lock is re-pinned.
+    for rel in (CANONICAL, METHODOLOGY):
+        _mutate(tree, rel, "never calculate, never judge",
+                "never calculate, never decide")
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "canonical content lock" in result.stderr
+
+
+def test_stray_extraction_section_on_another_agent_is_rejected(
+    tree: Path,
+) -> None:
+    # security round 1, P3-2: a Phase 2E section on a seat that declares no
+    # extraction fragment is dead prompt text inviting drift.
+    path = tree / REVIEWERS[0]
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + "\n### Phase 2E — Numeric extraction (script-adapter dispatch)\n"
+        + "\nrogue extraction body\n",
+        encoding="utf-8",
+    )
+    result = _run(tree)
+    assert result.returncode == 1
+    assert "declares no extraction fragment" in result.stderr

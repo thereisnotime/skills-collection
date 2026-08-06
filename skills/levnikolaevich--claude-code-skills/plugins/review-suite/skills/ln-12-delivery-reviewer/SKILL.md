@@ -7,8 +7,9 @@ description: "Reviews a completed scoped change and its affected runtime and con
 
 **Goal:** Review only the requested delivery change and the causal paths needed to prove its business outcome. Judge scoped acceptance and release safety with concise evidence; do not audit unrelated code, repair findings, update trackers, or widen scope.
 
-**Execution contract:** Treat the ordered checkbox workflow below as this skill's Definition of Done. Work through every item in order, and mark it complete only when its action and required evidence are complete. `N/A`, skipped, unavailable, or delegated items remain incomplete.
-Before returning, apply this skill's verdict, decision, and approval rules to every incomplete item and prepend **Checklist: X/Y complete**<br>**Incomplete: None | section/item — reason; outcome impact; exact next action**; list every incomplete item.
+**Execution contract:** Treat the ordered checkbox workflow below as this skill's Definition of Done. Before reviewing, create an internal coverage ledger with one `PENDING` row per checkbox, using the heading's ID range in printed order. Change a row only to `PROVEN` with a concrete evidence reference, `CLEARED` with evidence that its conditional trigger is absent, or `UNPROVEN`; reading, mentioning, delegating, skipping, or tool failure is not proof.
+At the end of each numbered section, reconcile its ledger rows and resolve every `PENDING`. Before verdict, run exactly one closure pass over the ledger, evidence, and draft: challenge unsupported `PROVEN` or `CLEARED` states, surface every accepted finding, and align matrices, limitations, and verdict. Correct the report or downgrade the verdict; do not rescan the repository, restart the review, or launch another subagent round.
+Before returning, derive the count from the ledger with only `PROVEN` and `CLEARED` rows complete, apply this skill's verdict rules to every `UNPROVEN`, allow no `PENDING`, and prepend **Checklist: X/Y complete**<br>**Incomplete: None | ID — reason; outcome impact; exact next action**; list every `UNPROVEN` row.
 
 ## Tool Routing
 
@@ -19,7 +20,7 @@ Before returning, apply this skill's verdict, decision, and approval rules to ev
 | Definitions and consumers | Code intelligence | An affected path depends on unchanged symbols or contracts | Targeted search that stops when the causal path is proven |
 | Automated verification | Repository-defined commands | Build, lint, type, test, migration, or smoke gates exist | Inspect scripts and CI; mark execution `UNPROVEN` |
 | Observable behavior | Browser, client, or runtime evidence | Acceptance depends on UI, interaction, protocol, or logs | Static trace plus an exact manual check |
-| External contracts | Current official documentation or specifications | A changing external fact can alter correctness or severity | Primary-source research; otherwise mark `UNVERIFIED` |
+| Correction research | Current official documentation or specifications | External behavior affects correctness or an accepted finding needs its required practice reference | Reputable primary engineering material; otherwise mark the correction `UNVERIFIED` |
 | Independent review | Native subagents in separate contexts | One scope-scaled initial review; at most one selective follow-up | Use the smallest panel that can change the verdict within the two-round budget; report reduced confidence or `BLOCKED` only when missing selected independence leaves required evidence unproven |
 
 Use tools only for the current evidence question. Tool failure is a limitation, not a defect. Do not convert an unavailable command, runtime, or source into a finding without implementation evidence.
@@ -34,7 +35,7 @@ Use tools only for the current evidence question. Tool failure is a limitation, 
 | Official external contract matching the used version | Strong compatibility evidence |
 | Pattern, intuition, or generic practice | Lead only until tied to a concrete failure or risk |
 
-Every finding must name the affected business behavior, change-causal path, violated contract, evidence, impact, and smallest credible correction. The review unit is the business change, not the repository. Read unchanged code only to prove an affected path; do not report style preferences or unrelated repository health.
+Every finding must name the affected business behavior, change-causal path, violated contract, evidence, impact, and smallest credible correction. Repository evidence proves the defect; external practice sources justify the correction mechanism and cannot invent a local requirement. The review unit is the business change, not the repository. Read unchanged code only to prove an affected path; do not report style preferences or unrelated repository health.
 
 ## Independent Review Panel
 
@@ -57,7 +58,7 @@ For the single optional follow-up of the same task and scope, no hat or speciali
 | Security and privacy | Trust boundaries, untrusted input, secrets, sensitive data, destructive action | Guards, isolation, recovery, and sensitive-data flow |
 | Data and concurrency | Schemas, transactions, queues, caches, events, async work, locks | Atomicity, races, ordering, duplicates, wiring, and orphan channels |
 | API and compatibility | Public interfaces, protocols, serialization, configuration, mixed versions | Producers, consumers, removals, and supported compatibility |
-| Architecture and migration | Approved design, replacement, refactor, cutover, or deprecation | Plan traceability, target completeness, old paths, and unmigrated callers |
+| Architecture and migration | Approved design, replacement, refactor, cutover, or deprecation | Plan traceability, owning boundary, root-cause resolution, target completeness, old paths, and unmigrated callers |
 | Tests and oracles | Changed tests, test strategy, or material behavior needing oracle review | Material business risks, trustworthy oracles, E2E-first coverage, and removal or consolidation of low-value tests |
 | Performance and reliability | Hot paths, I/O, retries, timeouts, load, resource ownership | Amplification, measurement, leaks, storms, and degradation |
 | UI and accessibility | A user-facing surface is changed or causally reached, even when UX change is not requested | Existing-experience preservation, stable selectors, keyboard, focus, names, motion, copy, and rendered behavior |
@@ -73,18 +74,18 @@ Each subagent returns coverage, candidate findings with change-causal evidence a
 
 ## Checklist
 
-### 1. Establish Business and Change Scope
+### 1. Establish Business and Change Scope (`SCOPE-1` through `SCOPE-8`)
 
 - [ ] Before reading implementation detail, state the affected actors, problem, protected outcome, changed behavior, acceptance criteria, existing user experience, explicitly authorized user-facing changes, invariants, non-goals, and release boundary. Mark unsupported interpretations `UNKNOWN`; use `BLOCKED` when the thesis cannot be established.
 - [ ] Establish complexity fit from evidenced maturity, business horizon, scale, team capacity, and lifecycle cost; do not infer enterprise needs from hypothetical growth or call safety-required complexity overengineering.
-- [ ] Read applicable repository instructions, inspect uncommitted work, and resolve the authoritative task, base, head, implementation delta, approved plan or target architecture, and permitted transitional compatibility.
-- [ ] Discover only change-relevant baseline, current-state, target-design, decision, diagram, and migration artifacts by repository convention; record status and freshness without requiring a particular path.
+- [ ] Read applicable repository instructions, inspect uncommitted work, and resolve the authoritative task, base, head, implementation delta, approved plan or target architecture, and permitted transitional compatibility. Identify only change-relevant project policies, standards, and ADRs; do not treat every document as binding.
+- [ ] Discover only change-relevant baseline, current-state, target-design, policy, decision, diagram, and migration artifacts by repository convention. Record authority, owner, status, freshness, and supersession, and keep one policy and decision ledger of applicable sources and implementation evidence for compliance, explicit approved deviation, or an unresolved gap.
 - [ ] Map changed, causally supporting, and explicitly excluded surfaces. Read outside the diff only to trace affected behavior; do not hunt unrelated code for findings.
 - [ ] Classify change-triggered risk from trust, money, destructive action, migration, public contracts, concurrency, distributed coordination, and rollback difficulty; define acceptance evidence before implementation review.
-- [ ] Classify the pass as initial, selective follow-up, or Blue-only after the two-round budget from a completed prior report and stable task, scope, and comparison lineage; freeze the thesis and scope. In either allowed round, let Blue select all and only useful lenses or `None`; use a full initial panel only when every selected lens has distinct change-triggered value. After the follow-up, select no subagents. Record the round and rationale and keep preliminary conclusions private.
+- [ ] Classify the pass as initial, selective follow-up, or Blue-only from a completed prior report and stable task, scope, and comparison lineage. Freeze the thesis and scope, select only verdict-relevant lenses within the two-round budget, and record the round, selection rationale, and omissions while keeping preliminary conclusions private.
 - [ ] Keep the review read-only. Permit only host-approved caches or build artifacts; do not edit tracked files, create tasks, commit, push, deploy, or repair findings.
 
-### 2. Trace Requirements into Implementation
+### 2. Trace Requirements into Implementation (`TRACE-1` through `TRACE-9`)
 
 - [ ] Enumerate every authoritative task requirement and acceptance criterion, plus every required approved-plan item. Map each to concrete implementation and independent behavioral evidence; mark task and plan items `COMPLETE`, `DEVIATED`, `OMITTED`, or `UNPROVEN` and acceptance `PASS`, `FAIL`, or `UNPROVEN`. Author claims, checked boxes, commits, and code presence are not completion evidence.
 - [ ] Inspect changed files and only the unchanged definitions, consumers, interfaces, tests, migrations, and registration needed to prove an affected path.
@@ -96,28 +97,27 @@ Each subagent returns coverage, candidate findings with change-causal evidence a
 - [ ] Within affected behavior, inspect applicable boundaries, collections, state transitions, duplicates, ordering, numeric behavior, empty and maximum inputs, errors, retries, idempotency, cancellation, timeouts, rollback, and cleanup.
 - [ ] Within affected async paths, inspect shared state, transactions, races, lock ordering, and blocking work.
 
-### 3. Review Safety, Contracts, and Simplicity
+### 3. Review Safety, Contracts, and Simplicity (`DESIGN-1` through `DESIGN-10`)
 
 - [ ] Within affected paths, inspect applicable authentication, authorization, ownership, validation, injection, secrets, sensitive data, logging, and destructive-operation guards.
 - [ ] For changed destructive behavior, require recovery, rollback, blast-radius, environment or authorization, and preview or dry-run evidence; justify infeasible controls.
-- [ ] Verify changed API, event, schema, configuration, serialization, and storage producers and consumers, including names, payloads, registration, ordering, and compatibility.
+- [ ] Verify changed API, event, schema, configuration, serialization, and storage producers and consumers, including names, payloads, registration, ordering, and compatibility. For changed semantic values and closed sets--such as states, roles, permissions, event names, error codes, configuration keys, feature identifiers, limits, timeouts, and routing keys--require one authoritative owner shared by every in-scope producer and consumer through the repository-standard mechanism (for example a typed union, enum, constant set, value object, schema, typed configuration, or generated contract). Accept a harmless one-off local literal when it creates no duplication, invalid-state, or drift risk.
 - [ ] Verify migrations, backfills, defaults, indexes, deployment ordering, and mixed-version behavior when persisted or distributed state changes.
 - [ ] Check ownership and cleanup of files, streams, sessions, connections, processes, subscriptions, and temporary artifacts on success and failure.
-- [ ] Inspect only architecture boundaries crossed or changed; match complexity to evidenced need without turning adjacent architecture into an audit.
+- [ ] Inspect only architecture and policy boundaries crossed or changed. Verify that responsibility, dependency direction, contracts, state, lifecycle, and failure ownership remain coherent with the approved architecture or the simplest established repository mechanism. Apply every current authoritative project policy or ADR in the change-scoped ledger, including project-defined logging (logger, structured fields, levels, correlation, and redaction) and error handling (taxonomy, types or codes, boundary mapping, propagation, retry, and recovery) when affected; accept deviation only with explicit approval and evidence that scoped acceptance remains intact. Do not turn adjacent architecture or policy compliance into an audit.
+- [ ] Prove that the delivered mechanism resolves the causal defect or need at its owning boundary across every in-scope entrypoint, producer, consumer, runtime registration, state transition, and material failure or recovery path. Reject symptom masking, caller-specific special cases, duplicated side channels, and accidental ordering, timing, or data dependencies. Accept tactical containment only when explicitly authorized or required for immediate safety and bounded by an owner, removal condition, and durable follow-up; completeness ends at the causal business scope, not the repository.
 - [ ] When code is replaced, verify old implementations, signatures, aliases, re-exports, shims, adapters, flags, dual paths, and files are removed and callers migrated. Retain compatibility only for a supported contract with an owner and bounded removal condition.
 - [ ] Run a subtractive pass for changed logic, constraints, configuration, schemas, routes, states, and operations. Record obsolete candidates, proven removals, and retention evidence; use `one in, two out` only as a prompt, never a deletion quota.
 - [ ] **KISS:** AI slop is prohibited. Require the minimum sufficient diff and simplest correct, efficient algorithm. Reject needless duplication, files, layers, abstractions, dependencies, configuration, branches, compatibility paths, or custom machinery when existing mechanisms suffice; never trade away safeguards or maintainability.
-- [ ] Derive each correction from scoped repository evidence, preferring an existing mechanism. For external APIs, libraries, security controls, protocols, platforms, standards, or versions, verify the solution in current official version-matched documentation; use primary engineering sources only for unresolved consequential tradeoffs.
-- [ ] Record correction sources, dates, verified claims, alternatives, and why the choice is the smallest safe fit. Review never authorizes repair; a later implementer must revalidate unstable external facts.
 
-### 4. Verify Tests, Documentation, and Operations
+### 4. Verify Tests, Documentation, and Operations (`VERIFY-1` through `VERIFY-15`)
 
 - [ ] Before recommending or retaining any test, rank the changed business scenario by failure likelihood, user or operational impact, blast radius, reversibility, and regression history. Cover only material risks; reject test count, line coverage, and tests for trivial or low-risk behavior as goals.
 - [ ] Prohibit tests whose oracle merely re-proves language or standard-library behavior, default framework routing, validation, or lifecycle, external-package behavior, uncustomized ORM or driver mechanics, database-vendor capability, getters, pass-through wrappers, or other trivial implementation. Crossing a real dependency is valid only when it proves a repository-owned business rule, configuration, runtime registration, integration contract, query, schema, permission, transaction, recovery path, or user journey.
 - [ ] Prefer deterministic E2E tests through the user-observable boundary for every material business risk. Require an explicit reason for integration or contract coverage instead. Permit a unit test only when it isolates material repository-owned business logic and evidence shows broader coverage would be less deterministic, precise, or useful; without that recorded justification, assign `DELETE` or `MERGE`.
 - [ ] Require UI and other interaction tests to locate elements only through stable repository-owned contracts such as durable IDs or dedicated test hooks, never visible copy, translated text, CSS styling or layout, position, or incidental DOM structure. When exact copy is an explicit acceptance contract, assert it separately as an outcome but never use it as a locator; assign `UPDATE`, `DELETE`, or `MERGE` to affected tests that violate this rule.
 - [ ] Classify every affected test as `KEEP`, `ADD`, `UPDATE`, `DELETE`, or `MERGE`; verify business-risk linkage, defect sensitivity, oracle strength, assertions, success and failure paths, authorization, boundaries, data integrity, over-mocking, snapshots, flakes, shared state, time, randomness, and order dependence.
-- [ ] Assign `DELETE` to every test that covers only forbidden or trivial logic, an obsolete contract, an implementation detail, duplicate behavior, or immaterial risk. Assign `MERGE` when its unique valuable assertion can be absorbed into a risk-focused E2E, integration, or contract test; never `KEEP` or `UPDATE` a nonconforming test.
+- [ ] Assign `DELETE` to every test that covers only forbidden or trivial logic, an obsolete contract, an implementation detail, duplicate behavior, or immaterial risk. Assign `MERGE` when its unique valuable assertion can be absorbed into a risk-focused E2E, integration, or contract test. Recommend the fewest tests that distinguish material failure mechanisms; do not mirror acceptance rows into one test each. Never `KEEP` or `UPDATE` a nonconforming test.
 - [ ] Discover commands from repository docs, tool configuration, and manifests before justified fallback. Run narrow checks first, then required build, lint, type, test, migration, and smoke gates with CI-safe options.
 - [ ] Record command source, exit status, relevant output, and limitations. Attribute failures to the change or baseline; a missing environment or pre-existing failure is `UNPROVEN` unless causally linked.
 - [ ] Verify user-visible acceptance from the other side when static proof is insufficient, including material failure and recovery; for applicable UI, check keyboard, focus, accessible names, motion, responsive states, copy, and localization.
@@ -128,15 +128,15 @@ Each subagent returns coverage, candidate findings with change-causal evidence a
 - [ ] Verify affected API and configuration references, examples, migrations, runbooks, operator steps, and comments against implementation and requirements; comments explain enduring intent or constraints rather than syntax.
 - [ ] Check logs, metrics, traces, health signals, feature controls, deployment order, rollback, and recovery where the change creates operational risk.
 
-### 5. Challenge and Synthesize
+### 5. Challenge and Synthesize (`CLOSE-1` through `CLOSE-11`)
 
 - [ ] Launch all selected lenses once for the current allowed round in separate contexts with the frozen packet, one primary question, read-only tools, and the required schema; keep them blind, wait for all, and record failures or same-round retries. Never create a third subagent round.
 - [ ] Verify each candidate against code, commands, behavior, declared intent, or authoritative documentation; trace symptom to causal path and violated contract, and reject subjective or symptom-only claims.
 - [ ] Accept a finding only when the diff introduced, exposed, or worsened it; it violates scoped acceptance; or the change caused a required-gate failure. Treat other issues only as limitations when they block acceptance; never recommend their repair.
 - [ ] Apply a materiality and acceptable-alternative gate to every in-scope candidate. Ask whether it proves a concrete user, business, safety, operational, delivery, or lifecycle impact at the evidenced project scale. Reject nitpicks, personal taste, theoretical purity, generic best practice, hypothetical scale, and an implementation that is merely different when the current tradeoff is reasonable. When several approaches are valid, require the outcome or constraint rather than one preferred design.
-- [ ] Put a directly relevant Markdown practice link in every finding's required resolution: prefer current official documentation or a specification, and use reputable primary engineering material only when official sources do not resolve the tradeoff. Open and verify the source; it must support the proposed mechanism, not merely the defect category. Reject search-result links, generic best-practice articles, and decorative citations.
+- [ ] After proving a local defect, research its correction, preferring an existing repository mechanism. Open current official version-matched documentation or a specification; use reputable primary engineering material only when official sources do not resolve the tradeoff. Put a directly relevant Markdown practice link in the required resolution and record the source date, verified claim, alternatives, and why this is the smallest complete fit. Reject search-result links, generic articles, and decorative citations; mark the correction `UNVERIFIED` when no credible source is available. Review never authorizes repair, and an implementer must revalidate unstable facts.
 - [ ] Deduplicate by root cause, preserve the strongest evidence and widest demonstrated impact, and recommend one smallest sufficient correction.
-- [ ] Resolve contradictions by tracing behavior; use one bounded verifier only when direct inspection cannot settle the claim.
+- [ ] Resolve contradictions by tracing behavior directly. Do not add a verifier round; carry genuinely unresolved material evidence into `BLOCKED` or residual risk according to the verdict rules.
 - [ ] Classify findings `P0` catastrophic, `P1` release-blocking, `P2` important non-blocking, or `P3` minor actionable.
 - [ ] Use `FAIL` for unresolved `P0/P1`, a required task or plan item that is `OMITTED` or demonstrably incorrect, unmet acceptance, an unauthorized change to existing user experience, a change-caused required-gate failure, or demonstrated unsafe high-risk behavior. Use `CONCERNS` only for explicit non-blocking risk. Use `PASS` only when every required task and plan item is `COMPLETE` or evidence-backed `DEVIATED`, every acceptance criterion passes, and all required evidence is complete.
 - [ ] Use `BLOCKED` when a required task or plan item remains `UNPROVEN`, or a required lens, specialist, safety environment, authoritative contract, or acceptance prerequisite has no credible replacement; report the coverage gap, not a product defect.
@@ -152,7 +152,7 @@ Each subagent returns coverage, candidate findings with change-causal evidence a
 - Authoritative task, approved plan, business thesis, acceptance, non-goals, base, head, and exact delta
 - Changed, supporting, and excluded surfaces
 - User-experience baseline and explicit change authorization
-- Subtraction ledger and relevant architecture-artifact status
+- Root-cause and solution-completeness assessment, subtraction ledger, and relevant architecture-artifact status
 - Commands, external sources, and limitations
 
 ## Task, plan, and acceptance matrix
@@ -164,17 +164,24 @@ Each subagent returns coverage, candidate findings with change-causal evidence a
 - Existing experience changes: None | item - explicit task authorization and verification
 - Additions: None | new screen, copy, control, or scenario - trigger, rationale, and evidence
 
+## Policy and decision compliance
+| Applicable policy or ADR | Affected implementation surface | Implementation evidence | Status |
+|---|---|---|---|
+| ... | ... | compliant path or explicitly approved deviation | COMPLIANT / DEVIATED / UNPROVEN |
+
+Include only current authoritative sources that apply to the change; omit draft, superseded, and merely descriptive material. Use `None` when none applies.
+
 ## Independent review panel
-Subagent rounds used: 0 / 1 / 2; initial scope-scaled or full / selective follow-up / Blue-only
-| Hat | Why selected | Coverage | Result |
+Pass: initial scope-scaled / initial full / selective follow-up / Blue-only; subagent rounds consumed: 0 / 1 / 2
+| Lens | Why selected | Coverage | Result |
 |---|---|---|---|
 | ... | required or triggered risk | inspected surfaces and checks | findings / none / failed |
-Use `None` for a non-code or follow-up delivery with no selected lens.
+Use `None` whenever Blue selects no lens, including fully evidenced trivial work.
 
 ## Findings
 | Priority | Problem | Evidence and justification | Required resolution |
 |---|---|---|---|
-| P0 / P1 / P2 / P3 | Concrete scoped defect or violated requirement | Location, change-causal evidence, violated contract, material impact at evidenced scale, and why the current tradeoff is not acceptable | Smallest sufficient correction, removals or retention evidence, existing mechanism, and a verified `[practice reference](URL)` to official or primary engineering guidance; allow equivalent valid solutions |
+| P0 / P1 / P2 / P3 | Concrete scoped defect or violated requirement | Location, change-causal evidence, violated contract, material impact at evidenced scale, and why the current tradeoff is not acceptable | Smallest complete correction at the owning boundary; in-scope paths, states, removals, or bounded containment; existing mechanism; and a verified `[practice reference](URL)` to official or primary engineering guidance; allow equivalent valid solutions |
 
 Use `None` when no candidate survives the evidence, causality, materiality, scope, and acceptable-alternative gates.
 

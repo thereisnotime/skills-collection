@@ -238,3 +238,78 @@ def test_resume_refuses_a_bundle_at_an_undeclared_location(
     bundle.root.rename(elsewhere)
     with pytest.raises(recovery.RecoveryError, match="supported retained"):
         recovery.resume(elsewhere, work)
+
+
+def test_resume_accepts_an_extraction_retry_ledger(tmp_path, monkeypatch):
+    # #610 step 5: the extraction retry class round-trips through recovery
+    # like the phase1 class, with its own record list.
+    work = tmp_path / "work"
+    malformed = "Let me extract first.\n\n" + fixtures.EXTRACTION_TEXT
+    result, bundle = harness.dispatch_panel(
+        fixture="ms00_clean", condition="post", replicate=1,
+        work_dir=work,
+        transport=fixtures.scripted({
+            "methodology.extraction": [malformed,
+                                       fixtures.EXTRACTION_TEXT],
+        }),
+        manuscript=fixtures.MANUSCRIPT, metadata=fixtures.METADATA,
+        contract_json=fixtures.CONTRACT_JSON,
+    )
+    assert result.abort is None
+    _force_emission_failure(work, result, bundle, monkeypatch)
+    assert recovery.main([
+        "--bundle", str(bundle.root), "--work-dir", str(work),
+    ]) == harness.EXIT_OK
+    record = json.loads(
+        (work / "runs" / f"{STEM}.json").read_text(encoding="utf-8"))
+    assert record["score_eligible"] is True
+    events = record["extraction_retries"]
+    assert len(events) == 1
+    assert events[0]["rejected_response_preserved"] is True
+
+
+def test_resume_refuses_a_tampered_receipts_artifact(tmp_path, monkeypatch):
+    # security round 1, P2-5: the calculator is deterministic, so recovery
+    # re-derives the receipts from the gate-passed extraction and refuses
+    # a receipts artifact that disagrees.
+    work, bundle = _failed_emission(tmp_path, monkeypatch)
+    receipts = bundle.root / harness.RECEIPTS_ARTIFACT
+    tampered = receipts.read_text(encoding="utf-8").replace(
+        "no_recomputable_statistics:", "no_recomputable_statistics: edited"
+    )
+    receipts.write_text(tampered, encoding="utf-8")
+    # The sha256 tree manifest catches a naive tamper first; refresh it in
+    # the recovery state so THIS test proves the deeper layer — content
+    # tied to the extraction, not to a rewritable manifest.
+    state_path = bundle.root / harness.RECOVERY_STATE_FILE
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    from scripts import _e4_evidence as e4_evidence
+    state["bundle_manifest"] = e4_evidence.tree_manifest(
+        bundle.root, exclude={harness.RECOVERY_STATE_FILE})
+    state_path.write_text(
+        json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(recovery.RecoveryError,
+                       match="deterministic re-derivation"):
+        recovery.resume(bundle.root, work)
+
+
+def test_resume_requires_the_identity_gate_witness(tmp_path, monkeypatch):
+    # security round 1, P2-5: with the calculator stage in the ledger, a
+    # methodology Phase 2 gate log without the RECEIPT-IDENTITY witness is
+    # not evidence the contract's identity gate ran.
+    work, bundle = _failed_emission(tmp_path, monkeypatch)
+    gate = bundle.root / "methodology.phase2.a1.gate.log"
+    text = gate.read_text(encoding="utf-8")
+    assert "RECEIPT-IDENTITY: PASS" in text
+    gate.write_text(
+        text.replace("RECEIPT-IDENTITY: PASS\n", ""), encoding="utf-8")
+    state_path = bundle.root / harness.RECOVERY_STATE_FILE
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    from scripts import _e4_evidence as e4_evidence
+    state["bundle_manifest"] = e4_evidence.tree_manifest(
+        bundle.root, exclude={harness.RECOVERY_STATE_FILE})
+    state_path.write_text(
+        json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(recovery.RecoveryError,
+                       match="lack response/checker evidence"):
+        recovery.resume(bundle.root, work)
