@@ -12,7 +12,12 @@ user-authored text"):
      (identical text, >= --min-dup occurrences, >= 400 normalized chars), both
      standalone records and the tail-appended shape -> stripped / appendix
   3. `[Image #N]` placeholders -> stripped (count kept)
-  4. whole-document pastes (>= 2000 normalized chars AND >= 60% ASCII) -> appendix
+  4. whole-document pastes (>= 2000 normalized chars AND (>= 60% ASCII OR
+     >= 10 non-blank lines)) -> appendix. The multi-line branch catches CJK
+     meeting transcripts / multi-turn dialog / agent re-injections that stay
+     below the ASCII bar, while coherent voice dictation (few long paragraphs)
+     is preserved. Speaker-label counting was tried and rejected: user prose
+     that quotes people racks up more "name:" labels than a real transcript.
   5. agent-voiced re-injection -> dropped when the text matches (exact or
      contained-in) an assistant text that exists EARLIER than the record
 
@@ -21,10 +26,12 @@ Mid-work input typed while the assistant was busy is recovered from
 against later-delivered user records (same normalized text within 120s).
 
 Usage:
-  extract_user_messages.py OUT_BASE [--days 7] [--group-by project|day]
+  extract_user_messages.py [OUT_BASE] [--days 7] [--group-by project|day]
       [--min-dup 5] [--home PATH ...]
 
-Writes OUT_BASE.html and OUT_BASE.md. Dates come from internal record
+OUT_BASE defaults to ~/.claude-flow-viewer/user-words — persistent; avoid /tmp
+(the OS purges it; 2026-08-07 战例: 产物写 /tmp 次日被清). Writes OUT_BASE.html
+and OUT_BASE.md. Dates come from internal record
 timestamps (UTC+8 rendering); file mtime is only a coarse prefilter.
 """
 
@@ -70,6 +77,7 @@ FILLER = {x.lower() for x in (
 BOILER_MIN_CHARS = 400      # injected boilerplate is long; short repeats are just filler
 PASTE_MIN_CHARS = 2000      # whole-document paste splitter …
 PASTE_ASCII_RATIO = 0.60    # … length AND mostly-ASCII; long voice dictation stays below the ASCII bar
+PASTE_MULTI_LINE_MIN = 10   # … OR long text spanning >= N non-blank lines = transcript/dialog/paste
 AGENT_EXACT_MIN = 30        # below this a coincidental same-text match is plausible
 AGENT_CONTAINS_MIN = 60
 DELIVERED_WINDOW_SEC = 120
@@ -274,9 +282,14 @@ def extract(sources, cutoff: datetime, min_dup: int = 5) -> Extraction:
         if not text:
             return
         norm = normalize_text(text)
-        if len(norm) >= PASTE_MIN_CHARS and sum(1 for ch in norm if ord(ch) < 128) / len(norm) >= PASTE_ASCII_RATIO:
-            result.pastes.append(Entry(ts, project, text))
-            return
+        if len(norm) >= PASTE_MIN_CHARS:
+            # ascii ratio uses normalized text (whitespace-stripped) so padding can't
+            # defeat it; line count uses raw text to see real paragraph structure.
+            ascii_ratio = sum(1 for ch in norm if ord(ch) < 128) / len(norm)
+            non_empty_lines = sum(1 for line in text.split('\n') if line.strip())
+            if ascii_ratio >= PASTE_ASCII_RATIO or non_empty_lines >= PASTE_MULTI_LINE_MIN:
+                result.pastes.append(Entry(ts, project, text))
+                return
         if len(norm) >= AGENT_EXACT_MIN:
             h = hashlib.md5(norm.encode()).digest()
             earlier = agent_exact.get(h)
@@ -434,7 +447,9 @@ def render_markdown(ext: Extraction, days: int, group_by: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description='Extract verbatim user messages from Claude history.')
-    ap.add_argument('out_base', help='output path without extension (.html/.md are appended)')
+    ap.add_argument('out_base', nargs='?', default='~/.claude-flow-viewer/user-words',
+                    help='output path without extension (.html/.md appended); '
+                         'default ~/.claude-flow-viewer/user-words — persistent, NOT /tmp which the OS purges')
     ap.add_argument('--days', type=int, default=7)
     ap.add_argument('--group-by', choices=('project', 'day'), default='project')
     ap.add_argument('--min-dup', type=int, default=5,
@@ -450,7 +465,8 @@ def main() -> int:
 
     ext = extract(sources, cutoff, min_dup=args.min_dup)
 
-    out = Path(args.out_base)
+    out = Path(args.out_base).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.with_suffix('.html').write_text(render_html(ext, args.days, args.group_by), encoding='utf-8')
     out.with_suffix('.md').write_text(render_markdown(ext, args.days, args.group_by), encoding='utf-8')
 

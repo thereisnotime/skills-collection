@@ -1041,14 +1041,14 @@ show_help() {
     echo "  cluster cockpit code compliance completions compound config context (ctx)"
     echo "  cost council crash dashboard demo deploy docker docs doctor dogfood"
     echo "  enterprise estimate explain export failover github grill heal help"
-    echo "  import init"
+    echo "  import init intent"
     echo "  issue kpis logs magic mcp memory metrics migrate modernize monitor"
-    echo "  next notify onboard open optimize otel own (handoff) pause plan preview"
-    echo "  projects proof (receipt) provider quick quickstart rc remote report reset"
+    echo "  next notify onboard open optimize otel outcomes own (handoff) pause plan preview"
+    echo "  projects proof (receipt) provider quick quickstart rc readiness remote report reset"
     echo "  resume review rollback run sandbox secrets secure self-update sentrux"
     echo "  serve setup-skill share ship spec start state stats status steer stop"
     echo "  syslog telemetry template test tour trigger trust trust-metrics"
-    echo "  ultracode update verify version voice watch watchdog web welcome why"
+    echo "  ultracode update verdict verify version voice watch watchdog web welcome why"
     echo "  wiki worktree (wt)"
     echo ""
     echo "Any command: loki <command> --help"
@@ -10155,7 +10155,14 @@ _export_check_overwrite() {
             echo "y (auto-confirmed)"
             return 0
         fi
-        if [ ! -t 0 ]; then
+        # A prompt is only answerable when BOTH ends are a terminal. Testing
+        # stdin alone was the bug: under a PTY harness that redirects stdout
+        # (the gate runs every check as `bash tests/... | tail -3`), `-t 0` is
+        # true, so we fell through to `read` -- but the process is not the
+        # terminal's foreground group, so reading the tty raises SIGTTIN and
+        # STOPS it. A stopped process never runs its SIGALRM handler, which is
+        # why `read -t` cannot rescue this; only not reading at all can.
+        if [ ! -t 0 ] || [ ! -t 1 ]; then
             echo "Export cancelled (non-interactive: refusing to overwrite '$output'." >&2
             echo "Set LOKI_AUTO_CONFIRM=true to overwrite, or choose a new output path.)" >&2
             return 1
@@ -10165,7 +10172,7 @@ _export_check_overwrite() {
         read -r reply || reply=""
         case "$reply" in
             [yY]|[yY][eE][sS]) return 0 ;;
-            *) echo "Export cancelled."; return 1 ;;
+            *) echo "Export cancelled (set LOKI_AUTO_CONFIRM=true to overwrite)."; return 1 ;;
         esac
     fi
     return 0
@@ -11511,7 +11518,16 @@ cmd_doctor() {
         # fails closed on any doubt, so when it returns false we emit today's
         # blocker verbatim. Mirrored in loki-ts/src/commands/doctor.ts.
         if declare -f detect_bundled_sdk_provider >/dev/null 2>&1 && detect_bundled_sdk_provider; then
-            echo -e "  ${GREEN}PASS${NC}  Bundled Claude Agent SDK is usable -- no separate CLI needed"
+            # Say exactly which commands this covers. "No separate CLI needed" was
+            # true for `loki start` and FALSE for demo/quick/quickstart, which stay
+            # on the bash route and require a binary on PATH (provider-offer.sh:44
+            # documents why folding the SDK predicate into detect_any_provider
+            # would be a fail-open). The old wording produced the worst first-run
+            # outcome we have: a green doctor ending in "Next: loki quickstart",
+            # followed by quickstart, demo, quick and start-on-bash all exiting 2.
+            echo -e "  ${GREEN}PASS${NC}  Bundled Claude Agent SDK is usable -- 'loki start' needs no separate CLI"
+            echo -e "         ${YELLOW}Note: loki demo/quick/quickstart still need a provider CLI on PATH${NC}"
+            echo -e "         ${YELLOW}      Install: npm install -g @anthropic-ai/claude-code${NC}"
             pass_count=$((pass_count + 1))
         else
             echo -e "  ${RED}FAIL${NC}  No AI provider CLI installed -- at least one is required"
@@ -11581,11 +11597,23 @@ except Exception:
             echo -e "  ${GREEN}PASS${NC}  Claude CLI is logged in (subscription/OAuth login)"
             pass_count=$((pass_count + 1))
         elif [ "$_claude_login" = "no" ]; then
-            echo -e "  ${YELLOW}WARN${NC}  Claude CLI is NOT logged in -- run 'claude login' before a build (it would otherwise stall)"
-            warn_count=$((warn_count + 1))
+            # BLOCKER, not a warning. A build cannot run without a login, and the
+            # warning form let a user pass doctor, answer every quickstart prompt,
+            # pick a template and CONFIRM THE SPEND before hitting the refusal at
+            # run.sh's auth preflight. Discovering a missing login after the
+            # consent screen is the worst placement available. Doctor is where a
+            # missing credential belongs. (An ANTHROPIC_API_KEY short-circuits
+            # that preflight, which is why this branch is reached only when the
+            # key is absent too.)
+            echo -e "  ${RED}FAIL${NC}  Claude CLI is NOT logged in -- a build would stall instead of running"
+            echo -e "         ${YELLOW}Fix: claude login${NC}   (or set ANTHROPIC_API_KEY)"
+            _doctor_block "Claude CLI is not logged in. Fix: claude login (or set ANTHROPIC_API_KEY)"
+            fail_count=$((fail_count + 1))
         elif [ "$_claude_expired" = "expired" ]; then
-            echo -e "  ${YELLOW}WARN${NC}  Claude login has EXPIRED -- run 'claude login' before a build (it would otherwise stall)"
-            warn_count=$((warn_count + 1))
+            echo -e "  ${RED}FAIL${NC}  Claude login has EXPIRED -- a build would stall instead of running"
+            echo -e "         ${YELLOW}Fix: claude login${NC}   (or set ANTHROPIC_API_KEY)"
+            _doctor_block "Claude login has expired. Fix: claude login (or set ANTHROPIC_API_KEY)"
+            fail_count=$((fail_count + 1))
         else
             echo -e "  ${DIM}  --  ${NC}  ANTHROPIC_API_KEY not set (Claude CLI uses its own login)"
         fi
@@ -11630,7 +11658,19 @@ except Exception:
             pass_count=$((pass_count + 1))
         elif [ -L "$sdir" ]; then
             local _target
-            _target=$(readlink "$sdir" 2>/dev/null || echo "unknown")
+            # readlink is NOT in POSIX and is absent from minimal images and
+            # from constrained PATHs (the doctor parity harness builds one).
+            # When it is missing this reported the literal string "unknown"
+            # while the Bun route printed the real target, so the two routes
+            # diverged on the same host and bun-parity went red. ls -ld is
+            # POSIX and always present; strip through the FIRST " -> " only,
+            # since a link target may itself contain that sequence.
+            if command -v readlink >/dev/null 2>&1; then
+                _target=$(readlink "$sdir" 2>/dev/null || echo "unknown")
+            else
+                _target=$(ls -ld "$sdir" 2>/dev/null | sed -e 's/^[^>]*-> //')
+                [ -n "$_target" ] || _target="unknown"
+            fi
             echo -e "  ${RED}FAIL${NC}  $sname  ${DIM}(broken symlink -> $_target)${NC}"
             echo -e "         ${YELLOW}Fix: loki setup-skill${NC}"
             _doctor_block "$sname is a broken symlink. Fix: loki setup-skill"
@@ -11865,7 +11905,14 @@ STALE_DAYS = 90
 p = os.environ['LOKI_CATALOG_PATH']
 try:
     updated = json.load(open(p))['updated']
-    age = (datetime.date.today() - datetime.date.fromisoformat(updated)).days
+    # UTC, matching the --json path below (loki:12337) and the Bun route
+    # (doctor.ts:545). This is the TEXT-mode twin of that computation, and it was
+    # missed when the JSON one was fixed: the parity gate compares BOTH surfaces,
+    # so fixing only --json left doctor text-mode still diverging 5 vs 6 and the
+    # gate still red. Two copies of one calculation is the actual defect here;
+    # they are left as two only because the text path prints and the JSON path
+    # returns a dict.
+    age = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.date.fromisoformat(updated)).days
 except Exception:
     print('warn|Catalog unreadable or missing an ISO \"updated\" date -- cannot determine age')
 else:
@@ -11989,6 +12036,17 @@ else:
             local _blk_key="other"
             case "$_doctor_blockers" in
                 *"No AI provider CLI"*) _blk_key="no_provider" ;;
+                # This doctor DETECTS the logged-out / expired wall above
+                # (:11610, :11615) but had no arm for it, so the single most
+                # common post-install failure was reported as `other` -- the one
+                # bucket that cannot be acted on. not_logged_in is already a
+                # first-class enum value (telemetry.sh:204) and the Bun doctor
+                # already reports it, so without this arm the SAME host answered
+                # `other` on bash and `not_logged_in` on Bun and the two routes'
+                # counts could not be added together. Ordered directly after
+                # no_provider because install-vs-authenticate need opposite fixes
+                # and a missing provider is the earlier wall.
+                *"not logged in"*|*"login has expired"*) _blk_key="not_logged_in" ;;
                 *"Node.js is not installed"*|*"Node.js must be"*) _blk_key="node" ;;
                 *"Python 3 is not installed"*|*"Python 3 must be"*) _blk_key="python3" ;;
                 *"jq is not installed"*) _blk_key="jq" ;;
@@ -12172,9 +12230,59 @@ memory = {
     'status': 'pass' if not memory_recent_errors else 'warn',
 }
 
+# SKILL LINK INTEGRITY. The text path has always failed closed on a broken
+# skill symlink (the Skills section, _doctor_block, exit 1), but --json
+# omitted skills entirely -- so on a host with a dangling ~/.claude/skills/
+# loki-mode the two outputs gave OPPOSITE verdicts: text exited 1 while
+# --json reported failed 0 and ok true. An operator gating on the JSON got a
+# green on a host where the skill cannot load. Same class of fake-green as
+# the ai_provider block below, and fixed the same way: counted in the tally.
+#
+# Per-entry counting matches the text path, which tallies each of the four
+# entries separately. Paths are the same ones the text path already prints,
+# so this exposes nothing new.
+#
+# CAUTION: this block lives inside a DOUBLE-QUOTED python3 -c program, so no
+# apostrophes and no double quotes anywhere here, comments included.
+_SKILL_ENTRIES = (
+    ('Claude Code', '.claude/skills/loki-mode'),
+    ('Codex CLI', '.codex/skills/loki-mode'),
+    ('Cline CLI', '.cline/skills/loki-mode'),
+    ('Aider CLI', '.aider/skills/loki-mode'),
+)
+skills = []
+for _sk_name, _sk_rel in _SKILL_ENTRIES:
+    _sk_dir = os.path.join(os.path.expanduser('~'), _sk_rel)
+    if os.path.isfile(os.path.join(_sk_dir, 'SKILL.md')):
+        skills.append({'name': _sk_name, 'path': _sk_dir, 'status': 'pass',
+                       'detail': None, 'required': 'required'})
+    elif os.path.islink(_sk_dir):
+        # islink is true for a DANGLING link (lstat-based), which is exactly
+        # the broken case the text path reports as FAIL.
+        try:
+            _sk_target = os.readlink(_sk_dir)
+        except OSError:
+            _sk_target = 'unknown'
+        skills.append({'name': _sk_name, 'path': _sk_dir, 'status': 'fail',
+                       'detail': 'broken symlink -> ' + _sk_target
+                                 + '. Fix: loki setup-skill',
+                       'required': 'required'})
+    else:
+        skills.append({'name': _sk_name, 'path': _sk_dir, 'status': 'warn',
+                       'detail': 'not found - run loki setup-skill',
+                       'required': 'required'})
+
 pass_count = sum(1 for c in checks if c['status'] == 'pass')
 fail_count = sum(1 for c in checks if c['status'] == 'fail')
 warn_count = sum(1 for c in checks if c['status'] == 'warn')
+
+for _sk in skills:
+    if _sk['status'] == 'pass':
+        pass_count += 1
+    elif _sk['status'] == 'fail':
+        fail_count += 1
+    else:
+        warn_count += 1
 
 if disk_status == 'pass': pass_count += 1
 elif disk_status == 'fail': fail_count += 1
@@ -12222,7 +12330,18 @@ _cat_path = os.environ['LOKI_CATALOG_PATH']
 try:
     import datetime as _dt
     _cat_updated = json.load(open(_cat_path))['updated']
-    _cat_age = (_dt.date.today() - _dt.date.fromisoformat(_cat_updated)).days
+    # UTC, not local. date.today() is the HOST's date, while the Bun route parses
+    # both sides at UTC midnight (doctor.ts:545 says so, to keep the day count
+    # from shifting with the host timezone). Anywhere west of UTC the two
+    # disagree for the hours between local midnight and UTC midnight, and
+    # doctor --json is compared BYTE FOR BYTE between routes by bun-parity.
+    #
+    # Measured on this host at 02:45 UTC / 22:45 local: bash reported age_days 5
+    # and Bun reported 6, from the same file at the same instant. It reproduced
+    # across two full gate runs hours apart, so it is not a midnight-rollover
+    # flake. It is a real parity defect that stays invisible while the local date
+    # and the UTC date agree, which is most of the day.
+    _cat_age = (_dt.datetime.now(_dt.timezone.utc).date() - _dt.date.fromisoformat(_cat_updated)).days
     if _cat_age > CATALOG_STALE_DAYS:
         # Deliberately NOT counted. The block comment above states catalog age is
         # excluded from pass/fail/warn and from 'ok' so a stale catalog can never
@@ -12258,6 +12377,7 @@ result = {
         'status': disk_status
     },
     'ai_provider': ai_provider,
+    'skills': skills,
     'sentrux': sentrux,
     'receipt_signing': receipt_signing,
     'memory': memory,
@@ -13683,12 +13803,76 @@ set_ttfv_lightweight_profile() {
 # never pollutes the v7.8.1 generated-PRD-reuse signature logic. The brief text
 # is the project intent; the rest is a minimal scaffold the agent fills in.
 # Usage: synthesize_brief_prd <output_file> <brief_text>
+# _brief_acceptance_criteria <brief_text>: acceptance criteria derived from what
+# the user ACTUALLY asked for, not constants.
+#
+# WHY. Every one-liner used to get byte-identical Requirements and Success
+# Criteria: "build a todo app" and "build a Stripe billing dashboard" produced
+# the same acceptance criteria, and the user's own words appeared exactly once,
+# under Overview. So the completion council, the checklist and the evidence gate
+# were all checking generic prose rather than the request. That is the weakest
+# input shape getting the least specific help, which is backwards -- a cheap
+# model's output quality depends more on how precisely the target is stated than
+# on the model.
+#
+# DETERMINISTIC ON PURPOSE. No model call: this runs before a provider is even
+# selected, must work with no API key, and must not add latency or cost to the
+# first thing a new user does. It is keyword-to-obligation mapping, which is
+# honest about being shallow -- it turns stated nouns into checkable lines and
+# claims nothing about intent it cannot see. Anything cleverer belongs in the
+# spec-interrogation grill, which already runs after this and does call a model.
+_brief_acceptance_criteria() {
+    local t
+    t="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+    local out=""
+    _bac() { out="${out}- ${1}"$'\n'; }
+
+    # Persistence. The single most common churn report is "I submitted the form
+    # and nothing happened", so a stated store or form becomes an explicit
+    # survives-a-reload obligation rather than an implied one.
+    case "$t" in
+        *save*|*persist*|*store*|*databas*|*crud*|*todo*|*note*|*task*|*record*)
+            _bac "Data the user creates survives a page reload and a server restart (it is written to a real store, not held in memory)." ;;
+    esac
+    case "$t" in
+        *form*|*submit*|*signup*|*"sign up"*|*contact*|*upload*|*checkout*)
+            _bac "Every form actually submits: the happy path writes real data and the user sees a confirmation, and a validation failure shows an inline error." ;;
+    esac
+    case "$t" in
+        *auth*|*login*|*"log in"*|*"sign in"*|*account*|*user*|*password*|*session*)
+            _bac "Authentication works end to end: a real signup, a real login, and a protected route that returns 401 when logged out." ;;
+    esac
+    case "$t" in
+        *api*|*endpoint*|*rest*|*graphql*|*backend*|*server*)
+            _bac "Each endpoint returns real data with correct status codes, and is callable with curl without a browser." ;;
+    esac
+    case "$t" in
+        *payment*|*stripe*|*billing*|*subscription*|*checkout*|*invoice*)
+            _bac "The payment path is wired to the provider's test mode and a test transaction completes; no mocked charge stands in for the integration." ;;
+    esac
+    case "$t" in
+        *search*|*filter*|*sort*)
+            _bac "Search or filtering queries the real dataset and returns different results for different inputs." ;;
+    esac
+    case "$t" in
+        *dashboard*|*chart*|*graph*|*analytic*|*report*|*metric*)
+            _bac "Every figure shown traces to a real query. No hardcoded sample numbers." ;;
+    esac
+    case "$t" in
+        *page*|*landing*|*site*|*website*|*ui*|*app*|*frontend*)
+            _bac "The page renders with real content, no lorem ipsum, and no placeholder image where a real asset belongs." ;;
+    esac
+    printf '%s' "$out"
+}
+
 synthesize_brief_prd() {
     local out_file="$1"
     local brief_text="$2"
     local out_dir
     out_dir="$(dirname "$out_file")"
     mkdir -p "$out_dir" 2>/dev/null || true
+    local _derived
+    _derived="$(_brief_acceptance_criteria "$brief_text")"
     cat > "$out_file" << BRIEFEOF
 # Project Brief
 
@@ -13704,6 +13888,7 @@ $brief_text
 ## Success Criteria
 - A user can run the result and observe the core behavior described above.
 - No errors on a clean start; the happy path works end to end.
+${_derived}
 
 ## Constraints
 - This is a fast first pass (zero-config first run). Keep scope tight.
@@ -13805,6 +13990,10 @@ cmd_quick() {
     find "$LOKI_DIR" -maxdepth 1 -name 'quick-prd-*.md' -mtime +1 -delete 2>/dev/null || true
     find "$LOKI_DIR" -maxdepth 1 -name 'brief-prd-*.md' -mtime +1 -delete 2>/dev/null || true
     local quick_prd="$LOKI_DIR/quick-prd-$$.md"
+    # Same spec-derived criteria as the brief path: a quick task was getting the
+    # identical generic Success Criteria regardless of what was asked.
+    local _derived
+    _derived="$(_brief_acceptance_criteria "$task_desc")"
     cat > "$quick_prd" << QPRDEOF
 # Quick Task
 
@@ -13821,6 +14010,7 @@ $task_desc
 - Task is completed as described
 - No errors or regressions introduced
 - Code follows project conventions
+${_derived}
 
 ## Constraints
 - This is a quick single-task execution
@@ -15902,6 +16092,25 @@ cmd_verify() {
 # and detects drift deterministically, emitting .loki/spec/drift-report.json.
 # Exit codes are propagated so `loki spec status` is CI-gate usable.
 # ---------------------------------------------------------------------------
+# loki intent: does the spec still say what was actually wanted?
+#
+# Our gates prove code matches spec. They cannot prove the spec was RIGHT --
+# 8090 AI documents a build where "the software converged with the
+# interpretation. The interpretation had diverged from the intent", which a
+# perfect verification gate passes. This measures that gap deterministically by
+# comparing the requirement hash an intent was affirmed against with the
+# requirement's hash now. No model judges anything; see autonomy/intent.sh.
+cmd_intent() {
+    local intent_mod="$_LOKI_SCRIPT_DIR/intent.sh"
+    if [ ! -f "$intent_mod" ]; then
+        echo -e "${RED}Error: intent module not found at $intent_mod${NC}" >&2
+        return 3
+    fi
+    # shellcheck source=/dev/null
+    source "$intent_mod"
+    intent_main "$@"
+}
+
 cmd_spec() {
     local spec_mod="$_LOKI_SCRIPT_DIR/spec.sh"
     if [ ! -f "$spec_mod" ]; then
@@ -19141,6 +19350,11 @@ main() {
         spec)
             cmd_spec "$@"
             ;;
+        intent)
+            # The spec is an INTERPRETATION of what was wanted. This checks
+            # whether it still matches the intent it was affirmed against.
+            cmd_intent "$@"
+            ;;
         grill)
             cmd_grill "$@"
             ;;
@@ -19255,6 +19469,20 @@ main() {
             # `loki receipt` is a friendly alias for `loki proof` (the Evidence
             # Receipt surface): same subcommands (list/show/verify/open/share).
             cmd_proof "$@"
+            ;;
+        outcomes)
+            # The receipt says what was proven at the time. This says what
+            # happened to it afterwards -- reverted, reworked, or survived.
+            cmd_outcomes "$@"
+            ;;
+        verdict)
+            # All five trust signals in one block. The individual measurements
+            # existed and were unreachable; this is the surface a reviewer reads.
+            cmd_verdict "$@"
+            ;;
+        readiness)
+            # Can an agent verify its own work here? Measured, not LLM-scored.
+            cmd_readiness "$@"
             ;;
         secure)
             # Secure-by-default gate surface: inspect findings + manage waivers.
@@ -30693,6 +30921,122 @@ if _result.get('error'):
 # this is a thin dispatcher, mirroring how cmd_proof delegates to the proof
 # generator. Generation is incremental (skips when the codebase is unchanged).
 # =============================================================================
+# loki outcomes: what happened to the work AFTER the receipt was written.
+#
+# Every competing agent reports VOLUME. Factory AI's analytics expose files
+# edited, lines modified, commits, PRs created, tokens and DAU -- and no defect
+# rate, no revert rate, no change-failure rate; their own telemetry doc leaves
+# outcome correlation to the customer. Devin's security page concedes the agent
+# "can still experience hallucinations, introduce bugs into code" and points at
+# your existing review. Both can prove the agent was BUSY. Neither shows it was
+# RIGHT. This answers the other question, from local git history alone.
+#
+# It reports UNKNOWN far more often than it reports a number, and that is the
+# feature. See autonomy/lib/outcome_ledger.py for the anchor gate and the
+# measured evidence behind it.
+cmd_outcomes() {
+    local lib="${_LOKI_SCRIPT_DIR}/lib/outcome_ledger.py"
+    if [ ! -f "$lib" ]; then
+        echo "outcome ledger is not installed at $lib" >&2
+        return 2
+    fi
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}loki outcomes${NC} - did the work turn out to be RIGHT, not just that it happened"
+            echo ""
+            echo "Usage: loki outcomes [--json] [--run-id <id>]"
+            echo ""
+            echo "Follows each Evidence Receipt past the moment it was written and"
+            echo "reports, from local git only: was it reverted, did its lines survive,"
+            echo "how much was reworked, and the change-failure rate across receipts."
+            echo ""
+            echo "A receipt is measured ONLY when sha algebra proves base..head is that"
+            echo "change. Everything else reads UNKNOWN with a named reason -- never 0,"
+            echo "never a pass. Read-only: it never writes to the repo it analyses."
+            return 0
+            ;;
+    esac
+    LOKI_DIR="${LOKI_DIR:-.loki}" python3 "$lib" "$@"
+}
+
+# loki verdict: the five measured trust signals, in one block a reviewer reads
+# in ten seconds.
+#
+# WHY A COMMAND AND NOT JUST A LIBRARY. We measure five things nobody else does
+# -- did the work survive, does the spec still match intent, was this the agent
+# or a human rescue, does the completion claim name real work, which model
+# decided -- and each was correct, tested, and unreachable. A moat nobody can
+# see is not a moat. This is the surface.
+#
+# There is deliberately NO composite score. Averaging a revert count, a hash
+# comparison, a diff hash, a path match and a model id yields a number whose
+# movement nobody can explain, which is what competitors already ship. UNKNOWN
+# is PRINTED, never suppressed: a reviewer must tell "we checked and it is fine"
+# from "we could not check". See autonomy/lib/verdict.py.
+cmd_verdict() {
+    local lib="${_LOKI_SCRIPT_DIR}/lib/verdict.py"
+    if [ ! -f "$lib" ]; then
+        echo "verdict renderer is not installed at $lib" >&2
+        return 2
+    fi
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}loki verdict${NC} - the five measured trust signals, in one readable block"
+            echo ""
+            echo "Usage: loki verdict [--json]"
+            echo ""
+            echo "Prints one line each for outcome, intent, authorship, grounding and"
+            echo "model: what survived, whether the spec still matches intent, whether"
+            echo "this was the agent or a human rescue, whether the completion claim"
+            echo "named real work, and which model decided."
+            echo ""
+            echo "Every line is either a measured fact or an explicit UNKNOWN. There is"
+            echo "no composite score: a number nobody can explain is not evidence."
+            echo "Read-only: it never writes to the repo it analyses."
+            return 0
+            ;;
+    esac
+    LOKI_DIR="${LOKI_DIR:-.loki}" python3 "$lib" "$@"
+}
+
+# loki readiness: can an autonomous agent verify its own work in THIS repo?
+#
+# WHY THIS IS NOT A COPY OF FACTORY AI'S AGENT READINESS MODEL. Theirs is
+# LLM-scored -- their report objects record modelUsed and reasoningEffort, so
+# the number is a model's opinion and two runs can disagree about the same
+# commit. Every criterion here is a file that exists or does not, a command
+# present or absent: same commit, same answer, every machine, no key, no spend.
+#
+# No percentage and no letter grade. A composite invites ranking, ranking
+# invites gaming, and the individual signals are the actionable part -- "there
+# is no test command" tells you what to do, "readiness 62%" does not. Criteria
+# that cannot be determined report UNKNOWN by name rather than counting as
+# failures. See autonomy/lib/agent_readiness.py.
+cmd_readiness() {
+    local lib="${_LOKI_SCRIPT_DIR}/lib/agent_readiness.py"
+    if [ ! -f "$lib" ]; then
+        echo "readiness assessor is not installed at $lib" >&2
+        return 2
+    fi
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}loki readiness${NC} - can an agent verify its own work in this repo?"
+            echo ""
+            echo "Usage: loki readiness [path] [--json]"
+            echo ""
+            echo "Measures whether this repo gives an agent a way to check itself: a"
+            echo "test command, a build, CI config, typed sources, a lockfile. Not"
+            echo "general code quality -- the narrower question every agent depends on."
+            echo ""
+            echo "Deterministic: no model, no key, no spend. Same commit, same answer."
+            echo "Criteria that cannot be determined report UNKNOWN rather than failing."
+            echo "Read-only: it never writes to the repo it analyses."
+            return 0
+            ;;
+    esac
+    python3 "$lib" "$@"
+}
+
 cmd_wiki() {
     local subcmd="${1:-}"
     shift 2>/dev/null || true

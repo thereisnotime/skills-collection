@@ -5,6 +5,163 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.16.0
+
+Completes the 10-item competitive roadmap.
+
+### Added
+
+- **Agent readiness -- a measurement where the competitor ships an opinion.**
+  Factory AI's Agent Readiness Model records `modelUsed` and `reasoningEffort`
+  per report, so its score is a model's opinion and two runs can disagree about
+  the same commit. Ours is filesystem facts: three runs of the same repo produce
+  byte-identical output, with no key, no spend and no network. It asks the
+  narrower question our product depends on, can an agent verify itself here,
+  and does not duplicate the deterministic maturity rubric
+  `loki modernize heal --assess` already ships.
+
+- **SCIM 2.0 provisioning.** Measured before building: OIDC is real here (76
+  references in dashboard/auth.py) and SAML and SCIM were both zero. The gap was
+  never authentication, it was PROVISIONING -- with OIDC alone a terminated
+  employee stops being able to log in while an already-issued token keeps
+  working. IdP groups map onto the scope hierarchy auth.py already enforces, so
+  there is one authorization model rather than two that drift. An unknown group
+  maps to the lowest scope, and a corrupt store denies rather than reading as
+  "nobody provisioned"; both are mutation-checked. Deprovisioning is soft by
+  default because an audit log that cannot say who acted is not an audit log.
+
+- **`loki verdict` -- the five measured signals, where a reviewer sees them.**
+  A moat nobody sees is not a moat. One block, five lines, each a measured fact
+  or an explicit UNKNOWN, rendered into the Evidence Receipt already attached to
+  PRs. No composite score: averaging a revert count, a hash comparison and a
+  model id yields a number nobody can explain, which is what competitors already
+  ship. UNKNOWN lines are printed, never hidden.
+
+- **docs/VERIFICATION-COST.md -- what our verification costs, and what it does
+  not prove.** The FULL gate takes 23 to 26 minutes and we do not offer a mode
+  that makes it free. The page states that the unsigned receipt path is
+  forgeable, that only four of eight gates are agent-independent, that
+  verification cannot prove the spec was right, and that 0 of 9 of our own
+  receipts are anchored so `loki outcomes` reports UNKNOWN for all of them. A
+  14-assertion test keeps it true rather than merely present.
+
+## v9.15.0
+
+### Added
+
+- **Claim grounding -- the completion claim is the one artifact nobody checks.**
+  Our evidence gate has six axes (diff non-empty, tests green, runtime boot,
+  no-mock, authorization, secret leak) and every one is a REPO-LEVEL fact. None
+  reads what the agent actually claimed. So an agent could finish by asserting
+  "added retry logic to payments.py and covered it with tests" while the diff
+  showed a README edit, and all six axes pass. Path-shaped tokens in a claim are
+  now resolved against the real changed-file set. Deliberately fail-open: only a
+  path demonstrably absent from the diff is a finding, because a check that fires
+  on ordinary prose gets disabled inside a week and takes the real detections
+  with it.
+
+- **LLM Decision Record -- which model, at what temperature, made each call.**
+  Factory AI's audit log has eight event types and not one records an agent
+  action; agent forensics exists only as customer-built OTEL. Records are
+  append-only and make a mid-project model or temperature change detectable,
+  which is what makes "we ran an approved configuration" falsifiable. The field
+  set is a pinned allowlist: a prompt body, an API key and file contents are all
+  refused, with the refusal surfaced rather than silent. Nothing is transmitted.
+
+- **Failure memory -- learn from being wrong without poisoning the next run.**
+  Factory has no memory system at all; Devin discards session state at teardown
+  and ships a "Misleading Knowledge" tab enumerating memory items that led it
+  astray. That names the mechanism: memory written from an agent's narration
+  records what the agent believed, which is exactly what was wrong when it
+  failed. So a lesson requires a named gate, a verdict, and EVIDENCE, and is
+  refused without it. Recall returns checkable counts rather than
+  generalizations, and states what happened rather than prescribing a fix.
+
+### Fixed
+
+- **The release gate no longer fails on a host fault it already repaired.** The
+  core.bare check fired three times in one day, each on a FULL gate whose other
+  165 checks passed, each on a mutation it had already fixed before returning. A
+  check that repairs a problem and then reports red teaches one response, re-run
+  and ignore, which is how the next genuine red gets waved through. Evidence is
+  unchanged (the watcher still logs MUTATED with a config backup); only the false
+  block is gone. A repair that FAILS still blocks.
+
+## v9.14.0
+
+### Added
+
+- **`loki intent` -- detect the drift a verification gate structurally cannot see.**
+  Our gates prove code matches spec. They cannot prove the spec was RIGHT. 8090 AI
+  documents a real build where "the software converged with the interpretation.
+  The interpretation had diverged from the intent" -- a perfect verification gate
+  passes that build and the build is still wrong. No competitor ships an answer:
+  8090 published the argument and their own "Tests" module has zero documentation
+  pages and zero changelog entries.
+
+  An intent statement is linked to a spec requirement at that requirement's
+  current `content_hash`, so divergence is a pure hash comparison against
+  `.loki/spec/spec.lock`. Verified end to end: a requirement rewritten from "users
+  can export their data" to "admins can export via internal API" reads
+  LINKED-STALE naming both hashes, while the code would still match that spec byte
+  for byte.
+
+  There is deliberately no semantic fidelity score. Asking a model "does this spec
+  express this intent?" and printing a percentage is an LLM judgment wearing the
+  costume of a measurement, and our receipts exist to separate deterministic FACTS
+  from AI ASSESSMENTS. Two structural tests enforce the absence against executable
+  code, so it cannot be added later as an improvement without the suite going red.
+
+- **Pre-edit snapshot -- measure the agent, not the agent-plus-whoever-fixed-it.**
+  Every quality number we publish is measured after a human may have touched the
+  diff, so a strong reviewer flatters the agent and a weak one maligns it. 8090's
+  framing: a post-edit score "describes the writer-plus-AI workflow, not the AI
+  alone." An immutable snapshot of the agent's output is captured at the moment it
+  stops, with a sha256 anyone can recompute.
+
+  Write-once is load-bearing: re-capturing after a human edit would record the
+  human's work as the agent's, reintroducing the exact contamination via the tool
+  meant to prevent it. It scores nothing on purpose -- a low pre-edit result is a
+  diagnostic, not a failure.
+
+## v9.13.0
+
+### Added
+
+- **`loki outcomes` -- measure whether the work was RIGHT, not that it happened.**
+  Every competing agent reports volume. Measured against their own published
+  docs: Factory AI's analytics expose files edited, lines modified, commits, PRs
+  created, tokens and DAU, and no defect rate, no revert rate, no change-failure
+  rate; their telemetry doc leaves outcome correlation to the customer's own
+  stack. Devin's security page concedes the agent "can still experience
+  hallucinations, introduce bugs into code" and points at your existing review.
+  Both can prove the agent was busy. Neither shows it was right.
+
+  `loki outcomes [--json] [--run-id X]` follows each Evidence Receipt past the
+  moment it was written and reports, from local git alone: was it reverted (read
+  from git's own "This reverts commit" trailer, so a fact rather than an
+  inference), did its lines survive (`git blame --porcelain` attribution), how
+  much was reworked, and the change-failure rate across receipts. Read-only; it
+  never writes to the repo it analyses.
+
+  **The anchor gate is the feature.** `facts.git.head_sha` is `git rev-parse
+  HEAD` at receipt-generation time, which for uncommitted work is the run's
+  starting commit, not what the change became. On this repo's own nine receipts,
+  eight carry an empty `base_sha` and share a `head_sha` whose commit touches two
+  files while those receipts attest to eight. Following it regardless would have
+  attributed one commit's fate to eight unrelated runs and printed it as a
+  change-failure rate. File-overlap was tested as a fallback and rejected (those
+  receipts overlap that commit by two files, so any overlap rule accepts all
+  eight). A receipt is measured only when sha algebra proves `base..head` is that
+  change, including a full file-set match.
+
+  So on this repo today it reports ANCHORED 0 of 9 with a reason distribution and
+  a change-failure rate of UNKNOWN. That is the correct output: an unmeasurable
+  denominator yields 0.0 if nobody guards it, and 0.0 would look better and be a
+  lie. Verified in a synthetic repo that an anchored change reports SURVIVED, and
+  after `git revert` the same receipt reports REVERTED with three independent
+  signals agreeing.
+
 ## v9.12.6
 
 ### Added

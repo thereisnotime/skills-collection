@@ -91,3 +91,50 @@ authorized change); its value is as a standing regression tripwire.
   flips are expected on borderline items). n=8 single-generator English-only is
   a seed, not a verdict on the population. Model- and time-specific — re-run,
   never reuse the numbers.
+
+## Measurement contract (#654)
+
+New scored rows in this suite opt into the `heldout-measurement/1.0` envelope
+(`evals/heldout/MEASUREMENT_CONTRACT.md`, `suite_class: llm_judged`): >= 2 judges
+from different model families for decision-relevant runs, precommitted + hashed
+adjudication rubric, raw-alongside-adjudicated publication, >= 2 replicates per
+item. The 2026-07-22 baseline row predates the contract and is never retrofitted;
+a #652 re-measurement keeps the original judge as its legacy-comparability row
+(`judge_plan.exception: "legacy_comparability"`) with any new judges reported
+separately.
+
+## 2026-08-07 post-guard re-measurement (#652; see `measurement-2026-08-07.json`)
+
+Two-arm concurrent design (the issue's preferred attribution shape): the same 8
+items, same session window, same frozen subject configuration
+(`claude-fable-5`, headless CLI, neutral cwd), 2 replicates per item per arm —
+Arm U gets the baseline-shaped natural task, Arm G additionally carries a
+guard block condensed from the shipped `draft_writer_agent` revision-mode
+ladder section — rules 1-3 near-verbatim plus the ladder scale, with shipped
+rule 4's `protected_hedges`-roster mechanism replaced by a token-conservation
+line (block quoted in `runs/2026-08-07/RUN_PLAN.md`; the row measures this
+prompt, not the shipped pipeline path). First row under the #654 envelope described
+above (`judge_plan.exception: legacy_comparability`; judge codex `gpt-5.6-sol`
+xhigh, blind to arms/controls via a seed-652 shuffle). Pre-registration,
+blinding, and adjudication detail: `runs/2026-08-07/RUN_PLAN.md` +
+`RUN_NOTES.md`.
+
+Figures below mirror `measurement-2026-08-07.json`, which is authoritative —
+correct the JSON first.
+
+| Layer | Unguarded (U) | Guarded (G) |
+|-------|---------------|-------------|
+| Claim-strength / hedge drift (judged), item-replicates | **7/16 = 0.4375** | **1/16 = 0.0625** |
+| Claim-strength / hedge drift (judged), item-level | 4/8 (rp-02, rp-03, rp-05, rp-06) | 1/8 (rp-03) |
+| Numeric/citation drift (deterministic), unauthorized runs | 4/16 | 0/16 |
+| Controls clean (rp-07's authorized 0.17→0.21 isolated in all 4 runs, both arms) | 2/2 | 2/2 |
+
+**Verdict: GUARD-TEXT EFFECT PRESENT IN-WINDOW, DRIFT NOT ELIMINATED.** The guarded
+arm's residual case (rp-03-G-r2) restated a null ("no evidence of the expected
+operational advantage") as an affirmative "showed no relation" — an
+absence-of-evidence → evidence-of-absence move the guard text did not stop.
+The unguarded arm ran hotter than the 2026-07-22 baseline (4/8 items vs 2/8;
+raw judge flag rate 9/16 vs 4/8) — a descriptive temporal comparison only (the
+baseline retained no raw prompts and had 1 replicate; no causal claim on the
+temporal axis). Judged rate is a lower bound conditional on judge recall
+(rubric C7: adjudication never adds flags).

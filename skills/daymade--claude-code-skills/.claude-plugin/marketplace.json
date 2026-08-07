@@ -100,10 +100,10 @@
     },
     {
       "name": "daymade-claude-code",
-      "description": "Claude Code operations suite that bundles archive-aware local conversation discovery across Claude Code and Codex, internal-timestamp full-event session search and recovery, interrupted-work continuation, plugin/skill troubleshooting, CLAUDE.md progressive disclosure optimization, statusline configuration, exported .txt repair, full claude.ai conversation extraction with tool-call rendering and file download, plugin marketplace development, writing/testing/debugging Claude Code hooks, multi-provider profile isolation for running Kimi/GLM/DeepSeek/StepFun/Anthropic in separate windows, local source sync for Claude/Codex skill installs, personal-memory migration into tool-agnostic AGENTS.md reference docs, and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
+      "description": "Claude Code operations suite that bundles archive-aware local conversation discovery across Claude Code and Codex, internal-timestamp full-event session search and recovery, interrupted-work continuation, plugin/skill troubleshooting, CLAUDE.md progressive disclosure optimization, statusline configuration, exported .txt repair, full claude.ai conversation extraction with tool-call rendering and file download, plugin marketplace development, writing/testing/debugging Claude Code hooks, multi-provider profile isolation for running Kimi/MiniMax/GLM/DeepSeek/StepFun/Anthropic in separate windows, local source sync for Claude/Codex skill installs, personal-memory migration into tool-agnostic AGENTS.md reference docs, and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "1.40.0",
+      "version": "1.42.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -146,7 +146,7 @@
       "description": "Documentation suite plugin that exposes document conversion, Mermaid diagram generation, PDF/PPT/DOCX creation, and documentation cleanup skills under one shared namespace",
       "source": "./daymade-docs",
       "strict": false,
-      "version": "1.5.0",
+      "version": "1.6.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -204,7 +204,7 @@
       "description": "Audio processing suite covering the full speech pipeline: ASR transcription (Qwen3, StepFun) with batch-mode guards against music-only repetition-loop hallucinations, speaker diarization and CAM++ voiceprint identification for multi-speaker recordings, transcript error correction, structured meeting minutes generation, and TTS voice synthesis (StepFun). Install once for the complete audio workflow.",
       "source": "./daymade-audio",
       "strict": false,
-      "version": "1.23.0",
+      "version": "1.23.1",
       "category": "suite",
       "keywords": [
         "suite",
@@ -230,7 +230,7 @@
       "description": "Daymade skills core suite. Bundles skill creation, quality review, governance, and marketplace development tooling under one shared namespace. Existing-skill edits use an old-vs-new capability audit and content-bound packaging attestation so prompt compression cannot silently delete runtime contracts. When the official skill-creator plugin is also installed, skill-creator detects the coexistence and offers a consent-based, reversible SessionStart routing hook so the daymade edition wins deterministically; on machines without the official plugin nothing is ever installed.",
       "source": "./daymade-skill",
       "strict": false,
-      "version": "1.23.0",
+      "version": "1.24.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -676,10 +676,10 @@
     },
     {
       "name": "slides-creator",
-      "description": "Narrative-first slide deck creation. Guides users through structured narrative design (ABCDEFG model), then delegates visual generation to baoyu-slide-deck. Triggers on create slides, make a presentation, generate deck, slide deck, PPT, or when user needs to turn content into visual slides.",
+      "description": "【DEPRECATED · 已废弃】叙事优先的幻灯片创建方法论已于 2026-08-07 并入 deck-creator（作者私有仓 Route A）。本条目仅为退役通告保留，请勿调用。",
       "source": "./slides-creator",
       "strict": false,
-      "version": "1.0.0",
+      "version": "2.0.0",
       "category": "content-creation",
       "keywords": [
         "slides",

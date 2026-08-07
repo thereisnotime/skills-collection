@@ -55,8 +55,28 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install pytest pytest-asyncio
-          python3 -m pip install fastapi httpx pydantic sqlalchemy[asyncio] aiosqlite uvicorn
+          # Install from the canonical list, not a hand-maintained subset -- the
+          # same fix shell-tests already made after its own drift incident (see
+          # the comment on that job). Two hand-written lists for one test suite
+          # drift apart by construction; one source cannot.
+          #
+          # This list also carries the pinned `mcp`, which the hand-written one
+          # omitted -- and installing it is what lets
+          # tests/test_mcp_agent_metrics_honesty.py run at all.
+          #
+          # The note that used to sit here was wrong about WHY that suite
+          # skipped, so it is corrected rather than deleted (issue #190). It
+          # claimed our mcp/server.py "cannot import the SDK and exits". It
+          # can: mcp/_sdk_loader.py resolves the local-vs-SDK `mcp` namespace
+          # collision, and the suite passed 7/7 when run on its own. The real
+          # cause was ORDERING -- _load_real_fastmcp() re-pinned only the local
+          # `mcp.*` modules it had snapshotted, so any caller reaching it
+          # before our own mcp/server.py was imported (tests/mcp/* do) left the
+          # SDK's mcp/server/__init__.py cached under "mcp.server" for the rest
+          # of the process, and the suite's capability guard then skipped.
+          # Fixed in mcp/_sdk_loader.py; regression test in
+          # tests/mcp/test_lsp_proxy_loader.py.
+          python3 -m pip install -r requirements-test.txt
 
       - name: Run tests
         run: python3 -m pytest

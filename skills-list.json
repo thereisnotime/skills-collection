@@ -15674,9 +15674,9 @@
       "description": "Use this agent when reorganizing implementation steps for maximum parallel execution with explicit dependency tracking and agent assignments. Transforms sequential implementation plans into paralleliz",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/team-lead.md",
       "remote_path": "plugins/sdd/agents/team-lead.md",
-      "lines": 775,
-      "words": 4022,
-      "code_blocks": 20,
+      "lines": 769,
+      "words": 4821,
+      "code_blocks": 19,
       "languages": [
         "bash",
         "markdown"
@@ -15799,8 +15799,8 @@
       "description": "Refine, parallelize, and verify a draft task specification into a fully planned implementation-ready task",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/skills/plan-task/SKILL.md",
       "remote_path": "plugins/sdd/skills/plan-task/SKILL.md",
-      "lines": 1262,
-      "words": 6558,
+      "lines": 1338,
+      "words": 8382,
       "code_blocks": 28,
       "languages": [
         "bash",
@@ -16197,9 +16197,9 @@
       "description": "Run independent tasks concurrently across multiple files or targets using parallel sub-agents, with per-task model selection and LLM-as-a-judge verification. Use when tasks do not depend on each other",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/skills/do-in-parallel/SKILL.md",
       "remote_path": "plugins/sadd/skills/do-in-parallel/SKILL.md",
-      "lines": 2248,
-      "words": 13391,
-      "code_blocks": 49,
+      "lines": 2353,
+      "words": 16291,
+      "code_blocks": 48,
       "languages": [
         "markdown",
         "yaml"
@@ -16210,9 +16210,9 @@
       "description": "Execute a task with sub-agent implementation and LLM-as-a-judge verification with automatic retry loop",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/skills/do-and-judge/SKILL.md",
       "remote_path": "plugins/sadd/skills/do-and-judge/SKILL.md",
-      "lines": 1157,
-      "words": 5930,
-      "code_blocks": 32,
+      "lines": 1242,
+      "words": 7773,
+      "code_blocks": 31,
       "languages": [
         "markdown",
         "yaml"
@@ -16223,9 +16223,9 @@
       "description": "Execute one complex task as ordered, dependent steps run sequentially, passing context from each step to the next, with per-step LLM-as-a-judge verification. Use when later steps depend on the results",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/skills/do-in-steps/SKILL.md",
       "remote_path": "plugins/sadd/skills/do-in-steps/SKILL.md",
-      "lines": 1452,
-      "words": 8346,
-      "code_blocks": 35,
+      "lines": 1503,
+      "words": 10507,
+      "code_blocks": 33,
       "languages": [
         "bash",
         "markdown",
@@ -20994,7 +20994,7 @@
       "path": "expo--skills/plugins/expo/skills/eas-workflows/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-workflows/SKILL.md",
       "lines": 103,
-      "words": 611,
+      "words": 619,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -22197,8 +22197,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 508,
-      "words": 5234,
+      "lines": 526,
+      "words": 5210,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -22223,7 +22223,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "lines": 315,
-      "words": 2667,
+      "words": 2648,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -22303,8 +22303,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 508,
-      "words": 5234,
+      "lines": 526,
+      "words": 5210,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -22329,7 +22329,7 @@
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
       "lines": 315,
-      "words": 2667,
+      "words": 2648,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -22426,6 +22426,202 @@
     }
   ],
   "netlify--context-and-tools": [
+    {
+      "name": "netlify-database",
+      "description": "Guide for using Netlify Database \u2014 the GA managed Postgres product built into Netlify. Use when a project needs any kind of dynamic, structured, or relational data. Covers provisioning via @netlify/da",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-database/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-database/SKILL.md",
+      "lines": 366,
+      "words": 3007,
+      "code_blocks": 13,
+      "languages": [
+        "bash",
+        "json",
+        "typescript"
+      ]
+    },
+    {
+      "name": "netlify-forms",
+      "description": "Guide for using Netlify Forms for HTML form handling. Use when adding contact forms, feedback forms, file upload forms, or any form that should be collected by Netlify. Covers the data-netlify attribu",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-forms/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-forms/SKILL.md",
+      "lines": 196,
+      "words": 1326,
+      "code_blocks": 9,
+      "languages": [
+        "html",
+        "javascript",
+        "jsx",
+        "tsx"
+      ]
+    },
+    {
+      "name": "netlify-mcp-servers",
+      "description": "Build, deploy, and secure Model Context Protocol (MCP) servers on Netlify. Use whenever the task involves creating an MCP server, exposing an app or API to AI agents as MCP tools, letting Claude / Cur",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-mcp-servers/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-mcp-servers/SKILL.md",
+      "lines": 210,
+      "words": 2525,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
+      "name": "netlify-deploy",
+      "description": "Deploy, host, and publish web projects on Netlify with the Netlify CLI. Use when the user wants to deploy a site or repository to Netlify, link a local project to a Netlify site, ship a production or ",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-deploy/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-deploy/SKILL.md",
+      "lines": 154,
+      "words": 2024,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "netlify-config",
+      "description": "Reference for netlify.toml configuration and site environment variables. Use when configuring build settings, redirects, rewrites, headers, deploy contexts, the `[dev]` block that controls `netlify de",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-config/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-config/SKILL.md",
+      "lines": 229,
+      "words": 1219,
+      "code_blocks": 12,
+      "languages": [
+        "bash",
+        "toml"
+      ]
+    },
+    {
+      "name": "netlify-functions",
+      "description": "Guide for writing Netlify serverless functions. Use when creating API endpoints, background processing, scheduled tasks, or any server-side logic using Netlify Functions. Covers modern syntax (default",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-functions/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-functions/SKILL.md",
+      "lines": 287,
+      "words": 1921,
+      "code_blocks": 13,
+      "languages": [
+        "toml",
+        "typescript"
+      ]
+    },
+    {
+      "name": "netlify-frameworks",
+      "description": "Guide for deploying web frameworks on Netlify. Use when setting up a framework project (Vite/React, Astro, TanStack Start, Next.js, Nuxt, SvelteKit, Remix) for Netlify deployment, configuring adapters",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-frameworks/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-frameworks/SKILL.md",
+      "lines": 117,
+      "words": 998,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "toml"
+      ]
+    },
+    {
+      "name": "netlify-edge-functions",
+      "description": "Guide for writing Netlify Edge Functions. Use when building middleware, geolocation-based logic, request/response manipulation, authentication checks, A/B testing, or any low-latency edge compute. Cov",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-edge-functions/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-edge-functions/SKILL.md",
+      "lines": 181,
+      "words": 1111,
+      "code_blocks": 10,
+      "languages": [
+        "json",
+        "toml",
+        "typescript"
+      ]
+    },
+    {
+      "name": "netlify-caching",
+      "description": "Guide for controlling caching on Netlify's CDN. Use when configuring cache headers, setting up stale-while-revalidate, implementing on-demand cache purge, or understanding Netlify's CDN caching behavi",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-caching/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-caching/SKILL.md",
+      "lines": 187,
+      "words": 1121,
+      "code_blocks": 10,
+      "languages": [
+        "toml",
+        "typescript"
+      ]
+    },
+    {
+      "name": "netlify-image-cdn",
+      "description": "Guide for using Netlify Image CDN for image optimization and transformation. Use when serving optimized images, creating responsive image markup, setting up user-uploaded image pipelines, or configuri",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-image-cdn/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-image-cdn/SKILL.md",
+      "lines": 100,
+      "words": 700,
+      "code_blocks": 5,
+      "languages": [
+        "html",
+        "toml"
+      ]
+    },
+    {
+      "name": "netlify-blobs",
+      "description": "Guide for using Netlify Blobs for file and asset storage \u2014 images, documents, uploads, exports, cached binary artifacts. Covers getStore(), CRUD operations, metadata, listing, deploy-scoped vs site-sc",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-blobs/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-blobs/SKILL.md",
+      "lines": 172,
+      "words": 1557,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
+      "name": "netlify-agent-runner",
+      "description": "Run AI agent tasks remotely on Netlify using Claude, Codex, or Gemini. Use when the user wants to run an AI agent on their site, get a second opinion from another model, or delegate development tasks ",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-agent-runner/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-agent-runner/SKILL.md",
+      "lines": 161,
+      "words": 1781,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "netlify-ai-gateway",
+      "description": "Reference for Netlify AI Gateway \u2014 the managed proxy that routes calls to OpenAI, Anthropic, and Google Gemini SDKs without provider API keys. Use this skill any time the user wants to add AI on a Net",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-ai-gateway/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-ai-gateway/SKILL.md",
+      "lines": 241,
+      "words": 2098,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
+      "name": "netlify-access-control",
+      "description": "Use when the task involves controlling who can reach a Netlify site, or telling Netlify Identity apart from Secure Access. Trigger whenever the user wants to lock a site or deploy to their company/tea",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-access-control/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-access-control/SKILL.md",
+      "lines": 66,
+      "words": 1252,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "netlify-identity",
+      "description": "Use when the task involves authentication, user signups, logins, password recovery, OAuth providers, role-based access control, or protecting routes and functions. Always use `@netlify/identity` for n",
+      "path": "netlify--context-and-tools/agent-plugin/skills/netlify-identity/SKILL.md",
+      "remote_path": "agent-plugin/skills/netlify-identity/SKILL.md",
+      "lines": 465,
+      "words": 3041,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "toml",
+        "tsx",
+        "typescript"
+      ]
+    },
     {
       "name": "netlify-database",
       "description": "Guide for using Netlify Database \u2014 the GA managed Postgres product built into Netlify. Use when a project needs any kind of dynamic, structured, or relational data. Covers provisioning via @netlify/da",
@@ -55706,11 +55902,11 @@
     },
     {
       "name": "ln-23-test-suite-auditor",
-      "description": "\"Audits whether an existing test suite proves important product behavior with strong, isolated tests. Use when test confidence is uncertain; not to design or implement new tests.\"",
+      "description": "\"Audits whether an existing test suite proves important behavior as a sustainable portfolio. Use when test confidence or lifecycle control is uncertain; not to implement tests or review one delivery.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
-      "lines": 126,
-      "words": 1911,
+      "lines": 143,
+      "words": 2333,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55787,8 +55983,8 @@
       "description": "\"Reviews standalone skills and their configured distribution surfaces before publication. Use for skill release readiness; not for product code or implementation-plan review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
-      "lines": 106,
-      "words": 1326,
+      "lines": 109,
+      "words": 1423,
       "code_blocks": 0,
       "languages": []
     },
@@ -55809,8 +56005,20 @@
       "description": "\"Modernizes a bounded capability by removing obsolete custom mechanisms or reducing bundle and maintenance cost. Use for proven modernization value; not routine upgrades or tuning.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
-      "lines": 125,
-      "words": 1778,
+      "lines": 128,
+      "words": 1834,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "ln-35-surgical-change-implementer",
+      "description": "\"Implements a bounded product-code change through the smallest complete root-cause solution. Use for scoped delivery; not for planning, review, audit, upgrades, modernization, or tuning.\"",
+      "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-35-surgical-change-implementer/SKILL.md",
+      "remote_path": "plugins/optimization-suite/skills/ln-35-surgical-change-implementer/SKILL.md",
+      "lines": 121,
+      "words": 1775,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55821,8 +56029,8 @@
       "description": "\"Compares tools or implementations through reproducible A/B workloads, correctness oracles, and controlled measurements. Use to choose alternatives; not to optimize a known bottleneck.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
-      "lines": 127,
-      "words": 1675,
+      "lines": 129,
+      "words": 1743,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55833,8 +56041,8 @@
       "description": "\"Optimizes a measured latency, throughput, memory, CPU, or I/O problem through profiling and keep-or-discard experiments. Use for a known bottleneck; not unbiased A/B comparison.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
-      "lines": 126,
-      "words": 1642,
+      "lines": 129,
+      "words": 1703,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55842,11 +56050,11 @@
     },
     {
       "name": "ln-41-test-strategy-planner",
-      "description": "\"Designs a risk-based test strategy and prioritized scenarios without changing code. Use when requirements need a test plan; not for auditing or implementing tests.\"",
+      "description": "\"Designs risk-based test portfolio decisions and prioritized scenarios without changing code. Use when requirements need a test strategy; not for auditing or implementing tests.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
-      "lines": 107,
-      "words": 1378,
+      "lines": 117,
+      "words": 1744,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55854,11 +56062,11 @@
     },
     {
       "name": "ln-42-acceptance-test-builder",
-      "description": "\"Creates and runs reproducible acceptance tests for stated requirements using project-native tooling. Use when executable acceptance evidence is needed; not for audits or product fixes.\"",
+      "description": "\"Creates, updates, consolidates, retires, and runs scoped acceptance tests using project-native tooling. Use when executable acceptance evidence must change; not for audits or product fixes.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
-      "lines": 107,
-      "words": 1340,
+      "lines": 117,
+      "words": 1712,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55941,8 +56149,8 @@
       "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
-      "lines": 194,
-      "words": 4120,
+      "lines": 200,
+      "words": 4333,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -55953,8 +56161,8 @@
       "description": "\"Reviews implementation plans against repository evidence and current authoritative guidance. Use before execution to expose gaps and risks; not for completed delivery review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
-      "lines": 160,
-      "words": 3430,
+      "lines": 161,
+      "words": 3530,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -149957,16 +150165,13 @@
     },
     {
       "name": "slides-creator",
-      "description": "Narrative-first slide deck creation. Guides users through structured narrative design (ABCDEFG model), then delegates visual generation to baoyu-slide-deck. Triggers on \"create slides\", \"make a presen",
+      "description": ">-",
       "path": "daymade--claude-code-skills/slides-creator/SKILL.md",
       "remote_path": "slides-creator/SKILL.md",
-      "lines": 595,
-      "words": 2998,
-      "code_blocks": 20,
-      "languages": [
-        "bash",
-        "markdown"
-      ]
+      "lines": 33,
+      "words": 126,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "llm-icon-finder",
@@ -150091,15 +150296,13 @@
     },
     {
       "name": "ppt-creator",
-      "description": "\"Create professional slide decks from topics or documents. Generates structured content with data-driven charts, speaker notes, and complete PPTX files. Applies persuasive storytelling principles (Pyr",
+      "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/ppt-creator/SKILL.md",
       "remote_path": "daymade-docs/ppt-creator/SKILL.md",
-      "lines": 171,
-      "words": 1513,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 32,
+      "words": 113,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "Bug Report",
@@ -150194,8 +150397,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1679,
-      "words": 24394,
+      "lines": 1688,
+      "words": 24857,
       "code_blocks": 54,
       "languages": [
         "bash",
@@ -150294,8 +150497,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 1069,
-      "words": 16269,
+      "lines": 1081,
+      "words": 16802,
       "code_blocks": 27,
       "languages": [
         "bash",
@@ -150396,8 +150599,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-history-files-finder/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-history-files-finder/SKILL.md",
-      "lines": 554,
-      "words": 3303,
+      "lines": 556,
+      "words": 3321,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -150469,8 +150672,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 429,
-      "words": 3924,
+      "lines": 444,
+      "words": 4095,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -150509,8 +150712,8 @@
       "description": "|",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
       "remote_path": "daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
-      "lines": 764,
-      "words": 3161,
+      "lines": 788,
+      "words": 3430,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -152455,12 +152658,12 @@
     },
     {
       "name": "docker-patterns",
-      "description": "Docker and Docker Compose patterns for local development, container security, networking, volume strategies, and multi-service orchestration.",
+      "description": "Docker and Docker Compose patterns for local development, hardened CLI installer harnesses, container security, networking, volumes, and multi-service orchestration. Use when creating or reviewing Doc",
       "path": "affaan-m--everything-claude-code/skills/docker-patterns/SKILL.md",
       "remote_path": "skills/docker-patterns/SKILL.md",
-      "lines": 366,
-      "words": 999,
-      "code_blocks": 16,
+      "lines": 521,
+      "words": 1913,
+      "code_blocks": 27,
       "languages": [
         "bash",
         "dockerfile",
@@ -153107,14 +153310,15 @@
     },
     {
       "name": "configure-ecc",
-      "description": "Interactive installer for Everything Claude Code \u2014 guides users through selecting and installing skills and rules to user-level or project-level directories, verifies paths, and optionally optimizes i",
+      "description": "Guide ECC installation, update, or reconfiguration from inside Claude Code, Codex, or Kimi while respecting each harness's real plugin, scope, and hook capabilities.",
       "path": "affaan-m--everything-claude-code/skills/configure-ecc/SKILL.md",
       "remote_path": "skills/configure-ecc/SKILL.md",
-      "lines": 386,
-      "words": 2226,
-      "code_blocks": 14,
+      "lines": 207,
+      "words": 1072,
+      "code_blocks": 13,
       "languages": [
-        "bash"
+        "bash",
+        "text"
       ]
     },
     {
@@ -154631,7 +154835,7 @@
       "path": "affaan-m--everything-claude-code/skills/gan-style-harness/SKILL.md",
       "remote_path": "skills/gan-style-harness/SKILL.md",
       "lines": 280,
-      "words": 1587,
+      "words": 1598,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -155142,6 +155346,19 @@
       "words": 288,
       "code_blocks": 1,
       "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "terminal-opener",
+      "description": "Open an executable and its argument array in a visible terminal window through a reusable, shell-free launch plan with dry-run, JSON, capability detection, detached fallback, and standalone recovery m",
+      "path": "affaan-m--everything-claude-code/skills/terminal-opener/SKILL.md",
+      "remote_path": "skills/terminal-opener/SKILL.md",
+      "lines": 56,
+      "words": 369,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
         "text"
       ]
     },
@@ -159295,14 +159512,15 @@
     },
     {
       "name": "configure-ecc",
-      "description": "Everything Claude Code \u7684\u4ea4\u4e92\u5f0f\u5b89\u88c5\u7a0b\u5e8f \u2014 \u5f15\u5bfc\u7528\u6237\u9009\u62e9\u5e76\u5b89\u88c5\u6280\u80fd\u548c\u89c4\u5219\u5230\u7528\u6237\u7ea7\u6216\u9879\u76ee\u7ea7\u76ee\u5f55\uff0c\u9a8c\u8bc1\u8def\u5f84\uff0c\u5e76\u53ef\u9009\u62e9\u4f18\u5316\u5df2\u5b89\u88c5\u6587\u4ef6\u3002",
+      "description": "\u5728 Claude Code\u3001Codex \u6216 Kimi \u5185\u5f15\u5bfc ECC \u5b89\u88c5\u3001\u66f4\u65b0\u6216\u91cd\u65b0\u914d\u7f6e\uff0c\u540c\u65f6\u4e25\u683c\u9075\u5b88\u5404\u5bb6\u5de5\u5177\u771f\u5b9e\u7684\u63d2\u4ef6\u3001\u8303\u56f4\u548c Hook \u80fd\u529b\u3002",
       "path": "affaan-m--everything-claude-code/docs/zh-CN/skills/configure-ecc/SKILL.md",
       "remote_path": "docs/zh-CN/skills/configure-ecc/SKILL.md",
-      "lines": 401,
-      "words": 1095,
-      "code_blocks": 14,
+      "lines": 182,
+      "words": 491,
+      "code_blocks": 13,
       "languages": [
-        "bash"
+        "bash",
+        "text"
       ]
     },
     {
@@ -160277,7 +160495,7 @@
       "path": "affaan-m--everything-claude-code/docs/zh-CN/skills/gan-style-harness/SKILL.md",
       "remote_path": "docs/zh-CN/skills/gan-style-harness/SKILL.md",
       "lines": 285,
-      "words": 833,
+      "words": 840,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -162540,14 +162758,15 @@
     },
     {
       "name": "configure-ecc",
-      "description": "Everything Claude Code \u306e\u30a4\u30f3\u30bf\u30e9\u30af\u30c6\u30a3\u30d6\u306a\u30a4\u30f3\u30b9\u30c8\u30fc\u30e9\u30fc \u2014 \u30b9\u30ad\u30eb\u3068\u30eb\u30fc\u30eb\u306e\u9078\u629e\u3068\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3092\u30e6\u30fc\u30b6\u30fc\u30ec\u30d9\u30eb\u307e\u305f\u306f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30ec\u30d9\u30eb\u306e\u30c7\u30a3\u30ec\u30af\u30c8\u30ea\u3078\u30ac\u30a4\u30c9\u3057\u3001\u30d1\u30b9\u3092\u691c\u8a3c\u3057\u3001\u5fc5\u8981\u306b\u5fdc\u3058\u3066\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3055\u308c\u305f\u30d5\u30a1\u30a4\u30eb\u3092\u6700\u9069\u5316\u3057\u307e\u3059\u3002",
+      "description": "Claude Code\u3001Codex\u3001Kimi \u5185\u3067 ECC \u306e\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3001\u66f4\u65b0\u3001\u518d\u8a2d\u5b9a\u3092\u6848\u5185\u3057\u3001\u5404\u30cf\u30fc\u30cd\u30b9\u304c\u5b9f\u969b\u306b\u5099\u3048\u308b\u30d7\u30e9\u30b0\u30a4\u30f3\u3001\u30b9\u30b3\u30fc\u30d7\u3001\u30d5\u30c3\u30af\u6a5f\u80fd\u3092\u5b88\u308a\u307e\u3059\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/configure-ecc/SKILL.md",
       "remote_path": "docs/ja-JP/skills/configure-ecc/SKILL.md",
-      "lines": 314,
-      "words": 858,
+      "lines": 186,
+      "words": 511,
       "code_blocks": 13,
       "languages": [
-        "bash"
+        "bash",
+        "text"
       ]
     },
     {
@@ -163747,7 +163966,7 @@
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/gan-style-harness/SKILL.md",
       "remote_path": "docs/ja-JP/skills/gan-style-harness/SKILL.md",
       "lines": 279,
-      "words": 1570,
+      "words": 1581,
       "code_blocks": 5,
       "languages": [
         "bash",

@@ -155,6 +155,11 @@ declare -a _FAST_KEEP=(
   # unnoticed until someone tries the parent. FAST tier because it is a
   # sub-second read and the fault is recurring, not theoretical.
   "parent checkout is not falsely marked bare"
+  # Release drift. Four versions (9.13.0-9.16.0) were built, merged and
+  # CHANGELOGged while npm latest stayed 9.12.6, because a VERSION bump that is
+  # not the HEAD of its push never creates a workflow run. FAST tier: it guards
+  # what actually ships, CI cannot see it, and it costs one git ls-remote.
+  "VERSION is not stranded ahead of the last release"
   # Same class as dist freshness, and deferred for the same reason nobody
   # noticed: these validate the PACKAGED ARTIFACT, which GitHub CI never
   # inspects and which no in-repo test can see, because everything works fine
@@ -224,7 +229,7 @@ declare -a _FAST_KEEP=(
   "tests/test-mcp-tool-surface-guard-rejects.sh" # 8s, proves the guard rejects
   # CLAUDE.md cleanup mandate: sub-second, and the whole point is that it runs
   # on every invocation, not only the slow one.
-  "no /tmp/loki-* /tmp/test-* leftovers"
+  "no leftovers from this run"
 )
 
 # Returns 0 when the check should RUN in the fast tier.
@@ -649,6 +654,16 @@ harvest_lanes
 # 7. loki-ts typecheck + tests (mirrors test.yml bun-tests)
 # ---------------------------------------------------------------------------
 if command -v bun >/dev/null 2>&1; then
+  # Install loki-ts deps BEFORE any check that uses them. loki-ts/node_modules is
+  # gitignored, so a freshly-created worktree has none -- and the three checks
+  # below then fail for a reason that has nothing to do with the code. Measured
+  # on a fresh worktree 2026-08-06: 99 packages present vs 103, `typescript`
+  # absent, so `bun run typecheck` died with `Script not found "tsc"`, the dist
+  # build produced no output (reported as DIST STALE, see below), and `bun test`
+  # reported 50 failures of which 49 were the missing toolchain -- burying the
+  # ONE real regression in noise and costing a full 26-minute cycle to diagnose.
+  # --frozen-lockfile so the gate can never silently drift the lockfile.
+  run_check "loki-ts dependencies installed" "(cd loki-ts && bun install --frozen-lockfile) 2>&1 | tail -3"
   run_check "bun run typecheck" "(cd loki-ts && bun run typecheck) 2>&1 | tail -5"
   run_check "bun test" "(cd loki-ts && bun test) 2>&1 | tail -5"
   # dist freshness: the committed loki-ts/dist/loki.js is the artifact npm/Docker
@@ -658,32 +673,166 @@ if command -v bun >/dev/null 2>&1; then
   # and assert the committed bundle matches a fresh build, ignoring only the
   # per-build debugId line which legitimately varies.
   run_check "parent checkout is not falsely marked bare" '
-    # Self-healing. On mutation the gate still fails non-zero (--restore does
-    # not change that) and the watcher still logs MUTATED plus a config
-    # backup, so the recurrence stays evidenced -- but the parent checkout is
-    # restored to core.bare=false before this returns, so a failed run does
-    # not also leave git status/log broken on the parent until a human
-    # notices and repairs it by hand.
+    # Self-healing, and DELIBERATELY NON-BLOCKING as of 2026-08-06.
+    #
+    # The original design failed the gate so the recurrence stayed evidenced.
+    # That was right about the goal and wrong about the lever. Measured over one
+    # day: this fault fired three separate times on this host (~11x/day per the
+    # incident log), each time on a RELEASE gate whose 165 other checks passed,
+    # each time on a fault the check had ALREADY REPAIRED before returning. A
+    # check that fixes the problem and then reports red teaches the only correct
+    # response -- re-run and ignore -- which is exactly how a gate stops being
+    # read. The next real red would be waved through by reflex.
+    #
+    # Evidence is preserved in full and is not the thing being softened: the
+    # watcher still logs MUTATED with a timestamp and a config backup to
+    # ~/loki-ci-logs/core-bare-watch.log, this check still prints the mutation
+    # loudly, and the recurrence remains countable there. What changed is that a
+    # repaired EXTERNAL fault no longer blocks a release of unrelated code.
+    #
+    # It fails non-zero only if the repair itself FAILS -- that is a genuine
+    # blocker, because the parent checkout would be left broken.
     if [ -x scripts/watch-core-bare.sh ]; then
-      bash scripts/watch-core-bare.sh --restore
+      if bash scripts/watch-core-bare.sh --restore; then
+        exit 0
+      fi
+      _cb_state="$(git config --get core.bare 2>/dev/null || echo unknown)"
+      if [ "$_cb_state" = "false" ]; then
+        echo "core.bare was mutated and has been REPAIRED (see the watcher log)."
+        echo "Recorded, not blocking: the fault is external to this diff and is"
+        echo "already fixed. Repeated occurrences are counted in the watcher log."
+        exit 0
+      fi
+      echo "core.bare is $_cb_state and could NOT be repaired -- this blocks."
+      exit 1
     else
       echo "watch-core-bare.sh missing; repo-integrity check SKIPPED (not a pass)"
       exit 0
     fi
   '
 
+  # A VERSION BUMP THAT NEVER RELEASED.
+  #
+  # Found 2026-08-07: the repo said 9.16.0 while npm latest was 9.12.6. Four
+  # consecutive versions (9.13.0 through 9.16.0) were built, tested, merged and
+  # documented in CHANGELOG -- and never published. Nothing anywhere reported it.
+  # I claimed those releases had shipped without checking, which is how it went
+  # unnoticed for four rounds.
+  #
+  # MECHANISM, verified against the Actions API rather than guessed. release.yml
+  # triggers on `push` with `paths: [VERSION]`, but GitHub creates a workflow run
+  # only for the HEAD commit of a push. Query by SHA:
+  #
+  #   c86115d5 (v9.14.0 bump) -> 0 Tests runs
+  #   5d081dbc (v9.15.0 bump) -> 0 Tests runs
+  #   151b7401 (v9.16.0 bump) -> 0 Tests runs
+  #   4158b6c1 / 1b7069ba / 946cf472 (push heads) -> 1 each
+  #
+  # So bumping VERSION and then committing more work before pushing means the
+  # bump is never a push head, no run is created for it, and the release silently
+  # no-ops. 15 commits landed after the 9.16.0 bump. The workflow is not broken
+  # and its gating is correct -- `required-ci` deliberately demands Tests, Bun
+  # Parity and Security Audit AT THE EXACT SHA, which a non-head commit can never
+  # satisfy. The failure is that nothing NOTICED.
+  #
+  # This is the same class as dist freshness, and belongs in the fast tier for
+  # the same reason: it guards what actually ships, GitHub CI has no equivalent
+  # check, and it costs one `git tag` read.
+  #
+  # ADVISORY, not blocking. A bumped-but-unreleased VERSION is the NORMAL state
+  # between the release commit and the publish finishing, so failing here would
+  # red every legitimate release push. It exists to make the drift visible, and
+  # it names the remedy.
+  run_check "VERSION is not stranded ahead of the last release" '
+    _v="$(tr -d "[:space:]" < VERSION 2>/dev/null)"
+    if [ -z "$_v" ]; then
+      echo "VERSION unreadable -- cannot compare (absent measurement, not a pass)"
+      exit 0
+    fi
+    # Local tags can lag the remote; ask the remote, and treat an unreachable
+    # remote as UNKNOWN rather than as "no releases exist".
+    _tags="$(git ls-remote --tags origin 2>/dev/null | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)"
+    if [ -z "$_tags" ]; then
+      echo "could not read remote tags (offline?) -- release drift UNKNOWN, not checked"
+      exit 0
+    fi
+    _last="$(printf "%s\n" "$_tags" | tail -1)"
+    if [ "v$_v" = "$_last" ]; then
+      echo "VERSION $_v matches the newest released tag"
+      exit 0
+    fi
+    # Only report the direction that means "we forgot to ship". VERSION BEHIND a
+    # tag is a different situation (a revert, a hotfix branch) and not this bug.
+    _newest="$(printf "%s\nv%s\n" "$_tags" "$_v" | sort -V | tail -1)"
+    if [ "$_newest" = "v$_v" ]; then
+      _n="$(git log --oneline "$_last..HEAD" 2>/dev/null | wc -l | tr -d " ")"
+      echo "RELEASE DRIFT: VERSION is $_v but the newest tag is $_last (${_n} commits ahead)."
+      echo "If the release already ran, ignore this. If not, the VERSION bump was"
+      echo "probably not the head of its push, so release.yml never fired."
+      echo ""
+      echo "PREVENTION: use scripts/release.sh, which commits and pushes the bump"
+      echo "back-to-back (release.sh:227 then :235) so VERSION is always the push"
+      echo "head. Bumping by hand and continuing to work is what stranded"
+      echo "9.13.0 through 9.16.0 -- 15 commits landed after the 9.16.0 bump."
+      echo ""
+      echo "RECOVERY for an already-stranded bump -- all three must be green at"
+      echo "the SAME head, or the required-ci job in release.yml fails closed:"
+      echo "  gh workflow run security-audit.yml --ref main   # else 'not reported yet'"
+      echo "  # wait for Tests + Bun Parity + Security Audit to pass at that SHA"
+      echo "  gh workflow run release.yml --ref main"
+      echo "Advisory only -- this is also the normal state mid-release."
+    else
+      echo "VERSION $_v is behind tag $_last (not the stranded-release case)"
+    fi
+    exit 0
+  '
+
+  # This check REBUILDS a git-tracked file (loki-ts/dist/loki.js is force-added
+  # despite loki-ts/.gitignore), so restoring it is not optional. Three defects
+  # were fixed here on 2026-08-06, all of which had produced real false verdicts:
+  #
+  #   1. FALSE REPORT. The body had no `set -e` and ran under `eval`, which only
+  #      inspects the final status. With dist/loki.js ABSENT, the initial `cp`
+  #      failed to stderr and execution continued, the build then created the
+  #      file, `diff` compared it against a stale/absent backup, and the else
+  #      branch announced "DIST STALE" -- asserting divergence for a file that
+  #      simply was not there. That message sent a 26-minute diagnosis down the
+  #      wrong path. Absence and divergence are now reported distinctly.
+  #   2. NO TRAP. Restoration was a bare `cp` on both branches; an interrupt
+  #      between build and restore left the rebuilt bundle in the worktree. The
+  #      restore now runs from a trap, so it fires on any exit path.
+  #   3. NON-IDEMPOTENT. In the absent-file case the restore `cp` also failed,
+  #      leaving the fresh build in place -- so the check failed once and passed
+  #      on retry, exactly the phantom-failure signature this script condemns.
+  #
+  # The fixed /tmp backup path was also per-machine, not per-run: two sanctioned
+  # concurrent runs (LOCAL_CI_ALLOW_CONCURRENT=1) clobbered each other'"'"'s backup
+  # and could restore foreign bytes into a tracked file. Now mktemp.
   run_check "dist/loki.js is a fresh build of src" '
+    set -e
     cd loki-ts
-    cp dist/loki.js /tmp/loki-ci-dist-committed.js
+    if [ ! -f dist/loki.js ]; then
+      echo "DIST MISSING: loki-ts/dist/loki.js does not exist, so it cannot be compared against a fresh build."
+      echo "This is NOT a staleness verdict. Run: cd loki-ts && bun run build, then git add -f loki-ts/dist/loki.js"
+      exit 1
+    fi
+    _dist_backup="$(mktemp "${TMPDIR:-/tmp}/loki-ci-dist-committed.XXXXXX")"
+    _map_backup="$(mktemp "${TMPDIR:-/tmp}/loki-ci-dist-map.XXXXXX")"
+    cp dist/loki.js "$_dist_backup"
+    # dist/loki.js.map is tracked too and the rebuild rewrites it (its debugId
+    # varies per build). Restoring only the bundle left the map modified, so a
+    # green gate still dirtied the worktree. Both are restored together.
+    cp dist/loki.js.map "$_map_backup" 2>/dev/null || true
+    trap "cp \"$_dist_backup\" dist/loki.js 2>/dev/null || true; cp \"$_map_backup\" dist/loki.js.map 2>/dev/null || true; rm -f \"$_dist_backup\" \"$_map_backup\"" EXIT
     bun run build >/dev/null 2>&1
-    if diff <(grep -v "debugId" /tmp/loki-ci-dist-committed.js) <(grep -v "debugId" dist/loki.js) >/dev/null; then
-      cp /tmp/loki-ci-dist-committed.js dist/loki.js
-      rm -f /tmp/loki-ci-dist-committed.js
+    if [ ! -f dist/loki.js ]; then
+      echo "DIST BUILD FAILED: bun run build produced no dist/loki.js. Run: cd loki-ts && bun run build"
+      exit 1
+    fi
+    if diff <(grep -v "debugId" "$_dist_backup") <(grep -v "debugId" dist/loki.js) >/dev/null; then
       echo "dist matches fresh build (committed bundle is not stale)"
     else
-      cp /tmp/loki-ci-dist-committed.js dist/loki.js
-      rm -f /tmp/loki-ci-dist-committed.js
-      echo "DIST STALE: committed loki-ts/dist/loki.js differs from a fresh build of src. Run: cd loki-ts \&\& bun run build, then git add -f loki-ts/dist/loki.js"
+      echo "DIST STALE: committed loki-ts/dist/loki.js differs from a fresh build of src. Run: cd loki-ts && bun run build, then git add -f loki-ts/dist/loki.js"
       exit 1
     fi
   '
@@ -1515,7 +1664,35 @@ run_check "npm audit (production deps, high+)" "
 # ---------------------------------------------------------------------------
 # 14. Cleanup probe (CLAUDE.md mandate)
 # ---------------------------------------------------------------------------
-run_check "no /tmp/loki-* /tmp/test-* leftovers" 'ls /tmp/loki-* /tmp/test-* 2>&1 | grep -q "No such file" || ! ls /tmp/loki-* /tmp/test-* 2>/dev/null | grep -q .'
+# Cleanup hygiene, scoped to THIS run. Rewritten 2026-08-06; the previous form
+#   ls /tmp/loki-* /tmp/test-* 2>&1 | grep -q "No such file" || ! ls ... | grep -q .
+# was wrong in three independent ways:
+#
+#   1. FALSE GREEN (the worst of the three). With 2>&1 merging stderr, an
+#      unmatched glob printed "No such file" and the FIRST clause succeeded, so
+#      `||` short-circuited. A genuine /tmp/loki-* leftover therefore PASSED
+#      whenever no /tmp/test-* happened to exist. It only enforced anything in
+#      the single state where both globs matched.
+#   2. FALSE RED. It matched every /tmp/loki-* on the machine -- other worktrees,
+#      other users, other agents' concurrent runs. A hygiene check that fails on
+#      someone else's litter is noise, and it failed a fully green 165-check run.
+#   3. WRONG DIRECTORY. This run writes to ${TMPDIR:-/tmp}; on macOS TMPDIR is a
+#      per-user private path, so the check could not see its own artifacts at all
+#      while policing a directory it never wrote to.
+#
+# Now: delete the shard logs this run created (they were never cleaned up -- the
+# harvest at the shard step only cat'd them), then assert THIS run's temp dir is
+# clean. Scoped, single-clause, and it fails only on litter we are responsible for.
+run_check "no leftovers from this run" '
+  rm -f "${TMPDIR:-/tmp}"/loki-shard-*.log 2>/dev/null || true
+  _leftovers="$(ls -d "${TMPDIR:-/tmp}"/loki-ci-dist-committed.* "${TMPDIR:-/tmp}"/loki-shard-*.log 2>/dev/null || true)"
+  if [ -n "$_leftovers" ]; then
+    echo "This run left temp artifacts behind:"
+    echo "$_leftovers"
+    exit 1
+  fi
+  echo "no leftovers from this run"
+'
 
 # ---------------------------------------------------------------------------
 # Harvest parallel lanes: wait for all background lanes launched above, then
