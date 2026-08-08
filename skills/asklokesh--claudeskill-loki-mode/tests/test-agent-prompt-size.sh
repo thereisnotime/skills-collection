@@ -40,42 +40,52 @@ else
     bad "the agent prompt size is never measured -- the 93% call has no input metric"
 fi
 
-# CO-LOCATION IS ASSERTED BY ENCLOSING FUNCTION, NOT BY LINE DISTANCE.
+# SAME FUNCTION, not "within N lines".
 #
-# This was a -B26/-A6 window, and it went red on main for a reason that had
-# nothing to do with the measurement: unrelated work inserted lines between
-# `emit_stage_complete "agent"` and this emit, pushing the gap to 88 lines. The
-# code was correct the whole time -- both calls live in run_autonomous() and the
-# emit reads the same $prompt and $duration the completed call just set.
+# This was `grep -B26 -A6`, and its own comment recorded that a -B-only window
+# had already produced three false failures. The window then went red again:
+# the two markers sit 88 lines apart in run.sh, unchanged for the whole of that
+# distance -- verified identical on the pr base, so nothing had moved them.
 #
-# A line-distance heuristic asserts "nobody edited nearby", which is not the
-# property we care about and breaks on every insertion. Extracting the enclosing
-# function and asserting both markers appear inside it tests the actual
-# invariant: the measurement happens in the same scope as the call it measures,
-# so it cannot be reading some other invocation's prompt.
-_fn_body="$(awk '/^run_autonomous\(\) \{/{f=1} f{print} f && /^\}/{exit}' "$RUN_SH")"
-if [ -z "$_fn_body" ]; then
-    bad "could not extract run_autonomous() -- the emit's scope is unverifiable"
-# `printf | grep -q` is deliberately avoided here: under `set -o pipefail`
-# grep -q exits on first match, printf dies of SIGPIPE, and the pipeline reports
-# non-zero even though the pattern MATCHED. That inverts the assertion and is
-# how this check first read red against correct code. Match on the string with
-# case, no pipeline, no exit status to misread.
-elif case "$_fn_body" in *'emit_event_json "agent_prompt"'*) true ;; *) false ;; esac \
-   && case "$_fn_body" in *'emit_stage_complete "agent"'*) true ;; *) false ;; esac; then
-    ok "the measurement shares run_autonomous() with the agent stage"
+# A line window does not assert the property. It asserts that nobody inserted
+# lines nearby, which is a different claim that goes false on any unrelated
+# edit to the same region. The real question is whether the measurement runs
+# in the same scope as the agent stage, so ask that: walk back from each marker
+# to its enclosing `name() {` and compare.
+_co_located="$(python3 - "$RUN_SH" <<'PY'
+import re, sys
+lines = open(sys.argv[1], errors="replace").read().split("\n")
+
+def enclosing_fn(idx):
+    for i in range(idx, -1, -1):
+        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)\(\)\s*\{', lines[i])
+        if m:
+            return m.group(1)
+    return None
+
+def fn_for(pattern):
+    for i, l in enumerate(lines):
+        if pattern in l:
+            return enclosing_fn(i)
+    return None
+
+a = fn_for('emit_event_json "agent_prompt"')
+b = fn_for('emit_stage_complete "agent"')
+# Both must be found AND equal. A missing marker prints nothing, so the caller
+# reports a failure rather than treating "not found" as agreement.
+print(a if (a and b and a == b) else "")
+PY
+)"
+if [ -n "$_co_located" ]; then
+    ok "the measurement sits with the agent stage (both in ${_co_located}())"
 else
-    bad "the emit left the agent call's function -- it may measure the wrong prompt"
+    bad "the emit is not in the same function as the agent stage -- it may measure the wrong prompt"
 fi
 
-# Scope alone is not enough: it must read the variables the completed call set.
-# A copy that measured some other string would still sit in the right function.
-_blk="$(grep -B26 -A6 'emit_event_json "agent_prompt"' "$RUN_SH")"
-case "$_blk" in
-    *'printf '\''%s'\'' "$prompt" | wc -c'*)
-        ok "it measures \$prompt, the string actually sent to the provider" ;;
-    *) bad "the emit does not measure \$prompt -- it may be sizing something else" ;;
-esac
+# The emit's OWN arguments. A small window is correct here -- unlike the
+# co-location check above, these live on the continuation lines of the very
+# statement being matched, so proximity IS the property.
+_blk="$(grep -B4 -A8 'emit_event_json "agent_prompt"' "$RUN_SH")"
 
 # It must carry the duration too: bytes alone cannot show a size/latency
 # relationship, which is the entire reason to record it.

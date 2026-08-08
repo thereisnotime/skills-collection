@@ -156,7 +156,7 @@
     },
     {
       "name": "semgrep-rule-variant-creator",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "description": "Creates language variants of existing Semgrep rules with proper applicability analysis and test-driven validation",
       "author": {
         "name": "Maciej Domanski",
@@ -272,7 +272,7 @@
     },
     {
       "name": "yara-authoring",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "description": "YARA-X detection rule authoring with linting and quality analysis",
       "author": {
         "name": "Trail of Bits",
@@ -393,6 +393,17 @@
         "url": "https://github.com/trailofbits"
       },
       "source": "./plugins/open-sourcing"
+    },
+    {
+      "name": "writing-lean-proofs",
+      "version": "0.1.0",
+      "description": "Structured Lean 4 proof writing and library design following Mathlib conventions",
+      "author": {
+        "name": "Fredrik Dahlgren",
+        "email": "opensource@trailofbits.com",
+        "url": "https://github.com/trailofbits"
+      },
+      "source": "./plugins/writing-lean-proofs"
     }
   ]
 }

@@ -313,6 +313,9 @@ packages = ["simpy"]
 [skills.aeon]
 packages = ["aeon", "matplotlib", "numpy", "scikit-learn"]
 
+[skills.relsa-severity-assessment]
+packages = ["numpy", "pandas", "scipy", "statsmodels", "matplotlib"]
+
 [skills.timesfm-forecasting]
 packages = [
     "timesfm",

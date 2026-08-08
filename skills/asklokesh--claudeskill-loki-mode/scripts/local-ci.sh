@@ -155,11 +155,6 @@ declare -a _FAST_KEEP=(
   # unnoticed until someone tries the parent. FAST tier because it is a
   # sub-second read and the fault is recurring, not theoretical.
   "parent checkout is not falsely marked bare"
-  # Release drift. Four versions (9.13.0-9.16.0) were built, merged and
-  # CHANGELOGged while npm latest stayed 9.12.6, because a VERSION bump that is
-  # not the HEAD of its push never creates a workflow run. FAST tier: it guards
-  # what actually ships, CI cannot see it, and it costs one git ls-remote.
-  "VERSION is not stranded ahead of the last release"
   # Same class as dist freshness, and deferred for the same reason nobody
   # noticed: these validate the PACKAGED ARTIFACT, which GitHub CI never
   # inspects and which no in-repo test can see, because everything works fine
@@ -190,9 +185,19 @@ declare -a _FAST_KEEP=(
   "tests/test-evidence-gate"
   "tests/test-evidence-boot-axis.sh"
   "tests/test-evidence-secret-axis.sh"
+  # The receipt surface is trust-core, and the LAST INCH of it is the pixel: a
+  # receipt the user cannot reach, or one rendered with a fabricated $0.00 where
+  # the proof says UNKNOWN, defeats the guarantee no matter how honest the JSON
+  # is. Three unit tests over stubbed fetches all passed while the real page
+  # rendered three EMPTY panels, so a browser is the only non-vacuous check
+  # here. Measured 7s. The trust-core scan above cannot catch this one on its
+  # own -- it greps for tests/*.{sh,py} and this harness is a .mjs driven by a
+  # runner script -- which is exactly why it is pinned by hand.
+  "dashboard evidence panels render honestly"
   "tests/test-verify.sh"
   "tests/test-verify-scope-record.sh"
   "tests/test-verify-setup-recipe.sh"
+  "tests/test-verify-runner-selection.sh"
   "tests/test-council-"
   "tests/test-heuristic-council-affirmative.sh"
   "tests/test-playwright-verify-as-evidence.sh"
@@ -709,82 +714,6 @@ if command -v bun >/dev/null 2>&1; then
       echo "watch-core-bare.sh missing; repo-integrity check SKIPPED (not a pass)"
       exit 0
     fi
-  '
-
-  # A VERSION BUMP THAT NEVER RELEASED.
-  #
-  # Found 2026-08-07: the repo said 9.16.0 while npm latest was 9.12.6. Four
-  # consecutive versions (9.13.0 through 9.16.0) were built, tested, merged and
-  # documented in CHANGELOG -- and never published. Nothing anywhere reported it.
-  # I claimed those releases had shipped without checking, which is how it went
-  # unnoticed for four rounds.
-  #
-  # MECHANISM, verified against the Actions API rather than guessed. release.yml
-  # triggers on `push` with `paths: [VERSION]`, but GitHub creates a workflow run
-  # only for the HEAD commit of a push. Query by SHA:
-  #
-  #   c86115d5 (v9.14.0 bump) -> 0 Tests runs
-  #   5d081dbc (v9.15.0 bump) -> 0 Tests runs
-  #   151b7401 (v9.16.0 bump) -> 0 Tests runs
-  #   4158b6c1 / 1b7069ba / 946cf472 (push heads) -> 1 each
-  #
-  # So bumping VERSION and then committing more work before pushing means the
-  # bump is never a push head, no run is created for it, and the release silently
-  # no-ops. 15 commits landed after the 9.16.0 bump. The workflow is not broken
-  # and its gating is correct -- `required-ci` deliberately demands Tests, Bun
-  # Parity and Security Audit AT THE EXACT SHA, which a non-head commit can never
-  # satisfy. The failure is that nothing NOTICED.
-  #
-  # This is the same class as dist freshness, and belongs in the fast tier for
-  # the same reason: it guards what actually ships, GitHub CI has no equivalent
-  # check, and it costs one `git tag` read.
-  #
-  # ADVISORY, not blocking. A bumped-but-unreleased VERSION is the NORMAL state
-  # between the release commit and the publish finishing, so failing here would
-  # red every legitimate release push. It exists to make the drift visible, and
-  # it names the remedy.
-  run_check "VERSION is not stranded ahead of the last release" '
-    _v="$(tr -d "[:space:]" < VERSION 2>/dev/null)"
-    if [ -z "$_v" ]; then
-      echo "VERSION unreadable -- cannot compare (absent measurement, not a pass)"
-      exit 0
-    fi
-    # Local tags can lag the remote; ask the remote, and treat an unreachable
-    # remote as UNKNOWN rather than as "no releases exist".
-    _tags="$(git ls-remote --tags origin 2>/dev/null | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)"
-    if [ -z "$_tags" ]; then
-      echo "could not read remote tags (offline?) -- release drift UNKNOWN, not checked"
-      exit 0
-    fi
-    _last="$(printf "%s\n" "$_tags" | tail -1)"
-    if [ "v$_v" = "$_last" ]; then
-      echo "VERSION $_v matches the newest released tag"
-      exit 0
-    fi
-    # Only report the direction that means "we forgot to ship". VERSION BEHIND a
-    # tag is a different situation (a revert, a hotfix branch) and not this bug.
-    _newest="$(printf "%s\nv%s\n" "$_tags" "$_v" | sort -V | tail -1)"
-    if [ "$_newest" = "v$_v" ]; then
-      _n="$(git log --oneline "$_last..HEAD" 2>/dev/null | wc -l | tr -d " ")"
-      echo "RELEASE DRIFT: VERSION is $_v but the newest tag is $_last (${_n} commits ahead)."
-      echo "If the release already ran, ignore this. If not, the VERSION bump was"
-      echo "probably not the head of its push, so release.yml never fired."
-      echo ""
-      echo "PREVENTION: use scripts/release.sh, which commits and pushes the bump"
-      echo "back-to-back (release.sh:227 then :235) so VERSION is always the push"
-      echo "head. Bumping by hand and continuing to work is what stranded"
-      echo "9.13.0 through 9.16.0 -- 15 commits landed after the 9.16.0 bump."
-      echo ""
-      echo "RECOVERY for an already-stranded bump -- all three must be green at"
-      echo "the SAME head, or the required-ci job in release.yml fails closed:"
-      echo "  gh workflow run security-audit.yml --ref main   # else 'not reported yet'"
-      echo "  # wait for Tests + Bun Parity + Security Audit to pass at that SHA"
-      echo "  gh workflow run release.yml --ref main"
-      echo "Advisory only -- this is also the normal state mid-release."
-    else
-      echo "VERSION $_v is behind tag $_last (not the stranded-release case)"
-    fi
-    exit 0
   '
 
   # This check REBUILDS a git-tracked file (loki-ts/dist/loki.js is force-added
@@ -1315,6 +1244,7 @@ run_check "tests/test-evidence-gate-no-tests.sh (P1-1 no-tests not affirmative)"
 run_check "tests/test-verify.sh (loki verify deterministic gates)" "bash tests/test-verify.sh 2>&1 | tail -3"
 run_check "tests/test-verify-scope-record.sh (rank 10 locality scope record, advisory-first)" "bash tests/test-verify-scope-record.sh 2>&1 | tail -3"
 run_check "tests/test-verify-setup-recipe.sh (rank 7 setup-recipe writer, env NAMES not values)" "bash tests/test-verify-setup-recipe.sh 2>&1 | tail -3"
+run_check "tests/test-verify-runner-selection.sh (declared runner, not an installed devDep)" "bash tests/test-verify-runner-selection.sh 2>&1 | tail -3"
 run_check "tests/test-node-test-detection.sh (task #79: node --test detection, run.sh + verify.sh false-negative)" "bash tests/test-node-test-detection.sh 2>&1 | tail -3"
 run_check "tests/test-loki-dir-double-path.sh (#80 double-.loki COMPLETED guard)" "bash tests/test-loki-dir-double-path.sh 2>&1 | tail -3"
 run_check "tests/test-zero-test-inconclusive.sh (#82: zero-test-file -> inconclusive, run.sh + verify.sh + council)" "bash tests/test-zero-test-inconclusive.sh 2>&1 | tail -3"
@@ -1618,8 +1548,13 @@ if [ -n "$_DASH_PY" ] && command -v node >/dev/null 2>&1 \
    && [ -d dashboard-ui/node_modules/playwright ] \
    && { [ -d "$HOME/Library/Caches/ms-playwright" ] || [ -d "$HOME/.cache/ms-playwright" ]; }; then
   run_check "dashboard fresh-repo integrated UX harness" 'bash scripts/run-dashboard-fresh-repo-harness.sh'
+  # Inverse fixture: the cold harness above would pass against panels that
+  # never render anything at all. This one seeds receipts + learnings and
+  # asserts they reach the pixel WITHOUT fabricating an unmeasured cost.
+  run_check "dashboard evidence panels render honestly" 'bash scripts/run-dashboard-evidence-panels-harness.sh'
 else
   skip_check "dashboard fresh-repo integrated UX harness" "needs python3.12 + dashboard-ui playwright + chromium"
+  skip_check "dashboard evidence panels render honestly" "needs python3.12 + dashboard-ui playwright + chromium"
 fi
 
 # ---------------------------------------------------------------------------

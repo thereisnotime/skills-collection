@@ -70,6 +70,33 @@ run_test() {
         return 0
     fi
 
+    # A registration whose script does not exist is a BOOKKEEPING fault, not a
+    # product failure, and it must say so. Four suites failed this way on a
+    # cherry-pick that took the registrations without the files, and the CI log
+    # read exactly like four real regressions -- the message is what cost the
+    # time, not the fix. Fails loudly rather than skipping: a silently skipped
+    # registration is a suite nobody runs and nobody misses.
+    # Two registration forms exist here: a bare path, and a full command
+    # ("python3 -m pytest -q $SCRIPT_DIR/x.py"). Checking the raw value with
+    # -f treats a command as a filename and reports a PRESENT file as missing,
+    # which my first version did -- it failed a suite whose script was on disk.
+    # So resolve the path OUT of either form, and check only that.
+    local _script_path="$test_file"
+    case "$test_file" in
+        *" "*)
+            # Command form: the script is the last whitespace-separated token
+            # that looks like a path to a test file.
+            _script_path="$(printf '%s\n' $test_file | grep -E '\.(sh|py)$' | tail -1)"
+            ;;
+    esac
+    if [ -n "$_script_path" ] && [ ! -f "$_script_path" ]; then
+        echo -e "${RED}✗ ${test_name}: registered but its script is MISSING (${_script_path##*/})${NC}"
+        echo -e "${RED}  This is a stale run_test registration, not a code defect.${NC}"
+        echo -e "${RED}  Either restore the script or remove the registration.${NC}"
+        TOTAL_FAILED=$((TOTAL_FAILED + 1))
+        return 1
+    fi
+
     echo -e "${YELLOW}┌────────────────────────────────────────────────────────────────┐${NC}"
     echo -e "${YELLOW}│ Running: ${test_name}${NC}"
     echo -e "${YELLOW}└────────────────────────────────────────────────────────────────┘${NC}"
@@ -202,14 +229,8 @@ run_test "doctor names what blocks you (first-run funnel)" "$SCRIPT_DIR/test-doc
 run_test "first-run funnel covers the walls users hit" "$SCRIPT_DIR/test-first-run-funnel-coverage.sh"
 run_test "a completion claim must name work in the diff" "$SCRIPT_DIR/test-claim-grounding.sh"
 run_test "decision records surface a model swap and leak nothing" "$SCRIPT_DIR/test-decision-record.sh"
-run_test "the runtime actually writes decision records" "$SCRIPT_DIR/test-decision-record-wiring.sh"
 run_test "failure memory learns from measured events only" "$SCRIPT_DIR/test-failure-memory.sh"
 run_test "agent readiness is measured, not judged" "$SCRIPT_DIR/test-agent-readiness.sh"
-run_test "degraded providers get the full spec and the first-pass push" "$SCRIPT_DIR/test-degraded-provider-quality.sh"
-run_test "a one-liner yields criteria derived from the request" "$SCRIPT_DIR/test-brief-acceptance-criteria.sh"
-run_test "an imported issue yields criteria derived from the issue" "$SCRIPT_DIR/test-issue-acceptance-criteria.sh"
-run_test "a dependency does not decide the complexity tier" "$SCRIPT_DIR/test-complexity-external-prune.sh"
-run_test "long silent steps announce themselves" "$SCRIPT_DIR/test-no-silent-gaps.sh"
 run_test "the verification-cost page stays honest" "$SCRIPT_DIR/test-verification-cost-doc.sh"
 run_test "outcome ledger anchors before it measures" "$SCRIPT_DIR/test-outcome-ledger.sh"
 run_test "intent ledger detects spec-drifted-from-intent" "$SCRIPT_DIR/test-intent-ledger.sh"
@@ -763,7 +784,6 @@ run_test "no test uses a platform-divergent construct" "$SCRIPT_DIR/test-ci-only
 run_test "doctor detects an incomplete install" "$SCRIPT_DIR/test-doctor-install-integrity.sh"
 run_test "findings injection degrades loudly, never silently" "$SCRIPT_DIR/test-findings-injection-degrade.sh"
 run_test "a stuck gate aborts instead of grinding" "$SCRIPT_DIR/test-gate-stuck-abort.sh"
-run_test "failure memory: gate failure written as a lesson, read back into the prompt" "$SCRIPT_DIR/test-failure-memory-wiring.sh"
 run_test "iteration 1 names the gates that will judge it" "$SCRIPT_DIR/test-first-pass-gate-directive.sh"
 run_test "iteration cap is bounded without truncating real runs" "$SCRIPT_DIR/test-iteration-cap-default.sh"
 run_test "codex usage and cost are recovered, unknown never zero" "$SCRIPT_DIR/test-codex-usage-cost.sh"
@@ -794,7 +814,6 @@ run_test "model catalog staleness is advisory in doctor" "$SCRIPT_DIR/test-model
 run_test "doctor blocker parity (both routes name blockers + offer loki tour)" "$SCRIPT_DIR/test-doctor-blocker-parity.sh"
 run_test "first_run_blocked signal (opt-out silent, enum-clamped)" "$SCRIPT_DIR/test-first-run-blocked-signal.sh"
 run_test "help discoverability (every command reachable)" "$SCRIPT_DIR/test-help-discoverability.sh"
-run_test "verdict claim grounding (report-only, three states)" "$SCRIPT_DIR/test-verdict-grounding.sh"
 run_test "assess runtime detection (declared, never guessed)" "$SCRIPT_DIR/test-assess-runtime-detection.sh"
 run_test "provider model scoping (global tier var must not leak)" "$SCRIPT_DIR/test-provider-model-scoping.sh"
 run_test "model catalog is a single source of truth" "$SCRIPT_DIR/test-model-catalog-single-source.sh"
@@ -819,8 +838,10 @@ run_test "the public HTML receipt shows disabled gates" "$SCRIPT_DIR/test-html-r
 run_test "the founder-decisions document is accurate" "$SCRIPT_DIR/test-founder-decisions-doc-accurate.sh"
 run_test "entry-document pointers resolve" "$SCRIPT_DIR/test-entry-doc-pointers-resolve.sh"
 run_test "the mutation probe cannot silently no-op" "$SCRIPT_DIR/test-mutation-probe.sh"
-run_test "concurrent mutation probes do not corrupt the target" "$SCRIPT_DIR/test-mutation-probe-concurrency.sh"
-run_test "a stranded VERSION bump is reported" "$SCRIPT_DIR/test-release-drift-check.sh"
+run_test "the Quality page shows which gates block" "$SCRIPT_DIR/test-gate-policy-ui-line.sh"
+run_test "the evidence receipt is reachable from the dashboard" "$SCRIPT_DIR/test-receipts-panel.sh"
+run_test "the build's learnings are visible" "$SCRIPT_DIR/test-learnings-panel.sh"
+run_test "the spend-cap state is visible" "$SCRIPT_DIR/test-budget-banner.sh"
 run_test "trust-core tests detect their regressions" "$SCRIPT_DIR/test-trust-core-tests-detect.sh"
 run_test "a user-installed reviewer takes part in a run" "$SCRIPT_DIR/test-installed-agent-reviewer.sh"
 # Skill modules are loaded INTO the agent's context and acted on, so a false

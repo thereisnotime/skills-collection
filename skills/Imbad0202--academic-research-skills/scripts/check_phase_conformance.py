@@ -336,6 +336,13 @@ def _display_fold(line: str) -> str:
 
 
 _ESCAPED_PIPE_RE = re.compile(r"\\\|")
+# CommonMark §2.4: a backslash escapes the next punctuation character, so
+# `\\` is a literal backslash and ``\` `` a literal backtick that can
+# neither open nor close a code span. One left-to-right pass sequences the
+# two correctly (`\\` consumes its backslash before a following backtick is
+# considered). Ignoring this let an escaped-backtick "span" blank a live
+# `<!--` and credit a hidden dissent field (#613 security round 1, P1).
+_ESCAPED_BACKTICK_RE = re.compile(r"\\[\\`]")
 
 
 def _blank_code_spans(line: str) -> str:
@@ -346,8 +353,11 @@ def _blank_code_spans(line: str) -> str:
     the renderer does NOT treat as code, re-opening the later-cell attack
     — and conversely swallowed legitimate prose. This scanner pairs an
     opening run only with the next run of exactly its length, as the
-    renderer does; an unmatched run stays literal.
+    renderer does; an unmatched run stays literal. Backslash-escaped
+    backticks are blanked FIRST: they are literal to the renderer and must
+    not participate in pairing.
     """
+    line = _ESCAPED_BACKTICK_RE.sub("  ", line)
     out: list[str] = []
     index, length = 0, len(line)
     while index < length:
@@ -596,6 +606,33 @@ def _comment_state_after(
         commented, index = not commented, position + len(token)
 
 
+def _inline_comment_state_after(line: str, *, commented: bool) -> bool:
+    """Delimiter-order comment state with NO block-position requirement.
+
+    Span-scoped (#613): inside the dissent span the output grammar makes a
+    bare ``<!--`` out-of-grammar prose — the delivered Phase 2 prompts and
+    the protocol now require inline code for any mention — so every
+    occurrence is an opener, including the two CommonMark shapes the block
+    visibility model deliberately does not read (a marker following text on
+    its own line; a marker indented as a lazy paragraph continuation).
+    Callers blank code spans first, so the sanctioned inline-code mention
+    never opens.
+    """
+    index = 0
+    while True:
+        token = "-->" if commented else "<!--"
+        position = line.find(token, index)
+        if position < 0:
+            return commented
+        commented = not commented
+        # After an opener, resume at +2 rather than +4: the closer may
+        # reuse the opener's own last two dashes (`<!-->`, `<!--->`) —
+        # the same overlap rule the block scanner applies (codex #650
+        # round 1, P2: skipping it left the empty comment "open" and
+        # false-aborted the rendered fields below it).
+        index = position + (2 if commented else len(token))
+
+
 def _lines_with_hidden_state(text: str):
     """Yield (line, fenced, hidden): fence plus HTML-comment visibility.
 
@@ -669,26 +706,41 @@ def _raw_dissent_span(text: str) -> DissentSpan:
     """
     span, hidden_by_comment, inside, commented = [], [], False, False
     paragraph_open = False
+    # #613: span-scoped inline comment state. Outside the span, only a
+    # block-position opener counts (the #612 model, unchanged, because
+    # prose there may legitimately mention a bare marker). INSIDE the span
+    # the delivered output grammar requires inline code for any mention, so
+    # a bare `<!--` is an opener wherever it appears — closing the two
+    # residual shapes (#613): a marker following text on its own line, and
+    # a marker indented as a lazy paragraph continuation.
+    span_inline = False
+    # Code spans pair by equal-length runs ACROSS soft line breaks within a
+    # paragraph, which a per-line blanker cannot see: a trailing unpaired
+    # run on one line can pair into the next line and pull a `<!--` out of
+    # (or into) code (#613 security round 1, P1). Once a span line leaves
+    # an odd number of backtick runs, local blanking is untrustworthy for
+    # the REST of that paragraph: stop blanking and read every `<!--` as an
+    # opener — abort-direction, since the sanctioned mention is a
+    # same-line inline-code span in a paragraph with balanced runs.
+    code_parity_suspect = False
     for line, fenced in _lines_with_fence_state(text):
         entered_commented = commented
+        entered_inline = span_inline
         opens_comment = not fenced and _opens_comment(
             line, paragraph_open=paragraph_open
         )
         if not fenced:
             # A block opener only, list and blockquote markers included:
             # four columns STARTING a block makes indented code, and a fence
-            # makes every marker inert. Not read as an opener: a marker
+            # makes every marker inert. Not read as an opener HERE: a marker
             # mid-line, one in an inline-code span, or one indented as a lazy
-            # paragraph continuation. The first and last of those DO form a
-            # comment, so that miss is not free: it grants a trigger-binding
-            # exemption for a dissent the page does not show. Refused anyway,
-            # because closing it means reading a bare `<!--` inside
-            # unrestricted `rationale:` text as an opener, aborting a valid
-            # card on an unretryable phase; the deterministic closure belongs
-            # in the output grammar (#613), not here. Both are pinned as
-            # tests, and #613 also carries the wider hiding channel this
-            # visibility model does not cover at all: raw HTML that is not a
-            # comment, such as a `<script>` or `<template>` block.
+            # paragraph continuation — inside the dissent span those are the
+            # #613 inline state's job, now that the output grammar makes a
+            # bare marker out-of-grammar prose. #613 tracks, and leaves
+            # OPEN, the wider hiding channel this visibility model does not
+            # cover at all: raw HTML that is not a comment, such as a
+            # `<script>` or `<template>` block — the shipped closure is the
+            # comment channel only.
             commented = _comment_state_after(
                 line, commented=commented, paragraph_open=paragraph_open
             )
@@ -699,6 +751,8 @@ def _raw_dissent_span(text: str) -> DissentSpan:
             else:
                 inside = title == "Scoring Plan Dissent"
             paragraph_open = False
+            span_inline = False
+            code_parity_suspect = False
             continue
         # CommonMark counts only spaces and tabs as blank, so a line holding
         # an ideographic space is a paragraph. Calling it blank put the next
@@ -722,17 +776,45 @@ def _raw_dissent_span(text: str) -> DissentSpan:
             and not (entered_commented or opens_comment)
         )
         if inside:
+            if not line.strip(" \t"):
+                # A blank line closes the paragraph, and with it any
+                # cross-line code-span ambiguity.
+                code_parity_suspect = False
+            opens_inline = False
+            blanked = None
+            if (not fenced and not entered_commented and not entered_inline
+                    and not opens_comment):
+                # #613: only lines the block model does NOT already own can
+                # open the inline state; code spans are blanked first so the
+                # grammar's sanctioned `` `<!--` `` mention stays prose —
+                # unless this paragraph's runs stopped pairing locally, in
+                # which case blanking is off and every marker opens.
+                escaped = _ESCAPED_BACKTICK_RE.sub("  ", line)
+                blanked = (
+                    escaped if code_parity_suspect
+                    else _blank_code_spans(line)
+                )
+                opens_inline = "<!--" in blanked
+                if len(re.findall(r"`+", escaped)) % 2:
+                    code_parity_suspect = True
             # Opened up only where a comment actually is. Rewriting every line
             # carrying the tokens would break a canonical `rationale:` that
-            # merely mentions them (its text is unrestricted) from matching
-            # the canonical parse, aborting an unretryable Phase 2 on a
-            # valid card.
-            if entered_commented or opens_comment:
+            # merely mentions them in inline code from matching the
+            # canonical parse, aborting an unretryable Phase 2 on a valid
+            # card.
+            if (entered_commented or opens_comment or entered_inline
+                    or opens_inline):
                 span.append(line.replace("<!--", " ").replace("-->", " "))
             else:
                 span.append(line)
-            if entered_commented:
+            if entered_commented or entered_inline:
                 hidden_by_comment.append(line)
+            if not fenced and (entered_inline or opens_inline):
+                span_inline = _inline_comment_state_after(
+                    blanked if blanked is not None
+                    else _blank_code_spans(line),
+                    commented=entered_inline,
+                )
     return DissentSpan(span, hidden_by_comment)
 
 
@@ -1078,7 +1160,17 @@ def parse_dissent_dimensions(text: str) -> DissentParse:
         candidate for candidate in raw_span
         if _is_dissent_field_shaped(candidate)
     )
-    if any(count > parsed[value] for value, count in hidden.items()) or any(
+    if any(count > parsed[value] for value, count in hidden.items()):
+        # Distinct marker (#613 security round 1, P3): these fields ARE
+        # canonical — the failure is that comment markup hides them from
+        # the rendered card, and pointing the operator at line grammar
+        # misattributes an unretryable abort.
+        raise ConformanceError(
+            "[DISSENT-HIDDEN: a canonical dissent field is hidden from the "
+            "rendered card by comment markup; write dissent fields in the "
+            "clear and mention comment syntax only in inline code]"
+        )
+    if any(
         _is_dissent_field_shaped(candidate) and candidate not in parsed
         for candidate in visible
     ):

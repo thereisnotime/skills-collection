@@ -9692,8 +9692,8 @@
       "description": "|-",
       "path": "anthropics--skills/skills/claude-api/SKILL.md",
       "remote_path": "skills/claude-api/SKILL.md",
-      "lines": 547,
-      "words": 9555,
+      "lines": 549,
+      "words": 9714,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -12141,7 +12141,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "lines": 381,
-      "words": 4092,
+      "words": 4186,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12165,7 +12165,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "lines": 403,
-      "words": 5572,
+      "words": 5666,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12189,7 +12189,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "lines": 366,
-      "words": 4090,
+      "words": 4184,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12201,7 +12201,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "lines": 399,
-      "words": 5568,
+      "words": 5662,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12213,7 +12213,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
       "lines": 292,
-      "words": 3517,
+      "words": 3611,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12552,6 +12552,20 @@
         "python"
       ],
       "license": "Apache-2.0 license"
+    },
+    {
+      "name": "deepspot-m",
+      "description": "Generate transcriptome-wide virtual spatial transcriptomics from H&E histology with DeepSpot-M. Use when you need spatial gene expression in log1p-CPM for 224x224 tiles at about 20x, want to query pro",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/deepspot-m/SKILL.md",
+      "remote_path": "skills/deepspot-m/SKILL.md",
+      "lines": 176,
+      "words": 1015,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "python"
+      ],
+      "license": "PolyForm-Noncommercial-1.0.0"
     },
     {
       "name": "statistical-analysis",
@@ -13077,15 +13091,16 @@
     },
     {
       "name": "optimize-for-gpu",
-      "description": "\"GPU-accelerate Python code using CuPy, Numba CUDA, Warp, cuDF, cuML, cuGraph, KvikIO, cuCIM, cuxfilter, cuVS, cuSpatial, and RAFT. Use whenever the user mentions GPU/CUDA/NVIDIA acceleration, or want",
+      "description": "GPU-accelerates scientific Python on NVIDIA hardware and verifies that the result is correct and faster. Use for CUDA/GPU optimization; CPU-bound NumPy, SciPy, pandas, scikit-learn, NetworkX, scikit-i",
       "path": "K-Dense-AI--claude-scientific-skills/skills/optimize-for-gpu/SKILL.md",
       "remote_path": "skills/optimize-for-gpu/SKILL.md",
-      "lines": 138,
-      "words": 1396,
+      "lines": 177,
+      "words": 1699,
       "code_blocks": 1,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "tamarind",
@@ -14459,6 +14474,20 @@
       "license": "MIT license"
     },
     {
+      "name": "relsa-severity-assessment",
+      "description": "Multivariate severity assessment and humane endpoint prediction for laboratory animal studies using the RELSA (RELative Severity Assessment) score and ARIMA-based foRcast forecasting. Use when combini",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/relsa-severity-assessment/SKILL.md",
+      "remote_path": "skills/relsa-severity-assessment/SKILL.md",
+      "lines": 355,
+      "words": 2670,
+      "code_blocks": 10,
+      "languages": [
+        "bash",
+        "python"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "scientific-brainstorming",
       "description": "Facilitates evidence-aware scientific ideation with independent generation, structured discussion, explicit assumptions, transparent evaluation, adversarial review, and decision logs. Use for early-st",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-brainstorming/SKILL.md",
@@ -15644,10 +15673,294 @@
     {
       "name": "qa-engineer",
       "description": "Use this agent when adding LLM-as-Judge verification sections to implementation steps in task files. Produces structured per-step evaluation specifications (rubrics, checklists with default quality it",
+      "path": "NeoLabHQ--context-engineering-kit/agents/qa-engineer.md",
+      "remote_path": "agents/qa-engineer.md",
+      "lines": 2243,
+      "words": 16725,
+      "code_blocks": 40,
+      "languages": [
+        "bash",
+        "markdown",
+        "text",
+        "ts",
+        "yaml"
+      ]
+    },
+    {
+      "name": "change-impact-agent",
+      "description": "Use this agent to rate each changed file based on 4 criteria and output final list of 10 files that require most attention.",
+      "path": "NeoLabHQ--context-engineering-kit/agents/change-impact-agent.md",
+      "remote_path": "agents/change-impact-agent.md",
+      "lines": 73,
+      "words": 798,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "fpf-agent",
+      "description": "First Principles Framework reasoning specialist that executes hypothesis generation, verification, validation, and trust calculus tasks using the ADI (Abduction-Deduction-Induction) cycle and knowledg",
+      "path": "NeoLabHQ--context-engineering-kit/agents/fpf-agent.md",
+      "remote_path": "agents/fpf-agent.md",
+      "lines": 6068,
+      "words": 55922,
+      "code_blocks": 43,
+      "languages": [
+        "markdown",
+        "mermaid",
+        "python",
+        "text",
+        "yaml"
+      ]
+    },
+    {
+      "name": "security-auditor",
+      "description": "Use this agent when reviewing local code changes or pull requests to identify security vulnerabilities and risks. This agent should be invoked proactively after completing security-sensitive changes o",
+      "path": "NeoLabHQ--context-engineering-kit/agents/security-auditor.md",
+      "remote_path": "agents/security-auditor.md",
+      "lines": 214,
+      "words": 1537,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "tech-lead",
+      "description": "Use this agent when breaking down architecture into implementation steps with success criteria, dependencies, and risk assessment. Transforms architectural blueprints into executable task sequences wi",
+      "path": "NeoLabHQ--context-engineering-kit/agents/tech-lead.md",
+      "remote_path": "agents/tech-lead.md",
+      "lines": 692,
+      "words": 4262,
+      "code_blocks": 7,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "team-lead",
+      "description": "Use this agent when reorganizing implementation steps for maximum parallel execution with explicit dependency tracking and agent assignments. Transforms sequential implementation plans into paralleliz",
+      "path": "NeoLabHQ--context-engineering-kit/agents/team-lead.md",
+      "remote_path": "agents/team-lead.md",
+      "lines": 769,
+      "words": 4841,
+      "code_blocks": 19,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "change-failure-agent",
+      "description": "Use this agent to rate each changed file based on 2 criteria and output final list of 10 files that require most attention.",
+      "path": "NeoLabHQ--context-engineering-kit/agents/change-failure-agent.md",
+      "remote_path": "agents/change-failure-agent.md",
+      "lines": 70,
+      "words": 707,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "code-explorer",
+      "description": "Use this agent when analyzing existing codebase features, tracing execution paths, mapping architecture, identifying files affected by proposed changes, or understanding integration points for new dev",
+      "path": "NeoLabHQ--context-engineering-kit/agents/code-explorer.md",
+      "remote_path": "agents/code-explorer.md",
+      "lines": 1003,
+      "words": 5202,
+      "code_blocks": 21,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "developer",
+      "description": "Use this agent when implementing tasks from task files with implementation steps. Executes code changes following acceptance criteria, leveraging existing codebase patterns to deliver production-ready",
+      "path": "NeoLabHQ--context-engineering-kit/agents/developer.md",
+      "remote_path": "agents/developer.md",
+      "lines": 2203,
+      "words": 10698,
+      "code_blocks": 57,
+      "languages": [
+        "markdown",
+        "text",
+        "typescript"
+      ]
+    },
+    {
+      "name": "bug-hunter",
+      "description": "Use this agent when reviewing local code changes or in the pull request to identify bugs and critical issues through systematic root cause analysis. This agent should be invoked proactively after comp",
+      "path": "NeoLabHQ--context-engineering-kit/agents/bug-hunter.md",
+      "remote_path": "agents/bug-hunter.md",
+      "lines": 281,
+      "words": 1331,
+      "code_blocks": 6,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "change-expectation-agent",
+      "description": "Use this agent to rate each changed file based on 2 criteria and output final list of files that require most attention.",
+      "path": "NeoLabHQ--context-engineering-kit/agents/change-expectation-agent.md",
+      "remote_path": "agents/change-expectation-agent.md",
+      "lines": 71,
+      "words": 707,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "software-architect",
+      "description": "Use this agent when synthesizing research findings, codebase analysis, and business requirements into architectural solutions for task specifications.",
+      "path": "NeoLabHQ--context-engineering-kit/agents/software-architect.md",
+      "remote_path": "agents/software-architect.md",
+      "lines": 828,
+      "words": 4713,
+      "code_blocks": 21,
+      "languages": [
+        "markdown",
+        "typescript"
+      ]
+    },
+    {
+      "name": "historical-context-reviewer",
+      "description": "Use this agent when reviewing local code changes or pull requests to understand the historical context of modified code, including past issues, patterns, and lessons learned. This agent should be invo",
+      "path": "NeoLabHQ--context-engineering-kit/agents/historical-context-reviewer.md",
+      "remote_path": "agents/historical-context-reviewer.md",
+      "lines": 195,
+      "words": 1187,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "code-reviewer",
+      "description": "Use this agent when you need to review code for adherence to project guidelines, style guides, and best practices. This agent should be used proactively after writing or modifying code, or for reviwin",
+      "path": "NeoLabHQ--context-engineering-kit/agents/code-quality-reviewer.md",
+      "remote_path": "agents/code-quality-reviewer.md",
+      "lines": 171,
+      "words": 1866,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "tech-writer",
+      "description": "Creates and maintains comprehensive, accessible technical documentation by transforming complex concepts into clear, structured content that helps users accomplish their tasks",
+      "path": "NeoLabHQ--context-engineering-kit/agents/tech-writer.md",
+      "remote_path": "agents/tech-writer.md",
+      "lines": 1145,
+      "words": 5625,
+      "code_blocks": 20,
+      "languages": [
+        "bash",
+        "javascript",
+        "markdown",
+        "text",
+        "typescript"
+      ]
+    },
+    {
+      "name": "judge",
+      "description": "Use this agent when evaluating implementation artifacts against an evaluation specification produced by the meta judge. Applies rubric dimensions, checklist items, and scoring metadata to produce stru",
+      "path": "NeoLabHQ--context-engineering-kit/agents/judge.md",
+      "remote_path": "agents/judge.md",
+      "lines": 1059,
+      "words": 6514,
+      "code_blocks": 18,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "code-reviewer",
+      "description": "Use this agent to verify implementation against verification specification AND review code quality. Receives the task specification path and step number. Applies the per-step rubric/checklist, the bui",
+      "path": "NeoLabHQ--context-engineering-kit/agents/code-reviewer.md",
+      "remote_path": "agents/code-reviewer.md",
+      "lines": 1649,
+      "words": 11027,
+      "code_blocks": 31,
+      "languages": [
+        "markdown",
+        "ts",
+        "yaml"
+      ]
+    },
+    {
+      "name": "change-story-agent",
+      "description": "Use this agent to build \"story\" of this change, that will be used to review it by human reviewer. Story must explain what this change tries to achive, what risks it introduces and how it solve them.",
+      "path": "NeoLabHQ--context-engineering-kit/agents/change-story-agent.md",
+      "remote_path": "agents/change-story-agent.md",
+      "lines": 81,
+      "words": 775,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "test-coverage-reviewer",
+      "description": "Use this agent when you need to review local code changes or a pull request for test coverage quality and completeness. This agent should be invoked after a PR is created or tests updated, to ensure t",
+      "path": "NeoLabHQ--context-engineering-kit/agents/test-coverage-reviewer.md",
+      "remote_path": "agents/test-coverage-reviewer.md",
+      "lines": 124,
+      "words": 865,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "meta-judge",
+      "description": "Use this agent when generating evaluation rubrics, checklists, criteria, metrics, and weights for a user prompt BEFORE implementation begins. Produces structured YAML evaluation specifications that th",
+      "path": "NeoLabHQ--context-engineering-kit/agents/meta-judge.md",
+      "remote_path": "agents/meta-judge.md",
+      "lines": 767,
+      "words": 5209,
+      "code_blocks": 13,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "contracts-reviewer",
+      "description": "Use this agent when reviewing local code changes or pull requests to analyze API, data models, and type design. This agent should be invoked proactively when changes affect public contracts, domain mo",
+      "path": "NeoLabHQ--context-engineering-kit/agents/contracts-reviewer.md",
+      "remote_path": "agents/contracts-reviewer.md",
+      "lines": 205,
+      "words": 1481,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "researcher",
+      "description": "Use this agent when researching unknown technologies, libraries, frameworks, and dependencies to gather relevant resources and documentation for implementation tasks. Creates reusable skills that all ",
+      "path": "NeoLabHQ--context-engineering-kit/agents/researcher.md",
+      "remote_path": "agents/researcher.md",
+      "lines": 772,
+      "words": 3453,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "business-analyst",
+      "description": "Use this agent when refining task descriptions and creating acceptance criteria for implementation tasks.",
+      "path": "NeoLabHQ--context-engineering-kit/agents/business-analyst.md",
+      "remote_path": "agents/business-analyst.md",
+      "lines": 115,
+      "words": 776,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "qa-engineer",
+      "description": "Use this agent when adding LLM-as-Judge verification sections to implementation steps in task files. Produces structured per-step evaluation specifications (rubrics, checklists with default quality it",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/qa-engineer.md",
       "remote_path": "plugins/sdd/agents/qa-engineer.md",
       "lines": 2243,
-      "words": 16705,
+      "words": 16725,
       "code_blocks": 40,
       "languages": [
         "bash",
@@ -15663,7 +15976,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/tech-lead.md",
       "remote_path": "plugins/sdd/agents/tech-lead.md",
       "lines": 692,
-      "words": 4242,
+      "words": 4262,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -15675,7 +15988,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/team-lead.md",
       "remote_path": "plugins/sdd/agents/team-lead.md",
       "lines": 769,
-      "words": 4821,
+      "words": 4841,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -15688,7 +16001,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/code-explorer.md",
       "remote_path": "plugins/sdd/agents/code-explorer.md",
       "lines": 1003,
-      "words": 5182,
+      "words": 5202,
       "code_blocks": 21,
       "languages": [
         "markdown"
@@ -15743,7 +16056,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/code-reviewer.md",
       "remote_path": "plugins/sdd/agents/code-reviewer.md",
       "lines": 1649,
-      "words": 11007,
+      "words": 11027,
       "code_blocks": 31,
       "languages": [
         "markdown",
@@ -15757,7 +16070,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/researcher.md",
       "remote_path": "plugins/sdd/agents/researcher.md",
       "lines": 772,
-      "words": 3433,
+      "words": 3453,
       "code_blocks": 24,
       "languages": [
         "bash",
@@ -15829,8 +16142,8 @@
       "description": "creates draft task file in .specs/tasks/draft/ with original user intent",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/skills/add-task/SKILL.md",
       "remote_path": "plugins/sdd/skills/add-task/SKILL.md",
-      "lines": 204,
-      "words": 807,
+      "lines": 208,
+      "words": 839,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -16093,7 +16406,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/agents/judge.md",
       "remote_path": "plugins/sadd/agents/judge.md",
       "lines": 1059,
-      "words": 6494,
+      "words": 6514,
       "code_blocks": 18,
       "languages": [
         "markdown",
@@ -16106,7 +16419,7 @@
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/agents/meta-judge.md",
       "remote_path": "plugins/sadd/agents/meta-judge.md",
       "lines": 767,
-      "words": 5189,
+      "words": 5209,
       "code_blocks": 13,
       "languages": [
         "markdown",
@@ -16792,6 +17105,874 @@
         "markdown",
         "yaml"
       ]
+    },
+    {
+      "name": "brainstorm",
+      "description": "Use when creating or developing, before writing code or implementation plans - refines rough ideas into fully-formed designs through collaborative questioning, alternative exploration, and incremental",
+      "path": "NeoLabHQ--context-engineering-kit/skills/brainstorm/SKILL.md",
+      "remote_path": "skills/brainstorm/SKILL.md",
+      "lines": 57,
+      "words": 471,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "create-rule",
+      "description": "Use when found gap or repetative issue, that produced by you or implemenataion agent. Esentially use it each time when you say \"You absolutly right, I should have done it differently.\" -> need create ",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-rule/SKILL.md",
+      "remote_path": "skills/create-rule/SKILL.md",
+      "lines": 612,
+      "words": 3133,
+      "code_blocks": 17,
+      "languages": [
+        "bash",
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "do-competitively",
+      "description": "Execute tasks through competitive multi-agent generation, meta-judge evaluation specification, multi-judge evaluation, and evidence-based synthesis",
+      "path": "NeoLabHQ--context-engineering-kit/skills/do-competitively/SKILL.md",
+      "remote_path": "skills/do-competitively/SKILL.md",
+      "lines": 780,
+      "words": 3495,
+      "code_blocks": 25,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "fix-tests",
+      "description": "Systematically fix all failing tests after business logic changes or refactoring",
+      "path": "NeoLabHQ--context-engineering-kit/skills/fix-tests/SKILL.md",
+      "remote_path": "skills/fix-tests/SKILL.md",
+      "lines": 111,
+      "words": 589,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "memorize",
+      "description": "Curates insights from reflections and critiques into CLAUDE.md using Agentic Context Engineering",
+      "path": "NeoLabHQ--context-engineering-kit/skills/memorize/SKILL.md",
+      "remote_path": "skills/memorize/SKILL.md",
+      "lines": 304,
+      "words": 1474,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "analyze-issue",
+      "description": "Analyze a GitHub issue and create a detailed technical specification",
+      "path": "NeoLabHQ--context-engineering-kit/skills/analyze-issue/SKILL.md",
+      "remote_path": "skills/analyze-issue/SKILL.md",
+      "lines": 81,
+      "words": 331,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "create-command",
+      "description": "Interactive assistant for creating new Claude commands with proper structure, patterns, and MCP tool integration",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-command/SKILL.md",
+      "remote_path": "skills/create-command/SKILL.md",
+      "lines": 563,
+      "words": 1912,
+      "code_blocks": 18,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "reflect",
+      "description": "Reflect on previus response and output, based on Self-refinement framework for iterative improvement with complexity triage and verification",
+      "path": "NeoLabHQ--context-engineering-kit/skills/reflect/SKILL.md",
+      "remote_path": "skills/reflect/SKILL.md",
+      "lines": 651,
+      "words": 3243,
+      "code_blocks": 7,
+      "languages": [
+        "javascript",
+        "markdown"
+      ]
+    },
+    {
+      "name": "create-ideas",
+      "description": "Generate ideas in one shot using creative sampling",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-ideas/SKILL.md",
+      "remote_path": "skills/create-ideas/SKILL.md",
+      "lines": 16,
+      "words": 131,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "analyse-problem",
+      "description": "Comprehensive A3 one-page problem analysis with root cause and action plan",
+      "path": "NeoLabHQ--context-engineering-kit/skills/analyse-problem/SKILL.md",
+      "remote_path": "skills/analyse-problem/SKILL.md",
+      "lines": 391,
+      "words": 1966,
+      "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "update-docs",
+      "description": "Update and maintain project documentation for local code changes using multi-agent workflow with tech-writer agents. Covers docs/, READMEs, JSDoc, and API documentation.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/update-docs/SKILL.md",
+      "remote_path": "skills/update-docs/SKILL.md",
+      "lines": 661,
+      "words": 3103,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "markdown",
+        "text",
+        "typescript"
+      ]
+    },
+    {
+      "name": "traiage-review",
+      "description": "This skill should be used when need prioritize what changed code in repository human must review.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/traiage-review/SKILL.md",
+      "remote_path": "skills/traiage-review/SKILL.md",
+      "lines": 199,
+      "words": 1426,
+      "code_blocks": 7,
+      "languages": [
+        "md",
+        "python"
+      ]
+    },
+    {
+      "name": "apply-anthropic-skill-best-practices",
+      "description": "Comprehensive guide for skill development based on Anthropic's official best practices - use for complex skills requiring detailed structure",
+      "path": "NeoLabHQ--context-engineering-kit/skills/apply-anthropic-skill-best-practices/SKILL.md",
+      "remote_path": "skills/apply-anthropic-skill-best-practices/SKILL.md",
+      "lines": 1022,
+      "words": 5280,
+      "code_blocks": 51,
+      "languages": [
+        "bash",
+        "json",
+        "markdown",
+        "python",
+        "yaml"
+      ]
+    },
+    {
+      "name": "judge",
+      "description": "Launch a meta-judge then a judge sub-agent to evaluate results produced in the current conversation",
+      "path": "NeoLabHQ--context-engineering-kit/skills/judge/SKILL.md",
+      "remote_path": "skills/judge/SKILL.md",
+      "lines": 204,
+      "words": 1127,
+      "code_blocks": 6,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "analyse",
+      "description": "Auto-selects best Kaizen method (Gemba Walk, Value Stream, or Muda) for target",
+      "path": "NeoLabHQ--context-engineering-kit/skills/analyse/SKILL.md",
+      "remote_path": "skills/analyse/SKILL.md",
+      "lines": 511,
+      "words": 2128,
+      "code_blocks": 5,
+      "languages": []
+    },
+    {
+      "name": "tree-of-thoughts",
+      "description": "Execute tasks through systematic exploration, pruning, and expansion using Tree of Thoughts methodology with meta-judge evaluation specifications and multi-agent evaluation",
+      "path": "NeoLabHQ--context-engineering-kit/skills/tree-of-thoughts/SKILL.md",
+      "remote_path": "skills/tree-of-thoughts/SKILL.md",
+      "lines": 943,
+      "words": 4445,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "why",
+      "description": "Iterative Five Whys root cause analysis drilling from symptoms to fundamentals",
+      "path": "NeoLabHQ--context-engineering-kit/skills/why/SKILL.md",
+      "remote_path": "skills/why/SKILL.md",
+      "lines": 101,
+      "words": 518,
+      "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "setup-serena-mcp",
+      "description": "Guide for setup Serena MCP server for semantic code retrieval and editing capabilities",
+      "path": "NeoLabHQ--context-engineering-kit/skills/setup-serena-mcp/SKILL.md",
+      "remote_path": "skills/setup-serena-mcp/SKILL.md",
+      "lines": 121,
+      "words": 689,
+      "code_blocks": 4,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "launch-sub-agent",
+      "description": "Launch an intelligent sub-agent with automatic model selection based on task complexity, specialized agent matching, Zero-shot CoT reasoning, and mandatory self-critique verification",
+      "path": "NeoLabHQ--context-engineering-kit/skills/launch-sub-agent/SKILL.md",
+      "remote_path": "skills/launch-sub-agent/SKILL.md",
+      "lines": 331,
+      "words": 1667,
+      "code_blocks": 6,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "load-pr-comments",
+      "description": "Use to load open/unresolved PR review comments then aggregate them as tasks in .specs/comments/*.md for parallel agents to fix.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/load-pr-comments/SKILL.md",
+      "remote_path": "skills/load-pr-comments/SKILL.md",
+      "lines": 187,
+      "words": 1219,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "plan-task",
+      "description": "Refine, parallelize, and verify a draft task specification into a fully planned implementation-ready task",
+      "path": "NeoLabHQ--context-engineering-kit/skills/plan-task/SKILL.md",
+      "remote_path": "skills/plan-task/SKILL.md",
+      "lines": 1338,
+      "words": 8382,
+      "code_blocks": 28,
+      "languages": [
+        "bash",
+        "json",
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "judge-with-debate",
+      "description": "Evaluate solutions through multi-round debate between independent judges until consensus",
+      "path": "NeoLabHQ--context-engineering-kit/skills/judge-with-debate/SKILL.md",
+      "remote_path": "skills/judge-with-debate/SKILL.md",
+      "lines": 482,
+      "words": 2341,
+      "code_blocks": 13,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "prompt-engineering",
+      "description": "Use this skill when you writing commands, hooks, skills for Agent, or prompts for sub agents or any other LLM interaction, including optimizing prompts, improving LLM outputs, or designing production ",
+      "path": "NeoLabHQ--context-engineering-kit/skills/prompt-engineering/SKILL.md",
+      "remote_path": "skills/prompt-engineering/SKILL.md",
+      "lines": 560,
+      "words": 2397,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "markdown",
+        "python"
+      ]
+    },
+    {
+      "name": "context-engineering",
+      "description": "Understand the components, mechanics, and constraints of context in agent systems. Use when writing, editing, or optimizing commands, skills, or sub-agents prompts.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/context-engineering/SKILL.md",
+      "remote_path": "skills/context-engineering/SKILL.md",
+      "lines": 1262,
+      "words": 7272,
+      "code_blocks": 33,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "git-worktrees",
+      "description": "Use when working on multiple branches simultaneously, context switching without stashing, reviewing PRs while developing, testing in isolation, or comparing implementations across branches - provides ",
+      "path": "NeoLabHQ--context-engineering-kit/skills/git-worktrees/SKILL.md",
+      "remote_path": "skills/git-worktrees/SKILL.md",
+      "lines": 1363,
+      "words": 5937,
+      "code_blocks": 81,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "multi-agent-patterns",
+      "description": "Design multi-agent architectures for complex tasks. Use when single-agent context limits are exceeded, when tasks decompose naturally into subtasks, or when specializing agents improves quality.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/multi-agent-patterns/SKILL.md",
+      "remote_path": "skills/multi-agent-patterns/SKILL.md",
+      "lines": 371,
+      "words": 3170,
+      "code_blocks": 5,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "kaizen",
+      "description": "Use when Code implementation and refactoring, architecturing or designing systems, process and workflow improvements, error handling and validation. Provide tehniquest to avoid over-engineering and ap",
+      "path": "NeoLabHQ--context-engineering-kit/skills/kaizen/SKILL.md",
+      "remote_path": "skills/kaizen/SKILL.md",
+      "lines": 734,
+      "words": 2553,
+      "code_blocks": 18,
+      "languages": [
+        "typescript"
+      ]
+    },
+    {
+      "name": "load-issues",
+      "description": "Load all open issues from GitHub and save them as markdown files",
+      "path": "NeoLabHQ--context-engineering-kit/skills/load-issues/SKILL.md",
+      "remote_path": "skills/load-issues/SKILL.md",
+      "lines": 55,
+      "words": 219,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "resolve-fixed-pr-comments",
+      "description": "Verify what PR review comments have been addressed (committed/pushed OR uncommitted local changes) and resolve the threads that are genuinely fixed or no longer relevant.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/resolve-fixed-pr-comments/SKILL.md",
+      "remote_path": "skills/resolve-fixed-pr-comments/SKILL.md",
+      "lines": 248,
+      "words": 2469,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "test-prompt",
+      "description": "Use when creating or editing any prompt (commands, hooks, skills, subagent instructions) to verify it produces desired behavior - applies RED-GREEN-REFACTOR cycle to prompt engineering using subagents",
+      "path": "NeoLabHQ--context-engineering-kit/skills/test-prompt/SKILL.md",
+      "remote_path": "skills/test-prompt/SKILL.md",
+      "lines": 715,
+      "words": 2856,
+      "code_blocks": 26,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "test-coverage",
+      "description": "Use after writing tests to assess coverage quality across structural, mutation, requirements, and API/integration dimensions; organized knowledge for choosing and interpreting coverage analyses.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/test-coverage/SKILL.md",
+      "remote_path": "skills/test-coverage/SKILL.md",
+      "lines": 639,
+      "words": 6639,
+      "code_blocks": 3,
+      "languages": [
+        "ts"
+      ]
+    },
+    {
+      "name": "do-in-parallel",
+      "description": "Run independent tasks concurrently across multiple files or targets using parallel sub-agents, with per-task model selection and LLM-as-a-judge verification. Use when tasks do not depend on each other",
+      "path": "NeoLabHQ--context-engineering-kit/skills/do-in-parallel/SKILL.md",
+      "remote_path": "skills/do-in-parallel/SKILL.md",
+      "lines": 2353,
+      "words": 16291,
+      "code_blocks": 48,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "write-concisely",
+      "description": "Apply writing rules to any documentation that humans will read. Makes your writing clearer, stronger, and more professional.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/write-concisely/SKILL.md",
+      "remote_path": "skills/write-concisely/SKILL.md",
+      "lines": 1045,
+      "words": 12389,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "plan-do-check-act",
+      "description": "Iterative PDCA cycle for systematic experimentation and continuous improvement",
+      "path": "NeoLabHQ--context-engineering-kit/skills/plan-do-check-act/SKILL.md",
+      "remote_path": "skills/plan-do-check-act/SKILL.md",
+      "lines": 257,
+      "words": 1123,
+      "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "commit",
+      "description": "Create well-formatted commits with conventional commit messages and emoji",
+      "path": "NeoLabHQ--context-engineering-kit/skills/commit/SKILL.md",
+      "remote_path": "skills/commit/SKILL.md",
+      "lines": 187,
+      "words": 1381,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "decay",
+      "description": "\"Manage evidence freshness by identifying stale decisions and providing governance actions\"",
+      "path": "NeoLabHQ--context-engineering-kit/skills/decay/SKILL.md",
+      "remote_path": "skills/decay/SKILL.md",
+      "lines": 228,
+      "words": 790,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "setup-context7-mcp",
+      "description": "Guide for setup Context7 MCP server to load documentation for specific technologies.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/setup-context7-mcp/SKILL.md",
+      "remote_path": "skills/setup-context7-mcp/SKILL.md",
+      "lines": 57,
+      "words": 270,
+      "code_blocks": 2,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "root-cause-tracing",
+      "description": "Use when errors occur deep in execution and you need to trace back to find the original trigger - systematically traces bugs backward through call stack, adding instrumentation when needed, to identif",
+      "path": "NeoLabHQ--context-engineering-kit/skills/root-cause-tracing/SKILL.md",
+      "remote_path": "skills/root-cause-tracing/SKILL.md",
+      "lines": 189,
+      "words": 780,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "dot",
+        "typescript"
+      ]
+    },
+    {
+      "name": "cause-and-effect",
+      "description": "Systematic Fishbone analysis exploring problem causes across six categories",
+      "path": "NeoLabHQ--context-engineering-kit/skills/cause-and-effect/SKILL.md",
+      "remote_path": "skills/cause-and-effect/SKILL.md",
+      "lines": 199,
+      "words": 944,
+      "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "build-mcp",
+      "description": "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate externa",
+      "path": "NeoLabHQ--context-engineering-kit/skills/build-mcp/SKILL.md",
+      "remote_path": "skills/build-mcp/SKILL.md",
+      "lines": 359,
+      "words": 1787,
+      "code_blocks": 1,
+      "languages": [
+        "xml"
+      ]
+    },
+    {
+      "name": "create-pr",
+      "description": "Create pull requests using GitHub CLI with proper templates and formatting",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-pr/SKILL.md",
+      "remote_path": "skills/create-pr/SKILL.md",
+      "lines": 144,
+      "words": 647,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "critique",
+      "description": "Comprehensive multi-perspective review using specialized judges with debate and consensus building",
+      "path": "NeoLabHQ--context-engineering-kit/skills/critique/SKILL.md",
+      "remote_path": "skills/critique/SKILL.md",
+      "lines": 478,
+      "words": 1734,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "git-notes",
+      "description": "Use when adding metadata to commits without changing history, tracking review status, test results, code quality annotations, or supplementing commit messages post-hoc - provides git notes commands an",
+      "path": "NeoLabHQ--context-engineering-kit/skills/git-notes/SKILL.md",
+      "remote_path": "skills/git-notes/SKILL.md",
+      "lines": 438,
+      "words": 1480,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "gitconfig"
+      ]
+    },
+    {
+      "name": "test-skill",
+      "description": "Use when creating or editing skills, before deployment, to verify they work under pressure and resist rationalization - applies RED-GREEN-REFACTOR cycle to process documentation by running baseline wi",
+      "path": "NeoLabHQ--context-engineering-kit/skills/test-skill/SKILL.md",
+      "remote_path": "skills/test-skill/SKILL.md",
+      "lines": 410,
+      "words": 1954,
+      "code_blocks": 14,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "reset",
+      "description": "\"Reset the FPF reasoning cycle to start fresh\"",
+      "path": "NeoLabHQ--context-engineering-kit/skills/reset/SKILL.md",
+      "remote_path": "skills/reset/SKILL.md",
+      "lines": 110,
+      "words": 297,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "test-driven-development",
+      "description": "Use when implementing any feature or bugfix, before writing implementation code - write the test first, watch it fail, write minimal code to pass; ensures tests actually verify behavior by requiring f",
+      "path": "NeoLabHQ--context-engineering-kit/skills/test-driven-development/SKILL.md",
+      "remote_path": "skills/test-driven-development/SKILL.md",
+      "lines": 699,
+      "words": 2715,
+      "code_blocks": 28,
+      "languages": [
+        "bash",
+        "dot",
+        "typescript"
+      ]
+    },
+    {
+      "name": "setup-codemap-cli",
+      "description": "Guide for setup Codemap CLI for intelligent codebase visualization and navigation",
+      "path": "NeoLabHQ--context-engineering-kit/skills/setup-codemap-cli/SKILL.md",
+      "remote_path": "skills/setup-codemap-cli/SKILL.md",
+      "lines": 244,
+      "words": 886,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
+        "json",
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "attach-review-to-pr",
+      "description": "Add line-specific review comments to pull requests using GitHub CLI API",
+      "path": "NeoLabHQ--context-engineering-kit/skills/attach-review-to-pr/SKILL.md",
+      "remote_path": "skills/attach-review-to-pr/SKILL.md",
+      "lines": 512,
+      "words": 1876,
+      "code_blocks": 25,
+      "languages": [
+        "bash",
+        "json",
+        "markdown"
+      ]
+    },
+    {
+      "name": "status",
+      "description": "\"Display the current state of the FPF knowledge base\"",
+      "path": "NeoLabHQ--context-engineering-kit/skills/status/SKILL.md",
+      "remote_path": "skills/status/SKILL.md",
+      "lines": 117,
+      "words": 472,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "propose-hypotheses",
+      "description": "Execute complete FPF cycle from hypothesis generation to decision",
+      "path": "NeoLabHQ--context-engineering-kit/skills/propose-hypotheses/SKILL.md",
+      "remote_path": "skills/propose-hypotheses/SKILL.md",
+      "lines": 214,
+      "words": 732,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "text"
+      ]
+    },
+    {
+      "name": "implement-task",
+      "description": "Implement a task with automated LLM-as-Judge verification per step",
+      "path": "NeoLabHQ--context-engineering-kit/skills/implement-task/SKILL.md",
+      "remote_path": "skills/implement-task/SKILL.md",
+      "lines": 1948,
+      "words": 10495,
+      "code_blocks": 42,
+      "languages": [
+        "bash",
+        "json",
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "review-pr",
+      "description": "Review an existing GitHub pull request and post inline review comments on its diff. Use when the changes are on an opened PR rather than your local working tree.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/review-pr/SKILL.md",
+      "remote_path": "skills/review-pr/SKILL.md",
+      "lines": 284,
+      "words": 2268,
+      "code_blocks": 9,
+      "languages": [
+        "markdown",
+        "suggestion",
+        "text"
+      ]
+    },
+    {
+      "name": "thought-based-reasoning",
+      "description": "Use when tackling complex reasoning tasks requiring step-by-step logic, multi-step arithmetic, commonsense reasoning, symbolic manipulation, or problems where simple prompting fails - provides compreh",
+      "path": "NeoLabHQ--context-engineering-kit/skills/thought-based-reasoning/SKILL.md",
+      "remote_path": "skills/thought-based-reasoning/SKILL.md",
+      "lines": 659,
+      "words": 3130,
+      "code_blocks": 21,
+      "languages": [
+        "python"
+      ]
+    },
+    {
+      "name": "add-task",
+      "description": "creates draft task file in .specs/tasks/draft/ with original user intent",
+      "path": "NeoLabHQ--context-engineering-kit/skills/add-task/SKILL.md",
+      "remote_path": "skills/add-task/SKILL.md",
+      "lines": 208,
+      "words": 839,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "setup-arxiv-mcp",
+      "description": "Guide for setup arXiv paper search MCP server using Docker MCP",
+      "path": "NeoLabHQ--context-engineering-kit/skills/setup-arxiv-mcp/SKILL.md",
+      "remote_path": "skills/setup-arxiv-mcp/SKILL.md",
+      "lines": 117,
+      "words": 583,
+      "code_blocks": 5,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "create-workflow-command",
+      "description": "Create a workflow command that orchestrates multi-step execution through sub-agents with file-based task prompts",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-workflow-command/SKILL.md",
+      "remote_path": "skills/create-workflow-command/SKILL.md",
+      "lines": 435,
+      "words": 1550,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "agent-evaluation",
+      "description": "Evaluate and improve Claude Code commands, skills, and agents. Use when testing prompt effectiveness, validating context engineering choices, or measuring improvement quality.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/agent-evaluation/SKILL.md",
+      "remote_path": "skills/agent-evaluation/SKILL.md",
+      "lines": 1711,
+      "words": 7490,
+      "code_blocks": 50,
+      "languages": [
+        "json",
+        "markdown",
+        "python"
+      ]
+    },
+    {
+      "name": "create-hook",
+      "description": "Create and configure git hooks with intelligent project analysis, suggestions, and automated testing",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-hook/SKILL.md",
+      "remote_path": "skills/create-hook/SKILL.md",
+      "lines": 2317,
+      "words": 13130,
+      "code_blocks": 73,
+      "languages": [
+        "bash",
+        "json",
+        "yaml"
+      ]
+    },
+    {
+      "name": "design-testing-strategy",
+      "description": "Use before writing any type of tests. Distills 14 industry sources into deterministic decision gates, schemas, and worked test examples.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/design-testing-strategy/SKILL.md",
+      "remote_path": "skills/design-testing-strategy/SKILL.md",
+      "lines": 759,
+      "words": 6127,
+      "code_blocks": 13,
+      "languages": [
+        "markdown",
+        "ts",
+        "yaml"
+      ]
+    },
+    {
+      "name": "do-and-judge",
+      "description": "Execute a task with sub-agent implementation and LLM-as-a-judge verification with automatic retry loop",
+      "path": "NeoLabHQ--context-engineering-kit/skills/do-and-judge/SKILL.md",
+      "remote_path": "skills/do-and-judge/SKILL.md",
+      "lines": 1242,
+      "words": 7773,
+      "code_blocks": 31,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "do-in-steps",
+      "description": "Execute one complex task as ordered, dependent steps run sequentially, passing context from each step to the next, with per-step LLM-as-a-judge verification. Use when later steps depend on the results",
+      "path": "NeoLabHQ--context-engineering-kit/skills/do-in-steps/SKILL.md",
+      "remote_path": "skills/do-in-steps/SKILL.md",
+      "lines": 1503,
+      "words": 10507,
+      "code_blocks": 33,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "create-agent",
+      "description": "Comprehensive guide for creating Claude Code agents with proper structure, triggering conditions, system prompts, and validation - combines official Anthropic best practices with proven patterns",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-agent/SKILL.md",
+      "remote_path": "skills/create-agent/SKILL.md",
+      "lines": 670,
+      "words": 2826,
+      "code_blocks": 17,
+      "languages": [
+        "bash",
+        "markdown",
+        "text",
+        "yaml"
+      ]
+    },
+    {
+      "name": "create-skill",
+      "description": "Guide for creating effective skills. This command should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, work",
+      "path": "NeoLabHQ--context-engineering-kit/skills/create-skill/SKILL.md",
+      "remote_path": "skills/create-skill/SKILL.md",
+      "lines": 843,
+      "words": 4324,
+      "code_blocks": 20,
+      "languages": [
+        "bash",
+        "dot",
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "query",
+      "description": "\"Search the FPF knowledge base and display hypothesis details with assurance information\"",
+      "path": "NeoLabHQ--context-engineering-kit/skills/query/SKILL.md",
+      "remote_path": "skills/query/SKILL.md",
+      "lines": 178,
+      "words": 492,
+      "code_blocks": 11,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "review-local-changes",
+      "description": "Review your local uncommitted working-tree changes (git diff plus untracked files) and return actionable improvement suggestions. Use before committing, when nothing has been pushed yet.",
+      "path": "NeoLabHQ--context-engineering-kit/skills/review-local-changes/SKILL.md",
+      "remote_path": "skills/review-local-changes/SKILL.md",
+      "lines": 341,
+      "words": 2665,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "jsonc",
+        "language",
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "actualize",
+      "description": "\"Reconcile the project's FPF state with recent repository changes\"",
+      "path": "NeoLabHQ--context-engineering-kit/skills/actualize/SKILL.md",
+      "remote_path": "skills/actualize/SKILL.md",
+      "lines": 133,
+      "words": 518,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "subagent-driven-development",
+      "description": "Use when executing implementation plans with independent tasks in the current session or facing 3+ independent issues that can be investigated without shared state or dependencies - dispatches fresh s",
+      "path": "NeoLabHQ--context-engineering-kit/skills/subagent-driven-development/SKILL.md",
+      "remote_path": "skills/subagent-driven-development/SKILL.md",
+      "lines": 390,
+      "words": 1604,
+      "code_blocks": 7,
+      "languages": [
+        "markdown",
+        "typescript"
+      ]
+    },
+    {
+      "name": "write-tests",
+      "description": "Add missing test coverage for your local code changes by generating new test files (covers uncommitted and untracked changes, or the latest commit if everything is committed). Use when you want write ",
+      "path": "NeoLabHQ--context-engineering-kit/skills/write-tests/SKILL.md",
+      "remote_path": "skills/write-tests/SKILL.md",
+      "lines": 215,
+      "words": 1261,
+      "code_blocks": 4,
+      "languages": []
     }
   ],
   "Orchestra-Research--AI-research-SKILLs": [
@@ -19811,17 +20992,6 @@
       "languages": []
     },
     {
-      "name": "vercel-react-native-skills",
-      "description": "",
-      "path": "callstackincubator--agent-skills/plugins/vendored/.agents/skills/vercel-react-native-skills/SKILL.md",
-      "remote_path": "plugins/vendored/.agents/skills/vercel-react-native-skills/SKILL.md",
-      "lines": 122,
-      "words": 575,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
       "name": "react-native-testing",
       "description": ">",
       "path": "callstackincubator--agent-skills/plugins/vendored/.agents/skills/react-native-testing/SKILL.md",
@@ -19850,8 +21020,8 @@
       "description": "GitHub Actions workflow patterns for React Native iOS simulator and Android emulator cloud builds with downloadable artifacts. Use when setting up CI build pipelines or downloading GitHub Actions arti",
       "path": "callstackincubator--agent-skills/skills/github-actions/SKILL.md",
       "remote_path": "skills/github-actions/SKILL.md",
-      "lines": 56,
-      "words": 294,
+      "lines": 53,
+      "words": 280,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -19861,8 +21031,8 @@
       "description": "Reviews React Native TV apps for focus/D-pad navigation, 10-foot UI layout, TV playback/DRM integration, low-memory TV performance, and TV accessibility. Use when building, debugging, or reviewing rea",
       "path": "callstackincubator--agent-skills/skills/react-native-tv-best-practices/SKILL.md",
       "remote_path": "skills/react-native-tv-best-practices/SKILL.md",
-      "lines": 154,
-      "words": 1296,
+      "lines": 151,
+      "words": 1284,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -19872,24 +21042,11 @@
       "description": "Assesses whether and how an existing mobile product should migrate to React Native. Use when auditing one or more product repositories for migration readiness, including products whose iOS, Android, a",
       "path": "callstackincubator--agent-skills/skills/assess-react-native-migration/SKILL.md",
       "remote_path": "skills/assess-react-native-migration/SKILL.md",
-      "lines": 196,
-      "words": 2044,
+      "lines": 193,
+      "words": 2032,
       "code_blocks": 3,
       "languages": [
         "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "github",
-      "description": "GitHub patterns using gh CLI for pull requests, stacked PRs, code review, branching strategies, and repository automation. Use when working with GitHub PRs, merging strategies, or repository managemen",
-      "path": "callstackincubator--agent-skills/skills/github/SKILL.md",
-      "remote_path": "skills/github/SKILL.md",
-      "lines": 61,
-      "words": 266,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
       ],
       "license": "MIT"
     },
@@ -19898,8 +21055,8 @@
       "description": "Upgrades React Native apps to newer versions by applying rn-diff-purge template diffs, updating package.json dependencies, migrating native iOS and Android configuration, resolving CocoaPods and Gradl",
       "path": "callstackincubator--agent-skills/skills/upgrading-react-native/SKILL.md",
       "remote_path": "skills/upgrading-react-native/SKILL.md",
-      "lines": 83,
-      "words": 470,
+      "lines": 80,
+      "words": 458,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -19911,8 +21068,8 @@
       "description": "Provides React Navigation UI patterns for stacks, tabs, drawers etc. Use when building navigation UIs with React Navigation, configuring headers, bottom sheets or handling safe areas and insets.",
       "path": "callstackincubator--agent-skills/skills/react-navigation/SKILL.md",
       "remote_path": "skills/react-navigation/SKILL.md",
-      "lines": 67,
-      "words": 369,
+      "lines": 64,
+      "words": 352,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -19922,8 +21079,8 @@
       "description": "Implements an accepted incremental brownfield migration from native iOS or Android to React Native or Expo using @callstack/react-native-brownfield. Use after the brownfield path has been selected, wh",
       "path": "callstackincubator--agent-skills/skills/react-native-brownfield-migration/SKILL.md",
       "remote_path": "skills/react-native-brownfield-migration/SKILL.md",
-      "lines": 122,
-      "words": 763,
+      "lines": 119,
+      "words": 750,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -19946,8 +21103,8 @@
       "description": "Provides React Native performance optimization guidelines for FPS, TTI, bundle size, memory leaks, re-renders, and animations. Applies to tasks involving Hermes optimization, JS thread blocking, bridg",
       "path": "callstackincubator--agent-skills/skills/react-native-best-practices/SKILL.md",
       "remote_path": "skills/react-native-best-practices/SKILL.md",
-      "lines": 242,
-      "words": 1374,
+      "lines": 239,
+      "words": 1365,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -19959,8 +21116,8 @@
       "description": "Scaffolds React Native libraries with create-react-native-library for standalone libraries or local native modules and views. Use when creating or working on React Native libraries or adding native fu",
       "path": "callstackincubator--agent-skills/skills/create-react-native-library/SKILL.md",
       "remote_path": "skills/create-react-native-library/SKILL.md",
-      "lines": 77,
-      "words": 353,
+      "lines": 74,
+      "words": 340,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -19997,6 +21154,18 @@
     }
   ],
   "cloudflare--skills": [
+    {
+      "name": "sandbox-next",
+      "description": "Use when building or changing Cloudflare Sandbox apps on @cloudflare/sandbox@next (Sandbox SDK 1.0 preview)\u2014code execution, AI runners, interpreters, CI-like jobs, terminals, files, mounts, tunnels, p",
+      "path": "cloudflare--skills/skills/sandbox-next/SKILL.md",
+      "remote_path": "skills/sandbox-next/SKILL.md",
+      "lines": 92,
+      "words": 767,
+      "code_blocks": 1,
+      "languages": [
+        "ts"
+      ]
+    },
     {
       "name": "workers-best-practices",
       "description": "Reviews and authors Cloudflare Workers code against production best practices. Load when writing new Workers, reviewing Worker code, configuring wrangler.jsonc, or checking for common Workers anti-pat",
@@ -20061,6 +21230,20 @@
       ]
     },
     {
+      "name": "sandbox-migrate-to-next",
+      "description": "Use when porting a Cloudflare Sandbox app from stable @cloudflare/sandbox to @cloudflare/sandbox@next (Sandbox SDK 1.0 preview), or when the user asks to migrate or upgrade to Sandbox 1.0 / @next. Not",
+      "path": "cloudflare--skills/skills/sandbox-migrate-to-next/SKILL.md",
+      "remote_path": "skills/sandbox-migrate-to-next/SKILL.md",
+      "lines": 186,
+      "words": 979,
+      "code_blocks": 9,
+      "languages": [
+        "dockerfile",
+        "sh",
+        "ts"
+      ]
+    },
+    {
       "name": "cloudflare-one",
       "description": "\"Guides Cloudflare One Zero Trust and SASE work across Access, Gateway, WARP, Tunnel, Cloudflare WAN, DLP, CASB, device posture, and identity. Use when designing, configuring, troubleshooting, or revi",
       "path": "cloudflare--skills/skills/cloudflare-one/SKILL.md",
@@ -20096,18 +21279,16 @@
       ]
     },
     {
-      "name": "sandbox-sdk",
-      "description": "Build sandboxed applications for secure code execution. Load when building AI code execution, code interpreters, CI/CD systems, interactive dev environments, or executing untrusted code. Covers Sandbo",
-      "path": "cloudflare--skills/skills/sandbox-sdk/SKILL.md",
-      "remote_path": "skills/sandbox-sdk/SKILL.md",
-      "lines": 178,
-      "words": 723,
-      "code_blocks": 9,
+      "name": "sandbox-stable",
+      "description": "Use when building or changing Cloudflare Sandbox apps on the current stable @cloudflare/sandbox package (default npm tag)\u2014commands, sessions, files, ports, tunnels, terminals, bridge, production, or d",
+      "path": "cloudflare--skills/skills/sandbox-stable/SKILL.md",
+      "remote_path": "skills/sandbox-stable/SKILL.md",
+      "lines": 111,
+      "words": 891,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "dockerfile",
-        "jsonc",
-        "typescript"
+        "sh",
+        "ts"
       ]
     },
     {
@@ -23794,7 +24975,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "tailwind",
@@ -23817,7 +24998,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-maps",
@@ -23828,31 +25009,31 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-best-practices",
       "description": "Router for all Remotion skills",
       "path": "remotion-dev--skills/skills/remotion-best-practices/SKILL.md",
       "remote_path": "skills/remotion-best-practices/SKILL.md",
-      "lines": 54,
-      "words": 270,
+      "lines": 60,
+      "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-interactivity",
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 247,
-      "words": 951,
+      "lines": 248,
+      "words": 962,
       "code_blocks": 10,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "player",
@@ -23885,7 +25066,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "framework",
@@ -24096,14 +25277,14 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
-      "lines": 360,
-      "words": 1318,
+      "lines": 366,
+      "words": 1354,
       "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "lottie",
@@ -24205,7 +25386,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "display-captions",
@@ -24278,7 +25459,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-upgrade",
@@ -24291,7 +25472,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-studio",
@@ -24304,7 +25485,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-docs",
@@ -24315,7 +25496,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "maps-mapbox",
@@ -24366,7 +25547,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "transparent-videos",
@@ -24393,7 +25574,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "tailwind",
@@ -24414,20 +25595,20 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-interactivity",
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 247,
-      "words": 951,
+      "lines": 248,
+      "words": 962,
       "code_blocks": 10,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "player",
@@ -24460,7 +25641,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "framework",
@@ -24619,14 +25800,14 @@
       "description": "Content, animation and effects best practices",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
-      "lines": 360,
-      "words": 1318,
+      "lines": 366,
+      "words": 1354,
       "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "3d",
@@ -24780,7 +25961,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "display-captions",
@@ -24853,7 +26034,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-upgrade",
@@ -24866,7 +26047,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-studio",
@@ -24879,7 +26060,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "remotion-docs",
@@ -24890,7 +26071,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "maps-mapbox",
@@ -24941,7 +26122,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "maps-mapbox",
@@ -24992,7 +26173,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.506"
+      "version": "4.0.507"
     },
     {
       "name": "maps-mapbox",
@@ -26112,6 +27293,18 @@
       ]
     },
     {
+      "name": "stripe-apps",
+      "description": ">-",
+      "path": "stripe--ai/providers/grok/plugin/skills/stripe-apps/SKILL.md",
+      "remote_path": "providers/grok/plugin/skills/stripe-apps/SKILL.md",
+      "lines": 208,
+      "words": 1981,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/providers/grok/plugin/skills/upgrade-stripe/SKILL.md",
@@ -26177,6 +27370,18 @@
       "lines": 170,
       "words": 1012,
       "code_blocks": 12,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-apps",
+      "description": ">-",
+      "path": "stripe--ai/providers/codex/plugin/skills/stripe-apps/SKILL.md",
+      "remote_path": "providers/codex/plugin/skills/stripe-apps/SKILL.md",
+      "lines": 208,
+      "words": 1981,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -26262,6 +27467,18 @@
       ]
     },
     {
+      "name": "stripe-apps",
+      "description": ">-",
+      "path": "stripe--ai/providers/claude/plugin/skills/stripe-apps/SKILL.md",
+      "remote_path": "providers/claude/plugin/skills/stripe-apps/SKILL.md",
+      "lines": 208,
+      "words": 1981,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/providers/claude/plugin/skills/upgrade-stripe/SKILL.md",
@@ -26332,6 +27549,18 @@
       ]
     },
     {
+      "name": "stripe-apps",
+      "description": ">-",
+      "path": "stripe--ai/providers/cursor/plugin/skills/stripe-apps/SKILL.md",
+      "remote_path": "providers/cursor/plugin/skills/stripe-apps/SKILL.md",
+      "lines": 208,
+      "words": 1981,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/providers/cursor/plugin/skills/upgrade-stripe/SKILL.md",
@@ -26397,6 +27626,18 @@
       "lines": 170,
       "words": 1012,
       "code_blocks": 12,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-apps",
+      "description": ">-",
+      "path": "stripe--ai/skills/stripe-apps/SKILL.md",
+      "remote_path": "skills/stripe-apps/SKILL.md",
+      "lines": 208,
+      "words": 1981,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -26954,6 +28195,18 @@
         "bash",
         "makefile",
         "toml"
+      ]
+    },
+    {
+      "name": "writing-lean-proofs",
+      "description": "\"Writes and reviews structured Lean 4 proofs and designs Lean libraries following Mathlib conventions. Use when proving theorems in Lean, formalizing mathematics or specifications in Lean 4, defining ",
+      "path": "trailofbits--skills/plugins/writing-lean-proofs/skills/writing-lean-proofs/SKILL.md",
+      "remote_path": "plugins/writing-lean-proofs/skills/writing-lean-proofs/SKILL.md",
+      "lines": 260,
+      "words": 2354,
+      "code_blocks": 2,
+      "languages": [
+        "lean"
       ]
     },
     {
@@ -28974,9 +30227,9 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/yara-authoring/skills/yara-rule-authoring/SKILL.md",
       "remote_path": "plugins/yara-authoring/skills/yara-rule-authoring/SKILL.md",
-      "lines": 646,
-      "words": 3690,
-      "code_blocks": 18,
+      "lines": 437,
+      "words": 3372,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "yara"
@@ -29029,12 +30282,11 @@
       "description": "Creates language variants of existing Semgrep rules. Use when porting a Semgrep rule to specified target languages. Takes an existing rule and target languages as input, produces independent rule+test",
       "path": "trailofbits--skills/plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/SKILL.md",
       "remote_path": "plugins/semgrep-rule-variant-creator/skills/semgrep-rule-variant-creator/SKILL.md",
-      "lines": 199,
-      "words": 1056,
-      "code_blocks": 6,
+      "lines": 222,
+      "words": 2188,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "go"
+        "json"
       ]
     },
     {
@@ -152870,6 +154122,18 @@
       ]
     },
     {
+      "name": "ito-training",
+      "description": "Run an ML training job on a completed It\u00f4 compute booking through the canonical It\u00f4 backend. Use after ito-compute has booked GPU nodes and the user wants pre-training, fine-tuning, or RL on that meta",
+      "path": "affaan-m--everything-claude-code/skills/ito-training/SKILL.md",
+      "remote_path": "skills/ito-training/SKILL.md",
+      "lines": 61,
+      "words": 373,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
       "name": "dashboard-builder",
       "description": "Build monitoring dashboards that answer real operator questions for Grafana, SigNoz, and similar platforms. Use when turning metrics into a working dashboard instead of a vanity board.",
       "path": "affaan-m--everything-claude-code/skills/dashboard-builder/SKILL.md",
@@ -153175,13 +154439,15 @@
     },
     {
       "name": "ito-data-atlas-agent",
-      "description": "Design background Data Atlas style agents for It\u00f4 basket research, market discovery, parameter drafting, and human-in-the-loop editing. Use for architecture and workflow planning, not live order execu",
+      "description": "Design source-grounded Data Atlas style agents for It\u00f4 basket research, market discovery, parameter drafting, and human-in-the-loop editing. Use for architecture and read-only workflow planning, not l",
       "path": "affaan-m--everything-claude-code/skills/ito-data-atlas-agent/SKILL.md",
       "remote_path": "skills/ito-data-atlas-agent/SKILL.md",
-      "lines": 65,
-      "words": 325,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 167,
+      "words": 1076,
+      "code_blocks": 1,
+      "languages": [
+        "yaml"
+      ]
     },
     {
       "name": "recsys-pipeline-architect",
@@ -153942,10 +155208,11 @@
       "description": "Research prediction-market events, venues, underliers, liquidity, and news context for It\u00f4 basket workflows. Use for read-only market intelligence, API-gated It\u00f4 exploration, and source-grounded predi",
       "path": "affaan-m--everything-claude-code/skills/ito-market-intelligence/SKILL.md",
       "remote_path": "skills/ito-market-intelligence/SKILL.md",
-      "lines": 62,
-      "words": 334,
-      "code_blocks": 2,
+      "lines": 94,
+      "words": 610,
+      "code_blocks": 3,
       "languages": [
+        "bash",
         "text"
       ]
     },
@@ -154844,11 +156111,11 @@
     },
     {
       "name": "ito-compute",
-      "description": "Query live GPU inventory, submit an authenticated It\u00f4 fixed-rate RFQ, inspect RFQ or procurement status, and run explicitly gated node qualification through the separately installed canonical CLI. Use",
+      "description": "Query live GPU inventory, submit an authenticated It\u00f4 fixed-rate RFQ, inspect RFQ or procurement status, revoke device credentials, and run explicitly gated node qualification through the separately i",
       "path": "affaan-m--everything-claude-code/skills/ito-compute/SKILL.md",
       "remote_path": "skills/ito-compute/SKILL.md",
-      "lines": 141,
-      "words": 684,
+      "lines": 152,
+      "words": 833,
       "code_blocks": 5,
       "languages": [
         "json",
@@ -155122,6 +156389,18 @@
       ]
     },
     {
+      "name": "ito-inference",
+      "description": "Inspect the availability of model serving on a completed It\u00f4 compute booking and, when the canonical backend becomes available, hand off an explicitly confirmed serving manifest. Use after ito-compute",
+      "path": "affaan-m--everything-claude-code/skills/ito-inference/SKILL.md",
+      "remote_path": "skills/ito-inference/SKILL.md",
+      "lines": 120,
+      "words": 855,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
       "name": "springboot-verification",
       "description": "\"Verification loop for Spring Boot projects: build, static analysis, tests with coverage, security scans, and diff review before release or PR.\"",
       "path": "affaan-m--everything-claude-code/skills/springboot-verification/SKILL.md",
@@ -155264,10 +156543,11 @@
       "description": "Compare It\u00f4 prediction-market baskets against a user's knowledge base, portfolio notes, financial context, watchlist, or research thesis. Use for read-only basket comparison and gap analysis without i",
       "path": "affaan-m--everything-claude-code/skills/ito-basket-compare/SKILL.md",
       "remote_path": "skills/ito-basket-compare/SKILL.md",
-      "lines": 65,
-      "words": 321,
-      "code_blocks": 1,
+      "lines": 230,
+      "words": 1591,
+      "code_blocks": 3,
       "languages": [
+        "json",
         "text"
       ]
     },
@@ -155342,11 +156622,12 @@
       "description": "Build a non-advisory prediction-market trade planning worksheet for It\u00f4 or venue workflows. Use to inspect venues, underliers, constraints, order prerequisites, and manual execution steps without plac",
       "path": "affaan-m--everything-claude-code/skills/ito-trade-planner/SKILL.md",
       "remote_path": "skills/ito-trade-planner/SKILL.md",
-      "lines": 69,
-      "words": 288,
-      "code_blocks": 1,
+      "lines": 156,
+      "words": 925,
+      "code_blocks": 2,
       "languages": [
-        "text"
+        "text",
+        "yaml"
       ]
     },
     {

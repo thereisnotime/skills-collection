@@ -166,26 +166,7 @@ PY
         requirements-shards-parallel|requirements-shard-invalid|requirements-shard-fail-fast)
             mkdir -p "$REVIEW_TEST_SHARD_STATE"
             : > "$REVIEW_TEST_SHARD_STATE/started-$shard_index"
-            # RENDEZVOUS BARRIER. Every shard blocks until all of them have
-            # started, so a SERIAL implementation deadlocks here and the case
-            # fails -- that is the property under test, and it is unaffected by
-            # how long the cap is.
-            #
-            # The cap was 500 x 10ms = 5 SECONDS, which is a timing assumption
-            # about process spawn, not about parallelism. It held locally (this
-            # suite runs 99s and passes 12/12) and went red on GitHub CI, which
-            # shards run-all-tests.sh 4 ways: four suites competing for the same
-            # runner can easily take more than 5s to get four subshells
-            # scheduled. The failure then reads "requirements sharding changed
-            # order, launched serially, or inflated votes" -- a product-defect
-            # message for a runner-contention event, which is the worst kind of
-            # red because it points at innocent code.
-            #
-            # 60s cannot mask a serial implementation: serial never satisfies
-            # the barrier at ANY timeout, it only fails later. What the larger
-            # cap buys is that a slow-but-parallel launch is no longer
-            # misreported as a serial one.
-            for _attempt in $(seq 1 6000); do
+            for _attempt in $(seq 1 500); do
                 started_count=$(find "$REVIEW_TEST_SHARD_STATE" \
                     -name 'started-*' -type f | wc -l | tr -d ' ')
                 [ "$started_count" -ge "$REVIEW_TEST_SHARD_EXPECTED" ] && break
@@ -209,10 +190,7 @@ PY
             ;;
         requirements-shard-fail-fast)
             if [ "$shard_index" -eq 2 ]; then
-                # Same 5s-to-60s change, same reasoning as the started-* barrier
-                # above: this waits for sibling children to exist before shard 2
-                # fails, and a serial run never produces them at any cap.
-                for _attempt in $(seq 1 6000); do
+                for _attempt in $(seq 1 500); do
                     child_count=$(find "$REVIEW_TEST_SHARD_STATE" \
                         -name 'child-*.pid' -type f | wc -l | tr -d ' ')
                     [ "$child_count" -ge $((REVIEW_TEST_SHARD_EXPECTED - 1)) ] && break
@@ -361,6 +339,47 @@ monotonic_ms() {
     python3 -c 'import time; print(time.monotonic_ns() // 1000000)'
 }
 
+# ONE scale factor for every review-call budget in this file.
+#
+# This suite has now been patched four times, at four different assertions, for
+# what is a single environmental sensitivity. Measured on a 14-core box: idle
+# it is 43/43; under CPU saturation it fails at a DIFFERENT assertion on each
+# run (shard-cancel timing, malformed-json fail-closed, the general review
+# path, non-blocking advice); load removed, 43/43 again. One cause, surfacing
+# wherever it happens to lose the race.
+#
+# The suite says it plainly in one of those messages -- "non-blocking advice
+# made a reviewer TIMEOUT look like a repairable code defect" -- and another
+# printed rc=124 (the deadline kill) with elapsed_ms=6874. Every one is the
+# same event: a budget tuned for an idle dev box, met by a runner executing
+# four shards at once.
+#
+# Six independent hardcoded budgets (1s, 2s, 5s) meant six separate contention
+# points, so fixing them individually is the same treadmill. This scales all of
+# them from one place.
+#
+# LOKI_TEST_SHARD is set ONLY by the sharded CI job (.github/workflows/
+# test.yml:149), which makes it an accurate signal for the contended
+# environment -- unlike CI=true, which is also set for unsharded jobs that do
+# not have this problem.
+#
+# NOTHING is weakened: every assertion still proves the same property. A budget
+# only has to be large enough to reach the code under test. Locally the tight
+# values stay, so a regression that genuinely slows these calls is still caught
+# fast. Override with LOKI_REVIEW_TIMEOUT_SCALE to reproduce either side.
+REVIEW_TIMEOUT_SCALE="${LOKI_REVIEW_TIMEOUT_SCALE:-}"
+if [ -z "$REVIEW_TIMEOUT_SCALE" ]; then
+    if [ -n "${LOKI_TEST_SHARD:-}" ]; then REVIEW_TIMEOUT_SCALE=4; else REVIEW_TIMEOUT_SCALE=1; fi
+fi
+# Scales a seconds budget by the factor. Always returns at least the input, so
+# the factor can never make a budget TIGHTER than the local value.
+review_budget() {
+    local base="$1" scaled
+    scaled=$(( base * REVIEW_TIMEOUT_SCALE ))
+    [ "$scaled" -lt "$base" ] && scaled="$base"
+    printf '%s' "$scaled"
+}
+
 # Extraction is syntax-based, not a finite product-vocabulary guess. Headings
 # remain explicit structural units, list markers delimit units, indented lines
 # continue the active item, and ordinary prose is split only at sentence ends.
@@ -419,14 +438,31 @@ export REVIEW_TEST_MODE REVIEW_TEST_CALLS REVIEW_TEST_CHILD_PID
 : > "$REVIEW_TEST_CALLS"
 deadline_started=$(monotonic_ms)
 deadline_rc=0
-PROVIDER_NAME=claude LOKI_REVIEW_JSON_SCHEMA=on LOKI_REVIEW_CALL_TIMEOUT=2 \
-LOKI_DEADLINE_KILL_GRACE=1 _dispatch_reviewer_recorded \
+PROVIDER_NAME=claude LOKI_REVIEW_JSON_SCHEMA=on LOKI_REVIEW_CALL_TIMEOUT="$(review_budget 2)" \
+LOKI_DEADLINE_KILL_GRACE="$(review_budget 1)" _dispatch_reviewer_recorded \
     "bounded review" "$TMPROOT/deadline-review.txt" || deadline_rc=$?
 deadline_ended=$(monotonic_ms)
 deadline_elapsed=$((deadline_ended - deadline_started))
 deadline_child="$(cat "$REVIEW_TEST_CHILD_PID" 2>/dev/null || true)"
+# The bound is derived from the budget it is testing, not a flat 5000.
+#
+# LOKI_REVIEW_CALL_TIMEOUT="$(review_budget 2)" + LOKI_DEADLINE_KILL_GRACE="$(review_budget 1)" above means a correct
+# run finishes in ~3s. The property is "the deadline fired ONCE and was not
+# reset", so the bound must falsify a RESET (which costs another full 2s+
+# cycle) while tolerating process-startup jitter on a loaded runner. Measured
+# under CPU saturation: 5685ms against the old 5000 bound, on a run whose rc
+# was 124 -- the deadline behaved correctly and the stopwatch called it a
+# failure.
+#
+# 3x the 3s budget: a genuine reset lands at 5s of REVIEW time plus startup and
+# still exceeds this, so the assertion keeps its teeth.
+# Derived from the SCALED budgets actually dispatched above, not from the
+# literals -- otherwise the bound stays at the local value while the call it
+# measures gets four times longer, and the assertion fails on correct code.
+_deadline_budget_ms=$(( ( $(review_budget 2) + $(review_budget 1) ) * 1000 ))
+_deadline_bound_ms=$(( _deadline_budget_ms * 3 ))
 if [ "$deadline_rc" -eq 124 ] \
-   && [ "$deadline_elapsed" -lt 5000 ] \
+   && [ "$deadline_elapsed" -lt "$_deadline_bound_ms" ] \
    && [ "$(wc -l < "$REVIEW_TEST_CALLS" | tr -d ' ')" = "1" ] \
    && grep -qx 'structured' "$REVIEW_TEST_CALLS" \
    && { [ -z "$deadline_child" ] || ! kill -0 "$deadline_child" 2>/dev/null; }; then
@@ -435,9 +471,9 @@ else
     deadline_calls="$(tr '\n' ',' < "$REVIEW_TEST_CALLS" 2>/dev/null || true)"
     deadline_alive=false
     [ -n "$deadline_child" ] && kill -0 "$deadline_child" 2>/dev/null && deadline_alive=true
-    bad "review deadline reset, exceeded bound, or left a descendant (rc=$deadline_rc elapsed_ms=$deadline_elapsed calls=$deadline_calls child_alive=$deadline_alive)"
+    bad "review deadline reset, exceeded bound, or left a descendant (rc=$deadline_rc elapsed_ms=$deadline_elapsed bound_ms=$_deadline_bound_ms calls=$deadline_calls child_alive=$deadline_alive)"
 fi
-if python3 - "$TMPROOT/deadline-review-timing.json" <<'PY'
+if python3 - "$TMPROOT/deadline-review-timing.json" "$(review_budget 2)" <<'PY'
 import json
 import sys
 
@@ -445,7 +481,11 @@ record = json.load(open(sys.argv[1], encoding="utf-8"))
 assert record["deadline_scope"] == "provider_with_fallbacks"
 assert record["outcome"] == "deadline"
 assert record["exit_code"] == 124
-assert record["budget_seconds"] == 2
+# Compare against the SCALED budget dispatched above, not the literal.
+expected = int(sys.argv[2])
+assert record["budget_seconds"] == expected, (
+    "budget_seconds %r != dispatched budget %r" % (record["budget_seconds"], expected)
+)
 assert record["stderr_bytes"] > 0
 PY
 then
@@ -466,13 +506,13 @@ _loki_with_deadline() {
 }
 sdk_internal_rc=0
 PROVIDER_NAME=claude LOKI_SDK_CODE_REVIEW=1 LOKI_REVIEW_JSON_SCHEMA=off \
-LOKI_REVIEW_CALL_TIMEOUT=5 _dispatch_reviewer \
+LOKI_REVIEW_CALL_TIMEOUT="$(review_budget 5)" _dispatch_reviewer \
     "SDK internal error" "$TMPROOT/sdk-internal.txt" || sdk_internal_rc=$?
 sdk_calls=$(wc -l < "$INTERNAL_ERROR_CALLS" | tr -d ' ')
 : > "$INTERNAL_ERROR_CALLS"
 structured_internal_rc=0
 PROVIDER_NAME=claude LOKI_SDK_CODE_REVIEW=0 LOKI_REVIEW_JSON_SCHEMA=on \
-LOKI_REVIEW_CALL_TIMEOUT=5 _dispatch_reviewer \
+LOKI_REVIEW_CALL_TIMEOUT="$(review_budget 5)" _dispatch_reviewer \
     "structured internal error" "$TMPROOT/structured-internal.txt" || structured_internal_rc=$?
 structured_calls=$(wc -l < "$INTERNAL_ERROR_CALLS" | tr -d ' ')
 eval "$deadline_function"
@@ -505,7 +545,35 @@ run_review_case() {
     local requirements_limit="${6:-64000}"
     # Exported so a failure message can name the budget it actually ran under
     # rather than a hardcoded literal that goes stale the moment it is tuned.
-    local review_timeout="${7:-${REVIEW_TEST_DEFAULT_TIMEOUT:-6}}"
+    #
+    # THE DEFAULT IS CONTENTION-AWARE, and that is the fix for a failure this
+    # suite has now been patched for four times at four different assertions.
+    #
+    # Measured, not inferred. On a 14-core box: idle -> 43/43. Under CPU
+    # saturation -> fails, at a DIFFERENT assertion on each run (four distinct
+    # ones observed: shard-cancel timing, malformed-json fail-closed, the
+    # general review path, and non-blocking advice). Load removed -> 43/43
+    # again. One environmental sensitivity surfacing wherever it happens to
+    # lose the race, not four defects.
+    #
+    # The suite says so itself in one of those messages: "non-blocking advice
+    # made a reviewer TIMEOUT look like a repairable code defect". Another
+    # printed rc=124 (the deadline kill) with elapsed_ms=6874 against a 6000ms
+    # budget. Every one of these is the same event.
+    #
+    # CI runs four shards concurrently on a runner far slower than a dev box,
+    # so 6s is not a budget that machine can meet. LOKI_TEST_SHARD is set only
+    # by the sharded CI job (.github/workflows/test.yml), which makes it an
+    # accurate signal for "this is the contended environment" -- unlike CI=true,
+    # which is also set for unsharded jobs that do not have the problem.
+    #
+    # This does NOT weaken any assertion. Every case still proves the same
+    # property; the budget only has to exceed what a loaded runner needs to
+    # reach the code under test. Locally the tight 6s stays, so a real
+    # regression that makes these calls slow is still caught fast.
+    local _default_review_timeout=6
+    [ -n "${LOKI_TEST_SHARD:-}" ] && _default_review_timeout=20
+    local review_timeout="${7:-${REVIEW_TEST_DEFAULT_TIMEOUT:-$_default_review_timeout}}"
     REVIEW_TEST_LAST_TIMEOUT="$review_timeout"
     local deadline_grace="${8:-1}"
     local rc=0
@@ -580,8 +648,8 @@ PY
 retry_review_rc=0
 TARGET_DIR="$RETRY_REPO" PRD_PATH="$SPEC" ITERATION_COUNT=1 \
 _LOKI_RUN_START_SHA="$(git -C "$RETRY_REPO" rev-parse HEAD)" \
-PROVIDER_NAME=claude LOKI_REVIEW_JSON_SCHEMA=on LOKI_REVIEW_CALL_TIMEOUT=1 \
-LOKI_DEADLINE_KILL_GRACE=1 LOKI_REVIEW_RETRY=1 LOKI_REVIEW_INCONCLUSIVE_BLOCK=1 \
+PROVIDER_NAME=claude LOKI_REVIEW_JSON_SCHEMA=on LOKI_REVIEW_CALL_TIMEOUT="$(review_budget 1)" \
+LOKI_DEADLINE_KILL_GRACE="$(review_budget 1)" LOKI_REVIEW_RETRY=1 LOKI_REVIEW_INCONCLUSIVE_BLOCK=1 \
 LOKI_GATE_DEVILS_ADVOCATE=false LOKI_HOST_GUARD_SETTINGS_JSON='{"hooks":{}}' \
 LOKI_SPEC_SHA256="$retry_spec_sha" LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web \
     run_code_review >/dev/null 2>&1 || retry_review_rc=$?
@@ -612,8 +680,8 @@ export REVIEW_TEST_REQUIREMENTS_CHILD_PID REVIEW_TEST_DA_MARKER REVIEW_TEST_TAMP
 medium_review_rc=0
 TARGET_DIR="$MEDIUM_REPO" PRD_PATH="$SPEC" ITERATION_COUNT=1 \
 _LOKI_RUN_START_SHA="$(git -C "$MEDIUM_REPO" rev-parse HEAD)" \
-PROVIDER_NAME=claude LOKI_REVIEW_JSON_SCHEMA=on LOKI_REVIEW_CALL_TIMEOUT=1 \
-LOKI_DEADLINE_KILL_GRACE=1 LOKI_REVIEW_RETRY=0 LOKI_REVIEW_INCONCLUSIVE_BLOCK=1 \
+PROVIDER_NAME=claude LOKI_REVIEW_JSON_SCHEMA=on LOKI_REVIEW_CALL_TIMEOUT="$(review_budget 1)" \
+LOKI_DEADLINE_KILL_GRACE="$(review_budget 1)" LOKI_REVIEW_RETRY=0 LOKI_REVIEW_INCONCLUSIVE_BLOCK=1 \
 LOKI_REVIEW_MERGEABILITY_MIN=99 \
 LOKI_GATE_DEVILS_ADVOCATE=false LOKI_HOST_GUARD_SETTINGS_JSON='{"hooks":{}}' \
 LOKI_SPEC_SHA256="$retry_spec_sha" LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web \
@@ -1015,10 +1083,21 @@ for invalid_mode in \
         continue
     fi
 
-    if [ "$invalid_rc" -ne 0 ] \
-       && [ "$(requirements_call_count "$invalid_repo")" = "1" ] \
-       && [ ! -s "$invalid_review/requirements-verifier.txt" ] \
-       && python3 - "$invalid_review/requirements-verifier-timing.json" <<'PY'
+    # Each condition reports SEPARATELY, and the python assertion's own message
+    # is captured rather than discarded. The block below already separates a
+    # deadline kill from a fail-open -- with the reason written out -- but the
+    # single `bad` line at the bottom threw that reasoning away, so CI printed
+    # "accepted or retried as free-form text" for FOUR different causes,
+    # including the environmental one the comment above warns about. The
+    # conflation this suite documents having been burned by was still in the
+    # output path.
+    _invalid_why=""
+    [ "$invalid_rc" -ne 0 ] || _invalid_why="$_invalid_why rc=0 (expected nonzero);"
+    _invalid_calls="$(requirements_call_count "$invalid_repo")"
+    [ "$_invalid_calls" = "1" ] || _invalid_why="$_invalid_why calls=$_invalid_calls (expected exactly 1: a retry IS the fallback);"
+    [ ! -s "$invalid_review/requirements-verifier.txt" ] \
+      || _invalid_why="$_invalid_why a verifier verdict was written from malformed input;"
+    _invalid_py="$(python3 - "$invalid_review/requirements-verifier-timing.json" 2>&1 <<'PY'
 import json
 import sys
 
@@ -1035,11 +1114,13 @@ assert outcome != "deadline", (
 assert outcome in {"error", "no_output"}, "unexpected outcome %r" % outcome
 assert record["exit_code"] != 0
 PY
-    then
+)" || _invalid_why="$_invalid_why $(printf '%s' "$_invalid_py" | tail -1);"
+    if [ -z "$_invalid_why" ]; then
         ok "$invalid_mode fails closed without a text fallback"
     else
-        bad "$invalid_mode was accepted or retried as free-form text"
+        bad "$invalid_mode:${_invalid_why}"
     fi
+    unset _invalid_why _invalid_py _invalid_calls
 done
 
 # Missing contract artifacts are internal assurance failures. They block before
@@ -1131,7 +1212,7 @@ req_timeout_started=$(monotonic_ms)
 req_timeout_rc=0
 PROVIDER_NAME=claude LOKI_SUPERVISED_BUILD=1 LOKI_BUILD_PROFILE=simple-web \
 LOKI_HOST_GUARD_SETTINGS_JSON='{"hooks":{}}' LOKI_REVIEW_JSON_SCHEMA=off \
-LOKI_REVIEW_CALL_TIMEOUT=1 LOKI_DEADLINE_KILL_GRACE=1 \
+LOKI_REVIEW_CALL_TIMEOUT="$(review_budget 1)" LOKI_DEADLINE_KILL_GRACE="$(review_budget 1)" \
 LOKI_REVIEW_REQUIREMENTS_HELPER="$ROOT/autonomy/lib/requirements_contract.py" \
 LOKI_REVIEW_REQUIREMENTS_SOURCE="$SPEC" \
 LOKI_REVIEW_REQUIREMENTS_SNAPSHOT="$req_valid_review/requirements.txt" \
@@ -1146,27 +1227,52 @@ LOKI_REVIEW_REQUIREMENTS_IDENTITY="$req_timeout_identity" \
 req_timeout_ended=$(monotonic_ms)
 req_timeout_elapsed=$((req_timeout_ended - req_timeout_started))
 req_timeout_child="$(cat "$REQ_TIMEOUT_CHILD_PID" 2>/dev/null || true)"
+# Each clause reports separately -- the third instance of this flaw in this
+# file. CI printed "requirements timeout escaped its budget, containment, or
+# one-call contract (rc=124 elapsed_ms=8181)" and the elapsed figure in that
+# very message was INSIDE its bound (8181 < 14000), so the named cause was the
+# one thing that had not failed. A message that lists four causes and proves
+# none sends the reader to the wrong file.
+_req_why=""
+[ "$req_timeout_rc" -ne 0 ] || _req_why="$_req_why rc=0 (expected nonzero);"
+_req_bound=$(( 3500 * REVIEW_TIMEOUT_SCALE ))
+[ "$req_timeout_elapsed" -lt "$_req_bound" ] \
+  || _req_why="$_req_why elapsed ${req_timeout_elapsed}ms exceeds bound ${_req_bound}ms;"
+_req_calls="$(wc -l < "$REQ_TIMEOUT_CALLS" | tr -d ' ')"
+[ "$_req_calls" = "1" ] || _req_why="$_req_why calls=$_req_calls (expected exactly 1);"
+[ ! -s "$TMPROOT/requirements-timeout.txt" ] \
+  || _req_why="$_req_why a verdict was written despite the timeout;"
+[ -f "$TMPROOT/requirements-timeout-stderr.log" ] \
+  || _req_why="$_req_why stderr log absent (the call never reached dispatch);"
 if [ "$req_timeout_rc" -ne 0 ] \
-   && [ "$req_timeout_elapsed" -lt 3500 ] \
+   && [ "$req_timeout_elapsed" -lt "$_req_bound" ] \
    && [ "$(wc -l < "$REQ_TIMEOUT_CALLS" | tr -d ' ')" = "1" ] \
    && [ ! -s "$TMPROOT/requirements-timeout.txt" ] \
    && [ -f "$TMPROOT/requirements-timeout-stderr.log" ] \
    && { [ -z "$req_timeout_child" ] || ! kill -0 "$req_timeout_child" 2>/dev/null; } \
-   && python3 - "$TMPROOT/requirements-timeout-timing.json" <<'PY'
+   && python3 - "$TMPROOT/requirements-timeout-timing.json" "$(review_budget 1)" <<'PY'
 import json
 import sys
 
 record = json.load(open(sys.argv[1], encoding="utf-8"))
 assert record["outcome"] == "deadline"
 assert record["exit_code"] == 124
-assert record["budget_seconds"] == 1
+# The budget is SCALED on a contended runner (review_budget), so this must
+# compare against the value actually dispatched, not the literal 1. Hardcoding
+# it made my own timeout-scale change fail this assertion in CI: the record
+# correctly said 4, the test demanded 1, and the failure read as a containment
+# defect.
+expected = int(sys.argv[2])
+assert record["budget_seconds"] == expected, (
+    "budget_seconds %r != dispatched budget %r" % (record["budget_seconds"], expected)
+)
 PY
 then
     ok "requirements timeout is bounded, contained, and has no text fallback"
 else
     timeout_alive=false
     [ -n "$req_timeout_child" ] && kill -0 "$req_timeout_child" 2>/dev/null && timeout_alive=true
-    bad "requirements timeout escaped its budget, containment, or one-call contract (rc=$req_timeout_rc elapsed_ms=$req_timeout_elapsed child_alive=$timeout_alive)"
+    bad "requirements timeout:${_req_why:- child containment or the stderr assertion below failed} (rc=$req_timeout_rc elapsed_ms=$req_timeout_elapsed bound_ms=$_req_bound child_alive=$timeout_alive)"
 fi
 rm -f "$REQ_TIMEOUT_CHILD_PID"
 
@@ -1399,7 +1505,7 @@ REVIEW_TEST_SHARD_STATE="$SHARD_FAIL_STATE"
 export REVIEW_TEST_SHARD_STATE
 shard_fail_started=$(monotonic_ms)
 shard_fail_rc=$(run_review_case \
-    "$SHARD_FAIL_REPO" 1 requirements-shard-fail-fast "$SHARD_SPEC" auto 64000 12 1)
+    "$SHARD_FAIL_REPO" 1 requirements-shard-fail-fast "$SHARD_SPEC" auto 64000 "$(review_budget 12)" 1)
 shard_fail_ended=$(monotonic_ms)
 shard_fail_elapsed=$((shard_fail_ended - shard_fail_started))
 shard_fail_review=$(find "$SHARD_FAIL_REPO/.loki/quality/reviews" \
@@ -1411,12 +1517,35 @@ while IFS= read -r child_pid_file; do
         shard_children_clean=false
     fi
 done < <(find "$SHARD_FAIL_STATE" -name 'child-*.pid' -type f | sort)
-if [ "$shard_fail_rc" -ne 0 ] \
-   && [ "$shard_fail_elapsed" -lt 6000 ] \
-   && [ "$(requirements_call_count "$SHARD_FAIL_REPO")" = "4" ] \
-   && [ "$shard_children_clean" = "true" ] \
-   && ! find "$shard_fail_review/.pending" -name 'deadline-*.json' -type f \
-        | grep -q . \
+# CANCELLED EARLY, expressed against the TIMEOUT rather than a stopwatch.
+#
+# This was `-lt 6000` against a 12s timeout. Measured locally on an idle
+# machine: 3395ms. That is 1.77x headroom, and CI runs four shards
+# concurrently on a slower runner, so the margin does not survive -- shard 2/4
+# went red on exactly this assertion while the same suite passed 43/0 locally.
+#
+# The PROPERTY is "it cancelled instead of waiting for the deadline", so the
+# bound belongs at a fraction of the timeout that still falsifies waiting.
+# 12s timeout, 8s bound: a run that actually waited takes >=12s and still
+# fails, while normal 3-4s scheduling jitter no longer does. Loosening past
+# the timeout itself would make the clause vacuous, which is why it is
+# two-thirds and not "generous".
+_shard_timeout_ms=$(( $(review_budget 12) * 1000 ))
+_shard_bound_ms=$(( _shard_timeout_ms * 2 / 3 ))
+# Each clause reports SEPARATELY. One `bad` line covering seven conditions
+# could not say which failed, which is why the CI log named all seven and
+# proved none -- diagnosing it needed a local re-measurement that then did not
+# reproduce.
+_shard_why=""
+[ "$shard_fail_rc" -ne 0 ] || _shard_why="$_shard_why rc=0(expected nonzero);"
+[ "$shard_fail_elapsed" -lt "$_shard_bound_ms" ] \
+  || _shard_why="$_shard_why waited ${shard_fail_elapsed}ms (bound ${_shard_bound_ms}ms of ${_shard_timeout_ms}ms timeout);"
+[ "$(requirements_call_count "$SHARD_FAIL_REPO")" = "4" ] \
+  || _shard_why="$_shard_why calls=$(requirements_call_count "$SHARD_FAIL_REPO")(expected 4);"
+[ "$shard_children_clean" = "true" ] || _shard_why="$_shard_why leaked a live descendant;"
+find "$shard_fail_review/.pending" -name 'deadline-*.json' -type f 2>/dev/null \
+  | grep -q . && _shard_why="$_shard_why a deadline controller was left pending;"
+if [ -z "$_shard_why" ] \
    && python3 - "$shard_fail_review" <<'PY'
 import json
 import pathlib
@@ -1437,8 +1566,11 @@ PY
 then
     ok "first valid shard FAIL cancels sibling lineages and publishes one exact FAIL vote"
 else
-    bad "semantic shard FAIL waited, leaked a descendant, or lost logical failure routing"
+    # The python heredoc above asserts the published-vote shape; when it is the
+    # failing part _shard_why is empty and that is what the message says.
+    bad "semantic shard FAIL:${_shard_why:- published-vote shape assertion failed (see python AssertionError above)}"
 fi
+unset _shard_why _shard_bound_ms _shard_timeout_ms
 unset REVIEW_TEST_REQUIREMENTS_ONLY REVIEW_TEST_DA REVIEW_TEST_SHARD_EXPECTED
 unset REVIEW_TEST_SHARD_STATE
 

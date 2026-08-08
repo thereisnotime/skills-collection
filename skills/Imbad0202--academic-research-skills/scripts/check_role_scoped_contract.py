@@ -129,6 +129,8 @@ PHASE2_TERMINAL_PREFLIGHT_WITNESS = (
     "abort with `[PROTOCOL-VIOLATION: multi_dissent=true]` instead of drafting "
     "a card. If none differs, delete the heading and every placeholder beneath "
     "it; `none`, `omitted`, and `not applicable` are never a dissent. "
+    "No bare `<!--` or `-->` — nor any other raw HTML — anywhere in the card "
+    "outside inline code. "
     "2. Sections and role: emit exactly one `## Dimension Scores` followed by "
     "exactly one `## Review Body`. Put exactly one report-level "
     "`contract_role: <your dispatch role>` immediately before "

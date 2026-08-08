@@ -2049,40 +2049,7 @@ except Exception:
     pass
 " 2>/dev/null || true)"
     fi
-    if [ -n "$_cost" ]; then
-        _fields="${_fields} | \$${_cost}"
-        # PROJECTED spend at the iteration cap, shown beside the actual.
-        #
-        # WHY. MAX_ITERATIONS (default 25) is the ONLY backstop on a run's cost:
-        # LOKI_BUDGET_LIMIT defaults to "" and LOKI_MAX_DURATION to 0, both
-        # documented at run.sh:1118-1121, and the runtime says so out loud at
-        # :21333. That is a defensible default -- a run killed mid-flight at a
-        # dollar threshold the user never chose is worse than one that finishes.
-        # But it left the user unable to SEE where the run was heading: $4.20 at
-        # iteration 3 of 25 reads as cheap right up to the moment it is not.
-        #
-        # Linear extrapolation, and labelled "proj" rather than presented as a
-        # forecast: later iterations are usually cheaper than early ones (more
-        # cache hits, smaller diffs), so this is an upper bound, not a promise.
-        # Shown only when it would actually tell the user something -- from
-        # iteration 2 (one data point cannot extrapolate) and only when the
-        # projection is meaningfully above what has already been spent.
-        if [ "${_iter:-0}" -ge 2 ] && [ "${_max:-0}" -gt 0 ]; then
-            local _proj
-            _proj="$(LOKI_C="$_cost" LOKI_I="$_iter" LOKI_M="$_max" python3 -c "
-import os
-try:
-    c = float(os.environ['LOKI_C']); i = int(os.environ['LOKI_I']); m = int(os.environ['LOKI_M'])
-    if i > 0 and m > i:
-        p = c / i * m
-        if p >= c * 1.5:
-            print('%.2f' % p)
-except Exception:
-    pass
-" 2>/dev/null || true)"
-            [ -n "$_proj" ] && _fields="${_fields} (proj \$${_proj} at ${_max})"
-        fi
-    fi
+    [ -n "$_cost" ] && _fields="${_fields} | \$${_cost}"
 
     # Files changed (+ins/-del and file count) vs the run start SHA. Reuse the
     # build_completion_summary diff approach incl. the .loki/.git exclude pathspec.
@@ -3349,34 +3316,10 @@ detect_complexity() {
     file_count="${file_count:-0}"
     file_count="${file_count//[^0-9]/}"
 
-    # Check for external integrations.
-    #
-    # THE EXCLUDES ARE LOAD-BEARING. This grep used to prune nothing while the
-    # find eleven lines above it prunes node_modules/.git/vendor/dist/build --
-    # same function, same intent, inconsistent implementation. With --include
-    # "*.json" that meant ANY transitive dependency whose package.json mentions
-    # azure, stripe or aws-sdk set has_external=true.
-    #
-    # And has_external does not merely block "simple": in the classifier below it
-    # jumps straight to "complex", skipping "standard". So a one-liner in any
-    # repo that has ever run npm install landed on the MOST expensive tier, which
-    # then runs the architecture doc suite (up to 300s of silence per attempt)
-    # and holds the council's forced minimum-iteration floor at 3 instead of 1.
-    #
-    # Reproduced from scratch before fixing: a project with ONE dependency naming
-    # @azure/core classified complex; adding --exclude-dir=node_modules made the
-    # identical project classify simple. It also fired TRUE on this repo.
-    #
-    # A prior incident matches exactly -- a coffee landing page took 1h34m over
-    # 11 iterations because the simple fast-path never engaged. The fast path was
-    # correctly built and correctly wired the whole time; this one missing prune
-    # was what made it unreachable.
+    # Check for external integrations
     local has_external=false
     if grep -rq "oauth\|SAML\|OIDC\|stripe\|twilio\|aws-sdk\|@google-cloud\|azure" \
-        "$target_dir" --include="*.json" --include="*.ts" --include="*.js" \
-        --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
-        --exclude-dir=dist --exclude-dir=build --exclude-dir=__pycache__ \
-        --exclude-dir=.venv --exclude-dir=venv 2>/dev/null; then
+        "$target_dir" --include="*.json" --include="*.ts" --include="*.js" 2>/dev/null; then
         has_external=true
     fi
 
@@ -11399,7 +11342,58 @@ enforce_test_coverage() {
     if [ -f "${TARGET_DIR:-.}/package.json" ]; then
         # BUG-EC-014: Wrap test runners with timeout to prevent hanging indefinitely
         local gate_timeout="${LOKI_GATE_TIMEOUT:-300}"  # 5 minutes default
-        if grep -q '"vitest"' "${TARGET_DIR:-.}/package.json" 2>/dev/null; then
+        # A DECLARED scripts.test wins over an installed package.
+        #
+        # The v7.41.x fix below already established that grep false-positives on
+        # devDependencies -- read its comment -- but it only guarded the `else`
+        # branch, so the three grep branches AHEAD of it still shadowed it. This
+        # repo is the proof: jest is a devDependency with no jest config while
+        # scripts.test runs `bash -n` + `node --test`, and the grep branch
+        # hijacked the runner, ran jest over 895 non-jest files and failed every
+        # one of them.
+        #
+        # _has_declared_test_script is true only when the project DECLARES a real
+        # test script, which is the project's own statement of its runner. When
+        # it declares nothing, the grep branches still apply exactly as before --
+        # that is the legitimate case they were written for (a package that ships
+        # a runner but no npm script).
+        local _declared_test_script=""
+        _declared_test_script=$(_LOKI_PKG="${TARGET_DIR:-.}/package.json" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_LOKI_PKG']) as f:
+        d = json.load(f)
+except Exception:
+    sys.exit(0)
+if not isinstance(d, dict):
+    sys.exit(0)
+t = (d.get('scripts') or {}).get('test') or ''
+if 'no test specified' in t.lower():
+    sys.exit(0)
+sys.stdout.write(t.strip())
+" 2>/dev/null || echo "")
+        if [ -n "$_declared_test_script" ]; then
+            # Run the DECLARED script. This body used to live in the trailing
+            # `else`; a no-op `:` here would have terminated the if/elif chain
+            # and left test_runner=none, turning a false BLOCK into a silently
+            # unmeasured gate -- strictly worse than the bug being fixed.
+            #
+            # LOKI_TEST_COMMAND lets an operator override the invocation; the
+            # default is the project's own `npm test`.
+            local _test_cmd="${LOKI_TEST_COMMAND:-npm test}"
+            # Label the runner by what the script invokes so evidence is honest
+            # (node --test, vitest, jest, etc. all surface here).
+            case "$_declared_test_script" in
+                *"node --test"*|*"node:test"*) test_runner="node-test" ;;
+                *vitest*) test_runner="vitest" ;;
+                *jest*)   test_runner="jest" ;;
+                *mocha*)  test_runner="mocha" ;;
+                *)        test_runner="npm-test" ;;
+            esac
+            local output
+            output=$(cd "${TARGET_DIR:-.}" && timeout "$gate_timeout" sh -c "$_test_cmd" 2>&1) || test_passed=false
+            details="$test_runner ($_test_cmd): $(echo "$output" | tail -5 | tr '\n' ' ')"
+        elif grep -q '"vitest"' "${TARGET_DIR:-.}/package.json" 2>/dev/null; then
             test_runner="vitest"
             local output
             output=$(cd "${TARGET_DIR:-.}" && timeout "$gate_timeout" npx vitest run --reporter=json 2>&1) || test_passed=false
@@ -11425,37 +11419,13 @@ enforce_test_coverage() {
             # would false-positive on devDeps / unrelated keys), then run the
             # configured command. This MUST sit before the monorepo/python/go/rust
             # checks, all of which gate on test_runner=="none".
-            local _pkg_test_script
-            _pkg_test_script=$(_LOKI_PKG="${TARGET_DIR:-.}/package.json" python3 -c "
-import json, os, sys
-try:
-    with open(os.environ['_LOKI_PKG']) as f:
-        d = json.load(f)
-except Exception:
-    sys.exit(0)
-t = (d.get('scripts') or {}).get('test') or ''
-# npm's default placeholder; treat as 'no test'.
-if 'no test specified' in t.lower():
-    sys.exit(0)
-sys.stdout.write(t.strip())
-" 2>/dev/null || echo "")
-            if [ -n "$_pkg_test_script" ]; then
-                # LOKI_TEST_COMMAND lets an operator override the invocation; the
-                # default is the project's own `npm test`.
-                local _test_cmd="${LOKI_TEST_COMMAND:-npm test}"
-                # Label the runner by what the script invokes so evidence is
-                # honest (node --test, vitest, jest, etc. all surface here).
-                case "$_pkg_test_script" in
-                    *"node --test"*|*"node:test"*) test_runner="node-test" ;;
-                    *vitest*) test_runner="vitest" ;;
-                    *jest*)   test_runner="jest" ;;
-                    *mocha*)  test_runner="mocha" ;;
-                    *)        test_runner="npm-test" ;;
-                esac
-                local output
-                output=$(cd "${TARGET_DIR:-.}" && timeout "$gate_timeout" sh -c "$_test_cmd" 2>&1) || test_passed=false
-                details="$test_runner ($_test_cmd): $(echo "$output" | tail -5 | tr '\n' ' ')"
-            fi
+            #
+            # That handler now runs in the FIRST branch above, because a declared
+            # script must win over an installed devDependency. Nothing is left to
+            # do here: reaching this point means the project declares no test
+            # script AND ships no recognised runner, so test_runner stays "none"
+            # and the monorepo/python/go/rust detection below takes over.
+            :
         fi
     fi
 
@@ -11497,14 +11467,60 @@ sys.stdout.write(t.strip())
                                 "${TARGET_DIR:-.}"/apps/*/package.json \
                                 "${TARGET_DIR:-.}"/services/*/package.json; do
                     [ -f "$pkg_json" ] || continue
-                    if grep -q '"vitest"' "$pkg_json" 2>/dev/null; then
-                        workspace_runner="vitest"
-                        break
-                    elif grep -q '"jest"' "$pkg_json" 2>/dev/null; then
-                        workspace_runner="jest"
-                        break
-                    fi
+                    # Read the workspace's DECLARED test script, same rule as the
+                    # single-package path above. A bare grep for '"jest"' matches
+                    # a devDependency, so a workspace that merely depends on jest
+                    # got labelled monorepo-jest.
+                    #
+                    # LOWER SEVERITY than the single-package case, and worth being
+                    # precise about why: all three branches below dispatch the
+                    # project's own script (turbo test / pnpm test --recursive /
+                    # npm test), so the grep only ever picked the LABEL, never
+                    # what ran. This corrects the evidence, not the execution.
+                    local _ws_script
+                    _ws_script=$(_LOKI_PKG="$pkg_json" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_LOKI_PKG']) as f:
+        d = json.load(f)
+except Exception:
+    sys.exit(0)
+if not isinstance(d, dict):
+    sys.exit(0)
+t = (d.get('scripts') or {}).get('test') or ''
+if 'no test specified' in t.lower():
+    sys.exit(0)
+sys.stdout.write(t.strip())
+" 2>/dev/null || echo "")
+                    case "$_ws_script" in
+                        *vitest*) workspace_runner="vitest"; break ;;
+                        *jest*)   workspace_runner="jest"; break ;;
+                        *mocha*)  workspace_runner="mocha"; break ;;
+                        "")       : ;;
+                        *)        workspace_runner="npm-test"; break ;;
+                    esac
                 done
+
+                # FAIL-SAFE. If no workspace DECLARES a test script but one has a
+                # runner installed, still run the monorepo suite -- labelled
+                # "installed" so the evidence does not claim a declaration that
+                # does not exist.
+                #
+                # Without this the change would trade a wrong label for a SKIPPED
+                # GATE, which is the dangerous direction: the old grep at least
+                # dispatched `npm test`. Reporting a runner inaccurately is a
+                # documentation bug; silently not testing a monorepo is not.
+                if [ -z "$workspace_runner" ]; then
+                    for pkg_json in "${TARGET_DIR:-.}"/packages/*/package.json \
+                                    "${TARGET_DIR:-.}"/apps/*/package.json \
+                                    "${TARGET_DIR:-.}"/services/*/package.json; do
+                        [ -f "$pkg_json" ] || continue
+                        if grep -qE '"(vitest|jest|mocha)"' "$pkg_json" 2>/dev/null; then
+                            workspace_runner="installed"
+                            break
+                        fi
+                    done
+                fi
 
                 if [ -n "$workspace_runner" ]; then
                     test_runner="monorepo-$workspace_runner"
@@ -12355,14 +12371,6 @@ auto_generate_docs_if_needed() {
     elif command -v timeout >/dev/null 2>&1; then
         _doc_cmd=(timeout "${_doc_to}s")
     fi
-    # SAY WHAT IS HAPPENING BEFORE GOING QUIET. This call discards child output
-    # and can run for the full timeout (default 300s), so without this line the
-    # user sees a single "Auto-documentation" header and then minutes of nothing.
-    # A silent gap reads as a hang: the observed incident was a build stuck ~55
-    # min here with the work committed but never pushed, and nothing on screen
-    # said which step owned the time. Naming the step and its cap turns an
-    # apparent freeze into a bounded wait the user can reason about.
-    log_info "Auto-documentation: generating architecture suite (no output until it finishes; up to ${_doc_to}s)"
     if "${_doc_cmd[@]}" "$loki_bin" docs generate "$project_dir" >/dev/null 2>&1; then
         :
     else
@@ -12421,10 +12429,6 @@ run_magic_debate_gate() {
     # verdict on genuinely thin input, not a spurious process block.
     log_info "Magic Modules: running debate on '$latest_name'"
     local debate_out debate_rc
-    # Captured to a variable, so nothing reaches the screen for up to 300s. Same
-    # reasoning as the doc suite above: name the step and its cap so a bounded
-    # wait does not read as a hang.
-    log_info "Magic debate: reviewing $latest_name (2 rounds, output shown when it finishes; up to 300s)"
     debate_out=$(cd "$TARGET_DIR" && PYTHONPATH="$PROJECT_DIR" LOKI_PROVIDER="${PROVIDER_NAME:-claude}" \
         timeout 300 "$PROJECT_DIR/autonomy/loki" magic debate "$latest_name" --rounds 2 2>&1) \
         && debate_rc=0 || debate_rc=$?
@@ -20089,11 +20093,8 @@ except Exception:
             if [ -n "$gate_escalation_context" ]; then
                 _legacy_priority="${_legacy_priority}${_legacy_priority:+ }${gate_escalation_context}"
             fi
-            # Same cap, same reason, same default as the degraded path above --
-            # a pasted spec has to be bounded, but the bound must not silently
-            # eat requirements. 4000 bytes dropped anything past ~600 words.
             if [ -n "$prd" ] && [ -f "$prd" ]; then
-                _legacy_prd_content=$(head -c "${LOKI_DEGRADED_PRD_CAP:-24000}" "$prd")
+                _legacy_prd_content=$(head -c 4000 "$prd")
             fi
             if [ $retry -eq 0 ]; then
                 if [ -n "$prd" ]; then
@@ -20144,35 +20145,9 @@ except Exception:
 
     if [ "${PROVIDER_DEGRADED:-false}" = "true" ]; then
         # Degraded providers: simpler wording, but still static-first.
-        #
-        # THE CAP IS NOW ANNOUNCED, NOT SILENT. This path PASTES the spec text
-        # (a degraded provider cannot be told "read the file at this path" the
-        # way claude/cline/opencode are at :20196), so it has to be bounded. It
-        # was bounded at 4000 bytes with no notice: a requirement past ~600 words
-        # was dropped mid-sentence and the model never knew a spec existed beyond
-        # what it saw. Demonstrated on a 4229-byte spec -- the requirement on the
-        # last line was simply absent from what the model received.
-        #
-        # That is the same class of defect spec-expand.sh:5-7 already names for
-        # OpenAPI ("a 40-operation file loses 21 of 40 ops") and fixed for
-        # contracts only. Markdown specs still had it, and only for the two
-        # degraded providers -- so codex and aider users silently got a worse
-        # build than claude users from the identical spec.
-        #
-        # Raised to 24000 (a large PRD fits whole) and, when the spec still
-        # exceeds it, the model is TOLD so and given the path to read the rest.
-        # An unannounced truncation makes the model confidently build the wrong
-        # thing; an announced one makes it go look.
-        local _prd_cap="${LOKI_DEGRADED_PRD_CAP:-24000}"
         local prd_content=""
-        local _prd_truncated=0
         if [ -n "$prd" ] && [ -f "$prd" ]; then
-            prd_content=$(head -c "$_prd_cap" "$prd")
-            local _prd_bytes
-            _prd_bytes=$(wc -c < "$prd" 2>/dev/null | tr -d ' ')
-            if [ -n "$_prd_bytes" ] && [ "$_prd_bytes" -gt "$_prd_cap" ] 2>/dev/null; then
-                _prd_truncated=1
-            fi
+            prd_content=$(head -c 4000 "$prd")
         fi
 
         local degraded_prd_anchor="Loki Mode"
@@ -20201,38 +20176,6 @@ except Exception:
         [ -n "$queue_tasks" ] && printf 'Tasks: %s\n' "$queue_tasks"
         if [ -n "$prd" ]; then
             printf 'PRD contents: %s\n' "$prd_content"
-            # Announce the cut. Silence here is what made the old 4000-byte cap
-            # dangerous: the model treated a partial spec as the whole spec and
-            # built confidently against requirements it had never seen. Naming
-            # the file lets it read the remainder itself.
-            if [ "${_prd_truncated:-0}" = "1" ]; then
-                printf 'NOTE: the spec above is TRUNCATED at %s bytes. The full spec is at %s -- read it before deciding the work is complete.\n' \
-                    "$_prd_cap" "$prd"
-            fi
-        fi
-
-        # FIRST-PASS EXCELLENCE FOR DEGRADED PROVIDERS.
-        #
-        # This directive existed only for Claude. providers/claude.sh:322 injects
-        # it via --append-system-prompt, a flag codex/aider do not have, so the
-        # one mechanism built specifically to make a WEAKER model land complete
-        # on iteration 1 reached only the strongest one. Measured before writing
-        # this: grep for FIRST_PASS_EXCELLENCE returns 0 in codex.sh, aider.sh,
-        # cline.sh and opencode.sh.
-        #
-        # It matters most exactly where it was missing. The premise (recorded
-        # when the Claude version was built) is that iteration count is a proxy
-        # for how much the first pass missed, and that for a weak model context
-        # quality beats iteration count. Codex is also the free on-ramp, so the
-        # users least able to absorb a bad build were the ones getting no help.
-        #
-        # Condensed rather than byte-mirrored: the Claude text is ~4.3KB of
-        # system prompt, and these providers take it inline in the user turn
-        # where budget is tighter. The four load-bearing instructions are kept --
-        # build fully, wire the backend, verify by RUNNING, commit to one design.
-        # Same iteration-1 gate and same env var, so one switch controls both.
-        if [ "${LOKI_FIRST_PASS_EXCELLENCE:-1}" != "0" ] && [ "${iteration:-1}" -le 1 ] 2>/dev/null; then
-            printf '%s\n' '[FIRST-PASS EXCELLENCE] Treat THIS pass as your one shot to ship a complete, working solution. The loop is a safety net, not a plan. 1) BUILD IT FULLY: no stubs, no TODOs, no placeholder or mock data where real logic belongs. If the spec implies a backend (auth, persistence, a form that submits), WIRE IT so it actually persists -- a UI whose buttons do nothing is the most common failure. 2) VERIFY BY RUNNING each acceptance path, not by reading the code. 3) DECIDE the architecture now rather than refactoring later. 4) Commit to ONE specific design; avoid the generic purple-gradient default look.'
         fi
         printf '</dynamic_context>\n'
         return 0
