@@ -1,5 +1,7 @@
 """Tests for the CI lint that validates passport/rejection-log examples
 against their schemas and enforces citation_key uniqueness."""
+import copy
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -8,6 +10,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts/check_literature_corpus_schema.py"
+SIGNAL_FIXTURE = (
+    REPO_ROOT / "scripts/fixtures/bibliographic_integrity_signals/retraction.json"
+)
 
 
 def _write_yaml(tmp_path, name, data):
@@ -45,6 +50,60 @@ def test_passes_on_valid_passport(tmp_path):
     _write_yaml(tmp_path, "passport.yaml", passport)
     r = _run(["--passport", str(tmp_path / "passport.yaml")])
     assert r.returncode == 0, r.stderr
+
+
+def _entry_with_signals(signals):
+    return {
+        "citation_key": "chen2024",
+        "title": "T",
+        "authors": [{"family": "Chen"}],
+        "year": 2024,
+        "source_pointer": "file:///x.pdf",
+        "bibliographic_integrity_signals": signals,
+    }
+
+
+def test_passport_cross_validates_canonical_signal(tmp_path):
+    signal = json.loads(SIGNAL_FIXTURE.read_text(encoding="utf-8"))
+    signal["subject"]["citation_key"] = "chen2024"
+    passport = {"literature_corpus": [_entry_with_signals([signal])]}
+    path = _write_yaml(tmp_path, "passport.yaml", passport)
+    result = _run(["--passport", str(path)])
+    assert result.returncode == 0, result.stderr
+
+
+def test_passport_rejects_schema_invalid_canonical_signal(tmp_path):
+    signal = json.loads(SIGNAL_FIXTURE.read_text(encoding="utf-8"))
+    signal["subject"]["citation_key"] = "chen2024"
+    signal["evidence"] = []
+    passport = {"literature_corpus": [_entry_with_signals([signal])]}
+    path = _write_yaml(tmp_path, "passport.yaml", passport)
+    result = _run(["--passport", str(path)])
+    assert result.returncode != 0
+    assert "bibliographic_integrity_signals" in result.stderr
+
+
+def test_passport_rejects_duplicate_canonical_signal_ids(tmp_path):
+    signal = json.loads(SIGNAL_FIXTURE.read_text(encoding="utf-8"))
+    signal["subject"]["citation_key"] = "chen2024"
+    passport = {
+        "literature_corpus": [
+            _entry_with_signals([signal, copy.deepcopy(signal)])
+        ]
+    }
+    path = _write_yaml(tmp_path, "passport.yaml", passport)
+    result = _run(["--passport", str(path)])
+    assert result.returncode != 0
+    assert "duplicate signal_id" in result.stderr
+
+
+def test_passport_rejects_signal_for_a_different_citation(tmp_path):
+    signal = json.loads(SIGNAL_FIXTURE.read_text(encoding="utf-8"))
+    passport = {"literature_corpus": [_entry_with_signals([signal])]}
+    path = _write_yaml(tmp_path, "passport.yaml", passport)
+    result = _run(["--passport", str(path)])
+    assert result.returncode != 0
+    assert "targets citation_key" in result.stderr
 
 
 def test_fails_on_schema_violation(tmp_path):

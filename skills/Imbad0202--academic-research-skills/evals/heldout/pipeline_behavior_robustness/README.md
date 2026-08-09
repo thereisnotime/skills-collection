@@ -66,7 +66,7 @@ step before this set is used as an acceptance test for routing-layer changes.
 
 ## Measurement contract (#654)
 
-New scored rows opt into the `heldout-measurement/1.0` envelope
+New scored rows opt into the `heldout-measurement/1.1` envelope
 (`evals/heldout/MEASUREMENT_CONTRACT.md`, `suite_class: mechanical_match`):
 zero judges is legal here (`judge_plan.exception: "mechanical_suite"`,
 `adjudication.applies: false`) because pass/fail is a mechanical match against the

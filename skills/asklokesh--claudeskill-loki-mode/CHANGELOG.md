@@ -5,6 +5,181 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.19.1
+
+Ships v9.19.0's payload, whose release was blocked by two CI failures of my own
+making: a ShellCheck warning in a new test, and a suite whose failing assertion
+moved between adjacent cases run to run.
+
+### Fixed
+
+- **The DA review cases now carry their own budget.** Shard 2/4 failed three
+  consecutive CI runs while the suite passed 43/43 locally, and the failing
+  assertion MOVED between adjacent devils-advocate cases. A failure that
+  relocates between neighbours is a shared environmental cause, not a defect in
+  any one assertion. All four DA cases took the shared default budget, and that
+  path dispatches a reviewer AND a speculative devils-advocate -- two sequential
+  model calls under one budget. Now scaled explicitly: tight locally, generous on
+  a contended runner. Verified 43/43 in both configurations.
+
+- **A failure message that named a cause it had not measured.** "council dissent
+  discarded a speculative DA blocker" asserted a fail-open across six shared
+  conditions. Each clause now reports separately with the assertion text
+  captured. The first attempt at this fix re-ran the assertions in the else
+  branch, which passes on its own correct copy and reported an empty cause --
+  the gating run is now captured once and branched on.
+
+### Added
+
+- **A measured page-weight budget for the dashboard bundle.** It is a single
+  788 KB file every user downloads before seeing anything, and nothing guarded
+  its size. The budget is derived from three recorded measurements, and the
+  positive control is load-bearing: a bare size check passes perfectly on a
+  missing or truncated bundle.
+
+
+
+Closes the spec-to-production loop. Two gaps, both of which broke the promise of
+an end-to-end autonomous lifecycle.
+
+### Added
+
+- **A deploy is now authorized by a verified receipt, or refused.** `loki deploy`
+  was print-only: Loki built, verified, produced an Evidence Receipt, then handed
+  the user a string to paste. `--execute` now runs the detected command, but only
+  when the receipt's verdict is VERIFIED, its facts still hash to their digest, it
+  anchors to the tree being deployed, and the tree is clean. UNSIGNED, UNCHECKED
+  and TAMPERED all refuse, because integrity is not provenance. Fail-closed
+  throughout: a check that cannot be evaluated is a refusal, and the refusal names
+  which check could not run. Destructive operations are refused even with a valid
+  receipt; `git push` and PR creation stay out of scope; Loki never reads cloud
+  credentials. Every executed deploy writes its own receipt naming the command,
+  exit code, anchor and authorizing run_id.
+
+  Known limitation, stated rather than hidden: an unanchored receipt cannot
+  authorize a deploy, and 8 of 9 receipts measured in this repo carry no
+  baseline. `--execute` will refuse those by name. A per-invocation override
+  covering "unknown" but never "known wrong" is the fix and is not in this
+  release.
+
+- **The build pipeline is visible while it runs.** `dashboard/api_phases.py` was
+  262 lines of working phase-timeline parsing that nothing imported and nothing
+  consumed. Now wired to an endpoint and a panel. An unmeasured duration renders
+  as unmeasured rather than 0; not-started, running and failed are three distinct
+  renderings, because collapsing not-started into running shows a stalled build as
+  healthy; sampled or stale data is labelled as such.
+
+
+
+Re-release of v9.18.3, whose release was blocked by a FALSE test failure of my
+own making: a helm test guarded on `helm` and `python3` but not on PyYAML, which
+is not stdlib. Without it every manifest parse raised, the redirect swallowed
+the traceback, and four assertions compared against empty strings -- reporting
+"the scaling knob is not wired" about a chart that renders correctly. It now
+skips with a named reason, and fails loudly if `helm template` cannot render at
+all rather than blaming the knob for a chart-wide failure.
+
+No product change from 9.18.3. The two false-green fixes below are the payload.
+
+
+
+### Fixed
+
+- **A failed remote build exited 0.** `loki start --remote` was shipped in
+  9.18.2 with the job status taken from the LAUNCH result, so a build that
+  started and then failed reported success. Anyone gating CI on it got a green
+  pipeline on a red build -- the exact defect class this product exists to
+  prevent. Terminal statuses are now explicit: only `passed` means the build
+  succeeded, `failed` means it ran and failed, and `unknown` (detached past the
+  wait window, exit code never observed) fails CLOSED because an unobserved
+  outcome is not a pass. `queued` and `running` are deliberately not terminal so
+  a client can tell "not done yet" from "done and failed".
+
+- **A webhook credential could overwrite a job's terminal status.** The same
+  defect had a second door: `job_id` was honoured from any payload, and a GitHub
+  webhook payload carries none of its own, so a holder of the webhook HMAC could
+  supply one and flip `passed` back to `fired`. That is a webhook credential
+  reaching a `/jobs` capability, which the separate-credential design exists to
+  prevent. `job_id` is now honoured only for a remotely-submitted job.
+
+Both were found by auditing delivered work rather than by a failing test, and
+the second was more serious than the first: the first was a wrong default, the
+second was a privilege boundary.
+
+
+
+Third attempt to publish the session-killer fix. 9.18.0's release was blocked
+when its Tests run was cancelled by later pushes; 9.18.1's gate failed because
+the pushed commit contained an intermediate state where a test referenced a
+method that did not exist yet. Both were my sequencing errors, not defects in
+the fix. No code change from 9.18.1 beyond the receipt-verdict hardening below.
+
+### Fixed
+
+- Remote receipt verdicts: a signature gpg cannot evaluate (public key absent)
+  is reported as UNCHECKED, never TAMPERED (which would accuse a user of a
+  forgery that did not happen) and never VERIFIED (which would claim provenance
+  that was never established).
+- `docs/VERIFICATION-COST.md` corrected: `loki proof verify` does not simply
+  "exit 1 on tamper" -- an untampered receipt whose tree has drifted also exits
+  1. Read `hash_ok` for integrity. A three-command reproduction is included.
+
+
+
+Re-release of v9.18.0, whose release job was blocked when its Tests run was
+cancelled by subsequent pushes to main (required-ci correctly refuses to treat
+`cancelled` as a pass). No code change from 9.18.0 beyond the additions below.
+
+### Added
+
+- **A remote build's Evidence Receipt is verifiable without trusting the machine
+  that produced it.** `GET /jobs/<id>/proof` serves the receipt and its detached
+  signature; `loki start --remote` re-hashes and verifies before reporting
+  success, with four distinct verdicts: VERIFIED, UNSIGNED (integrity only, not
+  provenance), UNCHECKED (signed but the key is absent, so it cannot be
+  evaluated), and TAMPERED. UNCHECKED is deliberately not folded into either
+  neighbour: calling it TAMPERED accuses a user of a forgery that did not
+  happen, and calling it UNSIGNED is false about a receipt that is signed.
+
+
+
+### Fixed
+
+- **`loki start` could kill the user's other terminal sessions.** This is the
+  headline fix and it affects anyone running builds from a terminal that also
+  holds an editor or agent session. `reap_own_process_group()` TERM/KILLs every
+  PID sharing a recorded process group; `.loki/loki.pgid` was removed only on
+  the normal exit path, so a Ctrl+C'd or crashed run left it behind. Measured on
+  a real machine: five orphan files, the oldest 1435 hours (60 days). PIDs
+  recycle (macOS wraps near 99999; max observed there was 99762), so a stale
+  pgid eventually matches a LIVE unrelated shell group, the "is this my own
+  group?" check passes, and every sibling in that terminal is killed.
+
+  The file is now stamped `pgid/boot/started`; the reader requires the boot id
+  to match this boot AND the stamp not to predate the reading process, which a
+  recycled pgid cannot forge. Removal moved onto the EXIT trap, guarded on
+  BASHPID rather than `$$` (which does not change in a subshell). Fails closed:
+  an unprovable stamp reaps nothing, because an orphaned agent is strictly less
+  harmful than killing someone's editor.
+
+- **A green `doctor` recommended a command that exits 2.** With the bundled SDK
+  and no provider CLI, doctor PASSed and its final line said
+  `Next: loki quickstart` -- which exits 2. A warning existed 520 lines above
+  the recommendation and never reached it.
+
+### Added
+
+- **Deployment path.** `POST /jobs` on the trigger server: an authenticated
+  non-GitHub submit with a credential separate from the webhook HMAC,
+  constant-time comparison, fail-closed 503 when unconfigured, and validation of
+  untrusted spec input. Plus `helm/loki-mode` (receiver + worker + Redis) with
+  one tenant per worker, a worker grace period that exceeds the drain budget,
+  and a value-gated NetworkPolicy that carves the cloud metadata endpoint out of
+  any operator-supplied CIDR.
+- **`loki telemetry analytics on|off|status`.** The first-run funnel was gated on
+  `ANALYTICS_ENABLED`, a key with no writer anywhere in the repo, so drop-off was
+  structurally unmeasurable. Still default-off and opt-in.
+
 ## v9.17.2
 
 Ships the tree v9.17.0 and v9.17.1 were both meant to. 9.17.0 on npm carries

@@ -359,6 +359,120 @@ Cleanup after reproducing:
 rm -rf /tmp/loki-verify-scorecard /tmp/loki-verify-sc2 /tmp/loki-verify-scorecard.err
 ```
 
+## 3b. Deployment and self-hosting (added 2026-08-08)
+
+Sourced from vendor documentation on 2026-08-08. Full quotes, URLs and the
+per-vendor UNKNOWN list are in `docs/COMPETITOR-DEPLOYMENT-MODELS.md`. Same
+rules as the rest of this file: `[sourced]` means a page was actually fetched,
+UNKNOWN means we could not establish it.
+
+| Product | Self-hosting | Inference routing | Output-verification artifact |
+|---|---|---|---|
+| Factory AI | Yes, incl. airgapped `[sourced]` | Customer-controlled, BYOK `[sourced]` | Not documented publicly |
+| Claude Code (self-hosted envs) | Execution only; control plane stays Anthropic-hosted `[sourced]` | Pinned to Anthropic; not routable to Bedrock/Vertex/Foundry/gateway `[sourced]` | Not documented publicly |
+| Devin | No; prior self-hosted offering in maintenance mode since 2025-05-12 `[sourced]` | UNKNOWN | Not documented publicly |
+| Replit Agent | Not documented publicly | Vendor-pinned `[sourced]` | Not documented publicly |
+| 8090 | UNKNOWN | UNKNOWN | Not documented publicly |
+| Loki Mode | Yes, control plane included `[measured]` | Provider-agnostic `[measured]` | `loki proof verify` `[measured]` |
+
+**This CORRECTS a claim we were making internally.** "Fully self-hosted and
+provider-agnostic" was treated as the differentiator. It is not: Factory AI
+documents airgapped installs with customer-controlled model routing, so that
+column does not separate us from them. Recording the correction rather than
+quietly dropping it, because a scorecard that only ever moves in our favour is
+not evidence.
+
+The column that does separate is the last one, and it is the weakest kind of
+finding: **absence from documentation is not absence from a product.** The
+honest statement is "not documented publicly as of 2026-08-08", never "does not
+exist". A vendor may ship this behind a login, in an enterprise tier, or simply
+undocumented.
+
+Loki's two `[measured]` cells are reproducible:
+
+```bash
+grep -c "api.anthropic.com" autonomy/*.sh providers/*.sh   # 1, inside a per-provider case
+ls providers/*.sh                                          # claude, codex, aider, cline, opencode
+bash tests/test-competitor-verify-surface.sh               # the installed-CLI audit
+loki proof verify <id>                                     # re-hash a receipt, exit 1 on tamper
+```
+
+### 3d. Our own numbers on the axes people ask about, measured 2026-08-08
+
+These are ABSOLUTE measurements of this product with a CI guard behind each. They
+are deliberately NOT presented as a comparison: no competitor number appears
+here, because three of the four named competitors have no runnable binary on
+this machine and the fourth exposes no equivalent command. A number next to a
+blank is not a ratio.
+
+| Axis | Measured | Budget | Guarded by |
+|---|---|---|---|
+| UI page weight | 787 KB | 1024 KB | `tests/test-dashboard-bundle-budget.sh` |
+| Backend verify latency | 7 ms | under 1000 ms | `tests/test-fast-verify.sh` |
+| Worker horizontal scale | 1..25 replicas render | n/a | `tests/test-helm-worker-scaling.sh` |
+
+Two of those three guards already existed; only the page-weight budget was added
+on 2026-08-08. Recording that because "we measured it" and "we added a
+measurement" are different claims and the difference matters.
+
+What these numbers do NOT establish: they say nothing about output quality,
+which is the axis a user actually cares about, and nothing about how any
+competitor performs on the same axes. A fast gate that verifies the wrong thing
+is worse than a slow one that verifies the right thing.
+
+Reproduce:
+
+```bash
+bash tests/test-dashboard-bundle-budget.sh   # prints the KB and the budget
+bash tests/test-fast-verify.sh               # prints the ms and the budget
+bash tests/test-helm-worker-scaling.sh       # renders 1, 2, 5 and 25 replicas
+```
+
+### 3c. Deploy surface, measured 2026-08-08
+
+Ran on the four competitor CLIs installed on this machine. Method matters here:
+a `--help` grep is NOT sufficient -- an earlier audit in this repo counted
+aider's `--verify-ssl` as a verification capability, which it is not. So each
+CLI was invoked as `<cli> deploy --help` and the result classified as a real
+subcommand only when it exited 0 AND its output named the subcommand, rather
+than falling through to generic help.
+
+| CLI | `deploy` subcommand |
+|---|---|
+| claude | none `[measured]` |
+| aider | none `[measured]` |
+| opencode | none `[measured]` |
+| codex | none `[measured]` |
+| loki | present, and evidence-gated `[measured]` |
+
+**4 of 4 installed competitor CLIs expose no deploy verb.** Loki's is gated on a
+verified receipt: it refuses on UNSIGNED, TAMPERED, anchor mismatch, or a dirty
+tree, and writes a receipt for the deploy itself naming the authorizing run_id.
+
+Scope limits, same as everywhere else in this file. This covers CLIs INSTALLED
+HERE. Factory, Devin, Replit and 8090 have no runnable binary on this machine
+(`bash benchmarks/head-to-head-readiness.sh` reports 3 ready / 4 blocked), so no
+claim is made about them. A hosted product may deploy without exposing a CLI
+verb -- Replit Agent's documented headline capability is exactly that. This
+measures a CLI surface, not a product capability, and it is not a quality
+comparison.
+
+Reproduce:
+
+```bash
+# Exit code ALONE is not the test: every CLI here exits 0 on `deploy --help`
+# because an unknown subcommand falls through to generic help. The first
+# version of this recipe did exactly that and reported all four as having a
+# deploy command. The output must NAME the subcommand.
+for c in claude aider opencode codex loki; do
+  out="$($c deploy --help 2>&1 | head -3)"
+  printf '%s' "$out" | grep -qiE "$c deploy|deploy -" \
+    && echo "$c: real deploy subcommand" \
+    || echo "$c: no deploy subcommand (fell through to generic help)"
+done
+bash autonomy/loki deploy --execute       # refuses, naming each failed check
+```
+
 ## 4. What we do NOT know
 
 This section is mandatory and is not empty.

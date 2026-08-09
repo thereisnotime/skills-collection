@@ -90,6 +90,8 @@ v3.3 は [**PaperOrchestra**](https://arxiv.org/abs/2604.05018)（Song, Song, Pf
 - **Artifact Reproducibility Lockfile**（v3.3.5+）— Material Passport 上のオプションの `repro_lock` サブブロック。**設定ドキュメントであり、再生保証ではありません** — LLM 出力はバイト再現可能ではありません。[`shared/artifact_reproducibility_pattern.md`](shared/artifact_reproducibility_pattern.md) を参照。
 - **実験来歴インテーク**（#260）— Material Passport のオプションの `experiment_provenance[]` は、研究者が**外部で**実行した実験を記録し（ARS は実験を実行しません）、論文の主張は `claim_intent_manifest.planned_experiment_ids[]` 経由でそれに join します。整合性ゲート（Stage 2.5/4.5）は実験裏付け主張を宣言された来歴と照合します — `ALIGNED` / `OVERSTATED` / `NOT_SUPPORTED_BY_PROVENANCE` / `PROVENANCE_INSUFFICIENT` — **ただし実験自体の正しさは判定しません**。fail-closed な `experiment_intake_declaration` により「実験を実行したか」が Stage 1 の明示的な決定になります。[`shared/handoff_schemas.md`](shared/handoff_schemas.md) を参照。
 
+**整合性・検証の境界：**ARS が確認するのは、原稿と報告された研究プロセスです。引用の存在、主張と出典の整合、報告された方法、申告された実験結果と原稿主張の整合、図表の忠実性、報告・工程・提出パッケージの適合性を対象とし、一部はサンプリングまたは LLM による判断です。ARS は、手続きが実際に実施されたこと、原データが真正であること、結果が再現できることを**証明しません**。捏造が一貫して報告されていれば、これらのチェックを通過し得ます。詳しくは [POSITIONING.md「Integrity checks and the empirical-work boundary」](POSITIONING.md#integrity-checks-and-the-empirical-work-boundary) を参照してください。
+
 ---
 
 ## ショーケース: 実際のパイプライン出力

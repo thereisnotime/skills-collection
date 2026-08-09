@@ -386,14 +386,28 @@ jobs:
       - name: Run held-out measurement contract validation (#654)
         # Marker-based discovery: walks evals/heldout/ recursively and
         # validates every JSON file carrying the measurement_contract key
-        # (schema branches B1-B4 + invariants I1-I12 + reference resolution
-        # R1-R3 + location binding L1). Filename conventions do not gate
+        # (schema branches B1-B6 + invariants I1-I14 + reference resolution
+        # R1-R5 + location binding L1). Filename conventions do not gate
         # discovery; near-miss markers and strict-parse failures on marked
         # files fail loudly. Legacy rows without the marker are skipped by
         # design (retrofit scope: future runs and re-runs only). The mutation
         # tests `test_check_heldout_measurement_report.py` run via the
         # unified manifest (#156).
         run: python3 scripts/check_heldout_measurement_report.py --all
+
+      - name: Check human-subjects output boundary (#665)
+        # Pins separate readiness/authorization fields, integrity-only verdict
+        # scope, the institution-owned pathway value, fixed footer, and the
+        # byte-stable existing Ethics Decision Log. Mutation tests run through
+        # the unified pytest manifest above.
+        run: python3 scripts/check_human_subjects_output_contract.py
+
+      - name: Check bibliographic-integrity signal contract (#678)
+        # Validates the canonical schema + #651/#660 round-trip fixtures and
+        # locks the finalizer/formatter to the one-summary-section,
+        # no-new-marker-token migration boundary. Mutation tests run through
+        # the unified pytest manifest above.
+        run: python3 scripts/check_bibliographic_integrity_signals.py
 
       - name: Run v3.9.2 Phase Boundary coverage lint (#133)
         # Enforces 22 Bucket A agents have ## Phase Boundary (v3.9.2)

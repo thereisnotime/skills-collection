@@ -39,11 +39,13 @@ import base64
 import tempfile
 import json
 import statistics
+import threading
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 import asyncio
 
@@ -98,12 +100,33 @@ try:
     from cloud.billing import (
         is_billing_configured, create_checkout_session,
         handle_webhook_event, create_portal_session,
+        get_subscription_status,
     )
     from cloud.db import get_conn as db_get_conn, run_migrations, scoped
     from cloud.quotas import QuotaExceeded, check_quota
     CLOUD_AVAILABLE = True
 except ImportError:
     CLOUD_AVAILABLE = False
+
+# ─── Refuse to serve production traffic on development defaults ───
+# Every default in cloud/config.py is chosen for local development, and each
+# one fails INVISIBLY in production: the server boots and looks healthy while
+# signing forgeable session tokens or writing accounts to a disk the next
+# deploy discards. A smoke test passes either way, which is exactly why this
+# has to be checked at boot rather than noticed later.
+if CLOUD_AVAILABLE:
+    from cloud.config import UnsafeProductionConfig, validate_production
+
+    _config_problems = validate_production(cloud_settings)
+    if _config_problems:
+        print("\nREFUSING TO START — SCORER_ENV=production with unsafe configuration:")
+        for _problem in _config_problems:
+            print(f"  - {_problem}")
+        print(
+            "\nSet the named variables (fly secrets set ...) and redeploy. "
+            "See the owner checklist in docs/superpowers/plans/private-layer-notes.md.\n"
+        )
+        raise UnsafeProductionConfig("; ".join(_config_problems))
 
 # ─── Run database migrations at startup (graceful on failure) ───
 if CLOUD_AVAILABLE:
@@ -120,6 +143,29 @@ if CLOUD_AVAILABLE:
         if _mig_conn is not None:
             try:
                 _mig_conn.close()
+            except Exception:
+                pass
+
+# ─── Reap agent runs orphaned by the previous process ───
+# Runs execute in-process via BackgroundTasks, so any row still 'queued' or
+# 'running' at boot belonged to the process this one replaced and will never
+# advance. Left alone it polls as "queued" forever AND keeps occupying a paid
+# monthly slot, because quota counts every row that is not 'failed'. Separate
+# from the migration block above: different concern, different failure mode.
+# See agent.runner.reap_orphaned_runs for the single-owner assumption.
+if CLOUD_AVAILABLE:
+    _reap_conn = None
+    try:
+        _reap_conn = db_get_conn(cloud_settings.DB_PATH)
+        _reaped = agent_runner.reap_orphaned_runs(_reap_conn)
+        if _reaped:
+            print(f"Failed {_reaped} agent run(s) orphaned by the previous process.")
+    except Exception as e:
+        print(f"Warning: could not reap orphaned agent runs: {e}")
+    finally:
+        if _reap_conn is not None:
+            try:
+                _reap_conn.close()
             except Exception:
                 pass
 
@@ -154,6 +200,55 @@ else:
 _api_keys: Dict[str, Dict[str, Any]] = {}  # key -> {tier, daily_count, last_reset}
 _rate_limits: Dict[str, List[float]] = defaultdict(list)  # key -> [timestamps]
 _score_cache: Dict[str, Dict[str, Any]] = {}  # hash -> {result, timestamp}
+
+# ─── Concurrency bound for the agent pipeline ───
+# A tailoring run occupies one worker thread for minutes at a time. FastAPI
+# serves every sync handler AND every background task from one threadpool of
+# 40, so without a bound, ~40 simultaneous runs starve everything else --
+# including /health, whose failure has Fly restart the machine and kill every
+# run in flight. Admitting only a few at a time and refusing the rest with a
+# retryable 429 keeps the server answering while it is busy.
+#
+# Sized for the deployed shape (1 shared CPU, 1GB): the work is network-bound
+# on the Anthropic API, so the limit is about memory and leaving threads free,
+# not parallelism.
+MAX_CONCURRENT_AGENT_RUNS = int(os.getenv("SCORER_MAX_CONCURRENT_AGENT_RUNS", "8"))
+_agent_run_slots = threading.BoundedSemaphore(MAX_CONCURRENT_AGENT_RUNS)
+
+_AGENT_BUSY_DETAIL = (
+    "We're finishing a lot of resumes right now. Please try again in a minute."
+)
+
+
+def _acquire_agent_slot() -> None:
+    """Claim a run slot or refuse with 429. Never blocks: a caller made to wait
+    would hold the very thread this bound exists to protect."""
+    if not _agent_run_slots.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail=_AGENT_BUSY_DETAIL)
+
+
+@contextmanager
+def _agent_slot():
+    """Bound one synchronous pipeline call (/rewrite, /cover-letter)."""
+    _acquire_agent_slot()
+    try:
+        yield
+    finally:
+        _agent_run_slots.release()
+
+
+def _in_agent_slot(worker, *args) -> None:
+    """Run a background agent callable, then release its slot.
+
+    The slot is released HERE rather than inside the worker so its lifetime
+    belongs to the scheduling layer, not to one particular worker function.
+    A worker that is replaced, returns early, or raises still gives the slot
+    back; a leak here is permanent, since a BoundedSemaphore never refills.
+    """
+    try:
+        worker(*args)
+    finally:
+        _agent_run_slots.release()
 
 
 # =============================================================================
@@ -237,6 +332,7 @@ class TrackerAddRequest(BaseModel):
     notes: str = Field("", description="Notes")
     applied_at: Optional[str] = Field(None, description="Date the application was submitted (ISO date/datetime)")
     jd_ref: Optional[str] = Field(None, description="Reference/filename for the job description used")
+    jd_text: Optional[str] = Field(None, description="Full job description text — feeds /agent/tailor's application_id path")
     target_tier: Optional[str] = Field(None, description="IC | Sr | Manager | AD | Director")
     fit_label: Optional[str] = Field(None, description="MEETS | STRETCH | MISS (from job_fit_scorer)")
     hard_reqs_missed: Optional[int] = Field(None, description="Count of hard-requirement knockouts at apply time")
@@ -251,10 +347,39 @@ class TrackerUpdateRequest(BaseModel):
     cover_letter_file: Optional[str] = None
     applied_at: Optional[str] = None
     jd_ref: Optional[str] = None
+    jd_text: Optional[str] = None
     target_tier: Optional[str] = None
     fit_label: Optional[str] = None
     hard_reqs_missed: Optional[int] = None
     referral_source: Optional[str] = None
+
+
+_PROFILE_TEXT_FIELDS = (
+    "full_name", "email", "phone", "city", "state", "postcode", "country",
+    "linkedin_url", "portfolio_url", "work_authorization", "notice_period",
+    "desired_salary",
+)
+
+
+class ProfileUpdateRequest(BaseModel):
+    """Application-assist profile: what job forms ask for, stored once.
+
+    PUT semantics are full-replace: omitted fields reset to their defaults.
+    Never add government IDs, date of birth, or anything sensitive here.
+    """
+    full_name: str = Field("", max_length=1000)
+    email: str = Field("", max_length=1000)
+    phone: str = Field("", max_length=1000)
+    city: str = Field("", max_length=1000)
+    state: str = Field("", max_length=1000)
+    postcode: str = Field("", max_length=1000)
+    country: str = Field("", max_length=1000)
+    linkedin_url: str = Field("", max_length=1000)
+    portfolio_url: str = Field("", max_length=1000)
+    work_authorization: str = Field("", max_length=1000)
+    notice_period: str = Field("", max_length=1000)
+    desired_salary: str = Field("", max_length=1000)
+    references_on_request: bool = False
 
 
 # Tracker classification whitelists. SQLite ALTER TABLE cannot add CHECK
@@ -520,12 +645,25 @@ async def verify_api_key(request: Request):
             raise HTTPException(status_code=401, detail="Invalid or expired JWT token.")
 
         user_id = payload["sub"]
-        tier = payload.get("tier", "free")
+
+        # The token's own "tier" claim is NOT trusted. Tokens live 30 days
+        # (SCORER_JWT_EXPIRE_HOURS defaults to 720) and there is no refresh or
+        # revocation, so a claim minted at login goes stale in both directions:
+        # a canceled subscriber kept paid access for the rest of the month, and
+        # someone who had just paid stayed locked out until they happened to log
+        # in again -- and, because /billing/checkout read the same stale claim,
+        # could be sold a second concurrent subscription. The users row is the
+        # single source of truth for entitlement; this is one indexed primary-key
+        # read against a local SQLite file.
+        user = get_user_by_id(user_id)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Invalid or expired JWT token.")
+        tier = user["tier"]
 
         if not _check_rate_limit(str(user_id)):
             raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again in 60 seconds.")
 
-        return {"user_id": user_id, "tier": tier, "email": payload.get("email", "")}
+        return {"user_id": user_id, "tier": tier, "email": user["email"]}
 
     # Try API key (cloud SQLite-backed)
     api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
@@ -1435,13 +1573,21 @@ def admin_set_tier(req: SetTierRequest, request: Request):
     """Update a user's tier. Protected by admin secret."""
     _verify_admin_secret(request)
     from cloud.auth import get_db
-    db = get_db()
-    row = db.execute("SELECT id, email, tier FROM users WHERE email = ?", (req.email.lower().strip(),)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail=f"User {req.email} not found.")
-    old_tier = row["tier"]
-    db.execute("UPDATE users SET tier = ?, updated_at = datetime('now') WHERE id = ?", (req.tier, row["id"]))
-    db.commit()
+    # get_db is a @contextmanager -- it must be entered. Called bare it returns
+    # the context manager itself, whose .execute() raises AttributeError, so
+    # this endpoint 500'd on every call and its remediation path did not exist.
+    with get_db() as db:
+        row = db.execute(
+            "SELECT id, email, tier FROM users WHERE email = ?",
+            (req.email.lower().strip(),),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"User {req.email} not found.")
+        old_tier = row["tier"]
+        db.execute(
+            "UPDATE users SET tier = ?, updated_at = datetime('now') WHERE id = ?",
+            (req.tier, row["id"]),
+        )
     return {"email": row["email"], "old_tier": old_tier, "new_tier": req.tier}
 
 
@@ -1525,7 +1671,28 @@ def billing_checkout(req: CheckoutRequest = None, auth=Depends(verify_api_key)):
     if tier_rank.get(current_tier, 0) >= tier_rank.get(target_tier, 0):
         return {"message": f"Already on {current_tier.title()} tier."}
 
-    result = create_checkout_session(auth["user_id"], auth["email"], tier=target_tier)
+    # Bind the session to the existing Stripe customer when there is one, so a
+    # second checkout reuses that customer instead of creating a duplicate.
+    # Stripe itself is the authority on whether they are already paying: if the
+    # tier check above passed on a stale local row (an upgrade webhook that
+    # never landed), selling another subscription would double-bill them.
+    user = get_user_by_id(auth["user_id"])
+    existing_customer = (user or {}).get("stripe_customer_id") or ""
+    if existing_customer:
+        status = get_subscription_status(existing_customer)
+        if status and status.get("status") == "active":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "You already have an active subscription. Manage it from "
+                    "your account instead of starting a new one."
+                ),
+            )
+
+    result = create_checkout_session(
+        auth["user_id"], auth["email"], tier=target_tier,
+        stripe_customer_id=existing_customer,
+    )
     if not result or "error" in result:
         raise HTTPException(status_code=500, detail=result.get("error", "Failed to create checkout session."))
     return result
@@ -1541,15 +1708,43 @@ async def billing_webhook(request: Request):
     sig = request.headers.get("stripe-signature", "")
 
     result = handle_webhook_event(payload, sig)
+    action = result["action"]
 
-    if result["action"] == "upgrade":
+    # Idempotency. Stripe retries until it gets a 2xx and guarantees no
+    # ordering, so the same event can arrive twice and a stale one can arrive
+    # after a newer one. Claiming the id first means a replay is a no-op --
+    # without it, a redelivered past_due could downgrade someone who has
+    # since recovered. Claimed only for events that actually change state.
+    event_id = result.get("event_id") or ""
+    if action != "none" and event_id:
+        import sqlite3
+
+        from cloud.auth import get_db
+        try:
+            with get_db() as conn:
+                conn.execute(
+                    "INSERT INTO stripe_events (event_id) VALUES (?)", (event_id,)
+                )
+        except sqlite3.IntegrityError:
+            return {"status": "ignored", "reason": "duplicate event"}
+
+    if action == "upgrade":
         update_user_tier(
             result["user_id"], result["tier"],
             result.get("stripe_customer_id"), result.get("stripe_subscription_id"),
         )
         return {"status": "upgraded", "user_id": result["user_id"]}
 
-    elif result["action"] == "downgrade":
+    elif action == "restore":
+        # A recovered subscription (a retried card that finally cleared).
+        customer_id = result.get("stripe_customer_id", "")
+        user = get_user_by_stripe_customer_id(customer_id) if customer_id else None
+        if user:
+            update_user_tier(user["id"], result.get("tier", "pro"), customer_id, None)
+            return {"status": "restored", "user_id": user["id"], "tier": result.get("tier")}
+        return {"status": "restore_failed", "reason": "User not found for customer"}
+
+    elif action == "downgrade":
         customer_id = result.get("stripe_customer_id", "")
         user = get_user_by_stripe_customer_id(customer_id) if customer_id else None
         if user:
@@ -1581,8 +1776,15 @@ def billing_portal(auth=Depends(verify_api_key)):
 # =============================================================================
 
 @app.post("/score/llm")
-async def score_llm(req: ScoreRequest, api_key: str = Depends(verify_api_key_with_usage)):
-    """Score resume using LLM-augmented scorer (Claude)."""
+def score_llm(req: ScoreRequest, api_key: str = Depends(verify_api_key_with_usage)):
+    """Score resume using LLM-augmented scorer (Claude).
+
+    Deliberately a plain ``def``: score_with_llm below is a blocking network
+    call. Declared ``async``, it would run on the event loop and stall every
+    other request -- including /health, whose failure has Fly restart the
+    machine -- for the length of the call. FastAPI runs a sync handler in its
+    worker threadpool instead.
+    """
     try:
         from llm_scorer import score_with_llm, ANTHROPIC_AVAILABLE
     except ImportError:
@@ -1757,7 +1959,7 @@ def _safe_agent_scores(ctx: "agent_tools.ToolContext", resume_text: str, jd_text
 
 
 @app.post("/rewrite")
-async def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
+def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
     """
     Tailor the caller's resume via the audited four-role Resume Team pipeline
     (agent.tools.run_resume_team) and return it in the legacy REST shape the
@@ -1770,6 +1972,12 @@ async def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key
     no resume text is available from either the request or the account, and
     a 5xx with no internal error codes if the pipeline runs but does not
     publish a draft.
+
+    Deliberately a plain ``def``: run_resume_team blocks for minutes on
+    synchronous API calls. Declared ``async``, it would run on the event loop
+    and freeze every other request -- including /health, whose failure has Fly
+    restart the machine mid-run. FastAPI runs a sync handler in its worker
+    threadpool instead.
     """
     if not CLOUD_AVAILABLE or not isinstance(auth, dict):
         raise HTTPException(
@@ -1813,33 +2021,36 @@ async def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key
             )
         source_resume_text = record["resume_text"]
 
-    conn = db_get_conn(cloud_settings.DB_PATH)
-    try:
-        ctx = agent_tools.ToolContext(
-            user_id=user_id, tier=tier, conn=conn, run_id=str(uuid.uuid4())
-        )
+    # Bound before opening a connection or claiming quota: a request refused
+    # for load must cost the caller nothing.
+    with _agent_slot():
+        conn = db_get_conn(cloud_settings.DB_PATH)
         try:
-            result = agent_tools.dispatch(
-                "run_resume_team",
-                ctx,
-                jd_text=jd_text,
-                resume_text=provided_resume or None,
+            ctx = agent_tools.ToolContext(
+                user_id=user_id, tier=tier, conn=conn, run_id=str(uuid.uuid4())
             )
-        except QuotaExceeded as exc:
-            raise HTTPException(status_code=402, detail=exc.detail)
-        except HTTPException:
-            raise
-        except Exception:
-            raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
+            try:
+                result = agent_tools.dispatch(
+                    "run_resume_team",
+                    ctx,
+                    jd_text=jd_text,
+                    resume_text=provided_resume or None,
+                )
+            except QuotaExceeded as exc:
+                raise HTTPException(status_code=402, detail=exc.detail)
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
 
-        if result.get("status") != "succeeded" or not result.get("draft"):
-            raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
+            if result.get("status") != "succeeded" or not result.get("draft"):
+                raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
 
-        draft_text = result["draft"]
-        ats_before, hr_before = _safe_agent_scores(ctx, source_resume_text, jd_text)
-        ats_after, hr_after = _safe_agent_scores(ctx, draft_text, jd_text)
-    finally:
-        conn.close()
+            draft_text = result["draft"]
+            ats_before, hr_before = _safe_agent_scores(ctx, source_resume_text, jd_text)
+            ats_after, hr_after = _safe_agent_scores(ctx, draft_text, jd_text)
+        finally:
+            conn.close()
 
     return JSONResponse(content={
         "rewritten_resume": draft_text,
@@ -1862,7 +2073,7 @@ _COVER_LETTER_UNAVAILABLE_DETAIL = (
 
 
 @app.post("/cover-letter")
-async def cover_letter_endpoint(req: CoverLetterRequest, auth=Depends(verify_api_key_with_usage)):
+def cover_letter_endpoint(req: CoverLetterRequest, auth=Depends(verify_api_key_with_usage)):
     """Generate a tailored cover letter via agent.tools.run_cover_letter.
 
     Requires Pro or Ultra tier. Response shape is unchanged from the prior
@@ -1872,6 +2083,9 @@ async def cover_letter_endpoint(req: CoverLetterRequest, auth=Depends(verify_api
     "paragraphs" in the response) keep working. Quota is now enforced (Pro:
     30/month, Ultra: 1000/month -- see cloud/quotas.py) and every run is
     recorded in agent_runs, matching /rewrite.
+
+    Plain ``def`` for the same reason as /rewrite above: the work below blocks
+    on synchronous API calls and must not occupy the event loop.
     """
     if not CLOUD_AVAILABLE or not isinstance(auth, dict):
         raise HTTPException(
@@ -1902,25 +2116,26 @@ async def cover_letter_endpoint(req: CoverLetterRequest, auth=Depends(verify_api
 
     _log_score_usage(auth, "/cover-letter")
 
-    conn = db_get_conn(cloud_settings.DB_PATH)
-    try:
-        ctx = agent_tools.ToolContext(
-            user_id=user_id, tier=tier, conn=conn, run_id=str(uuid.uuid4())
-        )
+    with _agent_slot():
+        conn = db_get_conn(cloud_settings.DB_PATH)
         try:
-            result = agent_tools.dispatch(
-                "run_cover_letter", ctx,
-                jd_text=jd_text, company=req.company_name, title=req.job_title,
-                resume_text=provided_resume or None,
+            ctx = agent_tools.ToolContext(
+                user_id=user_id, tier=tier, conn=conn, run_id=str(uuid.uuid4())
             )
-        except QuotaExceeded as exc:
-            raise HTTPException(status_code=402, detail=exc.detail)
-        except HTTPException:
-            raise
-        except Exception:
-            raise HTTPException(status_code=502, detail=_COVER_LETTER_UNAVAILABLE_DETAIL)
-    finally:
-        conn.close()
+            try:
+                result = agent_tools.dispatch(
+                    "run_cover_letter", ctx,
+                    jd_text=jd_text, company=req.company_name, title=req.job_title,
+                    resume_text=provided_resume or None,
+                )
+            except QuotaExceeded as exc:
+                raise HTTPException(status_code=402, detail=exc.detail)
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(status_code=502, detail=_COVER_LETTER_UNAVAILABLE_DETAIL)
+        finally:
+            conn.close()
 
     if result.get("status") != "succeeded" or not result.get("full_text"):
         raise HTTPException(status_code=502, detail=_COVER_LETTER_UNAVAILABLE_DETAIL)
@@ -1977,12 +2192,11 @@ def _resolve_agent_jd_text(user_id: int, jd_text: Optional[str], application_id:
     """Resolve the job description text for an async /agent/* enqueue call.
 
     Prefers an explicit ``jd_text``. Falls back to ``application_id``, read
-    scoped to the caller from job_applications.jd_ref -- the only
-    per-application job-description reference the schema stores today (see
-    cloud/db.py's job_applications table). This is a known v1
-    simplification: jd_ref is documented elsewhere as a bare
-    filename/reference rather than guaranteed full JD text, so this path
-    only helps a caller that has actually stored real text there itself.
+    scoped to the caller from job_applications.jd_text — the full stored JD
+    text. ``jd_ref`` is never used here: it is a bare filename/reference
+    ("job_description.txt"), and tailoring against it would burn a quota
+    slot producing garbage, so a row without stored text is refused with a
+    clear 400 instead.
     """
     text = (jd_text or "").strip()
     if text:
@@ -1993,18 +2207,22 @@ def _resolve_agent_jd_text(user_id: int, jd_text: Optional[str], application_id:
     conn = db_get_conn(cloud_settings.DB_PATH)
     try:
         row = scoped(conn, user_id).q(
-            "SELECT jd_ref FROM job_applications WHERE id = :application_id AND user_id = :user_id",
+            "SELECT jd_text FROM job_applications WHERE id = :application_id AND user_id = :user_id",
             {"application_id": application_id},
         ).fetchone()
     finally:
         conn.close()
     if row is None:
         raise HTTPException(status_code=404, detail="Application not found.")
-    stored = (row["jd_ref"] or "").strip()
+    stored = (row["jd_text"] or "").strip()
     if not stored:
         raise HTTPException(
             status_code=400,
-            detail="No job description is stored for this application. Provide jd_text.",
+            detail=(
+                "No job description text is stored for this application "
+                "(only a filename reference, if anything). Provide jd_text, "
+                "or update the application with the full text first."
+            ),
         )
     return stored
 
@@ -2036,19 +2254,13 @@ def _reserve_agent_run_slot(
     input_ref = multi_agent_team.canonical_digest(jd_text)
     conn = db_get_conn(cloud_settings.DB_PATH)
     try:
-        conn.commit()  # ensure no implicit transaction is already open
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            check_quota(conn, user_id, tier, action)
-            agent_tools._insert_agent_run(
-                conn, user_id, run_id, action,
-                input_ref=input_ref,
-                instruction=instruction,
-            )
-            conn.commit()
-        except BaseException:
-            conn.rollback()
-            raise
+        # The transaction itself lives in agent.tools.reserve_run_slot, which
+        # the synchronous /rewrite and /cover-letter paths share -- they had
+        # the same double-spend hole and must not drift from this one.
+        agent_tools.reserve_run_slot(
+            conn, user_id, tier, action, run_id,
+            input_ref=input_ref, instruction=instruction,
+        )
     except QuotaExceeded as exc:
         raise HTTPException(status_code=402, detail=exc.detail)
     finally:
@@ -2174,12 +2386,19 @@ def agent_tailor_enqueue(
         )
 
     run_id = agent_runner.new_run_id()
-    _reserve_agent_run_slot(user_id, tier, "tailor", run_id, jd_text, req.instruction)
-
-    background_tasks.add_task(
-        _run_tailor_in_background,
-        run_id, user_id, tier, jd_text, req.instruction, provided_resume or None,
-    )
+    # Claim a concurrency slot BEFORE the quota slot, so a request refused for
+    # load is free: no agent_runs row, nothing counted against the plan. The
+    # background task releases it in its finally.
+    _acquire_agent_slot()
+    try:
+        _reserve_agent_run_slot(user_id, tier, "tailor", run_id, jd_text, req.instruction)
+        background_tasks.add_task(
+            _in_agent_slot, _run_tailor_in_background,
+            run_id, user_id, tier, jd_text, req.instruction, provided_resume or None,
+        )
+    except BaseException:
+        _agent_run_slots.release()  # nothing will run, so nothing will release it
+        raise
     return JSONResponse(status_code=202, content={"run_id": run_id})
 
 
@@ -2203,14 +2422,19 @@ def agent_cover_letter_enqueue(
         )
 
     run_id = agent_runner.new_run_id()
-    _reserve_agent_run_slot(user_id, tier, "cover_letter", run_id, jd_text, None)
-    _log_score_usage(auth, "/agent/cover-letter")
+    _acquire_agent_slot()  # see agent_tailor_enqueue: refuse-for-load costs nothing
+    try:
+        _reserve_agent_run_slot(user_id, tier, "cover_letter", run_id, jd_text, None)
+        _log_score_usage(auth, "/agent/cover-letter")
 
-    background_tasks.add_task(
-        _run_cover_letter_in_background,
-        run_id, user_id, tier, jd_text, provided_resume or None,
-        req.company_name or None, req.job_title or None,
-    )
+        background_tasks.add_task(
+            _in_agent_slot, _run_cover_letter_in_background,
+            run_id, user_id, tier, jd_text, provided_resume or None,
+            req.company_name or None, req.job_title or None,
+        )
+    except BaseException:
+        _agent_run_slots.release()
+        raise
     return JSONResponse(status_code=202, content={"run_id": run_id})
 
 
@@ -2361,6 +2585,8 @@ def fetch_jd_endpoint(req: FetchJDRequest, api_key=Depends(verify_api_key)):
 
     try:
         raw_text = jd_fetcher.fetch_jd_from_url(req.url)
+    except jd_fetcher.BlockedURLError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Scraping failed: {str(e)}")
 
@@ -2405,12 +2631,12 @@ def tracker_add(req: TrackerAddRequest, auth=Depends(verify_api_key)):
             """INSERT INTO job_applications
                (user_id, company, job_title, status, resume_file, cover_letter_file,
                 ats_score, hr_score, llm_score, notes,
-                applied_at, jd_ref, target_tier, fit_label, hard_reqs_missed, referral_source)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                applied_at, jd_ref, jd_text, target_tier, fit_label, hard_reqs_missed, referral_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_id, req.company, req.job_title, req.status,
              req.resume_file, req.cover_letter_file,
              req.ats_score, req.hr_score, req.llm_score, req.notes,
-             req.applied_at, req.jd_ref, req.target_tier, req.fit_label,
+             req.applied_at, req.jd_ref, req.jd_text, req.target_tier, req.fit_label,
              req.hard_reqs_missed, req.referral_source),
         )
         return {"id": cur.lastrowid, "status": "added"}
@@ -2462,6 +2688,8 @@ def tracker_update(entry_id: int, req: TrackerUpdateRequest, auth=Depends(verify
         updates["applied_at"] = req.applied_at
     if req.jd_ref is not None:
         updates["jd_ref"] = req.jd_ref
+    if req.jd_text is not None:
+        updates["jd_text"] = req.jd_text
     if req.target_tier is not None:
         updates["target_tier"] = req.target_tier
     if req.fit_label is not None:
@@ -2581,6 +2809,65 @@ def tracker_outcome(entry_id: int, req: TrackerOutcomeRequest, auth=Depends(veri
         )
 
     return {"id": entry_id, "status": "outcome_recorded", "new_status": new_status}
+
+
+# =============================================================================
+# APPLICATION-ASSIST PROFILE
+# =============================================================================
+
+@app.get("/profile")
+def profile_get(auth=Depends(verify_api_key)):
+    """The caller's application profile, or {"profile": null} if never saved."""
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Profile unavailable — cloud auth not configured.")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        row = scoped(conn, user_id).q(
+            "SELECT * FROM user_profile WHERE user_id = :user_id", {}
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return {"profile": None}
+    profile = {k: row[k] for k in _PROFILE_TEXT_FIELDS}
+    profile["references_on_request"] = bool(row["references_on_request"])
+    profile["updated_at"] = row["updated_at"]
+    return {"profile": profile}
+
+
+@app.put("/profile")
+def profile_put(req: ProfileUpdateRequest, auth=Depends(verify_api_key)):
+    """Full-replace upsert of the caller's application profile."""
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Profile unavailable — cloud auth not configured.")
+    params = {f: getattr(req, f) for f in _PROFILE_TEXT_FIELDS}
+    params["references_on_request"] = int(req.references_on_request)
+    params["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        scoped(conn, user_id).q(
+            """
+            INSERT OR REPLACE INTO user_profile
+                (user_id, full_name, email, phone, city, state, postcode, country,
+                 linkedin_url, portfolio_url, work_authorization, notice_period,
+                 desired_salary, references_on_request, updated_at)
+            VALUES
+                (:user_id, :full_name, :email, :phone, :city, :state, :postcode, :country,
+                 :linkedin_url, :portfolio_url, :work_authorization, :notice_period,
+                 :desired_salary, :references_on_request, :updated_at)
+            """,
+            params,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "saved"}
 
 
 # =============================================================================

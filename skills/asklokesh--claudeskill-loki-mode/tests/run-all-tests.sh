@@ -264,6 +264,18 @@ run_test "Sentrux Init-Rules (Dev3)" "$SCRIPT_DIR/test-sentrux-init-rules.sh"
 run_test "Doctor JSON Sentrux Parity (Dev4)" "$SCRIPT_DIR/test-doctor-json-sentrux.sh"
 run_test "Receipt Signing Discoverability" "$SCRIPT_DIR/test-receipt-signing-discoverability.sh"
 run_test "Dashboard Nav UAT (Dev5)" "$SCRIPT_DIR/test-dashboard-nav-uat.sh"
+run_test "dashboard bundle stays within its measured budget" "$SCRIPT_DIR/test-dashboard-bundle-budget.sh"
+run_test "exposed dashboard bind requires auth (#188)" "$SCRIPT_DIR/test-dashboard-bind-auth-guard.sh"
+run_test "per-job receipt attestation (signed JWT + JWKS)" "$SCRIPT_DIR/test-receipt-jwt-attestation.sh"
+run_test "remote receipt attestation verdict (JWKS)" "$SCRIPT_DIR/test-remote-attestation-verdict.sh"
+run_test "proof verify --jwks (third-party offline)" "$SCRIPT_DIR/test-proof-verify-jwks.sh"
+run_test "worker autoscaling on queue depth" "$SCRIPT_DIR/test-worker-autoscaling.sh"
+run_test "helm receipt signing (receiver only)" "$SCRIPT_DIR/test-helm-receipt-signing.sh"
+run_test "compose receipt signing (opt-in, default intact)" "$SCRIPT_DIR/test-compose-receipt-signing.sh"
+run_test "head-to-head corpus honesty" "$SCRIPT_DIR/test-headtohead-honesty.sh"
+run_test "A/B analysis honesty (tiny-n statistics)" "$SCRIPT_DIR/test-ab-analysis-honesty.sh"
+run_test "webapp receipt panel renders (real browser)" "$SCRIPT_DIR/../scripts/run-webapp-receipt-panel.sh"
+run_test "local receipt attestation" "$SCRIPT_DIR/test-local-receipt-attestation.sh"
 run_test "Pytest Gate Timeout (Dev6)" "$SCRIPT_DIR/test-pytest-gate-timeout.sh"
 run_test "Go/Cargo Gate Timeout" "$SCRIPT_DIR/test-go-cargo-gate-timeout.sh"
 # Python tests (Dev2 + Dev7) -- registered via tiny wrapper scripts so the
@@ -462,6 +474,13 @@ run_test "Build Analytics Opt-In (strict gate + allowlist, no leak)" "$SCRIPT_DI
 # NEVER git push). Drives the real binary with fake cloud-CLI stubs; headline
 # proves non-execution + CI/CD git-advice precedence over cloud options.
 run_test "Deploy advisory (print-only, CI/CD precedence)" "$SCRIPT_DIR/test-deploy.sh"
+
+# Receipt-gated deploy: `loki deploy --execute` runs a deploy ONLY when a
+# VERIFIED Evidence Receipt authorizes THIS tree (hash_ok + VERIFIED verdict +
+# anchor to HEAD + clean tree + per-invocation opt-in), and fails closed on any
+# check it cannot evaluate. Includes the POSITIVE CONTROL that stops the gate
+# from passing by refusing everything, and the destructive/git-push limits.
+run_test "Deploy receipt gate (--execute authorization)" "$SCRIPT_DIR/test-deploy-receipt-gate.sh"
 
 # Unified config-file (#691): `loki start --config <path>` (.env/YAML/JSON), the
 # locked precedence ladder (--config beats ambient env -- the keystone), ${VAR}
@@ -750,6 +769,7 @@ run_test "silence report (longest in-build gap, idle excluded)" "$SCRIPT_DIR/tes
 run_test "free on-ramp stays wired (codex, zero API spend)" "$SCRIPT_DIR/test-free-onramp.sh"
 run_test "argv seam model flags (all providers; codex effort, max-tier clamp)" "$SCRIPT_DIR/test-codex-argv-model.sh"
 run_test "helm values schema rejects bad values by name" "$SCRIPT_DIR/test-helm-values-schema.sh"
+run_test "helm worker scaling knob and tenancy invariant" "$SCRIPT_DIR/test-helm-worker-scaling.sh"
 run_test "helm test hook proves the release serves" "$SCRIPT_DIR/test-helm-test-hook.sh"
 run_test "ECS/Fargate module structure + Helm parity" "$SCRIPT_DIR/test-ecs-fargate-module.sh"
 run_test "audit PVC can outlive the release (compliance)" "$SCRIPT_DIR/test-audit-pvc-retention.sh"
@@ -777,6 +797,7 @@ run_test "gate detectors ship in the npm package" "$SCRIPT_DIR/test-detectors-ar
 run_test "runtime python libs ship in the npm package" "$SCRIPT_DIR/test-runtime-libs-are-packaged.sh"
 run_test "packaged MCP server exposes the exact tool surface" "$SCRIPT_DIR/test-mcp-tool-surface-packaged.sh"
 run_test "MCP contract guard rejects rename/deletion/missing prereqs" "$SCRIPT_DIR/test-mcp-tool-surface-guard-rejects.sh"
+run_test "npm SBOM is attached to the GitHub Release" "$SCRIPT_DIR/test-release-sbom-attached.sh"
 run_test "loki why maps each error class to an action" "$SCRIPT_DIR/test-why-actions.sh"
 run_test "loki start surfaces a stale install" "$SCRIPT_DIR/test-start-update-hint.sh"
 run_test "loki help does not recurse into itself" "$SCRIPT_DIR/test-help-no-recursion.sh"
@@ -813,6 +834,8 @@ run_test "model catalog: no tier points at a superseded flagship" "$SCRIPT_DIR/t
 run_test "model catalog staleness is advisory in doctor" "$SCRIPT_DIR/test-model-catalog-staleness.sh"
 run_test "doctor blocker parity (both routes name blockers + offer loki tour)" "$SCRIPT_DIR/test-doctor-blocker-parity.sh"
 run_test "first_run_blocked signal (opt-out silent, enum-clamped)" "$SCRIPT_DIR/test-first-run-blocked-signal.sh"
+run_test "a green doctor never recommends a command that exits 2" "$SCRIPT_DIR/test-doctor-next-recommendation.sh"
+run_test "analytics opt-in has a writer (the funnel can fire)" "$SCRIPT_DIR/test-telemetry-analytics-toggle.sh"
 run_test "help discoverability (every command reachable)" "$SCRIPT_DIR/test-help-discoverability.sh"
 run_test "assess runtime detection (declared, never guessed)" "$SCRIPT_DIR/test-assess-runtime-detection.sh"
 run_test "provider model scoping (global tier var must not leak)" "$SCRIPT_DIR/test-provider-model-scoping.sh"

@@ -11725,8 +11725,8 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 562,
-      "words": 4035,
+      "lines": 567,
+      "words": 4127,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -11850,11 +11850,11 @@
     },
     {
       "name": "ars-revision-coach",
-      "description": "ARS academic-paper `revision-coach` mode \u2014 Revision Roadmap + Response Letter Skeleton",
+      "description": "ARS academic-paper `revision-coach` \u2014 peer-review roadmap or source-accounted real-committee response skeleton",
       "path": "Imbad0202--academic-research-skills/commands/ars-revision-coach.md",
       "remote_path": "commands/ars-revision-coach.md",
       "lines": 10,
-      "words": 81,
+      "words": 131,
       "code_blocks": 0,
       "languages": []
     },
@@ -11923,8 +11923,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 501,
-      "words": 5657,
+      "lines": 508,
+      "words": 5745,
       "code_blocks": 4,
       "languages": []
     },
@@ -11933,8 +11933,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/agents/research_architect_agent.md",
       "remote_path": "agents/research_architect_agent.md",
-      "lines": 234,
-      "words": 1996,
+      "lines": 250,
+      "words": 2487,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12005,8 +12005,8 @@
       "description": "\"Research ethics self-check (before a human committee/IRB, not a replacement); confirms Critical integrity concerns before delivery \u2014 stops the user once, overridable, never a veto\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/ethics_review_agent.md",
       "remote_path": "deep-research/agents/ethics_review_agent.md",
-      "lines": 198,
-      "words": 1591,
+      "lines": 238,
+      "words": 2203,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12017,8 +12017,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/research_architect_agent.md",
       "remote_path": "deep-research/agents/research_architect_agent.md",
-      "lines": 234,
-      "words": 1996,
+      "lines": 250,
+      "words": 2487,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12065,8 +12065,8 @@
       "description": "\"Systematic literature search and curation; identifies, annotates, and formats sources in APA 7.0\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/bibliography_agent.md",
       "remote_path": "deep-research/agents/bibliography_agent.md",
-      "lines": 440,
-      "words": 3893,
+      "lines": 464,
+      "words": 4045,
       "code_blocks": 10,
       "languages": [
         "markdown",
@@ -12141,7 +12141,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "lines": 381,
-      "words": 4186,
+      "words": 4210,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12165,7 +12165,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "lines": 403,
-      "words": 5666,
+      "words": 5690,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12189,7 +12189,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "lines": 366,
-      "words": 4184,
+      "words": 4208,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12201,7 +12201,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "lines": 399,
-      "words": 5662,
+      "words": 5686,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12213,7 +12213,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
       "lines": 292,
-      "words": 3611,
+      "words": 3635,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12235,8 +12235,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 1004,
-      "words": 17313,
+      "lines": 1072,
+      "words": 18011,
       "code_blocks": 18,
       "languages": []
     },
@@ -12267,8 +12267,8 @@
       "description": "\"Verifies all references, citations, and data for factual accuracy before submission and after revision\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
-      "lines": 746,
-      "words": 7963,
+      "lines": 808,
+      "words": 8531,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -12290,11 +12290,11 @@
     },
     {
       "name": "revision_coach_agent",
-      "description": "\"Parses reviewer comments and builds the structured revision plan for the author\"",
+      "description": "\"Parses reviewer or real-committee comments into source-accounted plans and response skeletons\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/revision_coach_agent.md",
       "remote_path": "academic-paper/agents/revision_coach_agent.md",
-      "lines": 323,
-      "words": 2438,
+      "lines": 339,
+      "words": 2535,
       "code_blocks": 4,
       "languages": [
         "markdown",
@@ -12358,8 +12358,8 @@
       "description": "\"Conducts the paper configuration interview and produces the Paper Configuration Record for downstream agents\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/intake_agent.md",
       "remote_path": "academic-paper/agents/intake_agent.md",
-      "lines": 341,
-      "words": 3135,
+      "lines": 360,
+      "words": 3293,
       "code_blocks": 4,
       "languages": [
         "markdown"
@@ -12397,9 +12397,9 @@
       "description": "\"Simulates peer review to identify weaknesses and suggest improvements before submission\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/peer_reviewer_agent.md",
       "remote_path": "academic-paper/agents/peer_reviewer_agent.md",
-      "lines": 603,
-      "words": 4515,
-      "code_blocks": 11,
+      "lines": 546,
+      "words": 4277,
+      "code_blocks": 10,
       "languages": [
         "markdown"
       ]
@@ -12433,8 +12433,8 @@
       "description": "\"Formats the final manuscript output to target journal style requirements\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
-      "lines": 987,
-      "words": 8377,
+      "lines": 996,
+      "words": 8490,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -12702,6 +12702,19 @@
         "python"
       ],
       "license": "GPLv3 license"
+    },
+    {
+      "name": "ncats-arax",
+      "description": "Queries the NCATS Translator ARAX production API for bounded, typed, provenance-rich one-hop and endpoint-pinned two-hop biomedical knowledge-graph relationships. Use for Biolink-constrained RTX-KG2 l",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/ncats-arax/SKILL.md",
+      "remote_path": "skills/ncats-arax/SKILL.md",
+      "lines": 179,
+      "words": 921,
+      "code_blocks": 6,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "nextflow",
@@ -23391,8 +23404,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 159,
-      "words": 947,
+      "lines": 177,
+      "words": 1211,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -23497,8 +23510,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 159,
-      "words": 947,
+      "lines": 177,
+      "words": 1211,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -26490,6 +26503,16 @@
       "code_blocks": 1,
       "languages": [],
       "license": "Proprietary"
+    },
+    {
+      "name": "doc-refresh",
+      "description": "Refresh a repo's documentation for a live production system \u2014 audit stale docs, rebuild a focused doc set with diagrams, update AI-agent knowledge bases, and improve code-level docstrings",
+      "path": "robertguss--claude-skills/skills/doc-refresh/SKILL.md",
+      "remote_path": "skills/doc-refresh/SKILL.md",
+      "lines": 76,
+      "words": 571,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "code-documenter",
@@ -151649,8 +151672,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1688,
-      "words": 24857,
+      "lines": 1707,
+      "words": 26100,
       "code_blocks": 54,
       "languages": [
         "bash",
@@ -151749,8 +151772,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 1081,
-      "words": 16802,
+      "lines": 1120,
+      "words": 17588,
       "code_blocks": 27,
       "languages": [
         "bash",

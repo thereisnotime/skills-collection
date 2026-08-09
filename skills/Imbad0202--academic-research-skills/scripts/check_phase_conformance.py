@@ -205,6 +205,18 @@ _DISSENT_FIELD_NAMES = frozenset({"dimensionid", "rationale"})
 _MARKUP_SPAN_RE = re.compile(
     r"<[^>]*>|\]\((?:[^()]|\([^()]*\))*\)|\]\[[^\]]*\]|\[[ xX]?\]"
 )
+# Non-comment raw HTML is forbidden only inside the dissent span (#682).
+# Match the opening delimiter rather than requiring a complete tag: CommonMark
+# raw blocks such as a line ending in ``<script`` can still hide the canonical
+# fields below it, and a malformed claimed dissent must abort rather than fall
+# through to the empty-section advisory.  Autolinks such as
+# ``<https://example.test>`` do not match because ``:`` is not a tag-name
+# boundary.  Comment delimiters remain owned by the #613 state machine so its
+# more specific ``[DISSENT-HIDDEN]`` diagnostic keeps precedence.
+_DISSENT_RAW_HTML_RE = re.compile(
+    r"<(?:(?:/?[A-Za-z][A-Za-z0-9-]*)(?=[\s/>]|$)|![A-Za-z]|!\[CDATA\[|\?)",
+    re.IGNORECASE,
+)
 # A block opener, including one behind list or blockquote markers: rendered
 # through CommonMark, `- <!--` opens raw HTML just as a bare `<!--` does, and
 # needs no closer to swallow the rest of the item. The indentation allowances
@@ -278,6 +290,7 @@ class DissentSpan:
 
     lines: list[str]
     hidden_by_comment: list[str]
+    raw_html: list[str]
 
 
 @dataclass
@@ -704,7 +717,8 @@ def _raw_dissent_span(text: str) -> DissentSpan:
     bought only a miss that credits the seat nothing, while agreeing keeps a
     comment opened above the heading from laundering the fields below it.
     """
-    span, hidden_by_comment, inside, commented = [], [], False, False
+    span, hidden_by_comment, raw_html = [], [], []
+    inside, commented = False, False
     paragraph_open = False
     # #613: span-scoped inline comment state. Outside the span, only a
     # block-position opener counts (the #612 model, unchanged, because
@@ -797,6 +811,21 @@ def _raw_dissent_span(text: str) -> DissentSpan:
                 opens_inline = "<!--" in blanked
                 if len(re.findall(r"`+", escaped)) % 2:
                     code_parity_suspect = True
+            # #682: any non-comment raw-HTML tag/delimiter in the dissent
+            # span is out of grammar even when it hides no field.  Scan the
+            # display form after inline-code blanking; fenced examples retain
+            # their previous semantics, and the exact H2 boundaries above
+            # keep the rule span-scoped.  Under cross-line code ambiguity we
+            # take the same abort-direction as the #613 comment guard rather
+            # than letting a malformed tag earn a dissent exemption.
+            if not fenced:
+                html_scan = (
+                    _ESCAPED_BACKTICK_RE.sub("  ", line)
+                    if code_parity_suspect
+                    else _blank_code_spans(line)
+                )
+                if _DISSENT_RAW_HTML_RE.search(html_scan):
+                    raw_html.append(line)
             # Opened up only where a comment actually is. Rewriting every line
             # carrying the tokens would break a canonical `rationale:` that
             # merely mentions them in inline code from matching the
@@ -815,7 +844,7 @@ def _raw_dissent_span(text: str) -> DissentSpan:
                     else _blank_code_spans(line),
                     commented=entered_inline,
                 )
-    return DissentSpan(span, hidden_by_comment)
+    return DissentSpan(span, hidden_by_comment, raw_html)
 
 
 def _empty_dissent_section_diagnostic(raw_span: list[str]) -> str:
@@ -1160,6 +1189,17 @@ def parse_dissent_dimensions(text: str) -> DissentParse:
         candidate for candidate in raw_span
         if _is_dissent_field_shaped(candidate)
     )
+    # Raw HTML owns its own diagnostic even when stripping the tag leaves a
+    # field-shaped line.  Checking it first prevents a ``<span>dimension_id``
+    # wrapper from being mislabeled as comment hiding by the older generic
+    # raw-span occurrence guard.  Comment-only cards never populate this list
+    # and retain the #613 ``[DISSENT-HIDDEN]`` path below.
+    if span.raw_html:
+        raise ConformanceError(
+            "[DISSENT-RAW-HTML: raw HTML tags or delimiters are forbidden "
+            "inside ## Scoring Plan Dissent; put markup mentions in inline "
+            "code]"
+        )
     if any(count > parsed[value] for value, count in hidden.items()):
         # Distinct marker (#613 security round 1, P3): these fields ARE
         # canonical — the failure is that comment markup hides them from

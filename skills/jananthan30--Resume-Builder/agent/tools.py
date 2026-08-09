@@ -124,6 +124,47 @@ def _insert_agent_run(
     conn.commit()
 
 
+def reserve_run_slot(
+    conn: Any,
+    user_id: int,
+    tier: str,
+    action: str,
+    run_id: str,
+    *,
+    input_ref: str = "",
+    instruction: str | None = None,
+) -> None:
+    """Atomically verify quota AND claim the slot, in one write transaction.
+
+    Checking the quota and then inserting the row as two separate autocommitted
+    steps is a double-spend: month_usage() counts agent_runs rows, so every
+    concurrent request that arrives before the first one's INSERT lands reads
+    the same stale count and is admitted. The async enqueue path measured 25
+    accepted against a limit of 10 before it was fixed this way; the
+    synchronous path had the identical hole, with a resume load sitting in the
+    window to widen it.
+
+    BEGIN IMMEDIATE takes SQLite's RESERVED lock up front, so concurrent
+    callers serialize here and each one sees the rows its predecessors claimed.
+
+    Raises QuotaExceeded without leaving a row behind.
+    """
+    from cloud.quotas import check_quota
+
+    conn.commit()  # ensure no implicit transaction is already open
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        check_quota(conn, user_id, tier, action)
+        _insert_agent_run(
+            conn, user_id, run_id, action,
+            input_ref=input_ref, instruction=instruction,
+        )
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+
+
 def _finish_agent_run(
     conn: Any,
     user_id: int,
@@ -280,7 +321,10 @@ def fetch_jd(ctx: ToolContext, url: str, use_ai: bool = True) -> dict:
     strip surrounding page noise -- that helper already no-ops safely (falls
     back to the raw text) when no key is present.
     """
-    raw_text = jd_fetcher.fetch_jd_from_url(url)
+    try:
+        raw_text = jd_fetcher.fetch_jd_from_url(url)
+    except jd_fetcher.BlockedURLError as exc:
+        return {"ok": False, "jd_text": "", "error": str(exc)}
     if not raw_text:
         return {
             "ok": False,
@@ -738,9 +782,15 @@ def run_resume_team(
     """
     from cloud.quotas import check_quota
 
+    # Advisory fast fail: answer an out-of-allowance caller before doing any
+    # work, with the message that actually explains their situation. The
+    # AUTHORITATIVE check is inside reserve_run_slot below, which re-checks
+    # under a write lock -- this one races and is not relied on.
     if not ctx.slot_reserved:
         check_quota(ctx.conn, ctx.user_id, ctx.tier, "tailor")
 
+    # Validate and load the resume BEFORE claiming a slot, so a request that
+    # was never runnable cannot consume the caller's allowance.
     if not isinstance(jd_text, str) or not jd_text.strip():
         raise ValueError("jd_text must be a non-empty string")
     jd_text = _flatten_list_markers(jd_text)
@@ -761,11 +811,9 @@ def run_resume_team(
     case_id = f"case:{run_id}"
 
     if not ctx.slot_reserved:
-        _insert_agent_run(
-            ctx.conn,
-            ctx.user_id,
-            run_id,
-            "tailor",
+        # One transaction for the check and the claim -- see reserve_run_slot.
+        reserve_run_slot(
+            ctx.conn, ctx.user_id, ctx.tier, "tailor", run_id,
             input_ref=multi_agent_team.canonical_digest(jd_text),
             instruction=instruction,
         )
@@ -880,9 +928,12 @@ def run_cover_letter(
     """
     from cloud.quotas import check_quota
 
+    # Advisory fast fail; reserve_run_slot below is authoritative. See
+    # run_resume_team for why both exist.
     if not ctx.slot_reserved:
         check_quota(ctx.conn, ctx.user_id, ctx.tier, "cover_letter")
 
+    # Validate and load before claiming a slot (mirrors run_resume_team).
     if not isinstance(jd_text, str) or not jd_text.strip():
         raise ValueError("jd_text must be a non-empty string")
     jd_text = _flatten_list_markers(jd_text)
@@ -901,11 +952,9 @@ def run_cover_letter(
 
     run_id = ctx.run_id
     if not ctx.slot_reserved:
-        _insert_agent_run(
-            ctx.conn,
-            ctx.user_id,
-            run_id,
-            "cover_letter",
+        # One transaction for the check and the claim -- see reserve_run_slot.
+        reserve_run_slot(
+            ctx.conn, ctx.user_id, ctx.tier, "cover_letter", run_id,
             input_ref=multi_agent_team.canonical_digest(jd_text),
             instruction=json.dumps({"company": company, "title": title}),
         )
@@ -1001,6 +1050,7 @@ _LOG_APPLICATION_OPTIONAL_FIELDS = (
     "notes",
     "applied_at",
     "jd_ref",
+    "jd_text",
     "target_tier",
     "fit_label",
     "hard_reqs_missed",
@@ -1014,6 +1064,7 @@ _UPDATE_APPLICATION_FIELDS = (
     "cover_letter_file",
     "applied_at",
     "jd_ref",
+    "jd_text",
     "target_tier",
     "fit_label",
     "hard_reqs_missed",
@@ -1051,6 +1102,7 @@ def log_application(ctx: ToolContext, company: str, title: str, **optional: Any)
         "notes": optional.get("notes", ""),
         "applied_at": optional.get("applied_at"),
         "jd_ref": optional.get("jd_ref"),
+        "jd_text": optional.get("jd_text"),
         "target_tier": optional.get("target_tier"),
         "fit_label": optional.get("fit_label"),
         "hard_reqs_missed": optional.get("hard_reqs_missed"),
@@ -1060,11 +1112,11 @@ def log_application(ctx: ToolContext, company: str, title: str, **optional: Any)
         """
         INSERT INTO job_applications
             (user_id, company, job_title, status, resume_file, cover_letter_file,
-             ats_score, hr_score, llm_score, notes, applied_at, jd_ref,
+             ats_score, hr_score, llm_score, notes, applied_at, jd_ref, jd_text,
              target_tier, fit_label, hard_reqs_missed, referral_source)
         VALUES
             (:user_id, :company, :job_title, :status, :resume_file, :cover_letter_file,
-             :ats_score, :hr_score, :llm_score, :notes, :applied_at, :jd_ref,
+             :ats_score, :hr_score, :llm_score, :notes, :applied_at, :jd_ref, :jd_text,
              :target_tier, :fit_label, :hard_reqs_missed, :referral_source)
         """,
         params,
@@ -1356,6 +1408,10 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "notes": {"type": "string"},
                 "applied_at": {"type": "string"},
                 "jd_ref": {"type": "string"},
+                "jd_text": {
+                    "type": "string",
+                    "description": "Full job description text — required later by run-by-application_id tailoring",
+                },
                 "target_tier": {"type": "string", "enum": sorted(_VALID_TARGET_TIERS)},
                 "fit_label": {"type": "string", "enum": sorted(_VALID_FIT_LABELS)},
                 "hard_reqs_missed": {"type": "integer"},
@@ -1375,6 +1431,10 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "cover_letter_file": {"type": "string"},
                 "applied_at": {"type": "string"},
                 "jd_ref": {"type": "string"},
+                "jd_text": {
+                    "type": "string",
+                    "description": "Full job description text — backfill to enable run-by-application_id tailoring",
+                },
                 "target_tier": {"type": "string", "enum": sorted(_VALID_TARGET_TIERS)},
                 "fit_label": {"type": "string", "enum": sorted(_VALID_FIT_LABELS)},
                 "hard_reqs_missed": {"type": "integer"},

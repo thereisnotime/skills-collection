@@ -91,6 +91,8 @@ v3.3은 [**PaperOrchestra**](https://arxiv.org/abs/2604.05018) (Song, Song, Pfis
 - **Artifact Reproducibility Lockfile** (v3.3.5+) — Material Passport의 선택적 `repro_lock` 하위 블록. **재현 보장이 아니라 구성 문서화입니다** — LLM 출력은 바이트 단위로 재현 가능하지 않습니다. 자세한 내용은 [`shared/artifact_reproducibility_pattern.md`](shared/artifact_reproducibility_pattern.md)를 참조하세요.
 - **Experiment Provenance Intake** (#260) — Material Passport의 선택적 `experiment_provenance[]`는 연구자가 **외부에서** 실행한 실험을 기록하며(ARS는 절대 실험을 실행하지 않습니다), 원고의 주장은 `claim_intent_manifest.planned_experiment_ids[]`를 통해 이에 연결됩니다. 무결성 게이트(Stage 2.5/4.5)는 실험 기반 각 주장을 선언된 provenance와 대조해 검증합니다 — `ALIGNED` / `OVERSTATED` / `NOT_SUPPORTED_BY_PROVENANCE` / `PROVENANCE_INSUFFICIENT` — **실험 자체가 옳았는지는 판단하지 않습니다**. fail-closed `experiment_intake_declaration`은 "실험을 실행했는가?"를 명시적인 Stage 1 결정으로 만듭니다(문헌 전용 실행조차 `no_experiments_declared`를 선언). 자세한 내용은 [`shared/handoff_schemas.md`](shared/handoff_schemas.md)의 §"Experiment Provenance Intake (#260)"를 참조하세요.
 
+**무결성 및 검증의 경계:** ARS는 원고와 보고된 연구 과정을 점검합니다. 인용의 존재, 주장-출처 정합성, 보고된 방법론, 선언된 실험 결과와 원고 주장의 정합성, 그림·표의 충실성, 보고·절차·제출 패키지 준수를 다루며 일부 점검은 표본 기반이거나 LLM 판단을 사용합니다. ARS는 절차가 실제로 수행되었는지, 원자료가 진짜인지, 결과가 재현되는지를 **입증하지 않습니다**. 조작된 내용이 일관되게 보고되면 이러한 점검을 통과할 수 있습니다. 자세한 내용은 [POSITIONING.md의 "Integrity checks and the empirical-work boundary"](POSITIONING.md#integrity-checks-and-the-empirical-work-boundary)를 참조하세요.
+
 ---
 
 ## 쇼케이스: 실제 파이프라인 출력

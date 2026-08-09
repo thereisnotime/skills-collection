@@ -534,7 +534,7 @@ set; the behavioral measurement is the manual protocol above.
 
 ## Measurement contract (#654)
 
-New scored rows opt into the `heldout-measurement/1.0` envelope
+New scored rows opt into the `heldout-measurement/1.1` envelope
 (`evals/heldout/MEASUREMENT_CONTRACT.md`, `suite_class: seeded_manifest_adjudicated`
 per `evals/heldout/suite_registry.json`). The E4 machinery in this README — the
 `reviewer-e4/*` evidence contract, blocked-run separation, closed record status

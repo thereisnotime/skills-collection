@@ -466,7 +466,7 @@ Scan the paper for all quantitative/factual claims:
 2. Identify all categorical assertions ("X is the largest...", "Y was the first to...")
 3. Identify all trend claims ("increasing", "declining", "stable")
 4. Identify all causal claims ("X causes Y", "X leads to Y")
-5. For each claim, record: claim text, cited source(s), paper section, page/line, selection tier (#549 — Mode 1: HIGH-IMPACT / RANDOM / TOP-UP / NOT-SELECTED; Mode 2: ALL)
+5. Assign every claim a stable claim_id. Record: claim text, cited source(s) by ref_slug, each source's writer anchor, paper section, page/line, selection tier (#549 — Mode 1: HIGH-IMPACT / RANDOM / TOP-UP / NOT-SELECTED; Mode 2: ALL)
 
 Output: Claim Registry table
 ```
@@ -475,7 +475,7 @@ Output: Claim Registry table
 ```
 For each selected claim (Mode 1: the #549 stratified selection — HIGH-IMPACT / RANDOM / TOP-UP tiers; Mode 2: the whole registry):
 1. Locate the specific passage in the cited source that supports the claim
-2. Use WebSearch + DOI lookup to find the original source text
+2. Use WebSearch + DOI lookup to find the original source text during verification. Before building an evidence row, hold that exact source text explicitly in the current session; the builder and renderer never follow a URL, DOI, source_pointer, or path
 3. If source is behind paywall, note as UNVERIFIABLE_ACCESS
 
 Priority:
@@ -495,6 +495,44 @@ Compare claim text vs source text:
 
 Flag any discrepancies with verdict.
 ```
+
+#### E3.1. Persisted Evidence Rows (#656)
+
+For every selected tuple, use `scripts/evidence_rows.py` to build and validate
+one persisted row against
+`shared/contracts/evidence/evidence_row.schema.json`. The generic contract is
+`schema_version: evidence-row/1.0`; V1 uses
+`surface: phase_e_claim_verification`. Call the runtime's `build(...)` and
+`validate(...)` APIs with the exact session-held source text (or the explicit
+absence/failure state). Never hand-author hashes, excerpt provenance, cache
+replay, or a parallel row vocabulary.
+
+Persist one row per `(claim_id, ref_slug, anchor)` tuple in
+`phases.E_claims.evidence_rows[]`. A claim citing multiple sources emits
+multiple rows; an anchorless selected tuple emits its explicit empty-state row.
+Do not emit rows for `NOT-SELECTED` registry entries. Preserve document order
+and the full array: there is no total row cap, deduplication, reordering, or
+silent truncation. Evidence-row counts do not replace the existing distinct-
+claim counts.
+
+Before emitting the report, require the number of distinct row `claim_id`
+values to equal `E_claims.checked`, the number of distinct claims with verdict
+`VERIFIED` to equal `E_claims.verified`, and every row sharing a `claim_id` to
+repeat the same claim object and verdict. Also compare the complete tuple set
+against the E1 Claim Registry; the runtime count checks do not replace that
+selection audit.
+
+Only explicit session-held source text can support an excerpt. Missing,
+anchorless, access-failed, retrieval-failed, unchecked, or mismatched evidence
+must remain in the runtime-selected empty/unconfirmed state; never fabricate an
+excerpt and never promote excerpt provenance from the Phase E claim verdict.
+Persist the validated row object, not rendered Markdown or HTML.
+
+This carrier is evidentiary display metadata only. It does not change the
+verdict taxonomy below, severity, issue counts, PASS / PASS WITH NOTES / FAIL
+gate, or correction routing. Building, validating, caching, persisting, or
+rendering the rows does not mark a source as human-read and does not write or
+infer `human_read_log` state.
 
 #### Claim Verdict Taxonomy
 ```
@@ -635,6 +673,30 @@ The following patterns are PROHIBITED in integrity reports:
 | MAJOR_DISTORTION | X | X% |
 | UNVERIFIABLE | X | X% |
 | UNVERIFIABLE_ACCESS | X | X% |
+
+**Persisted Phase E evidence rows (#656)** — retain the complete ordered
+`phases.E_claims.evidence_rows[]` array with `scripts/evidence_rows.py` only.
+Use its validated persisted rows, the explicit in-memory session source map,
+and `paginate(...)` / `render_markdown(...)` APIs. Every source-bound row must replay
+against that map before display. The default and maximum page size are 25. Render only the requested page
+with deterministic previous/next or explicit-page navigation; never concatenate
+all pages into one report view. There is no total row cap and no `--all` mode.
+Do not manually reproduce the table or ask a model to reformat it.
+
+The report-rendering step performs no display-time retrieval,
+ambient filesystem/network/API/model call, extraction, state derivation, or
+cache lookup. Replay may recompute the strict once-decode and hashes, but it
+never decodes stored display text again or changes the row. If a consumed report
+is positively identified as pre-#656 and lacks the field, the consumer may use
+explicit `--allow-legacy-absence` and display
+`LEGACY — EVIDENCE ROWS UNAVAILABLE`; missing shape alone is not legacy proof,
+absence is not successful evidence, and claim counts are not excerpts. This
+current producer always persists the field (`[]` only when no tuple was
+selected); it may never use the compatibility flag, and omission or a missing selected row stops
+with a contract failure. Distinct row claim count must equal `E_claims.checked`,
+distinct `VERIFIED` claim count must equal `E_claims.verified`, and repeated
+rows for one claim must agree on claim metadata and verdict. Neither condition
+retroactively changes a historical verdict or the gate criteria below.
 
 **Scope-conformance advisory (#547)** — advisory-only, not counted in verdicts or the gate decision:
 

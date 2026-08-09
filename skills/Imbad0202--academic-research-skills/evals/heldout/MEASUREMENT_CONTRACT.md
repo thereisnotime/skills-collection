@@ -1,10 +1,11 @@
-# Held-Out Measurement Contract (#654, `heldout-measurement/1.0`)
+# Held-Out Measurement Contract (#654/#664, `heldout-measurement/1.1`)
 
-Issue: #654. Machine artifacts: `measurement_report.schema.json` + `suite_registry.json`
-(this directory). Enforcement: `scripts/check_heldout_measurement_report.py` —
-schema branches B1-B4, cross-field invariants I1-I12, reference-resolution
-checks R1-R3 (the rubric file must exist and match its hash, raw-output paths
-must exist, the suite commit must be a real object in this repository), and
+Issues: #654 and #664. Machine artifacts: `measurement_report.schema.json`,
+`measurement_report.template.json`, `execution_manifest.schema.json`, and
+`suite_registry.json` (this directory). Enforcement:
+`scripts/check_heldout_measurement_report.py` — schema branches B1-B7,
+cross-field invariants I1-I15, reference-resolution checks R1-R5 (rubric,
+pre-registration plan, execution manifest, raw-output paths, and commit pins), and
 location binding L1 (a row filed under `evals/heldout/<dir>/` must declare
 `suite == <dir>`); mutation-tested by
 `scripts/test_check_heldout_measurement_report.py`; CI runs `--all`.
@@ -30,13 +31,23 @@ govern ARS-versus-human benchmark reports (scorer-independence vocabulary:
 `scoring_independence`). The two artifact families stay separate by design; do not
 grow a third — extend one of these.
 
-## Opt-in and retrofit scope
+## Versions, opt-in, and retrofit scope
 
-A report opts in by carrying `"measurement_contract": "heldout-measurement/1.0"`
-(the version constant is single-sourced from the schema's `const`). The contract
-governs **future runs and re-runs only**. Legacy rows (e.g.
+A new report opts in with `"measurement_contract": "heldout-measurement/1.1"`.
+Supported versions and the current template version are single-sourced from the
+schema enum. Version 1.0 is accepted only for the exact path and SHA-256 of the
+allowlisted frozen row; that byte identity is sufficient even in a shallow
+checkout whose object database omits the historical `suite_commit`. I15 rejects
+every new, moved, or modified 1.0 row.
+Version 1.1 adds five linked controls: adjudication direction, judge-side blinding,
+reserved design/arm vocabulary, a plan+rubric pre-registration record, and a
+hashed write-once execution manifest.
+
+The contract governs **future runs and re-runs only**. Pre-contract legacy rows (e.g.
 `revision_claim_drift/measurement-2026-07-22.json`, the `rq_framing_offlist`
 2026-07-11 rows, the E4 cohorts) are never retrofitted, rewritten, or re-validated.
+The frozen `revision_claim_drift/measurement-2026-08-07.json` remains a valid 1.0
+row and is also never rewritten.
 
 Discovery is by marker, not by filename: the checker's `--all` mode walks
 `evals/heldout/` (case-insensitive `.json`, following directory symlinks with a
@@ -115,6 +126,11 @@ disclosure around the E4 machinery, it does not replace or reshape it.
   and `partial_published` must be true (I11) — on non-decision runs the gap is a
   W1 warning. Replacement judges are new `judges[]` entries, disclosed like any
   other — never a silent swap.
+- **Judge-side blinding is separate from adjudicator blinding** in 1.1. Every
+  `judges[]` row carries `blinded_to`, even when the honest value is `[]`.
+  `evidence_provided` names the anonymization-map path when one exists. A report
+  cannot inherit the adjudicator's `adjudication.blinded_to` declaration for its
+  judges, or vice versa.
 
 ## Aggregation
 
@@ -129,6 +145,9 @@ disclosure around the E4 machinery, it does not replace or reshape it.
   must be listed (I8) and non-divergent items may not be declared divergent (I3).
   Every divergent item needs a recorded resolution — an adjudication override in
   adjudication-required classes, a non-empty `agreement.note` otherwise (I10).
+- `aggregate.headline.estimand_status` declares `point_estimate` or `lower_bound`.
+  When adjudication resolves flags only, the headline is structurally a lower
+  bound and both `construction_rule` and `caveats` say so (I13).
 
 ## Replicates and spread
 
@@ -163,6 +182,60 @@ disclosure around the E4 machinery, it does not replace or reshape it.
   this — the contract makes it structural).
 - Raw subject and judge outputs are retained at `raw_outputs.paths`
   (`retained: const true`, non-empty paths per I7).
+- Version 1.1 freezes `resolution_direction` as `flags_only`,
+  `bidirectional`, or `other_frozen`, plus a `resolution_rule_ref` into the
+  pre-registered rubric/plan. `other_frozen` also records a substantive
+  `resolution_direction_note`; like `flags_only`, it publishes a visibly labeled
+  lower bound. A run may not silently treat unflagged items as outside
+  adjudication and still publish a point estimate.
+
+## Version 1.1 pre-registration record
+
+`preregistration` makes the reference shape machine-visible:
+
+- `plan_ref` + `plan_sha256`, and for adjudicated runs `rubric_ref` +
+  `rubric_sha256`; the rubric values must equal the adjudication record (I14);
+- `frozen_commit`, `frozen_before_dispatch: true`, and
+  `rubric_and_plan_frozen_together: true`;
+- the exact `judge_template_version` for judge-bearing suite classes (a
+  zero-judge `mechanical_match` row does not invent one);
+- `amendments_append_only: true` plus an append-ordered amendment ledger. An
+  amendment never mutates the frozen plan or rubric; it names the change and,
+  where applicable, the superseded hash.
+
+R4 resolves the plan hash and frozen commit. The gate can prove that the named
+objects exist and match; git history review still establishes that the freeze
+actually preceded dispatch.
+
+## Version 1.1 execution manifest
+
+Every 1.1 row references a suite-local strict-JSON manifest conforming to
+`execution_manifest.schema.json`. Each call records a stable call id, sequence
+index, RFC-3339 start/completion timestamps, and SHA-256 hashes of the exact
+prompt and output; optional attempt and concurrency-group fields carry
+retry/concurrency context. A `same_window` claim additionally uses the manifest's
+closed `execution_window` record. Both the report reference and the manifest
+declare `write_once: true`.
+
+`execution_manifest.claims` enumerates `same_window`, `ordering`, and/or
+`concurrency` when the report makes those claims. I14 rejects recognized claims
+that are not declared; negated prose does not create a claim. R5 verifies the
+manifest path is suite-local, its hash and schema match, ids/indexes are unique,
+and no call completes before it starts. It also requires at least two calls and
+machine-checkable support: contiguous/nondecreasing order for `ordering`, overlap
+inside one non-empty group for `concurrency`, and containment in the declared
+window for `same_window`. Operator recollection or a one-call manifest is not
+evidence for these claims.
+
+## Version 1.1 design and arm vocabulary
+
+`results.design` is reserved for the experimental-design label. Arm names live
+under `results.arm_roles.treatment_or_cohort_arms` or
+`results.arm_roles.variant_packet_arms`; the lists are disjoint and the design
+label cannot double as an arm label (I14). This prevents a cohort/treatment arm
+from being confused with a variant packet merely because both were historically
+called an “arm.” Suite-specific `results` fields remain open beyond these reserved
+keys.
 
 ## What this contract is not
 
@@ -198,9 +271,10 @@ stay with the human reviewer, deliberately:
 - **Aliased judge identities.** I9 rejects every mechanically detectable form
   of judge duplication; a renamed `model_id` under an invented family label is
   not detectable from the report alone.
-- **Pre-registration history.** R1 proves the committed rubric matches its
-  hash; that the rubric's commit *predates* the judge outputs is attested in
-  the run notes and checkable from git history at review time, not by the gate.
+- **Pre-registration history.** R1/R4 prove the committed rubric/plan match their
+  hashes and the frozen commit exists; that the freeze *predates* the judge
+  outputs is attested structurally and remains checkable from git history at
+  review time, not inferred from file mtimes by the gate.
 - **Override transcription.** `overrides[].raw` is bound to a real judge and a
   scored item (I4), but its faithfulness to that judge's actual output is a
   logic read.

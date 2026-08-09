@@ -94,7 +94,7 @@ authorized change); its value is as a standing regression tripwire.
 
 ## Measurement contract (#654)
 
-New scored rows in this suite opt into the `heldout-measurement/1.0` envelope
+New scored rows in this suite opt into the `heldout-measurement/1.1` envelope
 (`evals/heldout/MEASUREMENT_CONTRACT.md`, `suite_class: llm_judged`): >= 2 judges
 from different model families for decision-relevant runs, precommitted + hashed
 adjudication rubric, raw-alongside-adjudicated publication, >= 2 replicates per

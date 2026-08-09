@@ -105,7 +105,7 @@ Consuming agents should validate input and request re-generation if schema viola
 | `relevance_score` | integer | Yes | 1-10 relevance to the research question |
 | `annotation` | string | Yes | 2-3 sentence summary of key findings and relevance |
 | `verified` | boolean | No | Whether DOI/existence has been verified |
-| `retraction_check` | boolean | No | Whether checked against Retraction Watch |
+| `retraction_check` | boolean | No | Deprecated, read-only. Legacy execution attestation: whether a Retraction Watch check was reportedly run, **not** its result. New producers write only the v1.1 `bibliographic_integrity_signals[].retraction_status` authority; see `shared/bibliographic_integrity_signals.md`. `true` never means “not retracted” or otherwise clean and cannot drive terminal policy. |
 | `semantic_scholar_id` | string / null | No | Semantic Scholar paper ID (v3.3). Null if S2 lookup failed or API unavailable. Used for deduplication and re-verification. |
 
 ### Optional Fields
@@ -295,10 +295,56 @@ phases: {
   E_claims: {
     checked: integer,
     verified: integer,
-    distortions: [{claim: string, source: string, verdict: string, detail: string}]
+    distortions: [{claim: string, source: string, verdict: string, detail: string}],
+    evidence_rows: [EvidenceRow]
   }
 }
 ```
+
+#### Phase E Evidence Rows (#656)
+
+`phases.E_claims.evidence_rows[]` is the persisted Phase E evidence view. Each
+item MUST validate against
+`shared/contracts/evidence/evidence_row.schema.json` with
+`schema_version: evidence-row/1.0` and
+`surface: phase_e_claim_verification`. The current
+`integrity_verification_agent` producer MUST use `scripts/evidence_rows.py` to
+build and validate the rows; prompts and consumers MUST NOT hand-author a
+parallel row shape or provenance vocabulary.
+
+Emit one persisted row per `(claim_id, ref_slug, anchor)` tuple selected by
+Phase E. A claim with multiple cited sources therefore emits multiple rows, and
+an anchorless selected tuple emits its explicit empty-state row. Preserve the
+producer's complete row order: there is no total row cap, silent truncation,
+deduplication, or conversion of row counts into distinct-claim counts.
+`E_claims.checked`, `E_claims.verified`, `distortions[]`, Phase E verdicts, and
+the existing integrity gate remain claim-level and unchanged.
+
+For reports produced after #656, the producer always emits `evidence_rows`;
+when no tuple was selected, the explicit value is `[]`. Current-producer
+omission is a contract failure. A positively identified pre-#656 Schema 5 report
+may omit the field only for explicit legacy read compatibility; consumers use
+`--allow-legacy-absence` and display
+`LEGACY — EVIDENCE ROWS UNAVAILABLE`. Missing shape alone is not legacy proof,
+and render fails without the flag. Legacy absence is not an empty successful
+check, MUST NOT manufacture an excerpt, and does not retroactively alter the
+historical verdict or gate result. Current producers may never use the flag.
+
+The full array travels inside the existing Integrity Report handoff. Rendering
+requires the explicit in-memory session source map to replay-validate every
+source-bound persisted row; the default and maximum page size are 25,
+there is no `--all` mode, and a checkpoint request renders only its requested
+page with deterministic page navigation. There is no total row cap. Rendering
+performs no display-time retrieval, ambient filesystem/network/API/model call,
+extraction, state derivation, or cache lookup. Replay may recompute the strict
+once-decode and hashes, but never decodes stored display text again or changes
+the row. Building, validating, persisting, or
+rendering these rows does not write or infer `human_read_log` state.
+
+For current reports, distinct row `claim_id` count equals `E_claims.checked`,
+distinct claims with verdict `VERIFIED` equal `E_claims.verified`, and every row
+for one claim repeats the same claim object and verdict. The E1 Claim Registry
+remains authoritative for exact selected-tuple completeness.
 
 ### Score Trajectory Structure (v3.3, optional)
 

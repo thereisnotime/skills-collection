@@ -286,7 +286,7 @@ The gate measures nothing about model behavior; baseline runs are the manual pro
 
 ## Measurement contract (#654)
 
-New scored rows opt into the `heldout-measurement/1.0` envelope
+New scored rows opt into the `heldout-measurement/1.1` envelope
 (`evals/heldout/MEASUREMENT_CONTRACT.md`, `suite_class: paired_controls`). Per
 SD-11 this suite reuses the E4 machinery documented in
 `evals/heldout/reviewer_seeded_defects/README.md`; the envelope layers judge and

@@ -600,7 +600,8 @@ def test_empty_section_diagnostic_reports_the_non_blank_line_count():
 def test_non_canonical_dissent_field_shape_aborts(field_line):
     text = phase2_with_dissent_section([field_line])
     with pytest.raises(
-        phase.ConformanceError, match="DISSENT-HIDDEN|canonical unbulleted"
+        phase.ConformanceError,
+        match="DISSENT-HIDDEN|DISSENT-RAW-HTML|canonical unbulleted",
     ):
         phase.parse_dissent_dimensions(text)
 
@@ -1383,11 +1384,24 @@ def test_a_nested_paren_link_destination_is_a_declared_limit():
     """
     for line in (
         "[dimension_id](https://e/x_(y_(z))w): D1",
-        '<span title="x>y">dimension_id</span>: D1',
         "dimension_id&#58; D1",
     ):
         text = phase2_with_dissent_section([line])
         assert phase.parse_dissent_dimensions(text).dimensions == set()
+
+
+def test_a_quoted_attribute_raw_html_field_now_aborts():
+    """#682 closes the raw-HTML half of the old declared limit.
+
+    The field-shape helper still need not parse quoted ``>`` attributes: the
+    span guard rejects the tag itself before an empty-section advisory could
+    grant any exemption.
+    """
+    text = phase2_with_dissent_section([
+        '<span title="x>y">dimension_id</span>: D1',
+    ])
+    with pytest.raises(phase.ConformanceError, match="DISSENT-RAW-HTML"):
+        phase.parse_dissent_dimensions(text)
 
 
 def test_one_nesting_level_in_a_link_destination_still_aborts():
@@ -4258,3 +4272,95 @@ def test_a_mid_line_double_close_leaves_fields_parsed():
         "rationale: plan was inadequate",
     ])
     assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
+
+
+@pytest.mark.parametrize("raw_html", [
+    "<script>",
+    "</script>",
+    "<style media=\"screen\">",
+    "<template>",
+    "<div hidden>",
+    "<span style=\"display:none\">",
+    "<input type=\"hidden\" />",
+    "<details>",
+    "<svg aria-hidden=\"true\">",
+    "<!DOCTYPE html>",
+    "<![CDATA[",
+    "<?xml version=\"1.0\"?>",
+    "<script",
+    "<span>dimension_id</span>: D1",
+])
+def test_non_comment_raw_html_in_dissent_aborts(raw_html):
+    text = phase2_with_dissent_section([
+        raw_html,
+        "dimension_id: D1",
+        "rationale: plan was inadequate",
+    ])
+    with pytest.raises(phase.ConformanceError, match="DISSENT-RAW-HTML"):
+        phase.parse_dissent_dimensions(text)
+
+
+@pytest.mark.parametrize("container", ["- ", "* ", "1. ", "> ", "> - "])
+def test_container_prefixed_raw_html_in_dissent_aborts(container):
+    text = phase2_with_dissent_section([
+        f"{container}<template hidden>",
+        "dimension_id: D1",
+        "rationale: plan was inadequate",
+        f"{container}</template>",
+    ])
+    with pytest.raises(phase.ConformanceError, match="DISSENT-RAW-HTML"):
+        phase.parse_dissent_dimensions(text)
+
+
+@pytest.mark.parametrize("code", [
+    "`<script>`",
+    "``<template data-tick=`x`>``",
+    "```<span hidden>```",
+])
+def test_inline_code_raw_html_mention_in_dissent_is_permitted(code):
+    text = phase2_with_dissent_section([
+        "dimension_id: D1",
+        f"rationale: the seat mentioned {code} as literal syntax",
+    ])
+    assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
+
+
+def test_fenced_raw_html_example_in_dissent_keeps_existing_semantics():
+    text = phase2_with_dissent_section([
+        "```html",
+        "<script>",
+        "const example = true;",
+        "</script>",
+        "```",
+        "dimension_id: D1",
+        "rationale: plan was inadequate",
+    ])
+    assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
+
+
+def test_raw_html_outside_dissent_span_is_not_scanned():
+    text = phase2_with_dissent_section([
+        "dimension_id: D1",
+        "rationale: plan was inadequate",
+    ]).replace(
+        "## Review Body",
+        "## Review Body\n\n<script hidden>outside the dissent span</script>",
+        1,
+    )
+    assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
+
+
+@pytest.mark.parametrize("prose", [
+    "rationale: compare x < y before accepting the plan",
+    "rationale: see <https://example.test> for the public protocol",
+    "rationale: contact <reviewer@example.test> for the archived note",
+])
+def test_non_html_angle_bracket_prose_in_dissent_is_permitted(prose):
+    text = phase2_with_dissent_section(["dimension_id: D1", prose])
+    assert phase.parse_dissent_dimensions(text).dimensions == {"D1"}
+
+
+def test_raw_html_without_fields_aborts_instead_of_empty_advisory():
+    text = phase2_with_dissent_section(["<template>withdrawn draft</template>"])
+    with pytest.raises(phase.ConformanceError, match="DISSENT-RAW-HTML"):
+        phase.parse_dissent_dimensions(text)

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Validate ARS held-out measurement reports against the #654 contract.
+"""Validate ARS held-out measurement reports against the #654/#664 contract.
 
 Layers:
   1. JSON Schema (evals/heldout/measurement_report.schema.json) — shape,
      enums, const attestations (rubric_precommitted / raw_published /
-     raw_outputs.retained), and the suite-class branches B1-B4.
-  2. Cross-field invariants I1-I12 — rules a schema cannot express.
+     raw_outputs.retained), and the version/suite branches B1-B7.
+  2. Cross-field invariants I1-I15 — rules a schema cannot express.
      Invariants run only on schema-valid reports (schema errors short-circuit).
-  3. Reference resolution R1-R3 (CLI/CI only; validate_report(...,
+  3. Reference resolution R1-R5 (CLI/CI only; validate_report(...,
      resolve_refs=True)) — attested references must resolve: the rubric file
      exists and matches its hash, raw-output paths exist, the suite commit is
      a real object in this repository.
@@ -44,6 +44,12 @@ Invariants:
        must be named in attempts.blocked_runs and partial_published must be
        true. (Non-decision runs get warning W1 instead.)
   I12  measurement_date must be a real calendar date.
+  I13  v1.1 flags-only adjudication labels the headline and caveats as a lower
+       bound; rubric direction is frozen by reference.
+  I14  v1.1 pre-registration, amendment ordering, design/arm vocabulary, and
+       declared timing/ordering/concurrency claims remain internally coherent.
+  I15  v1.0 is accepted only for the exact path+hash frozen before v1.1; new
+       or modified rows cannot select the weaker version.
 
 Warnings (never gate):
   W1   judges cover different item sets on a non-decision-relevant run.
@@ -80,10 +86,16 @@ import jsonschema
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HELDOUT_ROOT = REPO_ROOT / "evals" / "heldout"
 SCHEMA_PATH = HELDOUT_ROOT / "measurement_report.schema.json"
+EXECUTION_SCHEMA_PATH = HELDOUT_ROOT / "execution_manifest.schema.json"
+TEMPLATE_PATH = HELDOUT_ROOT / "measurement_report.template.json"
 REGISTRY_PATH = HELDOUT_ROOT / "suite_registry.json"
 CONTRACT_PREFIX = "heldout-measurement/"
 MARKER_KEY = "measurement_contract"
 RATE_TOLERANCE = 0.005
+FROZEN_V1_0_ROWS = {
+    HELDOUT_ROOT / "revision_claim_drift/measurement-2026-08-07.json":
+        "1af137c798e6cf3a5d0a742e379a8af78fe802cb924b4ece22cdf57cb881f573",
+}
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
@@ -117,12 +129,29 @@ def _loads_strict(text: str) -> dict:
 def _validator() -> jsonschema.Draft202012Validator:
     schema = _loads_strict(SCHEMA_PATH.read_text(encoding="utf-8"))
     jsonschema.Draft202012Validator.check_schema(schema)
-    return jsonschema.Draft202012Validator(schema)
+    return jsonschema.Draft202012Validator(
+        schema, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER
+    )
+
+
+@functools.cache
+def _execution_validator() -> jsonschema.Draft202012Validator:
+    schema = _loads_strict(EXECUTION_SCHEMA_PATH.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator.check_schema(schema)
+    return jsonschema.Draft202012Validator(
+        schema, format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER
+    )
+
+
+def supported_contract_versions() -> tuple[str, ...]:
+    """Supported markers, single-sourced from the schema enum."""
+    values = _validator().schema["properties"][MARKER_KEY]["enum"]
+    return tuple(values)
 
 
 def contract_version() -> str:
-    """The exact contract marker — single-sourced from the schema const."""
-    return _validator().schema["properties"][MARKER_KEY]["const"]
+    """Current template marker — the final schema-enum entry."""
+    return supported_contract_versions()[-1]
 
 
 def _suite_class_enum() -> list[str]:
@@ -206,8 +235,117 @@ def _typed(value: object) -> object:
     return ("other", repr(value))
 
 
+def _has_affirmed_claim(text: str, pattern: str) -> bool:
+    """Match a claim only when it is not locally negated.
+
+    This is intentionally conservative lexical binding, not semantic parsing:
+    nearby ``no/not/never/without/neither`` in the same clause suppresses the
+    match, so "not run concurrently" cannot create a concurrency attestation.
+    """
+    for match in re.finditer(pattern, text):
+        prefix = text[max(0, match.start() - 100):match.start()]
+        clause = re.split(r'''[.;:!?",\[\]{}]|\b(?:but|however)\b''', prefix)[-1]
+        words = re.findall(r"[a-z]+", clause)
+        if not set(words[-6:]) & {"no", "not", "never", "without", "neither"}:
+            return True
+    return False
+
+
+def _parse_timestamp(value: str) -> _dt.datetime:
+    """Parse a schema-validated RFC 3339 timestamp as an aware datetime."""
+    parsed = _dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("timestamp lacks an offset")
+    return parsed
+
+
+def _execution_claim_errors(manifest: dict, claims: set[str]) -> list[str]:
+    """Prove declared execution claims from per-call manifest evidence."""
+    errors: list[str] = []
+    calls = manifest["calls"]
+    parsed_calls: list[tuple[dict, _dt.datetime, _dt.datetime]] = []
+    for call in calls:
+        try:
+            started = _parse_timestamp(call["started_at"])
+            completed = _parse_timestamp(call["completed_at"])
+        except (TypeError, ValueError):
+            # Normally caught by the schema format checker; keep this helper
+            # fail-closed when unit-called or when parser behavior changes.
+            errors.append(
+                f"R5: call {call.get('call_id')!r} has an invalid timestamp"
+            )
+            continue
+        if completed < started:
+            errors.append(
+                f"R5: call {call['call_id']!r} completed before it started"
+            )
+        parsed_calls.append((call, started, completed))
+
+    if not claims or errors:
+        return errors
+    if len(parsed_calls) < 2:
+        for claim in sorted(claims):
+            errors.append(
+                f"R5: {claim!r} requires evidence from at least two calls"
+            )
+        return errors
+
+    if "ordering" in claims:
+        ordered = sorted(parsed_calls, key=lambda item: item[0]["sequence_index"])
+        indexes = [item[0]["sequence_index"] for item in ordered]
+        starts = [item[1] for item in ordered]
+        if indexes != list(range(1, len(ordered) + 1)) or any(
+            later < earlier for earlier, later in zip(starts, starts[1:])
+        ):
+            errors.append(
+                "R5: 'ordering' is not supported by contiguous sequence indexes "
+                "and nondecreasing call start times"
+            )
+
+    if "concurrency" in claims:
+        groups: dict[str, list[tuple[_dt.datetime, _dt.datetime]]] = {}
+        for call, started, completed in parsed_calls:
+            group = call.get("concurrency_group")
+            if isinstance(group, str) and group.strip():
+                groups.setdefault(_fold(group), []).append((started, completed))
+        supported = any(
+            max(a_start, b_start) < min(a_end, b_end)
+            for intervals in groups.values()
+            for index, (a_start, a_end) in enumerate(intervals)
+            for b_start, b_end in intervals[index + 1:]
+        )
+        if not supported:
+            errors.append(
+                "R5: 'concurrency' requires two overlapping calls in the same "
+                "non-empty concurrency_group"
+            )
+
+    if "same_window" in claims:
+        window = manifest.get("execution_window")
+        if not isinstance(window, dict):
+            errors.append(
+                "R5: 'same_window' requires a declared execution_window"
+            )
+        else:
+            try:
+                window_start = _parse_timestamp(window["started_at"])
+                window_end = _parse_timestamp(window["completed_at"])
+            except (KeyError, TypeError, ValueError):
+                errors.append("R5: execution_window has invalid timestamps")
+            else:
+                if window_end < window_start or any(
+                    started < window_start or completed > window_end
+                    for _call, started, completed in parsed_calls
+                ):
+                    errors.append(
+                        "R5: 'same_window' calls are not contained in the declared "
+                        "execution_window"
+                    )
+    return errors
+
+
 def _invariant_findings(report: dict) -> tuple[list[str], list[str]]:
-    """Cross-field invariants I1-I12. Assumes the report is schema-valid."""
+    """Cross-field invariants I1-I15. Assumes the report is schema-valid."""
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -438,11 +576,103 @@ def _invariant_findings(report: dict) -> tuple[list[str], list[str]]:
             "calendar date"
         )
 
+    # ---- I13: adjudication direction and lower-bound honesty (v1.1) -------
+    if report[MARKER_KEY] == "heldout-measurement/1.1":
+        direction = adjudication.get("resolution_direction")
+        if direction in {"flags_only", "other_frozen"}:
+            headline = report["aggregate"]["headline"]
+            if headline["estimand_status"] != "lower_bound":
+                errors.append(
+                    f"I13: {direction} adjudication requires "
+                    "aggregate.headline.estimand_status='lower_bound'"
+                )
+            if "lower bound" not in _fold(headline["construction_rule"]):
+                errors.append(
+                    f"I13: {direction} headline construction_rule must explicitly "
+                    "state that the result is a lower bound"
+                )
+            if not any("lower bound" in _fold(c) for c in report["caveats"]):
+                errors.append(
+                    f"I13: {direction} adjudication requires a caveat explicitly "
+                    "calling the headline a lower bound"
+                )
+
+        # ---- I14: preregistration + design vocabulary + claim binding ------
+        prereg = report["preregistration"]
+        if adjudication.get("applies") is True:
+            if prereg.get("rubric_ref") != adjudication.get("rubric_ref"):
+                errors.append(
+                    "I14: preregistration.rubric_ref must equal "
+                    "adjudication.rubric_ref"
+                )
+            if prereg.get("rubric_sha256") != adjudication.get("rubric_sha256"):
+                errors.append(
+                    "I14: preregistration.rubric_sha256 must equal "
+                    "adjudication.rubric_sha256"
+                )
+
+        amendment_ids: set[str] = set()
+        prior_time: _dt.datetime | None = None
+        for amendment in prereg["amendments"]:
+            aid = _fold(amendment["amendment_id"])
+            if aid in amendment_ids:
+                errors.append(f"I14: duplicate amendment_id {aid!r}")
+            amendment_ids.add(aid)
+            try:
+                recorded = _parse_timestamp(amendment["recorded_at"])
+            except (TypeError, ValueError):
+                errors.append(
+                    f"I14: amendment {aid!r} has an invalid recorded_at timestamp"
+                )
+                continue
+            if prior_time is not None and recorded < prior_time:
+                errors.append(
+                    "I14: preregistration amendments must be append-ordered by "
+                    "recorded_at"
+                )
+            prior_time = recorded
+
+        arm_roles = report["results"]["arm_roles"]
+        cohort_arms = {_fold(v) for v in arm_roles["treatment_or_cohort_arms"]}
+        packet_arms = {_fold(v) for v in arm_roles["variant_packet_arms"]}
+        overlap = cohort_arms & packet_arms
+        if overlap:
+            errors.append(
+                f"I14: arm labels {sorted(overlap)!r} appear as both "
+                "treatment/cohort and variant-packet arms"
+            )
+        if _fold(report["results"]["design"]) in cohort_arms | packet_arms:
+            errors.append(
+                "I14: results.design is an experimental-design label and cannot "
+                "reuse an arm label"
+            )
+
+        claim_sources = {
+            "attempts": report["attempts"],
+            "aggregate": report["aggregate"],
+            "results": report["results"],
+            "verdict": report["verdict"],
+            "caveats": report["caveats"],
+        }
+        claim_text = _fold(json.dumps(claim_sources, ensure_ascii=False))
+        declared_claims = set(report["execution_manifest"]["claims"])
+        claim_patterns = {
+            "same_window": r"\bsame[- ]window\b",
+            "ordering": r"\b(?:ordered|ordering|interleav(?:ed|ing))\b",
+            "concurrency": r"\bconcurren(?:t|cy|tly)\b",
+        }
+        for claim, pattern in claim_patterns.items():
+            if _has_affirmed_claim(claim_text, pattern) and claim not in declared_claims:
+                errors.append(
+                    f"I14: report text makes a {claim!r} claim but "
+                    "execution_manifest.claims does not declare it"
+                )
+
     return errors, warnings
 
 
 def _resolution_findings(report: dict) -> list[str]:
-    """R1-R3: attested references must resolve. Repo-relative, traversal-safe."""
+    """R1-R5: attested references must resolve. Repo-relative, traversal-safe."""
     errors: list[str] = []
 
     def _repo_path(ref: str, label: str) -> Path | None:
@@ -452,23 +682,29 @@ def _resolution_findings(report: dict) -> list[str]:
             return None
         return candidate
 
+    def _hashed_file(ref: str, expected: str, label: str, field: str) -> Path | None:
+        path = _repo_path(ref, label)
+        if path is None:
+            return None
+        if not path.is_file():
+            errors.append(f"{label}: {field} {ref!r} does not exist in the repository")
+            return None
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest != expected:
+            errors.append(
+                f"{label}: {field} hash mismatch (declared {expected[:12]}…, "
+                f"actual {digest[:12]}…)"
+            )
+        return path
+
     adjudication = report["adjudication"]
     if adjudication.get("applies") is True:
-        rubric = _repo_path(adjudication["rubric_ref"], "R1")
-        if rubric is not None:
-            if not rubric.is_file():
-                errors.append(
-                    f"R1: rubric_ref {adjudication['rubric_ref']!r} does not exist "
-                    "in the repository — the rubric must be committed"
-                )
-            else:
-                digest = hashlib.sha256(rubric.read_bytes()).hexdigest()
-                if digest != adjudication["rubric_sha256"]:
-                    errors.append(
-                        f"R1: rubric_sha256 does not match the committed rubric "
-                        f"(declared {adjudication['rubric_sha256'][:12]}…, "
-                        f"actual {digest[:12]}…)"
-                    )
+        _hashed_file(
+            adjudication["rubric_ref"],
+            adjudication["rubric_sha256"],
+            "R1",
+            "rubric_ref",
+        )
 
     suite_dir = (HELDOUT_ROOT / report["suite"]).resolve()
     for ref in report["raw_outputs"]["paths"]:
@@ -511,6 +747,77 @@ def _resolution_findings(report: dict) -> list[str]:
             "repository"
         )
 
+    if report[MARKER_KEY] == "heldout-measurement/1.1":
+        prereg = report["preregistration"]
+        _hashed_file(prereg["plan_ref"], prereg["plan_sha256"], "R4", "plan_ref")
+        if adjudication.get("applies") is not True and prereg.get("rubric_ref"):
+            _hashed_file(
+                prereg["rubric_ref"],
+                prereg["rubric_sha256"],
+                "R4",
+                "rubric_ref",
+            )
+
+        frozen_commit = prereg["frozen_commit"]
+        try:
+            frozen_probe = subprocess.run(
+                ["git", "cat-file", "-e", f"{frozen_commit}^{{commit}}"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+            frozen_missing = frozen_probe.returncode != 0
+        except (OSError, ValueError) as exc:
+            errors.append(f"R4: could not verify preregistration.frozen_commit ({exc})")
+            frozen_missing = False
+        if frozen_missing:
+            errors.append(
+                f"R4: preregistration.frozen_commit {frozen_commit!r} is not a "
+                "commit in this repository"
+            )
+
+        execution = report["execution_manifest"]
+        manifest_path = _hashed_file(
+            execution["ref"], execution["sha256"], "R5", "execution_manifest.ref"
+        )
+        if manifest_path is not None:
+            if not manifest_path.is_relative_to(suite_dir):
+                errors.append(
+                    f"R5: execution manifest {execution['ref']!r} is not under "
+                    f"evals/heldout/{report['suite']}/"
+                )
+            try:
+                manifest = _loads_strict(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, RecursionError) as exc:
+                errors.append(f"R5: execution manifest is not strict JSON ({exc})")
+            else:
+                schema_errors = list(_execution_validator().iter_errors(manifest))
+                errors.extend(
+                    f"R5: execution manifest schema {list(e.absolute_path)}: {e.message}"
+                    for e in schema_errors
+                )
+                if not schema_errors:
+                    if manifest["suite"] != report["suite"]:
+                        errors.append(
+                            "R5: execution manifest suite does not match the report"
+                        )
+                    call_ids: set[str] = set()
+                    sequence_indexes: set[int] = set()
+                    for call in manifest["calls"]:
+                        cid = _fold(call["call_id"])
+                        if cid in call_ids:
+                            errors.append(f"R5: duplicate execution call_id {cid!r}")
+                        call_ids.add(cid)
+                        seq = call["sequence_index"]
+                        if seq in sequence_indexes:
+                            errors.append(f"R5: duplicate execution sequence_index {seq}")
+                        sequence_indexes.add(seq)
+                    errors.extend(
+                        _execution_claim_errors(
+                            manifest, set(report["execution_manifest"]["claims"])
+                        )
+                    )
+
     return errors
 
 
@@ -540,14 +847,14 @@ def location_errors(path: Path, report: dict) -> list[str]:
     return []
 
 
-def validate_report(
-    report: dict, *, resolve_refs: bool = False
+def _validate_report(
+    report: dict, *, resolve_refs: bool, allow_frozen_v1_0: bool
 ) -> tuple[list[str], list[str]]:
     """Full validation: (errors, warnings). Does not mutate the input.
 
     Schema errors short-circuit: invariants only run on schema-valid reports,
     so a schema-invalid file reports its schema errors alone. resolve_refs
-    additionally runs R1-R3 (CLI/CI mode; needs the repository checkout).
+    additionally runs R1-R5 (CLI/CI mode; needs the repository checkout).
     """
     validator = _validator()
     schema_errors = [
@@ -556,14 +863,51 @@ def validate_report(
     ]
     if schema_errors:
         return schema_errors, []
+    if (
+        report[MARKER_KEY] == "heldout-measurement/1.0"
+        and not allow_frozen_v1_0
+    ):
+        return [
+            "I15: heldout-measurement/1.0 is frozen; only the exact allowlisted "
+            "path and SHA-256 may use it"
+        ], []
     errors, warnings = _invariant_findings(report)
     if resolve_refs and not errors:
         errors.extend(_resolution_findings(report))
     return errors, warnings
 
 
+def validate_report(
+    report: dict, *, resolve_refs: bool = False
+) -> tuple[list[str], list[str]]:
+    """Validate a newly authored report; the weaker frozen v1.0 is rejected.
+
+    Only the path-aware CLI entry point can authorize the one frozen row after
+    matching both its repository path and SHA-256.
+    """
+    return _validate_report(
+        report,
+        resolve_refs=resolve_refs,
+        allow_frozen_v1_0=False,
+    )
+
+
 def _validate_obj(path: Path, report: dict) -> int:
-    errors, warnings = validate_report(report, resolve_refs=True)
+    allow_frozen_v1_0 = False
+    expected_hash = FROZEN_V1_0_ROWS.get(path.absolute())
+    if expected_hash is not None and report.get(MARKER_KEY) == "heldout-measurement/1.0":
+        try:
+            allow_frozen_v1_0 = hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash
+        except OSError:
+            allow_frozen_v1_0 = False
+    errors, warnings = _validate_report(
+        report,
+        # The byte-pinned 1.0 row predates this resolver contract and may name
+        # commits omitted by a shallow CI checkout. Its exact path+SHA is the
+        # authorization; do not retrofit R1-R5 onto that frozen artifact.
+        resolve_refs=not allow_frozen_v1_0,
+        allow_frozen_v1_0=allow_frozen_v1_0,
+    )
     errors.extend(location_errors(path, report))
     for w in warnings:
         print(f"{path}: {w}", file=sys.stderr)
@@ -643,7 +987,12 @@ def _scan_all() -> int:
         print(f"ERROR: {err}")
         rc = 1
     for path in files:
-        if path.resolve() in (SCHEMA_PATH.resolve(), REGISTRY_PATH.resolve()):
+        if path.resolve() in (
+            SCHEMA_PATH.resolve(),
+            EXECUTION_SCHEMA_PATH.resolve(),
+            TEMPLATE_PATH.resolve(),
+            REGISTRY_PATH.resolve(),
+        ):
             continue
         scanned += 1
         try:

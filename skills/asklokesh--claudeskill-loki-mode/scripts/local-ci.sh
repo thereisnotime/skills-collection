@@ -194,10 +194,50 @@ declare -a _FAST_KEEP=(
   # own -- it greps for tests/*.{sh,py} and this harness is a .mjs driven by a
   # runner script -- which is exactly why it is pinned by hand.
   "dashboard evidence panels render honestly"
+  # Same reasoning as the line above, for the React web-app's receipt panel.
+  # Pinned BY HAND for the same reason: the trust-core scan greps
+  # tests/*.{sh,py} and cannot see a .mjs driven by a runner script. This one
+  # earned its place -- it found that /api/proofs did not exist on the server
+  # `loki web` actually runs, and that the panel was only visible during a
+  # running build. Neither was reachable by a type check or a stubbed unit
+  # test. Measured 25s (boots a server and a browser).
+  "webapp receipt panel renders honestly"
   "tests/test-verify.sh"
   "tests/test-verify-scope-record.sh"
   "tests/test-verify-setup-recipe.sh"
   "tests/test-verify-runner-selection.sh"
+  # A security boundary in the SHIPPED cli. CI has no equivalent check, and the
+  # reachable path is `docker run -p 57374:57374 <img> dashboard start`, which
+  # no in-repo test exercises. By the packaged-artifact rule it must run before
+  # every push, not only in the tier nobody blocks on. Measured 6s.
+  "tests/test-dashboard-bind-auth-guard.sh"
+  # Trust core: this is the receipt-verification path itself. A rotation bug
+  # here makes an honest historical receipt read as unverifiable, which a
+  # checker cannot distinguish from TAMPERED. Measured 2s.
+  "tests/test-receipt-jwt-attestation.sh"
+  # The client-side verdict itself: this is what decides VERIFIED vs TAMPERED
+  # vs UNCHECKED for a receipt fetched from a cluster. Measured 8s (it starts a
+  # real trigger-server and waits for readiness rather than sleeping).
+  "tests/test-remote-attestation-verdict.sh"
+  # The third-party surface: an auditor verifying a receipt offline with no
+  # token and no Loki install. This is the product claim itself. Measured 5s.
+  "tests/test-proof-verify-jwks.sh"
+  # Guards the SHIPPED compose file: an active bind to a missing key is a hard
+  # container start failure, so a careless edit here breaks every compose user.
+  # Measured 3s (schema only; no containers started).
+  "tests/test-compose-receipt-signing.sh"
+  # Guards a PUBLISHED competitive artifact. A 0/N row with no control or no
+  # explanation reads as a capability verdict we did not measure -- the one
+  # claim this repo must never make. Measured under 1s (JSON only).
+  "tests/test-headtohead-honesty.sh"
+  # Guards the statistics behind any internal performance claim. Calling an
+  # overlapping 1.51x "significant" would manufacture a multiplier; using the
+  # wrong test on separated arms would hide a real effect. Measured under 1s.
+  "tests/test-ab-analysis-honesty.sh"
+  # Trust core: the local generator writes the attestation INSIDE the subtree
+  # the integrity hash excludes. Get that wrong and every honest receipt reads
+  # TAMPERED the moment it is signed. Measured 4s.
+  "tests/test-local-receipt-attestation.sh"
   "tests/test-council-"
   "tests/test-heuristic-council-affirmative.sh"
   "tests/test-playwright-verify-as-evidence.sh"
@@ -230,6 +270,12 @@ declare -a _FAST_KEEP=(
   "tests/test-bash-bun-parity.sh"             # 997ms
   # A-004: guards the SHIPPED MCP tool surface by name. Artifact-guarding, so
   # the fast tier must run it -- deferring it is the dist-8.11.0 failure mode.
+  # Guards a RELEASE artifact, so by the same rule it runs in the fast tier:
+  # the SBOM asset only exists at `gh release create` time, and nothing else
+  # checks that the definition still attaches it. The gap it closes went
+  # unnoticed for months because a dead workflow trigger reads as an empty run
+  # list, never a red one.
+  "tests/test-release-sbom-attached.sh"       # 0.2s
   "tests/test-mcp-tool-surface-packaged.sh"   # 2.9s
   "tests/test-mcp-tool-surface-guard-rejects.sh" # 8s, proves the guard rejects
   # CLAUDE.md cleanup mandate: sub-second, and the whole point is that it runs
@@ -1153,6 +1199,15 @@ PYHS
 run_check "tests/test-mcp-tool-surface-packaged.sh (packaged MCP surface, exact names)" \
   "bash tests/test-mcp-tool-surface-packaged.sh 2>&1 | tail -4"
 
+# Same rule, a different shipped artifact: the SBOM exists ONLY as a release
+# asset, attached at `gh release create` time. Nothing else checks that the
+# workflow still attaches it, and the failure it guards against is invisible by
+# construction -- a dead `release:` trigger produces an EMPTY run list, never a
+# red one, so the release shipped zero SBOM assets for months under a green
+# badge. Static check of the workflow definition; measured 0.2s.
+run_check "tests/test-release-sbom-attached.sh (npm SBOM ships as a release asset)" \
+  "bash tests/test-release-sbom-attached.sh 2>&1 | tail -3"
+
 # The guard above is only a gate if it REJECTS. This mutates a copy of the tree
 # and proves it fails on a same-count rename, a deletion, absent npm and absent
 # MCP SDK -- the same-count rename being the mutant a count check cannot see.
@@ -1245,6 +1300,14 @@ run_check "tests/test-verify.sh (loki verify deterministic gates)" "bash tests/t
 run_check "tests/test-verify-scope-record.sh (rank 10 locality scope record, advisory-first)" "bash tests/test-verify-scope-record.sh 2>&1 | tail -3"
 run_check "tests/test-verify-setup-recipe.sh (rank 7 setup-recipe writer, env NAMES not values)" "bash tests/test-verify-setup-recipe.sh 2>&1 | tail -3"
 run_check "tests/test-verify-runner-selection.sh (declared runner, not an installed devDep)" "bash tests/test-verify-runner-selection.sh 2>&1 | tail -3"
+run_check "tests/test-dashboard-bind-auth-guard.sh (#188 exposed bind refuses without auth)" "bash tests/test-dashboard-bind-auth-guard.sh 2>&1 | tail -3"
+run_check "tests/test-receipt-jwt-attestation.sh (signed receipt + JWKS rotation)" "bash tests/test-receipt-jwt-attestation.sh 2>&1 | tail -3"
+run_check "tests/test-remote-attestation-verdict.sh (remote receipt VERIFIED without a key import)" "bash tests/test-remote-attestation-verdict.sh 2>&1 | tail -3"
+run_check "tests/test-proof-verify-jwks.sh (third party verifies a receipt offline)" "bash tests/test-proof-verify-jwks.sh 2>&1 | tail -3"
+run_check "tests/test-compose-receipt-signing.sh (opt-in signing, default starts)" "bash tests/test-compose-receipt-signing.sh 2>&1 | tail -3"
+run_check "tests/test-headtohead-honesty.sh (corpus cannot imply an unmeasured ranking)" "bash tests/test-headtohead-honesty.sh 2>&1 | tail -3"
+run_check "tests/test-ab-analysis-honesty.sh (no manufactured multiplier, no hidden effect)" "bash tests/test-ab-analysis-honesty.sh 2>&1 | tail -3"
+run_check "tests/test-local-receipt-attestation.sh (local receipt carries provenance)" "bash tests/test-local-receipt-attestation.sh 2>&1 | tail -3"
 run_check "tests/test-node-test-detection.sh (task #79: node --test detection, run.sh + verify.sh false-negative)" "bash tests/test-node-test-detection.sh 2>&1 | tail -3"
 run_check "tests/test-loki-dir-double-path.sh (#80 double-.loki COMPLETED guard)" "bash tests/test-loki-dir-double-path.sh 2>&1 | tail -3"
 run_check "tests/test-zero-test-inconclusive.sh (#82: zero-test-file -> inconclusive, run.sh + verify.sh + council)" "bash tests/test-zero-test-inconclusive.sh 2>&1 | tail -3"
@@ -1552,6 +1615,7 @@ if [ -n "$_DASH_PY" ] && command -v node >/dev/null 2>&1 \
   # never render anything at all. This one seeds receipts + learnings and
   # asserts they reach the pixel WITHOUT fabricating an unmeasured cost.
   run_check "dashboard evidence panels render honestly" 'bash scripts/run-dashboard-evidence-panels-harness.sh'
+  run_check "webapp receipt panel renders honestly" 'bash scripts/run-webapp-receipt-panel.sh'
 else
   skip_check "dashboard fresh-repo integrated UX harness" "needs python3.12 + dashboard-ui playwright + chromium"
   skip_check "dashboard evidence panels render honestly" "needs python3.12 + dashboard-ui playwright + chromium"

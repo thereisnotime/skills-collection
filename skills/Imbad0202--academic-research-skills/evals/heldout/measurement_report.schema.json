@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ars://evals/heldout/measurement_report.schema.json",
-  "title": "ARS held-out measurement report envelope (#654, heldout-measurement/1.0)",
-  "description": "Opt-in envelope for scored held-out measurement rows. The envelope standardizes multi-judge disclosure, aggregation, adjudication, replicates, and raw-output retention; suite-specific payloads live untouched in `results` and inside each judge's `per_item` rows. Legacy measurement files without the `measurement_contract` marker are NOT governed by this schema and are never retrofitted. Normative text: evals/heldout/MEASUREMENT_CONTRACT.md. Cross-field invariants I1-I12, reference-resolution checks R1-R3, and the location binding L1 are enforced by scripts/check_heldout_measurement_report.py — [doc-only] here, executable there.",
+  "title": "ARS held-out measurement report envelope (#654/#664, heldout-measurement/1.0-1.1)",
+  "description": "Opt-in envelope for scored held-out measurement rows. Version 1.1 adds judge-side blinding, adjudication direction, experimental-design/arm vocabulary, a pre-registration record, and a hashed write-once execution manifest. Frozen 1.0 rows remain valid and byte-unchanged. Normative text: evals/heldout/MEASUREMENT_CONTRACT.md. Cross-field invariants I1-I14, reference-resolution checks R1-R5, and location binding L1 are enforced by scripts/check_heldout_measurement_report.py.",
   "type": "object",
   "required": [
     "measurement_contract",
@@ -24,8 +24,11 @@
   "additionalProperties": false,
   "properties": {
     "measurement_contract": {
-      "const": "heldout-measurement/1.0",
-      "description": "Opt-in marker + contract version. Absence of this field means a legacy row outside the contract. The checker derives its version constant from this const — single source."
+      "enum": [
+        "heldout-measurement/1.0",
+        "heldout-measurement/1.1"
+      ],
+      "description": "Opt-in marker + contract version. The checker derives supported/current versions from this enum; only the exact path+hash allowlisted frozen 1.0 row is accepted, and all new rows use 1.1."
     },
     "suite": {
       "type": "string",
@@ -147,6 +150,24 @@
             "type": "string",
             "minLength": 1
           },
+          "blinded_to": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "condition",
+                "mechanism_state",
+                "subject_model",
+                "expected_label",
+                "arm_identity",
+                "control_status",
+                "replicate_structure",
+                "other_judges",
+                "raw_aggregate"
+              ]
+            },
+            "uniqueItems": true,
+            "description": "Judge-side blinding, separate from adjudicator blinding. Empty is legal and honest."
+          },
           "per_item": {
             "type": "array",
             "items": {
@@ -203,6 +224,13 @@
               "type": "string",
               "minLength": 1,
               "description": "How the headline number is built from per-judge rows + adjudication. Agreement rate is a diagnostic and is never the headline."
+            },
+            "estimand_status": {
+              "enum": [
+                "point_estimate",
+                "lower_bound"
+              ],
+              "description": "Whether the headline is presented as a point estimate or a lower bound. Flags-only adjudication requires lower_bound (I13)."
             }
           }
         },
@@ -355,6 +383,24 @@
         "raw_published": {
           "const": true,
           "description": "Attestation: raw pre-adjudication numbers publish alongside adjudicated ones. const true — the contract offers no other value."
+        },
+        "resolution_direction": {
+          "enum": [
+            "flags_only",
+            "bidirectional",
+            "other_frozen"
+          ],
+          "description": "Frozen rule for whether adjudication can remove flags only, resolve both directions, or follows another pre-registered direction."
+        },
+        "resolution_rule_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Anchor in the frozen rubric/plan that defines the resolution direction."
+        },
+        "resolution_direction_note": {
+          "type": "string",
+          "minLength": 20,
+          "description": "For other_frozen only: an explicit account of whether the frozen rule may add and/or remove flags and how the headline is interpreted."
         }
       },
       "allOf": [
@@ -395,6 +441,24 @@
           },
           "then": {
             "maxProperties": 1
+          }
+        },
+        {
+          "description": "other_frozen cannot hide its directional semantics.",
+          "if": {
+            "properties": {
+              "resolution_direction": {
+                "const": "other_frozen"
+              }
+            },
+            "required": [
+              "resolution_direction"
+            ]
+          },
+          "then": {
+            "required": [
+              "resolution_direction_note"
+            ]
           }
         }
       ]
@@ -444,9 +508,164 @@
         }
       }
     },
+    "preregistration": {
+      "type": "object",
+      "required": [
+        "plan_ref",
+        "plan_sha256",
+        "frozen_commit",
+        "frozen_before_dispatch",
+        "rubric_and_plan_frozen_together",
+        "amendments_append_only",
+        "amendments"
+      ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "rubric_ref": [
+          "rubric_sha256"
+        ],
+        "rubric_sha256": [
+          "rubric_ref"
+        ]
+      },
+      "properties": {
+        "plan_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rubric_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rubric_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "frozen_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "frozen_before_dispatch": {
+          "const": true
+        },
+        "rubric_and_plan_frozen_together": {
+          "const": true
+        },
+        "judge_template_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amendments_append_only": {
+          "const": true
+        },
+        "amendments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "amendment_id",
+              "recorded_at",
+              "description"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "amendment_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "recorded_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "supersedes_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "execution_manifest": {
+      "type": "object",
+      "required": [
+        "ref",
+        "sha256",
+        "write_once",
+        "claims"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "write_once": {
+          "const": true
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "same_window",
+              "ordering",
+              "concurrency"
+            ]
+          },
+          "uniqueItems": true,
+          "description": "Timing/ordering/concurrency claims supported by the referenced per-call execution manifest."
+        }
+      }
+    },
     "results": {
       "type": "object",
-      "description": "Suite-specific payload. The contract does not constrain it."
+      "description": "Suite-specific payload. Version 1.1 reserves design and arm_roles while leaving other fields unconstrained.",
+      "properties": {
+        "design": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical experimental-design label; never an arm label."
+        },
+        "arm_roles": {
+          "type": "object",
+          "required": [
+            "treatment_or_cohort_arms",
+            "variant_packet_arms"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "treatment_or_cohort_arms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "variant_packet_arms": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      },
+      "additionalProperties": true
     },
     "verdict": {
       "type": "string",
@@ -578,6 +797,130 @@
           "judge_plan": {
             "required": [
               "legacy_baseline_ref"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "B5: heldout-measurement/1.1 requires judge-side blinding, headline estimand status, reserved design/arm vocabulary, pre-registration, and a write-once execution manifest.",
+      "if": {
+        "properties": {
+          "measurement_contract": {
+            "const": "heldout-measurement/1.1"
+          }
+        },
+        "required": [
+          "measurement_contract"
+        ]
+      },
+      "then": {
+        "required": [
+          "results",
+          "preregistration",
+          "execution_manifest"
+        ],
+        "properties": {
+          "judges": {
+            "items": {
+              "required": [
+                "judge_id",
+                "model_id",
+                "model_family",
+                "prompt_ref",
+                "evidence_provided",
+                "judging_budget",
+                "blinded_to",
+                "per_item"
+              ]
+            }
+          },
+          "aggregate": {
+            "properties": {
+              "headline": {
+                "required": [
+                  "metric_name",
+                  "value",
+                  "construction_rule",
+                  "estimand_status"
+                ]
+              }
+            }
+          },
+          "results": {
+            "required": [
+              "design",
+              "arm_roles"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "B6: 1.1 rows with adjudication pin the resolution direction and bind the preregistration rubric to the adjudication rubric.",
+      "if": {
+        "properties": {
+          "measurement_contract": {
+            "const": "heldout-measurement/1.1"
+          },
+          "adjudication": {
+            "properties": {
+              "applies": {
+                "const": true
+              }
+            },
+            "required": [
+              "applies"
+            ]
+          }
+        },
+        "required": [
+          "measurement_contract",
+          "adjudication"
+        ]
+      },
+      "then": {
+        "properties": {
+          "adjudication": {
+            "required": [
+              "resolution_direction",
+              "resolution_rule_ref"
+            ]
+          },
+          "preregistration": {
+            "required": [
+              "rubric_ref",
+              "rubric_sha256"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "B7: 1.1 judge-bearing suites freeze the exact judge-template version; mechanical suites with no judge do not invent one.",
+      "if": {
+        "properties": {
+          "measurement_contract": {
+            "const": "heldout-measurement/1.1"
+          },
+          "suite_class": {
+            "enum": [
+              "llm_judged",
+              "seeded_manifest_adjudicated",
+              "paired_controls"
+            ]
+          }
+        },
+        "required": [
+          "measurement_contract",
+          "suite_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "preregistration": {
+            "required": [
+              "judge_template_version"
             ]
           }
         }

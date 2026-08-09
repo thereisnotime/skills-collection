@@ -1,0 +1,706 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Imbad0202/academic-research-skills/shared/contracts/passport/bibliographic_integrity_signal.schema.json",
+  "title": "Bibliographic Integrity Signal",
+  "description": "Canonical, versioned carrier for bibliographic integrity observations. A signal records what was checked and observed; terminality remains an explicit policy decision owned by the citation finalizer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "signal_id",
+    "signal_type",
+    "epistemic_class",
+    "epistemic_label",
+    "check_status",
+    "finding",
+    "evidence",
+    "provenance",
+    "subject",
+    "terminal_policy",
+    "display"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "bibliographic-integrity-signal/1.0",
+        "bibliographic-integrity-signal/1.1"
+      ]
+    },
+    "signal_id": {
+      "type": "string",
+      "pattern": "^bis:[A-Za-z0-9_:-]+:[a-z0-9_-]+$"
+    },
+    "signal_type": {
+      "type": "string",
+      "enum": [
+        "preprint_post_llm_inflection",
+        "semantic_scholar_unmatched",
+        "openalex_unmatched",
+        "crossref_unmatched",
+        "arxiv_unmatched",
+        "retraction_status",
+        "tortured_phrase_match"
+      ]
+    },
+    "epistemic_class": {
+      "type": "string",
+      "enum": [
+        "deterministic_fact",
+        "heuristic_advisory",
+        "process_attestation"
+      ]
+    },
+    "epistemic_label": {
+      "type": "string",
+      "enum": [
+        "RESOLVER-OR-LIST-OBSERVATION",
+        "HEURISTIC-INDICATOR",
+        "CHECK-EXECUTION-ATTESTATION"
+      ]
+    },
+    "check_status": {
+      "type": "string",
+      "enum": [
+        "checked",
+        "not_checked",
+        "unknown",
+        "degraded"
+      ]
+    },
+    "finding": {
+      "type": "string",
+      "enum": [
+        "detected",
+        "not_detected",
+        "unresolved",
+        "not_applicable"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_type",
+          "source_name",
+          "observed_value"
+        ],
+        "properties": {
+          "evidence_type": {
+            "type": "string",
+            "enum": [
+              "resolver_response",
+              "list_record",
+              "metadata_rule",
+              "phrase_match",
+              "legacy_attestation",
+              "degradation_record"
+            ]
+          },
+          "source_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "record_locator": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_value": {
+            "type": [
+              "string",
+              "boolean",
+              "number",
+              "null"
+            ]
+          },
+          "evidence_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_name",
+        "source_version",
+        "source_sha256",
+        "checked_at",
+        "recorded_at",
+        "stale_after",
+        "freshness"
+      ],
+      "properties": {
+        "source_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "checked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale_after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "current",
+            "stale",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "citation_key",
+        "source_pointer",
+        "affected_claims"
+      ],
+      "properties": {
+        "citation_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_pointer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "affected_claims": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "terminal_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "owner",
+        "policy_key",
+        "current_effect"
+      ],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "owner": {
+          "type": "string",
+          "enum": [
+            "citation_finalizer",
+            "none"
+          ]
+        },
+        "policy_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_effect": {
+          "type": "string",
+          "enum": [
+            "advisory_only",
+            "existing_policy_only",
+            "policy_gated"
+          ]
+        }
+      }
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "carrier",
+        "section",
+        "summary_label",
+        "marker_token"
+      ],
+      "properties": {
+        "carrier": {
+          "const": "provenance_summary"
+        },
+        "section": {
+          "const": "Bibliographic Integrity Advisories"
+        },
+        "summary_label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "marker_token": {
+          "type": "null",
+          "description": "Always null in v1.0 and v1.1. Existing CONTAMINATED-* projection remains owned by the legacy contamination carrier during migration; new signal types never mint a second marker advisory token."
+        }
+      }
+    },
+    "retraction_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doi",
+        "effective_status",
+        "resolver_agreement",
+        "resolver_observations",
+        "retraction_event_date",
+        "retraction_reasons",
+        "reason_availability",
+        "load_bearing",
+        "claim_join_rule",
+        "source_acquisition_date",
+        "timing_vs_acquisition",
+        "declared_legitimate_citation"
+      ],
+      "properties": {
+        "doi": {
+          "type": ["string", "null"],
+          "pattern": "^10\\.[0-9]{4,9}/[^\\s]+$"
+        },
+        "effective_status": {
+          "enum": ["retracted", "not_retracted", "reinstated", "disputed", "unknown"]
+        },
+        "resolver_agreement": {
+          "enum": ["agree", "partial", "disagree", "unknown"]
+        },
+        "resolver_observations": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["resolver", "status", "verdict"],
+            "properties": {
+              "resolver": {"enum": ["OpenAlex", "Crossref"]},
+              "status": {"enum": ["checked", "not_checked", "unknown", "degraded"]},
+              "verdict": {"enum": ["retracted", "not_retracted", "reinstated", "disputed", "unknown"]},
+              "event_date": {"type": ["string", "null"], "format": "date-time"},
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["kind", "direction", "date", "notice_doi", "source", "record_id"],
+                  "properties": {
+                    "kind": {"enum": ["retraction", "reinstatement"]},
+                    "direction": {"enum": ["updated-by", "update-to"]},
+                    "date": {"type": ["string", "null"], "format": "date-time"},
+                    "notice_doi": {"type": ["string", "null"]},
+                    "source": {"type": ["string", "null"]},
+                    "record_id": {"type": ["string", "null"]}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "retraction_event_date": {"type": ["string", "null"], "format": "date-time"},
+        "retraction_reasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "reason_availability": {"enum": ["served", "not_served"]},
+        "load_bearing": {"enum": ["high_impact", "other", "not_decidable"]},
+        "claim_join_rule": {"const": "worst_tier_wins"},
+        "source_acquisition_date": {"type": ["string", "null"], "format": "date-time"},
+        "timing_vs_acquisition": {"enum": ["before_acquisition", "same_day", "after_acquisition", "not_decidable"]},
+        "declared_legitimate_citation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "declared",
+            "declaration_id",
+            "retraction_notice_cited",
+            "notice_citation_key",
+            "deterministic_exception",
+            "contextual_judgment"
+          ],
+          "properties": {
+            "declared": {"type": "boolean"},
+            "declaration_id": {"type": ["string", "null"]},
+            "retraction_notice_cited": {"type": "boolean"},
+            "notice_citation_key": {"type": ["string", "null"]},
+            "deterministic_exception": {"type": "boolean"},
+            "contextual_judgment": {"const": "not_performed"}
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "epistemic_class": {
+            "const": "deterministic_fact"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "epistemic_label": {
+            "const": "RESOLVER-OR-LIST-OBSERVATION"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "epistemic_class": {
+            "const": "heuristic_advisory"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "epistemic_label": {
+            "const": "HEURISTIC-INDICATOR"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "epistemic_class": {
+            "const": "process_attestation"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "epistemic_label": {
+            "const": "CHECK-EXECUTION-ATTESTATION"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "check_status": {
+            "enum": [
+              "not_checked",
+              "unknown",
+              "degraded"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "finding": {
+            "const": "unresolved"
+          },
+          "terminal_policy": {
+            "properties": {
+              "eligible": {
+                "const": false
+              },
+              "current_effect": {
+                "const": "advisory_only"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "terminal_policy": {
+            "properties": {
+              "eligible": {
+                "const": true
+              }
+            },
+            "required": [
+              "eligible"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "check_status": {
+            "const": "checked"
+          },
+          "finding": {
+            "const": "detected"
+          },
+          "terminal_policy": {
+            "properties": {
+              "owner": {
+                "const": "citation_finalizer"
+              },
+              "policy_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "current_effect": {
+                "enum": ["existing_policy_only", "policy_gated"]
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "terminal_policy": {
+            "properties": {
+              "policy_key": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "bibliographic-integrity-signal/1.1"}
+        },
+        "required": ["schema_version"]
+      },
+      "then": {
+        "required": ["retraction_context"],
+        "properties": {
+          "signal_type": {"const": "retraction_status"},
+          "epistemic_class": {"const": "deterministic_fact"},
+          "epistemic_label": {"const": "RESOLVER-OR-LIST-OBSERVATION"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "bibliographic-integrity-signal/1.0"}
+        },
+        "required": ["schema_version"]
+      },
+      "then": {
+        "properties": {
+          "retraction_context": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "declared_legitimate_citation": {
+                "properties": {
+                  "deterministic_exception": {"const": true}
+                },
+                "required": ["deterministic_exception"]
+              }
+            },
+            "required": ["declared_legitimate_citation"]
+          }
+        },
+        "required": ["retraction_context"]
+      },
+      "then": {
+        "properties": {
+          "terminal_policy": {
+            "properties": {
+              "eligible": {"const": false},
+              "policy_key": {"type": "null"},
+              "current_effect": {"const": "advisory_only"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "reason_availability": {"const": "served"}
+            },
+            "required": ["reason_availability"]
+          }
+        },
+        "required": ["retraction_context"]
+      },
+      "then": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "retraction_reasons": {"minItems": 1}
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "retraction_reasons": {"maxItems": 0}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "declared_legitimate_citation": {
+                "properties": {
+                  "deterministic_exception": {"const": true}
+                },
+                "required": ["deterministic_exception"]
+              }
+            },
+            "required": ["declared_legitimate_citation"]
+          }
+        },
+        "required": ["retraction_context"]
+      },
+      "then": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "declared_legitimate_citation": {
+                "properties": {
+                  "declared": {"const": true},
+                  "declaration_id": {"type": "string", "minLength": 1},
+                  "retraction_notice_cited": {"const": true},
+                  "notice_citation_key": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "terminal_policy": {
+            "properties": {
+              "eligible": {"const": true},
+              "policy_key": {"const": "retraction"}
+            },
+            "required": ["eligible", "policy_key"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {
+              "freshness": {"const": "current"}
+            }
+          },
+          "retraction_context": {
+            "properties": {
+              "effective_status": {"const": "retracted"},
+              "resolver_agreement": {"enum": ["agree", "partial"]},
+              "declared_legitimate_citation": {
+                "properties": {
+                  "deterministic_exception": {"const": false}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "effective_status": {"enum": ["disputed", "unknown"]}
+            },
+            "required": ["effective_status"]
+          }
+        },
+        "required": ["retraction_context"]
+      },
+      "then": {
+        "properties": {
+          "finding": {"const": "unresolved"},
+          "terminal_policy": {
+            "properties": {
+              "eligible": {"const": false}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "retraction_context": {
+            "properties": {
+              "effective_status": {"enum": ["not_retracted", "reinstated"]}
+            },
+            "required": ["effective_status"]
+          }
+        },
+        "required": ["retraction_context"]
+      },
+      "then": {
+        "properties": {
+          "finding": {"const": "not_detected"},
+          "terminal_policy": {
+            "properties": {
+              "eligible": {"const": false}
+            }
+          }
+        }
+      }
+    }
+  ]
+}
