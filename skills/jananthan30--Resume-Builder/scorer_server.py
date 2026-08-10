@@ -20,11 +20,11 @@ Usage:
     python scorer_server.py [--port 8100] [--host 0.0.0.0] [--require-auth] [--cors-origins "*"]
 """
 
-import time
 import argparse
+import hashlib
 import os
 import sys
-import hashlib
+import time
 
 # Load .env file from project root (simple loader, no python-dotenv required)
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -35,23 +35,22 @@ if os.path.isfile(_env_path):
             if _line and not _line.startswith("#") and "=" in _line:
                 _k, _, _v = _line.partition("=")
                 os.environ[_k.strip()] = _v.strip()
+import asyncio
 import base64
-import tempfile
 import json
 import statistics
+import tempfile
 import threading
 import uuid
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Optional, List, Dict, Any
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-import asyncio
-
-from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from legacy_rewrite_guard import native_resume_team_required_response
@@ -77,33 +76,56 @@ print(f"Models loaded in {_elapsed:.1f}s")
 # instead of talking to the model or the four-role pipeline directly, so
 # every draft they can ever return is produced (and audited/recorded) by the
 # exact same code path Task 8's tests already cover. ───
-import agent.tools as agent_tools
-
 # ─── Async run bookkeeping for POST /agent/tailor + /agent/cover-letter
 # (Task 10; see agent/runner.py's own module docstring). Imports cleanly
 # without cloud/ present, same as agent.tools above. ───
 import agent.runner as agent_runner
+import agent.tools as agent_tools
 
 # ─── Cloud modules (graceful import — works locally without cloud deps) ───
 try:
-    from cloud.config import settings as cloud_settings
     from cloud.auth import (
-        create_user, authenticate_user, get_user_by_id,
-        create_api_key as create_user_api_key, validate_api_key as validate_user_api_key,
-        log_usage, check_usage_allowed, get_usage_stats,
-        create_jwt_token, decode_jwt_token, update_user_tier,
-        get_or_create_anonymous_user, get_user_by_stripe_customer_id,
-        save_resume as _save_resume_db,
-        get_resume as _get_resume_db,
+        authenticate_user,
+        check_usage_allowed,
+        create_jwt_token,
+        create_password_reset_token,
+        create_user,
+        decode_jwt_token,
+        get_or_create_anonymous_user,
+        get_usage_stats,
+        get_user_by_id,
+        get_user_by_stripe_customer_id,
+        log_usage,
+        reset_password_with_token,
+        update_user_tier,
+    )
+    from cloud.auth import (
+        create_api_key as create_user_api_key,
+    )
+    from cloud.auth import (
         delete_resume as _delete_resume_db,
     )
-    from cloud.billing import (
-        is_billing_configured, create_checkout_session,
-        handle_webhook_event, create_portal_session,
-        get_subscription_status,
+    from cloud.auth import (
+        get_resume as _get_resume_db,
     )
-    from cloud.db import get_conn as db_get_conn, run_migrations, scoped
-    from cloud.quotas import QuotaExceeded, check_quota
+    from cloud.auth import (
+        save_resume as _save_resume_db,
+    )
+    from cloud.auth import (
+        validate_api_key as validate_user_api_key,
+    )
+    from cloud.billing import (
+        create_checkout_session,
+        create_portal_session,
+        get_subscription_status,
+        handle_webhook_event,
+        is_billing_configured,
+    )
+    from cloud.config import settings as cloud_settings
+    from cloud.db import get_conn as db_get_conn
+    from cloud.db import run_migrations, scoped
+    from cloud.emailer import send_password_reset_email
+    from cloud.quotas import QuotaExceeded, check_quota  # noqa: F401 — availability probe
     CLOUD_AVAILABLE = True
 except ImportError:
     CLOUD_AVAILABLE = False
@@ -432,6 +454,16 @@ class FetchJDRequest(BaseModel):
     use_ai: bool = Field(True, description="Use Claude Haiku to clean/extract JD from raw page text")
 
 
+class JdExtractRequest(BaseModel):
+    """JD-only extraction for ATS keywords and structured requirements (no resume required)."""
+
+    jd_text: str = Field(..., description="Full job description plain text or markdown")
+    domain_hint: Optional[str] = Field(
+        None,
+        description="Optional domain override for extract_jd_keywords (e.g. technology, clinical_research)",
+    )
+
+
 class ResumeUploadRequest(BaseModel):
     """Upload or replace the authenticated user's saved resume."""
     resume_text: Optional[str] = Field(None, description="Plain text resume content")
@@ -731,7 +763,7 @@ async def verify_api_key_with_usage(request: Request):
             if is_anon:
                 detail = (
                     f"Free tier limit reached ({_config['free_tier_total_limit']} scores). "
-                    f"Sign up at https://resume-scorer-web.streamlit.app for more scores, "
+                    f"Sign up at https://getresumehq.com for more scores, "
                     f"or upgrade to Pro ($12/month) for unlimited scoring."
                 )
             else:
@@ -880,7 +912,7 @@ def generate_ats_explanation(resume_text: str, jd_text: str, ats_result: Dict) -
 
     if current_score < 60:
         explanation["quick_wins"].append(
-            f"Add top 5 missing keywords to Core Competencies section (estimated +8-12% ATS score)"
+            "Add top 5 missing keywords to Core Competencies section (estimated +8-12% ATS score)"
         )
     if current_score < 75:
         explanation["quick_wins"].append(
@@ -987,7 +1019,7 @@ def generate_hr_explanation(hr_result: Dict) -> Dict:
         explanation["strengths_to_emphasize"].append({
             "factor": label,
             "current_score": score,
-            "advice": f"Highlight this strength prominently — it's your competitive advantage",
+            "advice": "Highlight this strength prominently — it's your competitive advantage",
         })
 
     # Risk mitigations from penalties
@@ -1119,6 +1151,50 @@ def health():
         "cache_size": len(_score_cache),
         "auth_required": _config["require_auth"],
     }
+
+
+@app.post("/jd/extract")
+def jd_extract(req: JdExtractRequest, api_key: str = Depends(verify_api_key_with_usage)):
+    """Extract ATS keyword lists and rule-based JD requirements without scoring a resume.
+
+    Community-contributed surface (fork: michalsteyn/fork-Resume-Builder):
+    useful standalone as a keyword checker, and as the first step of a
+    check-before-you-tailor flow.
+    """
+    from dataclasses import asdict
+
+    from job_fit_scorer import extract_requirements
+
+    jd_text = (req.jd_text or "").strip()
+    if len(jd_text) < 50:
+        raise HTTPException(status_code=400, detail="jd_text too short (minimum ~50 characters)")
+
+    _log_score_usage(api_key, "/jd/extract")
+
+    try:
+        domain_override = req.domain_hint.strip() if req.domain_hint else None
+        primary, confidence, domain_scores = ats_scorer.detect_domain(jd_text)
+        domain_for_keywords = domain_override or primary
+        jd_kw = ats_scorer.extract_jd_keywords(jd_text, domain=domain_for_keywords)
+        req_fit = extract_requirements(jd_text)
+        jd_hr = hr_scorer.parse_job_description(jd_text)
+
+        return JSONResponse(
+            content={
+                "source": "resumehq",
+                "domain": primary,
+                "domain_confidence": float(confidence),
+                "domain_scores": {k: float(v) for k, v in domain_scores.items()},
+                "domain_used_for_keywords": domain_for_keywords,
+                "jd_keywords": jd_kw,
+                "extracted_requirements": asdict(req_fit),
+                "job_requirements_hr": asdict(jd_hr),
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/score/ats")
@@ -1632,6 +1708,83 @@ def login(req: LoginRequest):
     return {"user": user, "token": token}
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+# Per-email cooldown for /auth/forgot. In-memory is enough: the goal is to
+# stop one address being carpet-bombed with reset mail, not to survive
+# restarts, and the single-machine deployment has no second process to sync.
+_FORGOT_COOLDOWN: dict = {}
+_FORGOT_COOLDOWN_SECONDS = 60
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://getresumehq.com")
+
+
+@app.post("/auth/forgot")
+def forgot_password(req: ForgotPasswordRequest):
+    """Email a password-reset link.
+
+    Always answers {"sent": true} — for unknown addresses too — so the
+    endpoint cannot be used to probe which emails have accounts.
+    """
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=501, detail="Cloud auth not available in local mode.")
+    email = req.email.lower().strip()
+    now = time.time()
+    if now - _FORGOT_COOLDOWN.get(email, 0.0) >= _FORGOT_COOLDOWN_SECONDS:
+        _FORGOT_COOLDOWN[email] = now
+        token = create_password_reset_token(email)
+        if token:
+            send_password_reset_email(email, f"{FRONTEND_URL}/reset?token={token}")
+    return {"sent": True}
+
+
+@app.post("/auth/reset")
+def reset_password(req: ResetPasswordRequest):
+    """Set a new password using a token from the reset email."""
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=501, detail="Cloud auth not available in local mode.")
+    try:
+        reset_password_with_token(req.token, req.new_password)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"reset": True}
+
+
+@app.get("/digest/unsubscribe")
+def digest_unsubscribe(token: str = ""):
+    """Login-free one-click opt-out from the weekly job digest."""
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=501, detail="Cloud features not available in local mode.")
+    from cloud.digest import unsubscribe_with_token
+
+    try:
+        unsubscribe_with_token(token)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return HTMLResponse(
+        "<div style='font-family:system-ui;max-width:28rem;margin:4rem auto;text-align:center'>"
+        "<h2>You're unsubscribed</h2><p>No more weekly job digests. You can re-enable "
+        "them anytime from your account at <a href='https://getresumehq.com'>getresumehq.com</a>.</p></div>"
+    )
+
+
+@app.post("/admin/send-digests")
+def admin_send_digests(request: Request, user_id: Optional[int] = None, force: bool = False):
+    """Trigger the weekly digest run (all eligible users, or one for testing)."""
+    _verify_admin_secret(request)
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=501, detail="Cloud features not available in local mode.")
+    from cloud.digest import send_weekly_digests
+
+    return send_weekly_digests(only_user_id=user_id, force=force)
+
+
 @app.post("/auth/api-key")
 def create_key(req: CreateKeyRequest, auth=Depends(verify_api_key)):
     """Generate a new API key for the authenticated user."""
@@ -1700,7 +1853,20 @@ def billing_checkout(req: CheckoutRequest = None, auth=Depends(verify_api_key)):
 
 @app.post("/billing/webhook")
 async def billing_webhook(request: Request):
-    """Handle Stripe webhook events (subscription lifecycle)."""
+    """Handle Stripe webhook events (subscription lifecycle).
+
+    Every failure path returns non-2xx ON PURPOSE. Stripe treats any 2xx as
+    "handled" and never retries, so the previous blanket 200 meant a wrong or
+    rotated signing secret silently discarded every entitlement while the
+    Stripe dashboard stayed green: money in, no access granted, no signal.
+
+    Status contract:
+      503  Stripe/webhook secret not configured -- retryable once fixed
+      400  bad signature or unusable metadata -- a retry cannot help, but the
+           delivery must still be recorded as failed
+      500  event is valid but we cannot map its customer to an account
+      200  handled, duplicate, or an event type we deliberately ignore
+    """
     if not CLOUD_AVAILABLE:
         raise HTTPException(status_code=501, detail="Billing not available.")
 
@@ -1709,6 +1875,11 @@ async def billing_webhook(request: Request):
 
     result = handle_webhook_event(payload, sig)
     action = result["action"]
+    error = result.get("error")
+
+    if error:
+        retryable = "not configured" in error
+        raise HTTPException(status_code=503 if retryable else 400, detail=error)
 
     # Idempotency. Stripe retries until it gets a 2xx and guarantees no
     # ordering, so the same event can arrive twice and a stale one can arrive
@@ -1716,6 +1887,7 @@ async def billing_webhook(request: Request):
     # without it, a redelivered past_due could downgrade someone who has
     # since recovered. Claimed only for events that actually change state.
     event_id = result.get("event_id") or ""
+    claimed = False
     if action != "none" and event_id:
         import sqlite3
 
@@ -1725,8 +1897,22 @@ async def billing_webhook(request: Request):
                 conn.execute(
                     "INSERT INTO stripe_events (event_id) VALUES (?)", (event_id,)
                 )
+            claimed = True
         except sqlite3.IntegrityError:
             return {"status": "ignored", "reason": "duplicate event"}
+
+    def _release() -> None:
+        """Un-claim the event so Stripe's retry is processed, not deduped.
+
+        Without this, claim-then-fail burns the event id permanently: the
+        retry hits the duplicate check above and gets a cheerful 200, so the
+        change is lost exactly when the retry was the chance to apply it.
+        """
+        if not claimed:
+            return
+        from cloud.auth import get_db
+        with get_db() as conn:
+            conn.execute("DELETE FROM stripe_events WHERE event_id = ?", (event_id,))
 
     if action == "upgrade":
         update_user_tier(
@@ -1735,22 +1921,25 @@ async def billing_webhook(request: Request):
         )
         return {"status": "upgraded", "user_id": result["user_id"]}
 
-    elif action == "restore":
-        # A recovered subscription (a retried card that finally cleared).
+    elif action in ("restore", "downgrade"):
+        # 'restore' is a recovered subscription (a retried card that cleared).
         customer_id = result.get("stripe_customer_id", "")
         user = get_user_by_stripe_customer_id(customer_id) if customer_id else None
-        if user:
-            update_user_tier(user["id"], result.get("tier", "pro"), customer_id, None)
-            return {"status": "restored", "user_id": user["id"], "tier": result.get("tier")}
-        return {"status": "restore_failed", "reason": "User not found for customer"}
-
-    elif action == "downgrade":
-        customer_id = result.get("stripe_customer_id", "")
-        user = get_user_by_stripe_customer_id(customer_id) if customer_id else None
-        if user:
-            update_user_tier(user["id"], "free", customer_id, None)
-            return {"status": "downgraded", "user_id": user["id"], "reason": result.get("reason")}
-        return {"status": "downgrade_failed", "reason": "User not found for customer"}
+        if not user:
+            # We are billing a customer we cannot map to an account. Refusing
+            # loudly keeps the event in Stripe's retry queue and on the
+            # dashboard instead of dropping the change on the floor.
+            _release()
+            raise HTTPException(
+                status_code=500,
+                detail=f"No account for Stripe customer {customer_id or '(missing)'}",
+            )
+        if action == "restore":
+            tier = result.get("tier", "pro")
+            update_user_tier(user["id"], tier, customer_id, None)
+            return {"status": "restored", "user_id": user["id"], "tier": tier}
+        update_user_tier(user["id"], "free", customer_id, None)
+        return {"status": "downgraded", "user_id": user["id"], "reason": result.get("reason")}
 
     return {"status": "ignored", "event_type": result.get("event_type")}
 
@@ -1786,7 +1975,7 @@ def score_llm(req: ScoreRequest, api_key: str = Depends(verify_api_key_with_usag
     worker threadpool instead.
     """
     try:
-        from llm_scorer import score_with_llm, ANTHROPIC_AVAILABLE
+        from llm_scorer import ANTHROPIC_AVAILABLE, score_with_llm
     except ImportError:
         raise HTTPException(status_code=500, detail="llm_scorer module not found")
 
@@ -1829,7 +2018,7 @@ async def score_combined(req: ScoreRequest, request: Request, api_key: str = Dep
 
     def _run_llm(rules_ats: float, rules_hr: float) -> dict:
         try:
-            from llm_scorer import score_with_llm, combine_scores, ANTHROPIC_AVAILABLE
+            from llm_scorer import ANTHROPIC_AVAILABLE, combine_scores, score_with_llm
             if ANTHROPIC_AVAILABLE:
                 llm_r = score_with_llm(resume_text, jd_text, domain_hint=domain_hint)
                 c_ats, c_hr, blend = combine_scores(rules_ats, rules_hr, llm_r)
@@ -3075,7 +3264,7 @@ if __name__ == "__main__":
     )
 
     print(f"\n{'='*60}")
-    print(f"  Resume Scorer API v3.0")
+    print("  Resume Scorer API v3.0")
     print(f"{'='*60}")
     print(f"  Server:  http://{args.host}:{args.port}")
     print(f"  Auth:    {'Required (JWT + API Key)' if _config['require_auth'] else 'Disabled'}")
@@ -3083,32 +3272,56 @@ if __name__ == "__main__":
     print(f"  Billing: {'Configured' if CLOUD_AVAILABLE and is_billing_configured() else 'Not configured'}")
     print(f"  CORS:    {args.cors_origins}")
     print(f"  Rate:    {args.rate_limit}/min per key")
-    print(f"\n  Scoring Endpoints:")
-    print(f"  GET  /health         — Server status and model info")
-    print(f"  POST /score/ats      — ATS score")
-    print(f"  POST /score/hr       — HR score")
-    print(f"  POST /score/both     — Combined ATS + HR score")
-    print(f"  POST /score/llm      — LLM-augmented score (Claude)")
-    print(f"  POST /score/combined — Blended ATS + HR + LLM score")
-    print(f"  POST /score/batch    — Batch scoring")
-    print(f"  POST /explain        — Score explanation")
-    print(f"  POST /cover-letter   — Cover letter generation (Pro/Ultra)")
-    print(f"  POST /jobs/discover  — Job discovery + scoring")
-    print(f"\n  Async Agent Endpoints:")
-    print(f"  POST /agent/tailor        — Enqueue a tailored-resume run (Pro/Ultra)")
-    print(f"  POST /agent/cover-letter  — Enqueue a cover-letter run (Pro/Ultra)")
-    print(f"  GET  /agent/runs/{{run_id}} — Poll an async agent run")
-    print(f"\n  Auth & Billing Endpoints:")
-    print(f"  POST /auth/register  — Create account")
-    print(f"  POST /auth/login     — Login (returns JWT)")
-    print(f"  POST /auth/api-key   — Generate API key")
-    print(f"  GET  /auth/usage     — Usage stats")
-    print(f"  POST /billing/checkout — Upgrade to Pro (Stripe)")
-    print(f"  POST /billing/webhook  — Stripe webhooks")
-    print(f"  POST /billing/portal   — Manage subscription")
-    print(f"\n  Admin Endpoints:")
-    print(f"  POST /admin/create-key — Legacy key generation")
-    print(f"  GET  /admin/stats      — Server statistics")
+    print("\n  Scoring Endpoints:")
+    print("  GET  /health         — Server status and model info")
+    print("  POST /score/ats      — ATS score")
+    print("  POST /score/hr       — HR score")
+    print("  POST /score/both     — Combined ATS + HR score")
+    print("  POST /score/llm      — LLM-augmented score (Claude)")
+    print("  POST /score/combined — Blended ATS + HR + LLM score")
+    print("  POST /score/batch    — Batch scoring")
+    print("  POST /explain        — Score explanation")
+    print("  POST /cover-letter   — Cover letter generation (Pro/Ultra)")
+    print("  POST /jobs/discover  — Job discovery + scoring")
+    print("\n  Async Agent Endpoints:")
+    print("  POST /agent/tailor        — Enqueue a tailored-resume run (Pro/Ultra)")
+    print("  POST /agent/cover-letter  — Enqueue a cover-letter run (Pro/Ultra)")
+    print("  GET  /agent/runs/{run_id} — Poll an async agent run")
+    print("\n  Auth & Billing Endpoints:")
+    print("  POST /auth/register  — Create account")
+    print("  POST /auth/login     — Login (returns JWT)")
+    print("  POST /auth/api-key   — Generate API key")
+    print("  GET  /auth/usage     — Usage stats")
+    print("  POST /billing/checkout — Upgrade to Pro (Stripe)")
+    print("  POST /billing/webhook  — Stripe webhooks")
+    print("  POST /billing/portal   — Manage subscription")
+    print("\n  Admin Endpoints:")
+    print("  POST /admin/create-key — Legacy key generation")
+    print("  GET  /admin/stats      — Server statistics")
     print(f"{'='*60}\n")
+
+    # Weekly digest scheduler: Mondays ~13:00 UTC (9am ET). The digest_log
+    # table makes runs idempotent per user per ISO week, so restarts and the
+    # half-hour polling loop can never double-send. Gated off by default until
+    # the match-inbox rework lands — enable with DIGEST_SCHEDULER=1.
+    if CLOUD_AVAILABLE and os.getenv("DIGEST_SCHEDULER") == "1":
+        import threading
+
+        def _digest_scheduler():
+            import logging as _logging
+            from datetime import datetime, timezone
+
+            from cloud.digest import send_weekly_digests
+
+            while True:
+                now = datetime.now(timezone.utc)
+                if now.weekday() == 0 and 13 <= now.hour < 15:
+                    try:
+                        send_weekly_digests()
+                    except Exception:
+                        _logging.getLogger("scorer.digest").exception("scheduled digest run failed")
+                time.sleep(1800)
+
+        threading.Thread(target=_digest_scheduler, daemon=True, name="digest-scheduler").start()
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")

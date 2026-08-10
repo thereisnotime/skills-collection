@@ -11725,8 +11725,8 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 567,
-      "words": 4127,
+      "lines": 574,
+      "words": 4245,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -11904,7 +11904,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
       "lines": 456,
-      "words": 4382,
+      "words": 4342,
       "code_blocks": 4,
       "languages": []
     },
@@ -11913,8 +11913,8 @@
       "description": "\"Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-researc",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
-      "lines": 643,
-      "words": 5962,
+      "lines": 649,
+      "words": 6064,
       "code_blocks": 11,
       "languages": []
     },
@@ -11923,8 +11923,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 508,
-      "words": 5745,
+      "lines": 509,
+      "words": 5738,
       "code_blocks": 4,
       "languages": []
     },
@@ -11933,8 +11933,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/agents/research_architect_agent.md",
       "remote_path": "agents/research_architect_agent.md",
-      "lines": 250,
-      "words": 2487,
+      "lines": 252,
+      "words": 2686,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12005,8 +12005,8 @@
       "description": "\"Research ethics self-check (before a human committee/IRB, not a replacement); confirms Critical integrity concerns before delivery \u2014 stops the user once, overridable, never a veto\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/ethics_review_agent.md",
       "remote_path": "deep-research/agents/ethics_review_agent.md",
-      "lines": 238,
-      "words": 2203,
+      "lines": 262,
+      "words": 2490,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12017,8 +12017,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/research_architect_agent.md",
       "remote_path": "deep-research/agents/research_architect_agent.md",
-      "lines": 250,
-      "words": 2487,
+      "lines": 252,
+      "words": 2686,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12065,8 +12065,8 @@
       "description": "\"Systematic literature search and curation; identifies, annotates, and formats sources in APA 7.0\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/bibliography_agent.md",
       "remote_path": "deep-research/agents/bibliography_agent.md",
-      "lines": 464,
-      "words": 4045,
+      "lines": 474,
+      "words": 4358,
       "code_blocks": 10,
       "languages": [
         "markdown",
@@ -12176,8 +12176,8 @@
       "description": "\"Synthesizes all reviewer reports into a unified editorial decision letter and revision roadmap\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
-      "lines": 444,
-      "words": 5566,
+      "lines": 451,
+      "words": 5493,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12235,8 +12235,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 1072,
-      "words": 18011,
+      "lines": 1167,
+      "words": 17850,
       "code_blocks": 18,
       "languages": []
     },
@@ -12256,7 +12256,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/state_tracker_agent.md",
       "remote_path": "academic-pipeline/agents/state_tracker_agent.md",
       "lines": 507,
-      "words": 2304,
+      "words": 2246,
       "code_blocks": 6,
       "languages": [
         "json"
@@ -12268,7 +12268,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
       "lines": 808,
-      "words": 8531,
+      "words": 8511,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -12293,11 +12293,10 @@
       "description": "\"Parses reviewer or real-committee comments into source-accounted plans and response skeletons\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/revision_coach_agent.md",
       "remote_path": "academic-paper/agents/revision_coach_agent.md",
-      "lines": 339,
-      "words": 2535,
-      "code_blocks": 4,
+      "lines": 335,
+      "words": 2670,
+      "code_blocks": 3,
       "languages": [
-        "markdown",
         "yaml"
       ]
     },
@@ -12383,8 +12382,8 @@
       "description": "\"Writes the full paper draft section by section from the structured outline and Paper Configuration Record\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
-      "lines": 617,
-      "words": 7143,
+      "lines": 646,
+      "words": 7133,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -12433,8 +12432,8 @@
       "description": "\"Formats the final manuscript output to target journal style requirements\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
-      "lines": 996,
-      "words": 8490,
+      "lines": 1000,
+      "words": 8662,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -22770,6 +22769,19 @@
       "languages": []
     },
     {
+      "name": "batch-resume",
+      "description": "Process multiple job descriptions from the batch_jds folder into tailored application packages, each produced by the native Resume Team, with independent candidate-fit gates and ordered DOCX and track",
+      "path": "jananthan30--Resume-Builder/skills/batch-resume/SKILL.md",
+      "remote_path": "skills/batch-resume/SKILL.md",
+      "lines": 479,
+      "words": 2854,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
       "name": "resume-team",
       "description": "Run the capability-isolated native Researcher, Writer, Auditor, and Editor runtime to publish a verified Markdown resume draft. Use when Codex is asked to tailor or generate a resume from a job descri",
       "path": "jananthan30--Resume-Builder/skills/resume-team/SKILL.md",
@@ -22777,6 +22789,88 @@
       "lines": 90,
       "words": 969,
       "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "job-fit",
+      "description": "Run the deterministic, digest-bound candidate-fit gate that scores the configured master resume against an exact job description before any resume tailoring. Use when the user wants a GO/NO-GO fit che",
+      "path": "jananthan30--Resume-Builder/skills/job-fit/SKILL.md",
+      "remote_path": "skills/job-fit/SKILL.md",
+      "lines": 98,
+      "words": 567,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "resume",
+      "description": "Generate a tailored resume AND cover letter for a job description via the native four-role Resume Team, score both against ATS and HR rubrics, create DOCX files, and update the tracker. Use when the u",
+      "path": "jananthan30--Resume-Builder/skills/resume/SKILL.md",
+      "remote_path": "skills/resume/SKILL.md",
+      "lines": 844,
+      "words": 5678,
+      "code_blocks": 18,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "setup",
+      "description": "One-time setup for Resume Builder \u2014 Python dependencies, config.json, cloud or local scoring, and optional LLM features. Use once right after installing, or when the user reports missing dependencies,",
+      "path": "jananthan30--Resume-Builder/skills/setup/SKILL.md",
+      "remote_path": "skills/setup/SKILL.md",
+      "lines": 128,
+      "words": 630,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "tailor-resume",
+      "description": "Tailor a resume to a job description via the native four-role Resume Team, score it against ATS and HR rubrics, create a DOCX, and update the tracker. Use when the user pastes a job description and wa",
+      "path": "jananthan30--Resume-Builder/skills/tailor-resume/SKILL.md",
+      "remote_path": "skills/tailor-resume/SKILL.md",
+      "lines": 438,
+      "words": 2600,
+      "code_blocks": 10,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "writing-coach",
+      "description": "Human-voice writing coach that rewrites resumes and cover letters for brevity, burstiness, plain language, and authentic impact, and blocks AI-sounding prose. Use when the user wants to improve writin",
+      "path": "jananthan30--Resume-Builder/skills/writing-coach/SKILL.md",
+      "remote_path": "skills/writing-coach/SKILL.md",
+      "lines": 298,
+      "words": 1841,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "cover-letter",
+      "description": "Create a compelling one-page, human-voice cover letter for a job description and generate the final DOCX. Use when the user wants a cover letter only (no resume), pastes a JD and asks for a letter, or",
+      "path": "jananthan30--Resume-Builder/skills/cover-letter/SKILL.md",
+      "remote_path": "skills/cover-letter/SKILL.md",
+      "lines": 98,
+      "words": 756,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "find-jobs",
+      "description": "Search live job boards for roles that match the master resume, then score and rank them by ATS and HR fit. Use when the user wants to discover or find jobs, search openings by title or location, wants",
+      "path": "jananthan30--Resume-Builder/skills/find-jobs/SKILL.md",
+      "remote_path": "skills/find-jobs/SKILL.md",
+      "lines": 138,
+      "words": 809,
+      "code_blocks": 5,
       "languages": []
     },
     {
@@ -153784,9 +153878,9 @@
       "description": "Open plans and HTML artifacts in a local browser canvas where the human annotates elements, chats, and approves or requests changes without leaving the page. Use when presenting a plan for review, or ",
       "path": "affaan-m--everything-claude-code/.agents/skills/plan-canvas/SKILL.md",
       "remote_path": ".agents/skills/plan-canvas/SKILL.md",
-      "lines": 153,
-      "words": 937,
-      "code_blocks": 7,
+      "lines": 196,
+      "words": 1284,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json",
@@ -156710,9 +156804,9 @@
       "description": "Open plans and HTML artifacts in a local browser canvas where the human annotates elements, chats, and approves or requests changes without leaving the page. Use when presenting a plan for review, or ",
       "path": "affaan-m--everything-claude-code/skills/plan-canvas/SKILL.md",
       "remote_path": "skills/plan-canvas/SKILL.md",
-      "lines": 154,
-      "words": 939,
-      "code_blocks": 7,
+      "lines": 197,
+      "words": 1286,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json",

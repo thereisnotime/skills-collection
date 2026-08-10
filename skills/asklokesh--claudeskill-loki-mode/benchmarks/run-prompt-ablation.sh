@@ -43,6 +43,8 @@ MODEL="sonnet"
 MAX_ITERS=8
 TIMEOUT_S=1200
 SPEC=""
+GRADER=""
+TASK=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -55,6 +57,14 @@ while [ $# -gt 0 ]; do
     # gate recovery has nothing to do -- a null result there says the ablation
     # is safe on a task that exercises none of what the prompt is for.
     --spec)      SPEC="$2"; shift 2 ;;
+    # A HELD-OUT GRADER, copied in only AFTER the run so the agent never sees
+    # it. This is what makes a harder ablation meaningful: file-existence
+    # heuristics say a build produced the right FILENAME, a grader asserts the
+    # contract. Verified satisfiable AND strict before use -- a correct
+    # order_api.py passes, a naive one that skips validation fails.
+    --grader)    GRADER="$2"; shift 2 ;;
+    # Shorthand for the two above, from benchmarks/bench/tasks/<id>.json.
+    --task)      TASK="$2"; shift 2 ;;
     -h|--help)   sed -n '2,36p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 64 ;;
   esac
@@ -63,6 +73,47 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 HISTORY="$REPO_ROOT/benchmarks/results/prompt-ablation.jsonl"
+
+# --task <id> resolves the spec and grader from benchmarks/bench/tasks/<id>.json,
+# so an operator does not have to know where either lives. Fails LOUDLY on an
+# unknown id or a missing overlay: silently falling back to the greet spec would
+# run a whole ablation against the wrong task and look like a valid result.
+if [ -n "$TASK" ]; then
+  _task_json="$REPO_ROOT/benchmarks/bench/tasks/${TASK}.json"
+  if [ ! -f "$_task_json" ]; then
+    echo "unknown --task '$TASK' (no $_task_json)" >&2
+    echo "available: $(ls "$REPO_ROOT/benchmarks/bench/tasks/" 2>/dev/null | sed 's/\.json$//' | tr '\n' ' ')" >&2
+    exit 2
+  fi
+  # The template MUST end in XXXXXX -- BSD mktemp fails with a suffix after
+  # it ("mkstemp failed ... File exists"), which silently left SPEC empty and
+  # the guard below then refused the whole run. Renamed to .md afterwards
+  # because speed-benchmark.sh reads the spec by path, not by extension.
+  SPEC="$(mktemp "${TMPDIR:-/tmp}/loki-taskspec-XXXXXX")" || {
+    echo "could not create a temp spec file" >&2; exit 2; }
+  python3 - "$_task_json" "$SPEC" <<'TASKPY' || exit 2
+import json, sys
+d = json.load(open(sys.argv[1]))
+open(sys.argv[2], "w").write(d.get("prompt", ""))
+TASKPY
+  if [ ! -s "$SPEC" ]; then
+    echo "--task '$TASK' has an empty prompt; refusing to run" >&2
+    exit 2
+  fi
+  _overlay="$(python3 -c "
+import json,sys
+print((json.load(open(sys.argv[1])).get('acceptance') or {}).get('overlay',''))" "$_task_json")"
+  if [ -n "$_overlay" ]; then
+    _g="$REPO_ROOT/benchmarks/bench/tasks/$_overlay/check_acceptance.py"
+    if [ -f "$_g" ]; then
+      GRADER="$_g"
+    else
+      echo "--task '$TASK' declares an overlay but $_g is missing; refusing" >&2
+      exit 2
+    fi
+  fi
+  echo "task:    $TASK  (spec $(wc -c < "$SPEC" | tr -d ' ') bytes, grader ${GRADER:-none})"
+fi
 mkdir -p "$(dirname "$HISTORY")"
 
 echo "prompt ablation: ${TRIALS} trials/arm | model=${MODEL} | max_iters=${MAX_ITERS}"
@@ -102,7 +153,7 @@ _record() {
     return
   fi
   python3 - "$arm" "$f" "$HISTORY" <<'PY'
-import json, sys, time
+import json, os, sys, time
 arm, src, hist = sys.argv[1], sys.argv[2], sys.argv[3]
 d = json.load(open(src))
 d['arm'] = arm
@@ -116,6 +167,26 @@ if stamped is not None and stamped != arm:
         "  ERROR: arm mismatch -- harness says %r, engine stamped %r. "
         "NOT recorded.\n" % (arm, stamped))
     sys.exit(1)
+# REFUSE A DUPLICATE. _record picks the newest speed-<label>-*.json, so a run
+# that produced NO new file silently re-records the previous one -- observed
+# when a --task run aborted and appended 6 stale rows, inflating n and faking
+# significance. Keyed on (stamp, arm): the stamp is minted per benchmark run,
+# so a repeat means no new trial happened.
+_key = (d.get('stamp'), d.get('prompt_arm') or d.get('arm'))
+if os.path.exists(hist):
+    for _line in open(hist):
+        _line = _line.strip()
+        if not _line:
+            continue
+        try:
+            _prev = json.loads(_line)
+        except Exception:
+            continue
+        if (_prev.get('stamp'), _prev.get('prompt_arm') or _prev.get('arm')) == _key:
+            sys.stderr.write(
+                "  ERROR: duplicate trial (stamp %s, arm %s) -- the benchmark "
+                "produced no new result file. NOT recorded.\n" % _key)
+            sys.exit(1)
 with open(hist, 'a') as fh:
     fh.write(json.dumps(d) + "\n")
 sys.stderr.write("  arm=%-6s iters=%-3s wall=%-5s completed=%-5s acceptance=%s\n" % (
@@ -132,13 +203,19 @@ for i in $(seq 1 "$TRIALS"); do
     [ "$arm" = "simple" ] && simple_val=1
     label="${arm}-${MODEL}-t${i}"
     echo "-- arm: $arm"
+    # LOKI_ABL_LOGDIR captures each trial's output. Default /dev/null keeps
+    # the run quiet; set it when a trial produces no result file and you need
+    # to see WHY, which is otherwise invisible.
+    _trial_log=/dev/null
+    [ -n "${LOKI_ABL_LOGDIR:-}" ] && { mkdir -p "$LOKI_ABL_LOGDIR"; _trial_log="$LOKI_ABL_LOGDIR/${label}.log"; }
     ( cd "$REPO_ROOT" && \
       LOKI_SIMPLE="$simple_val" \
       LOKI_SESSION_MODEL="$MODEL" LOKI_MAX_TIER="$MODEL" \
       LOKI_BENCH_MAX_ITERS="$MAX_ITERS" LOKI_BENCH_TIMEOUT_S="$TIMEOUT_S" \
+      LOKI_BENCH_GRADER="$GRADER" \
       _run_capped "$HARNESS_CAP" bash benchmarks/speed-benchmark.sh --label "$label" \
       ${SPEC:+--spec "$SPEC"} \
-      >/dev/null 2>&1 )
+      > "$_trial_log" 2>&1 )
     _record "$arm" "$label"
   done
   echo ""

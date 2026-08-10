@@ -121,7 +121,7 @@ LINE_BUDGET_V3_10_EXTENSION = 90
 LINE_BUDGET_394_GATE = 25
 
 # #390 Slice B ships the `## Revision-Round Patch Sequencing (#390)` H2 block —
-# the orchestrator side of diff/patch revision mode: the five-step normative
+# the orchestrator side of diff/patch revision mode: the seven-step normative
 # sequence, the no-rewrite window, the two-layer escalation gate + MANDATORY
 # checkpoint, and the apply-failure path. Its own scope (the patch protocol,
 # not the v3.6.7 audit gate), so like every vX finalizer/gate block it is
@@ -131,6 +131,15 @@ LINE_BUDGET_394_GATE = 25
 #   docs/design/2026-06-10-390-diff-patch-revision-mode-spec.md §3.3-§3.6.
 # Measured at landing: 47 lines. Budget 55 (~8 lines headroom).
 LINE_BUDGET_390_SEQUENCING = 55
+
+# #670 adds the `## Revision Authority and Evidence-Bundle Extension` H2
+# block. It carries the bundle's exact continuous chain plus the separate
+# integrity-correction proposal -> exact author patch approval -> apply ->
+# issuing-gate re-verification path. Keeping it separate preserves the #390
+# sequencing budget instead of silently charging new authority semantics to
+# that older block. Measured at landing: 42 lines. Budget 48 (~6 lines
+# headroom).
+LINE_BUDGET_670_AUTHORITY_EXTENSION = 48
 
 # #576 Spec B PR-B2 ships the `## Stage 3' Re-Review Contract Dispatch
 # (#576 Spec B)` H2 block — the orchestrator-side three-gate dispatch
@@ -151,6 +160,14 @@ LINE_BUDGET_576_STAGE3P_DISPATCH = 30
 # historical v3.6.7 +60 budget and gets its own bounded test. Measured at
 # landing: 54 lines; budget 60 leaves 6 lines of headroom.
 LINE_BUDGET_656_EVIDENCE_RENDERING = 60
+
+# #660 ships the `## Tortured-Phrase Advisory Dispatch (#660)` H2 block.
+# It carries the exact pre-format dispatch, explicit-time/no-network boundary,
+# degraded-artifact handoff, advisory-only claim ceiling, and read-only cited
+# carrier rules. This is an independent 2026-08 extension, so it is subtracted
+# from the historical v3.6.7 budget and receives its own bounded test. Measured
+# at landing: 55 lines; budget 60 leaves 5 lines of headroom.
+LINE_BUDGET_660_ADVISORY_DISPATCH = 60
 
 # All 24 failure phase IDs from spec §5.6 inventory (7 P-PA-* + 17 P-PB-*).
 # These must each appear at least once in the orchestrator prompt as
@@ -455,7 +472,7 @@ def _measure_390_sequencing_block_lines(text: str) -> int:
     block).
 
     Slice B adds the orchestrator side of diff/patch revision mode: the
-    five-step sequence, the no-rewrite window, the two-layer escalation
+    seven-step sequence, the no-rewrite window, the two-layer escalation
     gate + MANDATORY checkpoint, and the apply-failure path. Like the
     v3.7.x / v3.9.0 / v3.10 / #394 blocks, it has its own scope and MUST be
     subtracted from the v3.6.7 Phase 6.6 +60 budget. Spec:
@@ -470,6 +487,29 @@ def _measure_390_sequencing_block_lines(text: str) -> int:
     import re as _re
     anchor = _re.compile(
         r"(?m)^[ \t]*##[ \t]+Revision-Round Patch Sequencing[^\n]*$"
+    )
+    m = anchor.search(text)
+    if m is None:
+        return 0
+    next_h = _re.compile(r"(?m)^[ \t]*#{1,2}[ \t]+")
+    head_eol = text.find("\n", m.end())
+    search_start = (head_eol + 1) if head_eol >= 0 else len(text)
+    nm = next_h.search(text, search_start)
+    end = nm.start() if nm else len(text)
+    return len(text[m.start():end].splitlines())
+
+
+def _measure_670_authority_extension_lines(text: str) -> int:
+    """Return the number of lines in the #670 authority/bundle H2 block.
+
+    The exact bundle chain and integrity-correction author-approval path are
+    a #670 extension, not part of the older #390 line budget. The next H1/H2
+    closes the block; there are no internal H2 headings.
+    """
+    import re as _re
+    anchor = _re.compile(
+        r"(?m)^[ \t]*##[ \t]+Revision Authority and Evidence-Bundle "
+        r"Extension \(#670\)[ \t]*$"
     )
     m = anchor.search(text)
     if m is None:
@@ -581,6 +621,45 @@ def _measure_656_evidence_rendering_block_lines(text: str) -> int:
     return policy_lines + insertion_end - insertion_start + 1
 
 
+def _measure_660_advisory_dispatch_block_lines(text: str) -> int:
+    """Return lines in the #660 tortured-phrase dispatch H2 block."""
+    import re as _re
+
+    anchor = _re.compile(
+        r"(?m)^[ \t]*##[ \t]+Tortured-Phrase Advisory Dispatch "
+        r"\(#660\)[ \t]*$"
+    )
+    m = anchor.search(text)
+    if m is None:
+        return 0
+    next_h = _re.compile(r"(?m)^[ \t]*#{1,2}[ \t]+")
+    head_eol = text.find("\n", m.end())
+    search_start = (head_eol + 1) if head_eol >= 0 else len(text)
+    nm = next_h.search(text, search_start)
+    end = nm.start() if nm else len(text)
+    return len(text[m.start():end].splitlines())
+
+
+class Advisory660LineBudgetTest(unittest.TestCase):
+    """#660 tortured-phrase dispatch block stays independently bounded."""
+
+    def test_660_advisory_dispatch_block_within_budget(self) -> None:
+        text = _read_prompt()
+        block_lines = _measure_660_advisory_dispatch_block_lines(text)
+        self.assertGreater(
+            block_lines,
+            0,
+            "#660 tortured-phrase advisory dispatch block is missing from "
+            "pipeline_orchestrator_agent.md",
+        )
+        self.assertLessEqual(
+            block_lines,
+            LINE_BUDGET_660_ADVISORY_DISPATCH,
+            f"#660 tortured-phrase advisory dispatch block is {block_lines} "
+            f"lines, over its {LINE_BUDGET_660_ADVISORY_DISPATCH}-line budget",
+        )
+
+
 class Dispatch576LineBudgetTest(unittest.TestCase):
     """#576 Spec B Stage 3' contract-dispatch block within
     `LINE_BUDGET_576_STAGE3P_DISPATCH` line budget.
@@ -658,19 +737,23 @@ class Phase66LineBudgetTest(unittest.TestCase):
         v3_10_lines = _measure_v3_10_extension_block_lines(text)
         gate_394_lines = _measure_394_gate_block_lines(text)
         seq_390_lines = _measure_390_sequencing_block_lines(text)
+        authority_670_lines = _measure_670_authority_extension_lines(text)
         dispatch_576_lines = _measure_576_stage3p_dispatch_block_lines(text)
         evidence_656_lines = _measure_656_evidence_rendering_block_lines(text)
+        advisory_660_lines = _measure_660_advisory_dispatch_block_lines(text)
         # v3.6.7-only line count: total minus v3.7.1 Step 3b, v3.7.3
         # finalizer extension, v3.8 §3.6 audit-gate, v3.9.0 triangulation
         # extension, v3.10 terminal-policy extension, the #394 slice-4
         # submission-package gate, the #390 Slice B revision-patch
-        # sequencing, the #576 Spec B Stage 3' contract-dispatch, AND the #656
-        # Phase E evidence-row checkpoint-rendering
+        # sequencing, the #670 authority/bundle extension, the #576 Spec B
+        # Stage 3' contract-dispatch, AND the #656 Phase E evidence-row
+        # checkpoint-rendering, AND the #660 tortured-phrase advisory dispatch
         # subsections (each has its own dedicated budget test).
         v367_line_count = (
             total_lines - step_3b_lines - v3_7_3_lines - v3_8_lines
             - v3_9_0_lines - v3_10_lines - gate_394_lines - seq_390_lines
-            - dispatch_576_lines - evidence_656_lines
+            - authority_670_lines - dispatch_576_lines - evidence_656_lines
+            - advisory_660_lines
         )
         ceiling = BASELINE_LINE_COUNT + LINE_BUDGET_OVER_BASELINE
         self.assertLessEqual(
@@ -687,8 +770,9 @@ class Phase66LineBudgetTest(unittest.TestCase):
             f"subsection, {gate_394_lines} are in the #394 submission-"
             f"package gate, {seq_390_lines} are in the #390 revision-patch "
             f"sequencing subsection, {dispatch_576_lines} are in the #576 "
-            f"dispatch subsection, and {evidence_656_lines} are in the #656 "
-            f"evidence-rendering subsection; v3.6.7-attributed lines = "
+            f"dispatch subsection, {evidence_656_lines} are in the #656 "
+            f"evidence-rendering subsection, and {advisory_660_lines} are in "
+            f"the #660 advisory-dispatch subsection; v3.6.7-attributed lines = "
             f"{v367_line_count} exceeds {ceiling} (baseline "
             f"{BASELINE_LINE_COUNT} + Phase 6.6 budget "
             f"{LINE_BUDGET_OVER_BASELINE}). Tighten the §3.5 Audit "
@@ -943,6 +1027,28 @@ class Sequencing390LineBudgetTest(unittest.TestCase):
             f"{LINE_BUDGET_390_SEQUENCING}-line budget (currently "
             f"{block_lines} lines). Tighten the subsection or raise "
             f"`LINE_BUDGET_390_SEQUENCING` with rationale.",
+        )
+
+
+class Authority670LineBudgetTest(unittest.TestCase):
+    """#670 authority/bundle extension has its own explicit line budget."""
+
+    def test_670_authority_extension_within_budget(self) -> None:
+        text = _read_prompt()
+        block_lines = _measure_670_authority_extension_lines(text)
+        self.assertGreater(
+            block_lines,
+            0,
+            "#670 authority/bundle extension missing from "
+            "pipeline_orchestrator_agent.md.",
+        )
+        self.assertLessEqual(
+            block_lines,
+            LINE_BUDGET_670_AUTHORITY_EXTENSION,
+            f"#670 authority/bundle extension exceeds "
+            f"{LINE_BUDGET_670_AUTHORITY_EXTENSION}-line budget (currently "
+            f"{block_lines} lines). Tighten it or raise "
+            "`LINE_BUDGET_670_AUTHORITY_EXTENSION` with rationale.",
         )
 
 

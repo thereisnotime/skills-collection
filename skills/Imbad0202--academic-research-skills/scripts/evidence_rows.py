@@ -32,6 +32,8 @@ from urllib.parse import unquote
 
 SCHEMA_VERSION = "evidence-row/1.0"
 SURFACE = "phase_e_claim_verification"
+ADVISORY_SCHEMA_VERSION = "evidence-row/1.1"
+ADVISORY_SURFACE = "authority_profile_content_coverage"
 EXTRACTOR_VERSION = "evidence-rows/1.0"
 QUOTE_WORD_CAP = 25
 TEXT_CHAR_CAP = 1000
@@ -83,11 +85,35 @@ VERDICTS = frozenset(
 CACHE_STATUSES = frozenset({"not_used", "miss", "hit"})
 SHARING_SCOPES = frozenset({"session_only", "user_confirmed_shareable"})
 RIGHTS_BASES = frozenset({"not_assessed", "user_declared_authorized"})
+ADVISORY_ANCHOR_KINDS = frozenset({"quote", "none"})
+ADVISORY_EXCERPT_STATES = frozenset(
+    {
+        "agent_extracted",
+        "checked_no_match",
+        "not_checked",
+        "source_missing",
+        "access_failed",
+        "retrieval_failed",
+    }
+)
+ADVISORY_SOURCE_BOUND_STATES = frozenset({"agent_extracted", "checked_no_match"})
+ADVISORY_EMPTY_STATES = frozenset(
+    {"checked_no_match", "not_checked", "source_missing", "access_failed", "retrieval_failed"}
+)
+ADVISORY_FAILURE_STATES = frozenset(
+    {"not_checked", "source_missing", "access_failed", "retrieval_failed"}
+)
+DOCUMENT_LOCATOR_KINDS = frozenset(
+    {"document", "page", "section", "paragraph", "other"}
+)
+DOCUMENT_LOCATOR_PROVENANCE = "agent_supplied_not_independently_authenticated"
 MAX_JSON_NESTING = 100
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _REF_SLUG_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_:-]*$")
 _ROW_ID_RE = re.compile(r"^EVR-[A-Za-z0-9._:-]+$")
+_AUTHORITY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+_POINTER_RE = re.compile(r"^/(?:profiles|overlays)/[0-9]+/requirements/[0-9]+(?:/.*)?$")
 _RFC3339_RE = re.compile(
     r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt]"
     r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]"
@@ -162,6 +188,39 @@ def _enum(value: Any, path: str, allowed: frozenset[str] | set[str]) -> str:
     if not isinstance(value, str) or value not in allowed:
         _fail(path, f"must be one of {sorted(allowed)}")
     return value
+
+
+def _authority_identifier(value: Any, path: str) -> str:
+    text = _string(value, path, minimum=1, maximum=200)
+    if _AUTHORITY_ID_RE.fullmatch(text) is None:
+        _fail(path, "must use lowercase letters, digits, dot, underscore, or hyphen")
+    return text
+
+
+def _json_pointer(value: Any, path: str) -> str:
+    text = _string(value, path, minimum=1, maximum=2000)
+    if _POINTER_RE.fullmatch(text) is None or any(char.isspace() for char in text):
+        _fail(path, "must be a normalized profile/overlay requirement JSON Pointer")
+    return text
+
+
+def _single_line(value: Any, path: str, *, maximum: int) -> str:
+    text = _string(value, path, minimum=1, maximum=maximum)
+    if any(char in text for char in "\r\n") or any(
+        unicodedata.category(char) in {"Cc", "Zl", "Zp"} for char in text
+    ):
+        _fail(path, "must be a single line without control characters")
+    return text
+
+
+def _advisory_relative_path(value: Any, path: str) -> str:
+    text = _single_line(value, path, maximum=1024)
+    if "\\" in text or text.startswith("/") or text.endswith("/"):
+        _fail(path, "must be a normalized relative POSIX path")
+    parts = text.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        _fail(path, "must not contain empty, dot, or parent-traversal components")
+    return text
 
 
 def _reject_unsafe_controls(value: str, path: str) -> None:
@@ -294,14 +353,24 @@ def _empty_excerpt(state: str) -> dict[str, Any]:
     }
 
 
-def _text_excerpt(state: str, text: str, source: str) -> dict[str, Any]:
+def _text_excerpt(
+    state: str,
+    text: str,
+    source: str,
+    *,
+    captured_at: str | None = None,
+) -> dict[str, Any]:
     text = _bounded_external_text(text, "excerpt.text")
     return {
         "state": state,
         "text": text,
         "excerpt_sha256": _hash_text(text, "excerpt.text"),
         "source_span_utf8": _span(source, text),
-        "captured_at": _timestamp_now(),
+        "captured_at": (
+            _timestamp_now()
+            if captured_at is None
+            else _timestamp(captured_at, "captured_at")
+        ),
     }
 
 
@@ -398,6 +467,281 @@ def _template(row: Mapping[str, Any]) -> dict[str, Any]:
             "rights_basis": rights_basis,
         },
     }
+
+
+def _advisory_template(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize caller-supplied metadata for one #681 evidence row."""
+
+    if not isinstance(row, Mapping):
+        _fail("row", "must be a mapping")
+    raw = copy.deepcopy(dict(row))
+    required = {"surface", "row_id", "coverage_subject", "source", "anchor"}
+    allowed = required | {
+        "schema_version",
+        "excerpt",
+        "cache",
+        "content_handling",
+        "row_sha256",
+    }
+    _closed(raw, "row template", required, allowed)
+    if raw.get("schema_version", ADVISORY_SCHEMA_VERSION) != ADVISORY_SCHEMA_VERSION:
+        _fail("schema_version", f"must equal {ADVISORY_SCHEMA_VERSION}")
+    if raw["surface"] != ADVISORY_SURFACE:
+        _fail("surface", f"must equal {ADVISORY_SURFACE}")
+    row_id = _string(raw["row_id"], "row_id", minimum=1, maximum=200)
+    if _ROW_ID_RE.fullmatch(row_id) is None:
+        _fail("row_id", "must match ^EVR-[A-Za-z0-9._:-]+$")
+
+    subject = _closed(
+        raw["coverage_subject"],
+        "coverage_subject",
+        {
+            "requirement_id",
+            "requirement_pointer",
+            "authority_anchor_pointer",
+            "expectation_field_id",
+            "expectation_pointer",
+            "expectation_digest",
+            "document_locator",
+        },
+    )
+    requirement_pointer = _json_pointer(
+        subject["requirement_pointer"], "coverage_subject.requirement_pointer"
+    )
+    if not re.fullmatch(r"/(?:profiles|overlays)/[0-9]+/requirements/[0-9]+", requirement_pointer):
+        _fail("coverage_subject.requirement_pointer", "must point to one exact requirement")
+    authority_anchor_pointer = _json_pointer(
+        subject["authority_anchor_pointer"],
+        "coverage_subject.authority_anchor_pointer",
+    )
+    if authority_anchor_pointer != requirement_pointer + "/authority_anchor":
+        _fail(
+            "coverage_subject.authority_anchor_pointer",
+            "must be the requirement's exact authority_anchor pointer",
+        )
+    expectation_pointer = _json_pointer(
+        subject["expectation_pointer"], "coverage_subject.expectation_pointer"
+    )
+    if re.fullmatch(
+        re.escape(requirement_pointer) + r"/structured_expectations/[0-9]+",
+        expectation_pointer,
+    ) is None:
+        _fail(
+            "coverage_subject.expectation_pointer",
+            "must point to one structured expectation under the requirement",
+        )
+    locator = _closed(
+        subject["document_locator"],
+        "coverage_subject.document_locator",
+        {"kind", "value", "provenance"},
+    )
+    if locator["provenance"] != DOCUMENT_LOCATOR_PROVENANCE:
+        _fail(
+            "coverage_subject.document_locator.provenance",
+            f"must equal {DOCUMENT_LOCATOR_PROVENANCE}",
+        )
+
+    source = _closed(
+        raw["source"],
+        "source",
+        {"artifact_id", "relative_path", "source_artifact_sha256", "source_artifact_size_bytes"},
+        {
+            "artifact_id",
+            "relative_path",
+            "source_artifact_sha256",
+            "source_artifact_size_bytes",
+            "source_content_sha256",
+            "source_content_utf8_bytes",
+        },
+    )
+    anchor = _closed(
+        raw["anchor"],
+        "anchor",
+        {"kind", "value_encoded"},
+        {"kind", "value_encoded", "value_decoded"},
+    )
+    kind = _enum(anchor["kind"], "anchor.kind", ADVISORY_ANCHOR_KINDS)
+    encoded = _string(anchor["value_encoded"], "anchor.value_encoded", maximum=12000)
+    decoded = strict_percent_decode(encoded)
+    if "value_decoded" in anchor and anchor["value_decoded"] != decoded:
+        _fail(
+            "anchor.value_decoded",
+            "must equal one strict percent decode of anchor.value_encoded",
+        )
+    if kind == "none":
+        if encoded or decoded:
+            _fail("anchor", "kind=none requires empty encoded and decoded values")
+    else:
+        if not decoded.strip():
+            _fail("anchor.value_decoded", "quote anchors require non-empty text")
+        _bounded_external_text(decoded, "anchor.value_decoded")
+
+    handling = raw.get("content_handling", {})
+    if not isinstance(handling, dict):
+        _fail("content_handling", "must be an object")
+    extra_handling = sorted(
+        set(handling) - {"contains_external_text", "sharing_scope", "rights_basis"}
+    )
+    if extra_handling:
+        _fail("content_handling", f"unexpected key(s): {', '.join(extra_handling)}")
+    sharing_scope = _enum(
+        handling.get("sharing_scope", "session_only"),
+        "content_handling.sharing_scope",
+        SHARING_SCOPES,
+    )
+    rights_basis = _enum(
+        handling.get("rights_basis", "not_assessed"),
+        "content_handling.rights_basis",
+        RIGHTS_BASES,
+    )
+    if (sharing_scope == "user_confirmed_shareable") != (
+        rights_basis == "user_declared_authorized"
+    ):
+        _fail(
+            "content_handling",
+            "user_confirmed_shareable and user_declared_authorized must appear together",
+        )
+
+    return {
+        "schema_version": ADVISORY_SCHEMA_VERSION,
+        "surface": ADVISORY_SURFACE,
+        "row_id": row_id,
+        "coverage_subject": {
+            "requirement_id": _authority_identifier(
+                subject["requirement_id"], "coverage_subject.requirement_id"
+            ),
+            "requirement_pointer": requirement_pointer,
+            "authority_anchor_pointer": authority_anchor_pointer,
+            "expectation_field_id": _authority_identifier(
+                subject["expectation_field_id"],
+                "coverage_subject.expectation_field_id",
+            ),
+            "expectation_pointer": expectation_pointer,
+            "expectation_digest": _sha(
+                subject["expectation_digest"], "coverage_subject.expectation_digest"
+            ),
+            "document_locator": {
+                "kind": _enum(
+                    locator["kind"],
+                    "coverage_subject.document_locator.kind",
+                    DOCUMENT_LOCATOR_KINDS,
+                ),
+                "value": _single_line(
+                    locator["value"],
+                    "coverage_subject.document_locator.value",
+                    maximum=500,
+                ),
+                "provenance": DOCUMENT_LOCATOR_PROVENANCE,
+            },
+        },
+        "source": {
+            "artifact_id": _authority_identifier(source["artifact_id"], "source.artifact_id"),
+            "relative_path": _advisory_relative_path(
+                source["relative_path"], "source.relative_path"
+            ),
+            "source_artifact_sha256": _sha(
+                source["source_artifact_sha256"], "source.source_artifact_sha256"
+            ),
+            "source_artifact_size_bytes": _integer(
+                source["source_artifact_size_bytes"],
+                "source.source_artifact_size_bytes",
+            ),
+            "source_content_sha256": None,
+            "source_content_utf8_bytes": None,
+        },
+        "anchor": {"kind": kind, "value_encoded": encoded, "value_decoded": decoded},
+        "content_handling": {
+            "contains_external_text": False,
+            "sharing_scope": sharing_scope,
+            "rights_basis": rights_basis,
+        },
+    }
+
+
+def build_advisory(
+    row: Mapping[str, Any],
+    session_source_or_none: str | None,
+    *,
+    extracted_text: str | None = None,
+    failure_state: str | None = None,
+    cached_row: Mapping[str, Any] | None = None,
+    captured_at: str | None = None,
+) -> dict[str, Any]:
+    """Build one closed #681 row from explicit evaluator metadata and source text.
+
+    This function verifies provenance only.  It never infers a coverage status,
+    invokes an evaluator, opens a source path, or performs retrieval.
+    """
+
+    output = _advisory_template(row)
+    if output["source"]["source_artifact_size_bytes"] > 64 * 1024 * 1024:
+        _fail("source.source_artifact_size_bytes", "must be <= 67108864")
+    if cached_row is not None:
+        _fail("cached_row", "evidence-row/1.1 forbids cache reuse")
+    if session_source_or_none is not None and not isinstance(session_source_or_none, str):
+        _fail("session_source_or_none", "must be a string or null")
+    kind = output["anchor"]["kind"]
+    decoded = output["anchor"]["value_decoded"]
+    if extracted_text is not None:
+        extracted_text = _bounded_external_text(extracted_text, "extracted_text")
+        if kind != "quote" or extracted_text != decoded:
+            _fail("extracted_text", "must exactly equal the decoded quote anchor")
+
+    if failure_state is not None:
+        if captured_at is not None:
+            _fail("captured_at", "failure states require null captured_at")
+        state = _enum(failure_state, "failure_state", ADVISORY_FAILURE_STATES)
+        if kind != "none":
+            _fail("anchor.kind", f"state={state} requires anchor.kind=none")
+        excerpt = _empty_excerpt(state)
+    elif kind == "quote":
+        if captured_at is None:
+            _fail(
+                "captured_at",
+                "agent_extracted requires an explicit evaluator-supplied timestamp",
+            )
+        if session_source_or_none is None:
+            _fail("failure_state", "a missing source requires an explicit failure state")
+        if decoded not in session_source_or_none:
+            _fail(
+                "anchor.value_decoded",
+                "must be an exact contiguous substring of session_source_or_none",
+            )
+        source_bytes = _utf8(session_source_or_none, "session_source_or_none")
+        if len(source_bytes) > 64 * 1024 * 1024:
+            _fail("session_source_or_none", "exceeds 67108864 UTF-8 bytes")
+        output["source"]["source_content_sha256"] = _hash_bytes(source_bytes)
+        output["source"]["source_content_utf8_bytes"] = len(source_bytes)
+        state = "agent_extracted"
+        excerpt = _text_excerpt(
+            state,
+            decoded,
+            session_source_or_none,
+            captured_at=captured_at,
+        )
+    else:
+        if captured_at is not None:
+            _fail("captured_at", "checked_no_match requires null captured_at")
+        if session_source_or_none is None:
+            _fail("failure_state", "a missing source requires an explicit failure state")
+        source_bytes = _utf8(session_source_or_none, "session_source_or_none")
+        if len(source_bytes) > 64 * 1024 * 1024:
+            _fail("session_source_or_none", "exceeds 67108864 UTF-8 bytes")
+        output["source"]["source_content_sha256"] = _hash_bytes(source_bytes)
+        output["source"]["source_content_utf8_bytes"] = len(source_bytes)
+        state = "checked_no_match"
+        excerpt = _empty_excerpt(state)
+
+    output["excerpt"] = excerpt
+    output["cache"] = {"status": "not_used", "key_sha256": None}
+    output["content_handling"]["contains_external_text"] = bool(
+        excerpt["text"] is not None or (kind == "quote" and decoded)
+    )
+    output["row_sha256"] = _row_sha256(output)
+    replay_source = (
+        session_source_or_none if state in ADVISORY_SOURCE_BOUND_STATES else None
+    )
+    return _validate_v1_1(output, replay_source)
 
 
 def build(
@@ -570,7 +914,7 @@ def build(
     return validate(output, session_source_or_none if state in SOURCE_BOUND_STATES else None)
 
 
-def validate(row: Mapping[str, Any], session_source_or_none: str | None = None) -> dict[str, Any]:
+def _validate_v1_0(row: Mapping[str, Any], session_source_or_none: str | None = None) -> dict[str, Any]:
     """Return a deep-copied validated row; optionally replay source binding."""
 
     if not isinstance(row, Mapping):
@@ -735,6 +1079,248 @@ def validate(row: Mapping[str, Any], session_source_or_none: str | None = None) 
     return value
 
 
+def _validate_v1_1(
+    row: Mapping[str, Any], session_source_or_none: str | None = None
+) -> dict[str, Any]:
+    """Validate an evidence-row/1.1 carrier and optionally replay held content."""
+
+    if not isinstance(row, Mapping):
+        _fail("row", "must be a mapping")
+    value = copy.deepcopy(dict(row))
+    root_keys = {
+        "schema_version",
+        "surface",
+        "row_id",
+        "coverage_subject",
+        "source",
+        "anchor",
+        "excerpt",
+        "cache",
+        "content_handling",
+        "row_sha256",
+    }
+    _closed(value, "row", root_keys)
+    if value["schema_version"] != ADVISORY_SCHEMA_VERSION:
+        _fail("schema_version", f"must equal {ADVISORY_SCHEMA_VERSION}")
+    if value["surface"] != ADVISORY_SURFACE:
+        _fail("surface", f"must equal {ADVISORY_SURFACE}")
+    row_id = _string(value["row_id"], "row_id", minimum=1, maximum=200)
+    if _ROW_ID_RE.fullmatch(row_id) is None:
+        _fail("row_id", "does not match the EVR identifier grammar")
+
+    subject = _closed(
+        value["coverage_subject"],
+        "coverage_subject",
+        {
+            "requirement_id",
+            "requirement_pointer",
+            "authority_anchor_pointer",
+            "expectation_field_id",
+            "expectation_pointer",
+            "expectation_digest",
+            "document_locator",
+        },
+    )
+    _authority_identifier(subject["requirement_id"], "coverage_subject.requirement_id")
+    requirement_pointer = _json_pointer(
+        subject["requirement_pointer"], "coverage_subject.requirement_pointer"
+    )
+    if re.fullmatch(r"/(?:profiles|overlays)/[0-9]+/requirements/[0-9]+", requirement_pointer) is None:
+        _fail("coverage_subject.requirement_pointer", "must point to one exact requirement")
+    authority_pointer = _json_pointer(
+        subject["authority_anchor_pointer"], "coverage_subject.authority_anchor_pointer"
+    )
+    if authority_pointer != requirement_pointer + "/authority_anchor":
+        _fail("coverage_subject.authority_anchor_pointer", "does not match requirement_pointer")
+    _authority_identifier(
+        subject["expectation_field_id"], "coverage_subject.expectation_field_id"
+    )
+    expectation_pointer = _json_pointer(
+        subject["expectation_pointer"], "coverage_subject.expectation_pointer"
+    )
+    if re.fullmatch(
+        re.escape(requirement_pointer) + r"/structured_expectations/[0-9]+",
+        expectation_pointer,
+    ) is None:
+        _fail("coverage_subject.expectation_pointer", "does not belong to requirement_pointer")
+    _sha(subject["expectation_digest"], "coverage_subject.expectation_digest")
+    locator = _closed(
+        subject["document_locator"],
+        "coverage_subject.document_locator",
+        {"kind", "value", "provenance"},
+    )
+    _enum(
+        locator["kind"], "coverage_subject.document_locator.kind", DOCUMENT_LOCATOR_KINDS
+    )
+    _single_line(locator["value"], "coverage_subject.document_locator.value", maximum=500)
+    if locator["provenance"] != DOCUMENT_LOCATOR_PROVENANCE:
+        _fail(
+            "coverage_subject.document_locator.provenance",
+            f"must equal {DOCUMENT_LOCATOR_PROVENANCE}",
+        )
+
+    source = _closed(
+        value["source"],
+        "source",
+        {
+            "artifact_id",
+            "relative_path",
+            "source_artifact_sha256",
+            "source_artifact_size_bytes",
+            "source_content_sha256",
+            "source_content_utf8_bytes",
+        },
+    )
+    _authority_identifier(source["artifact_id"], "source.artifact_id")
+    _advisory_relative_path(source["relative_path"], "source.relative_path")
+    _sha(source["source_artifact_sha256"], "source.source_artifact_sha256")
+    artifact_size = _integer(
+        source["source_artifact_size_bytes"], "source.source_artifact_size_bytes"
+    )
+    if artifact_size > 64 * 1024 * 1024:
+        _fail("source.source_artifact_size_bytes", "must be <= 67108864")
+    content_sha = _sha(
+        source["source_content_sha256"], "source.source_content_sha256", nullable=True
+    )
+    content_length = source["source_content_utf8_bytes"]
+    if content_length is not None:
+        content_length = _integer(content_length, "source.source_content_utf8_bytes")
+        if content_length > 64 * 1024 * 1024:
+            _fail("source.source_content_utf8_bytes", "must be <= 67108864")
+
+    anchor = _closed(value["anchor"], "anchor", {"kind", "value_encoded", "value_decoded"})
+    kind = _enum(anchor["kind"], "anchor.kind", ADVISORY_ANCHOR_KINDS)
+    encoded = _string(anchor["value_encoded"], "anchor.value_encoded", maximum=12000)
+    decoded = _string(anchor["value_decoded"], "anchor.value_decoded", maximum=TEXT_CHAR_CAP)
+    if strict_percent_decode(encoded) != decoded:
+        _fail("anchor.value_decoded", "must equal one strict percent decode of anchor.value_encoded")
+    if kind == "none":
+        if encoded or decoded:
+            _fail("anchor", "kind=none requires empty encoded and decoded values")
+    else:
+        _bounded_external_text(decoded, "anchor.value_decoded")
+
+    excerpt = _closed(
+        value["excerpt"],
+        "excerpt",
+        {"state", "text", "excerpt_sha256", "source_span_utf8", "captured_at"},
+    )
+    state = _enum(excerpt["state"], "excerpt.state", ADVISORY_EXCERPT_STATES)
+    text_value = excerpt["text"]
+    if text_value is not None:
+        text_value = _bounded_external_text(text_value, "excerpt.text")
+    excerpt_sha = _sha(excerpt["excerpt_sha256"], "excerpt.excerpt_sha256", nullable=True)
+    span = excerpt["source_span_utf8"]
+    if span is not None:
+        span = _closed(span, "excerpt.source_span_utf8", {"start", "end"})
+        start = _integer(span["start"], "excerpt.source_span_utf8.start")
+        end = _integer(span["end"], "excerpt.source_span_utf8.end", minimum=1)
+        if end <= start:
+            _fail("excerpt.source_span_utf8", "end must be greater than start")
+        if content_length is not None and end > content_length:
+            _fail("excerpt.source_span_utf8.end", "exceeds source_content_utf8_bytes")
+    captured = excerpt["captured_at"]
+    if captured is not None:
+        _timestamp(captured, "excerpt.captured_at")
+
+    cache = _closed(value["cache"], "cache", {"status", "key_sha256"})
+    if cache != {"status": "not_used", "key_sha256": None}:
+        _fail("cache", "evidence-row/1.1 requires not_used and null key_sha256")
+    handling = _closed(
+        value["content_handling"],
+        "content_handling",
+        {"contains_external_text", "sharing_scope", "rights_basis"},
+    )
+    if not isinstance(handling["contains_external_text"], bool):
+        _fail("content_handling.contains_external_text", "must be a boolean")
+    sharing = _enum(
+        handling["sharing_scope"], "content_handling.sharing_scope", SHARING_SCOPES
+    )
+    rights = _enum(handling["rights_basis"], "content_handling.rights_basis", RIGHTS_BASES)
+    if (sharing == "user_confirmed_shareable") != (
+        rights == "user_declared_authorized"
+    ):
+        _fail(
+            "content_handling",
+            "user-confirmed sharing and user-declared authorization must appear together",
+        )
+
+    if state == "agent_extracted":
+        if kind != "quote" or not decoded:
+            _fail("anchor", "agent_extracted requires a non-empty quote anchor")
+        if text_value != decoded:
+            _fail("excerpt.text", "agent_extracted must equal the decoded quote anchor")
+        if any(item is None for item in (content_sha, content_length, excerpt_sha, span, captured)):
+            _fail(
+                "excerpt",
+                "agent_extracted requires source binding, text hash, span, and captured_at",
+            )
+        if excerpt_sha != _hash_text(text_value, "excerpt.text"):
+            _fail("excerpt.excerpt_sha256", "does not match excerpt.text")
+    elif state == "checked_no_match":
+        if kind != "none" or content_sha is None or content_length is None:
+            _fail("excerpt", "checked_no_match requires an empty anchor and source binding")
+        if any(item is not None for item in (text_value, excerpt_sha, span, captured)):
+            _fail("excerpt", "checked_no_match requires a null excerpt payload")
+    else:
+        if kind != "none":
+            _fail("anchor.kind", f"state={state} requires anchor.kind=none")
+        if content_sha is not None or content_length is not None:
+            _fail("source", f"state={state} requires null source-content binding")
+        if any(item is not None for item in (text_value, excerpt_sha, span, captured)):
+            _fail("excerpt", f"state={state} requires a null excerpt payload")
+
+    expected_external = state == "agent_extracted"
+    if handling["contains_external_text"] != expected_external:
+        _fail(
+            "content_handling.contains_external_text",
+            f"must equal derived value {expected_external}",
+        )
+
+    if session_source_or_none is not None:
+        if not isinstance(session_source_or_none, str):
+            _fail("session_source_or_none", "must be a string or null")
+        if state in ADVISORY_SOURCE_BOUND_STATES:
+            source_bytes = _utf8(session_source_or_none, "session_source_or_none")
+            if len(source_bytes) > 64 * 1024 * 1024:
+                _fail("session_source_or_none", "exceeds 67108864 UTF-8 bytes")
+            if content_sha != _hash_bytes(source_bytes) or content_length != len(source_bytes):
+                _fail("source", "content digest/length does not match the supplied session source")
+            if state == "agent_extracted":
+                assert isinstance(span, dict) and isinstance(text_value, str)
+                if source_bytes[span["start"] : span["end"]] != _utf8(
+                    text_value, "excerpt.text"
+                ):
+                    _fail(
+                        "excerpt.source_span_utf8",
+                        "does not select excerpt.text from the supplied source",
+                    )
+                if decoded not in session_source_or_none:
+                    _fail("anchor.value_decoded", "does not occur in supplied source")
+    digest = _sha(value["row_sha256"], "row_sha256")
+    if digest != _row_sha256(value):
+        _fail("row_sha256", "does not match canonical row content")
+    return value
+
+
+def validate(
+    row: Mapping[str, Any], session_source_or_none: str | None = None
+) -> dict[str, Any]:
+    """Validate evidence-row/1.0 or evidence-row/1.1 without version coercion."""
+
+    if not isinstance(row, Mapping):
+        _fail("row", "must be a mapping")
+    version = row.get("schema_version")
+    if version == SCHEMA_VERSION:
+        return _validate_v1_0(row, session_source_or_none)
+    if version == ADVISORY_SCHEMA_VERSION:
+        return _validate_v1_1(row, session_source_or_none)
+    _fail(
+        "schema_version",
+        f"must equal {SCHEMA_VERSION} or {ADVISORY_SCHEMA_VERSION}",
+    )
+
+
 def paginate(
     rows: Sequence[Mapping[str, Any]],
     page: int = 1,
@@ -756,8 +1342,9 @@ def paginate(
 
     validated: list[dict[str, Any]] = []
     row_ids: set[str] = set()
-    anchors: set[tuple[str, str | None, str, str]] = set()
+    anchors: set[tuple[Any, ...]] = set()
     claim_views: dict[str, tuple[dict[str, Any], str]] = {}
+    row_version: str | None = None
     for index, raw in enumerate(rows):
         try:
             current = validate(raw)
@@ -767,24 +1354,42 @@ def paginate(
         if row_id in row_ids:
             _fail(f"rows[{index}].row_id", f"duplicate row_id {row_id!r}")
         row_ids.add(row_id)
-        anchor_key = (
-            current["claim"]["claim_id"],
-            current["source"]["ref_slug"],
-            current["anchor"]["kind"],
-            current["anchor"]["value_decoded"],
-        )
-        if anchor_key in anchors:
-            _fail(f"rows[{index}]", "duplicates an earlier (claim_id, ref_slug, anchor) row")
-        anchors.add(anchor_key)
-        claim_id = current["claim"]["claim_id"]
-        claim_view = (current["claim"], current["verdict"])
-        previous_claim_view = claim_views.get(claim_id)
-        if previous_claim_view is not None and previous_claim_view != claim_view:
-            _fail(
-                f"rows[{index}].claim",
-                "rows sharing claim_id must carry the same closed claim object and claim-level verdict",
+        if row_version is None:
+            row_version = current["schema_version"]
+        elif current["schema_version"] != row_version:
+            _fail("rows", "cannot mix evidence-row schema versions on one page")
+        if current["schema_version"] == SCHEMA_VERSION:
+            anchor_key = (
+                current["claim"]["claim_id"],
+                current["source"]["ref_slug"],
+                current["anchor"]["kind"],
+                current["anchor"]["value_decoded"],
             )
-        claim_views[claim_id] = claim_view
+            duplicate_message = "duplicates an earlier (claim_id, ref_slug, anchor) row"
+        else:
+            anchor_key = (
+                current["coverage_subject"]["requirement_id"],
+                current["coverage_subject"]["expectation_pointer"],
+                current["source"]["artifact_id"],
+                current["anchor"]["kind"],
+                current["anchor"]["value_decoded"],
+            )
+            duplicate_message = (
+                "duplicates an earlier (requirement, expectation, artifact, anchor) row"
+            )
+        if anchor_key in anchors:
+            _fail(f"rows[{index}]", duplicate_message)
+        anchors.add(anchor_key)
+        if current["schema_version"] == SCHEMA_VERSION:
+            claim_id = current["claim"]["claim_id"]
+            claim_view = (current["claim"], current["verdict"])
+            previous_claim_view = claim_views.get(claim_id)
+            if previous_claim_view is not None and previous_claim_view != claim_view:
+                _fail(
+                    f"rows[{index}].claim",
+                    "rows sharing claim_id must carry the same closed claim object and claim-level verdict",
+                )
+            claim_views[claim_id] = claim_view
         validated.append(current)
 
     total_rows = len(validated)
@@ -924,16 +1529,31 @@ def _rows_replayed_for_render(
             current = validate(raw)
         except EvidenceRowError as exc:
             _fail(f"rows[{index}]", str(exc))
-        if current["excerpt"]["state"] in SOURCE_BOUND_STATES:
-            slug = current["source"]["ref_slug"]
-            if session_sources is None or slug not in session_sources:
+        advisory = current["schema_version"] == ADVISORY_SCHEMA_VERSION
+        source_bound = current["excerpt"]["state"] in (
+            ADVISORY_SOURCE_BOUND_STATES if advisory else SOURCE_BOUND_STATES
+        )
+        if source_bound:
+            source_key = (
+                current["source"]["artifact_id"]
+                if advisory
+                else current["source"]["ref_slug"]
+            )
+            if session_sources is None or source_key not in session_sources:
                 _fail(
-                    f"rows[{index}].source.ref_slug",
-                    f"source-bound row requires {slug!r} in session_sources",
+                    (
+                        f"rows[{index}].source.artifact_id"
+                        if advisory
+                        else f"rows[{index}].source.ref_slug"
+                    ),
+                    f"source-bound row requires {source_key!r} in session_sources",
                 )
-            source_text = session_sources[slug]
+            source_text = session_sources[source_key]
             if not isinstance(source_text, str):
-                _fail(f"session_sources.{slug}", "must be an exact source-text string")
+                _fail(
+                    f"session_sources.{source_key}",
+                    "must be an exact source-text string",
+                )
             try:
                 current = validate(current, source_text)
             except EvidenceRowError as exc:
@@ -951,6 +1571,102 @@ def _navigation_text(paged: Mapping[str, Any]) -> str:
     )
 
 
+def _render_advisory_markdown_page(paged: Mapping[str, Any]) -> str:
+    lines = [
+        f"### LLM-ADVISORY content-coverage evidence rows — Page {paged['page']}/{paged['total_pages']}",
+        "",
+        f"Rows {paged['row_start']}–{paged['row_end']} of {paged['total_rows']}.",
+        "",
+        _navigation_text(paged),
+        "",
+        _markdown_escape(
+            "LLM-ADVISORY: passages are bounded evaluator-supplied observations, not adequacy, authorization, institutional acceptance, or an efficacy measurement."
+        ),
+        "",
+        "| Row | Requirement | Expectation | Artifact | Document locator | Evidence state | Evidence | Handling |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    if not paged["rows"]:
+        lines.append("| — | No evidence rows on this page. | — | — | — | — | — | — |")
+    else:
+        for row in paged["rows"]:
+            subject = row["coverage_subject"]
+            locator = subject["document_locator"]
+            excerpt = row["excerpt"]
+            evidence = excerpt["text"] if excerpt["text"] is not None else "NO EXCERPT"
+            cells = [
+                row["row_id"],
+                subject["requirement_id"],
+                f"{subject['expectation_field_id']} [{subject['expectation_pointer']}]",
+                f"{row['source']['artifact_id']} [{row['source']['relative_path']}]",
+                f"{locator['kind']}:{locator['value']} ({locator['provenance']})",
+                excerpt["state"],
+                evidence,
+                (
+                    f"{row['content_handling']['sharing_scope']} / "
+                    f"{row['content_handling']['rights_basis']}"
+                ),
+            ]
+            lines.append("| " + " | ".join(_markdown_escape(cell) for cell in cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def _render_advisory_html_page(paged: Mapping[str, Any]) -> str:
+    parts = [
+        (
+            f'<section class="ars-evidence-rows ars-content-coverage-advisory" '
+            f'data-layer="LLM-ADVISORY" data-page="{paged["page"]}" '
+            f'data-total-pages="{paged["total_pages"]}">'
+        ),
+        f"<h3>LLM-ADVISORY content-coverage evidence rows — Page {paged['page']}/{paged['total_pages']}</h3>",
+        f"<p>Rows {paged['row_start']}–{paged['row_end']} of {paged['total_rows']}.</p>",
+        (
+            '<nav class="ars-evidence-navigation" aria-label="Evidence row page navigation">'
+            f"{_html_escape(_navigation_text(paged))}</nav>"
+        ),
+        (
+            '<p class="ars-evidence-caveat">'
+            + _html_escape(
+                "LLM-ADVISORY: passages are bounded evaluator-supplied observations, not adequacy, authorization, institutional acceptance, or an efficacy measurement."
+            )
+            + "</p>"
+        ),
+        "<table>",
+        (
+            "<thead><tr><th>Row</th><th>Requirement</th><th>Expectation</th>"
+            "<th>Artifact</th><th>Document locator</th><th>Evidence state</th>"
+            "<th>Evidence</th><th>Handling</th></tr></thead>"
+        ),
+        "<tbody>",
+    ]
+    if not paged["rows"]:
+        parts.append('<tr><td colspan="8">No evidence rows on this page.</td></tr>')
+    else:
+        for row in paged["rows"]:
+            subject = row["coverage_subject"]
+            locator = subject["document_locator"]
+            excerpt = row["excerpt"]
+            evidence = excerpt["text"] if excerpt["text"] is not None else "NO EXCERPT"
+            cells = [
+                row["row_id"],
+                subject["requirement_id"],
+                f"{subject['expectation_field_id']} [{subject['expectation_pointer']}]",
+                f"{row['source']['artifact_id']} [{row['source']['relative_path']}]",
+                f"{locator['kind']}:{locator['value']} ({locator['provenance']})",
+                excerpt["state"],
+                evidence,
+                (
+                    f"{row['content_handling']['sharing_scope']} / "
+                    f"{row['content_handling']['rights_basis']}"
+                ),
+            ]
+            parts.append(f'<tr data-evidence-state="{_html_escape(excerpt["state"])}">')
+            parts.extend(f"<td>{_html_escape(cell)}</td>" for cell in cells)
+            parts.append("</tr>")
+    parts.extend(["</tbody>", "</table>", "</section>"])
+    return "\n".join(parts) + "\n"
+
+
 def render_markdown(
     rows: Sequence[Mapping[str, Any]],
     page: int = 1,
@@ -962,6 +1678,8 @@ def render_markdown(
 
     replayed = _rows_replayed_for_render(rows, session_sources)
     paged = paginate(replayed, page=page, page_size=page_size)
+    if replayed and replayed[0]["schema_version"] == ADVISORY_SCHEMA_VERSION:
+        return _render_advisory_markdown_page(paged)
     lines = [
         f"### Phase E evidence rows — Page {paged['page']}/{paged['total_pages']}",
         "",
@@ -1008,6 +1726,8 @@ def render_html(
 
     replayed = _rows_replayed_for_render(rows, session_sources)
     paged = paginate(replayed, page=page, page_size=page_size)
+    if replayed and replayed[0]["schema_version"] == ADVISORY_SCHEMA_VERSION:
+        return _render_advisory_html_page(paged)
     parts = [
         (
             f'<section class="ars-evidence-rows" data-page="{paged["page"]}" '
@@ -1293,6 +2013,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 __all__ = [
+    "ADVISORY_EXCERPT_STATES",
+    "ADVISORY_SCHEMA_VERSION",
+    "ADVISORY_SURFACE",
     "ANCHOR_KINDS",
     "DEFAULT_PAGE_SIZE",
     "EvidenceRowError",
@@ -1306,6 +2029,7 @@ __all__ = [
     "SURFACE",
     "TEXT_CHAR_CAP",
     "build",
+    "build_advisory",
     "main",
     "paginate",
     "render_html",

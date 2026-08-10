@@ -219,8 +219,23 @@ digest-to-input binding, and gate derivation.
 
 ## Consumer boundary
 
-- #667 may later consume only a permitted resolved artifact and filter rows by
-  `consumer_scopes` and `obligated_actor`.
+- #667 consumes a serialized authority result only after
+  `validate_resolved_context(result, context, registry)` succeeds and the
+  profile-dependent gate is open. It filters to `submission_packet`, preserves
+  exact requirement and authority-anchor pointers, and then uses only the
+  closed `evidence_expected` fields `evidence_id`, `held_by`, and
+  `artifact_type` for status derivation. It never interprets, evaluates, or copies
+  `structured_expectations` or an evidence description; exact whole-row bytes are
+  canonical-hashed only for replay integrity. Content-coverage questions belong
+  to #681.
+- #681 consumes authority rows only through a #667 manifest that has first been
+  replay-validated against this same context/registry/resolved triplet and its
+  exact packet inventory/root. It may then dereference exact
+  `structured_expectations[]` pointers and join separately session-held content
+  through `shared/references/authority_content_coverage_advisory_protocol.md`.
+  Its carrier is always `LLM-ADVISORY` and `UNMEASURED`; it cannot alter
+  applicability, deterministic packet status, readiness, caller authorization,
+  institutional acceptance, or any authority pointer/digest.
 - #668 remains valid in `artifact_agnostic` mode and no profile may rewrite its
   source correspondence or committee authority.
 - #669 may later consume requirement and authority-anchor pointers for a rule
@@ -230,3 +245,23 @@ digest-to-input binding, and gate derivation.
 #666 itself changes no user-facing output. It emits no verdict, pathway,
 readiness, authorization, conformance result, or timeline. The #665 independent
 status grammar and fixed non-authorization footer remain unchanged.
+
+## #667 capability-envelope facts
+
+The registry also catalogs seven author-declared booleans used only to decide
+whether the deterministic submission-packet checker is within its V1 technical
+capability envelope:
+
+- `packet_v1.non_clinical=true`
+- `packet_v1.single_institution=true`
+- `packet_v1.competent_adults_only=true`
+- `packet_v1.biospecimens_involved=false`
+- `packet_v1.regulated_clinical_trial=false`
+- `packet_v1.cross_border_material_transfer=false`
+- `packet_v1.multisite_reliance=false`
+
+These facts are not legal characterizations and cannot select an authority,
+satisfy an axis, or change a profile or requirement digest. A missing, unknown,
+or non-matching value makes #667 return `APPLICABILITY_UNRESOLVED`; it never
+means that an authority is legally inapplicable. The complete #667 contract is
+`shared/references/submission_packet_manifest_protocol.md`.

@@ -33,6 +33,7 @@ LABEL="run"
 SPEC=""
 MAX_ITERS="${LOKI_BENCH_MAX_ITERS:-20}"
 TIMEOUT_S="${LOKI_BENCH_TIMEOUT_S:-3600}"
+ROUTE="${LOKI_BENCH_ROUTE:-bash}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -40,6 +41,12 @@ while [ $# -gt 0 ]; do
     --spec) SPEC="$2"; shift 2 ;;
     --max-iters) MAX_ITERS="$2"; shift 2 ;;
     --timeout-s) TIMEOUT_S="$2"; shift 2 ;;
+    # WHICH ROUTE TO MEASURE. Every number in this repo's speed corpus is from
+    # the BASH route, because this harness hardcoded run.sh -- and the two
+    # routes differ on exactly the axis the agent line measures: loki-ts sends
+    # a cache_control:ephemeral prefix (sdk_invoker.ts:54), run.sh pipes one
+    # string through `claude -p` and cannot express caching at all.
+    --route)     ROUTE="$2"; shift 2 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -86,6 +93,21 @@ fi
 RUN_SH="$ENGINE/autonomy/run.sh"
 [ -f "$RUN_SH" ] || { echo "FATAL: run.sh not found in engine copy"; exit 2; }
 
+# Route selection. REFUSES an unknown value rather than falling back to bash:
+# a silent fallback would label a bash run "bun" and put a wrong number in the
+# corpus, which is worse than not running.
+case "$ROUTE" in
+  bash) ;;
+  bun)
+    if [ ! -f "$ENGINE/loki-ts/dist/loki.js" ] && [ ! -f "$ENGINE/loki-ts/src/cli.ts" ]; then
+      echo "FATAL: --route bun but neither loki-ts/dist/loki.js nor src/cli.ts is in the engine copy" >&2
+      exit 2
+    fi
+    command -v bun >/dev/null 2>&1 || { echo "FATAL: --route bun but bun is not on PATH" >&2; exit 2; }
+    ;;
+  *) echo "FATAL: unknown --route '$ROUTE' (want: bash|bun)" >&2; exit 2 ;;
+esac
+
 # --- Prepare the empty target project dir ------------------------------------
 mkdir -p "$WORK/project"
 ( cd "$WORK/project" && git init -q && git config user.email b@b && git config user.name b )
@@ -94,6 +116,7 @@ echo "=== Loki speed benchmark [$LABEL] ==="
 echo "spec:    $SPEC"
 echo "target:  $WORK/project"
 echo "engine:  $ENGINE (isolated copy)"
+echo "route:   $ROUTE"
 echo "caps:    max_iters=$MAX_ITERS timeout=${TIMEOUT_S}s"
 echo "started: $STAMP"
 
@@ -106,6 +129,18 @@ echo "started: $STAMP"
 # The LOKI_* assignments below are a command-prefix env list for the `timeout`
 # child, so shellcheck's SC2034 ("appears unused") is a false positive here --
 # it cannot see they are passed to another process.
+# Runner selection as an ARRAY, built before the subshell. A $( ... ) inside
+# the command line is expanded to a bare word and was silently producing the
+# BASH runner for --route bun: the smoke test reported route=bash with zero bun
+# markers. Same class of bug as the ${GRADER:+VAR=val} env-prefix expansion --
+# an expanded word is not a command or an assignment.
+_runner_argv=(bash "$RUN_SH")
+_legacy_bash=1
+if [ "$ROUTE" = "bun" ]; then
+    _runner_argv=(bash "$ENGINE/bin/loki" start)
+    _legacy_bash=0
+fi
+
 WALL_START=$(date +%s)
 # Run the build. Non-interactive, hermetic-ish, no dashboard/app-runner to isolate the
 # reason-act-verify loop timing. Council + gates STAY ON (they are the product; we are
@@ -120,14 +155,17 @@ WALL_START=$(date +%s)
   LOKI_APP_RUNNER=false \
   LOKI_NO_NEW_SESSION=1 \
   CI=true \
-  timeout --kill-after=60 "$TIMEOUT_S" bash "$RUN_SH" "$SPEC" > "$WORK/build.log" 2>&1 )
+  LOKI_BENCH_ROUTE="$ROUTE" \
+  LOKI_LEGACY_BASH="$_legacy_bash" \
+  timeout --kill-after=60 "$TIMEOUT_S" \
+    "${_runner_argv[@]}" "$SPEC" > "$WORK/build.log" 2>&1 )
 BUILD_RC=$?
 WALL_END=$(date +%s)
 WALL_S=$((WALL_END - WALL_START))
 
 # --- Parse THIS run's timeline from the target's events.jsonl ----------------
 EVENTS="$WORK/project/.loki/events.jsonl"
-LOKI_BENCH_SPEC_PATH="$SPEC" python3 - "$EVENTS" "$WORK/build.log" "$WORK/project" "$OUT_JSON" "$LABEL" "$WALL_S" "$BUILD_RC" "$STAMP" <<'PY'
+LOKI_BENCH_SPEC_PATH="$SPEC" LOKI_BENCH_ROUTE="$ROUTE" python3 - "$EVENTS" "$WORK/build.log" "$WORK/project" "$OUT_JSON" "$LABEL" "$WALL_S" "$BUILD_RC" "$STAMP" <<'PY'
 import json, sys, os
 from datetime import datetime
 events_path, log_path, proj, out_json, label, wall_s, build_rc, stamp = sys.argv[1:9]
@@ -153,6 +191,22 @@ def ts(e):
     try: return datetime.fromisoformat(e['timestamp'].replace('Z','+00:00'))
     except: return None
 
+# Sum stage_complete durations per stage. Summed, not last-wins: a gate that
+# runs once per iteration should show its TOTAL cost across the build, which is
+# what an optimisation decision needs.
+stage_durations = {}
+for e in sess:
+    if e.get('type') != 'stage_complete':
+        continue
+    d = e.get('data', {}) or {}
+    st_name = d.get('stage')
+    try:
+        st_dur = int(d.get('duration_s', 0))
+    except (TypeError, ValueError):
+        continue
+    if st_name:
+        stage_durations[st_name] = stage_durations.get(st_name, 0) + st_dur
+
 iters = [e for e in sess if e.get('type')=='iteration_start']
 completes = [e for e in sess if e.get('type')=='iteration_complete']
 claims = [e for e in sess if e.get('type')=='task_completion_claim']
@@ -175,10 +229,20 @@ completed = ('VERIFIED' in log or 'completion' in log.lower()) and build_rc=='0'
 # the default CLI's greet.js (which would always report a meaningless failure).
 acc = {}
 spec_txt = ''
-try:
-    spec_txt = open(os.environ.get('LOKI_BENCH_SPEC_PATH','')).read()
-except Exception:
-    pass
+_spec_path = os.environ.get('LOKI_BENCH_SPEC_PATH', '')
+_spec_readable = None          # None = no spec was requested at all
+if _spec_path:
+    try:
+        spec_txt = open(_spec_path).read()
+        _spec_readable = True
+    except Exception:
+        # A REQUESTED SPEC THAT CANNOT BE READ IS NOT A DEFAULT RUN. Falling
+        # through with spec_txt='' sends this to the greet branch, which then
+        # records greet.js_exists for a build that was never asked to produce
+        # greet.js -- a silently WRONG acceptance value on a run that looks
+        # completely normal. Caught exactly that way: a --task ablation
+        # reported greet.js_exists while claiming to measure hard-1-order-api.
+        _spec_readable = False
 if 'Task API service' in spec_txt:
     for f in ('server.js','store.js','README.md'):
         acc[f + '_exists'] = os.path.exists(os.path.join(proj,f))
@@ -186,7 +250,38 @@ if 'Task API service' in spec_txt:
     acc['test_file_exists'] = any(
         n.endswith('.test.js') or n.startswith('test-') or n.startswith('test_')
         for n in (os.listdir(proj) if os.path.isdir(proj) else []))
-elif not spec_txt or 'greet CLI' in spec_txt:
+_grader = os.environ.get('LOKI_BENCH_GRADER', '')
+if _grader and os.path.isfile(_grader):
+    # A REAL HELD-OUT GRADER BEATS EVERY HEURISTIC HERE. The file-existence
+    # checks below say a build produced something with the right NAME; a
+    # grader imports the artifact and asserts the contract. It is copied in
+    # AFTER the run, so the agent never sees it and cannot write to satisfy it.
+    # Exit 0 is the only pass.
+    import shutil, subprocess
+    _dst = os.path.join(proj, os.path.basename(_grader))
+    try:
+        shutil.copy(_grader, _dst)
+        _r = subprocess.run([sys.executable, os.path.basename(_grader)],
+                            cwd=proj, capture_output=True, text=True, timeout=120)
+        acc['graded'] = (_r.returncode == 0)
+        if _r.returncode != 0:
+            # Kept short: the reason belongs in the row, the transcript does not.
+            acc['grader_stderr'] = (_r.stdout or _r.stderr or '')[-300:]
+    except Exception as _e:
+        # A grader that could not RUN is an absent measurement, not a failure.
+        # Recording it as graded=False would blame the build for our harness.
+        acc['grader_error'] = str(_e)[:200]
+    finally:
+        try:
+            os.remove(_dst)
+        except OSError:
+            pass
+elif _spec_readable is False:
+    # Refuse to score it. The build may have been perfect; we simply do not
+    # know what it was asked to do, and any check we pick here is a guess.
+    acc['spec_unreadable'] = True
+    acc['spec_path'] = _spec_path[-120:]
+elif _spec_readable is None or 'greet CLI' in spec_txt:
     acc['greet.js_exists'] = os.path.exists(os.path.join(proj,'greet.js'))
 else:
     # A CUSTOM --spec WITH NO MATCHING ACCEPTANCE CHECK. Falling through to
@@ -227,6 +322,14 @@ metrics = {
   'max_iteration_work_min': round(max((w['work_s'] for w in work), default=0)/60,1),
   'acceptance': acc,
   'events_total': len(sess),
+  'route': os.environ.get('LOKI_BENCH_ROUTE', 'bash'),
+  # PER-GATE DURATIONS. The engine has emitted stage_complete{stage,duration_s}
+  # for 11 gates all along, and this harness parsed the events file and threw
+  # them away -- so "84% of a build is overhead" was measurable but not
+  # ATTRIBUTABLE, and nobody could say which gate to fix. Preserved here so the
+  # next optimisation targets the real cost instead of the first guess.
+  'stage_durations_s': stage_durations,
+  'stage_total_s': sum(stage_durations.values()),
 }
 json.dump(metrics, open(out_json,'w'), indent=2)
 print(json.dumps(metrics, indent=2))

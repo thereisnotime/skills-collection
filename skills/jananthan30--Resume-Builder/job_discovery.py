@@ -12,8 +12,8 @@ Two-tier scoring:
   2. Full ATS + HR score for top N finalists
 """
 
-import hashlib
 import json
+import logging
 import os
 import re
 import urllib.error
@@ -21,8 +21,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 from html.parser import HTMLParser
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # HTML Stripping
@@ -94,6 +93,27 @@ def adzuna_configured() -> bool:
 # ---------------------------------------------------------------------------
 
 ADZUNA_BASE = "https://api.adzuna.com/v1/api/jobs"
+
+
+# Adzuna's API is partitioned by country path (/us/, /ca/, /gb/, ...): a
+# US-pinned client silently returns zero results for Toronto or London.
+# Keyword heuristics cover the major English-market cities; ambiguous
+# locations fall back to ADZUNA_COUNTRY (default us).
+_COUNTRY_HINTS = {
+    "ca": ("canada", "toronto", "vancouver", "montreal", "ottawa", "calgary",
+           "edmonton", "mississauga", "winnipeg", ", bc", ", on", ", qc", ", ab"),
+    "gb": ("united kingdom", ", uk", " uk", "england", "scotland", "wales",
+           "london", "manchester", "birmingham", "leeds", "glasgow", "edinburgh"),
+    "au": ("australia", "sydney", "melbourne", "brisbane", "perth", "adelaide", "canberra"),
+}
+
+
+def _country_for_location(location: str) -> str:
+    loc = f" {location.lower().strip()}"
+    for country, hints in _COUNTRY_HINTS.items():
+        if any(h in loc for h in hints):
+            return country
+    return os.getenv("ADZUNA_COUNTRY", "us")
 
 
 def search_adzuna(
@@ -242,7 +262,11 @@ def _normalize_remotive_result(raw: dict) -> Dict[str, Any]:
 # JSearch API (Google for Jobs aggregator — LinkedIn, Indeed, Glassdoor, etc.)
 # ---------------------------------------------------------------------------
 
-JSEARCH_BASE = "https://jsearch.p.rapidapi.com/search"
+logger = logging.getLogger("scorer.jobs")
+
+# /search was retired by the provider (404s since the OpenWeb Ninja
+# migration); /search-v2 wraps results as {"data": {"cursor", "jobs"}}.
+JSEARCH_BASE = "https://jsearch.p.rapidapi.com/search-v2"
 
 
 def jsearch_configured() -> bool:
@@ -283,16 +307,24 @@ def search_jsearch(
             "Accept": "application/json",
             "x-rapidapi-host": "jsearch.p.rapidapi.com",
             "x-rapidapi-key": api_key,
+            # Cloudflare-fronted APIs 403 urllib's default UA from datacenter
+            # IPs (see cloud/emailer.py for the Resend incident).
+            "User-Agent": "resumehq/1.2 (+https://getresumehq.com)",
         })
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except Exception:
+    except Exception as e:
+        # Sourcing degradation must be visible in logs, not silent — the
+        # /search endpoint retirement went unnoticed because this swallowed it.
+        logger.warning("jsearch search failed: %s", e)
         return []
 
     if data.get("status") != "OK":
+        logger.warning("jsearch non-OK status: %s", data.get("status"))
         return []
 
-    results = data.get("data", [])
+    payload = data.get("data") or []
+    results = payload.get("jobs", []) if isinstance(payload, dict) else payload
     return [_normalize_jsearch_result(r) for r in results]
 
 
@@ -775,7 +807,9 @@ def discover_jobs(
 
         # Adzuna (secondary) — independent source, may find different listings
         if has_adzuna:
-            for job in search_adzuna(query, location=location):
+            for job in search_adzuna(
+                query, location=location, country=_country_for_location(location)
+            ):
                 if job["id"] not in seen_ids:
                     seen_ids.add(job["id"])
                     all_jobs.append(job)

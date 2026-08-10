@@ -50,8 +50,9 @@ Schemas for Material Passport input ports.
 
 - `passport/literature_corpus_entry.schema.json` (v3.6.4) — Schema 9 `literature_corpus[]`
   entries produced by user-written adapters.
-- `passport/bibliographic_integrity_signal.schema.json` (#678/#651) — v1.0
-  additive signal carrier plus v1.1 authoritative retraction-status rows,
+- `passport/bibliographic_integrity_signal.schema.json` (#678/#651/#660) — v1.0
+  additive signal carrier, v1.1 authoritative retraction-status rows, and the
+  v1.2 title/abstract tortured-phrase advisory profile,
   including resolver disagreement/reinstatement, judgment context, freshness,
   and opt-in finalizer policy eligibility. The separate
   `retraction_status_cache_v1` namespace and pure resolver live in
@@ -197,6 +198,63 @@ Integrity Report renders the exact fixed legacy label with exit 0 only when the
 caller adds `--allow-legacy-absence`; `validate` always rejects the absence.
 Current producers may never use the compatibility flag.
 
+`shared/contracts/evidence/evidence_row_v1_1.schema.json` is the separately
+versioned extension for `surface: authority_profile_content_coverage` (#681).
+It replaces Phase E claim/verdict fields with exact authority-requirement,
+structured-expectation, packet-artifact, and document-locator bindings. Its
+states are `agent_extracted`, `checked_no_match`, `not_checked`,
+`source_missing`, `access_failed`, and `retrieval_failed`; they describe only
+the provenance or absence of one bounded advisory passage. The shared 25-word,
+1,000-code-point, strict once-decode, exact UTF-8 replay, inert rendering,
+rights, and human-read-ledger boundaries still apply. V1.1 performs no cache
+lookup. `scripts/evidence_rows.py` exposes `build_advisory(...)` for this
+surface, while the existing `evidence-row/1.0` builder and rendered bytes remain
+unchanged. The versioned surfaces cannot be mixed in one page.
+
+## Non-ranking revision authority (#670)
+
+The current reviewer-to-author revision family lives under `revision/`:
+
+- `revision_roadmap.schema.json` — immutable reviewer-owned
+  `revision-roadmap/1.0`, exact draft/manifest bindings, source-trace order,
+  independent severity/obligation/cost/consequence, and proposed target scopes;
+- `claim_surface_manifest.schema.json` — exact registered Claim Intent surfaces,
+  raw UTF-8 spans, hashes, blocks, current rungs, and byte-identical equality
+  between every protected surface and its referenced ClaimIntent `claim_text`;
+- `author_adjudication_input.schema.json` and
+  `author_adjudication.schema.json` — explicit session-author choices and the
+  deterministic raw-hash-bound sidecar; and
+- `integrity_correction_list.schema.json` plus the integrity authorization
+  input/output schemas — proposal-only issues and explicit author approval of
+  the complete exact patch SHA-256; and
+- `revision_evidence_bundle.schema.json` plus the integrity receipt schema
+  — a continuous local chain from exact integrity PASS through current
+  review-write/no-op/integrity rounds to the final draft.
+
+`scripts/revision_roadmap.py` builds, validates, renders, and bundle-replays this
+family without a model, network, API, directory scan, or ambient clock. It opens
+only explicitly named local artifacts through containment, symlink, and
+read-once guards. Bundle validation reruns the pure current patch engine for
+every write round and requires byte-exact replay output to equal the named post
+draft; rewritten artifact/report hashes cannot substitute for authorized bytes.
+
+The current patch schema accepts only format 1.1 and separates
+`review_roadmap` from `integrity_correction` authority. Registered claim
+replacements and declined-overlap collateral authority are exact and
+single-use. An integrity issue list grants no write by itself: apply requires a
+separate author sidecar whose explicit input already carries the exact proposed
+patch digest. Apply report 1.3 records the replayed witness and explicitly leaves
+unregistered semantic drift to E6 review. Patch 1.0 lives only under
+`patch/legacy/v1_0/` with its archived loader.
+
+The current #576 `re_review/` family is version 1.1, uses
+`obligation_class`, hard-requires original/revised drafts, roadmap, author
+sidecar, and bundle, and copies
+author fields exactly into Schema 11. Version 1.0 is archived under
+`re_review/legacy/v1_0/`; mixed chains are invalid.
+
+Spec: `docs/design/2026-08-10-670-non-ranking-revision-roadmap-spec.md`.
+
 ## Human-subjects correspondence contract (#668)
 
 `human_subjects/committee_correspondence.schema.json` defines the standalone
@@ -262,6 +320,148 @@ Strong-Kleene predicate AST, never infers a jurisdiction, and rejects duplicate
 JSON keys and non-finite numbers. Protocol:
 `shared/references/human_subjects_authority_protocol.md`. Spec:
 `docs/design/2026-08-09-666-human-subjects-authority-contract-spec.md`.
+
+## Human-subjects submission-packet manifest (#667)
+
+Two closed contracts define the deterministic packet layer:
+
+- `shared/contracts/human_subjects/submission_packet_inventory.schema.json` — an author-declared
+  list of exact packet-relative files, byte digests, evidence bindings, responsible
+  holder roles, declared structure metadata, waiver/exception claims, and
+  caller-supplied authorization status; and
+- `shared/contracts/human_subjects/submission_packet_manifest.schema.json` — the pointer-only,
+  replay-bound result with five structural status tokens, exact requirement and
+  evidence pointers, independent #665 readiness/authorization fields, and the
+  fixed non-authorization boundary.
+
+The checker consumes a #666 authority result only after exact replay against its
+named context and registry. It filters to `submission_packet` consumer rows and
+uses only `evidence_expected` ids, artifact types, and holders. It never evaluates
+or copies `structured_expectations`, descriptions, or attachment prose; exact
+whole-row bytes are canonical-hashed only for replay integrity. It never infers a
+jurisdiction, grants a waiver, verifies institutional acceptance, or updates the
+caller-supplied authorization value. An evidence row is packet-owned only when
+both its exact obligated actor and exact expected holder occur in the declared
+packet-responsibility roles. Declared version, date, signature, and certificate
+metadata is syntax/internal-consistency only unless a separately versioned,
+source-backed mechanical expectation exists.
+Once the authority and capability gates permit packet observation, every
+inventoried path retains a `DOCUMENTED` or `CONFLICTING` row for
+declared-vs-attached visibility, including extra files not consumed by the
+selected profiles. A closed gate leaves observations empty and does not open the
+packet root. Observation status alone does not change readiness; only an
+applicable packet-owned evidence entry can create a listed packet gap.
+The runtime rejects more than 512 copied consumer scopes, more than 4,096 entry
+or exclusion rows, and any final canonical manifest larger than 8 MiB, ensuring
+that every successful build can be replayed by the same CLI.
+
+Build, replay-validate, or render a manifest offline with:
+
+```bash
+python scripts/build_submission_packet_manifest.py build \
+  --inventory inventory.json \
+  --packet-root packet \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json \
+  --output submission-packet-manifest.json
+
+python scripts/build_submission_packet_manifest.py validate \
+  --manifest submission-packet-manifest.json \
+  --inventory inventory.json \
+  --packet-root packet \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json
+
+python scripts/build_submission_packet_manifest.py render \
+  --manifest submission-packet-manifest.json \
+  --inventory inventory.json \
+  --packet-root packet \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json
+```
+
+The authority triplet is all-or-none. An intentionally absent triplet produces an
+unresolved manifest without a default profile; a partial or mismatched triplet is
+a contract error. `render` requires the same inputs and exact replay, so a
+self-consistent but forged manifest digest is insufficient.
+
+Protocol: `shared/references/submission_packet_manifest_protocol.md`. Spec:
+`docs/design/2026-08-09-667-submission-packet-manifest-spec.md`.
+
+## Authority-profile content-coverage advisory (#681)
+
+`shared/contracts/human_subjects/content_coverage_advisory.schema.json` defines
+the closed final `content-coverage-advisory/1.0` carrier. It consumes a #667
+manifest only after exact replay against the named inventory, packet root,
+#666 context, authority registry, and resolved context. It then binds explicit
+evaluator judgments to exact `structured_expectations[]` pointers and exact
+session-held artifact strings through `evidence-row/1.1` rows. The standard
+library finalizer is `scripts/build_content_coverage_advisory.py`.
+
+The output layer is always `LLM-ADVISORY`, and its independent field is
+`advisory_coverage_status`. The finalizer copies deterministic packet status,
+readiness, caller-supplied authorization, institutional-acceptance boundary,
+authority/evidence pointers, and digests without changing them. A structural
+gap, external dependency, or waiver/exception boundary cannot be converted into
+a semantic missing-element finding. Applicability-false requirements remain
+excluded, and every profiled structured expectation is either explicitly
+checked or explicitly `not_checked`; missing session content never becomes an
+implicit negative result.
+An open authority/capability gate with an explicitly unprovided overlay
+selection preserves each selected base requirement as
+`APPLICABILITY_UNRESOLVED` without inspecting content; a fully closed gate has
+no exact requirement to report and is rejected.
+
+The final carrier is deliberately marked `evaluation_status: UNMEASURED`.
+UNMEASURED is not a scored measurement row, and this feature makes no accuracy,
+coverage-improvement, or efficacy claim. The finalizer and renderer open only
+named inputs, perform no directory scan or retrieval, and invoke no model/API;
+the draft judgments and positive-row capture timestamps are caller-supplied
+advisory observations. Rendering first replays the deterministic manifest and
+every source-bound evidence row, so a self-consistent digest alone is
+insufficient. The carrier retains all rows, while one render call exposes only
+one explicit page of at most 25 evidence rows with deterministic navigation;
+there is no render-all mode.
+
+Protocol:
+`shared/references/authority_content_coverage_advisory_protocol.md`. Spec:
+`docs/design/2026-08-09-681-authority-content-coverage-advisory-spec.md`.
+
+## Tortured-phrase screening contracts (#660)
+
+The #660 family is local, hash-bound, and advisory-only:
+
+- `audit/tortured_phrase_snapshot.schema.json` defines the closed canonical
+  `literal` / `all` / `any` / `near` AST and rule-level `exclude_if` grammar;
+- `audit/tortured_phrase_snapshot_manifest.schema.json` binds the exact raw
+  snapshot bytes, source/version/as-of metadata, preprocessing disclosure,
+  zero unsupported rules, and rights; and
+- `audit/tortured_phrase_advisory.schema.json` defines the replay-bound
+  own-draft `HEURISTIC-ADVISORY` / `UNMEASURED` transcript.
+
+`scripts/tortured_phrase_screening.py` accepts only explicitly named local
+snapshot/manifest and input paths. A snapshot is either user supplied or a
+repository-authored synthetic fixture. ARS includes no native PPS importer,
+fetch option, or redistributed PPS list content, and this path invokes no
+model, external API, human/model judge, ambient clock, file time, or network
+time. Snapshot SHA-256 covers the exact UTF-8 file bytes; required timestamps
+are explicit arguments.
+
+The same runtime can return a new passport copy carrying
+`bibliographic-integrity-signal/1.2` rows for each cited title and abstract
+surface. A missing abstract is an explicit `not_checked` / `unresolved`
+`ABSTRACT_MISSING` row; a present whitespace-only abstract uses
+`ABSTRACT_EMPTY`. Consumers remain read-only and the enricher refuses
+in-place output. A detected row is only a phrase-list match requiring review;
+a zero match is not a clean certificate. No result establishes origin,
+paper-mill production, contextual validity, or accuracy, and no result creates
+a marker, terminal gate, replacement text, or automatic rewrite. All corpus
+rows render in the one canonical `Bibliographic Integrity Advisories` section.
+
+Spec: `docs/design/2026-08-10-660-tortured-phrase-screening-spec.md`.
 
 ## Audit artifact contracts (v3.6.7 Step 6)
 

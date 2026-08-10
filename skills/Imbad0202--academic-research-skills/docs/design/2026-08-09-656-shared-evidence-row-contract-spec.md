@@ -366,3 +366,31 @@ V1 does not:
 - mark a source as human-read or alter LOW-WARN promotion;
 - add a new stage, gate, passport aggregate, or closure condition;
 - claim that the 25-word ceiling grants quotation or redistribution rights.
+
+## 14. Versioned #681 extension
+
+#681 adds `evidence-row/1.1` at
+`shared/contracts/evidence/evidence_row_v1_1.schema.json` rather than widening
+the closed 1.0 object. Its only surface is
+`authority_profile_content_coverage`, and it replaces Phase E claim/verdict
+fields with exact authority requirement, structured-expectation, packet
+artifact, and advisory document-locator bindings. Version 1.0 schema bytes,
+builder defaults, cache behavior, Phase E report adapter, and rendered output
+remain the compatibility baseline.
+
+The extension reuses the strict once-decode, exact UTF-8 source replay,
+25-word/1,000-code-point limit, byte-span/hash, inert rendering,
+content-handling, and read-ledger boundaries. It introduces no cache use and no
+new provenance authority: its `agent_extracted` locator is explicitly
+agent-supplied and not independently authenticated. `checked_no_match` records
+that named session content was inspected without a selected bounded passage;
+it is not proof of semantic absence. Other failure states remain explicit and
+empty.
+
+The containing `content-coverage-advisory/1.0` carrier is a distinct
+`LLM-ADVISORY` surface governed by
+`shared/references/authority_content_coverage_advisory_protocol.md`. Exact
+passage provenance never changes a #667 deterministic status, readiness,
+authorization value, institutional acceptance, or adequacy assessment. The
+surface remains `UNMEASURED` until a real held-out scored row exists; the
+marker itself is not a measurement artifact.

@@ -10,6 +10,47 @@
 
 ---
 
+## ⚠️ Antivirus & VirusTotal False Positives
+
+This repository is a **cybersecurity skills collection** containing security testing tools, payload templates, and exploit development references for **authorized penetration testing and education**. Antivirus engines may flag certain files — this is **expected behavior** and represents a **false positive**.
+
+### Why This Happens
+
+The file `skills/03-exploit-development/scripts/payload_generator.py` contains reverse shell, web shell, and injection payload **templates stored as Python string constants**. AV engines use signature and heuristic matching against these exact patterns because they resemble actual malware payloads. However:
+
+- ❌ No code in this repository executes malicious actions autonomously
+- ❌ No hidden backdoors, C2 communication, or data exfiltration exists
+- ❌ No obfuscated or hidden malicious payloads exist
+- ✅ All payloads are inert string templates requiring explicit user action with authorized targets
+- ✅ Every offensive tool includes legal disclaimers requiring written authorization
+- ✅ Offensive skills enforce authorization gates before Claude provides assistance
+
+### Affected Files
+
+| File | Why It's Flagged | Actual Purpose |
+|---|---|---|
+| `skills/03-exploit-development/scripts/payload_generator.py` | Contains reverse shell & web shell string templates | Generates payloads for authorized pentesting |
+| `skills/16-ai-llm-security/scripts/prompt_injection_tester.py` | Contains zero-width characters & obfuscated strings | Tests AI model resilience against prompt injection |
+
+### This Is Standard for Security Repositories
+
+Every major cybersecurity toolkit on GitHub triggers the same AV heuristic detections:
+
+- [SecLists](https://github.com/danielmiessler/SecLists) — routinely flagged by AV engines
+- [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings) — triggers dozens of AV signatures
+- [Metasploit Framework](https://github.com/rapid7/metasploit-framework) — flagged by nearly every AV engine
+- [GTFOBins](https://github.com/GTFOBins/GTFOBins.github.io) — contains shell escape references
+
+### What Users Should Do
+
+If your antivirus quarantines files from this repository:
+
+1. **Whitelist the directory** — Add the skills directory to your AV exclusion list
+2. **Review the source code** — Verify the flagged file contains only string templates
+3. **Use in isolated environments** — Offensive skills should be used in authorized lab/test environments
+
+---
+
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability in this project's code or scripts, **do NOT open a public issue**.

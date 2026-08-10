@@ -1,7 +1,7 @@
 {
   "schema_version": "human-subjects-authority-registry/1.0",
   "registry_id": "human-subjects-authority-v1",
-  "registry_version": "2026-08-09",
+  "registry_version": "2026-08-09.1",
   "as_of": "2026-08-09",
   "fact_definitions": [
     {
@@ -57,6 +57,48 @@
       "value_type": "boolean",
       "allowed_values": null,
       "description": "User declaration that a specific applicable Union or Member State law supporting a claimed research derogation has been identified."
+    },
+    {
+      "fact_id": "packet_v1.non_clinical",
+      "value_type": "boolean",
+      "allowed_values": null,
+      "description": "Author-declared #667 capability-envelope fact that the activity is non-clinical; this is not a legal or institutional characterization."
+    },
+    {
+      "fact_id": "packet_v1.single_institution",
+      "value_type": "boolean",
+      "allowed_values": null,
+      "description": "Author-declared #667 capability-envelope fact that the activity is conducted within a single institution; this is not a legal or institutional characterization."
+    },
+    {
+      "fact_id": "packet_v1.competent_adults_only",
+      "value_type": "boolean",
+      "allowed_values": null,
+      "description": "Author-declared #667 capability-envelope fact that the participant population consists only of adults declared competent; this is not a legal or institutional characterization."
+    },
+    {
+      "fact_id": "packet_v1.biospecimens_involved",
+      "value_type": "boolean",
+      "allowed_values": null,
+      "description": "Author-declared #667 capability-envelope fact recording whether biospecimens are involved; this is not a legal or institutional characterization."
+    },
+    {
+      "fact_id": "packet_v1.regulated_clinical_trial",
+      "value_type": "boolean",
+      "allowed_values": null,
+      "description": "Author-declared #667 capability-envelope fact recording whether the activity is a regulated clinical trial; this is not a legal or institutional characterization."
+    },
+    {
+      "fact_id": "packet_v1.cross_border_material_transfer",
+      "value_type": "boolean",
+      "allowed_values": null,
+      "description": "Author-declared #667 capability-envelope fact recording whether cross-border material transfer is involved; this is not a legal or institutional characterization."
+    },
+    {
+      "fact_id": "packet_v1.multisite_reliance",
+      "value_type": "boolean",
+      "allowed_values": null,
+      "description": "Author-declared #667 capability-envelope fact recording whether multi-site reliance is involved; this is not a legal or institutional characterization."
     }
   ],
   "sources": [

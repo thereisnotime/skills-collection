@@ -7,6 +7,10 @@ The only resume tool that **finds jobs, scores your fit, and tailors your resume
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
 [![Codex](https://img.shields.io/badge/Codex-Plugin-111111)](https://developers.openai.com/codex/plugins/build)
 
+![Upload a resume, paste a job description, get ATS + recruiter scores with fixes in seconds](assets/resumehq-demo.gif)
+
+*Upload a resume → paste the job posting → ATS + recruiter scores with fixes, in under 30 seconds. [Try it free](https://getresumehq.com).*
+
 ---
 
 ## Why ResumeHQ?
@@ -24,6 +28,7 @@ Most resume tools only score the resume you bring to them. ResumeHQ goes further
 | Application tracker | ❌ | ❌ | ✅ | ✅ |
 | Works in Claude Code / claude.ai / Codex | ❌ | ❌ | ❌ | ✅ |
 | Open source | ❌ | ❌ | ❌ | ✅ |
+| [Publishes its scoring benchmarks](BENCHMARKS.md) — including the bugs | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
@@ -251,7 +256,7 @@ Claude-powered rubric evaluation that catches nuances the algorithmic scorers mi
 
 **Note for Claude Code / claude.ai users:** Your Anthropic subscription already handles resume writing via Claude. The scorer server only does ATS + HR scoring, so **Pro is all you need** — you do not need Ultra.
 
-Sign up at [resume-scorer-web.streamlit.app](https://resume-scorer-web.streamlit.app). After signing up, run `/resume-builder:setup` to link your Pro account in one step.
+Sign up at [getresumehq.com](https://getresumehq.com). After signing up, run `/resume-builder:setup` to link your Pro account in one step.
 
 ---
 
@@ -318,6 +323,17 @@ Each resume command follows a gated workflow:
 
 ---
 
+## Alternative: pip install
+
+The scoring engine and MCP server are on PyPI:
+
+```bash
+pip install resumehq
+
+# Serve the scorer to Claude/any MCP client over stdio:
+resumehq-mcp
+```
+
 ## Alternative: Clone & Run Locally
 
 If you prefer not to use the plugin system:
@@ -341,7 +357,7 @@ Then edit `.env` (API keys) and `config.json` (your info), and use commands with
 
 ## Cloud Scoring API
 
-The scoring API is hosted at `https://resume-scorer.fly.dev`. Free users get **5 scored resumes**, then local scoring activates automatically. Sign up or upgrade at [resume-scorer-web.streamlit.app](https://resume-scorer-web.streamlit.app).
+The scoring API is hosted at `https://resume-scorer.fly.dev`. Free users get **5 scored resumes**, then local scoring activates automatically. Sign up or upgrade at [getresumehq.com](https://getresumehq.com).
 
 The easiest way to link your account is via the setup wizard:
 

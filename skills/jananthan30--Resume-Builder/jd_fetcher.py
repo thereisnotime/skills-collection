@@ -17,7 +17,7 @@ import os
 import re
 import socket
 from typing import Optional
-from urllib.parse import urlparse, urlencode, parse_qs, urlunparse, urljoin
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
 
 class BlockedURLError(ValueError):
@@ -317,7 +317,7 @@ def extract_jd_with_ai(
 
         client = anthropic.Anthropic(api_key=key)
         msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
             max_tokens=2000,
             messages=[
                 {

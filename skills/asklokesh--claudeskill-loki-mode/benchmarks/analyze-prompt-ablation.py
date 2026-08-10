@@ -73,8 +73,23 @@ def _accepted(row):
         # itself truthy -- so an all-values-truthy test would count an
         # UNCHECKED run as accepted. That is the exact mirror of the false
         # negative this flag was added to prevent, so it is refused here.
-        if acc.get("spec_acceptance_unmatched"):
+        # Every one of these means "we did not measure this run", and each is
+        # a TRUTHY value that the all-values test below would read as a pass.
+        # Three separate variants of that trap have now appeared in this file;
+        # they are listed together so the next one is added here rather than
+        # rediscovered by shipping a wrong number.
+        for _unmeasured in ("spec_acceptance_unmatched", "spec_unreadable"):
+            if acc.get(_unmeasured):
+                return False
+        # A grader that could not RUN measured nothing. Counting it either way
+        # blames or credits the build for a harness fault.
+        if "grader_error" in acc:
             return False
+        # When a held-out grader ran, IT is the verdict. The diagnostic strings
+        # beside it (grader_stderr) are non-empty and would otherwise be read
+        # as truthy checks by the all-values test below.
+        if "graded" in acc:
+            return bool(acc["graded"])
         return bool(acc) and all(bool(v) for v in acc.values())
     if isinstance(acc, bool):
         return acc

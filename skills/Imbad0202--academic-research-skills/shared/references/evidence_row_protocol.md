@@ -1,4 +1,4 @@
-# Shared Evidence-row Protocol (`evidence-row/1.0`)
+# Shared Evidence-row Protocol (`evidence-row/1.0` and `evidence-row/1.1`)
 
 This protocol is the runtime-facing authority for evidence rows. The canonical
 field shape is `shared/contracts/evidence/evidence_row.schema.json`; cross-field
@@ -161,3 +161,44 @@ Consumers reference this protocol and the schema by pointer. They consume the
 machine row, not a copied enum or a parsed rendered table. They may not upgrade
 `unconfirmed_anchor`, `not_checked`, `source_missing`, `access_failed`,
 `retrieval_failed`, or `anchorless` into evidence-bearing states.
+
+## Version 1.1 authority-profile advisory extension (#681)
+
+`shared/contracts/evidence/evidence_row_v1_1.schema.json` is a separate closed
+version for `surface=authority_profile_content_coverage`. It does not extend the
+Phase E row in place: `claim`, `verdict`, and `detail` are absent, and exact
+`requirement_pointer`, `authority_anchor_pointer`,
+`structured_expectations[]` pointer/digest, packet artifact, and advisory
+document-locator bindings replace them. Version 1.0 producer behavior, cache
+semantics, persisted bytes, and Phase E rendering remain unchanged. A page may
+contain only one evidence-row version/surface.
+
+The 1.1 builder is `build_advisory(...)`. It records only passage provenance;
+it never chooses an `advisory_coverage_status`, interprets a structured
+expectation, opens a packet path, retrieves content, or calls a model/API. The
+closed states are:
+
+- `agent_extracted`: a once-decoded, bounded quote is an exact substring of the
+  explicitly supplied artifact string;
+- `checked_no_match`: the explicit artifact string was checked, with no quote
+  or excerpt persisted; and
+- `not_checked`, `source_missing`, `access_failed`, and `retrieval_failed`:
+  explicit unperformed/empty states with null content binding and excerpt.
+
+Both source-bound states require replay from an explicit
+`artifact_id -> exact session-held content` map before rendering. V1.1 retains
+the same strict once-decode, 25-word/1,000-code-point bounds, exact UTF-8 content
+hash and byte-span rules, inert Markdown/HTML treatment, rights pairing, and
+human-read-ledger noninterference. It deliberately fixes `cache.status` to
+`not_used` and `cache.key_sha256` to null.
+For a positive row, `captured_at` is the explicit RFC 3339 timestamp carried by
+the closed advisory draft; it is not invented from the authority-context
+confirmation time or the runtime clock.
+
+V1.1 rows are nested only in the replay-bound
+`content-coverage-advisory/1.0` carrier defined by
+`shared/contracts/human_subjects/content_coverage_advisory.schema.json` and
+`shared/references/authority_content_coverage_advisory_protocol.md`. Their
+labels remain `LLM-ADVISORY`; neither an exact passage nor a checked-no-match
+state changes #667 deterministic status, readiness, authorization, or
+institutional acceptance, and neither is an adequacy or efficacy finding.

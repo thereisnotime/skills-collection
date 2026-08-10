@@ -18,16 +18,16 @@ Author: Resume Builder Project
 Version: 1.1.0
 """
 
-import re
-import json
 import argparse
-import os
-from pathlib import Path
-from datetime import datetime, date
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass, field
-from collections import defaultdict
+import json
 import math
+import os
+import re
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 # =============================================================================
 # DATA FILE LOADING
@@ -152,7 +152,7 @@ def find_term_positions(text: str, term: str) -> List[int]:
 
 # Optional imports for advanced NLP (graceful degradation if not available)
 try:
-    from sentence_transformers import SentenceTransformer, util
+    from sentence_transformers import SentenceTransformer, util  # noqa: F401 — availability probe
     SBERT_AVAILABLE = True
 except ImportError:
     SBERT_AVAILABLE = False
@@ -1077,6 +1077,34 @@ def parse_resume(text: str) -> CandidateProfile:
     return profile
 
 
+def _atomize_requirement(line: str) -> List[str]:
+    """Split one requirement bullet into atomic skill candidates.
+
+    JD bullets routinely pack several skills into a single line ("Protocol
+    compliance, GCP, ICH") or bury them inside sentences. Kept whole, the
+    literal line never word-boundary-matches a resume, so the skills factor
+    collapses to zero on fragment-style JDs and long sentence bullets get
+    silently filtered into a free-pass score. Atoms = known skill keywords
+    found anywhere in the line, plus delimiter-split fragments that survive
+    the junk filter.
+    """
+    atoms: List[str] = []
+    for kw_hit in extract_skills_from_text(line):
+        atoms.append(kw_hit)
+    for frag in re.split(r',|;|/|\band\b|\bor\b', line):
+        frag = frag.strip().strip('.').strip()
+        if _filter_skill_candidate(frag):
+            atoms.append(frag)
+    seen: set = set()
+    out: List[str] = []
+    for a in atoms:
+        k = a.lower().strip()
+        if k and k not in seen:
+            seen.add(k)
+            out.append(a)
+    return out
+
+
 def parse_job_description(text: str) -> JobRequirements:
     """Parse job description into structured requirements"""
     requirements = JobRequirements(raw_text=text)
@@ -1116,7 +1144,7 @@ def parse_job_description(text: str) -> JobRequirements:
 
         if skill_section and line.strip().startswith(('•', '-', '*')):
             skill = re.sub(r'^[•\-*]\s*', '', line.strip())
-            requirements.required_skills.append(skill)
+            requirements.required_skills.extend(_atomize_requirement(skill))
 
     # Extract industry keywords (common terms in the JD)
     words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
@@ -1211,7 +1239,11 @@ def score_skills_contextual(
     matched_skills: list[str] = []
     missing_skills: list[str] = []
     total_weighted_score = 0.0
-    max_possible_score = len(required_skills) * 3.0  # Max weight per skill
+    # Full credit is "every required skill demonstrated in action" (2.0);
+    # the 3.0 main-skill weight is a bonus above that, capped at 100 below.
+    # Grading against 3.0 meant a resume matching every skill in real bullets
+    # could never clear 67 — a calibration bug, not a signal.
+    max_possible_score = len(required_skills) * 2.0
 
     skills_text = ' '.join(candidate_skills).lower()
     bullets_text = ' '.join(candidate_bullets).lower()
@@ -2364,9 +2396,9 @@ def score_experience_type_fit(
     if score >= 90:
         narrative = f"Strong experience alignment with required {', '.join(required_types)}"
     elif score >= 70:
-        narrative = f"Good experience alignment (some transferable)"
+        narrative = "Good experience alignment (some transferable)"
     else:
-        narrative = f"Partial experience alignment - may need ramp-up time"
+        narrative = "Partial experience alignment - may need ramp-up time"
 
     return score, narrative
 
@@ -2512,7 +2544,7 @@ def score_education_fit(
 
         if board_in_spec:
             board_score = 20
-            degree_narrative.append(f"Board certified in required specialization")
+            degree_narrative.append("Board certified in required specialization")
         elif has_board_cert:
             board_score = 5
             degree_narrative.append("Board certified (but not in required specialization)")
@@ -3056,7 +3088,7 @@ def generate_interview_questions(
         questions.append("You've had several transitions recently. What's driving your interest in a longer-term opportunity?")
 
     if scores.impact < 60:
-        questions.append(f"Your resume mentions accomplishments but lacks specific metrics. Can you quantify the impact of your work at your most recent role?")
+        questions.append("Your resume mentions accomplishments but lacks specific metrics. Can you quantify the impact of your work at your most recent role?")
 
     if impact_stats.get('strong_verbs', 0) < impact_stats.get('total_bullets', 1) * 0.3:
         questions.append("Tell me about a time you took initiative to drive a project or improvement without being asked.")
@@ -3465,9 +3497,7 @@ def generate_html_report(result: HRScoreResult) -> str:
 
 def run_web_interface(resume_path: str, jd_path: str, port: int = 8081):
     """Run simple web interface for HR scoring"""
-    from http.server import HTTPServer, SimpleHTTPRequestHandler
     import webbrowser
-    import threading
 
     # Generate report
     result = calculate_hr_score(resume_path, jd_path)
@@ -3479,7 +3509,7 @@ def run_web_interface(resume_path: str, jd_path: str, port: int = 8081):
         f.write(html_content)
 
     print(f"\nHR Score Report saved to: {temp_path}")
-    print(f"Opening in browser...")
+    print("Opening in browser...")
     webbrowser.open(f'file://{os.path.abspath(temp_path)}')
 
 

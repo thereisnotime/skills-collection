@@ -10,15 +10,7 @@
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square" alt="Platform"/>
 </p>
 
-## Star History
-
-<a href="https://www.star-history.com/?repos=Masriyan%2FClaude-Code-CyberSecurity-Skill&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Masriyan/Claude-Code-CyberSecurity-Skill&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Masriyan/Claude-Code-CyberSecurity-Skill&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Masriyan/Claude-Code-CyberSecurity-Skill&type=date&legend=top-left" />
- </picture>
-</a>
+> **🛡️ Antivirus Notice:** Some AV engines may flag this repository due to security testing payload *templates* (string constants for authorized pentesting). These are **false positives** — no executable malware exists. This is standard for all cybersecurity toolkits ([SecLists](https://github.com/danielmiessler/SecLists), [PayloadsAllTheThings](https://github.com/swisskyrepo/PayloadsAllTheThings), [Metasploit](https://github.com/rapid7/metasploit-framework) face the same detections). See [SECURITY.md](SECURITY.md#-antivirus--virustotal-false-positives) for details.
 
 # Claude Code CyberSecurity Skill Collection
 

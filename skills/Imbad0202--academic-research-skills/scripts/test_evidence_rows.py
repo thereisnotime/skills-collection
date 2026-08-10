@@ -31,6 +31,13 @@ from jsonschema import Draft202012Validator, FormatChecker
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = REPO_ROOT / "scripts" / "fixtures" / "evidence_rows"
 SCHEMA_PATH = REPO_ROOT / "shared" / "contracts" / "evidence" / "evidence_row.schema.json"
+ADVISORY_SCHEMA_PATH = (
+    REPO_ROOT
+    / "shared"
+    / "contracts"
+    / "evidence"
+    / "evidence_row_v1_1.schema.json"
+)
 RUNTIME_PATH = REPO_ROOT / "scripts" / "evidence_rows.py"
 MANIFEST_PATH = REPO_ROOT / "scripts" / "_ci_pytest_manifest.toml"
 
@@ -46,6 +53,15 @@ EXPECTED_STATES = {
 }
 POSITIVE_STATES = {"verified_exact_match", "agent_extracted"}
 EMPTY_STATES = EXPECTED_STATES - POSITIVE_STATES
+ADVISORY_EXPECTED_STATES = {
+    "agent_extracted",
+    "checked_no_match",
+    "not_checked",
+    "source_missing",
+    "access_failed",
+    "retrieval_failed",
+}
+ADVISORY_CAPTURED_AT = "2026-08-09T12:00:00Z"
 
 try:
     from scripts import evidence_rows as er
@@ -98,6 +114,51 @@ def _raw_row(
         else:
             row[key] = value
     return row
+
+
+def _raw_advisory_row(
+    *,
+    row_id: str = "EVR-COVERAGE-0001",
+    anchor_kind: str = "quote",
+    anchor_text: str = "Participation is voluntary.",
+    locator_value: str = "Consent",
+) -> dict[str, Any]:
+    return {
+        "schema_version": "evidence-row/1.1",
+        "surface": "authority_profile_content_coverage",
+        "row_id": row_id,
+        "coverage_subject": {
+            "requirement_id": "us.45cfr46.116.informed-consent",
+            "requirement_pointer": "/profiles/0/requirements/1",
+            "authority_anchor_pointer": (
+                "/profiles/0/requirements/1/authority_anchor"
+            ),
+            "expectation_field_id": "consent.voluntary_circumstances",
+            "expectation_pointer": (
+                "/profiles/0/requirements/1/structured_expectations/1"
+            ),
+            "expectation_digest": "e" * 64,
+            "document_locator": {
+                "kind": "section",
+                "value": locator_value,
+                "provenance": "agent_supplied_not_independently_authenticated",
+            },
+        },
+        "source": {
+            "artifact_id": "fixture.us-consent",
+            "relative_path": "consent.txt",
+            "source_artifact_sha256": "a" * 64,
+            "source_artifact_size_bytes": 80,
+        },
+        "anchor": {
+            "kind": anchor_kind,
+            "value_encoded": (
+                urllib.parse.quote(anchor_text, safe="")
+                if anchor_kind == "quote"
+                else ""
+            ),
+        },
+    }
 
 
 def _build_case(
@@ -583,11 +644,14 @@ def test_agent_extracted_word_budget(
 ) -> None:
     _runtime_required()
     text = " ".join(f"w{i}" for i in range(count))
-    call = lambda: er.build(
-        _raw_row(input_fixture, anchor_kind="page", anchor_value="1"),
-        text,
-        extracted_text=text,
-    )
+
+    def call() -> dict[str, Any]:
+        return er.build(
+            _raw_row(input_fixture, anchor_kind="page", anchor_value="1"),
+            text,
+            extracted_text=text,
+        )
+
     if accepted:
         assert call()["excerpt"]["text"] == text
     else:
@@ -600,7 +664,10 @@ def test_unspaced_cjk_character_cap(
     text: str, accepted: bool, input_fixture: dict[str, Any]
 ) -> None:
     _runtime_required()
-    call = lambda: er.build(_raw_row(input_fixture, anchor_value=_quote(text)), text)
+
+    def call() -> dict[str, Any]:
+        return er.build(_raw_row(input_fixture, anchor_value=_quote(text)), text)
+
     if accepted:
         assert call()["excerpt"]["text"] == text
     else:
@@ -621,7 +688,10 @@ def test_codepoint_cap_for_emoji_and_combining_sequences(
     text: str, accepted: bool, input_fixture: dict[str, Any]
 ) -> None:
     _runtime_required()
-    call = lambda: er.build(_raw_row(input_fixture, anchor_value=_quote(text)), text)
+
+    def call() -> dict[str, Any]:
+        return er.build(_raw_row(input_fixture, anchor_value=_quote(text)), text)
+
     if accepted:
         assert call()["excerpt"]["text"] == text
     else:
@@ -1162,6 +1232,28 @@ def test_semantically_duplicate_percent_escape_case_is_rejected(
         er.render_markdown([first, second])
     with pytest.raises(er.EvidenceRowError):
         er.render_html([first, second])
+
+
+def test_anchorless_null_and_literal_none_ref_slugs_remain_distinct(
+    input_fixture: dict[str, Any],
+) -> None:
+    _runtime_required()
+    rows = [
+        er.build(
+            _raw_row(
+                input_fixture,
+                row_id=f"EVR-NONE-{index}",
+                anchor_kind="none",
+                anchor_value="",
+                source__ref_slug=ref_slug,
+            ),
+            None,
+        )
+        for index, ref_slug in enumerate((None, "None"), 1)
+    ]
+    page = er.paginate(rows)
+    assert page["total_rows"] == 2
+    assert [row["source"]["ref_slug"] for row in page["rows"]] == [None, "None"]
 
 
 # ---------------------------------------------------------------------------
@@ -2148,3 +2240,354 @@ def test_runtime_contract_is_registered_once_in_ci_manifest() -> None:
     assert entries == [
         {"id": "656-shared-evidence-row-contract", "path": "scripts/test_evidence_rows.py"}
     ]
+
+
+# ---------------------------------------------------------------------------
+# #681 evidence-row/1.1 authority-profile advisory surface.
+# ---------------------------------------------------------------------------
+
+
+def test_advisory_schema_is_a_separate_closed_1_1_surface() -> None:
+    advisory_schema = _json(ADVISORY_SCHEMA_PATH)
+    Draft202012Validator.check_schema(advisory_schema)
+    assert advisory_schema["additionalProperties"] is False
+    assert advisory_schema["properties"]["schema_version"]["const"] == (
+        "evidence-row/1.1"
+    )
+    assert advisory_schema["properties"]["surface"]["const"] == (
+        "authority_profile_content_coverage"
+    )
+    assert advisory_schema["required"] == [
+        "schema_version",
+        "surface",
+        "row_id",
+        "coverage_subject",
+        "source",
+        "anchor",
+        "excerpt",
+        "cache",
+        "content_handling",
+        "row_sha256",
+    ]
+    assert {"claim", "verdict", "detail"}.isdisjoint(
+        advisory_schema["properties"]
+    )
+
+
+def test_advisory_schema_pins_states_subject_binding_and_no_cache() -> None:
+    advisory_schema = _json(ADVISORY_SCHEMA_PATH)
+    defs = advisory_schema["$defs"]
+    assert set(defs["excerpt"]["properties"]["state"]["enum"]) == (
+        ADVISORY_EXPECTED_STATES
+    )
+    assert defs["coverage_subject"]["required"] == [
+        "requirement_id",
+        "requirement_pointer",
+        "authority_anchor_pointer",
+        "expectation_field_id",
+        "expectation_pointer",
+        "expectation_digest",
+        "document_locator",
+    ]
+    assert set(defs["coverage_subject"]["properties"]) == set(
+        defs["coverage_subject"]["required"]
+    )
+    assert advisory_schema["properties"]["cache"]["properties"] == {
+        "status": {"const": "not_used"},
+        "key_sha256": {"type": "null"},
+    }
+
+
+def test_advisory_schema_preserves_the_shared_25_word_and_1000_char_budgets() -> None:
+    advisory_schema = _json(ADVISORY_SCHEMA_PATH)
+    assert advisory_schema["$defs"]["anchor"]["properties"]["value_decoded"][
+        "maxLength"
+    ] == 1000
+    assert advisory_schema["$defs"]["excerpt"]["properties"]["text"][
+        "maxLength"
+    ] == 1000
+    _runtime_required()
+    assert er.QUOTE_WORD_CAP == 25
+    assert er.TEXT_CHAR_CAP == 1000
+
+
+def test_advisory_identifier_200_boundary_matches_schema_builder_and_runtime() -> None:
+    _runtime_required()
+    schema_validator = Draft202012Validator(
+        _json(ADVISORY_SCHEMA_PATH), format_checker=FormatChecker()
+    )
+    accepted_raw = _raw_advisory_row()
+    accepted_raw["coverage_subject"]["requirement_id"] = "r" * 200
+    accepted = er.build_advisory(
+        accepted_raw,
+        "Participation is voluntary.",
+        captured_at=ADVISORY_CAPTURED_AT,
+    )
+    schema_validator.validate(accepted)
+    assert er.validate(accepted, "Participation is voluntary.") == accepted
+
+    rejected_raw = _raw_advisory_row()
+    rejected_raw["coverage_subject"]["requirement_id"] = "r" * 201
+    with pytest.raises(er.EvidenceRowError):
+        er.build_advisory(
+            rejected_raw,
+            "Participation is voluntary.",
+            captured_at=ADVISORY_CAPTURED_AT,
+        )
+    schema_mutation = copy.deepcopy(accepted)
+    schema_mutation["coverage_subject"]["requirement_id"] = "r" * 201
+    assert list(schema_validator.iter_errors(schema_mutation))
+    with pytest.raises(er.EvidenceRowError):
+        er.validate(schema_mutation, "Participation is voluntary.")
+
+
+@pytest.mark.parametrize("relative_path", ["a\tb", "a\u0085b"])
+def test_advisory_relative_path_control_rejection_has_schema_runtime_parity(
+    relative_path: str,
+) -> None:
+    _runtime_required()
+    validator = Draft202012Validator(
+        _json(ADVISORY_SCHEMA_PATH), format_checker=FormatChecker()
+    )
+    accepted = er.build_advisory(
+        _raw_advisory_row(),
+        "Participation is voluntary.",
+        captured_at=ADVISORY_CAPTURED_AT,
+    )
+    mutation = copy.deepcopy(accepted)
+    mutation["source"]["relative_path"] = relative_path
+    assert list(validator.iter_errors(mutation))
+    with pytest.raises(er.EvidenceRowError):
+        er.validate(mutation, "Participation is voluntary.")
+
+    raw = _raw_advisory_row()
+    raw["source"]["relative_path"] = relative_path
+    with pytest.raises(er.EvidenceRowError):
+        er.build_advisory(
+            raw,
+            "Participation is voluntary.",
+            captured_at=ADVISORY_CAPTURED_AT,
+        )
+
+
+@pytest.mark.parametrize(
+    "relative_path", ["dir/", "a//b", "./a", "a/../b", "/absolute", "a\\b"]
+)
+def test_advisory_builder_requires_canonical_relative_posix_path(
+    relative_path: str,
+) -> None:
+    _runtime_required()
+    raw = _raw_advisory_row()
+    raw["source"]["relative_path"] = relative_path
+    with pytest.raises(er.EvidenceRowError, match="relative_path"):
+        er.build_advisory(
+            raw,
+            "Participation is voluntary.",
+            captured_at=ADVISORY_CAPTURED_AT,
+        )
+
+
+def test_advisory_builder_binds_exact_source_hash_excerpt_and_utf8_span() -> None:
+    _runtime_required()
+    source = "前言：Participation is voluntary. 後記。"
+    row = er.build_advisory(
+        _raw_advisory_row(),
+        source,
+        captured_at=ADVISORY_CAPTURED_AT,
+    )
+    Draft202012Validator(
+        _json(ADVISORY_SCHEMA_PATH), format_checker=FormatChecker()
+    ).validate(row)
+    assert row["schema_version"] == "evidence-row/1.1"
+    assert row["surface"] == "authority_profile_content_coverage"
+    assert row["excerpt"]["state"] == "agent_extracted"
+    assert row["excerpt"]["text"] == "Participation is voluntary."
+    source_bytes = source.encode("utf-8")
+    excerpt_bytes = row["excerpt"]["text"].encode("utf-8")
+    span = row["excerpt"]["source_span_utf8"]
+    assert source_bytes[span["start"] : span["end"]] == excerpt_bytes
+    assert row["source"]["source_content_sha256"] == hashlib.sha256(
+        source_bytes
+    ).hexdigest()
+    assert row["source"]["source_content_utf8_bytes"] == len(source_bytes)
+    assert row["cache"] == {"status": "not_used", "key_sha256": None}
+    assert row["row_sha256"] == _row_digest(row)
+    assert er.validate(row, source) == row
+
+
+def test_advisory_checked_no_match_is_source_bound_without_excerpt() -> None:
+    _runtime_required()
+    source = "Content was inspected, but the selected expectation was not located."
+    row = er.build_advisory(
+        _raw_advisory_row(anchor_kind="none", anchor_text=""),
+        source,
+    )
+    assert row["excerpt"]["state"] == "checked_no_match"
+    assert row["source"]["source_content_sha256"] == _sha256_text(source)
+    assert row["source"]["source_content_utf8_bytes"] == len(
+        source.encode("utf-8")
+    )
+    assert row["anchor"] == {
+        "kind": "none",
+        "value_encoded": "",
+        "value_decoded": "",
+    }
+    assert row["excerpt"] == {
+        "state": "checked_no_match",
+        "text": None,
+        "excerpt_sha256": None,
+        "source_span_utf8": None,
+        "captured_at": None,
+    }
+    assert er.validate(row, source) == row
+
+
+def test_advisory_positive_timestamp_is_explicit_stable_and_never_uses_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _runtime_required()
+    source = "Participation is voluntary."
+
+    def forbidden_clock() -> str:
+        raise AssertionError("advisory builder consulted the runtime clock")
+
+    monkeypatch.setattr(er, "_timestamp_now", forbidden_clock)
+    first = er.build_advisory(
+        _raw_advisory_row(), source, captured_at=ADVISORY_CAPTURED_AT
+    )
+    second = er.build_advisory(
+        _raw_advisory_row(), source, captured_at=ADVISORY_CAPTURED_AT
+    )
+    assert first == second
+    assert first["excerpt"]["captured_at"] == ADVISORY_CAPTURED_AT
+
+
+@pytest.mark.parametrize("captured_at", [None, "2026-08-09T24:00:00Z"])
+def test_advisory_positive_requires_valid_explicit_timestamp(
+    captured_at: str | None,
+) -> None:
+    _runtime_required()
+    with pytest.raises(er.EvidenceRowError, match="captured_at"):
+        er.build_advisory(
+            _raw_advisory_row(),
+            "Participation is voluntary.",
+            captured_at=captured_at,
+        )
+
+
+@pytest.mark.parametrize("failure_state", [None, "source_missing"])
+def test_advisory_empty_states_reject_timestamp(
+    failure_state: str | None,
+) -> None:
+    _runtime_required()
+    source = "checked content" if failure_state is None else None
+    with pytest.raises(er.EvidenceRowError, match="captured_at"):
+        er.build_advisory(
+            _raw_advisory_row(anchor_kind="none", anchor_text=""),
+            source,
+            failure_state=failure_state,
+            captured_at=ADVISORY_CAPTURED_AT,
+        )
+
+
+@pytest.mark.parametrize(
+    "failure_state",
+    ["not_checked", "source_missing", "access_failed", "retrieval_failed"],
+)
+def test_advisory_unperformed_states_never_claim_source_or_excerpt(
+    failure_state: str,
+) -> None:
+    _runtime_required()
+    row = er.build_advisory(
+        _raw_advisory_row(anchor_kind="none", anchor_text=""),
+        None,
+        failure_state=failure_state,
+    )
+    assert row["excerpt"]["state"] == failure_state
+    assert row["source"]["source_content_sha256"] is None
+    assert row["source"]["source_content_utf8_bytes"] is None
+    assert row["excerpt"]["text"] is None
+    assert row["excerpt"]["excerpt_sha256"] is None
+    assert row["excerpt"]["source_span_utf8"] is None
+    assert row["excerpt"]["captured_at"] is None
+    assert row["content_handling"]["contains_external_text"] is False
+    assert er.validate(row) == row
+
+
+@pytest.mark.parametrize(
+    ("anchor_text", "accepted"),
+    [
+        (" ".join(f"w{index}" for index in range(25)), True),
+        (" ".join(f"w{index}" for index in range(26)), False),
+        ("x" * 1000, True),
+        ("x" * 1001, False),
+    ],
+)
+def test_advisory_quote_budgets_reject_instead_of_truncate(
+    anchor_text: str, accepted: bool
+) -> None:
+    _runtime_required()
+    source = f"prefix {anchor_text} suffix"
+    if accepted:
+        row = er.build_advisory(
+            _raw_advisory_row(anchor_text=anchor_text),
+            source,
+            captured_at=ADVISORY_CAPTURED_AT,
+        )
+        assert row["excerpt"]["text"] == anchor_text
+    else:
+        with pytest.raises(er.EvidenceRowError):
+            er.build_advisory(
+                _raw_advisory_row(anchor_text=anchor_text),
+                source,
+                captured_at=ADVISORY_CAPTURED_AT,
+            )
+
+
+def test_advisory_builder_rejects_cache_and_nonexact_quote() -> None:
+    _runtime_required()
+    source = "Participation is voluntary."
+    baseline = er.build_advisory(
+        _raw_advisory_row(), source, captured_at=ADVISORY_CAPTURED_AT
+    )
+    with pytest.raises(er.EvidenceRowError, match="cache"):
+        er.build_advisory(
+            _raw_advisory_row(),
+            source,
+            cached_row=baseline,
+            captured_at=ADVISORY_CAPTURED_AT,
+        )
+    with pytest.raises(er.EvidenceRowError):
+        er.build_advisory(
+            _raw_advisory_row(),
+            "Participation is NOT voluntary.",
+            captured_at=ADVISORY_CAPTURED_AT,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["source_hash", "source_size", "excerpt_hash", "span", "row_hash"],
+)
+def test_advisory_hash_span_and_self_digest_tampering_fail_replay(
+    mutation: str,
+) -> None:
+    _runtime_required()
+    source = "前言：Participation is voluntary. 後記。"
+    row = er.build_advisory(
+        _raw_advisory_row(), source, captured_at=ADVISORY_CAPTURED_AT
+    )
+    if mutation == "source_hash":
+        row["source"]["source_content_sha256"] = "0" * 64
+    elif mutation == "source_size":
+        row["source"]["source_content_utf8_bytes"] += 1
+    elif mutation == "excerpt_hash":
+        row["excerpt"]["excerpt_sha256"] = "0" * 64
+    elif mutation == "span":
+        row["excerpt"]["source_span_utf8"]["start"] += 1
+    else:
+        row["row_sha256"] = "0" * 64
+    if mutation != "row_hash":
+        row = _rebind(row)
+    with pytest.raises(er.EvidenceRowError):
+        er.validate(row, source)
