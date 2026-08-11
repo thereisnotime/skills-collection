@@ -11235,7 +11235,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 272,
-      "words": 12810,
+      "words": 12915,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -11725,8 +11725,8 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 574,
-      "words": 4245,
+      "lines": 593,
+      "words": 4466,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -11913,8 +11913,8 @@
       "description": "\"Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-researc",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
-      "lines": 649,
-      "words": 6064,
+      "lines": 709,
+      "words": 6540,
       "code_blocks": 11,
       "languages": []
     },
@@ -11923,8 +11923,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 509,
-      "words": 5738,
+      "lines": 517,
+      "words": 5791,
       "code_blocks": 4,
       "languages": []
     },
@@ -11933,8 +11933,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/agents/research_architect_agent.md",
       "remote_path": "agents/research_architect_agent.md",
-      "lines": 252,
-      "words": 2686,
+      "lines": 274,
+      "words": 2971,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12005,8 +12005,8 @@
       "description": "\"Research ethics self-check (before a human committee/IRB, not a replacement); confirms Critical integrity concerns before delivery \u2014 stops the user once, overridable, never a veto\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/ethics_review_agent.md",
       "remote_path": "deep-research/agents/ethics_review_agent.md",
-      "lines": 262,
-      "words": 2490,
+      "lines": 268,
+      "words": 2675,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12017,8 +12017,8 @@
       "description": "\"Designs the methodological blueprint; selects research paradigm, method, data strategy, and analytical framework\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/research_architect_agent.md",
       "remote_path": "deep-research/agents/research_architect_agent.md",
-      "lines": 252,
-      "words": 2686,
+      "lines": 274,
+      "words": 2971,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12235,10 +12235,12 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 1167,
-      "words": 17850,
-      "code_blocks": 18,
-      "languages": []
+      "lines": 1278,
+      "words": 18717,
+      "code_blocks": 19,
+      "languages": [
+        "text"
+      ]
     },
     {
       "name": "claim_ref_alignment_audit_agent",
@@ -12255,8 +12257,8 @@
       "description": "\"Tracks pipeline state and maintains the research session history across multi-phase workflows\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/state_tracker_agent.md",
       "remote_path": "academic-pipeline/agents/state_tracker_agent.md",
-      "lines": 507,
-      "words": 2246,
+      "lines": 587,
+      "words": 2896,
       "code_blocks": 6,
       "languages": [
         "json"
@@ -12267,8 +12269,8 @@
       "description": "\"Verifies all references, citations, and data for factual accuracy before submission and after revision\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
-      "lines": 808,
-      "words": 8511,
+      "lines": 824,
+      "words": 8627,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -12357,8 +12359,8 @@
       "description": "\"Conducts the paper configuration interview and produces the Paper Configuration Record for downstream agents\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/intake_agent.md",
       "remote_path": "academic-paper/agents/intake_agent.md",
-      "lines": 360,
-      "words": 3293,
+      "lines": 373,
+      "words": 3399,
       "code_blocks": 4,
       "languages": [
         "markdown"
@@ -13967,12 +13969,12 @@
     },
     {
       "name": "imaging-data-commons",
-      "description": "Query and download public cancer imaging data from NCI Imaging Data Commons using idc-index. Use for accessing large-scale radiology (CT, MR, PET) and pathology datasets for AI training or research. N",
+      "description": "Query and download public cancer imaging data from NCI Imaging Data Commons. Invoke for any question about IDC collections, cancer imaging datasets, DICOM data access, radiology (CT, MR, PET) or patho",
       "path": "K-Dense-AI--claude-scientific-skills/skills/imaging-data-commons/SKILL.md",
       "remote_path": "skills/imaging-data-commons/SKILL.md",
-      "lines": 408,
-      "words": 3065,
-      "code_blocks": 7,
+      "lines": 497,
+      "words": 3972,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "python"
@@ -20907,6 +20909,18 @@
       ]
     },
     {
+      "name": "secure-raw-data-backup",
+      "description": "\"Archive irreplaceable raw data (sequencing runs, imaging, field data) to write-once cloud cold storage \u2014 generate checksums, verify before upload, stream a tarball to S3 Deep Archive under Object Loc",
+      "path": "brunoasm--my_claude_skills/secure_raw_data_backup/SKILL.md",
+      "remote_path": "secure_raw_data_backup/SKILL.md",
+      "lines": 220,
+      "words": 1575,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "document-ocr",
       "description": "Convert scanned PDFs and document images into clean Markdown using docling for layout (figures, tables, reading order) plus a vision-language OCR model. Use when a user needs high-quality OCR of scann",
       "path": "brunoasm--my_claude_skills/document_ocr/SKILL.md",
@@ -20947,9 +20961,9 @@
       "description": "\"Process receipts, track expenses in Google Sheets, reconcile records, and generate entertainment supplement tables for Field Museum procurement card accounting\"",
       "path": "brunoasm--my_claude_skills/accounting/SKILL.md",
       "remote_path": "accounting/SKILL.md",
-      "lines": 205,
-      "words": 1531,
-      "code_blocks": 7,
+      "lines": 406,
+      "words": 3785,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "yaml"
@@ -22467,12 +22481,167 @@
   ],
   "hashicorp--agent-skills": [
     {
+      "name": "Documentation Issue",
+      "description": "",
+      "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/documentation.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/documentation.md",
+      "lines": 14,
+      "words": 32,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Existing Skill Update Request",
+      "description": "",
+      "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/skill_update_request.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/skill_update_request.md",
+      "lines": 26,
+      "words": 70,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "New Skill Request",
+      "description": "",
+      "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/new_skill_request.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/new_skill_request.md",
+      "lines": 53,
+      "words": 185,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Skill Bug or Incorrect Guidance",
+      "description": "",
+      "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/skill_bug.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/skill_bug.md",
+      "lines": 28,
+      "words": 92,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Marketplace or Plugin Installation Issue",
+      "description": "",
+      "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/marketplace_installation.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/marketplace_installation.md",
+      "lines": 22,
+      "words": 63,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "run-acceptance-tests",
+      "description": "Guide for running acceptance tests for a Terraform provider. Use this when asked to run an acceptance test or to run a test with the prefix `TestAcc`, when a test fails with missing environment variab",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/run-acceptance-tests/SKILL.md",
+      "remote_path": "plugins/terraform/skills/run-acceptance-tests/SKILL.md",
+      "lines": 65,
+      "words": 433,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MPL-2.0"
+    },
+    {
+      "name": "refactor-module",
+      "description": "Transform monolithic Terraform configurations into reusable, maintainable modules following HashiCorp's module design principles and community best practices.",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/refactor-module/SKILL.md",
+      "remote_path": "plugins/terraform/skills/refactor-module/SKILL.md",
+      "lines": 561,
+      "words": 1894,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "hcl",
+        "markdown"
+      ]
+    },
+    {
+      "name": "provider-ephemeral-resources",
+      "description": ">-",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/provider-ephemeral-resources/SKILL.md",
+      "remote_path": "plugins/terraform/skills/provider-ephemeral-resources/SKILL.md",
+      "lines": 226,
+      "words": 1075,
+      "code_blocks": 2,
+      "languages": [
+        "go"
+      ],
+      "license": "MPL-2.0"
+    },
+    {
+      "name": "provider-actions",
+      "description": "Implement Terraform Provider actions using the Plugin Framework. Use when developing imperative operations that execute at lifecycle events (before/after create, update, destroy).",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/provider-actions/SKILL.md",
+      "remote_path": "plugins/terraform/skills/provider-actions/SKILL.md",
+      "lines": 516,
+      "words": 2009,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "go",
+        "hcl",
+        "release",
+        "yaml"
+      ]
+    },
+    {
+      "name": "provider-framework-migration",
+      "description": ">-",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/provider-framework-migration/SKILL.md",
+      "remote_path": "plugins/terraform/skills/provider-framework-migration/SKILL.md",
+      "lines": 205,
+      "words": 1125,
+      "code_blocks": 1,
+      "languages": [
+        "go"
+      ],
+      "license": "MPL-2.0"
+    },
+    {
+      "name": "provider-configuration",
+      "description": ">-",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/provider-configuration/SKILL.md",
+      "remote_path": "plugins/terraform/skills/provider-configuration/SKILL.md",
+      "lines": 302,
+      "words": 1757,
+      "code_blocks": 3,
+      "languages": [
+        "go"
+      ],
+      "license": "MPL-2.0"
+    },
+    {
+      "name": "terraform-policy",
+      "description": "\"Write, test, or convert Terraform Policy files (.policy.hcl, .policytest.hcl, Sentinel\u2192tfpolicy). Triggers: policy.hcl, policytest, convert sentinel, tfpolicy, write a policy.\"",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-policy/SKILL.md",
+      "remote_path": "plugins/terraform/skills/terraform-policy/SKILL.md",
+      "lines": 48,
+      "words": 189,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MPL-2.0"
+    },
+    {
+      "name": "provider-docs",
+      "description": "Create, update, and review Terraform provider documentation for Terraform Registry using HashiCorp-recommended patterns, tfplugindocs templates, and schema descriptions. Use when adding or changing pr",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/provider-docs/SKILL.md",
+      "remote_path": "plugins/terraform/skills/provider-docs/SKILL.md",
+      "lines": 73,
+      "words": 516,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "terraform-test",
       "description": "Comprehensive guide for writing and running Terraform tests. Use when creating test files (.tftest.hcl), writing test scenarios with run blocks, validating infrastructure behavior with assertions, moc",
-      "path": "hashicorp--agent-skills/terraform/code-generation/skills/terraform-test/SKILL.md",
-      "remote_path": "terraform/code-generation/skills/terraform-test/SKILL.md",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-test/SKILL.md",
+      "remote_path": "plugins/terraform/skills/terraform-test/SKILL.md",
       "lines": 452,
-      "words": 1445,
+      "words": 1443,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -22482,10 +22651,10 @@
     {
       "name": "terraform-style-guide",
       "description": "Generate Terraform HCL code following HashiCorp's official style conventions and best practices. Use when writing, reviewing, or generating Terraform configurations.",
-      "path": "hashicorp--agent-skills/terraform/code-generation/skills/terraform-style-guide/SKILL.md",
-      "remote_path": "terraform/code-generation/skills/terraform-style-guide/SKILL.md",
-      "lines": 315,
-      "words": 936,
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-style-guide/SKILL.md",
+      "remote_path": "plugins/terraform/skills/terraform-style-guide/SKILL.md",
+      "lines": 317,
+      "words": 939,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -22495,8 +22664,8 @@
     {
       "name": "terraform-style-guide-security",
       "description": "Generate Terraform HCL code following HashiCorp's security practices",
-      "path": "hashicorp--agent-skills/terraform/code-generation/skills/terraform-style-guide/SECURITY.md",
-      "remote_path": "terraform/code-generation/skills/terraform-style-guide/SECURITY.md",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-style-guide/SECURITY.md",
+      "remote_path": "plugins/terraform/skills/terraform-style-guide/SECURITY.md",
       "lines": 165,
       "words": 535,
       "code_blocks": 4,
@@ -22505,51 +22674,73 @@
       ]
     },
     {
+      "name": "provider-test-patterns",
+      "description": ">-",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/provider-test-patterns/SKILL.md",
+      "remote_path": "plugins/terraform/skills/provider-test-patterns/SKILL.md",
+      "lines": 416,
+      "words": 1268,
+      "code_blocks": 15,
+      "languages": [
+        "go"
+      ]
+    },
+    {
       "name": "terraform-search-import",
       "description": "Discover existing cloud resources using Terraform Search queries and bulk import them into Terraform management. Use when bringing unmanaged infrastructure under Terraform control, auditing cloud reso",
-      "path": "hashicorp--agent-skills/terraform/code-generation/skills/terraform-search-import/SKILL.md",
-      "remote_path": "terraform/code-generation/skills/terraform-search-import/SKILL.md",
-      "lines": 373,
-      "words": 1134,
-      "code_blocks": 17,
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-search-import/SKILL.md",
+      "remote_path": "plugins/terraform/skills/terraform-search-import/SKILL.md",
+      "lines": 396,
+      "words": 1276,
+      "code_blocks": 18,
       "languages": [
         "bash",
         "hcl"
       ]
     },
     {
+      "name": "new-terraform-provider",
+      "description": ">-",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/new-terraform-provider/SKILL.md",
+      "remote_path": "plugins/terraform/skills/new-terraform-provider/SKILL.md",
+      "lines": 41,
+      "words": 255,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MPL-2.0"
+    },
+    {
+      "name": "provider-resources",
+      "description": ">-",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/provider-resources/SKILL.md",
+      "remote_path": "plugins/terraform/skills/provider-resources/SKILL.md",
+      "lines": 522,
+      "words": 1908,
+      "code_blocks": 16,
+      "languages": [
+        "go"
+      ],
+      "license": "MPL-2.0"
+    },
+    {
       "name": "azure-verified-modules",
       "description": "Azure Verified Modules (AVM) requirements and best practices for developing certified Azure Terraform modules. Use when creating or reviewing Azure modules that need AVM certification.",
-      "path": "hashicorp--agent-skills/terraform/code-generation/skills/azure-verified-modules/SKILL.md",
-      "remote_path": "terraform/code-generation/skills/azure-verified-modules/SKILL.md",
-      "lines": 614,
-      "words": 2086,
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/azure-verified-modules/SKILL.md",
+      "remote_path": "plugins/terraform/skills/azure-verified-modules/SKILL.md",
+      "lines": 616,
+      "words": 2089,
       "code_blocks": 11,
       "languages": [
         "hcl"
       ]
     },
     {
-      "name": "refactor-module",
-      "description": "Transform monolithic Terraform configurations into reusable, maintainable modules following HashiCorp's module design principles and community best practices.",
-      "path": "hashicorp--agent-skills/terraform/module-generation/skills/refactor-module/SKILL.md",
-      "remote_path": "terraform/module-generation/skills/refactor-module/SKILL.md",
-      "lines": 539,
-      "words": 1736,
-      "code_blocks": 15,
-      "languages": [
-        "bash",
-        "hcl",
-        "markdown"
-      ]
-    },
-    {
       "name": "terraform-stacks",
       "description": "Comprehensive guide for working with HashiCorp Terraform Stacks. Use when creating, modifying, or validating Terraform Stack configurations (.tfcomponent.hcl, .tfdeploy.hcl files), working with stack ",
-      "path": "hashicorp--agent-skills/terraform/module-generation/skills/terraform-stacks/SKILL.md",
-      "remote_path": "terraform/module-generation/skills/terraform-stacks/SKILL.md",
-      "lines": 481,
-      "words": 2072,
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-stacks/SKILL.md",
+      "remote_path": "plugins/terraform/skills/terraform-stacks/SKILL.md",
+      "lines": 482,
+      "words": 2074,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -22557,23 +22748,10 @@
       ]
     },
     {
-      "name": "terraform-policy",
-      "description": "\"Write, test, or convert Terraform Policy files (.policy.hcl, .policytest.hcl, Sentinel\u2192tfpolicy). Triggers: policy.hcl, policytest, convert sentinel, tfpolicy, write a policy.\"",
-      "path": "hashicorp--agent-skills/terraform/policy/skills/terraform-policy/SKILL.md",
-      "remote_path": "terraform/policy/skills/terraform-policy/SKILL.md",
-      "lines": 47,
-      "words": 187,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "license": "MPL-2.0"
-    },
-    {
       "name": "tfpolicy-author",
       "description": "Expert agent for authoring Terraform Policies \u2014 from natural-language requirements or Sentinel source. Covers the full workflow write new policies, convert existing Sentinel policies, parameterize wit",
-      "path": "hashicorp--agent-skills/terraform/policy/skills/terraform-policy/references/tfpolicy-author.md",
-      "remote_path": "terraform/policy/skills/terraform-policy/references/tfpolicy-author.md",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-policy/references/tfpolicy-author.md",
+      "remote_path": "plugins/terraform/skills/terraform-policy/references/tfpolicy-author.md",
       "lines": 1751,
       "words": 12310,
       "code_blocks": 57,
@@ -22585,8 +22763,8 @@
     {
       "name": "tfpolicy-test",
       "description": "Expert agent for testing Terraform policies. Helps write and debug `.policytest.hcl` files, design resource mocks (`attrs` / `prior_attrs`), reason about runner behavior, and verify policy correctness",
-      "path": "hashicorp--agent-skills/terraform/policy/skills/terraform-policy/references/tfpolicy-test.md",
-      "remote_path": "terraform/policy/skills/terraform-policy/references/tfpolicy-test.md",
+      "path": "hashicorp--agent-skills/plugins/terraform/skills/terraform-policy/references/tfpolicy-test.md",
+      "remote_path": "plugins/terraform/skills/terraform-policy/references/tfpolicy-test.md",
       "lines": 2112,
       "words": 9586,
       "code_blocks": 88,
@@ -22597,89 +22775,12 @@
       "license": "MPL-2.0"
     },
     {
-      "name": "run-acceptance-tests",
-      "description": "Guide for running acceptance tests for a Terraform provider. Use this when asked to run an acceptance test or to run a test with the prefix `TestAcc`.",
-      "path": "hashicorp--agent-skills/terraform/provider-development/skills/run-acceptance-tests/SKILL.md",
-      "remote_path": "terraform/provider-development/skills/run-acceptance-tests/SKILL.md",
-      "lines": 42,
-      "words": 257,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MPL-2.0"
-    },
-    {
-      "name": "provider-actions",
-      "description": "Implement Terraform Provider actions using the Plugin Framework. Use when developing imperative operations that execute at lifecycle events (before/after create, update, destroy).",
-      "path": "hashicorp--agent-skills/terraform/provider-development/skills/provider-actions/SKILL.md",
-      "remote_path": "terraform/provider-development/skills/provider-actions/SKILL.md",
-      "lines": 530,
-      "words": 1843,
-      "code_blocks": 20,
-      "languages": [
-        "bash",
-        "go",
-        "hcl",
-        "release",
-        "yaml"
-      ]
-    },
-    {
-      "name": "provider-docs",
-      "description": "Create, update, and review Terraform provider documentation for Terraform Registry using HashiCorp-recommended patterns, tfplugindocs templates, and schema descriptions. Use when adding or changing pr",
-      "path": "hashicorp--agent-skills/terraform/provider-development/skills/provider-docs/SKILL.md",
-      "remote_path": "terraform/provider-development/skills/provider-docs/SKILL.md",
-      "lines": 68,
-      "words": 433,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "provider-test-patterns",
-      "description": ">-",
-      "path": "hashicorp--agent-skills/terraform/provider-development/skills/provider-test-patterns/SKILL.md",
-      "remote_path": "terraform/provider-development/skills/provider-test-patterns/SKILL.md",
-      "lines": 415,
-      "words": 1266,
-      "code_blocks": 15,
-      "languages": [
-        "go"
-      ]
-    },
-    {
-      "name": "new-terraform-provider",
-      "description": "Use this when scaffolding a new Terraform provider.",
-      "path": "hashicorp--agent-skills/terraform/provider-development/skills/new-terraform-provider/SKILL.md",
-      "remote_path": "terraform/provider-development/skills/new-terraform-provider/SKILL.md",
-      "lines": 25,
-      "words": 134,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MPL-2.0"
-    },
-    {
-      "name": "provider-resources",
-      "description": "Implement Terraform Provider resources and data sources using the Plugin Framework. Use when developing CRUD operations, schema design, state management, and acceptance testing for provider resources.",
-      "path": "hashicorp--agent-skills/terraform/provider-development/skills/provider-resources/SKILL.md",
-      "remote_path": "terraform/provider-development/skills/provider-resources/SKILL.md",
-      "lines": 600,
-      "words": 1463,
-      "code_blocks": 22,
-      "languages": [
-        "bash",
-        "go",
-        "hcl",
-        "markdown"
-      ]
-    },
-    {
       "name": "windows-builder",
       "description": "Build Windows images with Packer using WinRM communicator and PowerShell provisioners. Use when creating Windows AMIs, Azure images, or VMware templates.",
-      "path": "hashicorp--agent-skills/packer/builders/skills/windows-builder/SKILL.md",
-      "remote_path": "packer/builders/skills/windows-builder/SKILL.md",
-      "lines": 188,
-      "words": 491,
+      "path": "hashicorp--agent-skills/plugins/packer/skills/windows-builder/SKILL.md",
+      "remote_path": "plugins/packer/skills/windows-builder/SKILL.md",
+      "lines": 189,
+      "words": 490,
       "code_blocks": 7,
       "languages": [
         "hcl",
@@ -22689,24 +22790,11 @@
     {
       "name": "aws-ami-builder",
       "description": "Build Amazon Machine Images (AMIs) with Packer using the amazon-ebs builder. Use when creating custom AMIs for EC2 instances.",
-      "path": "hashicorp--agent-skills/packer/builders/skills/aws-ami-builder/SKILL.md",
-      "remote_path": "packer/builders/skills/aws-ami-builder/SKILL.md",
-      "lines": 171,
-      "words": 414,
+      "path": "hashicorp--agent-skills/plugins/packer/skills/aws-ami-builder/SKILL.md",
+      "remote_path": "plugins/packer/skills/aws-ami-builder/SKILL.md",
+      "lines": 173,
+      "words": 417,
       "code_blocks": 6,
-      "languages": [
-        "bash",
-        "hcl"
-      ]
-    },
-    {
-      "name": "azure-image-builder",
-      "description": "Build Azure managed images and Azure Compute Gallery images with Packer. Use when creating custom images for Azure VMs.",
-      "path": "hashicorp--agent-skills/packer/builders/skills/azure-image-builder/SKILL.md",
-      "remote_path": "packer/builders/skills/azure-image-builder/SKILL.md",
-      "lines": 182,
-      "words": 451,
-      "code_blocks": 5,
       "languages": [
         "bash",
         "hcl"
@@ -22715,15 +22803,28 @@
     {
       "name": "push-to-registry",
       "description": "Push Packer build metadata to HCP Packer registry for tracking and managing image lifecycle. Use when integrating Packer builds with HCP Packer for version control and governance.",
-      "path": "hashicorp--agent-skills/packer/hcp/skills/push-to-registry/SKILL.md",
-      "remote_path": "packer/hcp/skills/push-to-registry/SKILL.md",
-      "lines": 204,
-      "words": 552,
+      "path": "hashicorp--agent-skills/plugins/packer/skills/push-to-registry/SKILL.md",
+      "remote_path": "plugins/packer/skills/push-to-registry/SKILL.md",
+      "lines": 206,
+      "words": 555,
       "code_blocks": 7,
       "languages": [
         "bash",
         "hcl",
         "yaml"
+      ]
+    },
+    {
+      "name": "azure-image-builder",
+      "description": "Build Azure managed images and Azure Compute Gallery images with Packer. Use when creating custom images for Azure VMs.",
+      "path": "hashicorp--agent-skills/plugins/packer/skills/azure-image-builder/SKILL.md",
+      "remote_path": "plugins/packer/skills/azure-image-builder/SKILL.md",
+      "lines": 184,
+      "words": 454,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "hcl"
       ]
     }
   ],
@@ -23459,9 +23560,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
-      "lines": 212,
-      "words": 1661,
-      "code_blocks": 9,
+      "lines": 221,
+      "words": 1743,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "typescript"
@@ -23485,9 +23586,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 526,
-      "words": 5210,
-      "code_blocks": 20,
+      "lines": 536,
+      "words": 5292,
+      "code_blocks": 21,
       "languages": [
         "bash",
         "typescript"
@@ -23552,11 +23653,12 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 396,
-      "words": 3619,
-      "code_blocks": 16,
+      "lines": 456,
+      "words": 4137,
+      "code_blocks": 20,
       "languages": [
         "bash",
+        "text",
         "typescript"
       ]
     },
@@ -23565,9 +23667,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
-      "lines": 212,
-      "words": 1661,
-      "code_blocks": 9,
+      "lines": 221,
+      "words": 1743,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "typescript"
@@ -23591,9 +23693,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 526,
-      "words": 5210,
-      "code_blocks": 20,
+      "lines": 536,
+      "words": 5292,
+      "code_blocks": 21,
       "languages": [
         "bash",
         "typescript"
@@ -23658,11 +23760,12 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 396,
-      "words": 3619,
-      "code_blocks": 16,
+      "lines": 456,
+      "words": 4137,
+      "code_blocks": 20,
       "languages": [
         "bash",
+        "text",
         "typescript"
       ]
     },
@@ -27464,8 +27567,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 78,
-      "words": 793,
+      "lines": 77,
+      "words": 767,
       "code_blocks": 0,
       "languages": []
     },
@@ -27546,8 +27649,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 78,
-      "words": 793,
+      "lines": 77,
+      "words": 767,
       "code_blocks": 0,
       "languages": []
     },
@@ -27638,8 +27741,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 78,
-      "words": 793,
+      "lines": 77,
+      "words": 767,
       "code_blocks": 0,
       "languages": []
     },
@@ -27720,8 +27823,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 78,
-      "words": 793,
+      "lines": 77,
+      "words": 767,
       "code_blocks": 0,
       "languages": []
     },
@@ -27802,8 +27905,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-directory/SKILL.md",
       "remote_path": "skills/stripe-directory/SKILL.md",
-      "lines": 78,
-      "words": 793,
+      "lines": 77,
+      "words": 767,
       "code_blocks": 0,
       "languages": []
     }
@@ -29457,25 +29560,13 @@
       ]
     },
     {
-      "name": "semgrep-scanner",
-      "description": "\"Executes Semgrep CLI scans for a specific language category and produces SARIF output. Spawned by the semgrep skill as a parallel worker \u2014 one agent per detected language.\"",
-      "path": "trailofbits--skills/plugins/static-analysis/agents/semgrep-scanner.md",
-      "remote_path": "plugins/static-analysis/agents/semgrep-scanner.md",
-      "lines": 91,
-      "words": 386,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
       "name": "semgrep",
       "description": ">-",
       "path": "trailofbits--skills/plugins/static-analysis/skills/semgrep/SKILL.md",
       "remote_path": "plugins/static-analysis/skills/semgrep/SKILL.md",
-      "lines": 205,
-      "words": 1372,
-      "code_blocks": 5,
+      "lines": 271,
+      "words": 2096,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ]
@@ -29548,13 +29639,15 @@
     },
     {
       "name": "supply-chain-risk-auditor",
-      "description": "\"Identifies dependencies at heightened risk of exploitation or takeover. Use when assessing supply chain attack surface, evaluating dependency health, or scoping security engagements.\"",
+      "description": "\"Audits a project's dependencies for supply-chain risk: version-matched advisories for direct dependencies and the full lockfile tree, abandoned or archived upstreams, npm publisher concentration, and",
       "path": "trailofbits--skills/plugins/supply-chain-risk-auditor/skills/supply-chain-risk-auditor/SKILL.md",
       "remote_path": "plugins/supply-chain-risk-auditor/skills/supply-chain-risk-auditor/SKILL.md",
-      "lines": 63,
-      "words": 881,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 123,
+      "words": 1054,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "mutation-testing",
@@ -113849,87 +113942,6 @@
       "license": "MIT"
     },
     {
-      "name": "schema-optimization-orchestrator",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/SKILL.md",
-      "remote_path": "workspace/lab/schema-optimization/SKILL.md",
-      "lines": 288,
-      "words": 668,
-      "code_blocks": 16,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "phase-1-schema-analysis",
-      "description": "\"Phase 1 of the BigQuery schema optimization pipeline \u2014 parses schema export files to count tables and fields, detect naming patterns and type inconsistencies, flag duplicate or nullable issues, and w",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_1.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_1.md",
-      "lines": 95,
-      "words": 366,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-4-verification",
-      "description": "'Runs BigQuery field-utilization shell scripts to empirically validate phase 2-3 conclusions, reconciles manual vs. script findings, and writes a verification report. Use when phase 3 analysis is comp",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_4.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_4.md",
-      "lines": 119,
-      "words": 439,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-5-recommendations",
-      "description": "'Synthesizes BigQuery schema optimization findings from all prior phases into a prioritized implementation plan with rollback procedures, timelines, and success metrics. Use when all previous phase re",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_5.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_5.md",
-      "lines": 121,
-      "words": 443,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-2-field-utilization",
-      "description": "\"Phase 2 of the BigQuery schema optimization pipeline \u2014 reads the phase 1 report and schema exports to identify fields with >90% null rates, detect never-queried columns, and produce ranked removal an",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_2.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_2.md",
-      "lines": 100,
-      "words": 401,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "phase-3-impact-assessment",
-      "description": "\"Phase 3 of the BigQuery schema optimization pipeline \u2014 evaluates proposed schema changes from phases 1-2 against dependent queries and systems, categorizes each change by risk level, estimates storag",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/workspace/lab/schema-optimization/agents/phase_3.md",
-      "remote_path": "workspace/lab/schema-optimization/agents/phase_3.md",
-      "lines": 105,
-      "words": 416,
-      "code_blocks": 3,
-      "languages": [
-        "json"
-      ],
-      "version": "1.0.0"
-    },
-    {
       "name": "airflow-operator-creator",
       "description": "'Create airflow operator creator operations. Auto-activating skill for",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/11-data-pipelines/airflow-operator-creator/SKILL.md",
@@ -152971,6 +152983,16 @@
       ]
     },
     {
+      "name": "rag-pipeline-reviewer",
+      "description": "Reviews RAG (Retrieval-Augmented Generation) pipelines for retrieval quality, chunking strategy, embedding choices, and evaluation coverage. Invoke when the user builds, modifies, or debugs a RAG syst",
+      "path": "affaan-m--everything-claude-code/agents/rag-pipeline-reviewer.md",
+      "remote_path": "agents/rag-pipeline-reviewer.md",
+      "lines": 68,
+      "words": 896,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "tdd-guide",
       "description": "Test-Driven Development specialist enforcing write-tests-first methodology. Use PROACTIVELY when writing new features, fixing bugs, or refactoring code. Ensures 80%+ test coverage.",
       "path": "affaan-m--everything-claude-code/agents/tdd-guide.md",
@@ -155394,8 +155416,8 @@
       "description": "\"Verification loop for Quarkus projects: build, static analysis, tests with coverage, security scans, native compilation, and diff review before release or PR.\"",
       "path": "affaan-m--everything-claude-code/skills/quarkus-verification/SKILL.md",
       "remote_path": "skills/quarkus-verification/SKILL.md",
-      "lines": 481,
-      "words": 1298,
+      "lines": 482,
+      "words": 1302,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -157166,6 +157188,18 @@
       "words": 781,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "living-docs-governance",
+      "description": "\"Keep a long-lived project's documentation from rotting by assigning existing project docs clear constitution, map, status, and history roles, then wiring the active agent harness to those canonical s",
+      "path": "affaan-m--everything-claude-code/skills/living-docs-governance/SKILL.md",
+      "remote_path": "skills/living-docs-governance/SKILL.md",
+      "lines": 138,
+      "words": 1261,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
     },
     {
       "name": "defi-amm-security",
@@ -164734,8 +164768,8 @@
       "description": "Quarkus\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u691c\u8a3c\u30eb\u30fc\u30d7\uff1a\u30d3\u30eb\u30c9\u3001\u9759\u7684\u5206\u6790\u3001\u30ab\u30d0\u30ec\u30c3\u30b8\u4ed8\u304d\u30c6\u30b9\u30c8\u3001\u30bb\u30ad\u30e5\u30ea\u30c6\u30a3\u30b9\u30ad\u30e3\u30f3\u3001\u30cd\u30a4\u30c6\u30a3\u30d6\u30b3\u30f3\u30d1\u30a4\u30eb\u3001\u672c\u756a\u74b0\u5883\u307e\u305f\u306fPR\u524d\u306e\u5dee\u5206\u30ec\u30d3\u30e5\u30fc\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/quarkus-verification/SKILL.md",
       "remote_path": "docs/ja-JP/skills/quarkus-verification/SKILL.md",
-      "lines": 480,
-      "words": 972,
+      "lines": 481,
+      "words": 976,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -166957,8 +166991,8 @@
       "description": "\"Verification loop for Quarkus projects: build, static analysis, tests with coverage, security scans, native compilation, and diff review before release or PR.\"",
       "path": "affaan-m--everything-claude-code/docs/tr/skills/quarkus-verification/SKILL.md",
       "remote_path": "docs/tr/skills/quarkus-verification/SKILL.md",
-      "lines": 480,
-      "words": 1318,
+      "lines": 481,
+      "words": 1322,
       "code_blocks": 22,
       "languages": [
         "bash",

@@ -409,12 +409,24 @@ id = "654-heldout-measurement-contract"
 path = "scripts/test_check_heldout_measurement_report.py"
 
 [[pytest]]
+id = "679-revision-claim-drift-suite-v2"
+path = "scripts/test_check_revision_claim_drift_suite_v2.py"
+
+[[pytest]]
 id = "665-human-subjects-output-contract"
 path = "scripts/test_check_human_subjects_output_contract.py"
 
 [[pytest]]
 id = "666-human-subjects-authority"
 path = "scripts/test_resolve_human_subjects_authority.py"
+
+[[pytest]]
+id = "669-review-pathway-rule-trace"
+path = "scripts/test_review_pathway_rule_trace.py"
+
+[[pytest]]
+id = "669-review-pathway-integration"
+path = "scripts/test_check_669_review_pathway_rule_trace.py"
 
 [[pytest]]
 id = "667-submission-packet-manifest"
@@ -431,6 +443,22 @@ path = "scripts/test_content_coverage_advisory.py"
 [[pytest]]
 id = "681-content-coverage-integration"
 path = "scripts/test_check_content_coverage_advisory_integration.py"
+
+[[pytest]]
+id = "672-cross-document-consistency-advisory"
+path = "scripts/test_cross_document_consistency_advisory.py"
+
+[[pytest]]
+id = "672-cross-document-consistency-integration"
+path = "scripts/test_check_cross_document_consistency_advisory_integration.py"
+
+[[pytest]]
+id = "673-adjudication-activity-runtime"
+path = "scripts/test_adjudication_activity.py"
+
+[[pytest]]
+id = "673-adjudication-activity-integration"
+path = "scripts/test_check_673_adjudication_activity.py"
 
 [[pytest]]
 id = "680-human-subjects-reference-migration"
@@ -467,3 +495,11 @@ path = "scripts/test_evidence_rows.py"
 [[pytest]]
 id = "656-evidence-row-integration"
 path = "scripts/test_check_evidence_row_integration.py"
+
+[[pytest]]
+id = "630-codex-subscription-transport"
+path = "scripts/test_cross_model_codex_transport.py"
+
+[[pytest]]
+id = "630-codex-subscription-integration"
+path = "scripts/test_check_630_codex_subscription_transport.py"

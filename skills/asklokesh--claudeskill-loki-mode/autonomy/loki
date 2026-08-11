@@ -1661,7 +1661,7 @@ show_landing() {
 }
 
 # Detect argument type for unified `loki start` (v6.84.0)
-# Returns one of: prd | issue | empty | unknown
+# Returns one of: prd | issue | repo | empty | unknown
 # Logic:
 #   - empty arg -> "empty"
 #   - file path ending in .md/.json/.txt AND exists on disk -> "prd"
@@ -1725,12 +1725,29 @@ detect_arg_type() {
     # BUT only if a file with that literal name does NOT exist on disk
     # (ambiguity resolution: files-on-disk win over issue-number heuristic).
     if [[ "$arg" =~ ^#?[0-9]+$ ]]; then
-        if [ -e "$arg" ]; then
+        if [ -d "$arg" ]; then
+            # Directory on disk wins -- same rule as the -d branch below.
+            echo "repo"
+        elif [ -e "$arg" ]; then
             # File on disk wins -- treat as PRD
             echo "prd"
         else
             echo "issue"
         fi
+        return 0
+    fi
+
+    # An existing DIRECTORY is a repo to improve, not a spec to build from.
+    # Before this, a directory fell into the "prd" branch below and was handed
+    # to run.sh as a PRD path; it has no .md-family extension, so the
+    # not-found guard skipped it and the run silently proceeded as if no spec
+    # had been given. `loki start <dir>` now means "work on that repo".
+    # ponytail: a directory named `spec.md` still returns "prd" -- the
+    # extension branch at the top of this function wins. Deliberate: an
+    # explicit spec extension is the stronger signal. Move this block above
+    # that branch if directories-with-spec-names ever matter.
+    if [ -d "$arg" ]; then
+        echo "repo"
         return 0
     fi
 
@@ -2004,6 +2021,8 @@ cmd_start() {
     local mirofish_bg=false
     local mirofish_disabled=false
     local no_plan=false  # v6.81.1: --no-plan opts out of auto-plan display
+    local repo_depth="full"          # repository targets default to full verification
+    local repo_depth_explicit=""     # "" | "fast" | "full" -- what the operator asked for
     local remote_url="${LOKI_REMOTE_URL:-}"   # --remote: submit to a deployed cluster
 
     # v6.84.0: unified entry point -- explicit mode overrides + issue-mode args
@@ -2022,9 +2041,10 @@ cmd_start() {
             --help|-h)
                 echo -e "${BOLD}loki start${NC} - Unified entry point for Loki Mode (v6.84.0)"
                 echo ""
-                echo "Usage: loki start [PRD|ISSUE-REF] [options]"
+                echo "Usage: loki start [REPO|PRD|ISSUE-REF] [options]"
                 echo ""
                 echo "Modes (auto-detected from input):"
+                echo "  REPO mode   - existing directory -> one bounded verified improvement"
                 echo "  PRD mode    - path ending in .md/.json/.txt/.yaml -> build from PRD"
                 echo "  ISSUE mode  - GitHub/GitLab/Jira/Azure DevOps URL, owner/repo#N,"
                 echo "                PROJ-123, #123, or bare number -> generate PRD from issue"
@@ -2033,6 +2053,7 @@ cmd_start() {
                 echo "  no input    - analyze current directory, auto-generate PRD"
                 echo ""
                 echo "Arguments:"
+                echo "  REPO                  Existing project directory"
                 echo "  PRD                   Path to PRD file (.md/.json/.txt/.yaml)"
                 echo "  ISSUE-REF             Issue URL, number, or tracker key (see above)"
                 echo ""
@@ -2073,6 +2094,10 @@ cmd_start() {
                 echo "  --mirofish-bg         Run MiroFish pipeline in background"
                 echo "  --no-mirofish         Disable MiroFish even if env var is set"
                 echo "  --no-plan             Skip auto-shown PRD analysis at startup"
+                echo "  --fast                REPO mode: capped lightweight pass, gates reduced"
+                echo "                        (no council verdict; alias --repo-fast)"
+                echo "  --full                REPO mode: explicit full verification, the default"
+                echo "                        (wins over --fast; alias --repo-full)"
                 echo "  --brief \"TEXT\"        Zero-config fast first run from a one-line brief"
                 echo "  --yes, -y             Skip confirmation prompts (auto-confirm)"
                 echo "  --quiet               Suppress [INFO]/[STEP]; warnings and errors still print"
@@ -2107,6 +2132,7 @@ cmd_start() {
                 echo ""
                 echo "Examples:"
                 echo "  loki start                              # Interactive, analyze current dir"
+                echo "  loki start ./my-project                 # Improve an existing project"
                 echo "  loki start \"build a todo app\"           # BRIEF mode (zero-config fast run)"
                 echo "  loki start --brief \"snake\"              # BRIEF mode (single-word escape hatch)"
                 echo "  loki start ./prd.md                     # PRD mode"
@@ -2425,6 +2451,22 @@ cmd_start() {
                 no_plan=true
                 shift
                 ;;
+            --fast|--repo-fast)
+                # Fail closed on a conflict, same doctrine as --isolation below:
+                # never silently downgrade to weaker verification than asked for.
+                # --full wins regardless of order, so `--fast --full` and
+                # `--full --fast` both keep the gates ON.
+                if [ "$repo_depth_explicit" != "full" ]; then
+                    repo_depth="fast"
+                    repo_depth_explicit="fast"
+                fi
+                shift
+                ;;
+            --full|--repo-full)
+                repo_depth="full"
+                repo_depth_explicit="full"
+                shift
+                ;;
             --brief)
                 # R7: explicit one-line brief (escape hatch for single-word
                 # briefs that detect_arg_type would otherwise treat as a PRD
@@ -2717,6 +2759,22 @@ cmd_start() {
         detected_type="empty"
     fi
 
+    # Resolve the directory while the positional path is still relative to the
+    # caller, then enter it before creating any .loki state. Quoted `cd --`
+    # keeps spaces and shell metacharacters inert.
+    if [ "$detected_type" = "repo" ]; then
+        local repo_target
+        repo_target=$(cd -- "$positional_arg" 2>/dev/null && pwd -P) || {
+            echo -e "${RED}Error: cannot enter repository directory: $positional_arg${NC}" >&2
+            return 1
+        }
+        cd -- "$repo_target" || return 1
+        if [ "$LOKI_DIR" = ".loki" ]; then
+            LOKI_DIR="$repo_target/.loki"
+        fi
+        export LOKI_REPO_TARGET="$repo_target"
+    fi
+
     # ISSUE mode: delegate to cmd_run's code path. To avoid duplicating ~450
     # lines of issue-fetching + PR-creation logic, we re-dispatch through
     # cmd_run with reconstructed args. cmd_run then calls cmd_start again
@@ -2798,12 +2856,66 @@ cmd_start() {
         echo ""
     fi
 
+    # REPO mode: `loki start <directory>`. We already cd'd into the target
+    # above, so this is the no-arg codebase path with one difference -- a
+    # synthesized brief that bounds the work to ONE high-value improvement
+    # instead of "build out the whole project".
+    #
+    # The DEFAULT and `--full` deliberately do NOT call
+    # set_ttfv_lightweight_profile: that helper turns the council and the
+    # code-review phase OFF, and the whole point of this entry point is to hand
+    # back VERIFIED evidence. Scope is bounded by the brief text, not by
+    # disabling the gates that check the work. Those runs keep full depth and
+    # report LOKI_TTFV=repo -- the same honest full-depth signal the no-arg path
+    # uses.
+    #
+    # `--fast` is the opt-in exception: it applies the SAME lightweight profile
+    # the brief path uses (capped iterations, council off, simple tier, heavy
+    # phases off) and reports LOKI_TTFV=repo-fast, a distinct signal so the
+    # end-of-run wording in run.sh cannot claim council verdicts that never ran.
+    if [ "$detected_type" = "repo" ]; then
+        local version
+        version=$(get_version)
+        # Same cap the brief sub-path reads, so "fast" means one thing.
+        local _repo_max_iter="${LOKI_MAX_ITERATIONS:-3}"
+        mkdir -p "$LOKI_DIR" 2>/dev/null || true
+        find "$LOKI_DIR" -maxdepth 1 -name 'repo-prd-*.md' -mtime +1 -delete 2>/dev/null || true
+        local repo_prd="$LOKI_DIR/repo-prd-$$.md"
+        synthesize_repo_prd "$repo_prd" "$repo_depth"
+        prd_file="$repo_prd"
+
+        if [ "$repo_depth" = "fast" ]; then
+            set_ttfv_lightweight_profile "$_repo_max_iter"
+            export LOKI_TTFV=repo-fast
+            no_plan=true
+        fi
+
+        echo -e "${BOLD}Loki Mode v$version - Repo improvement${NC}"
+        echo ""
+        echo -e "${CYAN}Repo:${NC} $LOKI_REPO_TARGET"
+        if [ "$repo_depth" = "fast" ]; then
+            echo -e "${DIM}Loki will inspect this project, pick one high-value improvement,${NC}"
+            echo -e "${DIM}implement it, and test it.${NC}"
+            echo -e "${DIM}Fast pass: $_repo_max_iter iterations max, simple tier, council and${NC}"
+            echo -e "${DIM}heavy phases OFF. Reduced gates: you get measured run evidence${NC}"
+            echo -e "${DIM}(diffs, cost, time), NOT a council-verified verdict.${NC}"
+            echo -e "${DIM}Run full verification with: loki start \"$LOKI_REPO_TARGET\" --full${NC}"
+        else
+            echo -e "${DIM}Loki will inspect this project, pick one high-value improvement,${NC}"
+            echo -e "${DIM}implement it, test it, and produce verified evidence.${NC}"
+            echo -e "${DIM}Full depth: quality gates and completion council stay ON.${NC}"
+        fi
+        echo -e "${DIM}Scope it yourself instead with: loki start \"<what you want>\".${NC}"
+        echo ""
+    fi
+
     # R7: existing-repo no-arg path also gets the TTFV "what next" framing at the
     # end of the run. Execution here is UNCHANGED (full-depth no-PRD codebase
     # analysis + generated-PRD-reuse); we only add accurate end-of-run framing.
     # The signal value ("repo") drives the full-depth wording in run.sh so the
     # message does not falsely claim a lightweight pass.
-    if [ "$detected_type" = "empty" ] && [ -z "${LOKI_TTFV:-}" ]; then
+    if { [ "$detected_type" = "empty" ] || [ "$detected_type" = "repo" ]; } \
+       && [ -z "${LOKI_TTFV:-}" ]; then
         export LOKI_TTFV=repo
     fi
 
@@ -14998,6 +15110,51 @@ $brief_text
 
 **Mode:** Brief (zero-config first run, lightweight first pass)
 BRIEFEOF
+}
+
+# Build a bounded input for `loki start <repo-directory>`. This intentionally
+# contains no caller-controlled path: repository identity comes from cwd, while
+# the task remains stable, reviewable, and safe to render into a prompt.
+#
+# The trailing Mode line is the only variable part, and it must match what the
+# run actually does: a fast pass runs with the council off, so a PRD telling the
+# agent it is under "full verification" would be a false claim in the prompt
+# itself. The body stays a quoted heredoc (no expansion, nothing injectable);
+# the Mode line is appended from a fixed string chosen by a validated depth.
+# Usage: synthesize_repo_prd <output_file> [full|fast]
+synthesize_repo_prd() {
+    local out_file="$1"
+    local depth="${2:-full}"
+    mkdir -p "$(dirname "$out_file")" 2>/dev/null || true
+    cat > "$out_file" <<'REPOEOF'
+# Existing Repository Improvement
+
+## Outcome
+Inspect this repository's instructions, product signals, and current tests.
+Select one small, high-value user-facing improvement and implement it completely.
+
+## Success Criteria
+- The improvement has a clear user outcome and a bounded diff.
+- Focused tests or checks prove the changed behavior.
+- Existing unrelated work is preserved.
+- Loki's normal outcome evidence identifies what changed and what passed.
+
+## Constraints
+- Make one coherent improvement, not a broad rewrite.
+- Reuse the repository's established architecture and dependencies.
+- Keep the change easy to review and roll back.
+- Do not claim deployment, adoption, or customer value without evidence.
+REPOEOF
+    if [ "$depth" = "fast" ]; then
+        printf '%s\n' \
+            "- This is a fast, capped pass. Keep the change small enough to finish and prove." \
+            "" \
+            "**Mode:** Existing repository improvement (fast pass, reduced gates)." \
+            "The completion council and heavy review phases are OFF on this run." \
+            "Do not describe the result as council-verified or fully verified." >> "$out_file"
+    else
+        printf '\n**Mode:** Existing repository improvement (full verification)\n' >> "$out_file"
+    fi
 }
 
 # Quick mode - lightweight single-task execution

@@ -8,6 +8,18 @@ Consuming agents should validate input and request re-generation if schema viola
 
 > **Convention**: All schemas use Markdown-based structured output. Agents MUST validate required fields before accepting a handoff. Missing required fields trigger a `HANDOFF_INCOMPLETE` failure path.
 
+> **#673 activity exclusion:** adjudication activity is not handoff cargo.
+> the #673 activity projection of the terminal state root `run_id`,
+> `pending_adjudication_activity_bindings[]`, sealed
+> `adjudication_activity_sources`, selected-store information, store records,
+> renderer output, and activity diagnostics remain only in the state tracker's
+> local advisory side channel. They MUST NOT be added to any numbered schema,
+> Material Passport, stage transfer, gate/verdict/checkpoint input, Process
+> Record, or model/observer/compliance input. See
+> `academic-pipeline/agents/state_tracker_agent.md` §
+> "Adjudication-activity metadata". This exclusion does not remove or alter any
+> existing schema-owned `run_id` field used by another contract.
+
 ---
 
 ## Schema 1: RQ Brief (deep-research -> academic-paper)
@@ -602,6 +614,13 @@ equal the carried post draft; matching reported hashes alone are insufficient.
 
 **Purpose**: Accompanies every artifact as it passes between stages, providing provenance and verification tracking.
 
+The #673 activity fields named in the top-level exclusion are deliberately not
+Schema 9 fields. In particular, the #673 projection of the terminal state
+file's root `run_id` plus sealed root `adjudication_activity_sources` are
+activity source/run authority; copying either activity projection into a
+passport would create an unauthorized second authority. Existing independently
+schema-owned `run_id` fields are unaffected.
+
 ### Required Fields
 
 | Field | Type | Description |
@@ -730,6 +749,45 @@ terminal policy, gate, replacement, or rewrite. The separate own-draft
 `tortured-phrase-advisory/1.0` artifact is not a Schema 9 field and carries no
 paper-mill, AI/author-origin, cleanliness, contextual-validity, or accuracy
 claim. Authority: [`shared/bibliographic_integrity_signals.md`](bibliographic_integrity_signals.md).
+
+### Preregistration Artifact Handoff and #672 Advisory
+
+`preregistration-artifact/1.0` accompanies Schema 9 as a separately named,
+byte-preserved JSON sidecar; it is not embedded into or reconstructed from an
+ad hoc Material Passport field. Its provided companion is a second separately
+named artifact. This keeps the raw sidecar bytes available for finalizer replay
+without changing the legacy passport roster.
+
+The research architect supplies only the caller declaration and, for a completed
+provided preregistration, an explicitly named companion handle. Because that
+agent has no shell, it does not compute a digest or build/update the sidecar. A
+shell-capable orchestrator is the sole caller of
+`scripts/build_cross_document_consistency_advisory.py
+build-preregistration-artifact`, including for an explicit unavailable receipt,
+and supplies the caller-held RFC3339 `declared_at`.
+
+Academic-paper intake and every pipeline transition strict-parse, digest-check,
+and replay the exact `preregistration-artifact/1.0` sidecar and provided companion
+before carrying both byte-for-byte. Consumers do not infer a missing status,
+repair a digest, reinterpret provenance, follow a stored path, or replace the
+artifact with `deep-research/templates/preregistration_template.md`. Later
+explicit user supply creates a new sidecar through the same builder.
+
+At Stage 4.5, the #672 source manifest projects the exact sidecar: `provided`
+becomes `present`; `not_provided` becomes `source_missing`; and
+`access_failed`/`retrieval_failed` retain their state. Unavailable entries keep
+the sidecar artifact ID and have null path/bindings with `not_provided`
+provenance. A formerly provided companion that no longer replays is
+`SOURCE_BINDING_INVALID`, not an ordinary not-checked receipt.
+
+The final `cross-document-consistency-advisory/1.0` is a separate checkpoint
+carrier, not a Material Passport field or terminal state. It is
+`LLM-ADVISORY` / `UNMEASURED`, creates no score, gate, authorization, ClaimIntent,
+rewrite, or consent/protocol duplicate, and cannot change integrity status or
+Stage-5 routing. #660 runs first and #672 second at the same one mandatory
+checkpoint against the identical accepted-draft artifact ID/SHA-256; a manuscript
+revision stales both. See
+[`shared/references/cross_document_consistency_advisory_protocol.md`](references/cross_document_consistency_advisory_protocol.md).
 
 ### Audit Artifact Ledger (v3.6.7)
 
@@ -1017,7 +1075,7 @@ Ordering: chronological by `generated_at`. A Stage 2.5 FAIL followed by backfill
 4. **Version tracking**: Each handoff artifact MUST carry a Material Passport (Schema 9) with a version label. Version labels must be monotonically increasing within a pipeline run
 5. **Failure on missing**: If a required field is missing, return `HANDOFF_INCOMPLETE` with a list of missing fields; do NOT proceed with partial data
 6. **Producer validation**: Producing agent must validate output against its schema BEFORE handoff
-7. **Consumer validation**: Consuming agent should validate input on receipt and request re-generation if schema violations are found
+7. **Consumer validation**: Consuming agent should validate input on receipt and request re-generation if schema violations are found. For a current #672 chain this includes exact byte replay of the one `preregistration-artifact/1.0` sidecar and its explicitly named companion when provided. Absence, substitution, a repaired digest, or a changed companion is `HANDOFF_INCOMPLETE`/contract failure, never an inferred unavailable receipt.
 8. **Integrity gating**: Artifacts that have passed through integrity verification (Schema 5) must have their Material Passport updated with `verification_status: "VERIFIED"` and `integrity_pass_date`
 9. **Staleness detection**: If an upstream artifact is modified after a downstream artifact was produced, the downstream artifact's Material Passport should be updated to `verification_status: "STALE"`
 10. **Passport freshness**: A Material Passport's integrity results are considered STALE if `integrity_pass_date` is more than 24 hours old relative to the current timestamp. Stale passports require re-verification before proceeding

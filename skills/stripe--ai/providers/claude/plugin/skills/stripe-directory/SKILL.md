@@ -43,7 +43,6 @@ Most requests are **discovery** — find and compare services. That is the core 
 
    - **direct** / **adjacent** / **needs manual review**
    - Each entry: name · why it matched · URL (· which query surfaced it, when useful).
-   - Projects providers: offer the follow-up. The JSON gives the exact commands under each result’s `projects.catalog_command` / `projects.install_command` (`stripe projects catalog <provider>`, `stripe projects add <provider>`).
    - MPP-supported results: note they’re purchasable and include `mpp.slug` / `mpp.url`.
 
 5. **Be honest about weak results** — if sparse or generic, say so and adjust: broaden, narrow, or try synonyms rather than padding with noise.

@@ -3,6 +3,19 @@
 Schema files for cross-skill contracts: reviewer sprint contracts, Material Passport
 ports, and (v3.6.7+) cross-model audit artifact pipelines.
 
+## Codex subscription citation transport (#630)
+
+- `cross_model/codex_citation_request.schema.json` — closed, bounded data-only
+  request for one citation; no path or caller-authored prompt is representable.
+- `cross_model/codex_citation_receipt.schema.json` — closed verdict plus exact
+  app-server search-result bindings and a fixed containment receipt.
+
+Runtime: `scripts/cross_model_codex_transport.py`. Protocol and limitations:
+`shared/cross_model_verification.md`. Frozen design:
+`docs/design/2026-08-11-630-codex-subscription-citation-transport-spec.md`.
+The adapter is scoped to Stage 2.5 / 4.5 citation-integrity calls and is not a
+general DA, reviewer, judgment, or handoff transport.
+
 ## Sprint contracts (v3.6.2+)
 
 Sprint contract templates for reviewer hard-gate orchestration.
@@ -211,6 +224,13 @@ lookup. `scripts/evidence_rows.py` exposes `build_advisory(...)` for this
 surface, while the existing `evidence-row/1.0` builder and rendered bytes remain
 unchanged. The versioned surfaces cannot be mixed in one page.
 
+`shared/contracts/evidence/evidence_row_v1_2.schema.json` is the separate closed
+version for `surface: cross_document_consistency` (#672). It binds one complete
+ordered bilateral or trilateral advisory observation to the exact accepted
+manuscript and optional completed-preregistration bytes. It is finalized only by
+`scripts/build_cross_document_consistency_advisory.py`; the existing 1.0/1.1
+schemas and `scripts/evidence_rows.py` identities and behavior remain unchanged.
+
 ## Non-ranking revision authority (#670)
 
 The current reviewer-to-author revision family lives under `revision/`:
@@ -391,6 +411,63 @@ self-consistent but forged manifest digest is insufficient.
 Protocol: `shared/references/submission_packet_manifest_protocol.md`. Spec:
 `docs/design/2026-08-09-667-submission-packet-manifest-spec.md`.
 
+## Review-pathway rule trace (#669)
+
+Two closed Draft 2020-12 contracts define the determination-adjacent trace:
+
+- `shared/contracts/human_subjects/review_pathway_trace_request.schema.json`
+  binds caller-owned candidate question labels to an exact, complete partition
+  of every selected-profile `pathway_trace` requirement; and
+- `shared/contracts/human_subjects/review_pathway_rule_trace.schema.json`
+  carries matched, unmatched, and unresolved predicate work, profile-local
+  alternatives, exact fact occurrences, responsible authority roles, exact
+  requirement/anchor pointers, the fixed institutional result, and the #665
+  footer.
+
+The standard-library-only builder first replays the exact #666 context,
+registry, and resolved artifact. It never invents a candidate name, profile,
+predicate, authority anchor, determination, probability, rank, or timeline. All
+selected profiles on both axes are accounted for, but candidates and
+alternatives stay profile-local. An unknown requirement fact remains unresolved;
+a missing profile halts without candidate rows at `JURISDICTION_UNRESOLVED`.
+
+Build, replay, render, and lint only explicitly named artifacts:
+
+```bash
+python scripts/build_review_pathway_rule_trace.py build \
+  --request pathway-trace-request.json \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json \
+  --output pathway-rule-trace.json
+
+python scripts/build_review_pathway_rule_trace.py validate \
+  --request pathway-trace-request.json \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json \
+  --trace pathway-rule-trace.json
+
+python scripts/build_review_pathway_rule_trace.py render \
+  --request pathway-trace-request.json \
+  --context context.json \
+  --registry shared/human_subjects_authority_registry.json \
+  --resolved resolved-authority-context.json \
+  --trace pathway-rule-trace.json \
+  --output pathway-rule-trace.md
+
+python scripts/check_review_pathway_output.py \
+  --trace-json pathway-rule-trace.json \
+  --rendered pathway-rule-trace.md
+```
+
+The banned-output lint is surface-scoped to those named generated files and
+permits a pathway term only in the exact candidate grammar. Successful replay or
+lint never changes a readiness, authorization, acceptance, verdict, checkpoint,
+or workflow gate. Protocol:
+`shared/references/review_pathway_rule_trace_protocol.md`. Spec:
+`docs/design/2026-08-11-669-review-pathway-rule-trace-spec.md`.
+
 ## Authority-profile content-coverage advisory (#681)
 
 `shared/contracts/human_subjects/content_coverage_advisory.schema.json` defines
@@ -462,6 +539,46 @@ a marker, terminal gate, replacement text, or automatic rewrite. All corpus
 rows render in the one canonical `Bibliographic Integrity Advisories` section.
 
 Spec: `docs/design/2026-08-10-660-tortured-phrase-screening-spec.md`.
+
+## Cross-document consistency advisory (#672)
+
+The #672 family is a standalone replay-bound advisory:
+
+- `passport/preregistration_artifact.schema.json` defines the persistent
+  `preregistration-artifact/1.0` handoff sidecar;
+- `audit/cross_document_source_manifest.schema.json` binds exactly the accepted
+  manuscript plus the exact sidecar projection;
+- `audit/cross_document_consistency_advisory_draft.schema.json` accepts the
+  closed caller-supplied semantic observations;
+- `evidence/evidence_row_v1_2.schema.json` binds their exact bilateral or
+  trilateral evidence; and
+- `audit/cross_document_consistency_advisory.schema.json` defines the canonical
+  final `LLM-ADVISORY` / `UNMEASURED` carrier.
+
+Only `scripts/build_cross_document_consistency_advisory.py` may build or update
+the preregistration sidecar. The non-shell research architect supplies only the
+explicit caller status and companion handle. Academic-paper intake and every
+pipeline handoff validate and carry the same sidecar and, when provided, the
+same companion bytes unchanged. The repository template is guidance, not
+evidence.
+
+Finalization replays the sidecar, exact two-artifact manifest, accepted draft,
+optional preregistration companion, and every quote or checked scope before
+consuming observations. Methods absence requires an exact named counterpart
+scope. An undisclosed preregistration deviation requires a third exact manuscript
+disclosure-scope witness. Missing or unavailable inputs cannot become a
+no-listed result.
+
+At the one mandatory Stage-5 entry checkpoint, #660 runs first and #672 second
+against the same accepted-draft artifact ID/SHA-256. Their carriers and failure
+semantics stay separate. #672 failure writes no output and produces only bounded
+`ADVISORY_UNAVAILABLE:<CODE>`; neither advisory changes Stage 4.5 or Stage-5
+routing. Any manuscript revision stales both and requires both to rerun.
+
+The final carrier has no score, pass/fail, gate, readiness, authorization,
+rewrite, ClaimIntent, consent/protocol duplicate, or clean-document meaning.
+Protocol: `shared/references/cross_document_consistency_advisory_protocol.md`.
+Spec: `docs/design/2026-08-10-672-cross-document-consistency-advisory-spec.md`.
 
 ## Audit artifact contracts (v3.6.7 Step 6)
 

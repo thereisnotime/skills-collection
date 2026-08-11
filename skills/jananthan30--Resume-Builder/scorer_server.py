@@ -38,6 +38,8 @@ if os.path.isfile(_env_path):
 import asyncio
 import base64
 import json
+import logging
+import re
 import statistics
 import tempfile
 import threading
@@ -2230,9 +2232,53 @@ def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
             except HTTPException:
                 raise
             except Exception:
+                logging.getLogger("scorer.rewrite").exception(
+                    "rewrite dispatch crashed (user=%s)", user_id
+                )
                 raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
 
             if result.get("status") != "succeeded" or not result.get("draft"):
+                terminal = str(result.get("error") or "UNKNOWN")
+                logging.getLogger("scorer.rewrite").error(
+                    "rewrite run not published (user=%s terminal=%s)", user_id, terminal
+                )
+                # A candidate-fit refusal is deterministic policy, not an
+                # outage: "try again in a few minutes" would be a lie, and the
+                # fit gate has no bypass by design. Tell the user the truth.
+                if terminal.startswith("REJECTED:CANDIDATE_FIT"):
+                    fit = result.get("candidate_fit_report") or {}
+                    score = fit.get("score")
+                    knockouts = fit.get("hard_knockouts") or []
+                    parts = [
+                        "Our fit check found this role is a significant stretch "
+                        "for your resume, so the tailoring pipeline declined to "
+                        "run — it never invents experience to close a gap."
+                    ]
+                    if isinstance(score, (int, float)):
+                        bar = fit.get("threshold")
+                        if not isinstance(bar, (int, float)):
+                            bar = candidate_fit_preflight.CANDIDATE_FIT_THRESHOLD
+                        parts.append(
+                            f"Fit score: {round(score)} (needs {round(bar)})."
+                        )
+                    if knockouts:
+                        # Name the requirement: the knockout detector has known
+                        # false positives, so the user must be able to judge it.
+                        reqs = "; ".join(
+                            f"“{str(k.get('requirement', '')).strip()[:120]}”"
+                            for k in knockouts[:2]
+                            if str(k.get("requirement", "")).strip()
+                        )
+                        parts.append(
+                            f"Hard requirement not met: {reqs}."
+                            if reqs
+                            else f"Hard requirements not met: {len(knockouts)}."
+                        )
+                    parts.append(
+                        "Try a role closer to your experience, or update your "
+                        "saved resume if it's missing relevant work."
+                    )
+                    raise HTTPException(status_code=409, detail=" ".join(parts))
                 raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
 
             draft_text = result["draft"]
@@ -3057,6 +3103,837 @@ def profile_put(req: ProfileUpdateRequest, auth=Depends(verify_api_key)):
     finally:
         conn.close()
     return {"status": "saved"}
+
+
+# =============================================================================
+# FEEDBACK — signed-in or anonymous; the only write anonymous users get
+# =============================================================================
+
+
+class FeedbackRequest(BaseModel):
+    """A message from a user, with an optional reply-to email."""
+    message: str = Field(..., description="The feedback text")
+    email: str = Field("", description="Optional reply-to email")
+    page: str = Field("", description="Where in the app it was sent from")
+
+
+@app.post("/feedback")
+def feedback_submit(req: FeedbackRequest, auth=Depends(verify_api_key)):
+    """Store feedback. Anonymous is allowed on purpose — launch-day visitors
+    without accounts are exactly who we want to hear from. Rate limiting
+    rides on verify_api_key; size caps stop paste-bombs."""
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Feedback unavailable right now.")
+    message = req.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Write a little something first.")
+    if len(message) > 5000:
+        raise HTTPException(status_code=400, detail="Please keep feedback under 5000 characters.")
+    if len(req.email) > 254 or len(req.page) > 200:
+        raise HTTPException(status_code=400, detail="Invalid field length.")
+    user_id = _get_user_id(auth)  # None for anonymous — stored as NULL
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        conn.execute(
+            "INSERT INTO feedback (user_id, email, message, page) VALUES (?, ?, ?, ?)",
+            (user_id, req.email.strip(), message, req.page.strip()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "received"}
+
+
+@app.get("/admin/feedback")
+def feedback_list(request: Request):
+    """All feedback, newest first. Admin secret required."""
+    _verify_admin_secret(request)
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Feedback unavailable.")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        rows = conn.execute(
+            "SELECT id, user_id, email, message, page, created_at "
+            "FROM feedback ORDER BY id DESC LIMIT 200"
+        ).fetchall()
+    finally:
+        conn.close()
+    return {"feedback": [dict(r) for r in rows]}
+
+
+# =============================================================================
+# CONNECTIONS — warm-path referrals from the user's own LinkedIn export
+# =============================================================================
+
+_CONNECTIONS_MAX_BYTES = 5_000_000
+_CONNECTIONS_MAX_ROWS = 30_000
+_COMPANY_SUFFIXES = {"inc", "llc", "ltd", "corp", "co", "plc", "gmbh", "company", "corporation"}
+
+
+class ConnectionsUploadRequest(BaseModel):
+    """Raw text of the user's LinkedIn Connections.csv export."""
+    csv_text: str = Field(..., description="Contents of Connections.csv from LinkedIn's data export")
+
+
+def _normalize_company(name: str) -> str:
+    """Lowercase, strip punctuation and legal suffixes: 'Pfizer, Inc.' -> 'pfizer'."""
+    import re as _re
+    words = _re.sub(r"[^a-z0-9 ]", " ", name.lower()).split()
+    while words and words[-1] in _COMPANY_SUFFIXES:
+        words.pop()
+    return " ".join(words)
+
+
+def _parse_linkedin_connections(csv_text: str) -> list[dict]:
+    """Parse Connections.csv, skipping LinkedIn's 'Notes:' preamble.
+
+    The export prepends a free-text notes block; the real data starts at the
+    header row containing First Name/Company. Rows without a name are noise.
+    """
+    import csv as _csv
+    import io as _io
+
+    lines = csv_text.splitlines()
+    header_idx = next(
+        (i for i, line in enumerate(lines)
+         if "First Name" in line and "Company" in line),
+        None,
+    )
+    if header_idx is None:
+        raise HTTPException(
+            status_code=400,
+            detail="That doesn't look like a LinkedIn Connections.csv export — "
+                   "download it from LinkedIn: Settings → Data privacy → Get a copy of your data.",
+        )
+    reader = _csv.DictReader(_io.StringIO("\n".join(lines[header_idx:])))
+    rows = []
+    for row in reader:
+        full_name = f"{(row.get('First Name') or '').strip()} {(row.get('Last Name') or '').strip()}".strip()
+        if not full_name:
+            continue
+        rows.append({
+            "full_name": full_name,
+            "company": (row.get("Company") or "").strip(),
+            "position": (row.get("Position") or "").strip(),
+            "profile_url": (row.get("URL") or "").strip(),
+            "connected_on": (row.get("Connected On") or "").strip(),
+        })
+        if len(rows) >= _CONNECTIONS_MAX_ROWS:
+            break
+    return rows
+
+
+def _require_connections_user(auth) -> int:
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Connections unavailable — cloud auth not configured.")
+    return user_id
+
+
+@app.post("/connections/upload")
+def connections_upload(req: ConnectionsUploadRequest, auth=Depends(verify_api_key)):
+    """Replace the caller's stored network with a fresh Connections.csv."""
+    user_id = _require_connections_user(auth)
+    if len(req.csv_text.encode("utf-8", errors="ignore")) > _CONNECTIONS_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="File too large — the Connections.csv export is expected.")
+    rows = _parse_linkedin_connections(req.csv_text)
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        s = scoped(conn, user_id)
+        s.q("DELETE FROM connections WHERE user_id = :user_id", {})
+        for r in rows:
+            s.q(
+                """INSERT OR IGNORE INTO connections
+                   (user_id, full_name, company, position, profile_url, connected_on)
+                   VALUES (:user_id, :full_name, :company, :position, :profile_url, :connected_on)""",
+                r,
+            )
+        count = s.q("SELECT COUNT(*) AS n FROM connections WHERE user_id = :user_id", {}).fetchone()["n"]
+        conn.commit()
+    finally:
+        conn.close()
+    return {"imported": count}
+
+
+@app.get("/connections")
+def connections_summary(auth=Depends(verify_api_key)):
+    """How many connections the caller has stored (the profile-card number)."""
+    user_id = _require_connections_user(auth)
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        row = scoped(conn, user_id).q(
+            "SELECT COUNT(*) AS n FROM connections WHERE user_id = :user_id", {}
+        ).fetchone()
+    finally:
+        conn.close()
+    return {"count": row["n"]}
+
+
+@app.get("/connections/match")
+def connections_match(company: str, auth=Depends(verify_api_key)):
+    """Connections at a company, matched loosely in both directions.
+
+    'Pfizer' must find 'Pfizer, Inc.' and a job at 'Moderna Therapeutics'
+    must find a connection stored as 'Moderna'. Very short normalized names
+    only match exactly, so 'Co' can't match half the table.
+    """
+    user_id = _require_connections_user(auth)
+    query_norm = _normalize_company(company)
+    if not query_norm:
+        return {"connections": []}
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        rows = scoped(conn, user_id).q(
+            "SELECT full_name, company, position, profile_url FROM connections "
+            "WHERE user_id = :user_id AND company != '' ORDER BY full_name",
+            {},
+        ).fetchall()
+    finally:
+        conn.close()
+    matches = []
+    for r in rows:
+        stored_norm = _normalize_company(r["company"])
+        if not stored_norm:
+            continue
+        if min(len(stored_norm), len(query_norm)) < 3:
+            hit = stored_norm == query_norm
+        else:
+            hit = stored_norm in query_norm or query_norm in stored_norm
+        if hit:
+            matches.append({k: r[k] for k in ("full_name", "company", "position", "profile_url")})
+    return {"connections": matches}
+
+
+@app.delete("/connections")
+def connections_delete(auth=Depends(verify_api_key)):
+    """Wipe the caller's stored network entirely."""
+    user_id = _require_connections_user(auth)
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        scoped(conn, user_id).q("DELETE FROM connections WHERE user_id = :user_id", {})
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "deleted"}
+
+
+# =============================================================================
+# CAREER DATA — the saved resume parsed ONCE into structure, reused forever
+# =============================================================================
+# The rule that makes autofill cheap: AI runs once per resume, never once per
+# application page. A parse is keyed on the SHA-256 of the saved resume text,
+# so re-opening the same resume costs nothing and a genuinely new resume costs
+# one call. Once the user corrects the parse (PUT), verified=1 and that record
+# outranks whatever an ATS's own resume parser would have produced.
+
+_CAREER_KEYS = ("work_history", "education", "certifications", "skills")
+_CAREER_WORK_FIELDS = ("title", "company", "location", "start_month", "end_month")
+_CAREER_EDU_FIELDS = ("degree", "school", "field", "start_year", "end_year")
+_CAREER_MAX_WORK_ENTRIES = 200
+_CAREER_MAX_BYTES = 100_000
+
+_CAREER_PARSE_PROMPT = """Extract this resume into structured JSON.
+
+Rules:
+- Copy facts verbatim from the resume. Never invent, infer, or embellish.
+- Omit anything the resume does not state; use "" for an unknown string field.
+- Months use "YYYY-MM"; years use "YYYY". Set "current": true only for a role
+  the resume shows as ongoing (Present/Current), and leave its end_month "".
+- bullets are the role's achievement lines, copied as written.
+
+Return ONLY a JSON object with exactly these top-level keys, no prose, no
+markdown fences:
+
+{{
+  "work_history": [
+    {{"title": "", "company": "", "location": "", "start_month": "",
+      "end_month": "", "current": false, "bullets": [""]}}
+  ],
+  "education": [
+    {{"degree": "", "school": "", "field": "", "start_year": "", "end_year": ""}}
+  ],
+  "certifications": [""],
+  "skills": [""]
+}}
+
+RESUME:
+{resume_text}"""
+
+
+def _career_llm_call(prompt: str) -> str:
+    """One Anthropic completion for resume structuring.
+
+    Deliberately a tiny seam of its own: it is the only network call on the
+    career path, so tests substitute this function and assert the
+    once-per-digest contract instead of mocking the SDK. Reuses llm_scorer's
+    env-override convention (ANTHROPIC_MODEL, ANTHROPIC_API_KEY).
+    """
+    try:
+        import anthropic
+    except ImportError:
+        raise HTTPException(
+            status_code=503,
+            detail="Resume parsing unavailable — anthropic package not installed.",
+        )
+    client = anthropic.Anthropic()
+    response = client.messages.create(
+        model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+        max_tokens=8000,
+        temperature=0,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text.strip()
+
+
+def _career_str(value) -> str:
+    """Coerce a scalar career field to text; reject containers.
+
+    Models return years as ints often enough that strict typing would 502 on
+    otherwise-good output, so numbers are accepted and stringified.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, bool) or isinstance(value, (dict, list)):
+        raise ValueError("expected a text field")
+    if isinstance(value, (str, int, float)):
+        return str(value).strip()
+    raise ValueError("expected a text field")
+
+
+def _normalize_career_data(raw) -> dict:
+    """Validate and canonicalize a career blob. Raises ValueError on bad shape."""
+    if not isinstance(raw, dict):
+        raise ValueError("career data must be a JSON object")
+
+    work = raw.get("work_history") or []
+    if not isinstance(work, list):
+        raise ValueError("work_history must be a list")
+    if len(work) > _CAREER_MAX_WORK_ENTRIES:
+        raise ValueError(
+            f"work_history is limited to {_CAREER_MAX_WORK_ENTRIES} entries"
+        )
+    work_out = []
+    for item in work:
+        if not isinstance(item, dict):
+            raise ValueError("each work_history entry must be an object")
+        bullets = item.get("bullets") or []
+        if not isinstance(bullets, list):
+            raise ValueError("bullets must be a list of strings")
+        entry = {f: _career_str(item.get(f)) for f in _CAREER_WORK_FIELDS}
+        entry["current"] = bool(item.get("current"))
+        entry["bullets"] = [_career_str(b) for b in bullets]
+        work_out.append(entry)
+
+    education = raw.get("education") or []
+    if not isinstance(education, list):
+        raise ValueError("education must be a list")
+    edu_out = []
+    for item in education:
+        if not isinstance(item, dict):
+            raise ValueError("each education entry must be an object")
+        edu_out.append({f: _career_str(item.get(f)) for f in _CAREER_EDU_FIELDS})
+
+    simple = {}
+    for key in ("certifications", "skills"):
+        values = raw.get(key) or []
+        if not isinstance(values, list):
+            raise ValueError(f"{key} must be a list of strings")
+        simple[key] = [_career_str(v) for v in values]
+
+    return {
+        "work_history": work_out,
+        "education": edu_out,
+        "certifications": simple["certifications"],
+        "skills": simple["skills"],
+    }
+
+
+def _career_json_from_model(text: str) -> dict:
+    """Parse a model response into normalized career data, or raise ValueError."""
+    body = (text or "").strip()
+    if body.startswith("```"):
+        body = "\n".join(
+            line for line in body.split("\n") if not line.strip().startswith("```")
+        )
+    try:
+        raw = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"model did not return JSON: {exc}")
+    if not isinstance(raw, dict) or any(k not in raw for k in _CAREER_KEYS):
+        raise ValueError("model response is missing required top-level keys")
+    return _normalize_career_data(raw)
+
+
+def _require_autofill_user(auth, feature: str) -> int:
+    """Authenticated-account gate shared by the autofill endpoints."""
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not CLOUD_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail=f"{feature} unavailable — cloud auth not configured.",
+        )
+    return user_id
+
+
+def _career_size_guard(payload: dict) -> str:
+    """Serialize career data, refusing anything too large to store."""
+    blob = json.dumps(payload, ensure_ascii=False)
+    if len(blob.encode("utf-8")) > _CAREER_MAX_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Career data is too large (limit {_CAREER_MAX_BYTES // 1000}KB).",
+        )
+    return blob
+
+
+class CareerParseRequest(BaseModel):
+    """Options for POST /career/parse (the body is optional)."""
+    force: bool = Field(False, description="Re-parse even if the resume digest is unchanged")
+
+
+@app.post("/career/parse")
+def career_parse(
+    req: Optional[CareerParseRequest] = None, auth=Depends(verify_api_key)
+):
+    """Structure the caller's saved resume — one LLM call per resume digest."""
+    user_id = _require_autofill_user(auth, "Career data")
+    force = bool(req.force) if req is not None else False
+
+    record = _get_resume_db(user_id)
+    if not record or not (record.get("resume_text") or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="No resume on file — upload one first (POST /resume/upload).",
+        )
+    resume_text = record["resume_text"]
+    digest = hashlib.sha256(resume_text.encode("utf-8")).hexdigest()
+
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        row = scoped(conn, user_id).q(
+            "SELECT data, resume_digest FROM career_data WHERE user_id = :user_id", {}
+        ).fetchone()
+        if row is not None and row["resume_digest"] == digest and not force:
+            try:
+                cached = json.loads(row["data"])
+            except json.JSONDecodeError:
+                cached = None
+            if cached is not None:
+                return {"career": cached, "cached": True}
+    finally:
+        conn.close()
+
+    prompt = _CAREER_PARSE_PROMPT.format(resume_text=resume_text)
+    last_error = None
+    parsed = None
+    # One retry: a single malformed response is usually a truncated or
+    # fence-wrapped fluke, and a second attempt is cheaper than a failed run.
+    for _ in range(2):
+        try:
+            parsed = _career_json_from_model(_career_llm_call(prompt))
+            break
+        except ValueError as exc:
+            last_error = exc
+    if parsed is None:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not structure the resume: {last_error}",
+        )
+
+    blob = _career_size_guard(parsed)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        scoped(conn, user_id).q(
+            """
+            INSERT OR REPLACE INTO career_data
+                (user_id, data, resume_digest, verified, parsed_at, updated_at)
+            VALUES
+                (:user_id, :data, :resume_digest, 0, :now, :now)
+            """,
+            {"data": blob, "resume_digest": digest, "now": now},
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"career": parsed, "cached": False}
+
+
+@app.get("/career")
+def career_get(auth=Depends(verify_api_key)):
+    """The caller's structured career data, or {"career": null}."""
+    user_id = _require_autofill_user(auth, "Career data")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        row = scoped(conn, user_id).q(
+            "SELECT data, verified, parsed_at, updated_at FROM career_data "
+            "WHERE user_id = :user_id",
+            {},
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return {"career": None}
+    try:
+        data = json.loads(row["data"])
+    except json.JSONDecodeError:
+        return {"career": None}
+    data["verified"] = bool(row["verified"])
+    data["parsed_at"] = row["parsed_at"]
+    data["updated_at"] = row["updated_at"]
+    return {"career": data}
+
+
+@app.put("/career")
+def career_put(payload: Dict[str, Any], auth=Depends(verify_api_key)):
+    """Full-replace user correction. What the user saves here is ground truth.
+
+    resume_digest is deliberately left untouched: the correction belongs to the
+    resume that was parsed, so a later unforced parse serves the corrected
+    record from cache instead of overwriting it.
+    """
+    user_id = _require_autofill_user(auth, "Career data")
+    try:
+        data = _normalize_career_data(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    blob = _career_size_guard(data)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        scoped(conn, user_id).q(
+            """
+            INSERT INTO career_data
+                (user_id, data, resume_digest, verified, parsed_at, updated_at)
+            VALUES
+                (:user_id, :data, '', 1, NULL, :now)
+            ON CONFLICT(user_id) DO UPDATE SET
+                data = excluded.data,
+                verified = 1,
+                updated_at = excluded.updated_at
+            """,
+            {"data": blob, "now": now},
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "saved"}
+
+
+@app.delete("/career")
+def career_delete(auth=Depends(verify_api_key)):
+    """Wipe the caller's structured career data."""
+    user_id = _require_autofill_user(auth, "Career data")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        scoped(conn, user_id).q(
+            "DELETE FROM career_data WHERE user_id = :user_id", {}
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "deleted"}
+
+
+# =============================================================================
+# ANSWER BANK — every application question answered once, offered forever
+# =============================================================================
+
+_ANSWER_MAX_QUESTION = 1000
+_ANSWER_MAX_ANSWER = 10_000
+_ANSWER_MATCH_LIMIT = 3
+_ANSWER_MATCH_THRESHOLD = 0.75
+
+# EEO/demographic questions are never stored and never matched. This is a hard
+# product boundary, not a heuristic: answering them is the applicant's choice
+# alone, and a remembered answer would be auto-disclosed on every later form.
+# Word-boundary matching on the NORMALIZED text, so "embrace" is not "race".
+_EEO_DENYLIST = re.compile(
+    r"\b(?:gender|race|ethnicity|veteran|disabilit(?:y|ies)|sexual orientation"
+    r"|religion|religious|pregnancy|national origin)\b"
+)
+
+
+def _normalize_question(text: str) -> str:
+    """Lowercase, punctuation to spaces, whitespace collapsed — the lookup key."""
+    return " ".join(re.sub(r"[^\w\s]+", " ", (text or "").lower()).split())
+
+
+def _reject_if_eeo(question_norm: str) -> None:
+    if _EEO_DENYLIST.search(question_norm):
+        raise HTTPException(
+            status_code=400,
+            detail="EEO and demographic questions are never stored or answered "
+                   "from memory — answer those yourself, on the form.",
+        )
+
+
+class AnswerSaveRequest(BaseModel):
+    """One application question and the answer to remember for it."""
+    question_text: str = Field(..., description="The question exactly as the form asked it")
+    answer_text: str = Field(..., description="The answer to reuse next time")
+
+
+def _answer_row(row) -> dict:
+    return {
+        "id": row["id"],
+        "question_text": row["question_text"],
+        "answer_text": row["answer_text"],
+        "times_used": row["times_used"],
+        "updated_at": row["updated_at"],
+    }
+
+
+@app.get("/answers")
+def answers_list(auth=Depends(verify_api_key)):
+    """The caller's saved answers, most recently updated first."""
+    user_id = _require_autofill_user(auth, "Answer bank")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        rows = scoped(conn, user_id).q(
+            "SELECT id, question_text, answer_text, times_used, updated_at "
+            "FROM answer_bank WHERE user_id = :user_id "
+            "ORDER BY updated_at DESC, id DESC",
+            {},
+        ).fetchall()
+    finally:
+        conn.close()
+    return {"answers": [_answer_row(r) for r in rows]}
+
+
+@app.post("/answers")
+def answers_save(req: AnswerSaveRequest, auth=Depends(verify_api_key)):
+    """Save or update the answer for a question, keyed on its normalized form."""
+    user_id = _require_autofill_user(auth, "Answer bank")
+    question_text = (req.question_text or "").strip()
+    answer_text = (req.answer_text or "").strip()
+    if len(question_text) > _ANSWER_MAX_QUESTION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Question is too long (limit {_ANSWER_MAX_QUESTION} characters).",
+        )
+    if len(answer_text) > _ANSWER_MAX_ANSWER:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Answer is too long (limit {_ANSWER_MAX_ANSWER} characters).",
+        )
+    question_norm = _normalize_question(question_text)
+    if not question_norm:
+        raise HTTPException(status_code=400, detail="Question text is required.")
+    if not answer_text:
+        raise HTTPException(status_code=400, detail="Answer text is required.")
+    _reject_if_eeo(question_norm)
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        s = scoped(conn, user_id)
+        s.q(
+            """
+            INSERT INTO answer_bank
+                (user_id, question_text, question_norm, answer_text, updated_at)
+            VALUES
+                (:user_id, :question_text, :question_norm, :answer_text, :now)
+            ON CONFLICT(user_id, question_norm) DO UPDATE SET
+                question_text = excluded.question_text,
+                answer_text = excluded.answer_text,
+                updated_at = excluded.updated_at
+            """,
+            {
+                "question_text": question_text,
+                "question_norm": question_norm,
+                "answer_text": answer_text,
+                "now": now,
+            },
+        )
+        row = s.q(
+            "SELECT id FROM answer_bank "
+            "WHERE user_id = :user_id AND question_norm = :question_norm",
+            {"question_norm": question_norm},
+        ).fetchone()
+        conn.commit()
+    finally:
+        conn.close()
+    return {"id": row["id"]}
+
+
+@app.get("/answers/match")
+def answers_match(q: str, auth=Depends(verify_api_key)):
+    """Find saved answers for a question: exact normalized form, then SBERT.
+
+    The embedding step reuses the single model instance ats_scorer already
+    loads for semantic scoring — a second SentenceTransformer would double the
+    server's memory for no benefit. If that model is missing or throws, the
+    ladder degrades to exact-match-only rather than failing the request.
+    """
+    user_id = _require_autofill_user(auth, "Answer bank")
+    query_norm = _normalize_question(q)
+    if not query_norm:
+        return {"matches": []}
+    _reject_if_eeo(query_norm)
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        s = scoped(conn, user_id)
+        rows = s.q(
+            "SELECT id, question_text, question_norm, answer_text, times_used, updated_at "
+            "FROM answer_bank WHERE user_id = :user_id",
+            {},
+        ).fetchall()
+        exact = [r for r in rows if r["question_norm"] == query_norm]
+        if exact:
+            for r in exact[:_ANSWER_MATCH_LIMIT]:
+                s.q(
+                    "UPDATE answer_bank SET times_used = times_used + 1, "
+                    "last_used_at = :now WHERE user_id = :user_id AND id = :id",
+                    {"now": now, "id": r["id"]},
+                )
+            conn.commit()
+    finally:
+        conn.close()
+
+    if exact:
+        return {
+            "matches": [
+                {**_answer_row(r), "score": 1.0} for r in exact[:_ANSWER_MATCH_LIMIT]
+            ]
+        }
+
+    scored = []
+    try:
+        if ats_scorer.get_sbert_model() is not None:
+            import numpy as _np
+
+            query_vec = ats_scorer.embed_with_cache(query_norm)
+            if query_vec is not None:
+                query_norm_len = float(_np.linalg.norm(query_vec))
+                for r in rows:
+                    vec = ats_scorer.embed_with_cache(r["question_norm"])
+                    denom = query_norm_len * float(_np.linalg.norm(vec))
+                    if not denom:
+                        continue
+                    score = float(_np.dot(query_vec, vec)) / denom
+                    if score >= _ANSWER_MATCH_THRESHOLD:
+                        scored.append((score, r))
+    except Exception:
+        # Embedding is a nice-to-have on this path; the exact rung above is the
+        # guarantee. Never turn a model problem into a failed lookup.
+        logging.getLogger("scorer.answers").warning(
+            "answer match fell back to exact-only", exc_info=True
+        )
+        scored = []
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return {
+        "matches": [
+            {**_answer_row(r), "score": round(score, 4)}
+            for score, r in scored[:_ANSWER_MATCH_LIMIT]
+        ]
+    }
+
+
+@app.delete("/answers/{answer_id}")
+def answers_delete(answer_id: int, auth=Depends(verify_api_key)):
+    """Delete one saved answer. 404 unless it belongs to the caller."""
+    user_id = _require_autofill_user(auth, "Answer bank")
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        s = scoped(conn, user_id)
+        owned = s.q(
+            "SELECT id FROM answer_bank WHERE user_id = :user_id AND id = :id",
+            {"id": answer_id},
+        ).fetchone()
+        if owned is None:
+            raise HTTPException(status_code=404, detail="Answer not found.")
+        s.q(
+            "DELETE FROM answer_bank WHERE user_id = :user_id AND id = :id",
+            {"id": answer_id},
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"status": "deleted"}
+
+
+# =============================================================================
+# FIELD MAPPINGS — global cache, no user data by construction
+# =============================================================================
+# A row says "this vendor field means desired_salary". It holds no values, so
+# it is shareable across every account, which is the point: the second user
+# anywhere pays nothing for a field the first one resolved.
+
+_MAPPINGS_MAX_FIELDS = 200
+
+
+class FieldDescriptor(BaseModel):
+    """One form field as the extension sees it — structure only, no values."""
+    sig: str = Field(..., max_length=200, description="Stable hash of label + automation id + input type")
+    label: str = Field("", max_length=500)
+    input_type: str = Field("", max_length=50)
+
+
+class MappingResolveRequest(BaseModel):
+    """A page's worth of unresolved fields for one ATS vendor."""
+    ats_vendor: str = Field(..., max_length=100)
+    fields: List[FieldDescriptor] = Field(default_factory=list)
+
+
+@app.post("/mappings/resolve")
+def mappings_resolve(req: MappingResolveRequest, auth=Depends(verify_api_key)):
+    """Resolve form fields against the global mapping cache.
+
+    Cache-only on purpose. The plan's resolution order ends in an LLM call on a
+    global first-ever miss, but that spend is deliberately NOT wired up until
+    the extension exists and real field signatures are arriving — an open
+    endpoint that bills a model per unknown field is a cost incident waiting to
+    happen. Unknown fields are recorded with profile_key NULL and source
+    'queued' for the review/LLM pass to fill in later.
+    """
+    _require_autofill_user(auth, "Field mappings")
+    vendor = (req.ats_vendor or "").strip().lower()
+    if not vendor:
+        raise HTTPException(status_code=400, detail="ats_vendor is required.")
+    if len(req.fields) > _MAPPINGS_MAX_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many fields in one request (limit {_MAPPINGS_MAX_FIELDS}).",
+        )
+
+    results = []
+    conn = db_get_conn(cloud_settings.DB_PATH)
+    try:
+        for field in req.fields:
+            sig = (field.sig or "").strip()
+            if not sig:
+                raise HTTPException(status_code=400, detail="Every field needs a sig.")
+            # Global table: scoped() is intentionally NOT used here — there is
+            # no user_id column and nothing user-specific to protect.
+            row = conn.execute(
+                "SELECT profile_key, source FROM field_mappings "
+                "WHERE ats_vendor = ? AND field_sig = ?",
+                (vendor, sig),
+            ).fetchone()
+            if row is None:
+                conn.execute(
+                    "INSERT OR IGNORE INTO field_mappings "
+                    "(ats_vendor, field_sig, label, profile_key, confidence, source) "
+                    "VALUES (?, ?, ?, NULL, 0, 'queued')",
+                    (vendor, sig, field.label or ""),
+                )
+                results.append({"sig": sig, "profile_key": None, "source": "queued"})
+            else:
+                results.append(
+                    {"sig": sig, "profile_key": row["profile_key"], "source": row["source"]}
+                )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"mappings": results}
 
 
 # =============================================================================

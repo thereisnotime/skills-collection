@@ -73,6 +73,8 @@ jobs:
         if: steps.changed.outputs.skill_dirs != ''
         run: uv sync --python 3.13
 
+      # Fork PRs do not receive SKILL_SCANNER_LLM_API_KEY. scan_pr_skills.py
+      # detects the missing key, writes an explanatory sticky comment, and exits 0.
       - name: Run scanner on changed skills
         if: steps.changed.outputs.skill_dirs != ''
         id: scan

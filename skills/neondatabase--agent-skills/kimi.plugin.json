@@ -1,0 +1,20 @@
+{
+  "name": "neon-postgres",
+  "version": "1.1.2",
+  "description": "Manage your Neon backend with the Neon agent skills and the Neon MCP Server: Lakebase Postgres, branching, Object Storage, Functions, and the AI Gateway",
+  "homepage": "https://neon.com",
+  "license": "Apache-2.0",
+  "keywords": ["neon", "lakebase", "postgres", "serverless", "database", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": {
+    "neon": {
+      "url": "https://mcp.neon.tech/mcp"
+    }
+  },
+  "interface": {
+    "displayName": "Neon Postgres",
+    "shortDescription": "Lakebase Postgres, branching, Object Storage, Functions, and the AI Gateway",
+    "developerName": "Neon",
+    "websiteURL": "https://neon.com"
+  }
+}
