@@ -14,6 +14,8 @@ run it on every pull request in seconds.
 
 from __future__ import annotations
 
+import json
+import re
 import tomllib
 import unittest
 from pathlib import Path
@@ -24,6 +26,26 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILLS_DIR = REPO_ROOT / "skills"
 TESTS_DIR = REPO_ROOT / "tests"
 REQUIREMENTS = TESTS_DIR / "skill-requirements.toml"
+PLUGIN_MANIFEST = REPO_ROOT / "plugin.json"
+PYPROJECT = REPO_ROOT / "pyproject.toml"
+
+PLUGIN_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+PLUGIN_NAME = "scientific-agent-skills"
+ALLOWED_PLUGIN_KEYS = frozenset(
+    {
+        "$schema",
+        "name",
+        "version",
+        "description",
+        "author",
+        "homepage",
+        "repository",
+        "license",
+        "keywords",
+        "extensions",
+    }
+)
+PLUGIN_NAME_RE = re.compile(r"^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
 
 structure = skill_contract.structure
 office = skill_contract.office
@@ -120,6 +142,41 @@ class SharedCopyTests(unittest.TestCase):
 
     def test_shared_scripts_are_identical_across_their_skills(self) -> None:
         self.assertEqual(office.shared_file_problems(SKILLS_DIR), [])
+
+
+class AgentPluginTests(unittest.TestCase):
+    """Root plugin.json keeps the repo a valid Agent Plugins 1.0.0 package."""
+
+    maxDiff = None
+
+    def test_plugin_manifest_conforms(self) -> None:
+        self.assertTrue(PLUGIN_MANIFEST.is_file(), "plugin.json must exist at the repo root")
+        manifest = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
+        self.assertIsInstance(manifest, dict)
+
+        unknown = sorted(set(manifest) - ALLOWED_PLUGIN_KEYS)
+        self.assertEqual(unknown, [], "plugin.json has closed top-level schema")
+
+        self.assertEqual(manifest.get("$schema"), PLUGIN_SCHEMA)
+        self.assertEqual(manifest.get("name"), PLUGIN_NAME)
+        self.assertRegex(manifest["name"], PLUGIN_NAME_RE)
+
+        project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+        self.assertEqual(
+            manifest.get("version"),
+            project["version"],
+            "plugin.json version must match pyproject.toml [project].version",
+        )
+
+    def test_skills_component_is_discoverable(self) -> None:
+        """Agent Plugins discovers only immediate children of skills/ with SKILL.md."""
+        self.assertTrue(SKILLS_DIR.is_dir())
+        self.assertTrue(KNOWN_SKILLS, "no discoverable skills under skills/")
+        for name in sorted(KNOWN_SKILLS):
+            with self.subTest(skill=name):
+                skill_md = SKILLS_DIR / name / "SKILL.md"
+                self.assertTrue(skill_md.is_file())
+                self.assertEqual(skill_md.parent.parent, SKILLS_DIR)
 
 
 if __name__ == "__main__":

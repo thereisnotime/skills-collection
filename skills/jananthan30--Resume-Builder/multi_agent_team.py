@@ -27,6 +27,8 @@ from collections import Counter
 from datetime import date
 from typing import Any, Callable
 
+import resume_integrity_audit
+from candidate_fit_judge import validate_candidate_fit_judge_report
 from candidate_fit_preflight import (
     CANDIDATE_FIT_POLICY_VERSION,
     CANDIDATE_FIT_SCHEMA_VERSION,
@@ -98,6 +100,9 @@ _PAYLOAD_KEYS = {
 }
 
 _VOTE_NAMES = ("evidence", "human_voice", "canonical_integrity")
+_WRITER_REJECTION_CODES = frozenset(
+    {"INVALID_ITEM", "INVALID_ANCHOR", "STRICT_COMPILER", "CANONICAL_INTEGRITY"}
+)
 _CANDIDATE_FIT_REPORT_KEYS = {
     "schema_version",
     "policy_version",
@@ -182,6 +187,14 @@ class AgentInvocationFailure(RuntimeError):
             raise ValueError("unknown agent invocation failure code")
         self.code = code
         super().__init__(code)
+
+
+class NoSafeWriterChanges(RuntimeError):
+    """Writer proposals contained no individually safe replacement."""
+
+    def __init__(self, stats: dict[str, Any]):
+        self.stats = json.loads(_canonical_json(stats))
+        super().__init__("writer proposed no safe source-supported changes")
 
 
 def _canonical_json(value: Any) -> str:
@@ -385,6 +398,56 @@ def _line_counts(text: str) -> Counter[str]:
     )
 
 
+def _ownership_violation_hint(master: str, draft: str) -> str:
+    """Best-effort description of WHICH lines broke the duplicate/move rules.
+
+    Diagnostic only — the boolean validators above keep sole authority; this
+    never loosens anything. The repair loop shows the model the rejection
+    reason, and "duplicates or moves source claims" alone gives it nothing
+    to act on: observed live (2026-08-11), the prior writer failed the initial
+    attempt and the blind repair identically. Naming the offending line
+    turns the second attempt into a targeted fix. Fails silent to "" — a
+    diagnostic that crashes must never mask the real rejection.
+    """
+
+    try:
+        hints: list = []
+        draft_counts = _line_counts(draft)
+        master_counts = _line_counts(master)
+        for line, count in draft_counts.items():
+            if line in master_counts and count > master_counts[line]:
+                hints.append(
+                    f"line appears {count}x in draft but {master_counts[line]}x "
+                    f"in the master: {line[:90]!r}"
+                )
+            elif line not in master_counts and count > 1:
+                hints.append(f"new line repeated {count}x: {line[:90]!r}")
+        master_roles = _experience_roles(master)
+        draft_roles = _experience_roles(draft)
+        master_home: dict = {}
+        for role in master_roles:
+            for line in role["lines"]:
+                master_home.setdefault(line, role["key"])
+        for role in draft_roles:
+            for line in role["lines"]:
+                home = master_home.get(line)
+                if home is not None and home != role["key"]:
+                    hints.append(
+                        f"bullet moved to a different role than the master: "
+                        f"{line[:90]!r}"
+                    )
+                elif home is None and line in master_counts:
+                    hints.append(
+                        "master line moved from outside Professional Experience "
+                        f"into a role: {line[:90]!r}"
+                    )
+        if not hints:
+            return ""
+        return " — " + "; ".join(hints[:3])
+    except Exception:
+        return ""
+
+
 def _changed_lines(draft: str, master: str) -> set[str] | None:
     """Return novel lines, rejecting duplicated master or novel lines."""
 
@@ -402,6 +465,10 @@ _EXPERIENCE_HEADINGS = {
     "PROFESSIONAL EXPERIENCE",
     "WORK EXPERIENCE",
     "EXPERIENCE",
+}
+_CORE_COMPETENCIES_HEADINGS = {
+    "CORE COMPETENCIES",
+    "COMPETENCIES",
 }
 _EXPERIENCE_END_HEADINGS = {
     "PROFESSIONAL SUMMARY",
@@ -494,6 +561,28 @@ def _is_genuine_role_bullet(raw: str) -> bool:
 
 def _is_separator(raw: str) -> bool:
     return bool(re.fullmatch(r"\s*(?:_{3,}|-{3,}|={3,})\s*", raw))
+
+
+def _has_nonempty_core_competencies(text: str) -> bool:
+    """Return whether a recognized competencies section has real content."""
+
+    in_section = False
+    known_headings = _EXPERIENCE_HEADINGS | _EXPERIENCE_END_HEADINGS
+    for raw, _, _ in _line_records(text):
+        heading = _section_heading_name(raw)
+        if heading in _CORE_COMPETENCIES_HEADINGS:
+            in_section = True
+            continue
+        if in_section and heading in known_headings:
+            return False
+        if (
+            in_section
+            and raw.strip()
+            and not _is_separator(raw)
+            and any(character.isalnum() for character in raw)
+        ):
+            return True
+    return False
 
 
 def _is_role_date_line(value: str) -> bool:
@@ -813,7 +902,10 @@ def _normalize_claim_evidence(
 
     changed_lines = _changed_lines(draft, master)
     if changed_lines is None or not _experience_ownership_valid(master, draft):
-        raise ValueError("draft duplicates or moves source claims")
+        raise ValueError(
+            "draft duplicates or moves source claims"
+            + _ownership_violation_hint(master, draft)
+        )
     admitted_claims: set[str] = set()
     admitted_source_spans: set[tuple[int, int]] = set()
     draft_line_counts = _line_counts(draft)
@@ -872,6 +964,213 @@ def _normalize_claim_evidence(
     if admitted_claims != changed_lines:
         raise ValueError("claim evidence does not exactly cover every changed line")
     return normalized
+
+
+def _compile_writer_replacements(
+    master: str,
+    replacements: Any,
+) -> dict[str, Any]:
+    if not isinstance(master, str) or not isinstance(replacements, list):
+        raise ValueError("invalid writer replacements")
+    if not replacements:
+        return {"draft": master, "claim_evidence": []}
+    records = {
+        (start, end): body for body, start, end in _line_records(master)
+    }
+    anchored = []
+    seen_spans = set()
+    for item in replacements:
+        if not isinstance(item, dict) or set(item) != {
+            "source_span_text",
+            "replacement_text",
+        }:
+            raise ValueError("invalid writer replacement item")
+        source_text = item["source_span_text"]
+        replacement_text = item["replacement_text"]
+        if not isinstance(source_text, str) or not isinstance(
+            replacement_text, str
+        ):
+            raise ValueError("writer replacement values must be text")
+        start, end, _ = _unique_span(master, source_text)
+        if (
+            not _covers_complete_source_line(master, start, end)
+            or records.get((start, end)) != source_text
+        ):
+            raise ValueError("writer source must be one exact complete line")
+        if (start, end) in seen_spans:
+            raise ValueError("writer replacement reuses one source line")
+        if replacement_text == source_text:
+            raise ValueError("writer replacement is a no-op")
+        if replacement_text != "" and (
+            not replacement_text.strip()
+            or "\n" in replacement_text
+            or "\r" in replacement_text
+            or not _candidate_text_format_valid(replacement_text)
+        ):
+            raise ValueError("writer replacement must be one safe line")
+        seen_spans.add((start, end))
+        anchored.append((start, end, source_text, replacement_text))
+
+    anchored.sort(key=lambda row: row[0])
+    chunks = []
+    raw_evidence = []
+    cursor = 0
+    for start, end, source_text, replacement_text in anchored:
+        if start < cursor:
+            raise ValueError("writer replacements overlap")
+        chunks.extend((master[cursor:start], replacement_text))
+        cursor = end
+        if replacement_text:
+            raw_evidence.append(
+                {
+                    "claim_text": replacement_text,
+                    "source_span_text": source_text,
+                }
+            )
+    chunks.append(master[cursor:])
+    draft = "".join(chunks)
+    master_has_competencies = _has_nonempty_core_competencies(master)
+    if master_has_competencies and not _has_nonempty_core_competencies(draft):
+        raise ValueError("Writer must preserve non-empty Core Competencies")
+    return {
+        "draft": draft,
+        "claim_evidence": _normalize_claim_evidence(
+            draft, master, raw_evidence
+        ),
+    }
+
+
+def _writer_salvage_rejection_code(
+    item: Any,
+    master: str,
+) -> tuple[str | None, tuple[int, int] | None]:
+    """Classify only malformed replacement items and unusable source anchors."""
+
+    if not isinstance(item, dict) or set(item) != {
+        "source_span_text",
+        "replacement_text",
+    }:
+        return "INVALID_ITEM", None
+    source = item["source_span_text"]
+    replacement = item["replacement_text"]
+    if not isinstance(source, str) or not isinstance(replacement, str):
+        return "INVALID_ITEM", None
+    try:
+        start, end, _ = _unique_span(master, source)
+    except Exception:
+        return "INVALID_ANCHOR", None
+    if not _covers_complete_source_line(master, start, end):
+        return "INVALID_ANCHOR", None
+    return None, (start, end)
+
+
+def compile_writer_replacements_salvage(
+    master: str,
+    replacements: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Keep source-ordered Writer replacements that remain safe in combination."""
+
+    if not isinstance(master, str) or not isinstance(replacements, list):
+        raise ValueError("invalid writer replacements")
+    if not replacements:
+        return _compile_writer_replacements(master, []), {
+            "proposed_count": 0,
+            "accepted_count": 0,
+            "rejected_count": 0,
+            "rejection_codes": {},
+        }
+
+    candidates: list[tuple[int, int, dict[str, str]]] = []
+    rejected: Counter[str] = Counter()
+    for ordinal, item in enumerate(replacements):
+        category, bounds = _writer_salvage_rejection_code(item, master)
+        if category is not None:
+            rejected[category] += 1
+            continue
+        assert bounds is not None
+        assert isinstance(item, dict)
+        start, end = bounds
+        try:
+            _compile_writer_replacements(master, [item])
+        except Exception:
+            raw_draft = master[:start] + item["replacement_text"] + master[end:]
+            integrity = resume_integrity_audit.audit_resume_text(
+                master, raw_draft
+            )
+            rejected[
+                "CANONICAL_INTEGRITY"
+                if integrity.get("passed") is not True
+                else "STRICT_COMPILER"
+            ] += 1
+            continue
+        candidates.append((start, ordinal, item))
+
+    accepted: list[dict[str, str]] = []
+    accepted_starts: set[int] = set()
+    compiled = _compile_writer_replacements(master, [])
+    for start, _, item in sorted(candidates):
+        if start in accepted_starts:
+            rejected["INVALID_ANCHOR"] += 1
+            continue
+        try:
+            proposed = _compile_writer_replacements(master, [*accepted, item])
+        except Exception:
+            rejected["STRICT_COMPILER"] += 1
+            continue
+        integrity = resume_integrity_audit.audit_resume_text(
+            master, proposed["draft"]
+        )
+        if integrity.get("passed") is not True:
+            rejected["CANONICAL_INTEGRITY"] += 1
+            continue
+        accepted.append(item)
+        accepted_starts.add(start)
+        compiled = proposed
+
+    stats = {
+        "proposed_count": len(replacements),
+        "accepted_count": len(accepted),
+        "rejected_count": len(replacements) - len(accepted),
+        "rejection_codes": dict(sorted(rejected.items())),
+    }
+    if not accepted:
+        raise NoSafeWriterChanges(stats)
+    return compiled, stats
+
+
+def _admit_writer_stats(value: Any) -> dict[str, Any] | None:
+    """Return only well-formed, non-sensitive Writer salvage accounting."""
+
+    expected_keys = {
+        "proposed_count",
+        "accepted_count",
+        "rejected_count",
+        "rejection_codes",
+    }
+    if type(value) is not dict or set(value) != expected_keys:
+        return None
+    proposed = value["proposed_count"]
+    accepted = value["accepted_count"]
+    rejected = value["rejected_count"]
+    codes = value["rejection_codes"]
+    if (
+        type(proposed) is not int
+        or type(accepted) is not int
+        or type(rejected) is not int
+        or type(codes) is not dict
+        or min(proposed, accepted, rejected) < 0
+        or proposed != accepted + rejected
+    ):
+        return None
+    if any(
+        not isinstance(code, str)
+        or code not in _WRITER_REJECTION_CODES
+        or type(count) is not int
+        or count < 0
+        for code, count in codes.items()
+    ) or sum(codes.values()) != rejected:
+        return None
+    return json.loads(_canonical_json(value))
 
 
 def _claim_evidence_valid(
@@ -1012,19 +1311,12 @@ def normalize_native_payload(
         }
 
     if role == "writer":
-        if set(raw_payload) != {"draft", "claim_evidence"}:
+        if set(raw_payload) != {"replacements"}:
             raise ValueError("invalid writer payload keys")
-        draft = raw_payload["draft"]
         master = scoped.get("master_resume")
-        evidence = raw_payload["claim_evidence"]
-        if (
-            not isinstance(draft, str)
-            or not isinstance(master, str)
-            or not isinstance(evidence, list)
-        ):
-            raise ValueError("invalid writer evidence")
-        normalized_evidence = _normalize_claim_evidence(draft, master, evidence)
-        return {"draft": draft, "claim_evidence": normalized_evidence}
+        return _compile_writer_replacements(
+            master, raw_payload["replacements"]
+        )
 
     if role == "auditor":
         if set(raw_payload) != {"verdict", "findings", "audited_draft"}:
@@ -1292,6 +1584,8 @@ def _result(
     authorization_receipt_path: str = "",
     candidate_fit_report: dict[str, Any] | None = None,
     candidate_fit_report_digest: str = "",
+    candidate_fit_judge_report: dict[str, Any] | None = None,
+    candidate_fit_judge_report_digest: str = "",
     digest_fn: Callable[[Any], str] = _digest,
 ) -> dict[str, Any]:
     return {
@@ -1311,6 +1605,12 @@ def _result(
         "candidate_fit_report": candidate_fit_report,
         "candidate_fit_report_digest": (
             candidate_fit_report_digest if candidate_fit_report is not None else ""
+        ),
+        "candidate_fit_judge_report": candidate_fit_judge_report,
+        "candidate_fit_judge_report_digest": (
+            candidate_fit_judge_report_digest
+            if candidate_fit_judge_report is not None
+            else ""
         ),
     }
 
@@ -1732,6 +2032,8 @@ def _final_receipt(
     publication_id: str,
     candidate_fit_report: dict[str, Any],
     candidate_fit_report_digest: str,
+    candidate_fit_judge_report: dict[str, Any] | None = None,
+    candidate_fit_judge_report_digest: str = "",
 ) -> dict[str, Any]:
     return {
         "schema_version": FINAL_RECEIPT_VERSION,
@@ -1742,6 +2044,12 @@ def _final_receipt(
         "job_description_digest": _digest(request["job_description"]),
         "candidate_fit_report": candidate_fit_report,
         "candidate_fit_report_digest": candidate_fit_report_digest,
+        "candidate_fit_judge_report": candidate_fit_judge_report,
+        "candidate_fit_judge_report_digest": (
+            candidate_fit_judge_report_digest
+            if candidate_fit_judge_report is not None
+            else ""
+        ),
         "researcher_agent_id": researcher_packet["agent_id"],
         "researcher_artifact_digest": researcher_packet["artifact_digest"],
         "auditor_attestation": {
@@ -1996,13 +2304,60 @@ def run_team(request: dict, adapter: object, services: object) -> dict:
     if not fit_valid:
         return _result(request, "FAILED:CANDIDATE_FIT_PREFLIGHT")
     candidate_fit_report_digest = _digest(candidate_fit_report)
+    candidate_fit_judge_report: dict[str, Any] | None = None
+    candidate_fit_judge_report_digest = ""
     if not fit_passed:
-        return _result(
-            request,
-            "REJECTED:CANDIDATE_FIT",
-            candidate_fit_report=candidate_fit_report,
-            candidate_fit_report_digest=candidate_fit_report_digest,
-        )
+        # The deterministic scanner reads postings with regexes and is
+        # demoted to advisory on rejection: a reasoning judge, when the
+        # trusted services expose one, holds the final refusal decision.
+        # Its verdict is untrusted model output until it survives
+        # validate_candidate_fit_judge_report, which digest-binds it to this
+        # exact run/resume/JD and mechanically verifies every cited
+        # requirement against the posting text. No valid judge verdict —
+        # service absent, errored, or citation check failed — means the
+        # deterministic rejection stands unchanged: the gate degrades to
+        # its old behavior, never to an open gate.
+        judge_service = getattr(services, "judge_candidate_fit", None)
+        judge_report: Any = None
+        if callable(judge_service):
+            try:
+                judge_report = judge_service(
+                    request["master_resume"],
+                    request["job_description"],
+                    request["run_id"],
+                    request["case_id"],
+                    candidate_fit_report,
+                )
+            except Exception:
+                judge_report = None
+        judge_valid = False
+        judge_proceed = False
+        if judge_report is not None:
+            judge_valid, judge_proceed = validate_candidate_fit_judge_report(
+                judge_report,
+                run_id=request["run_id"],
+                case_id=request["case_id"],
+                master_resume=request["master_resume"],
+                job_description=request["job_description"],
+            )
+        if judge_valid:
+            candidate_fit_judge_report = json.loads(
+                _canonical_json(judge_report)
+            )
+            candidate_fit_judge_report_digest = _digest(
+                candidate_fit_judge_report
+            )
+        if not (judge_valid and judge_proceed):
+            return _result(
+                request,
+                "REJECTED:CANDIDATE_FIT",
+                candidate_fit_report=candidate_fit_report,
+                candidate_fit_report_digest=candidate_fit_report_digest,
+                candidate_fit_judge_report=candidate_fit_judge_report,
+                candidate_fit_judge_report_digest=(
+                    candidate_fit_judge_report_digest
+                ),
+            )
 
     seen_agent_ids: set[str] = set()
     seen_packets: set[str] = set()
@@ -2016,6 +2371,8 @@ def run_team(request: dict, adapter: object, services: object) -> dict:
             terminal,
             candidate_fit_report=candidate_fit_report,
             candidate_fit_report_digest=candidate_fit_report_digest,
+            candidate_fit_judge_report=candidate_fit_judge_report,
+            candidate_fit_judge_report_digest=candidate_fit_judge_report_digest,
         )
 
     def invoke_role(
@@ -2045,8 +2402,17 @@ def run_team(request: dict, adapter: object, services: object) -> dict:
         except PermissionError:
             code = "AUDITOR_SIDE_EFFECT" if role == "auditor" else "AGENT_CRASH"
             return None, fail(f"FAILED:{code}")
+        except NoSafeWriterChanges:
+            if role == "writer":
+                return None, fail("REJECTED:NO_SAFE_CHANGES")
+            return None, fail("FAILED:AGENT_CRASH")
         except AgentInvocationFailure as error:
-            return None, fail(f"FAILED:{error.code}")
+            code = (
+                _SCHEMA_CODES[role]
+                if error.code == "AGENT_PAYLOAD_SCHEMA"
+                else error.code
+            )
+            return None, fail(f"FAILED:{code}")
         except (LookupError, ConnectionError):
             return None, fail("FAILED:AGENT_UNAVAILABLE")
         except Exception:
@@ -2194,6 +2560,10 @@ def run_team(request: dict, adapter: object, services: object) -> dict:
             "job_description_digest": _digest(request["job_description"]),
             "candidate_fit_report": candidate_fit_report,
             "candidate_fit_report_digest": candidate_fit_report_digest,
+            "candidate_fit_judge_report": candidate_fit_judge_report,
+            "candidate_fit_judge_report_digest": (
+                candidate_fit_judge_report_digest
+            ),
             "researcher_agent_id": researcher["agent_id"],
             "researcher_artifact_digest": researcher["artifact_digest"],
             "auditor_attestation": {
@@ -2224,6 +2594,8 @@ def run_team(request: dict, adapter: object, services: object) -> dict:
             receipt["publication_id"],
             candidate_fit_report,
             candidate_fit_report_digest,
+            candidate_fit_judge_report,
+            candidate_fit_judge_report_digest,
         )
         try:
             verification = verify_publication(receipt["publication_id"])
@@ -2249,6 +2621,8 @@ def run_team(request: dict, adapter: object, services: object) -> dict:
             ],
             candidate_fit_report=candidate_fit_report,
             candidate_fit_report_digest=candidate_fit_report_digest,
+            candidate_fit_judge_report=candidate_fit_judge_report,
+            candidate_fit_judge_report_digest=candidate_fit_judge_report_digest,
         )
 
     def combined_findings(
@@ -2329,13 +2703,22 @@ def run_team(request: dict, adapter: object, services: object) -> dict:
     draft = writer["payload"].get("draft")
     if not isinstance(draft, str):
         return fail("FAILED:WRITER_SCHEMA")
+    try:
+        writer_stats = _admit_writer_stats(
+            getattr(adapter, "writer_stats", None)
+        )
+    except Exception:
+        writer_stats = None
+    writer_event = {
+        "agent_id": writer["agent_id"],
+        "artifact_digest": writer["artifact_digest"],
+        "draft_digest": _digest(draft),
+    }
+    if writer_stats is not None:
+        writer_event["writer_stats"] = writer_stats
     terminal = event(
         "writer_complete",
-        {
-            "agent_id": writer["agent_id"],
-            "artifact_digest": writer["artifact_digest"],
-            "draft_digest": _digest(draft),
-        },
+        writer_event,
     )
     if terminal:
         return terminal
@@ -2473,6 +2856,7 @@ __all__ = [
     "FINAL_RECEIPT_VERSION",
     "HANDOFF_VERSION",
     "MAX_EDITOR_ATTEMPTS",
+    "NoSafeWriterChanges",
     "PROTOCOL_VERSION",
     "PUBLICATION_VERIFICATION_VERSION",
     "PUBLICATION_VERSION",
@@ -2484,9 +2868,11 @@ __all__ = [
     "build_context",
     "build_handoff",
     "canonical_digest",
+    "compile_writer_replacements_salvage",
     "normalize_native_payload",
     "run_team",
     "validate_candidate_fit_report",
+    "validate_candidate_fit_judge_report",
     "validate_recomputed_candidate_fit_report",
     "validate_handoff",
 ]

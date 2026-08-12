@@ -74,10 +74,10 @@ print(f"Models loaded in {_elapsed:.1f}s")
 
 # ─── Agent tool registry (cloud-hostable; imports cleanly with no cloud/
 # package present and no vendor SDK installed -- see agent/tools.py's own
-# module docstring). /rewrite and /cover-letter dispatch into this registry
-# instead of talking to the model or the four-role pipeline directly, so
-# every draft they can ever return is produced (and audited/recorded) by the
-# exact same code path Task 8's tests already cover. ───
+# module docstring). /rewrite selects the registry's web-only single-writer
+# mode; async tailoring keeps the default four-role mode. Both enter the same
+# audited coordinator and mandatory authorization/publication gates.
+# /cover-letter also dispatches through the registry. ───
 # ─── Async run bookkeeping for POST /agent/tailor + /agent/cover-letter
 # (Task 10; see agent/runner.py's own module docstring). Imports cleanly
 # without cloud/ present, same as agent.tools above. ───
@@ -453,7 +453,7 @@ class FetchJDRequest(BaseModel):
     """Fetch full job description from a listing URL."""
     url: str = Field(..., description="Job listing URL to scrape")
     job_title: str = Field("", description="Job title hint for AI extraction")
-    use_ai: bool = Field(True, description="Use Claude Haiku to clean/extract JD from raw page text")
+    use_ai: bool = Field(True, description="Use Claude Sonnet 5 to clean/extract JD from raw page text")
 
 
 class JdExtractRequest(BaseModel):
@@ -1078,8 +1078,8 @@ def _agent_key_status() -> Dict[str, Any]:
     and nobody found out until August, because the endpoint that would have
     used it was a 409 stub and nothing else ever touched it.
 
-    So this makes one real request (cheapest model, one output token,
-    a fraction of a cent) the first time it is asked, then caches the answer
+    So this makes one real Sonnet 5 request (one output token) the first time
+    it is asked, then caches the answer
     for the life of the process. A deploy restarts the process, so every
     deploy re-checks. Health checks poll this endpoint every 30s and must
     stay fast, hence the cache.
@@ -1100,8 +1100,9 @@ def _agent_key_status() -> Dict[str, Any]:
             import anthropic
 
             anthropic.Anthropic(api_key=key).messages.create(
-                model="claude-haiku-4-5",
+                model="claude-sonnet-5",
                 max_tokens=1,
+                thinking={"type": "disabled"},
                 messages=[{"role": "user", "content": "ping"}],
             )
             _agent_key_state.update(checked=True, status="ok", detail=None)
@@ -1778,13 +1779,13 @@ def digest_unsubscribe(token: str = ""):
 
 @app.post("/admin/send-digests")
 def admin_send_digests(request: Request, user_id: Optional[int] = None, force: bool = False):
-    """Trigger the weekly digest run (all eligible users, or one for testing)."""
+    """Trigger the overnight scan + morning digest (all users, or one for testing)."""
     _verify_admin_secret(request)
     if not CLOUD_AVAILABLE:
         raise HTTPException(status_code=501, detail="Cloud features not available in local mode.")
-    from cloud.digest import send_weekly_digests
+    from cloud.digest import send_daily_digests
 
-    return send_weekly_digests(only_user_id=user_id, force=force)
+    return send_daily_digests(only_user_id=user_id, force=force)
 
 
 @app.post("/auth/api-key")
@@ -2131,6 +2132,21 @@ _TAILOR_UNAVAILABLE_DETAIL = (
     "We couldn't finish tailoring your resume just now. Please try again in "
     "a few minutes."
 )
+_NO_SAFE_TAILOR_DETAIL = (
+    "We reviewed the job against your resume, but couldn't make a safe "
+    "source-supported change. Your resume was left unchanged. If it is "
+    "missing relevant experience, update it and try again."
+)
+_TAILOR_SAFETY_REJECTED_DETAIL = (
+    "Deterministic safety checks stopped the draft, and your saved resume "
+    "was left unchanged. If it is missing relevant experience, update it "
+    "and try again."
+)
+_JD_FORMAT_DETAIL = (
+    "This job description's formatting couldn't be processed reliably, so "
+    "tailoring stopped rather than guess. Open the original posting, copy "
+    "the full job description, and paste it in — that almost always fixes it."
+)
 
 
 def _friendly_tier_required_detail(feature: str) -> str:
@@ -2152,17 +2168,20 @@ def _safe_agent_scores(ctx: "agent_tools.ToolContext", resume_text: str, jd_text
 @app.post("/rewrite")
 def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
     """
-    Tailor the caller's resume via the audited four-role Resume Team pipeline
-    (agent.tools.run_resume_team) and return it in the legacy REST shape the
-    deployed PWA's Ultra "Rewrite" feature already reads:
+    Tailor the caller's resume through the shared audited coordinator in its
+    web-only single-writer mode: one hosted Writer, deterministic Researcher
+    and Auditor handoffs, no Editor, and the same three authoritative votes,
+    receipt, and readback gates as the default four-role mode. Return the
+    legacy REST shape the deployed PWA's Ultra "Rewrite" feature already reads:
     ``{"rewritten_resume": str, "ats_before", "ats_after", "hr_before",
     "hr_after"}`` (scores are null when unavailable, but ``rewritten_resume``
     is always present on a 200).
 
-    403 for free tier, 402 for an exhausted Pro/Ultra monthly quota, 400 when
-    no resume text is available from either the request or the account, and
-    a 5xx with no internal error codes if the pipeline runs but does not
-    publish a draft.
+    400 for missing inputs, 402 for exhausted quota, 403 for free tier, 409
+    for candidate-fit refusal, and 422 for unprocessable JD or deterministic
+    safety rejection. Authentication/runtime unavailability uses 501/502;
+    capacity refusal remains the existing retryable 429. Internal codes and
+    candidate/resume content are never written to exception logs.
 
     Deliberately a plain ``def``: run_resume_team blocks for minutes on
     synchronous API calls. Declared ``async``, it would run on the event loop
@@ -2226,13 +2245,14 @@ def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
                     ctx,
                     jd_text=jd_text,
                     resume_text=provided_resume or None,
+                    pipeline_mode="single_writer",
                 )
             except QuotaExceeded as exc:
                 raise HTTPException(status_code=402, detail=exc.detail)
             except HTTPException:
                 raise
             except Exception:
-                logging.getLogger("scorer.rewrite").exception(
+                logging.getLogger("scorer.rewrite").error(
                     "rewrite dispatch crashed (user=%s)", user_id
                 )
                 raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
@@ -2242,22 +2262,60 @@ def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
                 logging.getLogger("scorer.rewrite").error(
                     "rewrite run not published (user=%s terminal=%s)", user_id, terminal
                 )
-                # A candidate-fit refusal is deterministic policy, not an
-                # outage: "try again in a few minutes" would be a lie, and the
-                # fit gate has no bypass by design. Tell the user the truth.
+                # A candidate-fit refusal is judged policy, not an outage:
+                # "try again in a few minutes" would be a lie. A reasoning
+                # judge holds the final refusal decision (the deterministic
+                # scanner is advisory), so when its verdict is present the
+                # message is built from its own quoted evidence.
                 if terminal.startswith("REJECTED:CANDIDATE_FIT"):
+                    judge = result.get("candidate_fit_judge_report") or {}
+                    if judge.get("verdict") == "DECLINE":
+                        parts = [
+                            "We reviewed this role against your resume and "
+                            "decided not to tailor for it — the tool never "
+                            "invents experience to close a gap."
+                        ]
+                        rationale = str(judge.get("rationale") or "").strip()
+                        if rationale:
+                            parts.append(rationale)
+                        gaps = judge.get("hard_gaps") or []
+                        quoted = "; ".join(
+                            f"“{str(g.get('requirement_quote', '')).strip()[:120]}”"
+                            f" (you show: {str(g.get('candidate_has', '')).strip()[:80]})"
+                            for g in gaps[:2]
+                            if str(g.get("requirement_quote", "")).strip()
+                        )
+                        if quoted:
+                            parts.append(f"The posting requires: {quoted}.")
+                        parts.append(
+                            "If your saved resume is missing relevant work, "
+                            "update it and try again."
+                        )
+                        raise HTTPException(
+                            status_code=409, detail=" ".join(parts)
+                        )
+                    # No judge verdict was reachable (no key, transport
+                    # failure, or invalid citations) — the deterministic
+                    # rejection stands, clearly labeled as a heuristic.
                     fit = result.get("candidate_fit_report") or {}
                     score = fit.get("score")
                     knockouts = fit.get("hard_knockouts") or []
                     parts = [
-                        "Our fit check found this role is a significant stretch "
-                        "for your resume, so the tailoring pipeline declined to "
-                        "run — it never invents experience to close a gap."
+                        "Our automated fit check couldn't confirm this role "
+                        "is close enough to your resume, so tailoring didn't "
+                        "run — the tool never invents experience to close a "
+                        "gap. This check is a heuristic and can be wrong."
                     ]
                     if isinstance(score, (int, float)):
                         bar = fit.get("threshold")
                         if not isinstance(bar, (int, float)):
-                            bar = candidate_fit_preflight.CANDIDATE_FIT_THRESHOLD
+                            # Local import: keeps the pipeline modules off
+                            # server startup, same as multi_agent_team above.
+                            from candidate_fit_preflight import (
+                                CANDIDATE_FIT_THRESHOLD,
+                            )
+
+                            bar = CANDIDATE_FIT_THRESHOLD
                         parts.append(
                             f"Fit score: {round(score)} (needs {round(bar)})."
                         )
@@ -2270,15 +2328,36 @@ def rewrite_resume_endpoint(req: ScoreRequest, auth=Depends(verify_api_key)):
                             if str(k.get("requirement", "")).strip()
                         )
                         parts.append(
-                            f"Hard requirement not met: {reqs}."
+                            f"Flagged requirement: {reqs}."
                             if reqs
-                            else f"Hard requirements not met: {len(knockouts)}."
+                            else f"Flagged requirements: {len(knockouts)}."
                         )
                     parts.append(
                         "Try a role closer to your experience, or update your "
                         "saved resume if it's missing relevant work."
                     )
                     raise HTTPException(status_code=409, detail=" ".join(parts))
+                # The pipeline anchors every requirement to the posting text;
+                # a description it cannot anchor against (heavily truncated
+                # or oddly formatted board scrapes) is a property of the
+                # input, not a transient outage — "try again in a few
+                # minutes" would be a lie the user disproves in a few
+                # minutes.
+                if terminal == "FAILED:RESEARCH_SCHEMA":
+                    raise HTTPException(
+                        status_code=422,
+                        detail=_JD_FORMAT_DETAIL,
+                    )
+                if terminal == "REJECTED:NO_SAFE_CHANGES":
+                    raise HTTPException(
+                        status_code=422,
+                        detail=_NO_SAFE_TAILOR_DETAIL,
+                    )
+                if terminal.startswith("REJECTED:"):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=_TAILOR_SAFETY_REJECTED_DETAIL,
+                    )
                 raise HTTPException(status_code=502, detail=_TAILOR_UNAVAILABLE_DETAIL)
 
             draft_text = result["draft"]
@@ -2517,18 +2596,24 @@ def _friendly_agent_error(kind: str, error_code: Optional[str] = None) -> str:
     'HUMAN_VOICE_AUDIT_FAILED' and friends name model and pipeline internals
     that mean nothing to an end user.
 
-    But one internal outcome is not an error at all, and hiding it behind the
-    generic copy actively misled people: REJECTED:CANDIDATE_FIT means the
-    deterministic preflight judged the candidate too far from the role. Told
-    'please try again in a few minutes', a user retries and gets the byte-for-
-    byte identical refusal, because nothing about that verdict is transient.
-    They conclude the product is broken rather than learning what it decided.
+    Both the default four-role async path and web-only single-writer route use
+    the shared audited coordinator. ``REJECTED:CANDIDATE_FIT`` is a policy
+    refusal, not a transient failure; synchronous ``/rewrite`` reports it as
+    409, while queue polling receives the corresponding friendly copy here.
 
-    So a fit rejection gets its own honest message. Everything else keeps the
-    generic transient copy, which for those codes is accurate.
+    Researcher schema failures and deterministic safety rejections are 422s
+    on synchronous ``/rewrite`` and receive equally non-transient polling
+    text. Writer/Auditor/Editor infrastructure failures retain generic 5xx
+    wording without internal codes or exception content.
     """
     if error_code and str(error_code).startswith("REJECTED:CANDIDATE_FIT"):
         return _FIT_REJECTED_DETAIL
+    if kind == "tailor" and error_code == "FAILED:RESEARCH_SCHEMA":
+        return _JD_FORMAT_DETAIL
+    if kind == "tailor" and error_code == "REJECTED:NO_SAFE_CHANGES":
+        return _NO_SAFE_TAILOR_DETAIL
+    if kind == "tailor" and error_code and str(error_code).startswith("REJECTED:"):
+        return _TAILOR_SAFETY_REJECTED_DETAIL
     if kind == "cover_letter":
         return _COVER_LETTER_UNAVAILABLE_DETAIL
     return _TAILOR_UNAVAILABLE_DETAIL
@@ -2812,7 +2897,7 @@ def discover_jobs_endpoint(req: JobDiscoverRequest, api_key=Depends(verify_api_k
 
 @app.post("/jobs/fetch-jd")
 def fetch_jd_endpoint(req: FetchJDRequest, api_key=Depends(verify_api_key)):
-    """Scrape full job description from a listing URL. Uses trafilatura + Claude Haiku."""
+    """Scrape full job description from a listing URL. Uses trafilatura + Claude Sonnet 5."""
     try:
         import jd_fetcher
     except ImportError:
@@ -2845,6 +2930,58 @@ def fetch_jd_endpoint(req: FetchJDRequest, api_key=Depends(verify_api_key)):
         "char_count": len(jd_text),
         "raw_char_count": len(raw_text),
     }
+
+
+# =============================================================================
+# JOB PREFERENCES + OVERNIGHT MATCH INBOX
+# =============================================================================
+
+
+class JobPreferencesRequest(BaseModel):
+    titles: List[str] = Field(
+        default_factory=list,
+        description="Up to 5 job titles the overnight scan searches for",
+    )
+    location: str = Field("", description="Preferred location (blank = anywhere)")
+
+
+@app.get("/jobs/preferences")
+def get_job_preferences(auth=Depends(verify_api_key)):
+    """The signed-in user's saved job titles and location for overnight scans."""
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Sign in to save job preferences.")
+    from cloud.digest import get_preferences
+
+    titles, location = get_preferences(user_id)
+    return {"titles": titles, "location": location}
+
+
+@app.put("/jobs/preferences")
+def put_job_preferences(req: JobPreferencesRequest, auth=Depends(verify_api_key)):
+    """Save up to 5 job titles + location; the nightly scan uses them."""
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Sign in to save job preferences.")
+    from cloud.digest import get_preferences, set_preferences
+
+    try:
+        set_preferences(user_id, req.titles, req.location)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    titles, location = get_preferences(user_id)
+    return {"saved": True, "titles": titles, "location": location}
+
+
+@app.get("/jobs/matches")
+def get_job_matches(auth=Depends(verify_api_key)):
+    """Stored overnight matches for the Jobs-page inbox, best/newest first."""
+    user_id = _get_user_id(auth)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Sign in to see your matches.")
+    from cloud.digest import list_matches
+
+    return list_matches(user_id)
 
 
 # =============================================================================
@@ -3368,7 +3505,7 @@ def _career_llm_call(prompt: str) -> str:
     Deliberately a tiny seam of its own: it is the only network call on the
     career path, so tests substitute this function and assert the
     once-per-digest contract instead of mocking the SDK. Reuses llm_scorer's
-    env-override convention (ANTHROPIC_MODEL, ANTHROPIC_API_KEY).
+    API-key convention while keeping the hosted model pinned to Sonnet 5.
     """
     try:
         import anthropic
@@ -3379,9 +3516,9 @@ def _career_llm_call(prompt: str) -> str:
         )
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+        model="claude-sonnet-5",
         max_tokens=8000,
-        temperature=0,
+        thinking={"type": "disabled"},
         messages=[{"role": "user", "content": prompt}],
     )
     return response.content[0].text.strip()

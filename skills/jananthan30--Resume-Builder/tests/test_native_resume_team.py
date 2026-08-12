@@ -131,7 +131,20 @@ def _codex_output_schema_cases():
     """Return model-facing raw payloads and exact contexts for all four roles."""
 
     researcher = researcher_raw()
-    writer = {"draft": PASSING_RESUME, "claim_evidence": []}
+    writer = {
+        "replacements": [
+            {
+                "source_span_text": (
+                    "• Reviewed DSUR and PBRER reports and assessed safety "
+                    "signals under ICH and CIOMS guidance."
+                ),
+                "replacement_text": (
+                    "• Checked DSUR and PBRER reports and assessed safety "
+                    "signals under ICH and CIOMS guidance."
+                ),
+            }
+        ]
+    }
     auditor = {
         "verdict": "PASS",
         "findings": [],
@@ -213,6 +226,38 @@ def test_codex_adapter_supplies_valid_role_specific_output_schema(role):
         with_unexpected_key = dict(raw_payload)
         with_unexpected_key["unexpected"] = True
         assert not validator.is_valid(with_unexpected_key)
+        if role == "writer":
+            replacement = raw_payload["replacements"][0]
+            assert validator.is_valid(
+                {
+                    "replacements": [
+                        {
+                            "source_span_text": replacement["source_span_text"],
+                            "replacement_text": "",
+                        }
+                    ]
+                }
+            )
+            invalid_replacements = [
+                {"source_span_text": replacement["source_span_text"]},
+                {
+                    "source_text": replacement["source_span_text"],
+                    "replacement_text": replacement["replacement_text"],
+                },
+                {
+                    "source_span_text": replacement["source_span_text"],
+                    "replacement_text": 7,
+                },
+                {
+                    "source_span_text": replacement["source_span_text"],
+                    "replacement_text": replacement["replacement_text"],
+                    "unexpected": True,
+                },
+            ]
+            for invalid_replacement in invalid_replacements:
+                assert not validator.is_valid(
+                    {"replacements": [invalid_replacement]}
+                )
         for other_role, (_, other_payload) in cases.items():
             if other_role != role:
                 assert not validator.is_valid(other_payload), (
@@ -259,6 +304,37 @@ def test_codex_adapter_supplies_valid_role_specific_output_schema(role):
     assert observed["schema_path"].parent != ROOT
     assert packet["role"] == role
     assert packet["agent_id"] == f"codex:schema-{role}-session"
+
+
+def test_hosted_writer_contract_keeps_detailed_human_voice_gates():
+    from agent.host_anthropic import _ROLE_CONTRACTS
+
+    contract = _ROLE_CONTRACTS["writer"]
+
+    for required_rule in (
+        "at most 70 words and 3 sentences",
+        "bullets must average at most 24 words",
+        "no bullet may exceed 28 words",
+        "3 or more bullets must have length CV at least 0.25",
+        "spearhead, leverage, utilize",
+        "delve, tapestry, robust",
+        "more than 2 uses of a repeated sentence skeleton",
+        "biomedical/scientific, internal/external, complex/nuanced",
+    ):
+        assert required_rule in contract
+
+
+def test_hosted_writer_contract_keeps_required_resume_structure():
+    from agent.host_anthropic import _ROLE_CONTRACTS
+
+    contract = _ROLE_CONTRACTS["writer"]
+
+    for required_rule in (
+        "non-empty CORE COMPETENCIES",
+        "at least one genuine bullet per canonical role",
+        "Summary is the only optional section",
+    ):
+        assert required_rule in contract
 
 
 def test_codex_adapter_isolated_session_and_actual_thread_id(monkeypatch):
@@ -537,6 +613,8 @@ def _publication_metadata(run_id, case_id, draft, report=None):
         "job_description_digest": canonical_digest(TEST_JOB_DESCRIPTION),
         "candidate_fit_report": fit_report,
         "candidate_fit_report_digest": canonical_digest(fit_report),
+        "candidate_fit_judge_report": None,
+        "candidate_fit_judge_report_digest": "",
         "researcher_agent_id": "codex:researcher-test",
         "researcher_artifact_digest": "b" * 64,
         "auditor_attestation": {
@@ -1568,7 +1646,7 @@ def test_mocked_codex_native_team_end_to_end_publishes_verifiable_receipt(tmp_pa
                 "jd_evidence_spans": [{"evidence_text": requirement}],
             }
         elif role == "writer":
-            raw = {"draft": master.text, "claim_evidence": []}
+            raw = {"replacements": []}
         elif role == "auditor":
             raw = {
                 "verdict": "PASS",

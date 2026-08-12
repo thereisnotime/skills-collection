@@ -21,24 +21,30 @@ identifiers where a column name (never a value) must vary.
 Registry invariant (see tests/test_agent_tools.py): no tool named
 ``writer``/``editor``/``auditor``/``researcher`` exists, and
 ``run_resume_team`` is the only tool whose result can carry resume draft
-text -- it is the sole caller of the audited four-role pipeline
-(``multi_agent_team.run_team``). ``run_cover_letter`` also returns generated
-prose, but cover letters are not resumes and were never gated behind the
-four-role pipeline (see CLAUDE.md); the invariant that matters here is that
-no *resume* text reaches a user except through the fully audited path.
+text -- it is the sole caller of the shared audited coordinator
+(``multi_agent_team.run_team``). The default and async tailoring paths use
+the four hosted roles. The synchronous web ``/rewrite`` route alone selects
+single-writer mode: one hosted Writer plus deterministic Researcher and
+Auditor protocol handoffs, with no Editor. Both modes retain the same three
+authoritative audits, publication receipt, and verified-readback gates.
+``run_cover_letter`` also returns generated prose, but cover letters are not
+resumes and were never gated behind the resume coordinator (see CLAUDE.md).
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 import agent.skills_loader as skills_loader
 import ats_scorer
+import candidate_fit_judge
 import candidate_fit_preflight
 import evidence_audit
 import hr_scorer
@@ -47,7 +53,7 @@ import jd_fetcher
 import llm_scorer
 import multi_agent_team
 import resume_integrity_audit
-from agent.adapter import AnthropicTeamAdapter
+from agent.adapter import AnthropicTeamAdapter, SingleWriterTeamAdapter
 from agent.host_anthropic import AnthropicHost
 
 __all__ = ["ToolContext", "TOOLS", "dispatch", "CloudTrustedServices"]
@@ -317,7 +323,7 @@ def fetch_jd(ctx: ToolContext, url: str, use_ai: bool = True) -> dict:
     """Scrape a job description from a listing URL. Wraps jd_fetcher.
 
     Mirrors the /jobs/fetch-jd endpoint's own two-step shape: scrape, then
-    (only if an API key is configured) let jd_fetcher's own Haiku cleanup
+    (only if an API key is configured) let jd_fetcher's Sonnet 5 cleanup
     strip surrounding page noise -- that helper already no-ops safely (falls
     back to the raw text) when no key is present.
     """
@@ -455,6 +461,64 @@ class CloudTrustedServices:
             case_id=case_id,
             as_of_date=date.today().isoformat(),
         )
+
+    # --- judge_candidate_fit ---------------------------------------------
+    def judge_candidate_fit(
+        self,
+        master_resume: str,
+        job_description: str,
+        run_id: str,
+        case_id: str,
+        deterministic_report: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Live reasoning-judge verdict, consulted only on deterministic
+        rejection.
+
+        The runtime revalidates whatever this returns
+        (validate_candidate_fit_judge_report digest-binds it and verifies
+        every citation), so this seam only has to produce, cache, and log —
+        never to be trusted. Raises on any failure; the runtime then lets
+        the deterministic rejection stand.
+        """
+        from cloud.config import settings as cloud_settings
+
+        cache_dir = (
+            Path(cloud_settings.DB_PATH).resolve().parent / "fit_judge_cache"
+        )
+        try:
+            report = candidate_fit_judge.judge_candidate_fit(
+                master_resume,
+                job_description,
+                run_id=run_id,
+                case_id=case_id,
+                as_of_date=date.today().isoformat(),
+                deterministic_report=deterministic_report,
+                cache_dir=cache_dir,
+            )
+        except Exception:
+            # The runtime treats any raise as "no override exists" and keeps
+            # the deterministic rejection — correct, but it swallows the
+            # exception, so this seam is the only place the operator can see
+            # WHY the judge never ruled (bad model ID, 400, timeout, ...).
+            logging.getLogger("scorer.fit_judge").exception(
+                "fit-judge unavailable run=%s det_score=%s",
+                run_id,
+                (deterministic_report or {}).get("score"),
+            )
+            raise
+        # Every consultation is, by construction, a deterministic rejection —
+        # so each log line is one row of the scanner-vs-judge disagreement
+        # corpus (judge PROCEED = scanner overruled).
+        logging.getLogger("scorer.fit_judge").info(
+            "fit-judge run=%s det_score=%s det_knockouts=%d judge=%s "
+            "judge_score=%s",
+            run_id,
+            (deterministic_report or {}).get("score"),
+            len((deterministic_report or {}).get("hard_knockouts") or []),
+            report.get("verdict"),
+            report.get("fit_score"),
+        )
+        return report
 
     # --- audit_draft: three real, in-process deterministic votes --------
     @staticmethod
@@ -614,6 +678,12 @@ class CloudTrustedServices:
             "job_description_digest": metadata["job_description_digest"],
             "candidate_fit_report": metadata["candidate_fit_report"],
             "candidate_fit_report_digest": metadata["candidate_fit_report_digest"],
+            "candidate_fit_judge_report": metadata.get(
+                "candidate_fit_judge_report"
+            ),
+            "candidate_fit_judge_report_digest": metadata.get(
+                "candidate_fit_judge_report_digest", ""
+            ),
             "researcher_agent_id": metadata["researcher_agent_id"],
             "researcher_artifact_digest": metadata["researcher_artifact_digest"],
             "auditor_attestation": metadata["auditor_attestation"],
@@ -656,6 +726,11 @@ def _default_team_adapter() -> AnthropicTeamAdapter:
     goes through the real AnthropicHost/AnthropicTeamAdapter pair.
     """
     return AnthropicTeamAdapter(host=AnthropicHost())
+
+
+def _default_single_writer_adapter() -> SingleWriterTeamAdapter:
+    """Construct the hosted adapter that calls only the Writer model."""
+    return SingleWriterTeamAdapter(host=AnthropicHost())
 
 
 # Leading list markers: "- ", "* ", "• ", "1. ", "2) ", en/em dashes.
@@ -750,13 +825,56 @@ def _flatten_list_markers(jd_text: str) -> str:
     return "\n".join(flattened)
 
 
+# A sentence boundary strong enough to split on: terminal punctuation
+# followed by whitespace and a capital/numeral start.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?;])\s+(?=[A-Z0-9(\"'])")
+_PROSE_LINE_MIN_CHARS = 200
+
+
+def _split_prose_lines(jd_text: str) -> str:
+    """Break paragraph-blob job descriptions into one sentence per line.
+
+    Job-board scrapes (the descriptions stored on overnight matches) arrive
+    as long prose paragraphs. The pipeline's evidence contract anchors each
+    requirement to ONE COMPLETE line of the source, verified byte-for-byte —
+    a requirement buried mid-paragraph therefore cannot be anchored at all,
+    and every such run dies as FAILED:AGENT_PAYLOAD_SCHEMA ("evidence must
+    use one complete JD line") no matter which model runs the Researcher.
+    Observed live on 2026-08-11 across consecutive runs on two models.
+
+    Same philosophy as _flatten_list_markers above: normalize the source
+    once instead of asking a model to work around it. Only long lines with a
+    real sentence boundary are split; wording and order are untouched, so
+    the requirements a user reads are unchanged. If splitting would create
+    duplicate lines, the text is returned unchanged — the anchor-uniqueness
+    rule matters more, and it fails closed either way.
+    """
+    out: list = []
+    changed = False
+    for line in jd_text.split("\n"):
+        if len(line) >= _PROSE_LINE_MIN_CHARS:
+            parts = [p.strip() for p in _SENTENCE_SPLIT_RE.split(line) if p.strip()]
+            if len(parts) > 1:
+                out.extend(parts)
+                changed = True
+                continue
+        out.append(line)
+    if not changed:
+        return jd_text
+    significant = [line.strip() for line in out if line.strip()]
+    if len(significant) != len(set(significant)):
+        return jd_text
+    return "\n".join(out)
+
+
 def run_resume_team(
     ctx: ToolContext,
     jd_text: str,
     instruction: str | None = None,
     resume_text: str | None = None,
+    pipeline_mode: str = "four_role",
 ) -> dict:
-    """Run the audited four-role Resume Team pipeline and return the draft.
+    """Run the shared audited Resume Team coordinator and return the draft.
 
     THE ONLY tool in this registry whose result can contain resume draft
     text. Checks quota FIRST: a run that never starts (quota exhausted, no
@@ -764,6 +882,11 @@ def run_resume_team(
     "refund". A run that starts but does not reach PUBLISHED is recorded as
     status='failed', which cloud.quotas.month_usage excludes from its count
     -- that exclusion is the entire refund mechanism.
+
+    ``pipeline_mode="four_role"`` is the default used by direct and async
+    tailoring. The web-only ``"single_writer"`` mode calls one hosted Writer,
+    constructs Researcher/Auditor handoffs deterministically, disables Editor,
+    and keeps the coordinator's authoritative votes and publication gates.
 
     ``resume_text``, when a non-empty string, is a ONE-OFF source resume for
     THIS RUN ONLY -- it is used to tailor this draft and is never written to
@@ -780,6 +903,10 @@ def run_resume_team(
     version. Threading a free-text instruction into the Researcher/Writer
     payloads safely is left to a follow-up task.
     """
+    if pipeline_mode not in {"four_role", "single_writer"}:
+        raise ValueError("pipeline_mode must be 'four_role' or 'single_writer'")
+    single_writer = pipeline_mode == "single_writer"
+
     from cloud.quotas import check_quota
 
     # Advisory fast fail: answer an out-of-allowance caller before doing any
@@ -793,7 +920,8 @@ def run_resume_team(
     # was never runnable cannot consume the caller's allowance.
     if not isinstance(jd_text, str) or not jd_text.strip():
         raise ValueError("jd_text must be a non-empty string")
-    jd_text = _flatten_list_markers(jd_text)
+    jd_text = jd_text.replace("\r\n", "\n").replace("\r", "\n")
+    jd_text = _split_prose_lines(_flatten_list_markers(jd_text))
 
     if isinstance(resume_text, str) and resume_text.strip():
         master_resume = resume_text
@@ -825,23 +953,27 @@ def run_resume_team(
         "job_description": jd_text,
         "master_resume": master_resume,
         "output_dir": f"agent://tailor/{ctx.user_id}/{run_id}",
-        "max_editor_attempts": _TAILOR_MAX_EDITOR_ATTEMPTS,
+        "max_editor_attempts": 0 if single_writer else _TAILOR_MAX_EDITOR_ATTEMPTS,
         "role_timeout_seconds": _TAILOR_ROLE_TIMEOUT_SECONDS,
     }
     services = CloudTrustedServices(ctx.conn, ctx.user_id, run_id, case_id, master_resume)
-    adapter = _default_team_adapter()
+    adapter = _default_single_writer_adapter() if single_writer else _default_team_adapter()
 
     try:
         result = multi_agent_team.run_team(request, adapter, services)
-    except Exception as error:  # noqa: BLE001 -- any crash here is a failed run
+    except Exception:  # noqa: BLE001 -- any crash here is a failed run
         _finish_agent_run(
-            ctx.conn, ctx.user_id, run_id, status="failed", error=f"AGENT_CRASH:{error}"
+            ctx.conn, ctx.user_id, run_id, status="failed", error="AGENT_CRASH"
         )
         _record_event(
             ctx.conn,
             ctx.user_id,
             kind="tailor_run_failed",
-            payload={"run_id": run_id, "terminal_class": "AGENT_CRASH"},
+            payload={
+                "run_id": run_id,
+                "terminal_class": "AGENT_CRASH",
+                "pipeline_mode": pipeline_mode,
+            },
         )
         return {"run_id": run_id, "status": "failed", "error": "AGENT_CRASH"}
 
@@ -867,7 +999,11 @@ def run_resume_team(
             ctx.conn,
             ctx.user_id,
             kind="tailor_run_succeeded",
-            payload={"run_id": run_id, "terminal_class": result["terminal_class"]},
+            payload={
+                "run_id": run_id,
+                "terminal_class": result["terminal_class"],
+                "pipeline_mode": pipeline_mode,
+            },
         )
         return {
             "run_id": run_id,
@@ -891,13 +1027,18 @@ def run_resume_team(
         ctx.conn,
         ctx.user_id,
         kind="tailor_run_failed",
-        payload={"run_id": run_id, "terminal_class": terminal_class},
+        payload={
+            "run_id": run_id,
+            "terminal_class": terminal_class,
+            "pipeline_mode": pipeline_mode,
+        },
     )
     return {
         "run_id": run_id,
         "status": "failed",
         "error": terminal_class,
         "candidate_fit_report": result.get("candidate_fit_report"),
+        "candidate_fit_judge_report": result.get("candidate_fit_judge_report"),
     }
 
 
@@ -936,7 +1077,7 @@ def run_cover_letter(
     # Validate and load before claiming a slot (mirrors run_resume_team).
     if not isinstance(jd_text, str) or not jd_text.strip():
         raise ValueError("jd_text must be a non-empty string")
-    jd_text = _flatten_list_markers(jd_text)
+    jd_text = _split_prose_lines(_flatten_list_markers(jd_text))
 
     if isinstance(resume_text, str) and resume_text.strip():
         source_resume_text = resume_text

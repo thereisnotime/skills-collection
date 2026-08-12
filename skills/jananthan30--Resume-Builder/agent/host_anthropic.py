@@ -56,6 +56,8 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any
 
 from multi_agent_team import ROLE_ORDER
@@ -71,35 +73,35 @@ __all__ = [
     "AnthropicHost",
 ]
 
-# Default per-role model routing. These are real, active Anthropic model IDs
-# (verified against the current model catalog) -- not placeholders.
-# Per-role model routing. Matched to what each role actually has to do, not
-# assigned uniformly, because the roles differ enormously in difficulty.
+# Hosted production model policy. Every role uses the same current Sonnet 5
+# model so reliability, rate limits, and behavior do not vary by pipeline stage.
 #
-# The Writer and Editor carry the whole precision burden: one evidence entry
-# per changed line and no others, every anchor copied byte-exactly, each source
-# line used once and gone from the draft, claim and source in the same section,
-# ordered containment, numeric identity. Measured across eleven production
-# runs on Sonnet 4.6, they satisfied any individual rule once told and still
-# missed intermittently -- run 665925eb repaired and completed all four roles,
-# run fcc6dfaa failed both its first attempt and its repair on identical
-# input. That is a capability gap, and a retry only papers over it.
+# The Writer now makes only source-anchored replacement proposals. The
+# coordinator applies them to the immutable master and derives the draft and
+# evidence bookkeeping. The Editor remains responsible for complete-draft
+# claim evidence, including byte-exact anchors and one-use-only source lines.
+# Measured across eleven production runs, the old full-draft Writer contract
+# missed those bookkeeping constraints intermittently -- a
+# capability gap a retry could only paper over.
 #
-# The Researcher extracts and quotes lines from a job description and has been
-# reliable on Haiku since it was given a real contract. The Auditor reproduces
-# a draft verbatim and reports what it finds -- exacting but far narrower than
-# writing. Sonnet 5 is the current Sonnet and no more expensive than the 4.6 it
-# replaces.
+# The Researcher extracts and quotes lines from a job description under the
+# strictest formatting contract in the pipeline (hard-then-soft strings must
+# equal the anchored evidence strings byte-for-byte, one-for-one, in order).
+# A smaller model tier failed on 2026-08-11 when a production JD produced
+# FAILED:AGENT_PAYLOAD_SCHEMA twice in a row ("rubric is not evidence-bound",
+# initial + repair) — the same paraphrase-under-pressure failure class that
+# moved the Writer to the current policy. Sonnet 5 closes that gap. The Auditor
+# reproduces a draft verbatim and reports what it finds -- exacting but far
+# narrower than writing.
 #
-# Cost: about $0.17 -> $0.20 per run at measured token volumes, against $12/mo
-# for ten Pro runs. Roughly 83% margin instead of 86% -- worth paying for a
-# feature that otherwise fails intermittently.
-DEFAULT_MODEL_MAP: dict[str, str] = {
-    "researcher": "claude-haiku-4-5",
-    "writer": "claude-opus-5",
-    "auditor": "claude-sonnet-5",
-    "editor": "claude-opus-5",
-}
+DEFAULT_MODEL_MAP: Mapping[str, str] = MappingProxyType(
+    {
+        "researcher": "claude-sonnet-5",
+        "writer": "claude-sonnet-5",
+        "auditor": "claude-sonnet-5",
+        "editor": "claude-sonnet-5",
+    }
+)
 
 DEFAULT_MAX_INPUT_TOKENS = 120_000
 DEFAULT_MAX_OUTPUT_TOKENS = 25_000
@@ -118,6 +120,25 @@ _API_RETRY_BACKOFF_SECONDS = (1.0, 4.0)
 # SDK's own defaults (600s, 2 retries) do not give us.
 _API_REQUEST_TIMEOUT_SECONDS = 120.0
 _SDK_MAX_RETRIES = 1
+
+
+def _provider_error_diagnostic(error: BaseException, attempts: int) -> str:
+    """Return useful provider metadata without logging the exception message."""
+
+    error_type = type(error).__name__
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", error_type) is None:
+        error_type = "UnknownProviderError"
+    status = getattr(error, "status_code", None)
+    status_text = str(status) if isinstance(status, int) else "unknown"
+    request_id = getattr(error, "request_id", None)
+    if not isinstance(request_id, str) or re.fullmatch(
+        r"[A-Za-z0-9_.:-]{1,128}", request_id
+    ) is None:
+        request_id = "unknown"
+    return (
+        f"error_type={error_type} status={status_text} "
+        f"request_id={request_id} attempts={attempts}"
+    )
 
 
 def _is_retryable_api_error(error: BaseException) -> bool:
@@ -296,13 +317,23 @@ def _first_text_block(response: Any) -> str:
     content = getattr(response, "content", None)
     if content is None and isinstance(response, dict):
         content = response.get("content")
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason is None and isinstance(response, dict):
+        stop_reason = response.get("stop_reason")
     if not isinstance(content, list):
-        raise HostRefusal("Anthropic response has no content blocks")
+        raise HostRefusal(
+            "Anthropic response has no content blocks "
+            f"(stop_reason={stop_reason or 'unknown'} content_blocks=none)"
+        )
 
+    content_block_types: list[str] = []
     for block in content:
         block_type = getattr(block, "type", None)
         if block_type is None and isinstance(block, dict):
             block_type = block.get("type")
+        content_block_types.append(
+            block_type if isinstance(block_type, str) else "unknown"
+        )
         if block_type != "text":
             continue
         text = getattr(block, "text", None)
@@ -311,7 +342,11 @@ def _first_text_block(response: Any) -> str:
         if isinstance(text, str):
             return text
 
-    raise HostRefusal("Anthropic response contained no text block")
+    raise HostRefusal(
+        "Anthropic response contained no text block "
+        f"(stop_reason={stop_reason or 'unknown'} "
+        f"content_blocks={','.join(content_block_types) or 'none'})"
+    )
 
 
 def _usage_tokens(response: Any) -> tuple[int, int]:
@@ -383,59 +418,62 @@ _ROLE_CONTRACTS: dict[str, str] = {
     ),
     "writer": (
         "You are the Writer. You receive a master resume and a validated "
-        "requirement rubric. Produce one complete tailored resume draft that "
-        "reuses only facts already present in the master resume.\n\n"
-        "Return exactly these two top-level keys and no others:\n"
-        '  "draft": string  (the complete resume, plain text)\n'
-        '  "claim_evidence": [{"claim_text": string, '
-        '"source_span_text": string}, ...]\n\n'
-        "CHANGE AS FEW LINES AS POSSIBLE. Every line you change must be "
-        "justified below, one entry each, so a small, surgical edit succeeds "
-        "where a full rewrite fails. Concentrate changes in the professional "
-        "summary and core-competencies lines; leave experience bullets alone "
-        "unless a rubric requirement genuinely needs one reworded.\n\n"
+        "requirement rubric. Propose only safe source-anchored replacement "
+        "operations; the coordinator derives the full tailored draft.\n\n"
+        "Return exactly one top-level key and no others:\n"
+        '  "replacements": [\n'
+        "    {\n"
+        '      "source_span_text": string,\n'
+        '      "replacement_text": string\n'
+        "    }, ...\n"
+        "  ]\n\n"
+        "Return replacements only, never a complete draft. source_span_text is one\n"
+        "exact, uniquely occurring, complete non-separator line copied byte-for-byte\n"
+        "from the master resume. replacement_text is either one safe single line or\n"
+        "the empty string to blank an optional source line. Use each source line at\n"
+        "most once. Do not emit unchanged replacements. Return [] when no supported\n"
+        "change is needed. The coordinator resolves every anchor against the immutable\n"
+        "master, applies all replacements in source order, and derives the full draft,\n"
+        "evidence offsets, and digests.\n\n"
         "Rules, all enforced:\n"
-        "- Never invent employers, titles, dates, degrees, certifications, "
-        "publications, or metrics. Reframe existing wording only.\n"
-        "- Keep job titles, company names, and dates byte-identical to the "
-        "master resume.\n"
-        "- claim_evidence must cover the lines you changed EXACTLY: one entry "
-        "for every changed line, and no entry for any line you left alone. "
-        "Not a sample, not the interesting ones -- all of them and only them. "
-        "A missing or extra entry fails the whole run.\n"
-        '- "claim_text" is your new draft line, copied exactly and occurring '
-        "exactly once in the draft.\n"
-        '- "source_span_text" is the ONE COMPLETE LINE of the master resume '
-        "that line replaces, copied exactly. Because you rewrote it, that "
-        "original line must NOT still appear anywhere in your draft.\n"
-        "- Each master-resume line may back at most one claim.\n"
-        "- ADD, DO NOT REWRITE. Start from the original line and insert the "
-        "job description's terms into it. Every word of the original must "
-        "still be there, in its original order. Deleting or replacing any of "
-        "the original wording is rejected, however much better the new "
-        "sentence reads.\n"
-        "  Original:  Combines clinical judgment with ICH-GCP knowledge\n"
-        "  Good:      Combines clinical judgment with ICH-GCP and "
-        "pharmacovigilance knowledge\n"
-        "  REJECTED:  Brings early-phase oncology experience from a global "
-        "CRO   (the original words are gone)\n"
-        "- STAY IN THE SAME SECTION. A changed line must be paired with the "
-        "line it replaces in that same part of the resume:\n"
-        "    * a summary line's source is the ORIGINAL SUMMARY line;\n"
-        "    * a core-competencies line's source is the ORIGINAL "
-        "COMPETENCIES line;\n"
-        "    * an experience bullet's source is a bullet under THE SAME job.\n"
-        "  Never source a summary or competencies line from an experience "
-        "bullet, and never source a bullet in one job from a bullet in "
-        "another job. Both of those are rejected as UNSUPPORTED_CLAIM even "
-        "when the facts are true.\n"
-        "- The claim must be supported by its source line -- same facts, "
-        "reworded. Do not pair a claim with an unrelated source line.\n"
-        "- Copy both texts with any leading bullet or marker intact "
-        '("• ", "- "); stripping them is rejected.\n'
-        "- Do not reorder or duplicate experience between roles.\n"
-        "- Before answering, count your changed lines and count your "
-        "claim_evidence entries. They must be the same number."
+        "- Never invent or strengthen experience, employers, titles, dates, "
+        "degrees, certifications, publications, metrics, skills, or claims. "
+        "Keep protected canonical facts byte-identical.\n"
+        "- Keep a non-empty CORE COMPETENCIES section and at least one genuine "
+        "bullet per canonical role. Summary is the only optional section; do "
+        "not blank any other section.\n"
+        "- Make minimal additive one-line changes only when the source supports "
+        "them. Preserve human voice: use plain language, avoid AI-cliche "
+        "phrasing and keyword stuffing.\n"
+        "- A retained summary must be at most 70 words and 3 sentences. "
+        "Experience bullets must average at most 24 words, no bullet may "
+        "exceed 28 words, and 3 or more bullets must have length CV at least "
+        "0.25.\n"
+        "- Do not open bullets with spearhead, leverage, utilize, facilitate, "
+        "ensure, demonstrate, collaborate, streamline, champion, foster, "
+        "harness, navigate, liaise, interface, orchestrate, pioneer, "
+        "revolutionize, architect, empower, elevate, unlock, or synergize in "
+        "any inflection.\n"
+        "- Do not use these banned terms: delve, tapestry, robust, seamless, "
+        "multifaceted, holistic, synergy, cutting-edge, best-in-class, "
+        "world-class, game-changing, transformative, paradigm, ecosystem, "
+        "stakeholder alignment, cross-functional synergy, results-driven, "
+        "detail-oriented, self-starter, team player, proven track record, "
+        "passionate about, excited to, moreover, furthermore, in conclusion, "
+        "in summary, it's not just, it is not just, not only ... but also, "
+        "leverage my, leverage your, delve into, in today's fast-paced, in "
+        "this ever-evolving, at the end of the day, moving forward, circle "
+        "back, or deep dive, including listed spelling variants.\n"
+        "- Avoid formulaic summary openers, more than 2 uses of a repeated "
+        "sentence skeleton or multi-word bullet phrase, and the padding pairs "
+        "biomedical/scientific, internal/external, complex/nuanced, "
+        "strategic/tactical, clinical/scientific, diverse/multidisciplinary, "
+        "and cross-functional/multidisciplinary. Do not evade these gates by "
+        "changing protected facts.\n"
+        "- Never return claim evidence, offsets, hashes, line numbers, a full "
+        "draft, unchanged replacements, or any extra key.\n"
+        "- You have no tools or authority to write files, audit, authorize, "
+        "publish, update a tracker, use credentials, or make network calls."
     ),
     "auditor": (
         "You are the Auditor. You receive the exact writer draft and the "
@@ -515,7 +553,7 @@ class AnthropicHost:
 
     def __init__(
         self,
-        model_map: dict[str, str] | None = None,
+        model_map: Mapping[str, str] | None = None,
         budget: TokenBudget | None = None,
         client: Any = None,
     ) -> None:
@@ -525,9 +563,17 @@ class AnthropicHost:
         missing = [role for role in ROLE_ORDER if role not in resolved_map]
         if missing:
             raise ValueError(f"model_map is missing roles: {missing}")
-        self.model_map = resolved_map
+        if any(model != "claude-sonnet-5" for model in resolved_map.values()):
+            raise ValueError("all hosted resume-team roles must use Claude Sonnet 5")
+        self._model_map = MappingProxyType(resolved_map)
         self.budget = budget if budget is not None else TokenBudget()
         self._client = client
+
+    @property
+    def model_map(self) -> Mapping[str, str]:
+        """Return the validated, read-only role-to-model policy."""
+
+        return self._model_map
 
     def _ensure_client(self) -> Any:
         """Return the injected client, or lazily construct the real one.
@@ -560,25 +606,38 @@ class AnthropicHost:
         re-sending cannot fix (see :func:`_is_retryable_api_error`) stops the
         loop immediately and raises the same way.
         """
+        if model != "claude-sonnet-5":
+            raise HostRefusal("hosted model policy violation")
         client = self._ensure_client()
         last_error: Exception | None = None
+        attempts_made = 0
         for attempt in range(_MAX_API_ATTEMPTS):
             try:
+                request: dict[str, Any] = {
+                    "model": model,
+                    "max_tokens": _MAX_TOKENS_PER_CALL,
+                    "system": system,
+                    "messages": messages,
+                }
+                # Sonnet 5 defaults to adaptive thinking. These roles need
+                # bounded strict JSON, and thinking can otherwise consume the
+                # entire cap before a text block is emitted.
+                request["thinking"] = {"type": "disabled"}
                 return client.messages.create(
-                    model=model,
-                    max_tokens=_MAX_TOKENS_PER_CALL,
-                    system=system,
-                    messages=messages,
+                    **request,
                 )
             except Exception as error:  # noqa: BLE001 - classified by _is_retryable_api_error
                 last_error = error
+                attempts_made = attempt + 1
                 if not _is_retryable_api_error(error):
                     break
                 if attempt < _MAX_API_ATTEMPTS - 1:
                     time.sleep(_API_RETRY_BACKOFF_SECONDS[attempt])
+        assert last_error is not None
         raise HostRefusal(
-            f"Anthropic API call failed after {_MAX_API_ATTEMPTS} attempts: {last_error}"
-        )
+            "Anthropic API call failed "
+            f"({_provider_error_diagnostic(last_error, attempts_made)})"
+        ) from last_error
 
     def run_role(
         self,
@@ -620,6 +679,8 @@ class AnthropicHost:
             raise BudgetExceeded("token budget already exhausted; refusing to call")
 
         model = self.model_map[role]
+        if model != "claude-sonnet-5":
+            raise HostRefusal("hosted model policy violation")
         system = _default_system_prompt(role)
         payload_text = json.dumps(payload, sort_keys=True, ensure_ascii=True)
         messages: list[dict[str, Any]] = [{"role": "user", "content": payload_text}]
@@ -636,9 +697,9 @@ class AnthropicHost:
             )
 
         response = self._call_once(model=model, system=system, messages=messages)
-        text = _first_text_block(response)
         in_tokens, out_tokens = _usage_tokens(response)
         self.budget.add(in_tokens, out_tokens)
+        text = _first_text_block(response)
 
         try:
             return _extract_json_object(text)
@@ -650,9 +711,9 @@ class AnthropicHost:
             {"role": "user", "content": _REPAIR_INSTRUCTION},
         ]
         response = self._call_once(model=model, system=system, messages=repair_messages)
-        text = _first_text_block(response)
         in_tokens, out_tokens = _usage_tokens(response)
         self.budget.add(in_tokens, out_tokens)
+        text = _first_text_block(response)
 
         try:
             return _extract_json_object(text)
