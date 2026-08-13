@@ -32219,6 +32219,55 @@ if _result.get('error'):
 # this is a thin dispatcher, mirroring how cmd_proof delegates to the proof
 # generator. Generation is incremental (skips when the codebase is unchanged).
 # =============================================================================
+# loki outcomes canary: installed access to the complete local canary workflow.
+#
+# Keep this as a thin dispatcher. Each Python tool retains its own explicit
+# opt-in gate, input validation, privacy contract, writes (where applicable),
+# and exit codes. Resolving from the installed Loki root makes the workflow
+# usable from any current directory without copying repository-relative paths.
+cmd_canary() {
+    local subcommand="${1:-}"
+    local tool_name=""
+    local tools_dir="${_LOKI_SCRIPT_DIR}/../tools"
+
+    case "$subcommand" in
+        plan)     tool_name="outcome-canary.py" ;;
+        record)   tool_name="outcome-canary-observe.py" ;;
+        evaluate) tool_name="outcome-canary-evaluate.py" ;;
+        receipt)  tool_name="outcome-canary-receipt.py" ;;
+        verify)   tool_name="outcome-canary-receipt-verify.py" ;;
+        --help|-h|help|"")
+            echo -e "${BOLD}loki outcomes canary${NC} - run the local outcome-routing canary workflow"
+            echo ""
+            echo "Usage: loki outcomes canary <command> [options]"
+            echo ""
+            echo "Commands:"
+            echo "  plan       Plan a deterministic reversible canary assignment"
+            echo "  record     Record one explicitly consented local observation"
+            echo "  evaluate   Produce an aggregate PROMOTE, HOLD, or ROLLBACK verdict"
+            echo "  receipt    Create one portable immutable decision receipt"
+            echo "  verify     Independently verify a receipt against current evidence"
+            echo ""
+            echo "Every mutating or decision-producing step remains explicitly opt-in."
+            echo "Run 'loki outcomes canary <command> --help' for its exact arguments."
+            return 0
+            ;;
+        *)
+            echo "loki outcomes canary: unknown command: $subcommand" >&2
+            echo "Run 'loki outcomes canary --help' for usage." >&2
+            return 64
+            ;;
+    esac
+
+    shift
+    local tool="${tools_dir}/${tool_name}"
+    if [ ! -f "$tool" ]; then
+        echo "loki outcomes canary: installed tool is unavailable: $tool_name" >&2
+        return 2
+    fi
+    python3 "$tool" "$@"
+}
+
 # loki outcomes: what happened to the work AFTER the receipt was written.
 #
 # Every competing agent reports VOLUME. Factory AI's analytics expose files
@@ -32233,6 +32282,11 @@ if _result.get('error'):
 # feature. See autonomy/lib/outcome_ledger.py for the anchor gate and the
 # measured evidence behind it.
 cmd_outcomes() {
+    if [ "${1:-}" = "canary" ]; then
+        shift
+        cmd_canary "$@"
+        return $?
+    fi
     local lib="${_LOKI_SCRIPT_DIR}/lib/outcome_ledger.py"
     if [ ! -f "$lib" ]; then
         echo "outcome ledger is not installed at $lib" >&2
@@ -32243,6 +32297,7 @@ cmd_outcomes() {
             echo -e "${BOLD}loki outcomes${NC} - did the work turn out to be RIGHT, not just that it happened"
             echo ""
             echo "Usage: loki outcomes [--json] [--run-id <id>]"
+            echo "       loki outcomes canary <command> [options]"
             echo ""
             echo "Follows each Evidence Receipt past the moment it was written and"
             echo "reports, from local git only: was it reverted, did its lines survive,"
@@ -32251,6 +32306,9 @@ cmd_outcomes() {
             echo "A receipt is measured ONLY when sha algebra proves base..head is that"
             echo "change. Everything else reads UNKNOWN with a named reason -- never 0,"
             echo "never a pass. Read-only: it never writes to the repo it analyses."
+            echo ""
+            echo "'loki outcomes canary' runs the local plan, record, evaluate, receipt,"
+            echo "and verify workflow; each step retains its explicit opt-in gate."
             return 0
             ;;
     esac

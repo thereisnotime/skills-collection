@@ -5,10 +5,12 @@ Verifies the invariants that have historically drifted:
   1. Every skill in skills/ is registered in .claude-plugin/marketplace.json (and vice versa).
   2. Every skill has a SKILL.md with valid frontmatter (name matching the directory,
      a non-empty description of sane length).
-  3. Versions agree across pyproject.toml, scientific_writer/__init__.py, and marketplace.json.
+  3. Versions agree across pyproject.toml, scientific_writer/__init__.py, marketplace.json,
+     and the Agent Plugins manifest plugin.json.
 
 Mirror synchronization (skills/ vs the two .claude copies) is checked separately by
-`python scripts/sync_skills.py --check`.
+`python scripts/sync_skills.py --check`, and Agent Plugins conformance by
+`python scripts/validate_agent_plugin.py`.
 """
 
 import json
@@ -19,9 +21,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO_ROOT / "skills"
 MARKETPLACE = REPO_ROOT / ".claude-plugin" / "marketplace.json"
+PLUGIN_MANIFEST = REPO_ROOT / "plugin.json"
 
-# document-skills is a bundle whose sub-directories are the actual skills
-SKILL_BUNDLE_DIRS = {"document-skills"}
 MAX_DESCRIPTION_LENGTH = 1024
 
 
@@ -62,32 +63,27 @@ def check_marketplace_coverage() -> list[str]:
 def check_skill_frontmatter() -> list[str]:
     problems = []
     for skill_dir in sorted(d for d in SKILLS_DIR.iterdir() if d.is_dir()):
-        if skill_dir.name in SKILL_BUNDLE_DIRS:
-            targets = sorted(d for d in skill_dir.iterdir() if d.is_dir())
-        else:
-            targets = [skill_dir]
-        for target in targets:
-            skill_md = target / "SKILL.md"
-            rel = skill_md.relative_to(REPO_ROOT)
-            if not skill_md.exists():
-                problems.append(f"missing SKILL.md: {rel}")
-                continue
-            fields = parse_frontmatter(skill_md)
-            if not fields:
-                problems.append(f"missing or unparsable frontmatter: {rel}")
-                continue
-            name = fields.get("name", "")
-            if name != target.name:
-                problems.append(
-                    f"frontmatter name {name!r} does not match directory {target.name!r}: {rel}"
-                )
-            description = fields.get("description", "")
-            if not description:
-                problems.append(f"missing description in frontmatter: {rel}")
-            elif len(description) > MAX_DESCRIPTION_LENGTH:
-                problems.append(
-                    f"description too long ({len(description)} > {MAX_DESCRIPTION_LENGTH} chars): {rel}"
-                )
+        skill_md = skill_dir / "SKILL.md"
+        rel = skill_md.relative_to(REPO_ROOT)
+        if not skill_md.exists():
+            problems.append(f"missing SKILL.md: {rel}")
+            continue
+        fields = parse_frontmatter(skill_md)
+        if not fields:
+            problems.append(f"missing or unparsable frontmatter: {rel}")
+            continue
+        name = fields.get("name", "")
+        if name != skill_dir.name:
+            problems.append(
+                f"frontmatter name {name!r} does not match directory {skill_dir.name!r}: {rel}"
+            )
+        description = fields.get("description", "")
+        if not description:
+            problems.append(f"missing description in frontmatter: {rel}")
+        elif len(description) > MAX_DESCRIPTION_LENGTH:
+            problems.append(
+                f"description too long ({len(description)} > {MAX_DESCRIPTION_LENGTH} chars): {rel}"
+            )
     return problems
 
 
@@ -110,8 +106,12 @@ def check_version_alignment() -> list[str]:
     if marketplace_version:
         versions[".claude-plugin/marketplace.json"] = marketplace_version
 
-    if len(versions) < 3:
-        problems.append(f"could not read all three version declarations (found: {versions})")
+    manifest_version = json.loads(PLUGIN_MANIFEST.read_text()).get("version")
+    if manifest_version:
+        versions["plugin.json"] = manifest_version
+
+    if len(versions) < 4:
+        problems.append(f"could not read all four version declarations (found: {versions})")
     elif len(set(versions.values())) != 1:
         problems.append(f"version mismatch: {versions}")
     return problems

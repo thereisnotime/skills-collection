@@ -4,6 +4,63 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.25.0] — 2026-08-12
+
+### Added
+
+- **`Actually` is now a cut-first hollow intensifier.** When it only adds
+  emphasis ("this actually makes the process simpler"), delete it rather than
+  swapping in another word. Keep it when it carries a named correction or
+  expectation gap, though a direct contrast may still be clearer.
+- **The deterministic detector deliberately stays unchanged.** A regex cannot
+  distinguish filler from ordinary corrective prose ("we expected a cache hit;
+  it was actually a miss") without false positives, so this remains an
+  LLM-judgment rule under the repo's precision-over-recall policy. The catalog
+  stays at 62 categories, the engine at 48 `type`s, and the word table at 112.
+
+---
+
+## [3.24.0] — 2026-08-07
+
+### Added
+
+- **Unnecessary hyphenation is now a P2 copyedit with deterministic detector
+  coverage (#107).** The rule handles three bounded subclasses: welded open
+  noun phrases (`research-impact aggregator` → `research impact aggregator`),
+  compounds with an established closed form (`code-base` → `codebase`), and
+  attributive compounds used adverbially (`in real-time` → `in real time`,
+  while `real-time analytics` stays unchanged). The catalog goes from 61 to 62
+  categories and the engine from 47 to 48 `type`s.
+- **Protected spans and legitimate compounds stay out of the detector.** It
+  masks fenced and inline code, quotes, Markdown blockquotes, URLs, paths,
+  filenames, command flags, identifiers, version strings, YAML metadata,
+  Markdown tables, and HTML attributes. Fixtures preserve `high-quality`,
+  `family-owned`, `third-party`, `real-time dashboard`, `long-term plan`, and
+  `out-of-the-box support`.
+- **The general grammar call remains editorial judgment.** Open-ended compound
+  detection would flag ordinary technical writing, so the engine uses a curated
+  list and reports suggestions instead of rewriting text. The optional `-ly`
+  adverb cleanup discussed in #107 is deliberately absent from this release;
+  the issue agreement allowed it to ship later as opt-out style cleanup rather
+  than as an AI tell.
+
+### Changed
+
+- **Hyphenated-pair overuse is now named hyphenated modifier stacking.** Its
+  signal is the density of otherwise valid compounds, not the correctness of
+  each hyphen. Incorrect but deterministic forms belong to the new rule.
+- **P2 hyphenation copyedits do not contribute to the AI score.** They remain
+  visible as editing suggestions without changing the label, class
+  probabilities, or trinary classification in short documents.
+
+### Fixed
+
+- **Path and filename masking remains linear on adversarial input.** Bounded
+  path components remove the superlinear backtracking exposed by long kebab
+  identifiers, with a timing regression fixture covering the failure shape.
+
+---
+
 ## [3.23.1] — 2026-08-05
 
 ### Fixed

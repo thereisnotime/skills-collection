@@ -5,6 +5,31 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.22.2
+
+### Added
+
+- **Installed end-to-end outcome canary workflow:** self-hosted operators can
+  now run `loki outcomes canary {plan,record,evaluate,receipt,verify}` from any
+  directory. Consented observations, decisions, and portable receipts remain
+  bound to exact local evidence and preserve fail-closed, no-write refusals.
+
+### Fixed
+
+- **Registry package completeness:** the public package now includes the
+  observation recorder, decision-receipt issuer, independent receipt verifier,
+  dispatcher, and documentation shipped after v9.22.1 was published.
+
+## v9.22.1
+
+### Fixed
+
+- **Portable, privacy-safe canary evaluation results:** machine-readable
+  evaluations no longer include local report or observation pathnames. The
+  evaluator now accepts only named regular input files, refusing symlinks,
+  directories, devices, and other path indirection while continuing to bind
+  the exact report, source, and observation bytes by SHA-256.
+
 ## v9.22.0
 
 Source-bound measurement closes the outcome-routing canary loop without

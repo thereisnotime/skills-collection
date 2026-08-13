@@ -1,7 +1,7 @@
 ---
 name: avoid-ai-writing
 description: Audit and rewrite content to remove AI writing patterns ("AI-isms"). Use this skill when asked to "remove AI-isms," "clean up AI writing," "edit writing for AI patterns," "audit writing for AI tells," or "make this sound less like AI." Supports a detect-only mode, an edit-in-place mode for files, an optional voice profile (casual / professional / technical / warm / blunt), and an iterate-to-convergence pass.
-version: 3.23.1
+version: 3.25.0
 license: MIT
 compatibility: Any AI coding assistant that supports agentskills.io SKILL.md format (Claude Code, Cursor, VS Code Copilot, Hermes Agent, OpenHands, etc.) or OpenClaw. No external tools or APIs required.
 metadata:
@@ -77,7 +77,7 @@ In **edit** mode, your job is to:
 
 ### Sentence structure
 - **"It's not X — it's Y" / "This isn't about X, it's about Y"**: Rewrite as a direct positive statement. Max one per piece, and only if it serves the argument. This includes the **split-sentence form**, where the negation and the correction fall in two separate sentences rather than pivoting on a single dash or comma: "The headline isn't the speed. The real story is Y." Read on its own, each sentence looks like an innocent declarative, which is exactly why the split version slips past a check tuned to the joined phrasing — flag it the same way. AI also stacks the negation across several options before the reveal ("It's not the price. It's not the features. It's the trust."). The multi-negation countdown is the same move inflated; flag it and cut straight to the positive claim. The **tailing negation** is the clipped cousin: a bare negation fragment tacked onto the end of a sentence — "The options come from the selected item, no guessing." Write the constraint as a real clause ("without forcing the user to guess") or cut it. Carve-out: negations enumerating spec constraints in a list ("no dependencies, no telemetry") are list content, not a reveal. Adapted from `blader/humanizer` P9.
-- **Hollow intensifiers**: Cut `genuine` / `genuinely`, `real` (as in "a real improvement"), `truly`, `quite frankly`, `to be honest`, `let's be clear`, `it's worth noting that`. Just state the fact.
+- **Hollow intensifiers**: Cut `genuine` / `genuinely`, `real` (as in "a real improvement"), `truly`, `quite frankly`, `to be honest`, `let's be clear`, `it's worth noting that`, and `actually` when it only adds emphasis. The default fix for `actually` is deletion, not substitution: "This actually makes the process simpler" becomes "This makes the process simpler." Keep it when it marks a specific correction or expectation gap the sentence names ("we expected a cache hit; it was actually a miss"), though a direct contrast may still be clearer ("it was a miss, not a hit"). Just state the fact.
 - **Vague endorsement ("worth [verb]ing")**: Cut or replace `worth reading`, `worth paying attention to`, `worth a look`, `worth exploring`, `worth checking out`, `worth your time`. These substitute a generic thumbs-up for a specific reason. Say *why* something matters instead.
 - **Hedging**: Cut `perhaps`, `could potentially`, `it's important to note that`, `to be clear`. Make the point directly.
 - **Missing bridge sentences**: Each paragraph should connect to the last. If paragraphs could be rearranged without the reader noticing, add connective tissue.
@@ -401,8 +401,15 @@ These slot-fill constructions signal that a sentence was generated, not written.
 ### Title case headings
 - AI over-capitalizes headings: "Strategic Negotiations And Key Partnerships" instead of "Strategic negotiations and key partnerships." Use sentence case for subheadings. Title case only for the piece's main title, if at all.
 
-### Hyphenated-pair overuse
-- AI stacks compound modifiers: "a high-quality, well-architected, future-proof solution." Two distinct problems. First, density — strings of hyphenated adjectives piled on one noun; cut to the modifier that actually matters. Second, the attributive/predicate error: a compound is hyphenated *before* the noun ("a high-quality report") but not *after* a linking verb ("the report is high quality," no hyphen). AI frequently hyphenates the predicate form; fix it to two words. Adapted from `blader/humanizer` P26.
+### Hyphenated modifier stacking
+- AI stacks compound modifiers: "a high-quality, well-architected, future-proof solution." The individual hyphens may be correct; the tell is the density. Cut to the modifier that matters. Adapted from `blader/humanizer` P26.
+
+### Unnecessary hyphenation
+- Check welded open noun phrases: "research-impact aggregator" becomes "research impact aggregator," "data-source strategy" becomes "data source strategy," and "Python-package usage" becomes "Python package usage."
+- Close compounds whose standard form is one word: "code-base," "data-set," "time-frame," and "road-map" become "codebase," "dataset," "timeframe," and "roadmap."
+- Remove attributive hyphens when the phrase is used adverbially or as a noun: "in real-time" becomes "in real time" and "works out-of-the-box" becomes "works out of the box." Keep the same compounds before a noun: "real-time analytics," "long-term plan," and "out-of-the-box support."
+- Preserve established and technical compounds such as "high-quality," "open-access," "third-party," "machine-readable," "server-side," "field-normalized," and "family-owned." Spelling varies by dialect and house style, so ambiguous pairs are judgment calls rather than automatic rewrites.
+- Treat a clear hit as P2 copyediting, not evidence of machine authorship. The deterministic detector uses a curated list and excludes code, quoted material, URLs, paths, filenames, and command flags. General attributive-versus-predicate cases stay judgment-only.
 
 ### Cutoff disclaimers
 - "While specific details are limited based on available information," "As of my last update," "I don't have access to real-time data." These are model limitations leaking into prose. Either find the information or remove the hedge. Never publish a sentence that admits the writer didn't look something up.
@@ -609,6 +616,7 @@ Not all AI-isms are equal. When doing a quick pass or triaging a large document,
 - Transition phrases (Moreover, Furthermore, Additionally)
 - Hashtag stuffing (`blog`/`technical-blog` profiles)
 - Tier 3 phrase repetition (single phrase ≥2× — fine in isolation, suspect in stacks)
+- Unnecessary hyphenation (curated open, closed, and position-dependent compounds)
 
 Use P0+P1 for quick passes. Full audit covers all three tiers.
 

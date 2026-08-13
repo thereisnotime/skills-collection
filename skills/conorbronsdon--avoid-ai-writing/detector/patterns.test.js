@@ -355,6 +355,252 @@ test('"load-bearing" (metaphor) flags tier1; construction nouns exempt', () => {
   }
 });
 
+test('#107: deterministic unnecessary hyphenation subclasses fire with fixes', () => {
+  const cases = [
+    ['The team built a research-impact aggregator for the annual reporting workflow.', 'research-impact aggregator', 'research impact aggregator'],
+    ['The report summarizes two research-impact aggregations from the external evaluation teams.', 'research-impact aggregations', 'research impact aggregations'],
+    ['We agreed on a data-source strategy before rebuilding the ingestion pipeline.', 'data-source strategy', 'data source strategy'],
+    ['The guide compares Python-package usage across the supported deployment environments.', 'Python-package usage', 'Python package usage'],
+    ['The guide also compares Rust-crate usage across the supported deployment environments.', 'Rust-crate usage', 'Rust crate usage'],
+    ['The repository keeps a single-Project Manifest for every supported deployment environment.', 'single-Project Manifest', 'single Project Manifest'],
+    ['The audit records a total-downloads figure for every published package each month.', 'total-downloads figure', 'total downloads figure'],
+    ['The dashboard reports a life-sciences-native citation count beside each indexed article.', 'life-sciences-native citation count', 'citation count from a life sciences source'],
+    ['The old code-base still powers the internal dashboard used by the support team.', 'code-base', 'codebase'],
+    ['- Migration note\n    The old code-base remains available while customers finish moving their applications.', 'code-base', 'codebase'],
+    ['The old data-set still feeds the internal dashboard used by the support team.', 'data-set', 'dataset'],
+    ['The published time-frame leaves enough room for another review before launch.', 'time-frame', 'timeframe'],
+    ['The product road-map lists every migration milestone planned for the next quarter.', 'road-map', 'roadmap'],
+    ['The service refreshes the dashboard in real-time, even during the nightly import.', 'in real-time', 'in real time'],
+    ['The service refreshes the dashboard in real-time every day during the nightly import.', 'in real-time', 'in real time'],
+    ['The service refreshes the dashboard in real-time continuously during the nightly import.', 'in real-time', 'in real time'],
+    ['The service refreshes the dashboard in real-time as new records arrive for processing.', 'in real-time', 'in real time'],
+    ['The service refreshes the dashboard in real-time via the existing event stream.', 'in real-time', 'in real time'],
+    ['The current release works out-of-the-box on every operating system we support.', 'works out-of-the-box', 'works out of the box'],
+    ['That shortcut creates maintenance problems over the long-term, despite its early convenience.', 'over the long-term', 'over the long term'],
+    ['That shortcut creates maintenance problems over the long-term across every department.', 'over the long-term', 'over the long term'],
+    ['That shortcut creates maintenance problems over the long-term through deferred upgrades.', 'over the long-term', 'over the long term'],
+    ['The team plans to keep this compatibility layer for the long-term by design.', 'for the long-term', 'for the long term'],
+  ];
+
+  for (const [text, matched, suggestion] of cases) {
+    const result = AIDetector.analyzeText(text);
+    const hits = result.issues.filter((issue) => issue.type === 'unnecessary-hyphenation');
+    assert.equal(hits.length, 1, `expected one unnecessary-hyphenation hit: ${text}`);
+    assert.equal(hits[0].text, matched, `unexpected matched text: ${text}`);
+    assert.equal(hits[0].suggestion, suggestion, `unexpected suggestion: ${text}`);
+    assert.equal(hits[0].severity, 'medium', `hyphenation cleanup should be P2: ${text}`);
+  }
+});
+
+test('#107: standard compound modifiers and open forms do not fire', () => {
+  const clean = [
+    'The team ships high-quality reports through a well-tested release process every week.',
+    'The highly-skilled editor reviewed the draft before the scheduled publication date.',
+    'A family-owned consultancy maintains the third-party integration for our regional offices.',
+    'The real-time dashboard shows a field-normalized score from the open-access dataset.',
+    'The service publishes changes in real-time monthly reports for each customer account.',
+    'The service publishes changes in real-time supply chain analytics for each customer.',
+    'The long-term plan includes out-of-the-box support for server-side rendering.',
+    'The system improved over the long-term planning horizon measured by the research team.',
+    'The report compares results in real-time and historical dashboards for each customer.',
+    'The report compares performance over the long-term and short-term planning horizons.',
+    'The codebase stores each dataset and roadmap in the same project workspace.',
+    'We agreed on a data source strategy before rebuilding the ingestion pipeline.',
+  ];
+
+  for (const text of clean) {
+    const result = AIDetector.analyzeText(text);
+    const hits = result.issues.filter((issue) => issue.type === 'unnecessary-hyphenation');
+    assert.equal(hits.length, 0, `legitimate compound should stay clean: ${text}`);
+  }
+});
+
+test('#107: protected spans are excluded from unnecessary-hyphenation detection', () => {
+  const text = [
+    'The docs mention `data-source strategy` only as a literal compatibility key.',
+    'The file lives at docs/code-base/notes.md beside the archived code-base.md document.',
+    'The Windows copy lives at C:\\docs\\code-base\\notes.md for legacy users.',
+    'The Windows fixture directory is C:\\fixtures\\code-base for legacy users.',
+    'Run the command with --code-base before starting the local service.',
+    'Run the command with -code-base before starting the local service.',
+    'The migration guide says "the old code-base remains available" for legacy users.',
+    "The migration guide calls this 'the old code-base' for legacy users.",
+    "The migration guide calls this 'the user's old code-base remains available' for legacy users.",
+    'The migration guide calls this ‘the old code-base’ for legacy users.',
+    `The migration guide says "${'word '.repeat(120)}the old code-base remains available" for legacy users.`,
+    'See https://example.com/guides/code-base for the archived implementation notes.',
+    'The archived exports are named code-base.csv and code-base.go for legacy users.',
+    '> The old code-base remains available to teams migrating legacy applications.',
+    '```text',
+    'Python-package usage and works out-of-the-box are fixture strings here.',
+    '```',
+    '',
+    '    The old code-base remains in this top-level indented code block.',
+  ].join('\n');
+
+  const result = AIDetector.analyzeText(text);
+  const hits = result.issues.filter((issue) => issue.type === 'unnecessary-hyphenation');
+  assert.equal(hits.length, 0, `protected text should not fire: ${JSON.stringify(hits)}`);
+});
+
+test('#107: proper nouns, identifiers, and version strings stay protected', () => {
+  const protectedForms = [
+    'Code-Base Enterprise publishes its quarterly release notes for customers today.',
+    'Road-Map Analytics shared its annual report with the engineering group today.',
+    'Research-Impact Aggregator Enterprise shared its annual report with customers today.',
+    'Data-Source Strategy Analytics shared its annual report with customers today.',
+    'The CODE-BASE heading is a product label used by the documentation team.',
+    'Install the code-base package before running the local development server today.',
+    'Use the .code-base selector when styling the legacy navigation component today.',
+    'The code-base config key remains supported for older deployment manifests today.',
+    'The current package release is code-base@2.4.1 for supported production systems.',
+    'The migration still targets code-base-v2 across all supported production systems.',
+    'The deployment identifier code-base remains supported across production systems today.',
+    'The filename is code-base, which the migration script still recognizes for compatibility.',
+    'The folder named road-map remains available to older deployment scripts today.',
+    'The release notes quote "the old\ncode-base remains available" for compatibility.',
+    "The release notes quote 'the old\ncode-base remains available' for compatibility.",
+    'See https://example.com/guides/(code-base) for the archived implementation notes today.',
+  ];
+
+  for (const text of protectedForms) {
+    const hits = AIDetector.analyzeText(text).issues.filter((issue) => issue.type === 'unnecessary-hyphenation');
+    assert.equal(hits.length, 0, `proper noun or identifier should stay protected: ${text}`);
+  }
+
+  const prose = AIDetector.analyzeText(
+    'The old code-base still powers the internal dashboard used by the support team.'
+  );
+  assert.equal(
+    prose.issues.filter((issue) => issue.type === 'unnecessary-hyphenation').length,
+    1,
+    'ordinary lowercase prose must still fire'
+  );
+
+  const keyAsAdjective = AIDetector.analyzeText(
+    'The key code-base migration remains unfinished while the support team reviews it.'
+  );
+  assert.equal(
+    keyAsAdjective.issues.filter((issue) => issue.type === 'unnecessary-hyphenation').length,
+    1,
+    'an adjectival "key" must not be mistaken for an identifier cue'
+  );
+});
+
+test('#107: punctuation-adjacent flags and single-component paths stay protected', () => {
+  const protectedForms = [
+    'Use (--code-base) when starting the local compatibility service for older clients.',
+    'Pass ,--code-base when starting the local compatibility service for older clients.',
+    'Use [--code-base] when documenting the local compatibility service for older clients.',
+    'Set mode=--code-base when starting the local compatibility service for older clients.',
+    'The Windows file lives at C:\\code-base for users of the legacy client.',
+    'The portable file lives at C:/code-base for users of the legacy client.',
+    'The home-directory file lives at ~/code-base for users of the legacy client.',
+    'The root-level file lives at /code-base for users of the legacy client.',
+    'The generated output is copied into code-base/ during every local release build.',
+    'The relative file lives at ./code-base for users of the legacy client.',
+    'The parent-relative file lives at ../code-base for users of the legacy client.',
+    `The generated file lives at /${'a'.repeat(65)}-code-base for users of the legacy client.`,
+    `The generated Windows file lives at C:\\${'a'.repeat(65)}-code-base for legacy users.`,
+  ];
+
+  for (const text of protectedForms) {
+    const hits = AIDetector.analyzeText(text).issues.filter((issue) => issue.type === 'unnecessary-hyphenation');
+    assert.equal(hits.length, 0, `flag or path should stay protected: ${text}`);
+  }
+
+  const prose = AIDetector.analyzeText(
+    'Outside those literal paths, the old code-base remains ordinary prose and needs editing.'
+  );
+  assert.equal(
+    prose.issues.filter((issue) => issue.type === 'unnecessary-hyphenation').length,
+    1,
+    'nearby prose must still fire'
+  );
+});
+
+test('#107: frontmatter, YAML, Markdown tables, and HTML attributes stay protected', () => {
+  const text = [
+    '---',
+    'title: Code-base migration notes',
+    'tags:',
+    '  - code-base',
+    '---',
+    '',
+    'release-name: code-base',
+    'legacy-tags:',
+    '  - road-map',
+    '',
+    '| Setting | Legacy value |',
+    '| --- | --- |',
+    '| package | code-base |',
+    '',
+    '<div data-package=code-base class=road-map>Rendered content remains ordinary prose here.</div>',
+  ].join('\n');
+
+  const hits = AIDetector.analyzeText(text).issues.filter((issue) => issue.type === 'unnecessary-hyphenation');
+  assert.equal(hits.length, 0, `metadata should stay protected: ${JSON.stringify(hits)}`);
+
+  const prose = AIDetector.analyzeText(
+    'After the metadata, the old code-base remains ordinary prose and needs editing today.'
+  );
+  assert.equal(
+    prose.issues.filter((issue) => issue.type === 'unnecessary-hyphenation').length,
+    1,
+    'ordinary prose outside metadata must still fire'
+  );
+
+  const labelledProse = AIDetector.analyzeText(
+    'Note: the old code-base remains ordinary prose and still needs editing before publication.'
+  );
+  assert.equal(
+    labelledProse.issues.filter((issue) => issue.type === 'unnecessary-hyphenation').length,
+    1,
+    'a capitalized prose label must not be mistaken for unfenced YAML'
+  );
+});
+
+test('#107: adversarial filename masking remains within a linear-time budget', () => {
+  const attacks = [
+    `${'a-'.repeat(3000)}a`,
+    `${'segment/'.repeat(1000)}`,
+  ];
+  for (const attack of attacks) {
+    const text = `The generated identifier below has no filename extension and must remain safe to scan. ${attack}`;
+    const started = performance.now();
+    AIDetector.analyzeText(text);
+    const elapsedMs = performance.now() - started;
+    assert.ok(elapsedMs < 1000, `adversarial mask scan took ${elapsedMs.toFixed(1)}ms`);
+  }
+});
+
+test('#107: long closed quotations are masked without a length cutoff', () => {
+  const text = `The release notes quote "${'word '.repeat(3600)}the old code-base remains available" for compatibility.`;
+  const hits = AIDetector.analyzeText(text).issues.filter((issue) => issue.type === 'unnecessary-hyphenation');
+  assert.equal(hits.length, 0, 'quoted material must stay protected below the analyzer word limit');
+});
+
+test('#107: copyedit-only findings do not affect score or trinary classification', () => {
+  const clean = 'The team reviewed the release notes before publishing them to customers. Everyone checked the examples, links, headings, and migration steps before the final approval meeting.';
+  const copyedits = 'The code-base and data-set updates follow the time-frame in the road-map. The service runs in real-time, works out-of-the-box, and remains supported over the long-term for every customer.';
+  const baseline = AIDetector.analyzeText(clean);
+  const result = AIDetector.analyzeText(copyedits);
+
+  assert.ok(
+    result.issues.filter((issue) => issue.type === 'unnecessary-hyphenation').length >= 7,
+    'fixture must contain enough distinct copyedits to exercise the short-document threshold'
+  );
+  assert.equal(result.score, baseline.score, 'copyedit-only issues must not change the AI score');
+  assert.equal(result.label, baseline.label, 'copyedit-only issues must not change the AI label');
+  assert.equal(result.document_classification, baseline.document_classification);
+  assert.deepEqual(result.class_probabilities, baseline.class_probabilities);
+  assert.deepEqual(
+    result.highlight_sentence_for_ai,
+    [],
+    'copyedit-only issues must not create AI-highlight regions'
+  );
+});
+
 test('"verbatim" is Tier 3: single use stays clean, overuse flags by density', () => {
   // Tier 3 words fire only at density (max(3, 3% of words)), so a lone
   // "verbatim" — including the legal/QA term-of-art use — never flags, and the

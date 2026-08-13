@@ -147,6 +147,10 @@ describe("ce-plan output:html mode", () => {
       /# plan_output: html|commented examples|shipped config template/i.test(phaseRegion),
       "Phase 0.0 must cite the specific failure mode (the shipped template's commented `# plan_output: html` example) so the rationale survives future edits.",
     ).toBe(true)
+    expect(
+      /ordinary-key|next layer|config\.local\.yaml then `config\.yaml`/i.test(phaseRegion),
+      "Phase 0.0 config step must cascade local then tracked before the skill default.",
+    ).toBe(true)
   })
 
   test("unknown-value fallback note reflects final resolved mode, not a hardcoded md", () => {
@@ -270,6 +274,23 @@ describe("ce-plan output:html mode", () => {
     expect(
       /no .{0,3}status.{0,3} field|carry .{0,6}no .{0,12}status/i.test(body),
       "plan-sections.md must state plans carry NO status field.",
+    ).toBe(true)
+
+    // The field-name rules below had no mechanical guard, and a real artifact
+    // shipped with `created:` instead of `date:` and a `feat:` prefix in the
+    // title. These are greppable contract text, so pin them here rather than
+    // scanning docs/plans/ (which legacy artifacts would fail).
+    expect(
+      body.includes("`date` to `created`"),
+      "plan-sections.md must name `date` -> `created` as a breaking rename — an artifact shipped with `created:` and downstream consumers key on `date`.",
+    ).toBe(true)
+    expect(
+      body.includes("` - Plan` suffix"),
+      "plan-sections.md must require the ` - Plan` title suffix — artifacts have shipped without it.",
+    ).toBe(true)
+    expect(
+      /conventional-commit prefix/i.test(body),
+      "plan-sections.md must prohibit a conventional-commit prefix in `title` — the `type` field carries that classification.",
     ).toBe(true)
   })
 
