@@ -4313,13 +4313,16 @@ def _start_supervised_workspace_build(
         supervisor_log = _build_execution.execution_dir(execution_id) / "supervisor.log"
         try:
             with _build_execution.open_private_log(supervisor_log) as log_handle:
+                # sys.executable and the module name are fixed; validated build
+                # fields remain argv data and never reach a command shell.
                 process = subprocess.Popen(
-                    supervisor_args,
+                    supervisor_args,  # lgtm[py/command-line-injection]
                     stdout=log_handle,
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
                     cwd=str(skill_dir),
                     env=popen_env,
+                    shell=False,
                 )
         except (OSError, subprocess.SubprocessError) as exc:
             finished_at = _build_execution.utc_now()
@@ -4582,13 +4585,16 @@ async def start_build(request: Request, body: StartBuildRequest):
     args.append("--bg")
     args.append(str(spec_file))
     try:
+        # run_sh is a trusted fixed path; provider and spec were validated, and
+        # the argv vector is executed directly without shell interpretation.
         process = subprocess.Popen(
-            args,
+            args,  # lgtm[py/command-line-injection]
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
             cwd=str(project_dir),
             env=popen_env,
+            shell=False,
         )
     except (OSError, subprocess.SubprocessError) as e:
         raise HTTPException(status_code=500, detail=f"Failed to start build: {e}")

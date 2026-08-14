@@ -3,17 +3,18 @@ name: Security Audit
 # Runs `npm audit` (and `bun audit` if available) on every PR and weekly.
 # Fails the workflow on high or critical vulnerabilities.
 #
-# Also runs `pip-audit` over every Python requirements file and `gitleaks` over
-# the working tree. Both are REPORTING ONLY today -- see the posture note on the
-# python-audit job for the measured baseline that forced that choice, and for
-# the promotion path to blocking.
+# Also runs `pip-audit` over every Python requirements file, `gitleaks` over the
+# working tree, and CodeQL SAST over the Python and JavaScript/TypeScript source
+# surfaces. Python dependencies, secrets, and sub-critical SAST remain
+# REPORTING ONLY today -- see each job's posture note for its measured baseline
+# or promotion path. CodeQL findings with a security severity of 9.0 or greater
+# fail the workflow after the first exact-SHA critical baseline was triaged.
 #
-# SCOPE NOTE (deliberate omission): this workflow adds NO SAST -- no CodeQL, no
-# semgrep, no bandit. That is a scoping decision, not an oversight. SAST across
-# a 32k-line bash CLI plus Python plus TypeScript produces a large finding set
-# whose triage cost lands on whoever is next, and a noisy gate everyone learns
-# to ignore is worse than no gate. Dependency and secret scanning were taken
-# first because they are deterministic and have no false-positive tax.
+# SAST SCOPE: CodeQL does not support Bash, so this job does not imply coverage
+# of the 32k-line shell CLI. It does cover the shipped Python dashboard/runtime
+# and JavaScript/TypeScript CLI/dashboard surfaces. Saying that boundary here is
+# load-bearing: a green CodeQL job is evidence those supported languages were
+# analyzed, never evidence that every executable byte in this repository was.
 
 on:
   pull_request:
@@ -35,6 +36,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -280,6 +282,148 @@ jobs:
         with:
           name: gitleaks-report
           path: /tmp/gitleaks-report.json
+          if-no-files-found: error
+
+  sast:
+    name: CodeQL SAST (${{ matrix.language }}, critical-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # CodeQL's language identifier deliberately combines JavaScript and
+        # TypeScript. Python is a separate database. Bash is unsupported and is
+        # explicitly excluded in the workflow header rather than silently
+        # treated as covered.
+        language: [javascript-typescript, python]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        # Pinned to the commit behind codeql-action v3 on 2026-08-13. A moving
+        # major tag can change query behavior without a repository commit and
+        # make a measured baseline incomparable to its successor.
+        uses: github/codeql-action/init@f3712979fa5f215279b101dd0a2e3bdfb4353324
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Analyze supported source
+        id: analyze
+        # Analysis/upload failures block. Findings below the critical threshold
+        # still report in code scanning and retained SARIF; the separately
+        # measured gate below rejects security-severity >= 9.0 after all seven
+        # first-baseline critical candidates received reviewed dispositions.
+        uses: github/codeql-action/analyze@f3712979fa5f215279b101dd0a2e3bdfb4353324
+        with:
+          category: /language:${{ matrix.language }}
+          output: /tmp/codeql-results
+          upload: always
+
+      - name: Assert CodeQL SARIF and reject unreviewed critical findings
+        # FAIL CLOSED ON THE ARTIFACT. A completed action without a retained,
+        # parseable result is not evidence that analysis happened. Validate the
+        # action-provided output path rather than assuming a generated filename.
+        env:
+          SARIF_OUTPUT: ${{ steps.analyze.outputs.sarif-output }}
+        run: |
+          set -euo pipefail
+          test -n "$SARIF_OUTPUT"
+          test -d "$SARIF_OUTPUT"
+          python3 - "$SARIF_OUTPUT" <<'PY'
+          import glob
+          import json
+          import os
+          import sys
+
+          root = sys.argv[1]
+          reports = sorted(glob.glob(os.path.join(root, "**", "*.sarif"), recursive=True))
+          if not reports:
+              raise SystemExit("FAIL: CodeQL produced no SARIF report")
+          # These exact identities are the seven first-baseline findings reviewed
+          # in 09184232. They remain visible in SARIF/code scanning. The blocking
+          # decision accepts only the same rule, path, and stable source-line
+          # fingerprint, so moving to a different sink or changing the sink line
+          # creates an unreviewed critical finding and fails closed.
+          reviewed_critical = {
+              ("py/command-line-injection", "api-examples/python-api.py", "d3e00d2bc3c0077d:1"),
+              ("py/command-line-injection", "dashboard/api_releases.py", "9f905b10583ce31a:1"),
+              ("py/command-line-injection", "dashboard/control.py", "1cd558210b41452d:1"),
+              ("py/command-line-injection", "dashboard/server.py", "74cce5fbedefb794:1"),
+              ("py/command-line-injection", "dashboard/server.py", "1cd558210b41452d:1"),
+              ("py/command-line-injection", "web-app/server.py", "2b985af458631366:1"),
+              ("py/command-line-injection", "web-app/server.py", "97626c01411ab378:1"),
+          }
+          seen_critical = set()
+          reviewed = []
+          unreviewed = []
+          for report in reports:
+              with open(report, encoding="utf-8") as handle:
+                  payload = json.load(handle)
+              if payload.get("version") != "2.1.0" or not isinstance(payload.get("runs"), list):
+                  raise SystemExit(f"FAIL: invalid SARIF structure: {report}")
+              for run in payload["runs"]:
+                  tool = run.get("tool") or {}
+                  rules = []
+                  rules.extend(((tool.get("driver") or {}).get("rules") or []))
+                  for extension in tool.get("extensions") or []:
+                      rules.extend(extension.get("rules") or [])
+                  severities = {}
+                  for rule in rules:
+                      raw = (rule.get("properties") or {}).get("security-severity")
+                      try:
+                          severities[rule.get("id")] = float(raw)
+                      except (TypeError, ValueError):
+                          continue
+                  for result in run.get("results") or []:
+                      rule_id = result.get("ruleId")
+                      severity = severities.get(rule_id, 0.0)
+                      if severity < 9.0:
+                          continue
+                      location = ((result.get("locations") or [{}])[0].get("physicalLocation") or {})
+                      artifact = (location.get("artifactLocation") or {}).get("uri", "unknown")
+                      line = (location.get("region") or {}).get("startLine", "?")
+                      fingerprint = (result.get("partialFingerprints") or {}).get(
+                          "primaryLocationLineHash"
+                      )
+                      identity = (rule_id, artifact, fingerprint)
+                      finding = (rule_id, severity, artifact, line, fingerprint)
+                      if identity in seen_critical:
+                          unreviewed.append(finding)
+                          continue
+                      seen_critical.add(identity)
+                      if identity in reviewed_critical:
+                          reviewed.append(finding)
+                      else:
+                          unreviewed.append(finding)
+          print(f"validated {len(reports)} CodeQL SARIF report(s)")
+          for rule_id, severity, artifact, line, fingerprint in reviewed:
+              print(
+                  f"REVIEWED CRITICAL: {rule_id} severity={severity:g} "
+                  f"at {artifact}:{line} fingerprint={fingerprint}"
+              )
+          if unreviewed:
+              for rule_id, severity, artifact, line, fingerprint in unreviewed:
+                  print(
+                      f"UNREVIEWED CRITICAL: {rule_id} severity={severity:g} "
+                      f"at {artifact}:{line} fingerprint={fingerprint}"
+                  )
+              raise SystemExit(
+                  f"FAIL: CodeQL reported {len(unreviewed)} unreviewed or duplicate "
+                  "finding(s) at security-severity >= 9.0"
+              )
+          print(
+              "CodeQL critical gate clean "
+              f"({len(reviewed)} exact reviewed finding(s), 0 unreviewed)"
+          )
+          PY
+
+      - name: Retain CodeQL SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sarif-${{ matrix.language }}
+          path: /tmp/codeql-results/
           if-no-files-found: error
 
   bun-audit:

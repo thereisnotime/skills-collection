@@ -495,14 +495,17 @@ async def start_session(request: StartRequest):
 
     try:
         # Start the process
+        # RUN_SH is a trusted fixed path; provider and PRD were validated above,
+        # and argv is passed directly without a command shell.
         process = subprocess.Popen(
-            args,
+            args,  # lgtm[py/command-line-injection]
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
             # A deleted cwd would make Popen itself raise; fall back to the
             # skill tree rather than failing to launch the run at all.
-            cwd=str(_cwd_or_skill_dir())
+            cwd=str(_cwd_or_skill_dir()),
+            shell=False,
         )
 
         # Save provider for status tracking

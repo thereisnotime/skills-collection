@@ -3,6 +3,80 @@
 Schema files for cross-skill contracts: reviewer sprint contracts, Material Passport
 ports, and (v3.6.7+) cross-model audit artifact pipelines.
 
+## PDF read-integrity and optional content advisory (#512 follow-up)
+
+- `pdf/pdf_read_preflight.schema.json` accepts the unchanged legacy structural sidecar
+  or the all-or-nothing opt-in content extension. In that extension, `verdict` is
+  explicitly `verdict_scope: STRUCTURE_ONLY`; `OCR_RECOMMENDED` never rewrites that
+  structural value into a content claim. The schema binds the legacy shape to tool
+  version 1.0.0 and the extension shape to 1.1.0.
+- `pdf/pdf_content_classifier_worker.schema.json` closes the stdout of the fixed
+  isolated worker to two classifications, three unavailable reasons, finite bounded
+  confidence, and bounded non-negative page indexes. Runtime additionally binds every
+  page to the structural page count.
+- `pdf/pdf_content_classifier_diagnostic.schema.json` is the separate POSIX-only,
+  local mode-`0600` operator artifact. Platforms without `fchmod` reject its CLI
+  option before path creation. Its explicitly untrusted detail is capped and never
+  copied into or referenced by the sidecar. File-writing CLI invocations use
+  conservative NFC/casefold keys, path resolution, and existing-inode checks to reject
+  aliases before worker launch; the stdout-only legacy path adds no such precondition.
+  POSIX sidecar output pre-binds the parent dirfd/inode, then uses a private `0700`
+  fixed-name staging directory and anchored dirfd-relative publication. Open-inode
+  checks reject staging entry swaps; atomic final-entry replacement does not follow
+  post-check links. Non-POSIX output fails closed; stdout classification remains
+  available. The diagnostic parent is likewise dirfd-bound before the worker. These are
+  instantaneous inode postconditions, not a general same-UID sandbox; callers control
+  the output parent. A failed diagnostic unlinks only the no-follow leaf still matching
+  its created fd inode, preserving the primary error and any attacker replacement while
+  keeping its exclusive path retryable.
+
+Runtime: `scripts/pdf_read_preflight.py` and
+`scripts/pdf_content_classifier_worker.py`. Frozen opt-in scope and residual risk:
+`docs/design/2026-08-13-512-pdf-content-classification-sandbox-spec.md`.
+
+## Claim-standing candidate ledger (#655 Track A)
+
+- `claim_standing/query_plan.schema.json` (`claim-standing-query-plan/1.0`)
+  binds one exact high-impact checkpoint claim, at most three accepted queries,
+  at most four discovery-index identities, filters, authorized content class,
+  frozen caps, and retrieval-only consent through a closed consentable-plan
+  projection.
+- `claim_standing/retrieval_input.schema.json`
+  (`claim-standing-retrieval-input/1.0`) carries already-retained,
+  adapter-neutral attempts, closed retry-authorization receipts, raw hits,
+  explicit version relations, and caller-supplied relevance success/failure
+  evidence bound to exact claim/candidate inputs and canonical prompt bytes.
+- `claim_standing/candidate_ledger.schema.json`
+  (`claim-standing-candidate-ledger/1.0`) preserves every attempt and raw-hit
+terminal state while recording deterministic work-family selection.
+
+Provider retention disclosure is also closed: `known` requires a non-empty
+reference and `unknown` requires null.
+
+The schema-level `\\S` checks are portable first screens. The runtime applies a
+single NFKC visible-semantic-text predicate to the claim/query, disclosure,
+identity, available-abstract, successful-assessment, and failure-detail
+surfaces; it rejects surrogates and text made only of Unicode control/format,
+separator, combining, whitespace, or punctuation characters. Failed malformed
+assessment raw output remains exact evidence and may itself be whitespace- or
+format-only. DOI text is stable identity only when strict NFKC/prefix-trimmed
+`10.<4-9 digits>/<suffix>` validation succeeds.
+
+The pure local finalizer is
+`scripts/build_claim_standing_candidate_ledger.py`; the authoritative boundary
+is `shared/references/claim_standing_candidate_ledger_protocol.md`. This slice
+has no discovery adapter, network/model call, stance classification, rendering,
+evidence-row extension, pipeline hook, or held-out dispatch. It is an offline
+substrate only, remains unmeasured, and does not close #655.
+Its CLI never creates an output for a `session_only` plan. `build --output`
+requires the existing, hash-bound `explicit_local_export` consent state; there
+is no command-line override. Authorized output must exactly match the
+hash-bound absolute `authorized_output_path`, is exclusive/no-follow where the host
+supports it, mode `0600` from creation, file- and directory-fsynced, and
+truthfully carries the consented persistence/export/path state at the ledger root
+and in each work family's sharing scope. Its separate rights basis remains
+`not_assessed`; local persistence consent is not a rights claim.
+
 ## Codex subscription citation transport (#630)
 
 - `cross_model/codex_citation_request.schema.json` — closed, bounded data-only

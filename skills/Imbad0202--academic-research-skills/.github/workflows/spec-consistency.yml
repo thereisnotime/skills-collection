@@ -74,6 +74,9 @@ jobs:
           PYTHONPATH: .
         run: python3 scripts/run_ci_pytest_manifest.py
 
+      - name: Check claim-standing candidate-ledger integration (#655)
+        run: python3 scripts/check_claim_standing_candidate_ledger_integration.py
+
       - name: Check PREPRINT_VENUES list consistency (#105)
         run: python3 scripts/check_preprint_venues_consistency.py
 
@@ -101,6 +104,16 @@ jobs:
         # provider, web, tool, or structural enforcement claim; the mutation and
         # scoring tests run through the pytest manifest above.
         run: python3 scripts/run_indirect_prompt_injection_probe.py validate-assets
+
+      - name: Validate role-topology utility dry-run assets (#582)
+        # Design/seed validation only: no provider, model, tool, judge, or dispatch.
+        run: python3 scripts/run_role_topology_utility_dry_run.py validate-assets
+
+      - name: Check indirect prompt-injection no-call envelope (#675 Phase 2)
+        # AST-only exact module/symbol/attribute/call allowlist. It rejects
+        # aliases, module escapes, provider/network/process capabilities, and any
+        # CLI beyond the five offline envelope commands.
+        run: python3 scripts/check_indirect_prompt_injection_no_call.py
 
       - name: Check task_type declarations
         env:

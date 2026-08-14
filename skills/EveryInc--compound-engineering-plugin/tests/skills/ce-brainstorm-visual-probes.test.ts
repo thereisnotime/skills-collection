@@ -34,6 +34,39 @@ describe("ce-brainstorm visual probes", () => {
     ).toBe(true)
   })
 
+  test("Interaction Rules offer ce-prototype on unravel cost, not a phase gate", () => {
+    const rulesStart = SKILL_BODY.indexOf("## Interaction Rules")
+    const rulesEnd = SKILL_BODY.indexOf("## Artifact Root")
+    expect(rulesStart).toBeGreaterThan(-1)
+    expect(rulesEnd).toBeGreaterThan(rulesStart)
+    const rules = SKILL_BODY.slice(rulesStart, rulesEnd)
+
+    expect(rules).toContain("ce-prototype")
+    expect(
+      /expensive to unravel|later planning and implementation will treat as given/i.test(rules),
+      "The prototype offer must key off decision impact / unravel cost, not UI-ness.",
+    ).toBe(true)
+    expect(
+      /not at a fixed phase|when you recognize that bar/i.test(rules),
+      "The prototype offer must be judgment-timed, not pinned to a phase.",
+    ).toBe(true)
+    expect(
+      /routine UI|known button|standard control/i.test(rules),
+      "The prototype offer must skip routine existing-pattern UI.",
+    ).toBe(true)
+    expect(
+      /cheap[^.]{0,60}sketch[^.]{0,60}settle|sketch[^.]{0,40}cannot settle/i.test(rules),
+      "Interaction Rule 7 owns this skill's routing test and must state it in full: the decision is expensive to unravel AND a cheap sketch cannot settle it. Every other routing site in ce-brainstorm cites this rule, so dropping the sketch half here leaves them citing an incomplete test.",
+    ).toBe(true)
+    expect(
+      /unravel cost is a precondition|cheap to reverse[^.]{0,60}(does not|doesn't) escalate|(does not|doesn't) escalate[^.]{0,60}cheap to reverse/i.test(
+        rules,
+      ),
+      "Unravel cost must read as a precondition, not decoration: a cheap-to-reverse decision does not escalate to ce-prototype however visual it is. Without that clause, widening the rule to visual decisions turns every styling choice into a prototype offer.",
+    ).toBe(true)
+    expect(rules).not.toMatch(/Phase 1\.3 `ce-prototype`/)
+  })
+
   test("SKILL.md exposes visual tripwires before the visual-probes reference is loaded", () => {
     const scopeStart = SKILL_BODY.indexOf("#### 0.3 Assess Scope")
     const dialogueStart = SKILL_BODY.indexOf("#### 1.3 Collaborative Dialogue")
@@ -138,7 +171,7 @@ describe("ce-brainstorm visual probes", () => {
       "visual probes must tell agents to resolve the helper from the loaded skill directory, not from the project CWD.",
     ).toBe(true)
     expect(
-      body.includes('node "$SKILL_DIR/scripts/visual-probe-server.js"'),
+      body.includes('node "$SKILL_DIR/scripts/light-webserver.js"'),
       "visual probes should invoke the helper via the SKILL_DIR anchor (the repo's Tier-3 executed-command convention), not a vague resolved-path placeholder.",
     ).toBe(true)
     expect(

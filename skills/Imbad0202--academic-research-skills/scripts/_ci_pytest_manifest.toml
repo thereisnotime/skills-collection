@@ -221,6 +221,30 @@ id = "675-indirect-injection-behavior-probe"
 path = "scripts/test_indirect_prompt_injection_behavior_probe.py"
 
 [[pytest]]
+id = "675-indirect-injection-no-call-envelope"
+path = "scripts/test_run_indirect_prompt_injection_no_call.py"
+
+[[pytest]]
+id = "659-within-session-ideation-diversity-assets"
+path = "scripts/test_validate_ideation_diversity_assets.py"
+
+[[pytest]]
+id = "582-role-topology-utility-dry-run"
+path = "scripts/test_run_role_topology_utility_dry_run.py"
+
+[[pytest]]
+id = "659-within-session-ideation-diversity-no-call-envelope"
+path = "scripts/test_run_ideation_diversity_no_call.py"
+
+[[pytest]]
+id = "659-within-session-ideation-diversity-assignment-gate"
+path = "scripts/test_ideation_diversity_assignment_gate.py"
+
+[[pytest]]
+id = "655-claim-standing-stance-seed-assets"
+path = "scripts/test_claim_standing_stance_assets.py"
+
+[[pytest]]
 id = "250-title-fuzzy-false-positive-pin"
 path = "scripts/test_title_fuzzy_false_positive.py"
 
@@ -519,3 +543,15 @@ path = "scripts/test_cross_model_codex_transport.py"
 [[pytest]]
 id = "630-codex-subscription-integration"
 path = "scripts/test_check_630_codex_subscription_transport.py"
+
+[[pytest]]
+id = "655-claim-standing-candidate-ledger"
+path = "scripts/test_build_claim_standing_candidate_ledger.py"
+
+[[pytest]]
+id = "655-claim-standing-candidate-ledger-integration"
+path = "scripts/test_check_claim_standing_candidate_ledger_integration.py"
+
+[[pytest]]
+id = "512-pdf-read-preflight-and-content-sandbox"
+path = "scripts/test_pdf_read_preflight.py"
