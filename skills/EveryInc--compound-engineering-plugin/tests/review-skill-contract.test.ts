@@ -1156,6 +1156,34 @@ describe("cross-model peer skip legibility", () => {
     })
   }
 
+  // Same bug class as the route-token check above, one argument to the left: the
+  // first worker positional is a peer-key, so a caller that reads its name and
+  // reconstructs a provider name (`anthropic`) fail-closes both jobs. Wherever a
+  // reference names `<host-serving-family>`, it must spell out the accepted set.
+  for (const { worker, reference } of routeTokenPairs) {
+    test(`${reference} enumerates the worker's accepted host-serving-family tokens`, async () => {
+      const workerSrc = await readRepoFile(worker)
+      const caseBody = workerSrc.match(/case "\$HOST_PROVIDER" in\s*\n\s*([a-z|]+)\)/)?.[1]
+      expect(caseBody).toBeTruthy()
+      const tokens = caseBody!.split("|")
+      expect(tokens).toContain("unknown")
+      expect(tokens.length).toBeGreaterThanOrEqual(5)
+
+      // Collapse whitespace: ce-pov hard-wraps prose, so one enumeration can
+      // straddle a line break while the sibling bullets do not. Stop each span
+      // at `;` as well as `.`: the adjacent <host-harness> clause repeats four
+      // of these five tokens, so a span that runs into it would satisfy this
+      // assertion out of the neighbour's text.
+      const ref = (await readRepoFile(reference)).replace(/\s+/g, " ")
+      const spans = [...ref.matchAll(/`<host-serving-family>`[^.;]*/g)].map((m) => m[0])
+      expect(spans.length).toBeGreaterThan(0)
+      expect(
+        spans.some((span) => tokens.every((token) => span.includes(`\`${token}\``))),
+        `${reference} must enumerate ${tokens.join("|")} where it names <host-serving-family>`,
+      ).toBe(true)
+    })
+  }
+
   // A fixed route succeeded only
   // when it returned a reviewer-shaped object with a top-level `findings` array
   // — not merely any valid JSON. Accepting an error/envelope object (e.g. a grok
@@ -1189,9 +1217,51 @@ describe("cross-model peer skip legibility", () => {
       // to classify a quota/usage-limit exhaustion (harness-agnostic reasoning).
       expect(referenceSrc).toContain("peer skip evidence:")
       expect(referenceSrc).toMatch(/quota|usage-limit/i)
-      expect(referenceSrc).toMatch(/more than once in this session/i)
+      if (worker.includes("ce-code-review")) {
+        expect(workerSrc).not.toContain("peer skip class:")
+        expect(referenceSrc).not.toContain("peer skip class:")
+        expect(referenceSrc).toMatch(/did-not-run fallback/i)
+        expect(referenceSrc).toMatch(/Judge the full diagnostic/i)
+        expect(referenceSrc).toMatch(/never silently continue to another recipient/i)
+        expect(referenceSrc).toMatch(/explicit user-stated preference/i)
+        expect(referenceSrc).toContain("in-process `adversarial-reviewer`")
+      } else {
+        expect(referenceSrc).toMatch(/more than once in this session/i)
+      }
     })
   }
+
+  test("code review restores the adversarial lens after a quota or auth no-review", async () => {
+    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const dispatch = await readRepoFile(
+      "skills/ce-code-review/references/dispatch-reviewers.md",
+    )
+    const reference = await readRepoFile(
+      "skills/ce-code-review/references/cross-model-review.md",
+    )
+
+    expect(skill).toMatch(/did-not-run fallback/)
+    expect(dispatch).toMatch(/did-not-run fallback/)
+    expect(reference).toMatch(
+      /another attested-different installed\+allowlisted target remains/i,
+    )
+    expect(reference).toMatch(/announce that new recipient and start a new job/i)
+    expect(reference).toMatch(/Wait for it with the remaining shared deadline/i)
+    expect(reference).toMatch(/do not start a third peer/i)
+    expect(reference).toMatch(
+      /Otherwise \(explicit recipient, or no other eligible peer\)/i,
+    )
+  })
+
+  test("code review exclusivity pointers allow in-process restore after a failed same-route rate-limit retry", async () => {
+    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const dispatch = await readRepoFile(
+      "skills/ce-code-review/references/dispatch-reviewers.md",
+    )
+
+    expect(skill).toMatch(/failed same-route rate-limit retry/)
+    expect(dispatch).toMatch(/failed same-route rate-limit retry/)
+  })
 
   // A restricted host sandbox (e.g. a Codex task with network disabled) denies
   // the spawned peer CLI network/keychain, producing the exact same
@@ -1218,7 +1288,7 @@ describe("cross-model peer skip legibility", () => {
     })
   }
 
-  for (const reference of pairs.map((p) => p.reference)) {
+  for (const reference of routeTokenPairs.map((p) => p.reference)) {
     test(`${reference} keeps Cursor harness identity separate from serving family`, async () => {
       const src = await readRepoFile(reference)
       expect(src).toContain("XHOST_HARNESS=cursor; XHOST_FAMILY=unknown")

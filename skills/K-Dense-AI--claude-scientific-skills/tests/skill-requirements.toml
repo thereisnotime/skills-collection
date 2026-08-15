@@ -679,6 +679,15 @@ packages = ["fluidsim", "fluidfft", "pyfftw", "h5py", "numpy"]
 [skills.openpiv]
 packages = ["openpiv", "numpy", "scipy", "scikit-image", "matplotlib"]
 
+[skills.lab-hardware-cad]
+# build123d caps at <3.15 and pulls the OpenCascade kernel via cadquery-ocp-novtk,
+# a large wheel. The bundled suite is standard-library only by design -- it covers
+# the standards database and the fit arithmetic, which are the checks that gate a
+# fabrication decision -- so the kernel is listed for parity with SKILL.md rather
+# than because the tests need it.
+python = "3.12"
+packages = ["build123d", "matplotlib"]
+
 # --- geospatial -----------------------------------------------------------
 
 [skills.geopandas]

@@ -51,6 +51,63 @@ That is the whole happy path. It asks for a one-line idea, picks a template,
 shows the real cost and time estimate before spending anything, then builds.
 Press Enter through every step and you get a sample Todo app.
 
+One command, no prompts (CI, scripts, containers, any shell without a terminal):
+
+```bash
+loki quickstart "a todo app with user accounts" --yes
+```
+
+Both halves are required with no terminal: an idea (or a path to a PRD file)
+and an explicit `--yes`. Given both, Loki picks the top-ranked template
+automatically, prints the same honest cost and time estimate, and starts the
+build without asking anything. Missing either half exits 2 with the
+needs-a-terminal message and writes nothing, so an ambient `LOKI_AUTO_CONFIRM`
+or a stray argument in CI can never start a paid build on its own. Existing
+files are never overwritten: if `prd.md` is present the PRD lands at
+`prd-quickstart.md`, then numbered suffixes as needed.
+
+Choose an exact shipped starter when the top-ranked match is not the one you
+want:
+
+```bash
+loki quickstart --list-templates
+loki quickstart --list-templates --json       # schema-v1 automation output
+loki quickstart "an internal reporting workspace" --template dashboard --yes
+```
+
+Template discovery works without a terminal or provider and lists every shipped
+starter's stable name and purpose in catalog order. It returns before estimation,
+consent, PRD writes, or build execution. Positional input and execution/preview
+flags are intentionally incompatible; `--json` is the only optional modifier.
+
+`--template` accepts an exact template name for idea inputs and works the same
+way with interactive use or `--dry-run` (including JSON preview). Unknown
+templates, duplicate flags, and combinations with a PRD path refuse before
+provider discovery, estimation, writes, or build execution.
+
+Preview the same deterministic template choice and estimator-backed plan with
+zero writes or execution:
+
+```bash
+loki quickstart "a todo app with user accounts" --dry-run
+```
+
+Preview requires an idea or readable PRD path, works without a terminal or AI
+provider, and exits before creating a PRD or starting a build. `--dry-run` and
+`--yes` are mutually exclusive so execution intent is never ambiguous.
+
+For scripts and local dashboards, add `--json` to receive one versioned JSON
+object instead of terminal text:
+
+```bash
+loki quickstart "a todo app with user accounts" --dry-run --json
+```
+
+The object contains the input kind, deterministic selected template (or `null`
+for an existing PRD), and the exact estimator response under `plan`. `--json`
+requires `--dry-run`; invalid input or estimator failure writes no JSON, and the
+command still exits before provider discovery, file writes, or build execution.
+
 Or go straight at it:
 
 ```bash

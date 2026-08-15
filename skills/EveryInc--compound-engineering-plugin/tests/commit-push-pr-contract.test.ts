@@ -167,6 +167,14 @@ describe("ce-commit-push-pr contract", () => {
     expect(content).toMatch(/PR description.+not.+comment/i)
   })
 
+  test("appends a known plan unit id to the commit subject without hunting", async () => {
+    const content = await readRepoFile("skills/ce-commit-push-pr/SKILL.md")
+
+    expect(content).toContain("append that unit's U-ID in parentheses — `(U3)` means unit 3")
+    expect(content).toContain("Do not hunt for a plan")
+    expect(content).toContain("Omit when the commit spans units")
+  })
+
   test("adds generic Compound Engineering branding only on an explicit signal", async () => {
     const reference = await readRepoFile(
       "skills/ce-commit-push-pr/references/pr-description-writing.md",
@@ -330,6 +338,8 @@ describe("PR concept teaching contract", () => {
       readRepoFile("skills/ce-commit-push-pr/references/gh-stack-cli.md"),
     ])
 
+    expect(submit).toContain("Compose `<bottom-message>` and `<next-message>` with the same subject rule as Step 3")
+    expect(submit).toContain("append that unit's U-ID in parentheses — `(U3)` means unit 3")
     expect(submit).toMatch(/named a parent PR or branch to stack on, classify it/i)
     expect(submit).toContain("references/gh-stack-cli.md")
     expect(submit).toMatch(/Classify by \*\*PR number\*\*.{0,140}pulls a stack down from GitHub/is)

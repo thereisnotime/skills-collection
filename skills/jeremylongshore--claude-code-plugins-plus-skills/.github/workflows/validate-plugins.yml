@@ -257,6 +257,31 @@ jobs:
             fi
           done
 
+      # Every package-bearing external mirror is non-publishable. Provenance
+      # comes only from .source.json; this prevents a mirror from entering a
+      # future publish candidate list through a naming or path convention.
+      - name: Enforce private external mirror packages
+        run: |
+          node --test scripts/check-mirror-packages-private.test.mjs
+          node scripts/check-mirror-packages-private.mjs
+
+      # E7.2: package privacy is one boundary; publisher-level provenance
+      # exclusion is the independent second boundary. This stays inside the
+      # existing validate job so ci-required gains no fourth status context.
+      - name: Refuse provenance-marked publish candidates
+        run: |
+          node --test scripts/plugin-provenance.test.mjs
+          node scripts/publish-candidate-report.mjs --all --scope '@intentsolutionsio/' --json > /tmp/e72-publish-report.json
+          jq -e '.refused | length == 0' /tmp/e72-publish-report.json
+          jq -e '[.firstPartyCandidates[] | select(.reasonCode != "FIRST_PARTY_CANDIDATE")] | length == 0' /tmp/e72-publish-report.json
+          echo "E7.2 dry-run: $(jq '.firstPartyCandidates | length' /tmp/e72-publish-report.json) first-party candidates; $(jq '.mirrorSkipped | length' /tmp/e72-publish-report.json) provenance candidates skipped; 0 refused candidates."
+
+      # E7.3: deterministic fixture coverage for the workflow_run guard and
+      # exact-SHA required-check preflight. This remains a step in validate,
+      # so ci-required gains no fourth status context.
+      - name: Test npm publication locks
+        run: node --test scripts/npm-publication-lock.test.mjs
+
       - name: Validate marketplace catalog
         run: |
           echo "Validating marketplace catalog..."

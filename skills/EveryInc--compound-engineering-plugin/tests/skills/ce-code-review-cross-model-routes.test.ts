@@ -378,7 +378,7 @@ printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"resid
     expect(cmd).toContain("--no-subagents")
     expect(cmd).toContain("--permission-mode dontAsk")
     expect(cmd).toContain("--effort high")
-    expect(cmd).toContain("--model grok-4.5")
+    expect(cmd).toContain("--model grok-4.6")
     expect(cmd).toContain("--cwd <repo-root>")
     expect(cmd).not.toContain("--deny Read")
     // Schema forces buffered json — no PEERLOG idle signal (#1270 residual).
@@ -396,7 +396,7 @@ printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"resid
       expect(cmd).toContain("--workspace <repo-root>")
       expect(cmd).toContain("--output-format stream-json")
     }
-    expect(emitAdapter("grok-cursor")).toContain("cursor-grok-4.5-high")
+    expect(emitAdapter("grok-cursor")).toContain("cursor-grok-4.6-high")
     expect(emitAdapter("cursor")).not.toContain("--model")
     expect(emitAdapter("composer")).toContain("composer-2.5-fast")
   })
@@ -600,6 +600,28 @@ describe("cross-model-adversarial-review skip paths — non-blocking, no file", 
     const r = run(["codex", "claude", "HEAD", runDir], runDir, env)
     expect(r.stderr).toContain("Not logged in")
     expect(r.stderr).toContain("terminal_reason=api_error")
+    expect(r.stderr).toContain("peer skip evidence:")
+    expect(r.stderr).not.toContain("peer skip class:")
+  })
+
+  test("surfaces a Claude session-limit 429 as skip evidence, not a completed review", () => {
+    const payload = JSON.stringify({
+      result: "You have hit your session limit",
+      api_error_status: 429,
+      terminal_reason: "api_error",
+    })
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '${payload}'\nexit 1\n`,
+    )
+    const runDir = makeRunDir()
+    const r = run(["codex", "claude", "HEAD", runDir], runDir, env)
+    expect(r.code).toBe(0)
+    expect(r.files).not.toContain("adversarial-claude.json")
+    expect(r.stderr).toContain("peer skip evidence:")
+    expect(r.stderr).toContain("You have hit your session limit")
+    expect(r.stderr).toContain("api_error_status=429")
+    expect(r.stderr).not.toContain("peer skip class:")
   })
 
   test("ancillary structured fields do not hide an unrecognized human-readable diagnostic", () => {
@@ -779,7 +801,7 @@ describe("cross-model-adversarial-review normalization", () => {
       CROSS_MODEL_MODEL_OVERRIDE: "composer-next",
     }
     expect(emitAdapter("composer", SCRIPT, override)).toContain("--model composer-next")
-    expect(emitAdapter("grok-cursor", SCRIPT, override)).toContain("--model cursor-grok-4.5-high")
+    expect(emitAdapter("grok-cursor", SCRIPT, override)).toContain("--model cursor-grok-4.6-high")
     expect(emitAdapter("cursor", SCRIPT, override)).not.toContain("--model")
 
     const crossFamily = spawnSync("bash", [SCRIPT, "--emit-adapter", "composer"], {
@@ -1057,10 +1079,10 @@ describe("cross-model provider kernel parity (code-review vs doc-review)", () =>
     expect(emitAdapter("codex", DOC_SCRIPT)).toContain("gpt-5.6-luna")
     expect(emitAdapter("claude")).toContain("--model opus")
     expect(emitAdapter("claude", DOC_SCRIPT)).toContain("--model opus")
-    expect(emitAdapter("grok-cli")).toContain("grok-4.5")
-    expect(emitAdapter("grok-cli", DOC_SCRIPT)).toContain("grok-4.5")
-    expect(emitAdapter("grok-cursor")).toContain("cursor-grok-4.5-high")
-    expect(emitAdapter("grok-cursor", DOC_SCRIPT)).toContain("cursor-grok-4.5-high")
+    expect(emitAdapter("grok-cli")).toContain("grok-4.6")
+    expect(emitAdapter("grok-cli", DOC_SCRIPT)).toContain("grok-4.6")
+    expect(emitAdapter("grok-cursor")).toContain("cursor-grok-4.6-high")
+    expect(emitAdapter("grok-cursor", DOC_SCRIPT)).toContain("cursor-grok-4.6-high")
     expect(emitAdapter("composer")).toContain("composer-2.5-fast")
     expect(emitAdapter("composer", DOC_SCRIPT)).toContain("composer-2.5-fast")
   })

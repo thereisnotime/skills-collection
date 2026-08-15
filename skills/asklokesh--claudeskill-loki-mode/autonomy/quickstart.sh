@@ -283,6 +283,85 @@ _qs_template_summary() {
     esac
 }
 
+# _qs_shipped_template_names: print every shipped template basename in stable
+# catalog order. The filesystem is the source of truth: adding or removing a
+# templates/*.md payload changes discovery automatically, while README.md is
+# deliberately excluded because it is gallery documentation, not a PRD.
+_qs_shipped_template_names() {
+    local tdir; tdir="$(_qs_templates_dir)"
+    local f name
+    for f in "$tdir"/*.md; do
+        [ -f "$f" ] || continue
+        name=$(basename "$f" .md)
+        [ "$name" = "README" ] && continue
+        printf '%s\n' "$name"
+    done | LC_ALL=C sort
+}
+
+# _qs_list_templates [json]: provider-free discovery for terminals and local
+# automation. Human and machine output are derived from the same shipped-name
+# stream and the same stable purpose table used by the interactive picker.
+_qs_list_templates() {
+    local json_output="${1:-false}"
+    local catalog="" count=0 name purpose
+    while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        purpose="$(_qs_template_summary "$name")"
+        catalog="${catalog}${name}\t${purpose}\n"
+        count=$((count + 1))
+    done < <(_qs_shipped_template_names)
+
+    if [ "$count" -eq 0 ]; then
+        printf 'No shipped quickstart templates were found.\n' >&2
+        return 2
+    fi
+
+    if [ "$json_output" = true ]; then
+        printf '%b' "$catalog" | python3 -c '
+import json
+import sys
+
+templates = []
+for raw in sys.stdin:
+    name, purpose = raw.rstrip("\n").split("\t", 1)
+    templates.append({"name": name, "purpose": purpose})
+json.dump(
+    {
+        "schema_version": 1,
+        "command": "loki quickstart",
+        "mode": "list-templates",
+        "templates": templates,
+    },
+    sys.stdout,
+    separators=(",", ":"),
+    sort_keys=True,
+)
+sys.stdout.write("\n")
+' || return 2
+        return 0
+    fi
+
+    printf '%sShipped quickstart templates (%d)%s\n' "$_QS_BOLD" "$count" "$_QS_NC"
+    printf '%b' "$catalog" | while IFS=$'\t' read -r name purpose; do
+        [ -n "$name" ] || continue
+        printf '  %-20s %s\n' "$name" "$purpose"
+    done
+    return 0
+}
+
+# _qs_template_exists <name>: accept only an exact shipped template basename.
+# Keeping validation here (rather than accepting an arbitrary path) prevents
+# --template from becoming a second PRD/file-read surface. The intentionally
+# narrow character set also makes names safe to join below without traversal.
+_qs_template_exists() {
+    local name="${1:-}"
+    case "$name" in
+        ""|*[!a-z0-9-]*) return 1;;
+    esac
+    [ "$name" != "README" ] || return 1
+    [ -f "$(_qs_templates_dir)/$name.md" ]
+}
+
 # _qs_selected_provider: print the provider a build would ACTUALLY pick, or
 # nothing. Single source of truth is providers/loader.sh auto_detect_provider --
 # the same seam render_provider_availability (provider-offer.sh:395) uses, and
@@ -327,7 +406,7 @@ _qs_selected_provider() {
 # non-zero if the estimator gave no result (caller falls back to a no-number
 # confirm, never fabricating a figure).
 _qs_emit_plan() {
-    local prd_path="$1" template_name="$2"
+    local prd_path="$1" template_name="$2" json_output="${3:-false}" input_kind="${4:-idea}"
     local plan_json=""
     plan_json=$(show_prd_plan "$prd_path" "true" "false" 2>/dev/null) || plan_json=""
     if [ -z "$plan_json" ]; then
@@ -357,6 +436,32 @@ print('{}{}'.format(iters, rng_str))
 " 2>/dev/null) || parsed=""
     if [ -z "$parsed" ]; then
         return 1
+    fi
+
+    if [ "$json_output" = true ]; then
+        local json_payload=""
+        json_payload=$(printf '%s' "$plan_json" | python3 -c '
+import json
+import sys
+
+plan = json.load(sys.stdin)
+if not isinstance(plan, dict):
+    sys.exit(1)
+template_name, input_kind = sys.argv[1:3]
+payload = {
+    "schema_version": 1,
+    "command": "loki quickstart",
+    "mode": "dry-run",
+    "input_kind": input_kind,
+    "selected_template": template_name if input_kind == "idea" else None,
+    "source_name": template_name if input_kind == "prd" else None,
+    "plan": plan,
+}
+json.dump(payload, sys.stdout, separators=(",", ":"), sort_keys=True)
+' "$template_name" "$input_kind" 2>/dev/null) || json_payload=""
+        [ -n "$json_payload" ] || return 1
+        printf '%s\n' "$json_payload" >&3
+        return 0
     fi
     local tier_u cost_u time_u iter_u
     tier_u=$(printf '%s' "$parsed" | sed -n '1p')
@@ -391,16 +496,34 @@ _qs_help() {
     printf '\n'
     printf 'Options:\n'
     printf '  --yes, -y     Auto-confirm the final build prompt (still shows the plan)\n'
+    printf '  --dry-run     Preview the selected template and plan; write/start nothing\n'
+    printf '  --json        With --dry-run, emit one machine-readable JSON object\n'
+    printf '  --template N  Use the exact shipped template N for an IDEA\n'
+    printf '  --list-templates  List every shipped template and its purpose\n'
     printf '  --help, -h    Show this help and exit\n'
     printf '\n'
+    printf 'Non-interactive use:\n'
+    printf '  loki quickstart "a todo app with user accounts" --yes\n'
+    printf '  Both an IDEA (or PRD path) and --yes are required with no terminal.\n'
+    printf '  Missing either one exits 2 and writes nothing. The top-ranked\n'
+    printf '  template is chosen automatically and the plan is still shown.\n'
+    printf '  Add --template NAME to choose a shipped template instead.\n'
+    printf '  Run with --list-templates (and optional --json) to discover names.\n'
+    printf '\n'
+    printf 'Zero-spend preview:\n'
+    printf '  loki quickstart "a todo app" --dry-run\n'
+    printf '  An IDEA (or readable PRD path) is required. No provider is checked,\n'
+    printf '  no file is written, and no build is started. Do not combine with --yes.\n'
+    printf '  Add --json for versioned JSON only; --json requires --dry-run.\n'
+    printf '\n'
     printf 'Steps:\n'
-    printf '  1. Setup      Check for an AI provider; offer to install if missing\n'
+    printf '  1. Setup      Check for an AI provider for execution (skipped in preview)\n'
     printf '  2. Build      Describe what you want, or Enter for the sample Todo app\n'
     printf '  3. Template   Pick the closest starting template (offline keyword match)\n'
     printf '  4. Plan       Review the honest cost/time estimate, then confirm\n'
     printf '\n'
-    printf 'The PRD is written to ./prd.md in the current directory, then the build\n'
-    printf 'starts. For non-interactive automation use: loki start <prd> --yes\n'
+    printf 'The PRD is written to ./prd.md in the current directory (or the next\n'
+    printf 'free prd-quickstart*.md name if that exists), then the build starts.\n'
     return 0
 }
 
@@ -408,13 +531,37 @@ _qs_help() {
 # (slice B), show_prd_plan (slice A), the template matcher, and cmd_start.
 #
 # Order is load-bearing:
-#   --help (exit 0) -> non-TTY/CI gate (hint + exit 2) -> provider gate ->
+#   argv validation -> non-TTY/CI gate (hint + exit 2) -> provider gate or skip ->
 #   step 2 (idea / PRD path) -> step 3 (template) -> step 4 (plan + confirm) ->
 #   write PRD to CWD -> cmd_start --yes --no-plan (subshelled; it execs the runner).
+#
+# The non-TTY/CI gate admits two fully-specified shapes:
+#   loki quickstart "<idea>|<prd-path>" --yes
+#   loki quickstart "<idea>|<prd-path>" --dry-run
+# Execution requires argv consent; preview forbids it. Both paths skip prompts
+# and share template ranking plus the honest estimator. Only execution crosses
+# the provider, confirm, write, and cmd_start boundaries.
 cmd_quickstart() {
     local positional=""
     local assume_yes=false
+    local dry_run=false
+    local json_output=false
+    local template_override=""
+    local template_flag_seen=false
+    local list_templates=false
+    local list_templates_flag_seen=false
     if _qs_assume_yes; then assume_yes=true; fi
+
+    # yes_flag tracks EXPLICIT --yes/-y on THIS command's argv, and nothing else.
+    # It is deliberately NOT assume_yes: _qs_assume_yes also returns true for an
+    # ambient LOKI_ASSUME_YES or LOKI_AUTO_CONFIRM=true, and LOKI_AUTO_CONFIRM is
+    # exactly what `loki --yes <anything>` (loki:2313) and CI-ish environments
+    # export. Gating the non-interactive bypass on assume_yes would let an
+    # ambient env var plus a stray positional silently start a PAID build in CI
+    # with no human in the loop. The safety contract asks for explicit consent,
+    # so consent must come from argv. assume_yes keeps its existing meaning for
+    # the confirm prompt, so the interactive journey is byte-identical.
+    local yes_flag=false
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -424,6 +571,37 @@ cmd_quickstart() {
                 ;;
             --yes|-y)
                 assume_yes=true
+                yes_flag=true
+                shift
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
+            --json)
+                json_output=true
+                shift
+                ;;
+            --template)
+                if [ "$template_flag_seen" = true ]; then
+                    printf '%s--template may be specified only once.%s\n' "$_QS_RED" "$_QS_NC" >&2
+                    exit 2
+                fi
+                template_flag_seen=true
+                if [ $# -lt 2 ] || [ -z "${2:-}" ] || [[ "${2:-}" == --* ]]; then
+                    printf '%s--template requires an exact shipped template name.%s\n' "$_QS_RED" "$_QS_NC" >&2
+                    exit 2
+                fi
+                template_override="$2"
+                shift 2
+                ;;
+            --list-templates)
+                if [ "$list_templates_flag_seen" = true ]; then
+                    printf '%s--list-templates may be specified only once.%s\n' "$_QS_RED" "$_QS_NC" >&2
+                    exit 2
+                fi
+                list_templates=true
+                list_templates_flag_seen=true
                 shift
                 ;;
             --*)
@@ -444,36 +622,146 @@ cmd_quickstart() {
         esac
     done
 
-    # Non-TTY / CI: quickstart is interactive by definition. Never hang on read;
-    # print the automation hint to stderr and exit 2 (design 3.8).
-    if _qs_non_interactive; then
-        printf 'loki quickstart is interactive and needs a terminal. For automation use: loki start <prd> --yes\n' >&2
+    # Discovery is a standalone read-only command shape. Refuse input and every
+    # execution/preview selector rather than guessing intent; --json is its only
+    # compatible modifier. This return precedes terminal, provider, estimator,
+    # consent, PRD, and build boundaries.
+    if [ "$list_templates" = true ]; then
+        if [ -n "$positional" ] || [ "$yes_flag" = true ] || [ "$dry_run" = true ] || [ "$template_flag_seen" = true ]; then
+            printf '%s--list-templates accepts only the optional --json flag.%s\n' "$_QS_RED" "$_QS_NC" >&2
+            exit 2
+        fi
+        _qs_list_templates "$json_output"
+        return $?
+    fi
+
+    # A preview is an explicit no-execution request. Reject simultaneous build
+    # consent instead of guessing which instruction wins. This check precedes
+    # provider discovery, estimation, and every write.
+    if [ "$dry_run" = true ] && [ "$yes_flag" = true ]; then
+        printf '%s--dry-run cannot be combined with --yes or -y.%s\n' "$_QS_RED" "$_QS_NC" >&2
         exit 2
     fi
 
+    if [ "$json_output" = true ] && [ "$dry_run" != true ]; then
+        printf '%s--json requires --dry-run.%s\n' "$_QS_RED" "$_QS_NC" >&2
+        exit 2
+    fi
+
+    # Explicit template selection is deliberately an IDEA-only surface. It is
+    # validated before provider discovery, estimation, and every write/build
+    # boundary so a typo or conflicting PRD can never fall through to spend.
+    if [ "$template_flag_seen" = true ]; then
+        if [ -z "$positional" ]; then
+            printf '%s--template requires an IDEA argument.%s\n' "$_QS_RED" "$_QS_NC" >&2
+            exit 2
+        fi
+        case "$positional" in
+            */*|*.md|*.markdown|*.txt|*.json|*.yaml|*.yml)
+                printf '%s--template cannot be combined with a PRD path.%s\n' "$_QS_RED" "$_QS_NC" >&2
+                exit 2
+                ;;
+        esac
+        if [ -f "$positional" ]; then
+            printf '%s--template cannot be combined with a PRD path.%s\n' "$_QS_RED" "$_QS_NC" >&2
+            exit 2
+        fi
+        if ! _qs_template_exists "$template_override"; then
+            printf '%sUnknown shipped template: %s%s\n' "$_QS_RED" "$template_override" "$_QS_NC" >&2
+            exit 2
+        fi
+    fi
+
+    # Preview is deliberately non-interactive: without an explicit idea or PRD
+    # path there is nothing deterministic to estimate. A path-looking argument
+    # must resolve to a readable regular file; otherwise treating a typo such as
+    # ./prd.md as prose would preview an unrelated template and mislead the user.
+    if [ "$dry_run" = true ]; then
+        if [ -z "$positional" ]; then
+            printf 'loki quickstart --dry-run requires an IDEA or readable PRD path.\n' >&2
+            exit 2
+        fi
+        case "$positional" in
+            */*|*.md|*.markdown|*.txt|*.json|*.yaml|*.yml)
+                if [ ! -f "$positional" ] || [ ! -r "$positional" ]; then
+                    printf 'PRD path is not a readable file: %s\n' "$positional" >&2
+                    exit 2
+                fi
+                ;;
+        esac
+    fi
+
+    # Non-TTY / CI: quickstart is interactive by definition, so by default it
+    # never hangs on a read -- it prints the automation hint to stderr and exits
+    # 2 (design 3.8).
+    #
+    # The execution exception is a fully-specified invocation:
+    #   loki quickstart "<idea>" --yes      (or a PRD path in place of the idea)
+    # Both halves are required. A non-empty positional supplies the input that
+    # steps 2-3 would otherwise have to ask for, and an explicit argv --yes
+    # supplies the consent step 4 would otherwise have to ask for. With both
+    # present there is nothing left to prompt about, so the refusal is pure
+    # friction for a newly installed operator running one command.
+    #
+    # Missing EITHER half keeps the refusal verbatim and writes nothing: a bare
+    # `loki quickstart` in CI still cannot spend, and neither can one that has an
+    # idea but no consent. Fail-closed is the load-bearing direction here -- the
+    # bypass must be something an operator opts into by typing both, never
+    # something an environment can arrive at on its own.
+    local noninteractive_ok=false
+    if _qs_non_interactive; then
+        if [ "$dry_run" = true ] || { [ -n "$positional" ] && [ "$yes_flag" = true ]; }; then
+            noninteractive_ok=true
+        else
+            printf 'loki quickstart is interactive and needs a terminal. For automation use: loki start <prd> --yes\n' >&2
+            exit 2
+        fi
+    fi
+
+    # Machine-readable preview follows the exact same selection and estimator
+    # path as the human preview. Suppress presentation stdout while retaining a
+    # duplicate of the caller's stdout on fd 3; _qs_emit_plan writes the single
+    # validated JSON object there only after estimation succeeds. Stderr stays
+    # available for fail-closed diagnostics.
+    local json_stdout_redirected=false
+    if [ "$json_output" = true ]; then
+        exec 3>&1 1>/dev/null
+        json_stdout_redirected=true
+    fi
+
     printf '\n'
-    printf '%sLoki Mode quickstart -- four quick questions, then your build starts.%s\n' "$_QS_BOLD" "$_QS_NC"
+    if [ "$dry_run" = true ]; then
+        printf '%sLoki Mode quickstart preview -- template and plan only.%s\n' "$_QS_BOLD" "$_QS_NC"
+    else
+        printf '%sLoki Mode quickstart -- four quick questions, then your build starts.%s\n' "$_QS_BOLD" "$_QS_NC"
+    fi
     printf '\n'
 
     # ----- Step 1 of 4: Setup (reuse the slice-B provider offer) -------------
     printf '%sStep 1 of 4: Setup%s\n' "$_QS_BOLD" "$_QS_NC"
-    printf '  Checking for an AI provider CLI ...\n'
+    if [ "$dry_run" = true ]; then
+        # Estimation and deterministic template selection are local. Previewing
+        # must work before provider installation and must not run provider code.
+        printf '  Preview mode: provider check skipped; no build will start.\n'
+    else
+        printf '  Checking for an AI provider CLI ...\n'
     # Ask the loader FIRST: it is the only thing that knows what the runner will
     # really pick, and it is the only check that sees opencode. Falling back to
     # detect_any_provider (stale four, PATH-only) keeps the no-provider guard
     # intact when the loader is absent or unreadable.
-    local found=""
-    found="$(_qs_selected_provider)" || found=""
-    if [ -n "$found" ]; then
-        printf '  Found: %s. Good.\n' "$found"
-    elif detect_any_provider; then
-        printf '  Found: an AI provider CLI. Good.\n'
-    else
-        # Run the inline install + login offer. provider_offer_gate returns 2 if
-        # no provider ends up available (declined, or install failed).
-        if ! provider_offer_gate; then
-            printf '%sNo provider available; cannot start a build. Install one and re-run loki quickstart.%s\n' "$_QS_RED" "$_QS_NC" >&2
-            exit 2
+        local found=""
+        found="$(_qs_selected_provider)" || found=""
+        if [ -n "$found" ]; then
+            printf '  Found: %s. Good.\n' "$found"
+        elif detect_any_provider; then
+            printf '  Found: an AI provider CLI. Good.\n'
+        else
+            # Run the inline install + login offer. provider_offer_gate returns 2 if
+            # no provider ends up available (declined, or install failed).
+            if ! provider_offer_gate; then
+                printf '%sNo provider available; cannot start a build. Install one and re-run loki quickstart.%s\n' "$_QS_RED" "$_QS_NC" >&2
+                exit 2
+            fi
         fi
     fi
     printf '\n'
@@ -484,27 +772,34 @@ cmd_quickstart() {
     local prd_source=""        # an existing PRD file path, when the user has one
     local brief=""             # the one-line idea (drives template matching)
     local template_name=""
+    local input_kind="idea"
 
     if [ -n "$positional" ] && [ -f "$positional" ]; then
         prd_source="$positional"
+        input_kind="prd"
         printf '%sUsing your PRD: %s%s\n' "$_QS_DIM" "$positional" "$_QS_NC"
         printf '\n'
     else
         printf '%sStep 2 of 4: What do you want to build?%s\n' "$_QS_BOLD" "$_QS_NC"
-        printf '  Describe it in one line, or paste a path to a PRD file.\n'
-        printf '  (Press Enter to build the sample Todo app.)\n'
-        if [ -n "$positional" ]; then
+        if [ "$dry_run" = true ]; then
             brief="$positional"
-            printf '> %s\n' "$brief"
+            printf '  Previewing idea: %s\n' "$brief"
         else
-            local answer=""
-            printf '> '
-            read -r answer 2>/dev/null || answer=""
-            # If the typed value is an existing file, treat it as a PRD path.
-            if [ -n "$answer" ] && [ -f "$answer" ]; then
-                prd_source="$answer"
+            printf '  Describe it in one line, or paste a path to a PRD file.\n'
+            printf '  (Press Enter to build the sample Todo app.)\n'
+            if [ -n "$positional" ]; then
+                brief="$positional"
+                printf '> %s\n' "$brief"
             else
-                brief="$answer"
+                local answer=""
+                printf '> '
+                read -r answer 2>/dev/null || answer=""
+                # If the typed value is an existing file, treat it as a PRD path.
+                if [ -n "$answer" ] && [ -f "$answer" ]; then
+                    prd_source="$answer"
+                else
+                    brief="$answer"
+                fi
             fi
         fi
         printf '\n'
@@ -512,6 +807,11 @@ cmd_quickstart() {
 
     # ----- Step 3 of 4: Pick a template (skipped if a PRD path was given) ----
     if [ -z "$prd_source" ]; then
+        if [ -n "$template_override" ]; then
+            template_name="$template_override"
+            printf '%sStep 3 of 4: Template%s\n' "$_QS_BOLD" "$_QS_NC"
+            printf '  Selected %s (--template).\n\n' "$template_name"
+        else
         local -a top3=()
         local line
         while IFS= read -r line; do
@@ -523,25 +823,40 @@ cmd_quickstart() {
             top3=("simple-todo-app")
         fi
 
-        printf '%sStep 3 of 4: Pick a starting template%s\n' "$_QS_BOLD" "$_QS_NC"
-        if [ -n "$brief" ]; then
-            printf '  Closest matches for "%s":\n' "$brief"
-        else
-            printf '  Closest matches for the sample Todo app:\n'
-        fi
-        local i=1 t suffix
-        for t in "${top3[@]}"; do
-            suffix=""
-            [ "$i" -eq 1 ] && suffix="   (default)"
-            printf '    %d) %-18s %s%s\n' "$i" "$t" "$(_qs_template_summary "$t")" "$suffix"
-            i=$((i + 1))
-        done
-        printf '  Choose 1-%d, or press Enter for 1.\n' "${#top3[@]}"
-
+        # The MENU, not just the read, is interactive-only. Offering "Choose 1-3"
+        # to a shell that can never answer is a prompt the operator has to read
+        # and mistrust; worse, it makes a transcript indistinguishable from one
+        # that actually stopped for input. The ranking above is shared by both
+        # paths -- only its presentation differs.
         local pick=""
-        printf '> '
-        read -r pick 2>/dev/null || pick=""
-        printf '\n'
+        if [ "$noninteractive_ok" != true ]; then
+            printf '%sStep 3 of 4: Pick a starting template%s\n' "$_QS_BOLD" "$_QS_NC"
+            if [ -n "$brief" ]; then
+                printf '  Closest matches for "%s":\n' "$brief"
+            else
+                printf '  Closest matches for the sample Todo app:\n'
+            fi
+            local i=1 t suffix
+            for t in "${top3[@]}"; do
+                suffix=""
+                [ "$i" -eq 1 ] && suffix="   (default)"
+                printf '    %d) %-18s %s%s\n' "$i" "$t" "$(_qs_template_summary "$t")" "$suffix"
+                i=$((i + 1))
+            done
+            printf '  Choose 1-%d, or press Enter for 1.\n' "${#top3[@]}"
+            printf '> '
+            read -r pick 2>/dev/null || pick=""
+            printf '\n'
+        else
+            # Deterministic selection: the empty pick below resolves to top3[0],
+            # the same rank the interactive picker offers as "(default)". The
+            # ranking itself is unchanged -- _qs_score_templates is offline,
+            # deterministic and already the single source of order -- so the
+            # non-interactive choice is exactly the one an operator pressing
+            # Enter would get. No picker, no prompt, no second code path.
+            printf '%sStep 3 of 4: Template%s\n' "$_QS_BOLD" "$_QS_NC"
+            printf '  Selected %s (top match) for "%s".\n\n' "${top3[0]}" "$brief"
+        fi
 
         case "$pick" in
             ""|1) template_name="${top3[0]}";;
@@ -549,6 +864,8 @@ cmd_quickstart() {
             3) template_name="${top3[2]:-${top3[0]}}";;
             *) template_name="${top3[0]}";;  # any unexpected input -> the default
         esac
+
+        fi
 
         local tdir; tdir="$(_qs_templates_dir)"
         prd_source="$tdir/$template_name.md"
@@ -562,11 +879,41 @@ cmd_quickstart() {
 
     # ----- Step 4 of 4: Review the plan (reuse the slice-A estimator) --------
     printf '%sStep 4 of 4: Review the plan%s\n' "$_QS_BOLD" "$_QS_NC"
+    # The plan is ALWAYS rendered, on both paths, from the same real estimator.
+    # The non-interactive path shows it before execution rather than before a
+    # prompt: the operator still gets the honest quote in the transcript, and it
+    # is still the figure cmd_start runs with, so the quote equals the charge.
     local estimate_ok=true
-    if ! _qs_emit_plan "$prd_source" "$template_name"; then
+    if ! _qs_emit_plan "$prd_source" "$template_name" "$json_output" "$input_kind"; then
         estimate_ok=false
-        printf '%sCould not compute a cost estimate (the estimator did not return a result).%s\n' "$_QS_YELLOW" "$_QS_NC"
-        printf '\n'
+        # No honest number available. Interactively this flips the confirm to
+        # default-NO below. Non-interactively there is no one to review the
+        # missing plan, so fail closed before writing a PRD or starting a build.
+        # Explicit --yes authorizes the displayed estimate; it is not consent
+        # to spend without one.
+        if [ "$noninteractive_ok" = true ]; then
+            if [ "$json_stdout_redirected" = true ]; then
+                exec 1>&3 3>&-
+                json_stdout_redirected=false
+            fi
+            printf 'Could not compute a cost estimate; non-interactive quickstart requires a displayed plan and started no build.\n' >&2
+            return 2
+        else
+            printf '%sCould not compute a cost estimate (the estimator did not return a result).%s\n' "$_QS_YELLOW" "$_QS_NC"
+            printf '\n'
+        fi
+    fi
+
+    # The preview terminal boundary is intentionally immediately after the
+    # shared estimator. Reaching it proves the same template and plan were
+    # rendered, while returning here makes the confirm, PRD copy, and cmd_start
+    # structurally unreachable.
+    if [ "$dry_run" = true ]; then
+        printf 'Preview complete. No provider was run, no file was written, and no build was started.\n'
+        if [ "$json_stdout_redirected" = true ]; then
+            exec 1>&3 3>&-
+        fi
+        return 0
     fi
 
     # ----- Confirm ----------------------------------------------------------
@@ -595,8 +942,16 @@ cmd_quickstart() {
     local target="./prd.md"
     if [ -e "$target" ]; then
         local overwrite=""
-        printf 'prd.md already exists. Overwrite? [y/N] '
-        read -r overwrite 2>/dev/null || overwrite=""
+        # Non-interactive never asks and never overwrites. Leaving $overwrite
+        # empty falls into the existing suffix walk below, which is already the
+        # correct no-clobber behavior -- prd-quickstart.md, then numbered free
+        # suffixes exactly as needed. Reused rather than reimplemented so the two
+        # paths cannot drift, and so "never overwrite" holds by construction
+        # (there is no branch here that can reach the clobber).
+        if [ "$noninteractive_ok" != true ]; then
+            printf 'prd.md already exists. Overwrite? [y/N] '
+            read -r overwrite 2>/dev/null || overwrite=""
+        fi
         if [[ ! "$overwrite" =~ ^[Yy] ]]; then
             # Declining to overwrite one file must never silently destroy
             # another (bug-hunt MEDIUM): the fallback gets the same existence
