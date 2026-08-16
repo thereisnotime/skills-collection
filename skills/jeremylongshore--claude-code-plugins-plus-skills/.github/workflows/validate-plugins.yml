@@ -1420,6 +1420,11 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       # 000-docs ignore-policy invariant (ownership + filing-ledger model —
       # 000-docs/.gitignore header; Mission 01 bead claude-5awj.6) plus the
       # citation gate: no governance-scope file may cite an untracked doc.
@@ -1428,6 +1433,25 @@ jobs:
 
       - name: Check doc citations resolve to tracked files
         run: node scripts/check-doc-citations.mjs
+
+      # A document cannot grant itself authority by editing its own header.
+      # STANDARDS.md § Canonical documents is the sole public authority index.
+      - name: Check document authority claims have canonical pointers
+        run: |
+          node --test scripts/check-doc-authority.test.mjs
+          node scripts/check-doc-authority.mjs
+
+      # The documentation estate index is a generated projection of Git's
+      # tracked inventory; hand-edited counts or rows must never drift.
+      - name: Check generated documentation index is current
+        run: |
+          node --test scripts/generate-docs-index.test.mjs
+          node scripts/generate-docs-index.mjs --check
+
+      # 6767-h is a frozen historical standard that remains cited by schemas.
+      # Pin its section map and prove every cited heading still resolves.
+      - name: Check frozen prose anchors remain valid
+        run: python3 -m unittest tests.test_prose_anchors -v
 
       # Recurrence prevention for the tracked-generated-artifact class: a
       # projection that is also committed has two claimants to one fact and

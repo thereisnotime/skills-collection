@@ -10916,12 +10916,22 @@
       "languages": []
     },
     {
+      "name": "ce-skill-work",
+      "description": "\"Applies this repository's skill-authoring standard as a procedure. Use for any change to, or judgment about, a file under skills/** \u2014 a SKILL.md, a reference, a persona prompt, a bundled script's ins",
+      "path": "EveryInc--compound-engineering-plugin/.agents/skills/ce-skill-work/SKILL.md",
+      "remote_path": ".agents/skills/ce-skill-work/SKILL.md",
+      "lines": 48,
+      "words": 1108,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "ce-pov",
       "description": "\"Give a decisive, project-grounded point of view in the subject's own shape: a graded verdict on an external-adoption question, a holistic take on a document, or a position on a user-supplied approach",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
-      "lines": 161,
-      "words": 3533,
+      "lines": 162,
+      "words": 3564,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -10945,7 +10955,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
       "lines": 191,
-      "words": 3022,
+      "words": 3040,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -10979,8 +10989,8 @@
       "description": "\"Create a durable, visual teaching artifact \u2014 plus an optional check-in (predict-then-reveal for diffs, corrected exercises) that makes it stick \u2014 for something worth learning: a concept, a diff, an i",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
-      "lines": 140,
-      "words": 3457,
+      "lines": 141,
+      "words": 3488,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11016,8 +11026,8 @@
       "description": "Publish, read, comment on, or edit markdown in Proof. Use for Proof links, sharing specs/plans/drafts, or publish handoffs from planning workflows; avoid proofread, math, evidence, or proof-of-concept",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-proof/SKILL.md",
       "remote_path": "skills/ce-proof/SKILL.md",
-      "lines": 347,
-      "words": 2352,
+      "lines": 354,
+      "words": 2631,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -11041,8 +11051,8 @@
       "description": "'Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, think through scope, decide what to build, or needs collaborative product fr",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 378,
-      "words": 8024,
+      "lines": 379,
+      "words": 8055,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11063,8 +11073,8 @@
       "description": "\"Sweep configured feedback sources (Slack, GitHub Issues; email experimental) for new items: acknowledge at source, analyze recordings, verify fixes merged to main, and emit an `lfg`-ready plan. First",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-sweep/SKILL.md",
       "remote_path": "skills/ce-sweep/SKILL.md",
-      "lines": 202,
-      "words": 2647,
+      "lines": 203,
+      "words": 2678,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -11075,8 +11085,8 @@
       "description": "Document a recently solved problem as a durable repo learning, or capture project vocabulary in CONCEPTS.md. Use when capturing a learning after work.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 802,
-      "words": 10564,
+      "lines": 804,
+      "words": 10736,
       "code_blocks": 19,
       "languages": [
         "bash"
@@ -11087,8 +11097,8 @@
       "description": "Commit, push, and open a PR. Use when asked to ship/open a PR, or for PR-description-only flows like writing, rewriting, or describing a PR body.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
-      "lines": 186,
-      "words": 3863,
+      "lines": 188,
+      "words": 3965,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -11111,8 +11121,8 @@
       "description": "Create a git commit with a clear, value-communicating message. Use when the user asks to commit/save staged or unstaged changes with a repo-appropriate message.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit/SKILL.md",
       "remote_path": "skills/ce-commit/SKILL.md",
-      "lines": 58,
-      "words": 646,
+      "lines": 60,
+      "words": 730,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11124,7 +11134,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 272,
-      "words": 12915,
+      "words": 13043,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -11183,8 +11193,8 @@
       "description": "Create a session handoff for another agent, or resume, find, and read any user-selected continuity source. Use when work or conversation must continue without access to the current session history.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-handoff/SKILL.md",
       "remote_path": "skills/ce-handoff/SKILL.md",
-      "lines": 142,
-      "words": 2030,
+      "lines": 143,
+      "words": 2116,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -11245,8 +11255,8 @@
       "description": "Refresh the repo's captured learnings against the current codebase. Use when auditing stale, overlapping, superseded, or drifted learnings; avoid general refactor, debugging, or code review unless the",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
-      "lines": 202,
-      "words": 3659,
+      "lines": 204,
+      "words": 3878,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -11258,9 +11268,9 @@
       "description": "Execute a plan or concrete work prompt end-to-end. Use when implementing from a plan document, a spec path, or a clear build request; use ce-debug for open-ended bugs. Standalone use owns the shipping",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
-      "lines": 449,
-      "words": 7661,
-      "code_blocks": 6,
+      "lines": 407,
+      "words": 7858,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -11270,8 +11280,8 @@
       "description": "\"Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked for review; report-only by default, with explicit local apply available for user-directed fix workflow",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 571,
-      "words": 8147,
+      "lines": 572,
+      "words": 8199,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -11283,8 +11293,8 @@
       "description": "\"Generate and evaluate grounded ideas. Use when the user asks for ideas, improvements, surprising options, or AI-generated directions before choosing one to develop; use ce-brainstorm to refine the us",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
-      "lines": 424,
-      "words": 7644,
+      "lines": 425,
+      "words": 7685,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11295,9 +11305,9 @@
       "description": "'Diagnosis loop for bugs and failing behavior. Use for errors, stack traces, regressions, failed tests, issue-tracker bugs, stuck investigations after failed fixes, or asks to debug/fix a bug.'",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
-      "lines": 250,
-      "words": 4056,
-      "code_blocks": 2,
+      "lines": 275,
+      "words": 5242,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -11308,7 +11318,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 149,
-      "words": 4011,
+      "words": 3982,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11773,8 +11783,8 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 593,
-      "words": 4466,
+      "lines": 601,
+      "words": 4592,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -11786,7 +11796,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
       "lines": 543,
-      "words": 6076,
+      "words": 6152,
       "code_blocks": 4,
       "languages": []
     },
@@ -11796,7 +11806,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
       "lines": 709,
-      "words": 6540,
+      "words": 6714,
       "code_blocks": 11,
       "languages": []
     },
@@ -11824,11 +11834,11 @@
     },
     {
       "name": "ars-mark-read",
-      "description": "ARS /ars-mark-read \u2014 record human-read signal for one or more citation keys",
+      "description": "ARS /ars-mark-read \u2014 record a user-attested reading signal for one or more citation keys",
       "path": "Imbad0202--academic-research-skills/commands/ars-mark-read.md",
       "remote_path": "commands/ars-mark-read.md",
       "lines": 19,
-      "words": 251,
+      "words": 318,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11936,11 +11946,11 @@
     },
     {
       "name": "ars-unmark-read",
-      "description": "ARS /ars-unmark-read \u2014 rescind a prior human-read mark for one or more citation keys",
+      "description": "ARS /ars-unmark-read \u2014 rescind a user-attested reading signal for one or more citation keys",
       "path": "Imbad0202--academic-research-skills/commands/ars-unmark-read.md",
       "remote_path": "commands/ars-unmark-read.md",
       "lines": 17,
-      "words": 159,
+      "words": 161,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11968,11 +11978,11 @@
     },
     {
       "name": "academic-paper-reviewer",
-      "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Simulates 5 independent reviewers (Journal-Fit Reviewer + 3 peer reviewers + Devil's Advocate) with field-specific expertise. S",
+      "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Runs a 5-seat, role-separated review panel (Journal-Fit Reviewer + 3 peer-review roles + Devil's Advocate) with field-specific ",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 489,
-      "words": 4592,
+      "lines": 492,
+      "words": 4859,
       "code_blocks": 4,
       "languages": []
     },
@@ -11982,7 +11992,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/bibliography_agent.md",
       "remote_path": "deep-research/agents/bibliography_agent.md",
       "lines": 474,
-      "words": 4358,
+      "words": 4360,
       "code_blocks": 10,
       "languages": [
         "markdown",
@@ -12052,8 +12062,8 @@
       "description": "\"Guides researchers through Socratic questioning to clarify and sharpen their research thinking\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/socratic_mentor_agent.md",
       "remote_path": "deep-research/agents/socratic_mentor_agent.md",
-      "lines": 725,
-      "words": 7874,
+      "lines": 765,
+      "words": 8214,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -12064,8 +12074,8 @@
       "description": "\"Transforms vague topics into precise, FINER-evaluated researchable questions through iterative refinement\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/research_question_agent.md",
       "remote_path": "deep-research/agents/research_question_agent.md",
-      "lines": 205,
-      "words": 1378,
+      "lines": 217,
+      "words": 1472,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12089,7 +12099,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/agents/devils_advocate_agent.md",
       "remote_path": "deep-research/agents/devils_advocate_agent.md",
       "lines": 193,
-      "words": 1462,
+      "words": 1476,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12150,8 +12160,8 @@
       "description": "\"Designs the literature search strategy and manages source selection for the paper\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/literature_strategist_agent.md",
       "remote_path": "academic-paper/agents/literature_strategist_agent.md",
-      "lines": 628,
-      "words": 6003,
+      "lines": 627,
+      "words": 6152,
       "code_blocks": 13,
       "languages": [
         "markdown",
@@ -12188,7 +12198,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/formatter_agent.md",
       "remote_path": "academic-paper/agents/formatter_agent.md",
       "lines": 1000,
-      "words": 8662,
+      "words": 8678,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -12251,9 +12261,9 @@
       "description": "\"Simulates peer review to identify weaknesses and suggest improvements before submission\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/peer_reviewer_agent.md",
       "remote_path": "academic-paper/agents/peer_reviewer_agent.md",
-      "lines": 581,
-      "words": 4597,
-      "code_blocks": 10,
+      "lines": 517,
+      "words": 4127,
+      "code_blocks": 9,
       "languages": [
         "markdown"
       ]
@@ -12310,11 +12320,11 @@
     },
     {
       "name": "integrity_verification_agent",
-      "description": "\"Verifies all references, citations, and data for factual accuracy before submission and after revision\"",
+      "description": "\"Runs coverage-bounded checks on registered references, citation contexts, data surfaces, and claims before review and after revision\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
-      "lines": 824,
-      "words": 8627,
+      "lines": 871,
+      "words": 9388,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -12348,8 +12358,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 1319,
-      "words": 19105,
+      "lines": 1324,
+      "words": 19406,
       "code_blocks": 19,
       "languages": [
         "text"
@@ -12374,8 +12384,8 @@
       "description": "\"Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/domain_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/domain_reviewer_agent.md",
-      "lines": 398,
-      "words": 4486,
+      "lines": 413,
+      "words": 4641,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12386,8 +12396,8 @@
       "description": "\"Peer Reviewer 1; assesses methodological soundness, research design validity, and statistical rigor\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/methodology_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/methodology_reviewer_agent.md",
-      "lines": 435,
-      "words": 5968,
+      "lines": 450,
+      "words": 6143,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12398,8 +12408,8 @@
       "description": "\"Peer Reviewer 3; evaluates cross-disciplinary relevance, broader impact, and alternative interpretations\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/perspective_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/perspective_reviewer_agent.md",
-      "lines": 413,
-      "words": 4488,
+      "lines": 428,
+      "words": 4656,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12410,8 +12420,8 @@
       "description": "\"Challenges core arguments and logical coherence as the devils advocate reviewer in the editorial panel\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/devils_advocate_reviewer_agent.md",
-      "lines": 429,
-      "words": 5944,
+      "lines": 444,
+      "words": 6124,
       "code_blocks": 12,
       "languages": [
         "markdown"
@@ -12422,8 +12432,8 @@
       "description": "\"Journal-Fit Reviewer seat; contributes the journal-fit / originality / overall-quality review card \u2014 the final editorial decision is editorial_synthesizer_agent's Phase 2 work\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/eic_agent.md",
       "remote_path": "academic-paper-reviewer/agents/eic_agent.md",
-      "lines": 324,
-      "words": 3913,
+      "lines": 340,
+      "words": 4078,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -12434,8 +12444,8 @@
       "description": "\"Synthesizes all reviewer reports into a unified editorial decision letter and revision roadmap\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
       "remote_path": "academic-paper-reviewer/agents/editorial_synthesizer_agent.md",
-      "lines": 460,
-      "words": 5577,
+      "lines": 479,
+      "words": 5823,
       "code_blocks": 3,
       "languages": [
         "markdown"
@@ -12446,8 +12456,8 @@
       "description": "\"Identifies the papers field and dynamically configures the reviewer teams identities and expertise\"",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/agents/field_analyst_agent.md",
       "remote_path": "academic-paper-reviewer/agents/field_analyst_agent.md",
-      "lines": 220,
-      "words": 1427,
+      "lines": 222,
+      "words": 1458,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -14335,9 +14345,9 @@
       "description": "Design custom laboratory hardware as parametric build123d models and export fabrication-ready STEP, STL, and DXF files - microfluidic chips and molds, optomechanical mounts and breadboard adapters, cu",
       "path": "K-Dense-AI--claude-scientific-skills/skills/lab-hardware-cad/SKILL.md",
       "remote_path": "skills/lab-hardware-cad/SKILL.md",
-      "lines": 313,
-      "words": 2421,
-      "code_blocks": 7,
+      "lines": 373,
+      "words": 3106,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "python"
@@ -112191,8 +112201,8 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/governed-second-brain/skills/brain-save/SKILL.md",
       "remote_path": "plugins/mcp/governed-second-brain/skills/brain-save/SKILL.md",
-      "lines": 152,
-      "words": 1214,
+      "lines": 158,
+      "words": 1304,
       "code_blocks": 2,
       "languages": [],
       "version": "1.0.0",
@@ -112203,8 +112213,8 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/governed-second-brain/skills/brain/SKILL.md",
       "remote_path": "plugins/mcp/governed-second-brain/skills/brain/SKILL.md",
-      "lines": 150,
-      "words": 1009,
+      "lines": 154,
+      "words": 1078,
       "code_blocks": 4,
       "languages": [],
       "version": "1.2.0",
@@ -151505,9 +151515,9 @@
       "description": ">",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1132,
-      "words": 8266,
-      "code_blocks": 65,
+      "lines": 1138,
+      "words": 8913,
+      "code_blocks": 64,
       "languages": [
         "bash",
         "json",
@@ -152182,9 +152192,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 877,
-      "words": 9558,
-      "code_blocks": 7,
+      "lines": 1075,
+      "words": 12222,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
@@ -167180,6 +167190,16 @@
         "go",
         "yaml"
       ]
+    },
+    {
+      "name": "nasiko-control-plane",
+      "description": "Install, detect, and operate the optional Nasiko agent control plane through ECC with pinned artifacts, explicit consent, and telemetry and secrets boundaries.",
+      "path": "affaan-m--everything-claude-code/skills/nasiko-control-plane/SKILL.md",
+      "remote_path": "skills/nasiko-control-plane/SKILL.md",
+      "lines": 50,
+      "words": 338,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "council-multi-model",

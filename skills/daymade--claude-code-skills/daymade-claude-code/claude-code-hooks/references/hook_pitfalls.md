@@ -311,8 +311,10 @@ unresolvable path means **block**.
   yielding a single segment whose head is `cd`. The `git push` further down is no
   longer at a segment head, and the command-position check (#2) never sees it.
   Single-line fixtures cannot expose this: they have no newline to swallow.
-- **Fix — two stages, and the order matters.** First split on **newlines only, as
-  text** (`cmd.split("\n")`). Then, *within each line*, use #2's `shlex` tokenizer
+- **Fix — two stages, and the order matters.** First split into lines with the
+  **shell-aware** splitter `split_shell_lines` (walker section / Pattern A), which
+  tracks quote state, backslash continuations and `$'…'` escapes. Then, *within each
+  line*, use #2's `shlex` tokenizer
   to segment on `;`/`&&`/`|` and walk for command position. This defeats the common
   #2 trap: a `|` inside `grep -E "a|git push|b"`, or an `&&` inside a *single-line*
   `git commit -m "… && git push"`, stays inside one `shlex` token, so no phantom
@@ -320,20 +322,21 @@ unresolvable path means **block**.
   quote-blind split like `re.split(r"[\n;]|&&|\|\||[|&]", cmd)`: that cuts those same
   separators *inside* quotes — pitfall #2, the worst bug in this file — and orphans
   the inner text from its `git commit` head, defeating #7's exemption.
-- **Name its residual, don't hide it.** The text `cmd.split("\n")` is itself
-  quote-blind about *newlines*: a newline **inside** a quoted string or a heredoc
-  body still fragments. The clean witness is a heredoc — `git commit -F - <<'MSG'`
-  whose body contains a bare `git push` line splits that line off and reads it as a
-  command it isn't. (A multiline `-m "…\ngit push"` message fragments too, but its
-  torn line has an unbalanced quote, so whether it over- or under-fires depends on how
-  you handle the `shlex` `ValueError` — a witness for the same residual, less clean.)
+- **Name its residual, don't hide it — and know which stage-1 you are naming.** The
+  first form of this fix split lines as plain text (`cmd.split("\n")`). That form is
+  **superseded**: being quote-blind about newlines, it fragments a newline **inside**
+  a quoted string and false-blocks a healthy command — measured on this file's own
+  harness row `quoted-multiline` (`echo "line1\nTRIGGER…\nline3"`, want 0, got 2),
+  which is the error direction #2 ranks as the worse one. Do not copy it.
   **2026-07-26 refinement (production qlmanage-guard, three review rounds with
-  100+ executed probes):** split shell-aware instead — `split_shell_lines`
+  100+ executed probes), now the prescription above:** `split_shell_lines`
   (walker section / Pattern A) tracks quote state, backslash continuations, and
   `$'…'` ANSI-C escapes, which removes the *quoted-string* half of the residual
   (the `gh pr create -b "…\nTRIGGER…"` shape — more common than heredocs in real
-  tool calls). What remains is heredoc bodies only: they are not quote syntax,
-  so no quote-state machine can see them.
+  tool calls). **What remains is heredoc bodies only**: they are not quote syntax,
+  so no quote-state machine can see them. The clean witness for that surviving
+  residual is `git commit -F - <<'MSG'` whose body contains a bare `git push` line —
+  it splits off and reads as a command it isn't.
   Whether that residual is acceptable follows the same **bias-to-under** call as #2:
   for a **fail-open reminder** an extra over-fire costs nothing — declare it and move
   on; for a **fail-closed blocker** it re-creates #2's false-block, so you must lift
@@ -928,8 +931,13 @@ unresolvable path means **block**.
 - **Cause — the ceiling counts something narrower than its name suggests.**
   Claude Code caps consecutive Stop-hook blocks (default **8**, overridable via
   `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`; **setting it to `0` disables the cap
-  rather than forbidding blocks** — the guard is `cap > 0 &&`). None of this is
-  in the docs; it is readable from the shipped binary. The counter driving it is
+  rather than forbidding blocks** — the guard is `cap > 0 &&`). Those three facts
+  were reverse-engineered here and have since been documented, `0`-disables
+  included, so they are now checkable against the reference. **The mechanism below
+  still is not**: the docs say only that the override lands after eight consecutive
+  blocks "without progress", never defining what resets the count — so the next
+  paragraph remains a binary-derived finding, not a documented contract, and should
+  be re-verified against the CLI you are actually running. The counter driving it is
   **reset to 0 on every continuation that executed tools** — verified across all
   six continuation branches in 2.1.220, each of which writes the counter back as
   `0`; only the block branch increments it. So the cap's real meaning is *"blocked
@@ -946,9 +954,11 @@ unresolvable path means **block**.
   hook cannot learn how many times it has fired, so "let the third one through"
   is not expressible from the input alone. (Cursor hands its stop hook a numeric
   `loop_count` plus a configurable `loop_limit`; Claude Code hands you the bit.)
-  The field is also undocumented — absent from the hooks reference, present in
-  the SDK's type declaration with no prose. Within one query loop it behaves as a
-  **latch**: once true it stays true.
+  The field is now documented — the reference states it is `true` "when Claude Code
+  is already continuing as a result of a stop hook" and tells you to check it — but
+  the documented prose stops there, and the property that actually bites is the one
+  measured here: within one query loop it behaves as a **latch**, once true it stays
+  true, so it cannot count and cannot tell your hook's block from another's.
 - **What is NOT the cause (tested, so you don't repeat the experiment):**
   asynchronous background completions arriving *inside* the blocked window do
   **not** clear the latch. Measured over 7 headless runs on 2.1.220 — three with
@@ -1409,3 +1419,194 @@ this list and describe defects you reach by asking a different question):
      treat the budget as spent, not as "clean," and — if the pattern
      recurs — fix the tracker's granularity rather than writing a fourth
      justification the mechanism will not read either.
+
+## 32. Two parallel arrays indexed by the same offsets are an unstated invariant — and orthogonal test axes never cross the point where it breaks
+
+> Worked example: `git-commit-form-guard.sh` (a private hooks repo, not
+> shipped here), 2026-08-16. A quote-aware redirect stripper built one
+> character-mask array alongside the text array it masks, then indexed the
+> mask with the text's match offsets. One branch appended to the text array
+> and not the mask. Measured result: `git commit -a` — the exact form this
+> Tier-0 guard exists to block — sailed through with exit 0.
+
+- **Symptom:** the guard blocks correctly in isolation and fails only in
+  combination. `git commit -a -m "wip >log"` blocks (exit 2). Prefix the
+  same command with four comment lines and it **allows** (exit 0). Nothing
+  about the diagnostic output distinguishes the two — the guard simply
+  returns 0 the way it does for every healthy command, so the failure is
+  indistinguishable from correct operation unless you already suspect it.
+
+- **Cause — the invariant was real but unwritten.** The scanner walks the
+  command character by character, appending to `out` (the rewritten text)
+  and to `qmask` (is this character inside quotes?). A later regex pass
+  strips redirects, skipping any match whose span is quoted:
+  `if any(qmask[m.start():m.end()]): continue`. That slice is only
+  meaningful while `len(qmask) == len(out)`. The comment-terminating branch
+  appended `";"` to `out` and nothing to `qmask`, so **each comment line
+  shifts the mask one position left** relative to the text it describes.
+  Note the shift is unbounded and cumulative — it grows with input, so
+  there is no "small enough" input that is safe.
+
+- **Why the consequence is worse than "strips slightly wrong."** The
+  displaced window eventually lands entirely outside the quotes it should
+  have been inside, so the stripper eats the message's **closing quote**.
+  The now-unbalanced text raises `ValueError` from the tokenizer, and this
+  guard's documented convention is `except ValueError: sys.exit(0)` —
+  fail-open. So a pure *offset* bug is laundered into a **complete bypass**
+  of the gate. Generalize: in any fail-open parser, a corruption bug and a
+  disable switch are the same bug. Audit what your `except` clauses exit
+  with before you add anything that can throw.
+
+- **Why the test suite was green — the axes never crossed.** The suite had
+  redirect cases (added the day before, deliberately, with negative
+  controls) and comment cases (long-standing). **Every redirect case had
+  zero comments; every comment case had zero redirects.** Each axis was
+  covered; their intersection was empty; the bug lives only in the
+  intersection. Coverage counted per-axis reads as thorough and is blind
+  by construction.
+
+- **Why a first probe said "no fail-open" and was wrong.** Testing comment
+  counts 0–3 against a few message shapes returns all-blocked, which reads
+  as a clean bill of health. The offset grows one position per comment, so
+  whether the window clears the quote depends on **both** the comment count
+  and the message length — for the shapes probed, the flip started at
+  k=4. A single sampled value of a linear parameter is not a test of that
+  parameter. Sweep it, or you will certify the safe cell and ship the
+  unsafe one.
+
+**Fixes, in the order they buy the most:**
+
+1. **Make the invariant executable, not documentary — but check which way
+   your "loud failure" actually falls.** A comment saying "these must stay
+   equal" is not enforcement; the next person appending a branch will not
+   read it. The reflex is `assert len(qmask) == len(out)` — and in this
+   guard that reflex was **measured to be wrong, in the dangerous
+   direction**. This block returns its verdict on **stdout** (the shell does
+   `FORM=$(python3 …)`) and always `sys.exit(0)` itself, so an uncaught
+   `AssertionError` prints nothing to stdout, leaves `FORM` empty, reads as
+   "no violation found", and exits the hook **1** — and PreToolUse treats
+   any nonzero-but-not-2 as a non-blocking error, so the tool runs anyway.
+   Forcing the assertion to fire measured exactly that: `git commit -a -m x`
+   → exit 1 → allowed. Replacing it with an explicit `if len(qmask) !=
+   len(out): report_violation()` measured exit 2 for both the dangerous and
+   the healthy command — conservative, which is the correct direction for a
+   Tier-0 gate. **Generalize: whether a tripwire is fail-open or fail-closed
+   is a property of how *the call site consumes the result*, not of the
+   language construct.** The same `assert` is fail-closed in a hook whose
+   exit code is the verdict and fail-open in a block whose stdout is the
+   verdict. Determine this by forcing the failure and reading the exit code,
+   not by intuition. Better still, remove the invariant's ability to break:
+   append `(char, in_quote)` **tuples** to one array so no branch *can*
+   update one without the other. Two arrays that must stay in lockstep are
+   a data-structure choice you can simply decline to make.
+2. **Test the product of your axes, not their union.** When you add axis B
+   to a suite that already covers axis A, add A×B cases in the same commit.
+   The cheap version: for each existing A case, re-run it with the smallest
+   nonzero amount of B. This is the same discipline as the negative
+   controls elsewhere in this file — the difference is that a missing
+   *intersection* looks like coverage on every count you can take.
+3. **Sweep parameters that shift an offset; don't sample them.** If a
+   quantity in the input moves an index (count of comments, lines,
+   escapes, nesting depth), enumerate a range of it in the suite (here:
+   1..8, each as its own case) rather than picking one value. State the
+   reason in the test file so a later reader doesn't "tidy" eight cases
+   into one.
+4. **Calibrate bidirectionally against a single-line revert.** Build a copy
+   of the guard with *only* the fix undone and run the suite against it.
+   The result must be red **and** red in exactly the new cases — here 58
+   pass / 16 fail, with the 16 being precisely the added intersection
+   cases. If reverting the fix leaves the suite green, the tests are
+   decoration; if it reddens unrelated cases, the fix did more than
+   claimed. (Watch for artifacts: copies must be `chmod +x` if the suite
+   execs the hook — an all-`126` run is "permission denied," not a signal.)
+5. **Weigh a Tier-0 bypass by reachability, not by corpus frequency.**
+   Replaying 142,687 real commands found only 8 where this misalignment
+   changed the parse, and none of those contained `git commit` — so the
+   bug had never actually fired in production. That is a fact worth
+   recording and worth *not* using as a severity discount: the input that
+   triggers it is trivially constructible and entirely ordinary (a comment
+   above a commit). Frequency data tells you whether you were lucky, not
+   whether the gate holds.
+
+## 33. A shlex-based guard sees the text you typed, not the argv bash builds — every shell expansion is a hole in it
+
+> Worked example: `git-commit-form-guard.sh` (a private hooks repo, not
+> shipped here), 2026-08-16, found by an independent fresh-context reviewer
+> after the author had already declared the guard sound. Three separate,
+> zero-setup, everyday-syntax ways to make the guard's own target form
+> (`git commit -a`) invisible to it, all present since the guard's earliest
+> commit, one of them pushed all the way through to a real `git commit` that
+> genuinely swept uncommitted work into the tree.
+
+- **Symptom:** the guard blocks `git commit -a -m x` (exit 2) and allows all
+  of these (exit 0), each of which bash executes as *exactly that command*:
+
+  | typed | bash's real argv |
+  |---|---|
+  | `git commit {-a,-m} x` | `commit` `-a` `-m` `x` (brace expansion) |
+  | `git commit $'-a' -m x` | `commit` `-a` `-m` `x` (ANSI-C quoting) |
+  | `git${IFS:0:1}commit${IFS:0:1}-a` | `git` `commit` `-a` (IFS as separator) |
+
+- **Cause — a category error about what the tokenizer is for.** `shlex` is a
+  *lexer*: it splits text into words and handles quoting. Bash, before it
+  ever has an argv, additionally performs brace expansion, tilde expansion,
+  parameter/variable expansion, command substitution, arithmetic expansion,
+  word splitting, and pathname expansion. `shlex` does **none** of these and
+  never claims to. So `{-a,-m}` arrives as one literal token beginning with
+  `{`, which never reaches a flag scanner that only fires on tokens
+  beginning with `-`. The guard is not buggy in its own terms; it is
+  answering a different question than the one that matters ("what did the
+  user type" vs "what will actually run").
+
+- **Why this outranks the disclaimer the guard already had.** This guard
+  already declared variable indirection (`G=git; $G commit -am`) an accepted
+  false negative. That disclaimer does not cover these: `$G` requires the
+  user to have written an assignment first, whereas all three above are
+  zero-setup and are ordinary syntax people type for non-evasive reasons
+  (`cp file.{txt,bak}` is completely normal). "We accept some
+  under-detection" is a budget, and it silently overran — the accepted case
+  was narrow and these are broad.
+
+- **Why the author didn't find it and the reviewer did.** The author's own
+  adversarial sweep (26 dangerous forms) was built from *the mechanism he
+  had just fixed* — comments, redirects, line continuations, quoting. Not
+  one case used a shell expansion, because expansions were not part of the
+  bug he had in mind. A fresh-context reviewer, given only "find any
+  remaining bypass," had no such anchor. **Generalize: your own bypass
+  hunt is shaped by the bug you just fixed, and is therefore blindest
+  exactly where the next bug lives.**
+
+**Fixes, in the order they buy the most:**
+
+1. **Decide explicitly whether you are guarding text or argv, and write it
+   down.** If argv, a lexer alone cannot get you there and every expansion
+   is an open hole. If text (a reasonable choice for a cheap PreToolUse
+   guard), then the accepted-under-detection list must name the expansion
+   classes, not just the one you happened to think of.
+2. **Normalize the expansions you can, on raw text, outside quotes, before
+   tokenizing.** You do not need to *implement* bash expansion — you need
+   only to stop the expansion from *hiding a flag*. Rewriting `{a,b}` to
+   ` a b `, `$'x'` to `x`, and `${IFS…}` to a space is a few dozen lines and
+   restores the flags as independent tokens the existing logic already
+   understands. Constrain the brace rule to groups that contain a comma and
+   no whitespace, or you will eat `find -exec {} \;` and `awk '{print $1}'`.
+3. **Prove the exploit against real bash before you fix, and against real
+   bash after.** A guard-parser disagreement is not automatically a
+   vulnerability — the reviewer here correctly discarded one candidate
+   (`{-a,} -m x`) after finding that real `git` rejects it with `fatal:
+   paths … with -a does not make sense`. Dump argv with a probe script that
+   just prints `"$@"`; that is the ground truth, not your reading of the
+   man page.
+4. **Measure the fix against a real corpus, in both directions.** Here:
+   27,641 real commands containing `commit` / brace-with-comma / `IFS` /
+   `$'`, run through pre-fix and post-fix binaries, **zero exit-code
+   differences** — three complete bypasses closed with provably no
+   real-world behavior change. Without that number, "I added a normalizer to
+   a Tier-0 gate" is an unbounded false-positive risk, and false positives
+   on a gate are worse than the gap you closed.
+5. **Keep the positive controls that pass in BOTH versions.** The
+   calibration run against the pre-fix binary should redden *only* the
+   bug-specific cases (here 11 of them: 8 bypasses + 3 false blocks), while
+   `cp file.{txt,bak}` and "braces appearing inside a commit message as
+   data" stay green on both. A positive control that only passes after the
+   fix is not a control — it is another regression test riding along.
