@@ -10920,8 +10920,8 @@
       "description": "\"Applies this repository's skill-authoring standard as a procedure. Use for any change to, or judgment about, a file under skills/** \u2014 a SKILL.md, a reference, a persona prompt, a bundled script's ins",
       "path": "EveryInc--compound-engineering-plugin/.agents/skills/ce-skill-work/SKILL.md",
       "remote_path": ".agents/skills/ce-skill-work/SKILL.md",
-      "lines": 48,
-      "words": 1108,
+      "lines": 53,
+      "words": 1446,
       "code_blocks": 0,
       "languages": []
     },
@@ -61186,7 +61186,7 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/devops/mattyp-changelog/skills/changelog-orchestrator/SKILL.md",
       "remote_path": "plugins/devops/mattyp-changelog/skills/changelog-orchestrator/SKILL.md",
       "lines": 68,
-      "words": 320,
+      "words": 319,
       "code_blocks": 0,
       "languages": [],
       "version": "0.3.0",
@@ -141689,7 +141689,7 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/changelog-orchestrator/SKILL.md",
       "remote_path": "skills/.curated/changelog-orchestrator/SKILL.md",
       "lines": 68,
-      "words": 320,
+      "words": 319,
       "code_blocks": 0,
       "languages": [],
       "version": "0.3.0",
@@ -151423,9 +151423,9 @@
       "description": "Extract Feishu (Lark) Docs, Wiki pages/collections, spreadsheets, and Minutes (\u5999\u8bb0) transcripts into faithful local Markdown via the lark-cli API (no LLM rewriting of the body; browser-DOM fallback whe",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 160,
-      "words": 1961,
-      "code_blocks": 7,
+      "lines": 186,
+      "words": 3528,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]

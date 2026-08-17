@@ -18,27 +18,11 @@
  */
 import { execFileSync } from 'node:child_process';
 
-/** @type {{glob: string, canonical: string, regenerate: string, why: string}[]} */
-const PROJECTIONS = [
-  {
-    // `:(top)` makes the pathspec repo-root-relative. Without it `git ls-files`
-    // resolves it against the CWD, so invoking this gate from a subdirectory
-    // (a pre-commit hook, a package script) silently matched nothing and the
-    // gate no-opped to exit 0 while the projection was still tracked.
-    pathspec: ':(top)marketplace/public/data/*.json',
-    glob: 'marketplace/public/data/*.json',
-    canonical: 'marketplace/src/data/*.json',
-    regenerate: 'cd marketplace && npm run build   (or: node scripts/copy-public-data.mjs)',
-    why: 'runtime static-asset copy of the canonical build data; ~28.5MB when tracked',
-  },
-  {
-    pathspec: ':(top)marketplace/public/downloads/**',
-    glob: 'marketplace/public/downloads/**',
-    canonical: '.claude-plugin/marketplace.extended.json',
-    regenerate: 'cd marketplace && npm run build   (cowork:zips)',
-    why: 'cowork zips are rebuilt from the catalog on every build',
-  },
-];
+import { artifactRegistrationsByTracking } from './generated-artifact-registry.mjs';
+
+// `:(top)` pathspecs in the shared registry stay repo-root-relative. Without
+// that prefix, invoking this gate from a subdirectory silently matches nothing.
+const PROJECTIONS = artifactRegistrationsByTracking('untracked');
 
 const BUF = { maxBuffer: 64 * 1024 * 1024 };
 let failures = 0;
@@ -47,8 +31,11 @@ for (const p of PROJECTIONS) {
   let tracked = '';
   try {
     tracked = execFileSync('git', ['ls-files', '--', p.pathspec], BUF).toString().trim();
-  } catch {
-    tracked = '';
+  } catch (error) {
+    console.error(`\n✗ unable to enumerate tracked files matching ${p.glob}.`);
+    console.error(`    generated-artifacts refuses to pass without Git evidence.`);
+    console.error(`    ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
   }
   const files = tracked ? tracked.split('\n') : [];
   if (files.length) {

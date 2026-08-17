@@ -7,6 +7,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (2026-08-16 — build-derived marketplace data ownership)
+
+- **Two build-only marketplace JSON projections no longer have a second committed claimant.**
+  `readme-sections.json` is regenerated before both Astro build and local development, while the
+  now-unconsumed `jrig-data.json` is generated only from local `forge_proofs` evidence and writes a
+  deterministic empty map when that untracked database is absent. The shared generated-artifact
+  registry and fail-closed tracking gate reject either file if it is committed again. Four audited
+  build-derived files remain tracked because supported non-build consumers or prior-state semantics
+  still read their committed bytes; Epic 1.8 owns their regenerate-and-diff controls. The unconsumed
+  JRig projection is temporary: blueprint bead E9.2 still owns deleting it and its build step.
+
+### Changed (2026-08-16 — retired public-domain containment)
+
+- **First-party and generated surfaces now use only the live Tons of Skills domain.** A
+  case-insensitive, fail-closed policy classifies every tracked occurrence before allowing it:
+  editable sources and registered generated projections must be clean, while frozen standards,
+  provenance-owned mirrors, and registered point-in-time exports remain byte-identical. The exact
+  base contained 356 occurrences across 125 files: 292 actionable and 64 retained by policy.
+  The existing documentation-governance job now runs the fixture-backed lint so mixed case,
+  symlinks, malformed provenance, path traversal, and unregistered frozen paths cannot bypass it.
+  Retained frozen and Freshie evidence is path-and-byte pinned, and the generated postprocessor
+  skips every `.source.json` ancestry boundary. Historical claims use neutral redaction instead of
+  rewriting past evidence; command and URL examples use the reserved non-resolving
+  `retired-domain.invalid` host so they remain syntactically clear without reviving the dead
+  property. Unsupported email identities are removed or mapped to the existing
+  Intent Solutions contact, CLI catalog repair uses the verified canonical GitHub artifact, and
+  the MCP preset catalog no longer advertises an unserved remote schema URL.
+  [Exact-path supply-chain waivers](scripts/scan-allowlist.txt) record review of seven pre-existing
+  dual-use capabilities whose files have only domain or contact changes in this slice; the
+  underlying capabilities and scanner remain unchanged. The catalog schema permits an author
+  email and author URL to be omitted, so the unsupported Mattyp address and marketplace attribution
+  URL are removed while contributor credit is retained; the first-party Excel listing uses the
+  matching Intent Solutions identity and contact.
+  Retained-evidence, provenance, and generated-projection I/O is descriptor-bound with
+  no-follow semantics where available, closing metadata-check/file-use races without weakening
+  refusal behavior. Provenance absence is accepted only when the initial descriptor open reports
+  no path; disappearance after a successful open is refused as a concurrent mutation.
+  Cross-platform CLI validation now installs only the CLI package and its
+  dependencies, avoiding unrelated native-workspace build failures while preserving every CLI
+  runtime, package-manager, and operating-system assertion. Windows jobs use the maintained
+  Node-20-compatible `node-gyp` release that recognizes the hosted runner's Visual Studio 2026
+  toolchain when a transitive native dependency has no prebuilt binary. The production redirect
+  assertion for the retired external domain is removed intentionally: the dead property is no
+  longer an owned compatibility surface, while `tonsofskills.com` remains the governed live site.
+
+### Fixed (2026-08-16 — curated asset content-type integrity)
+
+- **Curated promotion now validates file content instead of relying on a NUL-byte prefix.**
+  Recognized image, archive, document, font, and executable signatures are omitted from the
+  text-only `skills/.curated/` projection, while misleading extensions, unreadable paths,
+  symlinks, NUL-bearing data, non-UTF-8 payloads, and failed `git ls-files` enumeration fail
+  closed in both build and drift-check modes instead of silently producing an empty mirror. The
+  paired corpus correction replaces seven first-party text placeholders that masqueraded as
+  `.png`, `.pdf`, or `.zip` files with truthful Markdown briefs or removes them, then rebuilds
+  all 1,915 curated skills. The pre-change scorecard found 11 extension/byte mismatches: seven
+  source artifacts and four generated curated copies; the corrected tree reports zero.
+
+### Added (2026-08-16 — required supersession records)
+
+- **Document supersession now has one reviewable record shape.** A filed template binds the frozen
+  class marker, `SUPERSEDED–FROZEN` banner, per-section disposition, and `STANDARDS.md` canonical
+  pointer into one pull request. A fixture-driven checker rejects missing components, placeholders,
+  and fenced or commented decoys inside the existing documentation-governance gate. The same gate
+  discovers every tracked completed record or malformed attempt; the five-document 6767 to 727
+  reconciliation is the worked example. The corpus gate fails closed if no completed record remains,
+  so removing that example requires filing a replacement record in the same change.
+
+### Changed (2026-08-16 — single README metrics writer)
+
+- **README counts now have one enforced writer.** The orphaned
+  `scripts/update-metrics.mjs` command was removed, leaving
+  `scripts/generate-readme-toc.mjs` as the only governed writer for catalog,
+  skill, and agent counts. The Epic 1 measurement gate searches the full tracked
+  executable tree, excluding explicit test and provenance-owned mirror surfaces,
+  and fails closed if another production writer appears. A package-level planted
+  writer proves the duplicate path cannot return silently.
+
+### Changed (2026-08-16 — canonical skill cohorts)
+
+- **Four binding skill-count surfaces now use one corpus resolver.** README
+  metrics, marketplace discovery, canonical validation, and curated promotion
+  consume sorted tracked paths from the named `marketplace-visible`, `graded`,
+  `first-party`, `curated-mirror`, and `curriculum` cohorts. Fixture-tree tests
+  pin provenance, hidden-path, traversal, and malformed-record behavior without
+  freezing live corpus totals. The README badge now reports the 3,068
+  marketplace-visible skills the site can render; the broader graded and
+  first-party cohorts remain available under their own names. Status-quo
+  compatibility is explicit: an orphan plugin with neither provenance nor a
+  manifest remains first-party rather than being silently reclassified.
+  Scorecard consumers must migrate row 1 from `plugin_skill_files` to the
+  explicit `raw_tracked_plugin_skill_files` key; row 24 owns governed cohort
+  counts. Both direct Git scans and caller-supplied tracked inventories reject
+  `SKILL.md` symlinks before cohort membership is computed.
+
+### Added (2026-08-16 — Epic 1 measurement harness)
+
+- **All 62 modernization scorecard rows now have one deterministic evidence
+  command.** `pnpm run measure:e1` measures the exact staged Git tree, preserves
+  distinct plugin, validator, Freshie, generated-index, and terminal cohorts,
+  and records explicit `not_reproducible` reason codes instead of copying stale
+  numbers where the repository lacks committed evidence. Per-row commands are
+  valid, `pnpm run measure:e1:check` is enforced inside the existing required
+  validation aggregate, and fixtures prove ignored mirrors, unstaged edits,
+  malformed protocols, bad signatures, missing inputs, and one-value drift fail
+  closed.
+
+### Fixed (2026-08-16 — malformed tool-allowlist enforcement)
+
+- **Structurally malformed `allowed-tools` entries now fail closed.** Validator
+  schema 4.0.0 reports malformed entries as errors at every tier while keeping
+  well-formed unknown tool names advisory. Empty CSV fields and non-string or
+  blank YAML-list members can no longer be normalized away. Corpus regression
+  coverage proves zero first-party baseline debt and preserves the ten parseable
+  mirror-owned Kobiton folded-scalar copies without editing mirrored content.
+
 ### Added (2026-08-15 — frozen prose-anchor gate)
 
 - **Frozen 6767-h section anchors are now regression-gated.** The existing `doc-governance` job
@@ -1544,7 +1659,7 @@ The 3,385 public-repo `SKILL.md` files under `plugins/` are **not** migrated in 
   - **Blockchain & On-Chain**: blockchain-explorer-cli, on-chain-analytics, mempool-analyzer, whale-alert-monitor, gas-fee-optimizer
   - **NFT & Tokens**: nft-rarity-analyzer, token-launch-tracker
   - **Infrastructure**: cross-chain-bridge-monitor, wallet-security-auditor
-- Firebase Hosting deployment workflow for claudecodeplugins.io
+- Firebase Hosting deployment workflow for [retired legacy public domain]
 - Firebase Analytics integration with measurement ID tracking
 - Google Secret Manager integration for secure Firebase config
 
@@ -1610,7 +1725,7 @@ The 3,385 public-repo `SKILL.md` files under `plugins/` are **not** migrated in 
 - 10 new SaaS vendor skill packs (Batch 3): Apollo, Deepgram, Juicebox, Customer.io, LangChain, Lindy, Granola, Gamma, Clerk, Linear
 - 240 new skills across Batch 3 vendors (24 skills per pack)
 - npm packages for all 30 SaaS packs with download tracking
-- Learn pages for all Batch 3 vendors on claudecodeplugins.io
+- Learn pages for all Batch 3 vendors on [retired legacy public domain]
 
 ### Changed
 

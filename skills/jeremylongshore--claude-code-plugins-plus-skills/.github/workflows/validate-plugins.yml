@@ -1415,15 +1415,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '20'
 
+      - name: Install root measurement dependencies
+        run: pnpm install --frozen-lockfile --filter "claude-code-plugins-monorepo"
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+
+      - name: Install validator dependencies
+        run: pip install pyyaml
 
       # 000-docs ignore-policy invariant (ownership + filing-ledger model —
       # 000-docs/.gitignore header; Mission 01 bead claude-5awj.6) plus the
@@ -1441,12 +1450,35 @@ jobs:
           node --test scripts/check-doc-authority.test.mjs
           node scripts/check-doc-authority.mjs
 
+      # Supersession is one atomic record, not a status-only edit. Keep the
+      # frozen header, per-section disposition, and canonical pointer together.
+      - name: Check document supersession record template
+        run: |
+          node --test scripts/check-supersession-template.test.mjs
+          node scripts/check-supersession-template.mjs --all
+
       # The documentation estate index is a generated projection of Git's
       # tracked inventory; hand-edited counts or rows must never drift.
       - name: Check generated documentation index is current
         run: |
           node --test scripts/generate-docs-index.test.mjs
           node scripts/generate-docs-index.mjs --check
+
+      # Blueprint 727 Epic 1 uses one cohort-labelled scorecard for every
+      # before/after claim. Recompute it from the exact Git index and reject
+      # stale or hand-edited evidence in the same required aggregate context.
+      - name: Check Epic 1 measurement scorecard is current
+        run: |
+          node --test scripts/measure-epic-1.test.mjs scripts/measure-epic-1-scorecard.test.mjs
+          pnpm run measure:e1:check
+
+      # The live property is tonsofskills.com. Preserve frozen 6767 records and
+      # provenance-owned mirrors byte-for-byte, but refuse the retired domain on
+      # every first-party source or generated projection. This remains inside
+      # doc-governance, which is a blocking dependency of ci-required, so the
+      # policy blocks merges without adding a fourth required status context.
+      - name: Reject the retired domain on actionable surfaces
+        run: pnpm run validate:dead-domain
 
       # 6767-h is a frozen historical standard that remains cited by schemas.
       # Pin its section map and prove every cited heading still resolves.
@@ -1458,7 +1490,7 @@ jobs:
       # diverges silently (public/data duplicated ~28.5MB of src/data with
       # identical blob SHAs). Beads claude-5awj.2 / .1.
       - name: Check generated projections are not tracked
-        run: node scripts/check-generated-artifacts.mjs
+        run: pnpm run validate:generated-artifacts
 
   # ───────────────────────────────────────────────────────────────────────────
   # Aggregate required gate. This is the SINGLE pull_request status context in
