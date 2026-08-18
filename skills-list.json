@@ -9659,6 +9659,17 @@
       "license": "Complete terms in LICENSE.txt"
     },
     {
+      "name": "discernment-nudge",
+      "description": ">",
+      "path": "anthropics--skills/skills/discernment-nudge/SKILL.md",
+      "remote_path": "skills/discernment-nudge/SKILL.md",
+      "lines": 210,
+      "words": 1751,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
+    },
+    {
       "name": "pptx",
       "description": "\"Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting t",
       "path": "anthropics--skills/skills/pptx/SKILL.md",
@@ -9708,6 +9719,17 @@
         "bash"
       ],
       "license": "Proprietary. LICENSE.txt has complete terms"
+    },
+    {
+      "name": "claude-academy-guide",
+      "description": ">",
+      "path": "anthropics--skills/skills/claude-academy-guide/SKILL.md",
+      "remote_path": "skills/claude-academy-guide/SKILL.md",
+      "lines": 151,
+      "words": 1237,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "canvas-design",
@@ -10931,7 +10953,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
       "lines": 162,
-      "words": 3564,
+      "words": 3568,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -10955,7 +10977,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
       "lines": 191,
-      "words": 3040,
+      "words": 3067,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -10967,7 +10989,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-dogfood/SKILL.md",
       "remote_path": "skills/ce-dogfood/SKILL.md",
       "lines": 213,
-      "words": 3176,
+      "words": 3186,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -10990,7 +11012,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
       "lines": 141,
-      "words": 3488,
+      "words": 3492,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11014,7 +11036,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-test-browser/SKILL.md",
       "remote_path": "skills/ce-test-browser/SKILL.md",
       "lines": 242,
-      "words": 1534,
+      "words": 1538,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -11052,7 +11074,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
       "lines": 379,
-      "words": 8055,
+      "words": 8079,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11064,7 +11086,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-product-pulse/SKILL.md",
       "remote_path": "skills/ce-product-pulse/SKILL.md",
       "lines": 197,
-      "words": 2308,
+      "words": 2312,
       "code_blocks": 0,
       "languages": []
     },
@@ -11086,7 +11108,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
       "lines": 804,
-      "words": 10736,
+      "words": 10740,
       "code_blocks": 19,
       "languages": [
         "bash"
@@ -11098,7 +11120,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
       "lines": 188,
-      "words": 3965,
+      "words": 3969,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -11110,7 +11132,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
       "lines": 78,
-      "words": 1161,
+      "words": 1165,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11134,7 +11156,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 272,
-      "words": 13043,
+      "words": 13066,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -11146,7 +11168,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-test-xcode/SKILL.md",
       "remote_path": "skills/ce-test-xcode/SKILL.md",
       "lines": 209,
-      "words": 994,
+      "words": 998,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -11167,11 +11189,11 @@
     },
     {
       "name": "ce-strategy",
-      "description": "\"Create or update STRATEGY.md. Use when starting a product, changing direction or roadmap, or when ce-ideate, ce-brainstorm, or ce-plan need upstream product grounding.\"",
+      "description": "\"Create or update STRATEGY.md. Use when starting a product, adding a strategy doc to an existing repo, changing direction or roadmap, or when ce-ideate, ce-brainstorm, or ce-plan need upstream product",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-strategy/SKILL.md",
       "remote_path": "skills/ce-strategy/SKILL.md",
-      "lines": 98,
-      "words": 1014,
+      "lines": 119,
+      "words": 2116,
       "code_blocks": 0,
       "languages": []
     },
@@ -11180,8 +11202,8 @@
       "description": "\"Check Compound Engineering health and repo-local config.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 162,
-      "words": 1594,
+      "lines": 166,
+      "words": 1680,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -11208,7 +11230,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 859,
-      "words": 16240,
+      "words": 16303,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -11221,7 +11243,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
       "lines": 695,
-      "words": 6100,
+      "words": 6104,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -11256,7 +11278,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
       "lines": 204,
-      "words": 3878,
+      "words": 3882,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -11268,8 +11290,8 @@
       "description": "Execute a plan or concrete work prompt end-to-end. Use when implementing from a plan document, a spec path, or a clear build request; use ce-debug for open-ended bugs. Standalone use owns the shipping",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
-      "lines": 407,
-      "words": 7858,
+      "lines": 409,
+      "words": 7964,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11294,7 +11316,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
       "lines": 425,
-      "words": 7685,
+      "words": 7703,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -11306,7 +11328,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
       "lines": 275,
-      "words": 5242,
+      "words": 5246,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -11318,7 +11340,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 149,
-      "words": 3982,
+      "words": 4122,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11806,7 +11828,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
       "lines": 709,
-      "words": 6714,
+      "words": 6820,
       "code_blocks": 11,
       "languages": []
     },
@@ -12324,7 +12346,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/integrity_verification_agent.md",
       "remote_path": "academic-pipeline/agents/integrity_verification_agent.md",
       "lines": 871,
-      "words": 9388,
+      "words": 9424,
       "code_blocks": 19,
       "languages": [
         "markdown"
@@ -12347,7 +12369,7 @@
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/state_tracker_agent.md",
       "remote_path": "academic-pipeline/agents/state_tracker_agent.md",
       "lines": 623,
-      "words": 3090,
+      "words": 3122,
       "code_blocks": 7,
       "languages": [
         "json"
@@ -12358,8 +12380,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 1324,
-      "words": 19406,
+      "lines": 1326,
+      "words": 19447,
       "code_blocks": 19,
       "languages": [
         "text"
@@ -14663,6 +14685,19 @@
       "languages": [
         "bash",
         "python"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "waypoint-bio",
+      "description": "Use when working with Outpost Bio's open microbiome foundation models - the Waypoint checkpoints (Waypoint-6m, Waypoint-45m, Waypoint-170m), the Atlas pretraining corpus, the Compass eight-task benchm",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/waypoint-bio/SKILL.md",
+      "remote_path": "skills/waypoint-bio/SKILL.md",
+      "lines": 274,
+      "words": 1660,
+      "code_blocks": 9,
+      "languages": [
+        "bash"
       ],
       "license": "MIT"
     },
@@ -22496,8 +22531,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
-      "lines": 188,
-      "words": 1287,
+      "lines": 190,
+      "words": 1316,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -23704,8 +23739,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 537,
-      "words": 5294,
+      "lines": 581,
+      "words": 5442,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -23811,8 +23846,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 537,
-      "words": 5294,
+      "lines": 581,
+      "words": 5442,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -27575,6 +27610,102 @@
     {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/upgrade-stripe/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/upgrade-stripe/SKILL.md",
+      "lines": 186,
+      "words": 709,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "html",
+        "javascript",
+        "python",
+        "ruby"
+      ]
+    },
+    {
+      "name": "stripe-directory",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
+      "lines": 77,
+      "words": 767,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "stripe-apps",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
+      "lines": 208,
+      "words": 1981,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "stripe-best-practices",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
+      "lines": 74,
+      "words": 702,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "stripe-projects",
+      "description": ">",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-projects/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/stripe-projects/SKILL.md",
+      "lines": 175,
+      "words": 1239,
+      "code_blocks": 12,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "connect-required-verification-information",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/connect-required-verification-information/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/connect-required-verification-information/SKILL.md",
+      "lines": 413,
+      "words": 3499,
+      "code_blocks": 10,
+      "languages": [
+        "bash",
+        "json",
+        "mermaid"
+      ]
+    },
+    {
+      "name": "stripe-docs",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-docs/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/stripe-docs/SKILL.md",
+      "lines": 43,
+      "words": 132,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "connect-recommend",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md",
+      "lines": 358,
+      "words": 2786,
+      "code_blocks": 12,
+      "languages": []
+    },
+    {
+      "name": "upgrade-stripe",
+      "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
       "lines": 186,
@@ -27625,8 +27756,8 @@
       "description": ">",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 170,
-      "words": 1012,
+      "lines": 175,
+      "words": 1239,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -27731,8 +27862,8 @@
       "description": ">",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 170,
-      "words": 1012,
+      "lines": 175,
+      "words": 1239,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -27827,8 +27958,8 @@
       "description": ">",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 170,
-      "words": 1012,
+      "lines": 175,
+      "words": 1239,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -27933,8 +28064,8 @@
       "description": ">",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-projects/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-projects/SKILL.md",
-      "lines": 170,
-      "words": 1012,
+      "lines": 175,
+      "words": 1239,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -28029,8 +28160,8 @@
       "description": ">",
       "path": "stripe--ai/skills/stripe-projects/SKILL.md",
       "remote_path": "skills/stripe-projects/SKILL.md",
-      "lines": 170,
-      "words": 1012,
+      "lines": 175,
+      "words": 1239,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -28610,12 +28741,12 @@
     },
     {
       "name": "property-based-testing",
-      "description": "Provides guidance for property-based testing across multiple languages and smart contracts. Use when writing tests, reviewing code with serialization/validation/parsing patterns, designing features, o",
+      "description": "\"Writes, reviews, and debugs property-based tests \u2014 Hypothesis, fast-check, proptest, jqwik, rapid, and Echidna or Medusa for Solidity invariants. Use whenever tests should cover a whole input domain ",
       "path": "trailofbits--skills/plugins/property-based-testing/skills/property-based-testing/SKILL.md",
       "remote_path": "plugins/property-based-testing/skills/property-based-testing/SKILL.md",
-      "lines": 124,
-      "words": 778,
-      "code_blocks": 1,
+      "lines": 69,
+      "words": 645,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -59003,8 +59134,8 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/intent-labs-pack/skills/validate-skillmd/SKILL.md",
       "remote_path": "plugins/productivity/intent-labs-pack/skills/validate-skillmd/SKILL.md",
-      "lines": 460,
-      "words": 3220,
+      "lines": 469,
+      "words": 3273,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -151318,6 +151449,16 @@
       ]
     },
     {
+      "name": "macos-watchdog",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/macos-watchdog/SKILL.md",
+      "remote_path": "macos-watchdog/SKILL.md",
+      "lines": 92,
+      "words": 1375,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "macos-cleaner",
       "description": "Analyze and reclaim macOS disk space through intelligent cleanup recommendations. This skill should be used when users report disk space issues, need to clean up their Mac, or want to understand what'",
       "path": "daymade--claude-code-skills/macos-cleaner/SKILL.md",
@@ -151594,9 +151735,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/debugging-network-issues/SKILL.md",
       "remote_path": "debugging-network-issues/SKILL.md",
-      "lines": 379,
-      "words": 4531,
-      "code_blocks": 4,
+      "lines": 463,
+      "words": 7300,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "json"
@@ -151917,8 +152058,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docx-creator/SKILL.md",
       "remote_path": "daymade-docs/docx-creator/SKILL.md",
-      "lines": 190,
-      "words": 1663,
+      "lines": 193,
+      "words": 1710,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -151941,8 +152082,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1744,
-      "words": 26435,
+      "lines": 1752,
+      "words": 27589,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -152104,8 +152245,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 444,
-      "words": 4095,
+      "lines": 450,
+      "words": 4468,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -152255,8 +152396,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 1120,
-      "words": 17588,
+      "lines": 1203,
+      "words": 19758,
       "code_blocks": 27,
       "languages": [
         "bash",

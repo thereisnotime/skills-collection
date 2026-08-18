@@ -30,6 +30,15 @@ import { maybeGenerateProof } from "./proof.ts";
 import { cavemanCaptureUserMode } from "../providers/claude_flags.ts";
 import { resolvePrdForRun } from "./prd_reuse.ts";
 import { decideRecovery } from "./recovery_policy.ts";
+import {
+  checkpointedStateCorrupt,
+  providerUnavailableFromThrow,
+  rollbackLatestCheckpoint,
+} from "./recovery_runtime.ts";
+import { routeTaskClass, type TaskClass } from "./capability_router.ts";
+// Type-only: erased at build, so the runtime module stays behind the existing
+// graceful dynamic import below.
+import type { RarvPhase } from "./rarv.ts";
 
 // ---------------------------------------------------------------------------
 // Graceful dynamic imports.
@@ -398,6 +407,32 @@ const fileSignals: SignalSource = {
   },
 };
 
+// Derive the task class for an iteration from REAL request context.
+//
+// Deterministic and table-driven on purpose: the RARV cycle phase is already
+// computed each iteration (getRarvPhaseName), is independent of session pinning
+// so a pinned run still rotates through phases, and is a pure function of the
+// iteration counter. That makes every routing decision predictable from the
+// iteration number alone -- no classifier, no scoring, no regex over agent prose.
+//
+// A retry short-circuits to "recovery": re-attempting work that already failed
+// is exactly the case the router refuses to route below development strength.
+export function taskClassForIteration(phase: RarvPhase, retryCount: number): TaskClass {
+  if (retryCount > 0) return "recovery";
+  switch (phase) {
+    case "REASON":
+      return "planning";
+    case "ACT":
+      return "implementation";
+    case "REFLECT":
+      return "review";
+    case "VERIFY":
+      return "verification";
+    default:
+      return "implementation";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public entrypoint.
 // ---------------------------------------------------------------------------
@@ -565,7 +600,47 @@ async function runAutonomousCore(
     return 1;
   }
 
+  // Harness intelligence (feature 6): derive the repository profile ONCE per
+  // run, before the loop, so buildPrompt has a fresh profile to inject.
+  //
+  // Without this trigger the feature is inert even with LOKI_REPO_PROFILE=1:
+  // profileFragment() returns "" for any status other than "fresh", and the
+  // status is "absent" until something calls buildProfile. Nothing did.
+  //
+  // Once per run, not per iteration: the profile is hash-invalidated and
+  // TTL-bounded, so re-deriving it every iteration would re-stat the manifest
+  // files for a value that cannot have changed, and would rewrite the artifact
+  // the prompt prefix depends on being stable.
+  //
+  // Gated + best-effort: with the flag unset nothing is read or written, and a
+  // failure here must never abort a run that would otherwise succeed.
+  if (process.env["LOKI_REPO_PROFILE"] === "1") {
+    try {
+      const profileMod = await tryImport<{
+        buildProfile(o: { repoRoot: string; lokiDirOverride?: string }): { facts: unknown[] };
+      }>("./repo_profile.ts", ["buildProfile"]);
+      if (profileMod) {
+        // Address the SAME file the reader will open. build_prompt resolves the
+        // profile via LOKI_DIR (falling back to repo_profile's cwd default), so
+        // the writer must resolve it identically -- passing ctx.lokiDir here
+        // would write a file buildPrompt never reads whenever the two differ,
+        // leaving the fragment permanently empty with the flag ON.
+        const override = process.env["LOKI_DIR"];
+        const p = profileMod.buildProfile({
+          repoRoot: ctx.cwd,
+          lokiDirOverride: override !== undefined && override !== "" ? override : undefined,
+        });
+        log(`[runner] repo profile derived: ${p.facts.length} evidence-backed facts`);
+      }
+    } catch (err) {
+      log(`[runner] repo profile build failed (non-fatal): ${(err as Error).message}`);
+    }
+  }
+
   // -- Main loop (run.sh:10308-11099) --------------------------------------
+  // One-shot tier requested by recovery. Applied after the normal RARV/router
+  // calculation on the next attempt so that calculation cannot erase failover.
+  let recoveryTierOverride: SessionTier | undefined;
   while (ctx.retryCount < ctx.maxRetries) {
     // BUG-ST-010: pause/stop check BEFORE incrementing iteration count.
     const intervention = await signals.checkHumanIntervention(ctx);
@@ -660,6 +735,56 @@ async function runAutonomousCore(
       log(`[runner] RARV Phase: ${phase} -> Tier: ${tier}`);
       ctx.currentTier = tier;
 
+      // Harness intelligence (feature 5): activate capability/task-class routing.
+      // The router module existed with zero production callers -- every routing
+      // decision it documented was reachable only from a unit test.
+      //
+      // We route the TIER, never the model. providers.ts:314-319 resolves
+      // tier -> claudeTierToModel -> tierRouteModel -> applyMaxTierCeiling;
+      // injecting a model here would bypass the LOKI_MAX_TIER ceiling and
+      // diverge Bun from the bash resolver. Handing over a tier keeps
+      // providers.ts the sole owner of model identity.
+      //
+      // ponytail: `fable` is not a CapabilityTier and sessionCeiling() maps it
+      // to null, so routing a fable-pinned session would silently discard the
+      // pin. Skipping is the smallest correct fix; extend sessionCeiling() if
+      // fable ever needs real routing.
+      if (tier !== "fable") {
+        const decision = routeTaskClass(
+          taskClassForIteration(phase, ctx.retryCount),
+          String(ctx.currentTier),
+          {
+            iteration: ctx.iterationCount,
+            // Thread the SESSION model the runner actually resolved. The router
+            // reads LOKI_SESSION_MODEL for its ceiling, but the line above uses
+            // ctx.sessionModel -- leaving it to process.env would give the two
+            // different answers, and a caller that passes sessionModel through
+            // opts without exporting the env var would lose the ceiling entirely.
+            env: { ...process.env, LOKI_SESSION_MODEL: String(ctx.sessionModel) },
+          },
+        );
+        // Only a decision the router actually MADE may move the tier.
+        // routeTaskClass returns tier:"development" for BOTH "router_off" and
+        // "unknown_task_class"; assigning unconditionally would clobber an
+        // opus- or haiku-pinned session down to development with the flag OFF.
+        if (
+          decision.reason === "task_class" ||
+          decision.reason === "session_ceiling" ||
+          decision.reason === "explicit_override"
+        ) {
+          if (decision.tier !== ctx.currentTier) {
+            log(
+              `[runner] capability router: ${ctx.currentTier} -> ${decision.tier} (${decision.reason})`,
+            );
+          }
+          ctx.currentTier = decision.tier;
+        }
+      }
+      if (recoveryTierOverride !== undefined) {
+        ctx.currentTier = recoveryTierOverride;
+        recoveryTierOverride = undefined;
+      }
+
       // v7.5.10 (L5 BUG-9): persist the RARV phase so the dashboard's
       // 2s poll of `.loki/state/orchestrator.json` reflects the live phase
       // instead of whatever the bootstrap writer last set. We merge into
@@ -685,6 +810,7 @@ async function runAutonomousCore(
     const startedAt = clock.now();
     const iterOutputPath = makeIterationOutputPath(ctx);
     let result: ProviderResult;
+    let providerUnavailable = false;
     try {
       result = await provider.invoke({
         provider: ctx.provider,
@@ -696,6 +822,7 @@ async function runAutonomousCore(
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      providerUnavailable = providerUnavailableFromThrow(msg);
       log(`[runner] provider invocation threw: ${msg}`);
       result = { exitCode: 1, capturedOutputPath: iterOutputPath };
     }
@@ -723,6 +850,7 @@ async function runAutonomousCore(
             taskId: string;
             taskDescription?: string;
             forceCreate?: boolean;
+            lokiDirOverride?: string;
           }): Promise<unknown>;
         }>("./checkpoint.ts", ["createCheckpoint"]);
         if (ckptMod) {
@@ -731,6 +859,7 @@ async function runAutonomousCore(
             taskId: ctx.prdPath ?? "codebase-analysis",
             taskDescription: `iteration ${ctx.iterationCount} success`,
             forceCreate: true,
+            lokiDirOverride: ctx.lokiDir,
           });
         }
       } catch (err) {
@@ -874,11 +1003,31 @@ async function runAutonomousCore(
       // repeated-signature circuit breaker. It is DEFAULT OFF: with
       // LOKI_RECOVERY_POLICY unset it delegates to shouldStopRetrying and
       // reproduces the behavior described above verbatim.
-      if (txt) {
+      if (txt || providerUnavailable || checkpointedStateCorrupt(ctx.lokiDir)) {
+        // BUILD SIGNAL. decideRecovery's compile rule accepts an EXIT CODE only,
+        // never a regex over agent prose (recovery_policy.ts:17-28). The honest
+        // exit-code-derived signal in scope here is the test_coverage gate, which
+        // reads .loki/quality/test-results.json or runs the project's test
+        // command (quality_gates.ts:439-467).
+        //
+        // NOT outcome.exitCode: that is the PROVIDER's exit code. Passing it
+        // would classify every provider failure as build_failed and route it to
+        // `revise`, which is precisely the misclassification the compile-hazard
+        // comment exists to prevent. `undefined` means "no build signal", which
+        // is not a pass and not a failure -- the rule simply does not fire.
+        const buildExitCode = gateOutcome.failed.includes("test_coverage") ? 1 : undefined;
+
         const recovery = decideRecovery(
-          { output: txt, attempts: ctx.retryCount },
+          {
+            output: txt,
+            attempts: ctx.retryCount,
+            buildExitCode,
+            treeCorrupt: checkpointedStateCorrupt(ctx.lokiDir),
+            providerUnavailable,
+          },
           { env: process.env as NodeJS.ProcessEnv },
         );
+
         if (recovery.action === "stop" || recovery.action === "escalate") {
           log(
             `[runner] recovery decision '${recovery.action}' (${recovery.reason}); stopping early ` +
@@ -887,6 +1036,53 @@ async function runAutonomousCore(
           );
           await persistState(stateMod, ctx, "failed", 1);
           return ent3ExitCode("failed", 1);
+        }
+
+        // `revise` -- the work was wrong, not the transport. Re-attempting after
+        // an exponential backoff wastes the wait: nothing about the tree changes
+        // while we sleep, and the next iteration rebuilds its prompt with the
+        // failing gate in scope. Skip the backoff and re-attempt immediately.
+        //
+        // Previously `revise` fell through to generic backoff-retry, making the
+        // decision observationally identical to `retry` -- the rule the module
+        // documents most carefully was wired to no behavior at all.
+        if (recovery.action === "revise") {
+          log(
+            `[runner] recovery decision 'revise' (${recovery.reason}); re-attempting ` +
+              `without backoff -- the build signal is actionable, not transient.`,
+          );
+          wait = 0;
+        }
+
+        if (recovery.action === "failover") {
+          if (!recovery.requestTier) {
+            log("[runner] recovery failover omitted a tier; refusing unsafe retry");
+            await persistState(stateMod, ctx, "failed", 1);
+            return ent3ExitCode("failed", 1);
+          }
+          recoveryTierOverride = recovery.requestTier;
+          wait = 0;
+          log(
+            `[runner] recovery decision 'failover' (${recovery.reason}); ` +
+              `requesting ${recovery.requestTier} tier without backoff`,
+          );
+        }
+
+        if (recovery.action === "checkpoint_rollback") {
+          try {
+            const restored = await rollbackLatestCheckpoint(ctx.lokiDir);
+            wait = 0;
+            log(
+              `[runner] recovery decision 'checkpoint_rollback' (${recovery.reason}); ` +
+                `restored ${restored.restored} files from ${restored.checkpointId}`,
+            );
+          } catch (err) {
+            log(
+              `[runner] checkpoint rollback failed closed: ${(err as Error).message}; stopping`,
+            );
+            await persistState(stateMod, ctx, "failed", 1);
+            return ent3ExitCode("failed", 1);
+          }
         }
       }
 

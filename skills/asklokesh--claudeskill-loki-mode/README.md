@@ -101,12 +101,17 @@ object instead of terminal text:
 
 ```bash
 loki quickstart "a todo app with user accounts" --dry-run --json > preview.json
+loki quickstart --verify-preview preview.json --json
 loki quickstart --from-preview preview.json --yes
 ```
 
 The object contains the input kind, deterministic selected template (or `null`
 for an existing PRD), the exact estimator response under `plan`, and a bounded
 continuation containing the exact idea/template or the PRD path and SHA-256.
+`--verify-preview` validates the same bounded duplicate-key-rejecting schema and
+requires either a currently shipped idea template or the unchanged digest-bound
+PRD, while emitting no idea or PRD path. It accepts a file or piped stdin and
+returns before provider discovery, estimation, writes, or build execution.
 `--from-preview` requires explicit argv `--yes`, rejects malformed, conflicting,
 symlinked, or changed inputs before provider and build boundaries, then uses the
 existing no-clobber quickstart path. The saved plan is evidence rather than
@@ -393,6 +398,19 @@ honest verdict (VERIFIED / VERIFIED WITH GAPS / NOT VERIFIED), the key facts
 `loki proof verify <id>` against the recorded base SHA. A green claim appears
 only when the receipt's own headline is VERIFIED. This is on by default whenever
 Loki opens or advises a PR; opt out with `LOKI_PROVEN_PR=0`.
+
+For a review-before-publish workflow, preparation and GitHub mutation are two
+explicit steps:
+
+```bash
+loki start owner/repo#42 --prepare-pr  # builds and writes exact title/body locally
+loki ship --publish                    # pushes that issue branch and opens the PR
+```
+
+The second command consumes `.loki/state/pr-title.txt` and
+`.loki/state/pr-body.md` byte-for-byte. Plain `loki ship`, previews, and default
+start paths remain non-publishing. A failed PR creation preserves both files and
+prints the exact remote-branch rollback command.
 
 An optional advisory status check (`loki: verified-completion`) maps the verdict
 to a GitHub check-run. It is opt-in (`LOKI_PROVEN_PR_CHECK=1`) and can never block

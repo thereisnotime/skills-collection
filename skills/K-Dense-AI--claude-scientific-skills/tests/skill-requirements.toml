@@ -483,6 +483,12 @@ packages = ["scikit-bio", "biom-format", "tables", "matplotlib", "numpy", "panda
 [skills.polars-bio]
 packages = ["polars-bio", "polars", "pandas", "bioframe"]
 
+# waypoint-bio's own package pulls torch + transformers + datasets, which the
+# bundled scripts deliberately do not require: the converter is pandas-only and
+# vocab_coverage.py lazy-imports the tokenizer so --help works without it.
+[skills.waypoint-bio]
+packages = ["pandas", "pyarrow"]
+
 [skills.gtars]
 packages = ["gtars"]
 

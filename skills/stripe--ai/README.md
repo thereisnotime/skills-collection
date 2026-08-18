@@ -55,6 +55,13 @@ Run this command in your project:
 grok plugin install stripe --trust
 ```
 
+### Agent Plugins
+
+Installation methods currently vary by client for the new [Agent Plugins](https://agent-plugins.org/) standard, but you can point your client to our package via:
+- Git URL: `https://github.com/stripe/ai`
+- Subdirectory: [`providers/agent-plugins/plugin/`](/providers/agent-plugins/plugin).
+
+
 ## Manual installation
 
 > Manually installed skills don’t auto-update. Run `npx skills update -y` to get the latest versions.

@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (2026-08-17 — canonical catalog name uniqueness)
+
+- **The editable plugin catalog now contains 467 rows with 467 unique names.** Three redundant
+  `claudebase` rows and one duplicate `geepers-agents` row were collapsed without renaming either
+  plugin; the retained Geepers record preserves its richer component metadata and upstream links.
+  The existing catalog invariant validator now fails closed on exact or normalization-equivalent
+  duplicates, empty names, and non-string names, while `marketplace.json` and the README catalog
+  navigation are regenerated from the corrected source.
+
+### Fixed (2026-08-17 — README star-history chart)
+
+- **The README star-history chart now uses the working `star-history.dera.page` mirror.** The
+  image and its destination no longer depend on the broken tokenless upstream endpoint.
+
+### Fixed (2026-08-17 — blog Markdown validation)
+
+- **The newly published failure-diagnostics article now preserves blank-line boundaries around its
+  numbered list.** This restores the repository-wide blocking Markdownlint gate without changing
+  article wording or weakening MD032.
+
+### Fixed (2026-08-17 — Actionlint bootstrap availability)
+
+- **Actionlint now downloads its pinned release archive directly and verifies the upstream
+  SHA-256 before extraction.** This removes the executable installer-script dependency on
+  `raw.githubusercontent.com`, which returned HTTP 429 before lint execution in three consecutive
+  PR runs, while preserving the blocking v1.7.4 lint command and fail-closed behavior.
+
+### Added (2026-08-17 — deterministic generated skill projections)
+
+- **The marketplace L0 skill index now has a fail-closed regenerate-and-diff gate.** A dedicated,
+  unconditional `Validate Plugins` job renders `skills-index.json` in memory and byte-compares it
+  with the Git index without touching the working tree, receiving no credentials and performing no
+  network calls. Fixtures refuse mutated, untracked, symlinked, duplicate, and path-escaping
+  candidates. Skill names now use a fixture-pinned ordinal sort instead of host-locale ordering, and
+  any unreadable source aborts generation rather than emitting a partial artifact. The
+  generated-artifact registry now separates four deterministic local
+  projections from three external-stat snapshots and editorial marketplace data; this first E1.8
+  slice gates one of four and leaves the full skill catalog, plugin catalog, and unified search
+  projection explicitly pending rather than treating unlike populations as interchangeable.
+
+- **The full marketplace skill catalog now has the same fail-closed content gate.** The reviewed
+  baseline moves from 3,008 to 3,068 marketplace-visible skills: 96 source paths entered, 36 left,
+  and 2,943 of 2,972 shared records changed as current skill and parent-plugin metadata replaced the
+  stale 2026-06-02 projection. CI renders both skill projections in memory, compares both with
+  stage-0 Git-index bytes, and refuses if either drifts; a matching L0 index cannot hide a stale L1
+  catalog. Of the added and removed paths, 73 and 7 respectively are provenance-marked mirrors;
+  only the generated projection changed, with zero mirrored `SKILL.md` edits. E1.8 deterministic
+  content-drift coverage is now two of four. Plugin catalog and unified search remain separate
+  follow-up slices.
+
+- **The website plugin catalog is now a deterministic projection instead of its own historical
+  input.** Its renderer no longer preserves stale rows or flags from `catalog.json`, emits runtime
+  timestamps, or silently ignores malformed skill data. It derives 467 plugins in canonical
+  catalog order and 3,068 distinct skill paths from the extended catalog plus the full skill
+  projection; aliases that share one source receive the same source-derived count without
+  double-counting the global total. The projection preserves the legacy default author for the two
+  canonical rows without one and applies the governed retired-domain normalization to every output
+  field. Fixture tests reject duplicate identities and paths, contradictory ancestry, traversal,
+  malformed inputs, and staged drift. The unconditional
+  generated-content job now byte-checks three of four deterministic marketplace projections with
+  no new required context; unified search remains the final E1.8 slice.
+
+- **Unified marketplace search now completes the deterministic projection gate.** The renderer
+  removes its wall-clock timestamp and never reads the tracked output, then derives the current
+  plugin, skill, documentation, agent, and hook search surface from governed repository inputs.
+  It preserves the public item order and consumer fields, parses the repository's scalar, block,
+  and inline-list documentation frontmatter forms, rejects malformed identities and symlinked or
+  unreadable surfaces, writes atomically, and compares exact stage-0 Git-index bytes in `--check`
+  mode without repairing drift. The shared unconditional `Validate Plugins` job now gates all four
+  deterministic marketplace projections without adding a required status context or path filter.
+
+### Fixed (2026-08-17 — release-note coverage evidence)
+
+- **Release-note coverage now fails closed when Git tag evidence is absent or incomplete.** The
+  newly pinned changelog-coverage check runs with fetched tags inside `Validate Plugins`, rejects tag
+  enumeration failures, tagless or floor-incomplete clones, missing or duplicate release notes,
+  non-regular note paths, and malformed version metadata, and carries deterministic red fixtures.
+  Every release from v4.14.0 onward must have exactly one public changelog entry; older tags remain
+  explicitly grandfathered.
+
+### Fixed (2026-08-17 — JRig/Freshie authority boundary)
+
+- **First-party operator guidance can no longer send JRig's runtime tables into the Freshie
+  inventory.** The public validation skill and Plane evidence note now use
+  `scripts/run-jrig-eval.sh`, which evaluates against a `/dev/shm` scratch database and delegates
+  the governed `forge_proofs` write to the repository recorder. A provenance-aware, fail-closed
+  check rejects direct `j-rig eval --db ...freshie/inventory.sqlite` commands and equivalent prose
+  directives across active first-party operator surfaces, including `npx` invocations, folded
+  and flow-style YAML commands, shell-escaped executable and flag spellings, statically resolvable
+  executable/verb/flag/value indirection, ad hoc shell-function aliases, command substitution,
+  parameter assignment, brace expansion, parsed YAML tags/keys/anchors, and active filesystem-glob
+  path spellings. Command state follows shell ordering while assignments isolated by subshells,
+  pipelines, background jobs, or skipped `&&`/`||` branches cannot overwrite parent state; quoted
+  or escaped literal glob characters remain literal, and mirrors remain upstream-owned.
+  The check runs inside the existing
+  documentation-governance job and adds no required status context.
+
 ### Changed (2026-08-16 — build-derived marketplace data ownership)
 
 - **Two build-only marketplace JSON projections no longer have a second committed claimant.**

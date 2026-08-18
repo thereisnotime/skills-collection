@@ -170,6 +170,10 @@ The deterministic citation-existence gate (#182) cross-checks each reference aga
 
 The cache is single-process (SQLite WAL); concurrent multi-user access to one cache file is out of scope.
 
+For the complete picture of what leaves the machine (resolvers, optional cross-model
+calls, the update check) and every local store's lifetime and deletion path, see
+[DATA_FLOWS.md](DATA_FLOWS.md).
+
 ---
 
 ## Cross-model verification (optional)
@@ -247,6 +251,11 @@ Claude discovers skills at `<install-root>/<skill-name>/SKILL.md`. This repo con
 - `academic-pipeline`
 
 Do not install the whole repository as one nested skill folder under `.claude/skills/academic-research-skills/`; that buries the four `SKILL.md` files one level too deep for discovery. See Anthropic's [Claude Code Skills documentation](https://code.claude.com/docs/en/skills).
+
+The methods below differ in more than convenience: hooks, slash commands, the tools
+allowlist, subagent orchestration, and script-backed checks are each available in some
+channels and degraded or absent in others. Before relying on any of those mechanisms,
+check the per-channel map: [CONTROL_AVAILABILITY.md](CONTROL_AVAILABILITY.md).
 
 ### Method 0: Claude Code Plugin (v3.7.0+, recommended for Claude Code CLI / IDE users)
 

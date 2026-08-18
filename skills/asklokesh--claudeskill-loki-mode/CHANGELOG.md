@@ -5,6 +5,66 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.22.10
+
+### Added
+
+- **Honest first useful result timing:** issue runs now record the measured
+  command-entry-to-plan latency, whether it beat 60 seconds, and explicitly
+  distinguish a proposed plan from a verified patch. Later verified patch
+  evidence supersedes the plan measurement without manufacturing a success.
+- **Executable recovery:** real provider outages can trigger bounded tier
+  failover, while validated Loki-state corruption can restore the newest valid
+  checkpoint through a mandatory pre-rollback safety snapshot. Unsafe or
+  incomplete recovery fails closed.
+- **Explicit prepared-PR publishing:** `loki ship --publish` is the deliberate
+  GitHub mutation boundary. It publishes the exact prepared title and evidence
+  body, reuses an existing open PR idempotently, preserves artifacts on
+  failure, and provides exact branch rollback guidance.
+- **Issue-to-PR cockpit:** the dashboard now shows live phase, measured first
+  result, evidence headline, recorded uncertainty, and PR state from real
+  receipts. Cold, unavailable, unmeasured, and non-issue states remain distinct.
+
+## v9.22.9
+
+### Added
+
+- **Live capability/task-class routing:** the Bun runner now routes each
+  iteration's RARV phase to a task class (`REASON` -> planning, `ACT` ->
+  implementation, `REFLECT` -> review, `VERIFY` -> verification, and any retry
+  -> recovery) and hands that class to the capability router, which previously
+  had no production callers. The router moves the model TIER only, leaving
+  `providers.ts` the sole owner of model identity so the `LOKI_MAX_TIER`
+  ceiling still applies. Only a decision the router actually made
+  (`task_class`, `session_ceiling`, `explicit_override`) may move the tier, so
+  an opus- or haiku-pinned session is never clobbered down to development;
+  `fable`-pinned sessions are skipped because the tier has no capability
+  mapping. Default off, gated on `LOKI_CAPABILITY_ROUTER=1`.
+
+- **Execution-manifest enforcement before parallel merge:** the parallel
+  worktree orchestrator can now pin a manifest of the expected base SHA and
+  per-stream path scope, then validate each stream's actual changed paths
+  against it before the branch is merged. A rejected stream is logged and
+  blocked instead of merged. A new hidden bridge, `loki internal exec-manifest
+  plan|validate`, connects the bash orchestrator to the Bun implementation.
+  Default off, gated on `LOKI_EXEC_MANIFEST=1`; with the flag unset the
+  parallel workflow performs no additional I/O and stays on its previous path.
+
+## v9.22.8
+
+### Added
+
+- **Zero-file reviewed quickstart continuation:** a schema-v1 JSON preview can
+  be piped directly into `loki quickstart --from-preview - --yes`. Stdin is
+  bounded to 1 MiB and the preview is revalidated and re-estimated before the
+  existing build boundary.
+
+### Fixed
+
+- **Fail-closed secret release gate:** the security audit now blocks releases
+  on every gitleaks finding outside the exact reviewed fingerprint baseline,
+  and also blocks when the scanner or report step fails.
+
 ## v9.22.7
 
 ### Fixed
