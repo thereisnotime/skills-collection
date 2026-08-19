@@ -15,20 +15,20 @@
     "status": "measured",
     "values": {
       "a_error_total": 219,
-      "a_failing": 132,
-      "ab_error_total": 2155,
-      "ab_failing": 962,
-      "b_failing": 830,
-      "error_files": 2037,
-      "error_total": 7433,
+      "a_failing": 131,
+      "ab_error_total": 2152,
+      "ab_failing": 959,
+      "b_failing": 828,
+      "error_files": 2032,
+      "error_total": 7419,
       "grade_distribution": {
-        "A": 1596,
-        "B": 985,
-        "C": 896,
+        "A": 1595,
+        "B": 984,
+        "C": 894,
         "D": 193,
         "F": 9
       },
-      "rows": 3679
+      "rows": 3675
     }
   },
   "rows": {
@@ -41,8 +41,8 @@
       "target_status": "informational",
       "values": {
         "plugin_agent_files": 347,
-        "raw_tracked_plugin_skill_files": 3179,
-        "tracked_files": 23059
+        "raw_tracked_plugin_skill_files": 3175,
+        "tracked_files": 23111
       }
     },
     "2": {
@@ -53,9 +53,9 @@
       "status": "measured",
       "target_status": "pass",
       "values": {
-        "distinct_names": 467,
+        "distinct_names": 468,
         "duplicate_names": [],
-        "entries": 467
+        "entries": 468
       }
     },
     "3": {
@@ -80,43 +80,43 @@
       "values": {
         "agent_lane": {
           "error_total_all_validated_surfaces": 253,
-          "fully_compliant_surfaces": 791,
+          "fully_compliant_surfaces": 794,
           "terminal_denominator": {
-            "agents": 353,
-            "files": 353,
+            "agents": 355,
+            "files": 355,
             "label": "agents_excluding_plugin_manifests"
           },
-          "validator_reported_mixed_denominator_percent": 224.1
+          "validator_reported_mixed_denominator_percent": 223.7
         },
         "marketplace_terminal": {
-          "error_total_all_validated_surfaces": 7687,
-          "fully_compliant_surfaces": 1158,
+          "error_total_all_validated_surfaces": 7673,
+          "fully_compliant_surfaces": 1161,
           "terminal_denominator": {
-            "agents": 353,
+            "agents": 355,
             "commands": 373,
-            "files": 4405,
+            "files": 4403,
             "label": "skills_plus_commands_plus_agents_excluding_plugin_manifests",
-            "skills": 3679
+            "skills": 3675
           },
-          "validated_plugin_manifests": 629,
-          "validator_reported_mixed_denominator_percent": 26.3
+          "validated_plugin_manifests": 630,
+          "validator_reported_mixed_denominator_percent": 26.4
         },
         "skill_rows": {
           "a_error_total": 219,
-          "a_failing": 132,
-          "ab_error_total": 2155,
-          "ab_failing": 962,
-          "b_failing": 830,
-          "error_files": 2037,
-          "error_total": 7433,
+          "a_failing": 131,
+          "ab_error_total": 2152,
+          "ab_failing": 959,
+          "b_failing": 828,
+          "error_files": 2032,
+          "error_total": 7419,
           "grade_distribution": {
-            "A": 1596,
-            "B": 985,
-            "C": 896,
+            "A": 1595,
+            "B": 984,
+            "C": 894,
             "D": 193,
             "F": 9
           },
-          "rows": 3679
+          "rows": 3675
         }
       }
     },
@@ -129,20 +129,20 @@
       "values": {
         "average_score": 85.1,
         "grade_distribution": {
-          "A": 1596,
-          "B": 985,
-          "C": 896,
+          "A": 1595,
+          "B": 984,
+          "C": 894,
           "D": 193,
           "F": 9
         },
         "grade_percentages": {
           "A": 43.4,
           "B": 26.8,
-          "C": 24.4,
-          "D": 5.2,
+          "C": 24.3,
+          "D": 5.3,
           "F": 0.2
         },
-        "rows": 3679
+        "rows": 3675
       }
     },
     "6": {
@@ -153,13 +153,13 @@
       "status": "measured",
       "values": {
         "a_error_total": 219,
-        "a_failing": 132,
-        "ab_error_total": 2155,
-        "ab_failing": 962,
-        "b_error_total": 1936,
-        "b_failing": 830,
+        "a_failing": 131,
+        "ab_error_total": 2152,
+        "ab_failing": 959,
+        "b_error_total": 1933,
+        "b_failing": 828,
         "certified_target": 0,
-        "skill_summary_rows": 3679
+        "skill_summary_rows": 3675
       }
     },
     "7": {
@@ -209,8 +209,8 @@
       "status": "partial",
       "values": {
         "agent_errors": 253,
-        "agent_files": 353,
-        "reported_compliance_percent": 224.1,
+        "agent_files": 355,
+        "reported_compliance_percent": 223.7,
         "target_errors": 0,
         "target_percent_max": 100
       }
@@ -268,12 +268,12 @@
       ],
       "status": "partial",
       "values": {
-        "declared": 3638,
-        "folded_scalar": 10,
+        "declared": 3634,
+        "folded_scalar": 5,
         "malformed_frontmatter": 0,
         "malformed_shape": 0,
         "missing": 41,
-        "rows": 3679,
+        "rows": 3675,
         "target_malformed": 0
       }
     },
@@ -284,10 +284,18 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 44,
+        "distinct_values": 45,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
+          {
+            "count": 1,
+            "value": "Any OS, but requires a persistent local filesystem and ~/.kobiton/.credentials (written by /automate:setup) — so it cannot run where the host offers only an MCP connection. A host affordance that streams a background command's output is strongly preferred; without one the skill falls back to a foreground loop. The watch loop runs the bundled scripts/poll-test-run.js (Node 18+), which reads those credentials, polls run state over REST, and emits only on change. Uses the Kobiton MCP tools getOrgSettings (up front) and terminateTestRun (on request); requires an authenticated Kobiton MCP connection, and getOrgSettings requires the automate plugin release that ships it. The optional live-remediation window (Step 4a) reuses run-automation-suite's chromeless-launcher scripts (Chrome; resize on macOS/Windows, launch-only on Linux) — if Chrome is absent the skill falls back to printing the URL."
+          },
+          {
+            "count": 1,
+            "value": "Any OS, but requires a persistent local filesystem — it runs the user's own Appium script from a local directory, so it cannot work where the host offers only an MCP connection. Requires Node.js >= 18, Appium 2.x, and whichever language runtime the test script uses. Test scripts must use the Appium WebDriver protocol."
+          },
           {
             "count": 1,
             "value": "Claude Code native workflows; Codex/OpenCode/Grok portable adapter"
@@ -313,12 +321,8 @@
             "value": "Claude Code, Codex, OpenCode, Antigravity (needs gh CLI + git remote); Desktop/web via pasted issue text (lossy)"
           },
           {
-            "count": 2,
-            "value": "Compatible with any MCP-aware AI coding assistant. Requires Node.js >= 18 and Appium 2.x. Test scripts must use Appium WebDriver protocol."
-          },
-          {
-            "count": 2,
-            "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18 and an authenticated Kobiton MCP connection (or, as a fallback, ~/.kobiton/.credentials written by /automate:setup)."
+            "count": 1,
+            "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
             "count": 1885,
@@ -327,6 +331,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code · Output works in any surface that loads CLAUDE.md"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code, Codex, Cursor, and GitHub Copilot; works in any agent that can read project files and fetch a URL."
           },
           {
             "count": 45,
@@ -441,10 +449,6 @@
             "value": "Requires internet access to call the first-party Xquik REST API."
           },
           {
-            "count": 2,
-            "value": "Requires the bundled Kobiton CLI binary, which targets macOS. On other platforms, use run-automation-suite or the Kobiton MCP tools directly. Run /automate:setup once before first use to install the CLI wrapper symlink and write credentials."
-          },
-          {
             "count": 4,
             "value": "Requires the ejentum-mcp MCP server installed and EJENTUM_API_KEY env var set. Free and paid tiers at ejentum.com."
           },
@@ -453,16 +457,16 @@
             "value": "Requires the pr-to-spec CLI on PATH (Node.js 18+; ships with this plugin) and a git repository to analyze. Runs in Claude Code or any agent runtime with shell access."
           },
           {
-            "count": 2,
-            "value": "Uses the Kobiton MCP tools createTestRun, getTestCase/getTestSuite, listDevices, and getOrgSettings; requires an authenticated Kobiton MCP connection. Delegates monitoring to the monitor-test-run skill (same plugin)."
-          },
-          {
-            "count": 2,
-            "value": "Uses the Kobiton MCP tools getOrgSettings (up front) and terminateTestRun (on request); requires an authenticated Kobiton MCP connection, and getOrgSettings requires the automate plugin release that ships it. The watch loop runs the bundled scripts/poll-test-run.js (Node 18+; reads ~/.kobiton/.credentials, same file /automate:setup writes) which polls run state over REST and emits only on change. The optional live-remediation window (Step 4a) reuses run-automation-suite's chromeless-launcher scripts (Chrome; resize on macOS/Windows, launch-only on Linux) — if Chrome is absent the skill falls back to printing the URL."
+            "count": 1,
+            "value": "Runs on any MCP-aware host, including hosts with no local filesystem — this is the plugin's only pure-MCP skill, needing no local file, binary, or shell. Uses the Kobiton MCP tools createTestRun, getTestCase/getTestSuite, listDevices, and getOrgSettings; requires an authenticated Kobiton MCP connection. Delegates monitoring to the monitor-test-run skill (same plugin), which does need a local poller — so on a filesystem-less host, create the run and report its id rather than offering to watch it."
           },
           {
             "count": 1,
             "value": "Verified against @aomi-labs/client v0.1.42 and the current aomi-widget/packages/client TypeScript CLI. Install globally via npm install -g @aomi-labs/client@latest, or run on demand via npx @aomi-labs/client@latest. The CLI defaults to https://api.aomi.dev; pass --backend-url https://api-staging.aomi.dev when explicitly targeting staging. viem and Solana signing dependencies are bundled by the package. Designed for claude-code; also works with Cursor, Codex CLI, Gemini, and any agent runtime that supports the Anthropic skill spec."
+          },
+          {
+            "count": 1,
+            "value": "macOS (Apple Silicon), Linux (x64), and Windows (x64, under Git Bash). The Kobiton CLI is downloaded on install: the plugin pins a build version (skills/run-interactive-session/CLI_VERSION) and the install script fetches the matching platform build from public.kobiton.download, sha256-verified and cached under ~/.kobiton/cli/. Intel Macs are not supported (no macos-x64 build is published) - there, use run-automation-suite or drive-automation-session, or the Kobiton MCP tools directly. Requires local file access for the cached binary and ~/.kobiton/.credentials. Run /automate:setup once before first use to install the CLI wrapper and write credentials."
           }
         ]
       }
@@ -535,8 +539,8 @@
       "cohort": "literal docs.anthropic.com occurrences in tracked text-like files",
       "dimension": "docs.anthropic.com occurrences",
       "measured_proxy": {
-        "files": 171,
-        "occurrences": 432,
+        "files": 173,
+        "occurrences": 435,
         "paths": [
           "000-docs/198-DR-SOPS-03-mcp-reliability.md",
           "000-docs/688-AA-AACR-2026-06-04-wiki-audit.md",
@@ -544,6 +548,7 @@
           "000-docs/719-RA-REPT-cleanup-candidate-register.md",
           "000-docs/725-RA-DATA-legacy-migration-inventory.md",
           "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
+          "000-docs/778-RA-DATA-model-agnostic-migration-surface.md",
           "marketplace/src/content/blog-posts/noise-robust-signed-llm-judge-evals.md",
           "marketplace/src/content/docs/concepts/agents.md",
           "marketplace/src/content/docs/concepts/commands-and-hooks.md",
@@ -650,6 +655,7 @@
           "plugins/security/severity1-marketplace/skills/prompt-improver/SKILL.md",
           "plugins/skill-enhancers/web-to-github-issue/README.md",
           "plugins/testing/kobiton-automate/README.md",
+          "scripts/measure-canonical-surface.mjs",
           "skills/.curated/agent-context-loader/SKILL.md",
           "skills/.curated/agent-safety-preflight/SKILL.md",
           "skills/.curated/anth-ci-integration/SKILL.md",
@@ -723,6 +729,7 @@
         "000-docs/719-RA-REPT-cleanup-candidate-register.md",
         "000-docs/725-RA-DATA-legacy-migration-inventory.md",
         "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
+        "000-docs/778-RA-DATA-model-agnostic-migration-surface.md",
         "marketplace/src/content/blog-posts/noise-robust-signed-llm-judge-evals.md",
         "marketplace/src/content/docs/concepts/agents.md",
         "marketplace/src/content/docs/concepts/commands-and-hooks.md",
@@ -829,6 +836,7 @@
         "plugins/security/severity1-marketplace/skills/prompt-improver/SKILL.md",
         "plugins/skill-enhancers/web-to-github-issue/README.md",
         "plugins/testing/kobiton-automate/README.md",
+        "scripts/measure-canonical-surface.mjs",
         "skills/.curated/agent-context-loader/SKILL.md",
         "skills/.curated/agent-safety-preflight/SKILL.md",
         "skills/.curated/anth-ci-integration/SKILL.md",
@@ -1122,11 +1130,11 @@
           },
           {
             "cohort": "graded",
-            "value": 3679
+            "value": 3675
           },
           {
             "cohort": "marketplace-visible",
-            "value": 3068
+            "value": 3069
           }
         ],
         "distinct_numeric_answers": 5,
@@ -1164,20 +1172,20 @@
       "values": {
         "sources": [
           {
-            "has_valid_max_age_hours": false,
+            "has_valid_max_age_hours": true,
             "path": "marketplace/src/data/github-stats.json"
           },
           {
-            "has_valid_max_age_hours": false,
+            "has_valid_max_age_hours": true,
             "path": "marketplace/src/data/npm-stats.json"
           },
           {
-            "has_valid_max_age_hours": false,
+            "has_valid_max_age_hours": true,
             "path": "marketplace/src/data/skills-stats.json"
           }
         ],
         "target_without_valid_bound": 0,
-        "without_valid_bound": 3
+        "without_valid_bound": 0
       }
     },
     "27": {
@@ -1187,11 +1195,11 @@
       "source": ["sources.lock.json", "sources.yaml"],
       "status": "measured",
       "values": {
-        "lock_keys": 63,
+        "lock_keys": 64,
         "lock_only": [],
         "target_equal": true,
         "yaml_keys": 64,
-        "yaml_only": ["uizze"]
+        "yaml_only": []
       }
     },
     "28": {
@@ -1233,6 +1241,7 @@
         "plugins/community/zai-cli/.source.json",
         "plugins/crypto/aomi/.source.json",
         "plugins/design/brand-forge/.source.json",
+        "plugins/design/uizze/.source.json",
         "plugins/design/wondelai-design-everyday-things/.source.json",
         "plugins/design/wondelai-hooked-ux/.source.json",
         "plugins/design/wondelai-ios-hig-design/.source.json",
@@ -1265,7 +1274,7 @@
       ],
       "status": "measured",
       "values": {
-        "mirrors_shipping_license_text": 30,
+        "mirrors_shipping_license_text": 31,
         "missing_license_text": [
           "plugins/api-development/x-twitter-scraper",
           "plugins/business-tools/wondelai-blue-ocean-strategy",
@@ -1301,15 +1310,15 @@
           "plugins/productivity/wondelai-design-sprint",
           "plugins/productivity/wondelai-lean-startup"
         ],
-        "provenance_marked_mirrors": 63,
-        "target_shipping_license_text": 63
+        "provenance_marked_mirrors": 64,
+        "target_shipping_license_text": 64
       }
     },
     "29": {
       "cohort": "provenance-marked mirrors",
       "dimension": "Mirror SKILL.md contradicting upstream license",
       "measured_proxy": {
-        "local_source_records_with_parseable_json": 63
+        "local_source_records_with_parseable_json": 64
       },
       "reason_code": "MISSING_PINNED_UPSTREAM_LICENSE_EVIDENCE",
       "reproduce": "pnpm run measure:e1 --row=29 --stdout",
@@ -1352,6 +1361,7 @@
         "plugins/community/zai-cli/.source.json",
         "plugins/crypto/aomi/.source.json",
         "plugins/design/brand-forge/.source.json",
+        "plugins/design/uizze/.source.json",
         "plugins/design/wondelai-design-everyday-things/.source.json",
         "plugins/design/wondelai-hooked-ux/.source.json",
         "plugins/design/wondelai-ios-hig-design/.source.json",
@@ -1461,6 +1471,8 @@
         "plugins/crypto/aomi/package.json",
         "plugins/design/brand-forge/.source.json",
         "plugins/design/brand-forge/package.json",
+        "plugins/design/uizze/.source.json",
+        "plugins/design/uizze/package.json",
         "plugins/design/wondelai-design-everyday-things/.source.json",
         "plugins/design/wondelai-design-everyday-things/package.json",
         "plugins/design/wondelai-hooked-ux/.source.json",
@@ -1523,9 +1535,9 @@
       "status": "partial",
       "values": {
         "non_private": [],
-        "private_packages": 63,
-        "repository_package_mirrors": 63,
-        "scoped_packages": 58,
+        "private_packages": 64,
+        "repository_package_mirrors": 64,
+        "scoped_packages": 59,
         "target_publishable": 0
       }
     },
@@ -1605,6 +1617,8 @@
         "plugins/crypto/aomi/package.json",
         "plugins/design/brand-forge/.source.json",
         "plugins/design/brand-forge/package.json",
+        "plugins/design/uizze/.source.json",
+        "plugins/design/uizze/package.json",
         "plugins/design/wondelai-design-everyday-things/.source.json",
         "plugins/design/wondelai-design-everyday-things/package.json",
         "plugins/design/wondelai-hooked-ux/.source.json",
@@ -1873,14 +1887,14 @@
         "documented": [
           {
             "path": "CLAUDE.md",
-            "version": "4.0.0"
+            "version": "4.0.1"
           },
           {
             "path": "000-docs/6767-b-SPEC-DR-STND-claude-skills-standard.md",
-            "version": "4.0.0"
+            "version": "4.0.1"
           }
         ],
-        "runtime": "4.0.0"
+        "runtime": "4.0.1"
       }
     },
     "43": {
@@ -1890,10 +1904,12 @@
       "source": [
         ".github/CONTRIBUTING.md",
         ".github/SECURITY.md",
+        "000-docs/000-DR-STND-document-filing-system.md",
         "000-docs/6767-b-SPEC-DR-STND-claude-skills-standard.md",
         "000-docs/694-AT-DECR-external-sync-mirror-by-default-model.md",
         "000-docs/700-DR-GUID-skill-submission-standard.md",
         "000-docs/709-DR-GUID-reviewing-external-prs.md",
+        "000-docs/718-AT-ARCH-source-of-truth-map.md",
         "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
         "000-docs/728-RA-DATA-reference-architecture-benchmark.md",
         "000-docs/729-AT-ADEC-reference-architecture-synthesis.md",
@@ -1905,16 +1921,18 @@
         "authority_links": [
           ".github/CONTRIBUTING.md",
           ".github/SECURITY.md",
+          "000-docs/000-DR-STND-document-filing-system.md",
           "000-docs/6767-b-SPEC-DR-STND-claude-skills-standard.md",
           "000-docs/694-AT-DECR-external-sync-mirror-by-default-model.md",
           "000-docs/700-DR-GUID-skill-submission-standard.md",
           "000-docs/709-DR-GUID-reviewing-external-prs.md",
+          "000-docs/718-AT-ARCH-source-of-truth-map.md",
           "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
           "000-docs/728-RA-DATA-reference-architecture-benchmark.md",
           "000-docs/729-AT-ADEC-reference-architecture-synthesis.md",
           "000-docs/SCHEMA_CHANGELOG.md"
         ],
-        "canonical_table_links": 10,
+        "canonical_table_links": 12,
         "declared": 2,
         "linked_declared": 2,
         "target_unlinked": 0,
@@ -1925,13 +1943,16 @@
       "cohort": "tracked 000-docs estate excluding the generated index and filing ignore ledger",
       "dimension": "Documentation index entries versus tracked documents",
       "reproduce": "pnpm run measure:e1 --row=44 --stdout",
-      "source": ["000-docs/000-INDEX.md"],
+      "source": [
+        "000-docs/000-INDEX.md",
+        "000-docs/761-AA-AACR-epic-1-social-image-count-cohort.md"
+      ],
       "status": "measured",
       "values": {
-        "index_entries": 199,
+        "index_entries": 225,
         "missing_from_index": [],
         "target_equal": true,
-        "tracked_documents": 199,
+        "tracked_documents": 225,
         "untracked_index_entries": []
       }
     },
@@ -1955,9 +1976,9 @@
       "values": {
         "allowlist_patterns": 25,
         "invalid_patterns": 0,
-        "invisible_files": 15541,
+        "invisible_files": 15571,
         "target_invisible_files": 0,
-        "tracked_files": 23059
+        "tracked_files": 23111
       }
     },
     "47": {
@@ -1997,7 +2018,7 @@
       "status": "partial",
       "values": {
         "push_trigger_present": true,
-        "scanner_mentions": 4,
+        "scanner_mentions": 5,
         "scanner_pr_only_guard_present": true
       }
     },
@@ -2137,7 +2158,7 @@
       "values": {
         "adoption_percent": 0.44,
         "curated_copies": 12,
-        "plugin_skill_rows": 3179,
+        "plugin_skill_rows": 3175,
         "source_eval_specs": 14,
         "tracked_eval_specs": 26
       }

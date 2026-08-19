@@ -51,6 +51,23 @@ jobs:
       - name: Install root dev dependencies
         run: pnpm install --frozen-lockfile --filter "claude-code-plugins-monorepo"
 
+      # Supply-chain parity gate (blueprint 727 E1.12): every source registered
+      # in sources.yaml must have a reviewed sources.lock.json baseline, and no
+      # lock entry may outlive its registration. A registered-but-unlocked
+      # source syncs unpinned (the uizze gap); an orphaned lock entry is a
+      # stale approval. Full-repo and deterministic — runs on every event.
+      - name: Assert sources.yaml and sources.lock.json key parity
+        run: pnpm run validate:sources-lock-parity
+
+      # Credential pre-flight (blueprint 727 E1.14 / § 18.7): the root
+      # .mcp.json must never hold a live-shaped credential in plaintext env —
+      # values are SOPS-encrypted in the untracked machine-local .env.sops and
+      # injected at MCP launch by scripts/sops-env. CI checkouts have no root
+      # .mcp.json (untracked), so this passes trivially here; the same command
+      # is the local pre-flight, and the unit tests pin the classifier.
+      - name: Refuse plaintext credentials in the root MCP config
+        run: pnpm run validate:mcp-plaintext-creds
+
       # Supply-chain intake gate: sources.yaml include-anchoring ratchet.
       # An include starting with neither '/' nor '**' is silently auto-prefixed
       # '**/' by the sync engine's matcher and matches at ANY depth — the
@@ -169,6 +186,12 @@ jobs:
 
       - name: Verify README Killer-Skill block is in sync with spotlights.json
         run: node scripts/render-spotlight.mjs --check
+
+      # Epic 1.6: a public skill total is valid only when its cohort and exact
+      # corpus-resolver command travel with it. Keep this inside the existing
+      # validate job so the gate adds no fourth required status context.
+      - name: Validate published count cohort labels
+        run: pnpm run validate:published-count-cohorts
 
       - name: Validate JSON files
         run: |
@@ -1454,6 +1477,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      # The frozen-body check compares against an immutable event baseline.
+      # PRs use the exact target base SHA; pushes use the exact prior main SHA.
+      # A manual run falls back to its own SHA and therefore remains a no-op
+      # for historical drift while still validating all current content.
+      - name: Fetch document-class baseline
+        env:
+          BASELINE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+        run: git fetch --no-tags --depth=1 origin "$BASELINE_SHA"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -1503,6 +1537,16 @@ jobs:
           node --test scripts/check-supersession-template.test.mjs
           node scripts/check-supersession-template.mjs --all
 
+      # Every tracked Markdown document has an explicit lifecycle class. The
+      # check also keeps frozen 6767 bodies byte-stable and delegates the
+      # generated index content comparison to its canonical writer.
+      - name: Check document classes and frozen/generated boundaries
+        env:
+          DOC_CLASS_BASELINE_REF: FETCH_HEAD
+        run: |
+          node --test scripts/check-doc-classes.test.mjs
+          node scripts/check-doc-classes.mjs
+
       # The documentation estate index is a generated projection of Git's
       # tracked inventory; hand-edited counts or rows must never drift.
       - name: Check generated documentation index is current
@@ -1525,6 +1569,70 @@ jobs:
       # policy blocks merges without adding a fourth required status context.
       - name: Reject the retired domain on actionable surfaces
         run: pnpm run validate:dead-domain
+
+      # External stats artifacts (stars, npm downloads, installs) must declare
+      # their own max_age_hours freshness bound (blueprint 727 E1.10). PR CI
+      # enforces the declaration structurally; age breaches stay advisory here
+      # (time-based, unrelated to PR content) and fail hard in the daily
+      # update-npm-stats workflow instead. The homepage independently refuses
+      # to render an out-of-bound number as current.
+      - name: Check external stats artifacts declare freshness bounds
+        run: pnpm run validate:stats-freshness
+
+      # The two most rot-prone documented facts stay mechanically equal to the
+      # code (blueprint 727 E2.7 + E2.8): CLAUDE.md's enumerated ci-required
+      # gate list must equal the workflow's needs: block, CLAUDE.md and
+      # GOVERNANCE.md must name all three required contexts, and every live
+      # schema-version claim surface must equal the validator's SCHEMA_VERSION.
+      - name: Assert documented ci-required contract and schema version equal the code
+        run: pnpm run validate:doc-fact-assertions
+
+      # The root README is a governed landing contract (blueprint 727 § 6A):
+      # frozen install slug verbatim, no bare integers outside generated
+      # blocks, four artifact classes defined, five navigation doors live, no
+      # adapterless harness named as supported. R1/R2 (no per-plugin rows,
+      # byte budgets) are enforced inside generate-readme-toc.mjs itself.
+      - name: Check the README landing contract
+        run: pnpm run validate:readme-contract
+
+      # The canonical harness-free skill contract (blueprint 727 § 5.2, Epic 3
+      # E3.2): schemas/canonical/v0 must compile under Ajv 2020 strict and hold
+      # its red runs (closed schema, no vendor-literal model class, registry-
+      # enum adapters, resolved-SHA mirror pins). DRAFT + UPSTREAM-PENDING —
+      # the kernel proposal is E3.13's deliverable.
+      - name: Check the canonical skill-contract schema
+        run: pnpm run validate:canonical-schema
+
+      # Capability-vocabulary coverage (blueprint 727 E3.3): every tool token
+      # in every tracked SKILL.md/agent allowlist must map to an abstract
+      # capability through the ONE shared parser, or carry an enumerated
+      # disposition. An unmapped token fails, naming file and token.
+      - name: Check capability-vocabulary coverage
+        run: pnpm run validate:capability-coverage
+
+      # Model-id classifier protection contract (blueprint 727 E3.7): the
+      # committed exclusion list must stay a complete census of live bead
+      # handles, and a bead handle must never classify as migratable — even on
+      # a model:/--model line. E3.8's rewriter and E3.10's gate import this
+      # exact library; the tests are the contract.
+      - name: Check model-id classifier protections
+        run: pnpm run validate:model-id-classifier
+
+      # Thin-adapter conformance (blueprint 727 E3.5): an adapter subtree may
+      # never contain a byte-identical copy of a canonical file (a fork is not
+      # an adapter) nor reference/script/eval/license/version content. Waivers
+      # are dated and name the bead that deletes them (the known Kobiton
+      # .codex fork, removed by E3.6).
+      - name: Check adapter thinness
+        run: pnpm run validate:adapter-thinness
+
+      # The generated-adapter toolchain (blueprint 727 E3.4/E3.8/E3.9): the
+      # compatibility projection is deterministic and marker-prefixed; the
+      # claude-code adapter resolves model_class tiers and portable runtime
+      # variables FAIL-CLOSED — an unresolvable tier or unknown variable
+      # throws, never silently substitutes.
+      - name: Check the generated-adapter toolchain
+        run: pnpm run validate:adapter-toolchain
 
       # 6767-h is a frozen historical standard that remains cited by schemas.
       # Pin its section map and prove every cited heading still resolves.

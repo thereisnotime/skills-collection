@@ -8,7 +8,9 @@ function readRepoFile(relativePath: string): string {
 
 const modelVisibleRendererCases = [
   {
-    file: "skills/lfg/SKILL.md",
+    // The pre-DONE handoff lines that print these invocations moved into lfg's
+    // close-out reference.
+    file: "skills/lfg/references/shipping-tail.md",
     defaults: ["/ce-explain <name>", "/ce-babysit-pr <pr-url>"],
     codex: ["$ce-explain <name>", "$ce-babysit-pr <pr-url>"],
     unnecessaryOmp: ["/skill:ce-explain <name>", "/skill:ce-babysit-pr <pr-url>"],
@@ -26,7 +28,8 @@ const modelVisibleRendererCases = [
     unnecessaryOmp: ["/skill:ce-babysit-pr <url>"],
   },
   {
-    file: "skills/ce-commit-push-pr/SKILL.md",
+    // The concept trailer that prints the invocation moved into the apply reference.
+    file: "skills/ce-commit-push-pr/references/apply-and-handoff.md",
     defaults: ["/ce-explain <name>"],
     codex: ["$ce-explain <name>"],
     unnecessaryOmp: ["/skill:ce-explain <name>"],
@@ -44,10 +47,27 @@ const modelVisibleRendererCases = [
     unnecessaryOmp: ["/skill:ce-handoff resume <source>"],
   },
   {
-    file: "skills/ce-compound/SKILL.md",
-    defaults: ["/ce-compound-refresh <scope>", "/ce-compound"],
-    codex: ["$ce-compound-refresh <scope>", "$ce-compound"],
-    unnecessaryOmp: ["/skill:ce-compound-refresh <scope>", "/skill:ce-compound"],
+    // Both ce-compound seams moved out of the body with the steps that print
+    // them: the refresh recommendation into the refresh reference, the retry
+    // line into lightweight's completion block. The rule follows its seam.
+    file: "skills/ce-compound/references/refresh-and-discoverability.md",
+    defaults: ["/ce-compound-refresh <scope>"],
+    codex: ["$ce-compound-refresh <scope>"],
+    unnecessaryOmp: ["/skill:ce-compound-refresh <scope>"],
+  },
+  {
+    // report.md is loaded on its own and independently prints the refresh
+    // invocation in both terminal templates, so it carries its own rule.
+    file: "skills/ce-compound/references/report.md",
+    defaults: ["/ce-compound-refresh <scope>"],
+    codex: ["$ce-compound-refresh <scope>"],
+    unnecessaryOmp: ["/skill:ce-compound-refresh <scope>"],
+  },
+  {
+    file: "skills/ce-compound/references/lightweight.md",
+    defaults: ["/ce-compound"],
+    codex: ["$ce-compound"],
+    unnecessaryOmp: ["/skill:ce-compound"],
   },
   {
     file: "skills/ce-plan/references/universal-planning.md",
@@ -65,7 +85,9 @@ const modelVisibleRendererCases = [
 
 const explicitOnlyRendererCases = [
   {
-    file: "skills/ce-explain/SKILL.md",
+    // The rendering rule travels with the seam that prints the invocation: the
+    // ce-polish handoff now lives in the Phase 6 required-read reference.
+    file: "skills/ce-explain/references/destinations.md",
     defaults: ["/ce-polish"],
     codex: ["$ce-polish"],
     omp: ["/skill:ce-polish"],
@@ -158,15 +180,16 @@ describe("user-facing skill invocation rendering", () => {
     expect(verdictRouting).toContain("want a `ce-pov` verdict")
     expect(verdictRouting).not.toContain("tell the user to type `/ce-pov`")
 
-    const work = readRepoFile("skills/ce-work/SKILL.md")
+    // ce-work's bare-prompt complexity routing lives in the reference Phase 0 mandates.
+    const work = readRepoFile("skills/ce-work/references/work-intake.md")
     expect(work).toContain("benefit from `ce-brainstorm` or `ce-plan`")
 
     const debug = readRepoFile("skills/ce-debug/SKILL.md")
     expect(debug).toContain("control has transferred to `ce-brainstorm`")
 
-    const optimize = readRepoFile("skills/ce-optimize/SKILL.md")
-    expect(optimize).toContain("**Run `ce-code-review`**")
-    expect(optimize).toContain("**Run `ce-compound`**")
+    const optimizeWrapUp = readRepoFile("skills/ce-optimize/references/wrap-up.md")
+    expect(optimizeWrapUp).toContain("**Run `ce-code-review`**")
+    expect(optimizeWrapUp).toContain("**Run `ce-compound`**")
   })
 
   test("static ce-optimize examples use host-neutral capability wording", () => {

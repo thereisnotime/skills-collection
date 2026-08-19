@@ -121,19 +121,113 @@ function personaPromptPath(personaName: string): string {
   return `skills/ce-code-review/references/personas/${personaName}.md`
 }
 
+/**
+ * The runtime contract is spread across the always-loaded body and the references each spine
+ * step names, so an invariant that merely has to hold *somewhere* at runtime is asserted
+ * against this corpus. Rules that must control behavior from the context window without a
+ * reference read are pinned against the body alone, in "always-loaded body pins" below.
+ */
 async function readCodeReviewRuntimeContract(): Promise<string> {
   const parts = await Promise.all([
     readRepoFile("skills/ce-code-review/SKILL.md"),
+    readRepoFile("skills/ce-code-review/references/modes-and-output.md"),
+    readRepoFile("skills/ce-code-review/references/scope.md"),
+    readRepoFile("skills/ce-code-review/references/intent-and-plan.md"),
+    readRepoFile("skills/ce-code-review/references/select-and-route.md"),
     readRepoFile("skills/ce-code-review/references/persona-catalog.md"),
     readRepoFile("skills/ce-code-review/references/dispatch-reviewers.md"),
+    readRepoFile("skills/ce-code-review/references/action-class-rubric.md"),
     readRepoFile("skills/ce-code-review/references/finish-review.md"),
   ])
   return parts.join("\n")
 }
 
+/**
+ * Rules that must control behavior from the context window, with no reference read. Everything
+ * else this skill states was relocated into the step references and is asserted against
+ * readCodeReviewRuntimeContract() instead (#1412 restructure). Do not convert a pin here into a
+ * corpus grep: a rule the body stops stating is a rule that stops firing before the read that
+ * would have supplied it.
+ */
+describe("ce-code-review always-loaded body pins", () => {
+  test("the body stays inside Codex's 8000-byte Agent Plugins prompt bound", async () => {
+    const body = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const lf = body.replace(/\r\n/g, "\n")
+    const crlfBytes = Buffer.byteLength(lf, "utf8") + (lf.match(/\n/g)?.length ?? 0)
+    expect(crlfBytes).toBeLessThanOrEqual(8_000)
+  })
+
+  test("no reference is @-inlined back into the always-loaded body", async () => {
+    const body = await readRepoFile("skills/ce-code-review/SKILL.md")
+    // Every reference here is late-sequence, so an `@`-include would charge its full weight to
+    // every early-stage turn and every subagent dispatch. The rule is mechanical, so it is
+    // asserted rather than carried as always-loaded prose.
+    expect(body).not.toMatch(/@\.?\/?references\//)
+  })
+
+  test("the mutation boundary fires without a reference read", async () => {
+    const body = await readRepoFile("skills/ce-code-review/SKILL.md")
+
+    expect(body).toMatch(/Never push, open PRs, or file tickets/i)
+    expect(body).toMatch(/Never run `gh pr checkout`/i)
+    expect(body).toMatch(/never mutates the tree/i)
+    expect(body).toMatch(/Entering the apply stage requires `apply:local`/i)
+    expect(body).toContain("Never use `AskUserQuestion`")
+  })
+
+  test("the spine keeps its order and names the reference each step requires", async () => {
+    const body = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const spine = body.split("## Execution spine")[1].split("\n## ")[0]
+    const order = [
+      "references/modes-and-output.md",
+      "references/scope.md",
+      "references/intent-and-plan.md",
+      "references/persona-catalog.md",
+      "references/select-and-route.md",
+      "references/dispatch-reviewers.md",
+      "references/finish-review.md",
+    ]
+    let cursor = -1
+    for (const reference of order) {
+      const at = spine.indexOf(reference)
+      expect(at, `${reference} missing from the execution spine`).toBeGreaterThan(cursor)
+      cursor = at
+    }
+  })
+
+  test("the exclusive adversarial route is decided from the window", async () => {
+    const body = await readRepoFile("skills/ce-code-review/SKILL.md")
+
+    expect(body).toMatch(/before any local persona dispatch/i)
+    expect(body).toMatch(/A started peer replaces the local adversarial persona/i)
+    expect(body).toMatch(/Detaching local review into a polled background job is forbidden/i)
+    expect(body).toMatch(/the cross-model peer is the only detached work/i)
+  })
+
+  test("synthesis provenance fires from the window; the peer tuple is pinned where it is read", async () => {
+    const body = await readRepoFile("skills/ce-code-review/SKILL.md")
+    expect(body).toMatch(/Never synthesize directly from raw reviewer artifacts/i)
+    expect(body).toMatch(/Never claim more about the peer than its receipt attests/i)
+
+    // The keyed peer fields are read off the peer artifact, so they belong to the reference the
+    // routing step loads before any peer starts — not to the always-loaded body.
+    const peer = await readRepoFile("skills/ce-code-review/references/cross-model-review.md")
+    for (const field of [
+      "model_requested",
+      "model_actual",
+      "effort_requested",
+      "effort_actual",
+      "receipt_supported",
+      "independence_verified",
+    ]) {
+      expect(peer).toContain(`\`${field}\``)
+    }
+  })
+})
+
 describe("ce-code-review contract", () => {
   test("documents explicit modes and orchestration boundaries", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     expect(content).toContain("## Argument Parsing")
     expect(content).toContain("mode:autofix` is no longer supported")
@@ -197,7 +291,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("documents policy-driven routing and actionable handoff", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     // Action Routing: autofix_class is signal only; apply authority is separate.
     expect(content).toContain("## Action Routing")
@@ -522,7 +616,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("right-sizes generic reviewers with explicit domain gates", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
     const catalog = await readRepoFile(
       "skills/ce-code-review/references/persona-catalog.md",
     )
@@ -561,7 +655,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("allows project standards inside the lite roster without disabling it", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     expect(content).toMatch(
       /Stage 3b standards discovery completed successfully \(with applicable paths or a confirmed empty result\)/i,
@@ -615,7 +709,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("PR-mode skip-condition pre-check stops without dispatching reviewers", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     // Skip-check section exists
     expect(content).toContain("**Skip-condition pre-check.**")
@@ -644,7 +738,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("remote scope modes forbid workspace inspection on wrong tree", async () => {
-    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const skill = await readCodeReviewRuntimeContract()
     const stage2c = skill.split("### Stage 3:")[0].split("### Stage 2c:")[1]
     const diffScope = await readRepoFile(
       "skills/ce-code-review/references/diff-scope.md",
@@ -734,7 +828,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("documents stack-specific conditional reviewers for the JSON pipeline", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
     const catalog = await readRepoFile(
       "skills/ce-code-review/references/persona-catalog.md",
     )
@@ -819,7 +913,7 @@ describe("ce-code-review contract", () => {
 
   test("data-migration reviewer consolidates schema drift and migration safety", async () => {
     const content = await readRepoFile(personaPromptPath("data-migration-reviewer"))
-    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const skill = await readCodeReviewRuntimeContract()
 
     expect(content).toContain("## Step 0: Schema drift")
     expect(content).toContain('"reviewer": "data-migration"')
@@ -831,7 +925,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("PR mode uses gh pr diff without checkout; branch/standalone fail closed on missing base", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     // No scope path should fall back to `git diff HEAD` or `git diff --cached` — those only
     // show uncommitted changes and silently produce empty diffs on clean feature branches.
@@ -910,6 +1004,11 @@ describe("ce-code-review contract", () => {
 
   test("lfg autonomously handles residuals via non-interactive tracker-defer and a committed record file (never the PR body)", async () => {
     const lfg = await readRepoFile("skills/lfg/SKILL.md")
+    // Steps 3-6 are owned by the reference lfg's step 3 names as a required read;
+    // the body keeps each step's gate and the DONE-durability rule. Assertions on
+    // relocated mechanics read the reference, not the body.
+    const followupRef = await readRepoFile("skills/lfg/references/review-followup.md")
+    const shippingTail = await readRepoFile("skills/lfg/references/shipping-tail.md")
     await expect(readRepoFile("skills/lfg/references/tracker-defer.md")).resolves.toContain(
       "Non-interactive mode",
     )
@@ -925,35 +1024,40 @@ describe("ce-code-review contract", () => {
     expect(lfg).toContain("Autonomous residual handoff")
     expect(lfg).toMatch(/Do not prompt the user/)
 
-    // tracker-defer is invoked in non-interactive mode.
-    expect(lfg).toContain("references/tracker-defer.md")
+    // tracker-defer is invoked in non-interactive mode, from the step-6 procedure
+    // in the reference lfg's step 3 requires.
+    expect(followupRef).toContain("references/tracker-defer.md")
+    expect(followupRef).toContain("**non-interactive mode**")
     expect(lfg).not.toContain("skills/ce-code-review/references/tracker-defer.md")
 
-    // Structured return buckets drive the residual record file.
-    expect(lfg).toMatch(/filed/)
-    expect(lfg).toMatch(/failed/)
-    expect(lfg).toMatch(/no_sink/)
+    // Structured return buckets drive the residual record.
+    expect(followupRef).toMatch(/filed/)
+    expect(followupRef).toMatch(/failed/)
+    expect(followupRef).toMatch(/no_sink/)
 
     // Residuals are recorded via tracker tickets + a committed record file,
     // NEVER the PR body (which would duplicate GitHub's own tracking and go
     // stale as items resolve). The old `gh pr edit`-into-body path is retired.
     expect(lfg).toContain("never the PR body")
     expect(lfg).not.toContain("gh pr edit PR_NUMBER --body-file BODY_FILE")
-    expect(lfg).toContain("## Residual Review Findings")
+    expect(followupRef).toContain("## Residual Review Findings")
     // ...and not a committed record file either. Residuals ride the same run-report
     // comment `ce-babysit-pr` already uses for unfixable CI, so nothing is committed to
     // carry them and the DONE gate no longer waits on a file write plus a push.
     expect(lfg).toContain("run-report comment")
     expect(lfg).not.toContain("residual-review-findings")
+    expect(followupRef).toContain("run-report comment")
+    expect(followupRef).not.toContain("residual-review-findings")
     expect(lfg).toContain("Do not output DONE until the residuals are durable")
 
     // Step 9 delegates CI to ce-babysit-pr pipeline mode; the hand-rolled
     // CI-watch loop is retired.
     expect(lfg).toContain("ce-babysit-pr mode:pipeline")
-    expect(lfg).toMatch(/Stack handoff from step 8/i)
-    expect(lfg).toMatch(/never treat "started" as DONE/i)
-    expect(lfg).toMatch(/bottom open non-draft[\s\S]{0,120}posture:stack-ready[\s\S]{0,80}posture:stack-land/i)
+    expect(shippingTail).toMatch(/[Ss]tack handoff from step 8/)
+    expect(shippingTail).toMatch(/never treat "started" as DONE/i)
+    expect(shippingTail).toMatch(/bottom open non-draft[\s\S]{0,120}posture:stack-ready[\s\S]{0,80}posture:stack-land/i)
     expect(lfg).not.toContain("gh pr checks --watch")
+    expect(shippingTail).not.toContain("gh pr checks --watch")
 
     // Shipping precondition: a remote-less repo (e.g. a sandbox/throwaway checkout)
     // finishes locally instead of deadlocking on an impossible push.
@@ -966,7 +1070,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("ce-code-review emits actionable findings summary for callers", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
     expect(content).toContain("### Emit actionable findings summary")
     expect(content).toContain("Actionable Findings")
     expect(content).toContain("with stable `#`, severity, file:line, title, `autofix_class`")
@@ -1026,7 +1130,7 @@ describe("ce-code-review contract", () => {
   })
 
   test("documents grouping tokens as presentation with conflict handling", async () => {
-    const content = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const content = await readCodeReviewRuntimeContract()
 
     // Three grouping tokens in the Argument Parsing table, auto as default
     expect(content).toContain("`grouping:auto`")
@@ -1236,7 +1340,7 @@ describe("cross-model peer skip legibility", () => {
   }
 
   test("code review restores the adversarial lens after a quota or auth no-review", async () => {
-    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const skill = await readCodeReviewRuntimeContract()
     const dispatch = await readRepoFile(
       "skills/ce-code-review/references/dispatch-reviewers.md",
     )
@@ -1258,7 +1362,7 @@ describe("cross-model peer skip legibility", () => {
   })
 
   test("code review exclusivity pointers allow in-process restore after a failed same-route rate-limit retry", async () => {
-    const skill = await readRepoFile("skills/ce-code-review/SKILL.md")
+    const skill = await readCodeReviewRuntimeContract()
     const dispatch = await readRepoFile(
       "skills/ce-code-review/references/dispatch-reviewers.md",
     )

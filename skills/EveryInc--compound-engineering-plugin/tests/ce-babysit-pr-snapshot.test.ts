@@ -2831,11 +2831,13 @@ m.cmd_snapshot(args)
     expect(d2.open_needs_human).toBe(1) // parked comment blocks merge-ready just like a parked thread
   })
 
-  test("_extract_feedback surfaces every non-empty external body for agent judgment", () => {
+  test("_extract_feedback surfaces every non-empty body, the PR author's included", () => {
     const v = {
       author: { login: "me" },
       comments: [
-        { id: "c-me", author: { login: "me" }, body: "my own note" }, // author -> excluded
+        // The PR author's own top-level ask is how a human requests a change on an agent-opened
+        // PR. Excluding it here kept the tick from ever invoking ce-resolve-pr-feedback for it.
+        { id: "c-me", author: { login: "me" }, body: "please rename check_id to validate_id" },
         { id: "c-cov", author: { login: "codecov[bot]" }, body: "coverage -0.1%" },
         { id: "c-wrapper", author: { login: "chatgpt-codex-connector" }, body: CODEX_WRAPPER },
         { id: "c-near-match", author: { login: "chatgpt-codex-connector" }, body: `${CODEX_WRAPPER}\n\nP1: Preserve this appended actionable finding.` },
@@ -2851,7 +2853,7 @@ m.cmd_snapshot(args)
       ],
     }
     expect(extractFeedback(v).map((f: any) => f.id).sort()).toEqual([
-      "c-claude", "c-cov", "c-ghost", "c-near-match", "c-wrapper", "r-codex", "r-cr", "r-wrapper",
+      "c-claude", "c-cov", "c-ghost", "c-me", "c-near-match", "c-wrapper", "r-codex", "r-cr", "r-wrapper",
     ])
   })
 
@@ -3683,6 +3685,283 @@ print(json.dumps({"ids": [t["thread_id"] for t in threads], "calls": calls}))
     snapshot(sd, withNew, ["--start-invocation"])
     expect(watch(sd, withNew).reason).toBe("actionable")
   }, 15000)
+
+  // Incident: two CLEAN PRs received `git merge origin/main` after a sibling merged, one pushed
+  // (restarting green CI). Ordinary base movement with CLEAN never yields a currency item, so the
+  // engine flags a two-parent head whose second parent is the base tip and no claimed item
+  // produced it. The wake is a distinct reason so the tick reports it as a defect, not maintenance.
+  test("unrequested base merge: a base-parent merge head with no claimed currency item is flagged and wakes once", () => {
+    const base = { host: "github.com", repository: "o/r", ref: "main",
+      oid: "2222222222222222222222222222222222222222", graphql_oid: "2222222222222222222222222222222222222222",
+      historical_oid: "1111111111111111111111111111111111111111", identity: "current" }
+    const clean = {
+      ...FAILING, merge_state_status: "CLEAN", review_decision: "APPROVED",
+      checks: [{ key: "CI/test", name: "test", status: "COMPLETED", conclusion: "SUCCESS", details_url: "u" }],
+      threads: [], base, head_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      head_parents: ["9999999999999999999999999999999999999999"],
+    }
+    const first = snapshot(state, fetchFile(dir, "ubm-1.json", clean))
+    expect(first.unrequested_base_merge).toBeNull()
+
+    // A plain new commit (single parent) is not flagged.
+    const plain = snapshot(state, fetchFile(dir, "ubm-2.json", { ...clean,
+      head_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      head_parents: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"] }))
+    expect(plain.unrequested_base_merge).toBeNull()
+
+    // A merge whose second parent is the base tip, with no currency item ever claimed → flagged.
+    const merged = snapshot(state, fetchFile(dir, "ubm-3.json", { ...clean,
+      head_sha: "cccccccccccccccccccccccccccccccccccccccc",
+      head_parents: ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "2222222222222222222222222222222222222222"] }))
+    expect(merged.unrequested_base_merge).toEqual(expect.objectContaining({
+      head: "cccccccccccccccccccccccccccccccccccccccc",
+      base_parent: "2222222222222222222222222222222222222222",
+    }))
+    expect(wakeReason(merged)).toBe("unrequested-base-merge")
+    // Persists on the same head across polls; cleared by the next head.
+    const again = snapshot(state, fetchFile(dir, "ubm-3.json", { ...clean,
+      head_sha: "cccccccccccccccccccccccccccccccccccccccc",
+      head_parents: ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "2222222222222222222222222222222222222222"] }))
+    expect(again.unrequested_base_merge?.head).toBe("cccccccccccccccccccccccccccccccccccccccc")
+    const next = snapshot(state, fetchFile(dir, "ubm-4.json", { ...clean,
+      head_sha: "dddddddddddddddddddddddddddddddddddddddd",
+      head_parents: ["cccccccccccccccccccccccccccccccccccccccc"] }))
+    expect(next.unrequested_base_merge).toBeNull()
+    expect(wakeReason(next)).not.toBe("unrequested-base-merge")
+  })
+
+  // Observed live (tmchow/pr-stack-test, 2026-08-17): after a squash-merge to main GitHub kept
+  // MERGEABLE/CLEAN but left potentialMergeCommit on the old base for 20+ minutes, so `race`
+  // never cleared and every harness idled to budget. The degrade accepts the cached verdict once
+  // head and live base have been stable that long, and discloses it.
+  test("stale merge computation: a head-matching race degrades to stale-computation after the bounded window", () => {
+    const race = {
+      ...FAILING, merge_state_status: "CLEAN", review_decision: "APPROVED",
+      checks: [{ key: "CI/test", name: "test", status: "COMPLETED", conclusion: "SUCCESS", details_url: "u" }],
+      threads: [], head_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      base: { host: "github.com", repository: "o/r", ref: "main",
+        oid: "2222222222222222222222222222222222222222", graphql_oid: "2222222222222222222222222222222222222222",
+        historical_oid: "1111111111111111111111111111111111111111",
+        merge_parent_oids: ["1111111111111111111111111111111111111111", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+        identity: "race", stale_computation_candidate: true },
+    }
+    const file = fetchFile(dir, "stale-race.json", race)
+    const first = snapshot(state, file)
+    expect(first.base_ref_blocker).toBe("race")
+    expect(first.mergeability_certain).toBe(false)
+    expect(wakeReason(first)).toBe("base-ref-blocked")
+
+    const statePath = path.join(state, "state.json")
+    const persisted = JSON.parse(readFileSync(statePath, "utf8"))
+    expect(persisted.stale_merge_computation?.key).toBe(
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:2222222222222222222222222222222222222222")
+    persisted.stale_merge_computation.first_seen_at = "2026-07-17T12:00:00+00:00"
+    persisted.last_change_at = "2026-07-17T12:00:00+00:00"
+    writeFileSync(statePath, JSON.stringify(persisted))
+
+    const later = snapshot(state, file)
+    expect(later.base.identity).toBe("stale-computation")
+    expect(later.base.merge_computation_stale).toBe(true)
+    expect(later.base_ref_blocker).toBeNull()
+    expect(later.mergeability_certain).toBe(true)
+    expect(wakeReason(later)).toBe("merge-ready")
+
+    // A pending (unclassified) head forces uncertainty even through the stale-computation degrade.
+    const pendingStale = snapshot(state, fetchFile(dir, "stale-race-pending.json", { ...race,
+      head_sha: "cccccccccccccccccccccccccccccccccccccccc", head_parents: null,
+      base: { ...race.base, merge_parent_oids: ["1111111111111111111111111111111111111111", "cccccccccccccccccccccccccccccccccccccccc"] } }))
+    expect(pendingStale.unrequested_base_merge_pending).toBe(true)
+    const sp = JSON.parse(readFileSync(statePath, "utf8"))
+    sp.stale_merge_computation.first_seen_at = "2026-07-17T12:00:00+00:00"
+    writeFileSync(statePath, JSON.stringify(sp))
+    const pendingStale2 = snapshot(state, fetchFile(dir, "stale-race-pending.json", { ...race,
+      head_sha: "cccccccccccccccccccccccccccccccccccccccc", head_parents: null,
+      base: { ...race.base, merge_parent_oids: ["1111111111111111111111111111111111111111", "cccccccccccccccccccccccccccccccccccccccc"] } }))
+    expect(pendingStale2.base_ref_blocker).toBe("mergeability-pending")
+    expect(pendingStale2.mergeability_certain).toBe(false)
+
+    // A base parent that does not match the head is a genuine race, never degraded.
+    const genuine = snapshot(path.join(dir, "genuine-race"), fetchFile(dir, "genuine-race.json", {
+      ...race, base: { ...race.base, stale_computation_candidate: false } }))
+    expect(genuine.base_ref_blocker).toBe("race")
+    // A moved head resets the window.
+    const moved = snapshot(state, fetchFile(dir, "stale-race-moved.json", { ...race,
+      head_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      base: { ...race.base, merge_parent_oids: ["1111111111111111111111111111111111111111", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"] } }))
+    expect(moved.base_ref_blocker).toBe("race")
+  })
+
+  // Pipelined stack traversal: the watcher polls the active (upper) layer and keeps probing the
+  // lower layers it was told about. A NEW thread / comment / failing check / head below wakes
+  // `downstack-actionable` so the walk returns to the lowest unsettled layer; what was already
+  // there at arm time (parked, dispatched) does not.
+  test("downstack probe: a new lower-layer item wakes downstack-actionable; the arm-time baseline does not", async () => {
+    const quietUpper = {
+      ...FAILING, merge_state_status: "BLOCKED", review_decision: null,
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+      threads: [], head_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    }
+    const upperFile = fetchFile(dir, "upper.json", quietUpper)
+    const lowerQuiet = { pr_state: "OPEN", head_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", threads: [], feedback: [],
+      checks: [{ key: "CI/test", status: "COMPLETED", conclusion: "SUCCESS" }] }
+    const lowerFile = fetchFile(dir, "lower.json", lowerQuiet)
+    // Baseline: an already-open lower thread at arm time is not a wake.
+    writeFileSync(lowerFile, JSON.stringify({ ...lowerQuiet, threads: [{ thread_id: "OLD", last_comment_id: "c", last_comment_at: "t" }] }))
+    snapshot(state, upperFile, ["--start-invocation"])
+    const { child, result } = startWatch(state, upperFile, ["--downstack-pr", "7", "--downstack-fetch-file", `7=${lowerFile}`,
+      "--interval", "0.2"])
+    await waitForWatchGeneration(state)
+    await Bun.sleep(600)
+    expect(child.exitCode).toBeNull()   // still watching: baseline item did not wake
+    // A new lower-layer thread arrives.
+    writeFileSync(lowerFile, JSON.stringify({ ...lowerQuiet, threads: [
+      { thread_id: "OLD", last_comment_id: "c", last_comment_at: "t" },
+      { thread_id: "NEW", last_comment_id: "c2", last_comment_at: "t2" }] }))
+    const out = await Promise.race([result, Bun.sleep(4000).then(() => null)])
+    expect(out).not.toBeNull()
+    const wake = JSON.parse(out!.stdout.trim().split("\n").pop()!)
+    expect(wake.reason).toBe("downstack-actionable")
+    expect(wake.downstack_prs).toEqual([7])
+  })
+
+  test("downstack probe: a lower-layer head change alone wakes; an unrequested-base-merge residual does not re-wake after re-arm", async () => {
+    const quietUpper = {
+      ...FAILING, merge_state_status: "BLOCKED", review_decision: null,
+      checks: [{ key: "CI/test", name: "test", status: "IN_PROGRESS", conclusion: null, details_url: "u" }],
+      threads: [], head_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    }
+    const upperFile = fetchFile(dir, "upper2.json", quietUpper)
+    const lowerQuiet = { pr_state: "OPEN", head_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", threads: [], feedback: [],
+      checks: [{ key: "CI/test", status: "COMPLETED", conclusion: "SUCCESS" }] }
+    const lowerFile = fetchFile(dir, "lower2.json", lowerQuiet)
+    snapshot(state, upperFile, ["--start-invocation"])
+    const { child, result } = startWatch(state, upperFile, ["--downstack-pr", "7", "--downstack-fetch-file", `7=${lowerFile}`, "--interval", "0.2"])
+    await waitForWatchGeneration(state)
+    await Bun.sleep(400)
+    expect(child.exitCode).toBeNull()
+    // Loss of quiescence with no new event: the lower layer turns DIRTY on the same head.
+    writeFileSync(lowerFile, JSON.stringify({ ...lowerQuiet, merge_state_status: "DIRTY" }))
+    const out = await Promise.race([result, Bun.sleep(4000).then(() => null)])
+    expect(out).not.toBeNull()
+    expect(JSON.parse(out!.stdout.trim().split("\n").pop()!).reason).toBe("downstack-actionable")
+    // Loss of manager confirmation on the same head wakes; so does an edit in an existing thread.
+    const s4 = path.join(dir, "ds-mgr")
+    const lower4 = fetchFile(dir, "lower4.json", { ...lowerQuiet, pr_chain: { manager_status: "confirmed", target_needs_rebase: false },
+      threads: [{ thread_id: "T", last_comment_id: "c", last_comment_at: "t1" }] })
+    snapshot(s4, upperFile, ["--start-invocation"])
+    const w4 = startWatch(s4, upperFile, ["--downstack-pr", "7", "--downstack-fetch-file", `7=${lower4}`, "--interval", "0.2"])
+    await waitForWatchGeneration(s4)
+    await Bun.sleep(400)
+    writeFileSync(lower4, JSON.stringify({ ...lowerQuiet, pr_chain: { manager_status: "probe-error", target_needs_rebase: null },
+      threads: [{ thread_id: "T", last_comment_id: "c", last_comment_at: "t1" }] }))
+    const out4 = await Promise.race([w4.result, Bun.sleep(4000).then(() => null)])
+    expect(out4).not.toBeNull()
+    expect(JSON.parse(out4!.stdout.trim().split("\n").pop()!).reason).toBe("downstack-actionable")
+    const s5 = path.join(dir, "ds-edit")
+    const lower5 = fetchFile(dir, "lower5.json", { ...lowerQuiet, threads: [{ thread_id: "T", last_comment_id: "c", last_comment_at: "t1" }] })
+    snapshot(s5, upperFile, ["--start-invocation"])
+    const w5 = startWatch(s5, upperFile, ["--downstack-pr", "7", "--downstack-fetch-file", `7=${lower5}`, "--interval", "0.2"])
+    await waitForWatchGeneration(s5)
+    await Bun.sleep(400)
+    writeFileSync(lower5, JSON.stringify({ ...lowerQuiet, threads: [{ thread_id: "T", last_comment_id: "c", last_comment_at: "t2" }] }))
+    const out5 = await Promise.race([w5.result, Bun.sleep(4000).then(() => null)])
+    expect(out5).not.toBeNull()
+    expect(JSON.parse(out5!.stdout.trim().split("\n").pop()!).reason).toBe("downstack-actionable")
+
+    // And a head change alone.
+    const s3 = path.join(dir, "ds-head")
+    const lower3 = fetchFile(dir, "lower3.json", lowerQuiet)
+    snapshot(s3, upperFile, ["--start-invocation"])
+    const w3 = startWatch(s3, upperFile, ["--downstack-pr", "7", "--downstack-fetch-file", `7=${lower3}`, "--interval", "0.2"])
+    await waitForWatchGeneration(s3)
+    await Bun.sleep(400)
+    writeFileSync(lower3, JSON.stringify({ ...lowerQuiet, head_sha: "cccccccccccccccccccccccccccccccccccccccc" }))
+    const out3 = await Promise.race([w3.result, Bun.sleep(4000).then(() => null)])
+    expect(out3).not.toBeNull()
+    expect(JSON.parse(out3!.stdout.trim().split("\n").pop()!).reason).toBe("downstack-actionable")
+
+    // Residual suppression: an unrequested_base_merge present at arm time is in the baseline.
+    const flagged = { ...quietUpper, checks: [], head_sha: "dddddddddddddddddddddddddddddddddddddddd",
+      base: { host: "github.com", repository: "o/r", ref: "main", oid: "2222222222222222222222222222222222222222",
+        graphql_oid: "2222222222222222222222222222222222222222", identity: "current" },
+      head_parents: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "2222222222222222222222222222222222222222"] }
+    const s2 = path.join(dir, "ubm-rearm")
+    snapshot(s2, fetchFile(dir, "ubm-r1.json", { ...quietUpper, checks: [] }), ["--start-invocation"])
+    const flaggedFile = fetchFile(dir, "ubm-r2.json", flagged)
+    expect(snapshot(s2, flaggedFile).unrequested_base_merge).not.toBeNull()
+    const w2 = startWatch(s2, flaggedFile, ["--interval", "0.2"])
+    await waitForWatchGeneration(s2)
+    await Bun.sleep(700)
+    expect(w2.child.exitCode).toBeNull()   // did not immediately re-wake on the already-surfaced residual
+    w2.child.kill()
+    await w2.result
+  })
+
+  test("unrequested base merge: a claimed DIRTY repair that observed its mutation is not flagged", () => {
+    const fixture = currencyFixture({ merge_state_status: "DIRTY", mergeable: "CONFLICTING",
+      head_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      base: { host: "github.com", repository: "o/r", ref: "main",
+        oid: "2222222222222222222222222222222222222222", graphql_oid: "2222222222222222222222222222222222222222",
+        identity: "current" } }) as any
+    const dirty = snapshot(state, fetchFile(dir, "ubm-dirty-1.json", fixture))
+    const key = dirty.branch_currency?.key
+    expect(key).toBeTruthy()
+    markCurrency(state, key, "claimed")
+    markCurrencyOutcome(state, key, "mutation-observed")
+    const baseOid = String(fixture.base.oid)
+    const repaired = snapshot(state, fetchFile(dir, "ubm-dirty-2.json", { ...fixture,
+      merge_state_status: "CLEAN", mergeable: "MERGEABLE",
+      head_sha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      head_parents: [String(fixture.head_sha), baseOid] }))
+    expect(repaired.unrequested_base_merge).toBeNull()
+
+    // Control: the same merge head on a fresh state with no claim is flagged.
+    const control = path.join(dir, "ubm-control-state")
+    snapshot(control, fetchFile(dir, "ubm-dirty-1.json", fixture))
+    const flagged = snapshot(control, fetchFile(dir, "ubm-dirty-3.json", { ...fixture,
+      merge_state_status: "CLEAN", mergeable: "MERGEABLE",
+      head_sha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      head_parents: [String(fixture.head_sha), baseOid] }))
+    expect(flagged.unrequested_base_merge?.base_parent).toBe(baseOid)
+
+    // A transient parents-probe failure on the head-change tick keeps the head unclassified and
+    // retryable: detection fires on the first later snapshot that carries parents.
+    const s3 = path.join(dir, "ubm-retry")
+    snapshot(s3, fetchFile(dir, "ubm-t1.json", fixture), ["--start-invocation"])
+    const noParents = snapshot(s3, fetchFile(dir, "ubm-t2.json", { ...fixture,
+      merge_state_status: "CLEAN", mergeable: "MERGEABLE",
+      head_sha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", head_parents: null }))
+    expect(noParents.unrequested_base_merge).toBeNull()
+    expect(noParents.unrequested_base_merge_pending).toBe(true)
+    expect(noParents.base_ref_blocker).toBe("mergeability-pending")
+    expect(noParents.mergeability_certain).toBe(false)
+    const recovered = snapshot(s3, fetchFile(dir, "ubm-t3.json", { ...fixture,
+      merge_state_status: "CLEAN", mergeable: "MERGEABLE",
+      head_sha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      head_parents: [String(fixture.head_sha), baseOid] }))
+    expect(recovered.unrequested_base_merge?.base_parent).toBe(baseOid)
+    expect(recovered.unrequested_base_merge_pending).toBe(false)
+
+    // A consumed item for base A does not exempt a merge of the same head with a newer base B.
+    const s6 = path.join(dir, "ubm-newer-base")
+    snapshot(s6, fetchFile(dir, "ubm-nb1.json", fixture))
+    const k6 = snapshot(s6, fetchFile(dir, "ubm-nb1.json", fixture)).branch_currency?.key
+    markCurrency(s6, k6, "claimed"); markCurrencyOutcome(s6, k6, "mutation-observed")
+    const newerBase = "3333333333333333333333333333333333333333"
+    const withB = snapshot(s6, fetchFile(dir, "ubm-nb2.json", { ...fixture,
+      merge_state_status: "CLEAN", mergeable: "MERGEABLE",
+      base: { ...fixture.base, oid: newerBase, graphql_oid: newerBase },
+      head_sha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      head_parents: [String(fixture.head_sha), newerBase] }))
+    expect(withB.unrequested_base_merge?.base_parent).toBe(newerBase)
+
+    // A consumed item from an earlier head does not exempt a later, unrelated base merge.
+    const stale = snapshot(state, fetchFile(dir, "ubm-dirty-4.json", { ...fixture,
+      merge_state_status: "CLEAN", mergeable: "MERGEABLE",
+      head_sha: "ffffffffffffffffffffffffffffffffffffffff",
+      head_parents: ["eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", baseOid] }))
+    expect(stale.unrequested_base_merge?.base_parent).toBe(baseOid)
+  })
 })
 
 // UTF-8 gh/git output under a non-UTF-8 locale (issue #1346)

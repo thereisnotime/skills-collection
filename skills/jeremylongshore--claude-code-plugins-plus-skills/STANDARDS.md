@@ -98,6 +98,15 @@ linked from this table.** That rule is what the table exists for: it is the sing
 of which document owns which fact class, and it is the reason a document cannot grant itself
 authority by editing its own header.
 
+**The one-owner-per-fact-class authority map is
+[blueprint 727 § 11](000-docs/727-AT-ARCH-master-modernization-blueprint.md)** (with its § 11.1
+activation proof). This table is the public index that reaches every owner in ≤ 1 hop; § 11 is
+the per-fact-class assignment. A fact class gains an owner only by a row here plus a § 11 map
+row — never by a header edit, and never by restating the fact in another document. Governing
+files (`CLAUDE.md`, `AGENTS.md`, this file) point at owners rather than duplicating their
+content; where they do describe a fact operationally, the description names its authority and is
+pinned by the doc-governance assertions (`validate:doc-fact-assertions`).
+
 | Topic                                                                                                                            | Document                                                                                                                       |
 | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | **Platform master standard** (plugins, CI, release, docs governance, canonical contract, adapters, root README landing contract) | [000-docs/727-AT-ARCH-master-modernization-blueprint.md](000-docs/727-AT-ARCH-master-modernization-blueprint.md)               |
@@ -108,6 +117,8 @@ authority by editing its own header.
 | External-sync policy                                                                                                             | [000-docs/694-AT-DECR-external-sync-mirror-by-default-model.md](000-docs/694-AT-DECR-external-sync-mirror-by-default-model.md) |
 | Skill submission intake standard                                                                                                 | [000-docs/700-DR-GUID-skill-submission-standard.md](000-docs/700-DR-GUID-skill-submission-standard.md)                         |
 | External-PR review standard                                                                                                      | [000-docs/709-DR-GUID-reviewing-external-prs.md](000-docs/709-DR-GUID-reviewing-external-prs.md)                               |
+| Document filing standard (numbering, category codes, 000-docs layout)                                                            | [000-docs/000-DR-STND-document-filing-system.md](000-docs/000-DR-STND-document-filing-system.md)                               |
+| Cross-repo source-of-truth map (which system owns which fact class)                                                              | [000-docs/718-AT-ARCH-source-of-truth-map.md](000-docs/718-AT-ARCH-source-of-truth-map.md)                                     |
 | Contribution requirements                                                                                                        | [CONTRIBUTING.md](.github/CONTRIBUTING.md)                                                                                     |
 | Security policy                                                                                                                  | [SECURITY.md](.github/SECURITY.md)                                                                                             |
 

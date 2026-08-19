@@ -13,8 +13,12 @@ const CONSUMERS = [
   "skills/ce-ideate/SKILL.md",
   "skills/ce-product-pulse/SKILL.md",
   "skills/ce-sweep/SKILL.md",
-  "skills/ce-commit-push-pr/SKILL.md",
-  "skills/ce-work/SKILL.md",
+  // ce-commit-push-pr resolves the ordinary keys at Step 4, in the reference
+  // the body mandates before composition.
+  "skills/ce-commit-push-pr/references/compose.md",
+  // ce-work resolves the ordinary engine keys inside the reference its route-resolution
+  // gate mandates before any implementation write.
+  "skills/ce-work/references/execution-engines.md",
   "skills/ce-promote/references/spiral-cli.md",
   "skills/ce-code-review/references/cross-model-review.md",
   "skills/ce-doc-review/references/cross-model-review.md",

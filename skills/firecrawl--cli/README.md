@@ -667,10 +667,10 @@ firecrawl agent "Find the top 5 competitors of Notion and their pricing" --wait 
 firecrawl agent "Get all blog post titles and dates" --urls https://blog.example.com --max-credits 100 --wait
 
 # Use higher accuracy model for complex extraction
-firecrawl agent "Extract detailed technical specifications" --model spark-1-pro --wait --pretty
+firecrawl agent "Extract detailed technical specifications" --model spark-1-pro --wait --json --pretty
 
 # Save structured results to file
-firecrawl agent "Extract contact information" --schema-file ./contact-schema.json --wait -o contacts.json --pretty
+firecrawl agent "Extract contact information" --schema-file ./contact-schema.json --wait --json -o contacts.json --pretty
 
 # Check job status without waiting
 firecrawl agent abc123-def456-... --json

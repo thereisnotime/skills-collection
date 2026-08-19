@@ -203,7 +203,9 @@ describe("ce-brainstorm review contract", () => {
 
 describe("ce-plan testing contract", () => {
   test("flags blank test scenarios on feature-bearing units as incomplete", async () => {
-    const content = await readRepoFile("skills/ce-plan/SKILL.md")
+    // Phase 5.1's review checklist moved into the reference ce-plan's body names
+    // as a required read before the plan is written (#1412 restructure).
+    const content = await readRepoFile("skills/ce-plan/references/final-review.md")
 
     // Phase 5.1 review checklist addresses blank test scenarios
     expect(content).toContain("blank or missing test scenarios")
@@ -214,7 +216,13 @@ describe("ce-plan testing contract", () => {
   })
 
   test("keeps execution direction natural-language instead of enum-based", async () => {
-    const content = await readRepoFile("skills/ce-plan/SKILL.md")
+    // The core principle and the per-unit Execution note field moved into the
+    // references ce-plan's body names as required reads (#1412 restructure);
+    // the rule is pinned across both so it cannot be dropped in either.
+    const content =
+      (await readRepoFile("skills/ce-plan/references/intake.md")) +
+      (await readRepoFile("skills/ce-plan/references/research.md")) +
+      (await readRepoFile("skills/ce-plan/references/structure.md"))
 
     expect(content).toContain("natural-language signal")
     expect(content).toContain("Do not encode it as a finite enum")
@@ -273,13 +281,9 @@ describe("verification_evidence seam parity (ce-work <-> lfg)", () => {
   })
 
   test("lfg step-2 gate names every evidence fact ce-work documents", async () => {
-    const lfg = await readRepoFile("skills/lfg/SKILL.md")
-    // Scope to the step-2 gate block, between invoking ce-work and step 3.
-    const gate = sliceSection(
-      lfg,
-      "2. Invoke the `ce-work` skill with `mode:return-to-caller",
-      "3. Invoke the `ce-simplify-code`"
-    )
+    // The gate's field-level contract lives in the reference lfg's step 2 names as a
+    // required read before accepting a return; the body keeps the stop classes.
+    const gate = await readRepoFile("skills/lfg/references/work-return.md")
 
     for (const { fact, lfg: phrase } of EVIDENCE_FACTS) {
       expect(gate, `lfg gate must require ${fact} ("${phrase}")`).toContain(phrase)
@@ -291,12 +295,7 @@ describe("verification_evidence seam parity (ce-work <-> lfg)", () => {
   })
 
   test("lfg retries ce-work exactly once for evidence, then blocks rather than ships", async () => {
-    const lfg = await readRepoFile("skills/lfg/SKILL.md")
-    const gate = sliceSection(
-      lfg,
-      "2. Invoke the `ce-work` skill with `mode:return-to-caller",
-      "3. Invoke the `ce-simplify-code`"
-    )
+    const gate = await readRepoFile("skills/lfg/references/work-return.md")
 
     // One-shot recovery on the same plan and engine binding, with the returned durable run id.
     expect(gate).toContain("invoke `ce-work` one more time in recovery mode")
@@ -329,13 +328,8 @@ describe("cross-model execution receipt seam parity (ce-work <-> lfg)", () => {
 
   test("lfg requires every route receipt exposed by ce-work", async () => {
     const ceWork = await readRepoFile("skills/ce-work/SKILL.md")
-    const lfg = await readRepoFile("skills/lfg/SKILL.md")
     const returned = sliceSection(ceWork, "## Return-to-Caller Mode", "Engine selection (")
-    const gate = sliceSection(
-      lfg,
-      "2. Invoke the `ce-work` skill with `mode:return-to-caller",
-      "3. Invoke the `ce-simplify-code`",
-    )
+    const gate = await readRepoFile("skills/lfg/references/work-return.md")
 
     for (const field of ROUTE_RECEIPT_FIELDS) {
       expect(returned, `ce-work must return ${field}`).toContain(`\`${field}\``)
@@ -344,12 +338,9 @@ describe("cross-model execution receipt seam parity (ce-work <-> lfg)", () => {
   })
 
   test("lfg keeps the binding out of plan and review inputs", async () => {
-    const lfg = await readRepoFile("skills/lfg/SKILL.md")
-    const carrier = sliceSection(
-      lfg,
-      "## Per-stage routing carriers",
-      "1. Invoke the `ce-plan` skill",
-    )
+    // Carrier grammar and sanitization live in the reference lfg's routing section
+    // names as a required read before step 1.
+    const carrier = await readRepoFile("skills/lfg/references/stage-routing.md")
     expect(carrier).toContain("Remove every routing directive")
     expect(carrier).toContain("Never pass")
     expect(carrier).toContain("`ce-plan`")
@@ -359,13 +350,23 @@ describe("cross-model execution receipt seam parity (ce-work <-> lfg)", () => {
 })
 
 describe("ce-debug regression test selection", () => {
+  // Added by #1054 to stop agents defaulting to a brand-new test file. The four homes are
+  // the mechanic of Phase 3's test-first step, and `references/fix.md` is a required read
+  // before any file is edited, so they are pinned across the corpus rather than verbatim
+  // in the always-loaded body. What must decide from the window without a read is the
+  // condition -- start from the tests that exist -- plus the confirmed-defect precondition
+  // that keeps the divergent case out; those two stay pinned in the body.
   test("inspects and updates existing tests instead of always adding new tests", async () => {
-    const content = await readRepoFile("skills/ce-debug/SKILL.md")
+    const body = await readRepoFile("skills/ce-debug/SKILL.md")
+    const fix = await readRepoFile("skills/ce-debug/references/fix.md")
+    const corpus = [body, fix].join("\n")
 
-    expect(content).toContain("inspect existing tests before adding coverage")
-    expect(content).toContain("update an existing test when it owns the contract")
-    expect(content).toContain("strengthen an over-mocked test")
-    expect(content).toContain("add a new minimal isolated test only when no existing test is the right home")
+    expect(body).toMatch(/start from the tests that exist rather than from a new file/i)
+    expect(body).toMatch(/confirmed defect/i)
+    expect(corpus).toContain("inspect existing tests before adding coverage")
+    expect(corpus).toContain("update an existing test when it owns the contract")
+    expect(corpus).toContain("strengthen an over-mocked test")
+    expect(corpus).toContain("add a new minimal isolated test only when no existing test is the right home")
   })
 
   // Observed drift: agents fired the Phase 2 fix-choice question on "root cause
@@ -723,28 +724,47 @@ describe("ce-doc-review contract", () => {
     expect(synthesis).toContain("ce-work")
   })
 
+  // Split by load-time: the question-tool rules and the dispatch backpressure
+  // contract must fire from the always-loaded window, while the payload table
+  // (decision primer included) lives in the reference the body mandates before
+  // dispatch.
   test("SKILL.md has Interactive mode rules with AskUserQuestion pre-load", async () => {
     const content = await readRepoFile(
       "skills/ce-doc-review/SKILL.md"
     )
 
-    // Interactive mode rules section at top
+    // Interactive mode rules section at top: the body must route into the mode
+    // reference before anything else and must keep the never-narrate rule; the
+    // per-harness tool names and the fallback trigger live in that reference,
+    // which is read before any question can fire.
     expect(content).toContain("## Interactive mode rules")
-    expect(content).toContain("AskUserQuestion")
-    expect(content).toContain("ToolSearch")
-    expect(content).toContain("numbered-list fallback")
+    expect(content).toContain("`references/modes.md`")
+    expect(content).toMatch(/fires the tool or falls back loudly/)
     expect(content).toContain("bounded parallelism")
-    expect(content).toContain("active-subagent limit")
-    expect(content).toContain("spawn errors as backpressure, not reviewer failure")
-    expect(content).toContain("queue the remainder")
-
-    // Decision primer variable in the dispatch table
-    expect(content).toContain("{decision_primer}")
-    expect(content).toContain("<prior-decisions>")
+    // The body keeps the condition that a capacity rejection is backpressure;
+    // the queueing mechanics live in the dispatch reference read at that step.
+    expect(content).toMatch(/backpressure, not reviewer failure/)
 
     // References loaded lazily via backtick paths for walk-through and bulk-preview
     expect(content).toContain("`references/walkthrough.md`")
     expect(content).toContain("`references/bulk-preview.md`")
+  })
+
+  test("the dispatch reference carries the payload table and decision primer", async () => {
+    const dispatch = await readRepoFile("skills/ce-doc-review/references/dispatch.md")
+    const modes = await readRepoFile("skills/ce-doc-review/references/modes.md")
+    const skill = await readRepoFile("skills/ce-doc-review/SKILL.md")
+
+    expect(skill).toContain("`references/dispatch.md`")
+    expect(dispatch).toContain("{decision_primer}")
+    expect(dispatch).toContain("<prior-decisions>")
+    // The harness tool names and the fallback trigger moved with the mode rules.
+    expect(modes).toContain("AskUserQuestion")
+    expect(modes).toContain("ToolSearch")
+    expect(modes).toContain("numbered-list fallback")
+    expect(dispatch).toContain("active-subagent limit")
+    expect(dispatch).toContain("spawn errors as backpressure, not reviewer failure")
+    expect(dispatch).toContain("queue the remainder")
   })
 
   // Reproduced on Codex (gpt-5.6-sol), 4/4 runs: a plan whose only storage-related
@@ -754,7 +774,8 @@ describe("ce-doc-review contract", () => {
   // conditional judgment trio, so a false positive also fires the cross-model peer
   // pass — the over-activation costs real peer spend, not just an extra reviewer.
   test("security-lens is bounded to sensitive data, not any data handling", async () => {
-    const content = await readRepoFile("skills/ce-doc-review/SKILL.md")
+    // Activation now lives in the reference the body mandates before selection.
+    const content = await readRepoFile("skills/ce-doc-review/references/persona-selection.md")
     const line = content
       .split("\n")
       .find((l) => l.startsWith("**security-lens**"))
@@ -769,7 +790,7 @@ describe("ce-doc-review contract", () => {
   })
 
   test("keeps security document review on the parent capability tier", async () => {
-    const content = await readRepoFile("skills/ce-doc-review/SKILL.md")
+    const content = await readRepoFile("skills/ce-doc-review/references/dispatch.md")
     const modelTierSection = content.slice(content.indexOf("Model tiering lives here"))
     const securityTierLine = modelTierSection
       .split("\n")
@@ -947,13 +968,15 @@ describe("ce-compound vocabulary is corpus-first, not Rails-specific (issue #126
     expect(schema).toMatch(/validation_rules:[\s\S]*existing docs/)
   })
 
-  test("SKILL.md tells the classifier to sample existing docs before falling back to schema defaults", async () => {
-    const content = await readRepoFile("skills/ce-compound/SKILL.md")
-    const contextAnalyzer = sliceSection(content, "#### 1. **Context Analyzer**", "#### 2. **Solution Extractor**")
+  test("the classifier samples existing docs before falling back to schema defaults", async () => {
+    // Both classification paths moved into the references the body names at
+    // their step; the corpus-first rule is asserted where each one now lives.
+    const research = await readRepoFile("skills/ce-compound/references/research.md")
+    const contextAnalyzer = sliceSection(research, "#### 1. **Context Analyzer**", "#### 2. **Solution Extractor**")
     expect(contextAnalyzer).toMatch(/existing docs .*<root>\/solutions\//)
     expect(contextAnalyzer).toMatch(/directory/)
     // lightweight mode classifies inline and must carry the same rule
-    const lightweight = content.slice(content.indexOf("### Lightweight Mode"))
+    const lightweight = await readRepoFile("skills/ce-compound/references/lightweight.md")
     expect(lightweight).toMatch(/existing docs/)
   })
 
@@ -977,8 +1000,10 @@ describe("ce-compound Phase 1 artifact contract", () => {
   // collapsed the return to an executive summary. The fix mirrors ce-code-review's
   // proven /tmp run-artifact pattern: subagents write full output to disk and the
   // orchestrator Reads it back with the inline return as a fallback.
+  // Phase 1 and Phase 2 moved into references/research.md and references/assembly.md;
+  // the #956 artifact contract is asserted in the files that now own it.
   test("generates a run id and run dir before dispatching Phase 1 subagents", async () => {
-    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+    const content = await readRepoFile("skills/ce-compound/references/research.md")
 
     // A run identifier scopes the per-subagent artifact files
     expect(content).toContain("RUN_ID")
@@ -989,12 +1014,9 @@ describe("ce-compound Phase 1 artifact contract", () => {
   })
 
   test("Phase 1 subagents write full output to the run-artifact path", async () => {
-    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+    const content = await readRepoFile("skills/ce-compound/references/research.md")
 
-    const phase1 = content.slice(
-      content.indexOf("### Phase 1: Research"),
-      content.indexOf("### Phase 2: Assembly & Write"),
-    )
+    const phase1 = content.slice(content.indexOf("### Phase 1: Research"))
 
     // Subagents are instructed to write their full structured output to the run dir
     expect(phase1).toContain("{run_dir}")
@@ -1007,7 +1029,7 @@ describe("ce-compound Phase 1 artifact contract", () => {
   })
 
   test("Phase 2 assembly reads artifacts with inline-return fallback", async () => {
-    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+    const content = await readRepoFile("skills/ce-compound/references/assembly.md")
 
     const phase2 = content.slice(
       content.indexOf("### Phase 2: Assembly & Write"),
@@ -1021,7 +1043,8 @@ describe("ce-compound Phase 1 artifact contract", () => {
   })
 
   test("no longer imposes an absolute no-write rule on Phase 1 subagents", async () => {
-    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+    const content = (await readRepoFile("skills/ce-compound/SKILL.md")) +
+      (await readRepoFile("skills/ce-compound/references/research.md"))
 
     // The brittle absolute prohibition is gone — only product-file writes are reserved
     // to the orchestrator; scratch artifacts under /tmp are now expected.
@@ -1040,26 +1063,31 @@ describe("concept-teaching seam parity (ce-commit-push-pr <-> lfg)", () => {
   // that both ends name the same trailer format and that the callsite hardcodes the
   // non-interactive mode (a drift on either end fails here, not in production runs).
   test("lfg hardcodes mode:pipeline at the callsite and echoes the trailer", async () => {
-    const skill = await readRepoFile("skills/ce-commit-push-pr/SKILL.md")
+    const skill = await readRepoFile("skills/ce-commit-push-pr/references/apply-and-handoff.md")
     const lfg = await readRepoFile("skills/lfg/SKILL.md")
 
-    // Both ends name the same trailer format
+    // Both ends name the same trailer format (ce-commit-push-pr prints it from the
+    // apply reference its Step 5 mandates).
     expect(skill).toContain("New concepts:")
-    expect(lfg).toContain("New concepts:")
+    // The trailer is consumed in the shipping tail lfg's step 8 reads first.
+    expect(await readRepoFile("skills/lfg/references/shipping-tail.md")).toContain("New concepts:")
 
     // The callsite passes the mode explicitly rather than relying on defaults
-    expect(lfg).toContain("Invoke the `ce-commit-push-pr` skill with `mode:pipeline branding:on`.")
+    expect(lfg).toContain("invoke the `ce-commit-push-pr` skill with `mode:pipeline branding:on`")
 
-    // The pre-DONE report names the concept and renders each user-runnable
-    // handoff for the active host rather than hardcoding one harness's syntax.
-    expect(lfg).toContain("New concept introduced:")
-    expect(lfg).toContain("run <rendered ce-explain invocation> to go deeper")
-    expect(lfg).toContain("run <rendered ce-babysit-pr invocation> to watch it through review to merge")
+    // The pre-DONE report names the concept and renders each user-runnable handoff
+    // for the active host rather than hardcoding one harness's syntax. That report
+    // moved into the reference lfg's step 10 names as a required read before it
+    // prints anything, so the rendering contract is asserted there.
+    const closeOut = await readRepoFile("skills/lfg/references/shipping-tail.md")
+    expect(closeOut).toContain("New concept introduced:")
+    expect(closeOut).toContain("run <rendered ce-explain invocation> to go deeper")
+    expect(closeOut).toContain("run <rendered ce-babysit-pr invocation> to watch it through review to merge")
     for (const target of ["ce-explain <name>", "ce-babysit-pr <pr-url>"]) {
-      expect(lfg).toContain(`$${target}`)
-      expect(lfg).toContain(`/${target}`)
+      expect(closeOut).toContain(`$${target}`)
+      expect(closeOut).toContain(`/${target}`)
     }
-    expect(lfg).toMatch(/default to `\/ce-explain <name>`[\s\S]{0,360}Codex[\s\S]{0,220}output one form only/i)
+    expect(closeOut).toMatch(/default to `\/ce-explain <name>`[\s\S]{0,360}Codex[\s\S]{0,220}output one form only/i)
 
     // The callee documents the mode the caller passes
     expect(skill).toContain("mode:pipeline")
