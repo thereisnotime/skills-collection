@@ -1251,6 +1251,28 @@ missed. The pinned assertion is `check-doc-authority.test.mjs` (two claimants, t
 canonical-table links); "2 ≤ 3, all linked" is the satisfied reading, recorded here so no
 audit needs to re-derive it.
 
+**E3 closure corrections (2026-08-19).** Two cells of this section are superseded by delivered
+reality, disclosed at closure (AAR 789): (1) **row 3.6** prescribed converting the Kobiton Codex
+fork "into a real thin adapter"; the delivered disposition is **deletion** — § 6's own rule that
+adapters are generated and hand-authored adapter content is prohibited makes a hand conversion
+dishonest, and the registry holds only `claude-code`. Root cause of the fork (an unanchored
+`skills/**` include auto-matching at any depth) was fixed at the source and the reappearance
+class converted to lock drift (AAR 783 + addendum). (2) The **measurable-outcome line's
+"1,454"** multi-harness-claim count was the pre-regeneration figure; the measured surface at
+execution was **2,700 first-party files** across exactly four claim strings, all withdrawn, with
+the ratchet blocking recurrence (AAR 786). The acceptance-criteria cells "adapters[] present on
+every skill" and "zero free-text compatibility" are dispositioned literal-vs-delivered in AAR
+789: intent met via the truthful-claim + ratchet + registry state; letter completes with organic
+skill-card adoption, policed by gates already live.
+
+**E3.13 kernel-boundary record (2026-08-19).** The canonical contract was proposed to the
+kernel as `intent-eval-core#90` (schemas `skill-contract`, `capability`, `eval-spec`), citing
+`schemas/canonical/v0/` as the draft. The ownership boundary stands as designed: this repository
+is never its own schema authority — the v0 directory is `DRAFT · UPSTREAM-PENDING`, every
+consumer names that status, and on kernel adoption the local draft becomes a cited vendored copy
+of the kernel contract with the kernel changelog as the canonical record of semantics. Until
+adoption, the draft evolves only through reviewed PRs here with #90 linked.
+
 **Dependencies / entry criteria.** None for the measurement harness, the catalog work, and the asset sniff. The dead-domain sweep **must wait for Epic 2's freeze** — the frozen set is an input, not an afterthought.
 
 **Proposed beads (15).**

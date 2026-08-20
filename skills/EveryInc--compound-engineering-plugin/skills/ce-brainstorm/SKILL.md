@@ -1,6 +1,6 @@
 ---
 name: ce-brainstorm
-description: 'Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, scope what to build, or needs collaborative product framing before planning. Also use when they must scope work in territory they say they do not know ("I know nothing about X but need to...") or ask for a blindspot pass. Not for executing already-specified work — implementation, debugging, or code review with no product scope left to decide. Not for a verdict on whether to adopt or switch to a named external technology, library, or platform; that is ce-pov.'
+description: "Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, scope what to build, or needs collaborative product framing before planning. Also use when they must scope work in territory they do not know, or ask for a blindspot pass. Not for executing already-specified work — implementation, debugging, or code review with no product scope left to decide. Not for a verdict on whether to adopt or switch to a named external technology, library, or platform; that is ce-pov."
 argument-hint: "[feature idea or problem to explore] [output:html]"
 ---
 
@@ -58,11 +58,11 @@ Phases run in this order. Each names the files it cannot run correctly without: 
 
 | Phase | Read first | What only those files carry |
 |---|---|---|
-| before the first question, and for the whole run — non-software route included | Read `references/interaction-rules.md` | the Core Principles, and the seven Interaction Rules: one question per turn, the blocking-question-tool default and the visual-probe gate that overrides it, when a question is genuinely open-ended, and the one `ce-prototype` routing test this skill states in full there |
+| before the first question, and for the whole run — non-software route included | Read `references/interaction-rules.md` | the Core Principles, and the Interaction Rules: one question per turn, ask only decisions the environment cannot settle, the blocking-question-tool default and the visual-probe gate that overrides it, when a question is genuinely open-ended, and the one `ce-prototype` routing test this skill states in full there |
 | before treating a decision the conversation carries as settled | Read `references/settled-decisions.md` | the settlement test; skipping it re-asks a decided question or promotes an unexamined assertion |
 | 0.0 output mode | `references/output-mode.md` | the `OUTPUT_FORMAT` precedence; the token-parsing convention |
 | 0.1–0.4 resume, classify, route, scope | `references/phase-0.md` | resume scan; the stop-and-route classification; scope tiers; coherent-work gate; both tripwires; task spine |
-| 1 understand the idea | `references/dialogue.md` | context scan and grounding scout; opt-in Slack researcher; pressure test; blindspot and visual-probe gates; Phase 1.3 exit condition |
+| 1 understand the idea | `references/dialogue.md` | context scan and grounding scout; opt-in Slack researcher; pressure test; blindspot and visual-probe gates; the conflict gate against existing `CONCEPTS.md` and verified code; Phase 1.3 exit condition |
 | 2–2.6 approaches, synthesis, verification | `references/approaches.md`, plus `references/synthesis-summary.md` before composing the synthesis | approach generation; model elevation; the scoping synthesis; the claim verifier |
 | 3 write the plan | `references/plan-write.md`, then `references/brainstorm-sections.md` and the rendering reference for the format | whether a doc is warranted; the section contract; the Ready for Planning Check |
 | 4 handoff | `references/handoff.md` | the option set and its visibility conditions; the rendering-mode rule; per-selection dispatch, including what `ce-plan` is passed; closing summaries |

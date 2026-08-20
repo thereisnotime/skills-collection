@@ -13,6 +13,11 @@ applies_when:
   - Repointing greppable contract tests after text moves out of SKILL.md
   - A relocated phase left its gate stated in both the body and the reference
   - A skill that cannot reach the cap because shared blocks already exceed it
+  - Deciding which reference a relocated block belongs in
+  - Deciding whether a contract test's pinned phrase must survive a restructure verbatim
+  - Sizing the eval for a restructure of a widely used skill
+  - Grading a reusable host-CLI skill-eval cell so pass/fail is unambiguous
+  - Finishing a refactor sweep when the remaining skills are already below the byte cap
 tags:
   - skill-design
   - 8kb-budget
@@ -22,8 +27,11 @@ tags:
   - contract-tests
   - cross-model-review
   - ce-babysit-pr
-related_components: ["skills/ce-babysit-pr/SKILL.md", "skills/ce-babysit-pr/references/*", "tests/ce-babysit-pr-contract.test.ts", "tests/codex-skill-prompt-budget.test.ts", ".agents/skills/ce-skill-work/references/edit-skill.md"]
-last_updated: 2026-08-18
+  - test-pins
+  - eval-breadth
+  - eval-grade
+related_components: ["skills/ce-babysit-pr/SKILL.md", "skills/ce-code-review/references/*", "skills/lfg/references/*", "skills/ce-babysit-pr/references/*", "skills/ce-test-xcode/*", "skills/ce-polish/*", "skills/ce-riffrec-feedback-analysis/*", "tests/ce-babysit-pr-contract.test.ts", "tests/codex-skill-prompt-budget.test.ts", "tests/skill-eval-cell/catalog.ts", "tests/skill-eval-cell/grade.ts", ".agents/skills/ce-skill-work/references/edit-skill.md", ".agents/skills/ce-skill-work/references/evaluate.md"]
+last_updated: 2026-08-19
 ---
 
 # Restructuring a large skill under a byte cap without losing its invariants
@@ -35,7 +43,7 @@ This is the playbook from the first full 90KB -> 8KB skill restructure (`ce-baby
 Two things landed together:
 
 1. **An incident.** In `esper-labs/nugget`, a babysit run merged `origin/main` into two CLEAN/MERGEABLE PRs after a sibling PR (#2209) merged; #2210 got the merge pushed 53 seconds after #2209 landed, restarting green CI, and the resulting `BLOCKED`-while-checks-rerun was nearly read as a new blocker. The skill already stated the correct rule three times (only `BEHIND`/`DIRTY`/branch protection/always-current policy require maintenance; ordinary base movement with `CLEAN` does not; consume only the exact snapshot-emitted `branch_currency` item). All three copies sat inside 600-1300-word paragraphs; none was in the boundaries block, the mutation envelope, or the tick-ordering list, and the description advertised "reacting to ... routine base movement" — the highest-salience text in the window, priming the exact reflex the body forbade. There was also no upward authority clause: the skill bounded what it passes *down* to delegates but said nothing about what a coordinator may instruct.
-2. **The 8KB goal.** `docs/specs/agent-plugins.md` (2026-08-17) keeps the root manifest schema-less indefinitely, so Codex's 8000-byte truncation does not bite today. It is still the goal: without bodies under the cap the plugin can never migrate to the Agent Skills standard, and the ratchet in `tests/codex-skill-prompt-budget.test.ts` exists to sweep skills under it one at a time. Be clear which of the two you are doing; it changes how you size the eval.
+2. **The 8KB cap.** `docs/specs/agent-plugins.md` keeps the root manifest schema-less indefinitely, so no shipping surface reaches the cap today and it stays a ratchet: the goal is a body small enough that a conformant Agent Plugins package could ever be emitted, and `tests/codex-skill-prompt-budget.test.ts` sweeps skills under it one at a time. What is no longer hypothetical is what the truncation does when that path is taken. Forced onto Codex 0.147's Agent Plugins path, `lfg`'s 28,520-byte body was cut at 8,000 bytes inside its routing-carrier section, so steps 1-10 were never injected (#1479). That cell still opened a PR — but by reconstructing the pipeline out of the installed child skills, because the eval harness had the whole plugin installed, which is a confound rather than a demonstration that the truncation is survivable. **So "the cap does not bite today" is a true statement about the shipping path and not an argument that a body over it is fine.** Say in the PR which of the two you measured, because it changes how you size the eval.
 3. **The cap is a ceiling, not the target.** Every byte of a SKILL.md body is charged to the context window on every invocation, on every host, whether or not the host truncates. A skill that already fits under 8000 bytes still deserves the same pass: the smallest body that carries the outcome/done, boundaries, ordering invariant, stop classes, and point-of-use pointers, with everything else in references loaded when a step needs it. Trimming to just under the line is the easy path and is not the goal. Some skills genuinely resist extraction — a body whose every block must fire without a read; when that is the finding, keep the body and record in the PR what was tried and why each remaining block must stay always-loaded, so the next sweep does not re-derive it. Never shrink by dropping an invariant; relocate it.
 
 ## What worked, in order
@@ -181,6 +189,81 @@ This does not weaken `post-menu-routing-belongs-inline.md` (#714): always-on rou
 
 `ce-debug` could not reach 8,000 at any level of prose compression: the `## Setup` context fence (1,420), the `ce-docs-root` parity block (920), and the Phase 4 routing block that #714 requires inline (3,733) are 6,073 bytes before the skill says anything of its own. Compressing everything else lands near 12,000. **When a skill cannot reach the cap, say so with the floor measured and name which shared contract would have to change** — do not gut a pinned safety block to hit a number. #1452 then took 220 bytes off the fence for all fifteen skills that carry it, which is the corpus-wide version of the same lever.
 
+The third sweep measured the same floor on five more skills, and it is now most of the remaining gap. Four skills stayed over the cap with their floors recorded rather than compressed: `ce-plan` at 31,602 bytes with 18,692 spent before it says anything of its own (#1470, #1475), `ce-work` at 29,400 whose Phase 0 input contract alone is 7,986 (#1478), `ce-debug` at 16,164 (#1472), and `ce-explain` at 12,542 against an 8,186-byte floor spread over seven blocks (#1469). The two that did land under the cap landed with almost nothing to spare — `ce-code-review` at 7,909 (#1471) and `lfg` at 7,947 (#1479) — because the shared blocks take the first quarter of the budget: the `## Setup` context fence is 1,206-1,422 bytes in fifteen skills, and the `ce-docs-root` / Artifact Root block is 910-1,100 in eighteen. #1473 measured those two together as 19% of an 8,000-byte budget. The rest of the residue is cross-skill contract text a restructure must not touch, such as `ce-plan`'s 8,769-byte handoff and menu block and `ce-work`'s `mode:return-to-caller` envelope.
+
+Both are corpus-wide decisions rather than per-skill rewrites, and both are open: issue #1481 for the shared parity blocks, issue #1482 for the `ce-plan` and `ce-work` contracts. **A per-skill restructure that reaches one of these stops and records the floor.** It does not buy the last few hundred bytes by cutting a shared block or a contract.
+
+## The third sweep (PRs #1469, #1470, #1471, #1472, #1475, #1477, #1478, #1479; 2026-08-18)
+
+Eight more skills through the same procedure. Three things showed up that the earlier sweeps did not.
+
+### A relocated block gets placed by where it used to sit, not by the step that executes it
+
+When a block leaves the body, the obvious landing site is the reference that covers the phase the block used to live in. That is often not the reference the acting step reads. **Every review finding on `ce-code-review` (#1471) was this one mistake**: the artifact contract that Stage 6 has to satisfy landed in the reference read at step 1; the P0-P3 severity scale landed where the fast pass that emits the labels never reads it; and `action-class-rubric.md` was left with no loader at all once the body stopped carrying Action Routing, so "synthesis owns the final route" and the `safe_auto` rejection became unreachable.
+
+Nothing catches this. The corpus greps still match, the byte count is right, and a run that happens to open every reference behaves correctly.
+
+**After relocating, ask of each block "which step acts on this?" and put it in the reference that step reads. When you find one placed wrong, audit every relocated block** — one finding of this shape means the whole placement pass was done by old location.
+
+#1471 also ran the second-round rule above: three review rounds landed on the *shape* of one rule — a `docs_root` substitution stated for one dispatch route and missing on the other two — and it closed only when the rule was restated once as a condition over what any dispatch prompt carries, stated above all three routes.
+
+### Test pins are decisions, not invariants
+
+"Enumerate the pins before you rewrite" keeps a restructure from breaking a contract by accident. It does not make a pinned phrase permanent, and treating every pin as untouchable is how a floor becomes a fiction. **Audit each pin by provenance, the way any other line is audited, and record a decision per pin:**
+
+- **Incident-backed and window-deciding: keep it.** Keep it verbatim only where the wording itself is the contract — a rendered invocation, a status token, a cross-skill string.
+- **An invariant about the artifact rather than about the body: keep it as a corpus grep or a semantic regex** over body plus references.
+- **Incidental wording with no provenance: rewrite it as the condition it stands for, or drop it**, with the reason in the test comment. Who added the pin and how recently decide nothing here — a pin added in a bot review round or by one of our own agents days ago has provenance when its test comment or introducing commit records the failure it protects, and none when it does not. Look for the failure, not the author.
+
+The honest result is that most pins hold. Across the three audits — #1472 (`ce-debug`), #1475 (`ce-plan`), and the closed #1473 (`ce-explain`) — five of twenty-three pin groups moved, nothing was dropped outright, and no skill came off `OVER_BUDGET` because of the audit. What the audit buys is a floor you can trust, not bytes.
+
+It also corrects floors that were never real. #1470 recorded `ce-plan`'s Phase 0.0 as a 4,695-byte floor on the strength of "13 pins in a 4,500-byte window". The 4,500 is `ce-plan-output-mode.test.ts`'s search ceiling — the furthest it scans from the `#### 0.0` anchor — not a size the section has to fill. The section is pinned to thirteen short facts, which pass at 4,328 bytes and would pass at half that. **Read what a pin asserts before recording it as a floor.**
+
+And an audit can turn out not to be a change at all. #1473's only relocation was the ownership-checked `$RUN_DIR` fence — a step that acts before its read, which is the one thing `post-menu-routing-belongs-inline.md` forbids relocating, and a move #1451 had already made and reverted. Reverting it left an empty diff against the base, so the PR was closed rather than merged.
+
+### Size the eval to the skill's reach
+
+One scenario is not an eval for a skill people run every day. **Enumerate the skill's entry paths and modes and build the matrix from them**: each path pre and post, on Claude, Codex, and Grok, with at least three trials on the paths that get the most use, and an independent grader — an agent that did not author the change — for the most-used skills. Grade on evidence that survives the run: dispatch records, worker logs, on-disk artifacts, the subject repo's `git log` and `git status`.
+
+- `ce-plan` (#1470): 9 scenarios x 3 harnesses x pre/post, 60 runs, graded by a second agent against archived pre and post trees with the installed plugin forbidden and the checklist written before the first run.
+- `ce-work` (#1478): 8 scenarios x 3 harnesses, 72 runs, 36 of them paired pre/post, graded off disk.
+- `ce-compound` (#1477): 7 scenarios plus two headless trials, x 2 arms x 3 harnesses, 54 cells.
+- `ce-code-review` (#1471): a 13-path matrix over modes and entry paths, built after a 6-cell seeded-diff eval had already passed. It is what caught the run artifacts being described but never gated — a clean-diff cell wrote `review.json` and no `report.md` while its user-facing output was correct, so nothing failed loudly.
+
+**"Unexercised" means tried and could not force, with the reason** — a subject that always selected a disqualifying persona, a plan whose units are serially dependent, a harness that exposes no callable primitive for that engine. It does not mean "not tried".
+
+**A defect that review finds on a path the matrix skipped joins the matrix before the next push.** `ce-plan`'s author eval listed the deepening path (5.3.3-5.3.7) as unexercised, and both review rounds then found real invariant loss in and around it: the dual approach-altitude gate, the plan-write frontmatter contract missing from the 5.2 stub, and the `settled-decision-invalidated` stop degraded to a pointer. The 60-run independent eval is what finally covered that path.
+
+The matrix rule sizes which paths to run. It does not say how one reusable cell fails. After the sweep, a host-CLI catalog A/B'd the pre-#1433 bodies against `origin/main`. Correct post-sweep decisions graded red because the model explained a forbidden command, wrote allowed scratch, or skipped a procedure file whose gate was still always-loaded.
+
+**A cell's `ok` is a condition on evidence that survives the run.** Forbidden work matches the ACTIONS trailer, not the essay. Workspace files, git status, committed paths, and structured status tokens are the rest. A sentence that recites a forbidden command in order to refuse it is not an action.
+
+**A required-read miss fails the cell only when the always-loaded body makes the decision undefendable without that file.** List the file when the body says the equivalent of "read X now" or "decided by X, not from memory." If the body still states the gate, omit the probe: skipping the file is the correct negative, and extra reads are not a fail. Do not add a must-not-read. When a reference owns a different path, pair the body-owned cell with a complementary cell that requires that file — otherwise omitting the probe drops the extraction measurement.
+
+That replaces the older extraction rule that a body no run follows into a reference has failed regardless of the outcome. A CLEAN-PR refusal that lists only `SKILL.md` is a pass on the decision; the complementary BEHIND cell is what still requires `branch-currency.md`. One row per shipped skill is not coverage: a row whose only grade is "did nothing" cannot fail. The short form lives in `evaluate.md`; the catalog that applies it is `tests/skill-eval-cell/`.
+
+## The below-cap endgame (`ce-test-xcode`, `ce-polish`, and `ce-riffrec-feedback-analysis`; 2026-08-19)
+
+The last three skills in the inventory were already below 8KB, so none was an `OVER_BUDGET` outage. They still charged every body byte on every invocation, and they represented three different endgame shapes. A uniform "make each one smaller" pass would have been the wrong operation.
+
+| Shape | Skill | Body before -> after | Correct move |
+|---|---|---:|---|
+| Procedure with no references | `ce-test-xcode` | 6,532 -> 1,643 bytes | Keep outcome, done, mutation boundary, and two required-read pointers inline; split setup/build from test/report |
+| Compact body sitting above mature references | `ce-polish` | 4,834 -> 1,825 bytes | Add one startup owner reference, keep the user-driven loop inline, and route local commit mechanics to `ce-commit` |
+| Router already near its floor | `ce-riffrec-feedback-analysis` | 3,468 -> 2,785 bytes | Keep the route table and privacy boundary; extract only the duplicated analyzer invocation into one canonical reference |
+
+**Classify the remainder before shrinking it.** Git history identified which skills had already received a focused pass, but history alone did not decide the work. The current body and its consumers decided whether the laggard needed a full extraction, one owning reference, or only a standards audit. Line count alone would have over-rewritten Riffrec and under-read Polish's references.
+
+**Audit the frontmatter description as its own always-loaded block.** A restructure is incomplete when the body reflects the new outcome but the description still advertises the old procedure or hides a distinct route inside an input catalog. For a model-invoked skill, restate the activation contract and evaluate every genuinely distinct positive branch; for a manual-only skill, keep the catalog-facing description aligned with the outcome even though automatic activation is disabled. Pin the description's shape separately from body/reference extraction so a green execution cell cannot conceal a stale context pointer.
+
+**Read the public skill doc before changing behavior.** `ce-polish`'s body said "commit the fixes" while its chain-position prose said shipping remains separate. Those statements are compatible: the documented artifact is a local commit, while push and PR creation are separate. The refactor preserved that behavior and moved only the commit mechanism to its owning skill. A size pass that read the body alone could have silently removed a user-visible contract.
+
+**Delete references that lose their caller.** Moving Polish's browser handoff to a capability-first condition made the old IDE environment-variable table both stale and unreachable. Leaving it in the package would preserve apparent authority with no load path. After every extraction, trace each reference from an always-loaded pointer or another required read; an unreferenced file stays only when an independent consumer or provenance requires it.
+
+**A green baseline is not proof of improvement.** All five pre-change Claude/Codex cells passed. The claim for this endgame is lower always-loaded cost, clearer ownership, and preserved behavior. The post arm must therefore prove required-read following and no regression; it must not be reported as fixing behavior the baseline already got right.
+
+**The independent reader still finds what the eval matrix does not ask.** In this pass it caught a lost empty-scheme default, launch-script sentinel and monorepo output grammars compressed into one happy path, and shell metasyntax presented as a runnable analyzer command. Those were contract defects even though the five baseline cells were green. Correct the condition at its owning layer, then add the smallest deterministic guard or scenario that would fail on the discovered shape; do not turn each example into another procedural case.
+
 ## What did not work / traps
 
 - Compressing sentences to fit. Nine bodies in the 2026-08-18 sweep landed within 35 bytes of the cap by fusing clauses, dropping articles, and packing rules into one sentence; an independent reader flagged dense or meaning-shifted sentences in thirteen of nineteen, and one rewrite inverted a safety guard. A PR that only compressed a shared paragraph across fifteen skills (#1452) was rejected as unreadable. Savings come from relocating a block or deleting redundancy; if the body is still over after plain rewriting, move another block, and land with room to spare.
@@ -207,4 +290,4 @@ Live-fixture gotchas: give each harness its own worktree on the PR head branch (
 
 ## Gaps this closed in ce-skill-work
 
-`edit-skill.md` had "runtime placement: an instruction that must fire at a point stays inline" as one clause and nothing about size-driven restructures. It now has a "Restructuring for a size or platform constraint" section: prove the constraint's shipping path, relocate before delete, what the body keeps, tests split by load-time, adversarial cross-model read before splitting, eval the extraction with a `FILES_READ` probe on more than one harness.
+`edit-skill.md` had "runtime placement: an instruction that must fire at a point stays inline" as one clause and nothing about size-driven restructures. It now has a "Restructuring for a size or platform constraint" section: prove the constraint's shipping path, relocate before delete, what the body keeps, tests split by load-time, adversarial cross-model read before splitting, eval the extraction on more than one harness, and grade a required-read miss only when the always-loaded body cannot defend the decision without that file.

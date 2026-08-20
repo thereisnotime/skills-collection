@@ -68,6 +68,45 @@ jobs:
       - name: Refuse plaintext credentials in the root MCP config
         run: pnpm run validate:mcp-plaintext-creds
 
+      # E4.5 allowlist-shape ratchet: the gitleaks allowlist may never regain
+      # a file-TYPE blanket (SKILL.md/README/CHANGELOG/references/tests/
+      # fixtures/000-docs), and every path exception must carry a written
+      # reason + expiry. Placeholder examples pass by VALUE, keeping the file
+      # itself scanned.
+      - name: Enforce the gitleaks allowlist shape
+        run: pnpm run validate:gitleaks-config
+
+      # E4.10: every tracked MCP plugin must declare its destructive-operation
+      # policy (plugins/mcp/destructive-policies.json); refuse/recommend-only
+      # declarations are executed against their named refusal test — a
+      # declaration is only as good as its passing test.
+      - name: Enforce MCP destructive-operation policies
+        run: pnpm run validate:mcp-destructive-policy
+
+      # E4.3/E4.4/E4.11: the triple-keyed safety ratchet. Frozen debt classes
+      # (bare-Bash skills, tier-2 tool-safety findings, YAML shell-substitution
+      # occurrences — never waivable — and the agents-lane error corpus) are
+      # monotone non-increasing; a swap fails even at equal count; a shrink
+      # re-pins via --write in the shrinking PR. Metrics come from the
+      # canonical validator (--safety-metrics / --agents-only) so this gate
+      # owns no classification logic.
+      - name: Setup Python for the safety ratchet
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Enforce the safety ratchet
+        run: |
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
+          pnpm run validate:safety-ratchet
+
+      # E4.13: a denylist (disallowed-tools) posture is enforced by the
+      # Claude Code runtime only. This gate forbids silent-drop: a
+      # denylist-bearing skill may not claim a foreign harness in
+      # compatibility, and a skill-card adapter beyond claude-code must
+      # degrade the denylist fail-closed (structural until card adoption).
+      - name: Enforce fail-closed denylist degradation
+        run: pnpm run validate:denylist-degradation
+
       # Supply-chain intake gate: sources.yaml include-anchoring ratchet.
       # An include starting with neither '/' nor '**' is silently auto-prefixed
       # '**/' by the sync engine's matcher and matches at ANY depth — the
@@ -114,12 +153,18 @@ jobs:
           python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml || true
           python3 scripts/validate-skills-schema.py --agents-only || true
 
-      # .mcp.json advisory validation — surfaces MCP-config findings on every PR.
-      # (kernel-shadow-validation runs this same validator, but only when the
-      # validator itself changes.) ADVISORY ONLY — never pass --strict here; the
-      # promotion to a blocking gate is the DR-049 soak checklist's call.
-      - name: Validate .mcp.json configs (advisory)
-        run: node scripts/validate-mcp-config.mjs || true
+      # .mcp.json validation, two lanes (E4.8, blueprint 727):
+      #   1. UNAMBIGUOUS classes block: JSON parse failures, non-object server
+      #      maps/entries, and a server missing its transport-essential field
+      #      (stdio ⇒ command; http/sse ⇒ url). Landed with zero baseline debt.
+      #   2. Everything else (the IS overlay: description/version/enabled/…)
+      #      stays advisory under the deadline below; full --strict promotion
+      #      remains the DR-049 soak checklist's call — never pass --strict here.
+      # REPORT-ONLY-UNTIL: 2026-11-17
+      - name: Validate .mcp.json configs (advisory + unambiguous gate)
+        run: |
+          node scripts/validate-mcp-config.mjs || true
+          node scripts/validate-mcp-config.mjs --gate-unambiguous
 
       # Design-tell gate (VibeCheck 25/100 regression guard, 2026-05-31).
       # Fails on chrome gradients, glassmorphism, purple/indigo/violet
@@ -1284,6 +1329,29 @@ jobs:
           esac
           node scripts/scan-synced-content.mjs --changed-only --base "origin/$BASE_REF" $WARN
 
+      # E4.7 (blueprint 727): the workflow already fires on push:main, but the
+      # scan above skipped itself outside pull_request — so nothing ever
+      # scanned what actually LANDED on main (admin merges, direct pushes).
+      # Scan the push range with FULL grading — no --warn-only on main: main
+      # is the trust boundary, and REFUSE stays exit 2 and unwaivable.
+      # Residual (stated per the bead's acceptance): enforce_admins:false
+      # means an admin can still merge past a red aggregate; this step makes
+      # that visible on main rather than silent, it cannot make it impossible.
+      - name: Scan pushed plugin content (push to main)
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          BASE="$BEFORE"
+          # A forced or branch-creation push reports an all-zero or unknown
+          # `before`; fall back to the parent commit so the scan still judges
+          # the newest change rather than silently passing.
+          if [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          fi
+          node scripts/scan-synced-content.mjs --changed-only --base "$BASE"
+
   # skills/.curated/ is a GENERATED mirror of the repo's best (A/B) plugin skills,
   # rebuilt from freshie/grades.csv by freshie/scripts/promote-to-curated.py so
   # skills.sh can index them (its crawler only reads root skills/ / .curated/, not
@@ -1634,6 +1702,22 @@ jobs:
       - name: Check the generated-adapter toolchain
         run: pnpm run validate:adapter-toolchain
 
+      # Canonical vendor-literal gate (blueprint 727 E3.10): a Claude-specific
+      # token reappearing in the harness-free core (skill-card.yaml files or
+      # canonical/ dirs) fails — model literals, ${CLAUDE_*}, mcp__ spellings,
+      # Builtin(...) scoping, denylist fields. Adapters and the v0 contract
+      # docs are the translation layer and are exempt by design.
+      - name: Check canonical layer for vendor literals
+        run: pnpm run validate:canonical-vendor-literals
+
+      # Unbacked-portability ratchet (blueprint 727 E3.11): a first-party
+      # SKILL.md may not name a harness outside the registered adapter set
+      # (claude-code) in its compatibility claim, in any phrasing. Withdrawn
+      # 2,700 legacy claims stay withdrawn; mirror-owned claims are reported,
+      # never failed (upstream-repair only).
+      - name: Check portability claims are adapter-backed
+        run: pnpm run validate:portability-claims
+
       # 6767-h is a frozen historical standard that remains cited by schemas.
       # Pin its section map and prove every cited heading still resolves.
       - name: Check frozen prose anchors remain valid
@@ -1645,6 +1729,36 @@ jobs:
       # identical blob SHAs). Beads claude-5awj.2 / .1.
       - name: Check generated projections are not tracked
         run: pnpm run validate:generated-artifacts
+
+  # E4.6 (blueprint 727): blocking, diff-scoped scan for UNVERIFIABLE secrets
+  # on every PR. Closes the union gap the Safety Enforcement Register (790 §2)
+  # measured: gitleaks is rule-shape-based and trufflehog's weekly job runs
+  # --only-verified on a schedule — so a rotated key or internal token whose
+  # issuer can't be probed never gated a PR. This job runs trufflehog over the
+  # PR range WITHOUT --only-verified (verified + unknown results both fail).
+  # Diff-scoped noise measured before landing: 0 findings across the prior 30
+  # commits — detector-shape matching doesn't fire on the repo's teaching
+  # placeholders the way generic-entropy rules would.
+  # The scan step skips outside pull_request (designed if:, same pattern as
+  # scan-synced-content) so the job always reports for the aggregate.
+  secret-diff-scan:
+    runs-on: ubuntu-latest
+    name: secret-diff-scan (unverified, PR diff)
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Scan the PR range for unverifiable secrets
+        if: github.event_name == 'pull_request'
+        # Same SHA pin as secret-scan.yml's weekly job — never @main; the
+        # action appends --fail itself (do not repeat it in extra_args).
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: --results=verified,unknown
 
   # ───────────────────────────────────────────────────────────────────────────
   # Aggregate required gate. This is the SINGLE pull_request status context in
@@ -1685,6 +1799,7 @@ jobs:
       - codeowners-drift
       - generated-content-drift
       - doc-governance
+      - secret-diff-scan
     steps:
       - name: Assert every gated job passed (skipped == a designed conditional gate)
         env:

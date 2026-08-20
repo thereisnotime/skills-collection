@@ -42,7 +42,7 @@
       "values": {
         "plugin_agent_files": 347,
         "raw_tracked_plugin_skill_files": 3175,
-        "tracked_files": 23111
+        "tracked_files": 23150
       }
     },
     "2": {
@@ -83,10 +83,11 @@
           "fully_compliant_surfaces": 794,
           "terminal_denominator": {
             "agents": 355,
-            "files": 355,
-            "label": "agents_excluding_plugin_manifests"
+            "files": 977,
+            "label": "agents_plus_plugin_manifests",
+            "plugin_manifests": 622
           },
-          "validator_reported_mixed_denominator_percent": 223.7
+          "validator_reported_mixed_denominator_percent": 81.3
         },
         "marketplace_terminal": {
           "error_total_all_validated_surfaces": 7673,
@@ -94,12 +95,13 @@
           "terminal_denominator": {
             "agents": 355,
             "commands": 373,
-            "files": 4403,
-            "label": "skills_plus_commands_plus_agents_excluding_plugin_manifests",
+            "files": 5025,
+            "label": "skills_plus_commands_plus_agents_plus_plugin_manifests",
+            "plugin_manifests": 622,
             "skills": 3675
           },
           "validated_plugin_manifests": 630,
-          "validator_reported_mixed_denominator_percent": 26.4
+          "validator_reported_mixed_denominator_percent": 23.1
         },
         "skill_rows": {
           "a_error_total": 219,
@@ -210,7 +212,7 @@
       "values": {
         "agent_errors": 253,
         "agent_files": 355,
-        "reported_compliance_percent": 223.7,
+        "reported_compliance_percent": 81.3,
         "target_errors": 0,
         "target_percent_max": 100
       }
@@ -284,7 +286,7 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 45,
+        "distinct_values": 43,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
@@ -325,8 +327,12 @@
             "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
-            "count": 1885,
+            "count": 3339,
             "value": "Designed for Claude Code"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code and Continue"
           },
           {
             "count": 1,
@@ -337,20 +343,8 @@
             "value": "Designed for Claude Code, Codex, Cursor, and GitHub Copilot; works in any agent that can read project files and fetch a URL."
           },
           {
-            "count": 45,
-            "value": "Designed for Claude Code, also compatible with Codex"
-          },
-          {
-            "count": 1409,
-            "value": "Designed for Claude Code, also compatible with Codex and OpenClaw"
-          },
-          {
             "count": 2,
-            "value": "Designed for Claude Code, also compatible with Cursor"
-          },
-          {
-            "count": 1,
-            "value": "Designed for Claude Code, also compatible with Cursor, Windsurf, Aider and Continue"
+            "value": "Designed for Claude Code, also compatible with Codex and OpenClaw"
           },
           {
             "count": 1,
@@ -1866,9 +1860,10 @@
           "commit-scope-check",
           "codeowners-drift",
           "generated-content-drift",
-          "doc-governance"
+          "doc-governance",
+          "secret-diff-scan"
         ],
-        "actual_needs_count": 21,
+        "actual_needs_count": 22,
         "documented_needs": null
       }
     },
@@ -1887,14 +1882,14 @@
         "documented": [
           {
             "path": "CLAUDE.md",
-            "version": "4.0.1"
+            "version": "4.1.0"
           },
           {
             "path": "000-docs/6767-b-SPEC-DR-STND-claude-skills-standard.md",
-            "version": "4.0.1"
+            "version": "4.1.0"
           }
         ],
-        "runtime": "4.0.1"
+        "runtime": "4.1.0"
       }
     },
     "43": {
@@ -1913,6 +1908,7 @@
         "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
         "000-docs/728-RA-DATA-reference-architecture-benchmark.md",
         "000-docs/729-AT-ADEC-reference-architecture-synthesis.md",
+        "000-docs/790-DR-STND-safety-enforcement-register.md",
         "000-docs/SCHEMA_CHANGELOG.md",
         "STANDARDS.md"
       ],
@@ -1930,11 +1926,12 @@
           "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
           "000-docs/728-RA-DATA-reference-architecture-benchmark.md",
           "000-docs/729-AT-ADEC-reference-architecture-synthesis.md",
+          "000-docs/790-DR-STND-safety-enforcement-register.md",
           "000-docs/SCHEMA_CHANGELOG.md"
         ],
-        "canonical_table_links": 12,
-        "declared": 2,
-        "linked_declared": 2,
+        "canonical_table_links": 13,
+        "declared": 3,
+        "linked_declared": 3,
         "target_unlinked": 0,
         "unlinked": []
       }
@@ -1949,10 +1946,10 @@
       ],
       "status": "measured",
       "values": {
-        "index_entries": 225,
+        "index_entries": 243,
         "missing_from_index": [],
         "target_equal": true,
-        "tracked_documents": 225,
+        "tracked_documents": 243,
         "untracked_index_entries": []
       }
     },
@@ -1974,11 +1971,11 @@
       "source": [".gitleaks.toml"],
       "status": "measured",
       "values": {
-        "allowlist_patterns": 25,
+        "allowlist_patterns": 10,
         "invalid_patterns": 0,
-        "invisible_files": 15571,
+        "invisible_files": 21,
         "target_invisible_files": 0,
-        "tracked_files": 23111
+        "tracked_files": 23150
       }
     },
     "47": {
@@ -1991,7 +1988,7 @@
       "source": [".github/workflows/secret-scan.yml", ".github/workflows/validate-plugins.yml"],
       "status": "partial",
       "values": {
-        "blocking_unverifiable_pr_scans": 1,
+        "blocking_unverifiable_pr_scans": 0,
         "invocations": [
           {
             "only_verified": true,
@@ -1999,7 +1996,7 @@
             "pull_request": true
           },
           {
-            "only_verified": false,
+            "only_verified": true,
             "path": ".github/workflows/validate-plugins.yml",
             "pull_request": true
           }

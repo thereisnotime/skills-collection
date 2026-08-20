@@ -102,6 +102,10 @@ Add it to the correct group (framework vs paid) in all of:
 - `plugins/expo/skills/README.md`
 - `README.md`
 
+Also add a one-line entry to the `expo-overview` Skill Map
+(`plugins/expo/skills/expo-overview/SKILL.md`) so the router can dispatch to the new skill.
+The `check` workflow (`bun scripts/check-overview-routing.ts`) enforces this.
+
 ### 9. Add the feedback instructions
 
 Every `SKILL.md` ends with a canonical feedback block whose subject matches the skill name. Add or
@@ -115,14 +119,15 @@ CI fails if the block is missing, has drifted, or names the wrong skill.
 
 ### 10. Bump the plugin version
 
-Bump `version` in **all three** manifests together - they must match each other and be greater
+Bump `version` in **all four** manifests together - they must match each other and be greater
 than `main`. CI enforces this.
 
 - `plugins/expo/.claude-plugin/plugin.json`
 - `plugins/expo/.codex-plugin/plugin.json`
 - `plugins/expo/.cursor-plugin/plugin.json`
+- `plugins/expo/.grok-plugin/plugin.json`
 
-The check script writes all three for you, rejecting a version that is not valid semver or is not
+The check script writes all four for you, rejecting a version that is not valid semver or is not
 greater than the base ref:
 
 ```bash
