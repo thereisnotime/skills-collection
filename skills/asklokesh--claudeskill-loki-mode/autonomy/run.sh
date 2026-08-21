@@ -967,6 +967,36 @@ _loki_provider_pipeline_exit_code() {
     fi
 }
 
+# Invoke through a provider's argv-builder seam while preserving the main
+# loop's deadline, fan-out logging, and provider-stage exit status.
+_loki_invoke_argv_provider() {
+    local tier="${1:-development}"
+    local prompt="${2:-}"
+    local log_file="${3:-}"
+    local agent_log="${4:-}"
+    local iter_output="${5:-}"
+    local -a _loki_argv_pipe_status=()
+
+    if ! type provider_invoke_argv >/dev/null 2>&1; then
+        log_error "Provider ${PROVIDER_NAME:-unknown} does not implement provider_invoke_argv"
+        return 125
+    fi
+    if ! provider_invoke_argv "$tier" "$prompt" \
+        || [ "${#_LOKI_INVOKE_ARGV[@]}" -eq 0 ]; then
+        log_error "Provider ${PROVIDER_NAME:-unknown} failed to build invocation argv"
+        return 125
+    fi
+
+    LOKI_DEADLINE_IDLE_TIMEOUT="${LOKI_PROVIDER_IDLE_TIMEOUT:-0}" \
+    _loki_with_deadline "${LOKI_PROVIDER_CALL_TIMEOUT:-0}" \
+        "${_LOKI_INVOKE_ARGV[@]}" 2>&1 \
+        | tee -a "$log_file" "$agent_log" "$iter_output"
+    _loki_argv_pipe_status=("${PIPESTATUS[@]}")
+    return "$(_loki_provider_pipeline_exit_code \
+        "${_loki_argv_pipe_status[0]:-125}" \
+        "${_loki_argv_pipe_status[1]:-125}" 0)"
+}
+
 _LOKI_DEPENDENCY_SETUP_LIB="${SCRIPT_DIR}/lib/dependency-setup.sh"
 if [ -r "$_LOKI_DEPENDENCY_SETUP_LIB" ]; then
     # shellcheck source=lib/dependency-setup.sh
@@ -1519,20 +1549,20 @@ PYREG
 # if any other project is still running (KEEP) it is left up. NEVER uses a
 # blanket pkill and NEVER touches another folder's pids. Best-effort and
 # failure-swallowed: teardown bookkeeping must never block a clean exit.
-# Is this pid plausibly OUR dashboard, or a recycled number now naming something
-# else? Fails OPEN (returns 0) whenever ps cannot tell us, so the only behavior
-# change is refusing to kill a process that is positively identified as NOT a
-# dashboard. See the call site for the measured stale-file evidence.
+# Is this pid positively identified as our dashboard, rather than a recycled
+# number now naming something else? Ownership-sensitive cleanup must fail closed:
+# an absent `ps` result is not evidence, and a generic python/loki substring is
+# not specific enough to authorize a signal.
 _loki_pid_looks_like_dashboard() {
     local _p="$1" _cmd
     case "$_p" in ''|*[!0-9]*) return 1 ;; esac
     [ "$_p" -gt 1 ] 2>/dev/null || return 1     # never signal pid 0/1
     _cmd="$(ps -o command= -p "$_p" 2>/dev/null)"
-    [ -n "$_cmd" ] || return 0                   # ps unavailable: behave as before
-    case "$_cmd" in
-        *dashboard*|*uvicorn*|*loki*) return 0 ;;
-    esac
-    return 1
+    [ -n "$_cmd" ] || return 1
+    # run.sh and `loki dashboard start` both launch this exact module form.
+    # Anchor the interpreter and module tokens so an unrelated command merely
+    # mentioning "dashboard.server" in an argument cannot forge identity.
+    [[ "$_cmd" =~ ^[[:space:]]*([^[:space:]]*/)?[Pp]ython([0-9]+([.][0-9]+)*)?[[:space:]]+-m[[:space:]]+dashboard[.]server([[:space:]]|$) ]]
 }
 
 loki_mark_project_stopped_and_maybe_kill_shared_dashboard() {
@@ -1591,9 +1621,10 @@ PYCHECK
             #
             # kill -0 is NOT sufficient: a recycled pid is alive by definition,
             # which is exactly the insufficiency the loki.pgid self-check had.
-            # Mirrors _app_runner_pid_is_ours (app-runner.sh:242) and fails OPEN
-            # the same way -- if `ps` says nothing we signal as before, so a
-            # legitimate dashboard is never left running by this check.
+            # This guard fails CLOSED: if `ps` says nothing, or says something
+            # that is not the dashboard's own command, we do not signal. The
+            # cost of failing closed is a leaked dashboard the next explicit
+            # stop reaps; the cost of failing open was signalling a stranger.
             if [ -n "$_shared_pid" ] && _loki_pid_looks_like_dashboard "$_shared_pid"; then
                 kill "$_shared_pid" 2>/dev/null || true
                 sleep 0.5
@@ -1601,27 +1632,11 @@ PYCHECK
             fi
             rm -f "$_shared_pidfile" 2>/dev/null || true
         fi
-        # (d) Defense-in-depth: reclaim the dashboard port only in the CLEAR
-        # case, so we never kill a shared dashboard another project owns.
-        # BUT never kill a HEALTHY dashboard already serving on the port: that is
-        # almost always the user's own live dashboard (open in their browser), and
-        # killing it mid-use drops their session (ERR_CONNECTION_REFUSED, WS fail).
-        # A healthy server is reusable by every project, so probe /api/status first
-        # and only reclaim the port when nothing is answering (a genuinely stale
-        # listener). Opt out of the probe with LOKI_DASHBOARD_FORCE_RECLAIM=1.
-        if command -v lsof >/dev/null 2>&1; then
-            local _dash_port="${DASHBOARD_PORT:-57374}"
-            local _dash_alive=""
-            if [ "${LOKI_DASHBOARD_FORCE_RECLAIM:-}" != "1" ] && command -v curl >/dev/null 2>&1; then
-                _dash_alive=$(curl -s -o /dev/null -w '%{http_code}' --max-time 1 \
-                    "http://127.0.0.1:${_dash_port}/api/status" 2>/dev/null || true)
-            fi
-            if [ "$_dash_alive" = "200" ]; then
-                log_info "Reusing the healthy dashboard already serving on port ${_dash_port} (not reclaiming)."
-            else
-                lsof -ti:"${_dash_port}" -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true
-            fi
-        fi
+        # A port number and an HTTP response are not ownership evidence. In
+        # particular, a 404 can be an unrelated healthy service. The shared PID
+        # file plus positive command identity above is the only authority to
+        # signal a process; absent or forged ownership leaves every port holder
+        # untouched.
     fi
 }
 # Register as running now. We deliberately do NOT install an EXIT trap to
@@ -3207,7 +3222,7 @@ validate_api_keys() {
         # "loggedin" or "unknown" -> proceed (fail open on uncertainty).
     fi
 
-    # CLI tools (claude, codex, cline, aider) use their own login sessions.
+    # CLI tools (claude, codex, cline, aider, opencode) use their own login sessions.
     # Only require API keys inside Docker/K8s where CLI login isn't available.
     if [[ ! -f "/.dockerenv" ]] && [[ -z "${KUBERNETES_SERVICE_HOST:-}" ]]; then
         return 0
@@ -13425,6 +13440,43 @@ _loki_requirements_contract_emit() {
         "${LOKI_REVIEW_REQUIREMENTS_IDENTITY:-}"
 }
 
+# A reviewer dispatch can die BEFORE the provider is ever invoked -- the
+# prompt rematerialization or the shard-identity lookup below both exit 125
+# while LOKI_REVIEW_STDERR_FILE is still unset and no timing sidecar exists
+# yet. That left a lost shard structurally invisible: the logical aggregation
+# (REQUIREMENTS_LOGICAL_TIMING) substituted an anonymous placeholder and the
+# only symptom was a bare call count that could not name WHICH shard vanished.
+# Emit the same sidecar the completed path emits, plus one bounded stderr
+# line, so the existing aggregation carries a shard-identifying cause.
+# ponytail: fixed-format single line, no truncation helper needed.
+_dispatch_reviewer_prestub_failure() {
+    local review_output="$1" stderr_output="$2" stage="$3" shard_index="${4:-0}"
+    printf 'loki-review-prestub-failure stage=%s shard_index=%s reviewer=%s\n' \
+        "$stage" "$shard_index" "${5:-unknown}" >> "$stderr_output" 2>/dev/null || true
+    chmod 600 "$stderr_output" 2>/dev/null || true
+    _LOKI_RDT_PATH="${review_output%.txt}-timing.json" \
+    _LOKI_RDT_STAGE="$stage" _LOKI_RDT_SHARD="$shard_index" \
+    _LOKI_RDT_STDERR="$stderr_output" \
+    _LOKI_RDT_BUDGET="${LOKI_REVIEW_CALL_TIMEOUT:-0}" python3 - <<'REVIEW_PRESTUB_TIMING' 2>/dev/null || true
+import json
+import os
+
+record = {
+    "schema": "loki-review-dispatch/v1",
+    "budget_seconds": int(os.environ.get("_LOKI_RDT_BUDGET", "0") or 0),
+    "elapsed_ms": 0,
+    "exit_code": 125,
+    "outcome": "prestub_error",
+    "deadline_scope": "pre_dispatch",
+    "stage": os.environ.get("_LOKI_RDT_STAGE", "unknown"),
+    "shard_index": int(os.environ.get("_LOKI_RDT_SHARD", "0") or 0),
+    "stderr_bytes": os.path.getsize(os.environ["_LOKI_RDT_STDERR"]),
+}
+with open(os.environ["_LOKI_RDT_PATH"], "w", encoding="utf-8") as handle:
+    json.dump(record, handle, sort_keys=True)
+REVIEW_PRESTUB_TIMING
+}
+
 # Persist one compact record per provider review. The sidecar is written by the
 # same process that owns the dispatch, so parallel reviewer timings do not get
 # distorted by the parent's ordered wait loop.
@@ -15373,7 +15425,13 @@ BUILD_PROMPT
             prompt_text=$(python3 "$requirements_helper" read-bound \
                 "$review_prompt_file" "$prompt_sha" \
                 "$_review_max_prompt_bytes" "$prompt_identity" 2>/dev/null) \
-                || exit 125
+                || {
+                    _dispatch_reviewer_prestub_failure \
+                        "$review_stage_file" \
+                        "$review_dir/$review_id/${reviewer_name}-stderr.log" \
+                        prompt_read_bound "$reviewer_shard_index" "$reviewer_name"
+                    exit 125
+                }
             if [ "$reviewer_logical_name" = "requirements-verifier" ]; then
                 local shard_label shard_identity
                 printf -v shard_label '%03d' "$reviewer_shard_index"
@@ -15381,7 +15439,13 @@ BUILD_PROMPT
                     _LOKI_REVIEW_SHARD_INDEX="$reviewer_shard_index" python3 -c '
 import json, os
 print(json.loads(os.environ["_LOKI_REVIEW_SHARD_IDENTITIES"])[int(os.environ["_LOKI_REVIEW_SHARD_INDEX"]) - 1])
-') || exit 125
+') || {
+                    _dispatch_reviewer_prestub_failure \
+                        "$review_stage_file" \
+                        "$review_dir/$review_id/${reviewer_name}-stderr.log" \
+                        shard_identity "$reviewer_shard_index" "$reviewer_name"
+                    exit 125
+                }
                 LOKI_REVIEW_REQUIREMENTS_HELPER="$requirements_helper" \
                 LOKI_REVIEW_REQUIREMENTS_SOURCE="$requirements_source" \
                 LOKI_REVIEW_REQUIREMENTS_SNAPSHOT="$requirements_file" \
@@ -16557,9 +16621,16 @@ start_dashboard() {
         # Check if it's our own dashboard
         local existing_pid=$(lsof -ti :$DASHBOARD_PORT 2>/dev/null | head -1)
         if [ -n "$existing_pid" ]; then
-            # Only kill if it's a Python/uvicorn dashboard process
+            # Only kill a process positively identified as OUR dashboard.
+            # `-o comm=` yields just the executable name ("python3"), so the old
+            # *python*/*uvicorn* test matched ANY python process that happened to
+            # hold this port -- an unrelated http.server answering 404 was killed
+            # as a "stuck dashboard". Reuse the same full-command-line guard the
+            # teardown path uses: it fails closed on an unreadable or foreign
+            # command, so a stranger on this port is stepped over (port++) rather
+            # than signalled.
             local proc_cmd=$(ps -p "$existing_pid" -o comm= 2>/dev/null || true)
-            if [[ "$proc_cmd" == *python* ]] || [[ "$proc_cmd" == *uvicorn* ]]; then
+            if _loki_pid_looks_like_dashboard "$existing_pid"; then
                 # Never kill a HEALTHY dashboard already serving here: it is almost
                 # always the user's own live dashboard (open in their browser), and
                 # killing it on `loki start` drops their session mid-use. A healthy
@@ -23266,6 +23337,16 @@ if __name__ == "__main__":
                 } && exit_code=0 || exit_code=$?
                 ;;
 
+            opencode)
+                # Keep argv construction provider-owned: its prompt is
+                # positional, --auto is mandatory, and the model is provider
+                # scoped. The wrapper preserves the main-loop deadline/tee
+                # contract and returns the provider stage's nonzero status.
+                _loki_invoke_argv_provider "$CURRENT_TIER" "$prompt" \
+                    "$log_file" "$agent_log" "$iter_output"
+                exit_code=$?
+                ;;
+
             *)
                 log_error "Unknown provider: ${PROVIDER_NAME:-unknown}"
                 local exit_code=1
@@ -25745,7 +25826,7 @@ main() {
                     fi
                     shift 2
                 else
-                    log_error "--provider requires a value (claude, codex, cline, aider)"
+                    log_error "--provider requires a value (claude, codex, cline, aider, opencode)"
                     exit 1
                 fi
                 ;;

@@ -1456,7 +1456,7 @@ show_help() {
     echo "list with 'loki help aliases'."
     echo ""
     echo "Options for 'start':"
-    echo "  --provider NAME  AI provider: claude (default), codex, cline, aider"
+    echo "  --provider NAME  AI provider: claude (default), codex, cline, aider, opencode"
     echo "  --parallel       Enable parallel mode with git worktrees"
     echo "  --bg, --background  Run in background mode"
     echo "  --simple         Force simple complexity tier (3 phases)"
@@ -1502,7 +1502,7 @@ show_help() {
     echo "  loki cleanup                  # Kill orphaned processes"
     echo ""
     echo "  # Providers + model routing"
-    echo "  loki provider list            # Show 4 providers (claude/codex/cline/aider)"
+    echo "  loki provider list            # Show available providers, including opencode"
     echo "  loki provider set codex       # Switch active provider"
     echo "  # Cheap / open models (DeepSeek, GLM, MiniMax, Kimi) via OpenRouter:"
     echo "  loki provider set aider       # aider + cline reach any OpenRouter model"
@@ -2067,7 +2067,7 @@ cmd_start() {
                 echo "                        building locally; polls until the job finishes."
                 echo "                        Token from LOKI_REMOTE_TOKEN / LOKI_REMOTE_TOKEN_FILE"
                 echo "                        (never an argument). Env: LOKI_REMOTE_URL."
-                echo "  --provider NAME       AI provider: claude (default), codex, cline, aider"
+                echo "  --provider NAME       AI provider: claude (default), codex, cline, aider, opencode"
                 echo "  --parallel            Enable parallel mode with git worktrees"
                 echo "  --allow-haiku         Enable Haiku model for the fast tier (default: disabled)"
                 echo "  --bg, --background    Run in background mode"
@@ -2161,7 +2161,7 @@ cmd_start() {
                     args+=("--provider" "$provider")
                     shift 2
                 else
-                    echo -e "${RED}--provider requires a value (claude, codex, cline, aider)${NC}"
+                    echo -e "${RED}--provider requires a value (claude, codex, cline, aider, opencode)${NC}"
                     exit 1
                 fi
                 ;;
@@ -3367,7 +3367,7 @@ cmd_start() {
     # can drop the marker when the originating process is no longer alive
     # (SIGKILL / crash paths that skip our cleanup hooks).
     case "$provider" in
-        claude|codex|cline|aider)
+        claude|codex|cline|aider|opencode)
             mkdir -p "$LOKI_DIR/state" 2>/dev/null || true
             printf '%s:%s:%s\n' "$provider" "$(date +%s)" "$$" \
                 > "$LOKI_DIR/state/.cli-provider.tmp" 2>/dev/null \
@@ -3409,6 +3409,7 @@ cmd_start() {
             codex)  echo "  npm install -g @openai/codex" ;;
             cline)  echo "  npm install -g cline" ;;
             aider)  echo "  pip install aider-chat" ;;
+            opencode) echo "  npm install -g opencode-ai" ;;
             *)      echo "  Check the provider documentation for installation." ;;
         esac
         echo ""
@@ -4064,6 +4065,172 @@ PYDASH
     fi
 }
 
+# Classify one current-project PID registry entry without signalling anything.
+#
+# A numeric PID alone is not process identity because the OS reuses PIDs. The registry's
+# UTC `started` field is the available launch token: the live process must have started
+# within a bounded window AROUND the recorded registration, and that registration must
+# itself be corroborated by the entry's st_ctime, which unprivileged userspace cannot
+# backdate. The file and its parent must also remain current-UID-owned, non-linked,
+# canonical local state. Any missing validation fails closed.
+#
+# Prints exactly one of: OWNED, STALE, REFUSED, UNAVAILABLE.
+_cleanup_registry_entry_state() {
+    local entry_file="$1" expected_pid="$2"
+    command -v python3 >/dev/null 2>&1 || {
+        printf '%s\n' "UNAVAILABLE"
+        return 0
+    }
+    python3 - "$entry_file" "$expected_pid" <<'PY' 2>/dev/null || printf '%s\n' "REFUSED"
+import calendar
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+import sys
+import time
+
+
+def verdict(value: str) -> None:
+    print(value)
+    raise SystemExit(0)
+
+
+try:
+    entry = Path(sys.argv[1])
+    expected_pid = int(sys.argv[2])
+    parent = entry.parent
+    parent_info = os.lstat(parent)
+    entry_info = os.lstat(entry)
+    if (
+        expected_pid <= 1
+        or entry.name != f"{expected_pid}.json"
+        or not stat.S_ISDIR(parent_info.st_mode)
+        or stat.S_ISLNK(parent_info.st_mode)
+        or parent_info.st_uid != os.getuid()
+        or stat.S_IMODE(parent_info.st_mode) & 0o022
+        or os.path.realpath(parent) != os.path.abspath(parent)
+        or not stat.S_ISREG(entry_info.st_mode)
+        or stat.S_ISLNK(entry_info.st_mode)
+        or entry_info.st_uid != os.getuid()
+        or entry_info.st_nlink != 1
+        or stat.S_IMODE(entry_info.st_mode) & 0o022
+    ):
+        verdict("REFUSED")
+
+    record = json.loads(entry.read_text(encoding="utf-8"))
+    pid = record.get("pid")
+    ppid = record.get("ppid")
+    label = record.get("label")
+    started = record.get("started")
+    if (
+        isinstance(pid, bool)
+        or not isinstance(pid, int)
+        or pid != expected_pid
+        or isinstance(ppid, bool)
+        or not isinstance(ppid, int)
+        or ppid <= 0
+        or not isinstance(label, str)
+        or not label
+        or not isinstance(started, str)
+    ):
+        verdict("REFUSED")
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        verdict("STALE")
+    except (PermissionError, OSError):
+        verdict("REFUSED")
+
+    # register_pid() (autonomy/run.sh) writes `started` on the line right after the
+    # `&` that spawned the pid, so for a genuine child entry the process launch and
+    # the recorded registration are seconds apart in BOTH directions.
+    #
+    # `kind":"wrapper"` entries are NOT this shape: register_self_wrapper() records
+    # the wrapper's OWN pid deep in main() startup, so the honest gap is unbounded
+    # and no tight window fits. They are also not cmd_cleanup's to reap -- run.sh's
+    # cleanup_orphan_pids owns them behind a parent-dead AND idle AND no-live-child
+    # predicate, because cmd_cleanup's parent-death-only rule is wrong for a
+    # wrapper. Refuse them here rather than widen the window for every entry: a
+    # window wide enough for a wrapper is wide enough to forge a child.
+    if record.get("kind") is not None:
+        verdict("REFUSED")
+
+    SLACK = 10
+    registered_at = calendar.timegm(time.strptime(started, "%Y-%m-%dT%H:%M:%SZ"))
+    if registered_at > time.time() + 5:
+        verdict("REFUSED")
+
+    # `started` is attacker-writable, so it cannot vouch for itself. st_ctime is
+    # the one field in this registry that unprivileged userspace cannot backdate
+    # (utimes moves atime/mtime only), so it pins WHEN the entry was really made.
+    # Without this an attacker just backdates `started` to an old victim's real
+    # launch time and satisfies the window below.
+    if abs(entry_info.st_ctime - registered_at) > SLACK:
+        verdict("REFUSED")
+
+    observed = subprocess.run(
+        ["ps", "-o", "uid=", "-o", "ppid=", "-o", "lstart=", "-p", str(pid)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=2,
+    )
+    # lstart contains spaces, so split off uid and ppid only; the remainder is lstart.
+    fields = observed.stdout.strip().split(maxsplit=2)
+    if observed.returncode != 0 or len(fields) != 3 or int(fields[0]) != os.getuid():
+        verdict("REFUSED")
+
+    # The recorded `ppid` is not decoration: register_pid() (autonomy/run.sh) writes
+    # `"ppid":$$`, so for a genuine entry the registering shell IS the live process's
+    # real parent. Nothing above binds the entry to that parentage, which is the whole
+    # forgery: a fresh, same-uid, correctly-ctime'd entry naming an UNRELATED live pid
+    # with an arbitrary dead `ppid` satisfies every other check and gets TERM then KILL.
+    #
+    # Two honest shapes, and only two:
+    #   recorded parent alive -> it must still BE the live parent.
+    #   recorded parent dead  -> the child was reparented to init (pid 1), which is the
+    #                            genuine orphan case cmd_cleanup exists to reap.
+    # A forged entry aimed at an unrelated process fails both: that process's real
+    # parent is the attacker's own live shell, which is neither the recorded ppid nor 1.
+    # Both ceilings below fail CLOSED (a genuine entry is skipped and left for
+    # inspection, never an unrelated process signalled), so neither can turn into
+    # the forgery this guard exists to stop:
+    #   - if the recorded ppid died and the OS reused that number for an unrelated
+    #     live process, this reads "parent alive" and refuses a real orphan;
+    #   - on Linux under a PR_SET_CHILD_SUBREAPER ancestor (systemd user scope) an
+    #     orphan reparents to the subreaper rather than to 1 and is refused.
+    # Widening either one means accepting an arbitrary live pid as the parent, which
+    # is exactly the hole above, so the strict form stays until a portable way to
+    # identify the real reaper exists. Reparent-to-init matches what the rest of the
+    # runtime already assumes (see run.sh's detached getppid()==1 note).
+    observed_ppid = int(fields[1])
+    recorded_parent_alive = True
+    try:
+        os.kill(ppid, 0)
+    except ProcessLookupError:
+        recorded_parent_alive = False
+    except (PermissionError, OSError):
+        verdict("REFUSED")
+    if observed_ppid != (ppid if recorded_parent_alive else 1):
+        verdict("REFUSED")
+
+    process_started_at = int(time.mktime(time.strptime(fields[2], "%a %b %d %H:%M:%S %Y")))
+    # Upper bound rejects a pid reused AFTER registration. Lower bound rejects a
+    # forged entry aimed at an unrelated process that was already running when
+    # the entry was written. Both halves are required: with only the upper bound
+    # any live same-uid pid older than `started` is signalable.
+    if not (registered_at - SLACK <= process_started_at <= registered_at + 1):
+        verdict("REFUSED")
+except (OSError, ValueError, TypeError, json.JSONDecodeError, subprocess.SubprocessError):
+    verdict("REFUSED")
+
+verdict("OWNED")
+PY
+}
+
 # Kill orphaned processes from crashed sessions
 cmd_cleanup() {
     # v7.6.2 B-13 fix: --help must print help, not run cleanup as a side effect.
@@ -4086,6 +4253,7 @@ cmd_cleanup() {
     local pids_dir="$LOKI_DIR/pids"
     local killed=0
     local stale=0
+    local refused=0
 
     if [ ! -d "$pids_dir" ]; then
         echo "No PID registry found. Nothing to clean up."
@@ -4102,6 +4270,27 @@ cmd_cleanup() {
             ''|*[!0-9]*) continue ;;
         esac
 
+        local registry_state
+        registry_state=$(_cleanup_registry_entry_state "$entry_file" "$pid")
+        case "$registry_state" in
+            STALE)
+                rm -f "$entry_file"
+                stale=$((stale + 1))
+                continue
+                ;;
+            OWNED) ;;
+            UNAVAILABLE)
+                echo -e "  ${YELLOW}Refusing${NC} PID=$pid (python3 unavailable: ownership cannot be verified)"
+                refused=$((refused + 1))
+                continue
+                ;;
+            *)
+                echo -e "  ${YELLOW}Refusing${NC} PID=$pid (registry ownership or launch identity is not valid)"
+                refused=$((refused + 1))
+                continue
+                ;;
+        esac
+
         local label=""
         local ppid_val=""
         # Parse JSON fields (python3 with shell fallback)
@@ -4113,50 +4302,61 @@ cmd_cleanup() {
             ppid_val=$(sed 's/.*"ppid"://' "$entry_file" 2>/dev/null | sed 's/[,}].*//' | head -1) || true
         fi
 
-        if kill -0 "$pid" 2>/dev/null; then
-            # Process is alive - check if parent is dead (orphan)
-            local is_orphan=false
-            # Validate ppid_val is numeric before using with kill
-            case "$ppid_val" in ''|*[!0-9]*) ppid_val="" ;; esac
-            if [ -n "$ppid_val" ] && ! kill -0 "$ppid_val" 2>/dev/null; then
-                is_orphan=true
-            fi
+        # The ownership gate above proved this exact live process matches the
+        # current-project registry launch token. Check only whether its exact
+        # recorded parent is gone before normal orphan cleanup.
+        local is_orphan=false
+        case "$ppid_val" in ''|*[!0-9]*) ppid_val="" ;; esac
+        if [ -n "$ppid_val" ] && ! kill -0 "$ppid_val" 2>/dev/null; then
+            is_orphan=true
+        fi
 
-            if [ "$is_orphan" = true ] || [ "${1:-}" = "--force" ]; then
-                echo -e "  ${RED}Killing${NC} PID=$pid label=$label (parent $ppid_val dead)"
-                kill "$pid" 2>/dev/null || true
-                sleep 0.5
-                if kill -0 "$pid" 2>/dev/null; then
-                    kill -9 "$pid" 2>/dev/null || true
-                fi
-                rm -f "$entry_file"
-                killed=$((killed + 1))
-            else
-                echo -e "  ${GREEN}Alive${NC}  PID=$pid label=$label (parent $ppid_val alive)"
+        if [ "$is_orphan" = true ] || [ "${1:-}" = "--force" ]; then
+            # Close the validation-to-signal window as far as this portable PID
+            # registry permits. Re-check again after TERM before any KILL so a
+            # rapidly reused PID is never escalated under the old identity.
+            registry_state=$(_cleanup_registry_entry_state "$entry_file" "$pid")
+            if [ "$registry_state" != "OWNED" ]; then
+                echo -e "  ${YELLOW}Refusing${NC} PID=$pid (launch identity changed before signalling)"
+                refused=$((refused + 1))
+                continue
             fi
+            echo -e "  ${RED}Killing${NC} PID=$pid label=$label (parent $ppid_val dead)"
+            if ! kill "$pid" 2>/dev/null; then
+                echo -e "  ${YELLOW}Refusing${NC} PID=$pid (TERM could not be delivered)"
+                refused=$((refused + 1))
+                continue
+            fi
+            sleep 0.5
+            registry_state=$(_cleanup_registry_entry_state "$entry_file" "$pid")
+            case "$registry_state" in
+                STALE)
+                    rm -f "$entry_file"
+                    killed=$((killed + 1))
+                    ;;
+                OWNED)
+                    if kill -9 "$pid" 2>/dev/null; then
+                        rm -f "$entry_file"
+                        killed=$((killed + 1))
+                    else
+                        echo -e "  ${YELLOW}Refusing${NC} PID=$pid (KILL could not be delivered)"
+                        refused=$((refused + 1))
+                    fi
+                    ;;
+                *)
+                    echo -e "  ${YELLOW}Refusing${NC} PID=$pid (launch identity changed before escalation)"
+                    refused=$((refused + 1))
+                    ;;
+            esac
         else
-            # Process is dead - clean up stale entry
-            rm -f "$entry_file"
-            stale=$((stale + 1))
+            echo -e "  ${GREEN}Alive${NC}  PID=$pid label=$label (parent $ppid_val alive)"
         fi
     done
 
     echo ""
-    echo "Results: $killed orphan(s) killed, $stale stale entries cleaned"
+    echo "Results: $killed orphan(s) killed, $stale stale entries cleaned, $refused entry(s) refused"
 
-    # Also kill orphaned loki-run temp scripts
-    local temp_killed=0
-    if pgrep -f "loki-run-" >/dev/null 2>&1; then
-        if ! is_session_running; then
-            echo "Killing orphaned loki-run temp scripts..."
-            pkill -f "loki-run-" 2>/dev/null || true
-            sleep 0.5
-            pkill -9 -f "loki-run-" 2>/dev/null || true
-            temp_killed=1
-        fi
-    fi
-
-    if [ $killed -eq 0 ] && [ $stale -eq 0 ] && [ $temp_killed -eq 0 ]; then
+    if [ $killed -eq 0 ] && [ $stale -eq 0 ] && [ $refused -eq 0 ]; then
         echo -e "${GREEN}System is clean. No orphans found.${NC}"
     fi
 }
@@ -5476,9 +5676,12 @@ cmd_status() {
         cline)
             capability="near-full mode"
             ;;
+        opencode)
+            capability="model-agnostic mode"
+            ;;
     esac
     echo -e "${CYAN}Provider:${NC} $current_provider ($capability)"
-    echo -e "${DIM}  Switch with: loki provider set <claude|codex|cline|aider>${NC}"
+    echo -e "${DIM}  Switch with: loki provider set <claude|codex|cline|aider|opencode>${NC}"
     echo ""
 
     # Show running sessions (v6.4.0 - concurrent session support)
@@ -5679,7 +5882,7 @@ def _read_cli_provider(loki_dir):
             return None, False
         prov = parts[0]
         ts = int(parts[1])
-        if prov not in ('claude', 'codex', 'cline', 'aider'):
+        if prov not in ('claude', 'codex', 'cline', 'aider', 'opencode'):
             return None, False
         if time.time() - ts > 86400:
             return None, False
@@ -6338,6 +6541,9 @@ cmd_provider_show() {
         codex|aider)
             echo -e "${YELLOW}Status:${NC}   Degraded mode (sequential only)"
             ;;
+        opencode)
+            echo -e "${GREEN}Status:${NC}   Model-agnostic mode (75+ providers, MCP)"
+            ;;
     esac
 
     if [ -n "$saved_provider" ]; then
@@ -6356,7 +6562,7 @@ cmd_provider_set() {
 
     if [ -z "$new_provider" ]; then
         echo -e "${RED}Error: Provider name required${NC}"
-        echo "Usage: loki provider set <claude|codex|cline|aider>"
+        echo "Usage: loki provider set <claude|codex|cline|aider|opencode>"
         exit 2
     fi
 
@@ -6364,14 +6570,14 @@ cmd_provider_set() {
     case "$new_provider" in
         gemini)
             echo -e "${RED}Error: Provider 'gemini' is deprecated as of v7.5.18 and has been removed.${NC}"
-            echo "Active providers: claude, codex, cline, aider"
+            echo "Active providers: claude, codex, cline, aider, opencode"
             exit 1
             ;;
-        claude|codex|cline|aider)
+        claude|codex|cline|aider|opencode)
             ;;
         *)
             echo -e "${RED}Error: Invalid provider '$new_provider'${NC}"
-            echo "Valid providers: claude, codex, cline, aider"
+            echo "Valid providers: claude, codex, cline, aider, opencode"
             exit 1
             ;;
     esac
@@ -6392,6 +6598,9 @@ cmd_provider_set() {
                 ;;
             aider)
                 echo "Install: pip install aider-chat"
+                ;;
+            opencode)
+                echo "Install: npm install -g opencode-ai"
                 ;;
         esac
         echo ""
@@ -6530,6 +6739,20 @@ cmd_provider_info() {
             echo "  - Built-in lint/test integration"
             echo ""
             echo "Status:      Degraded mode (Tier 3)"
+            ;;
+        opencode)
+            echo "Name:        opencode (75+ Providers)"
+            echo "Vendor:      opencode (model-agnostic registry)"
+            echo "CLI:         opencode"
+            echo "Flag:        run --auto"
+            echo ""
+            echo "Features:"
+            echo "  - Autonomous mode"
+            echo "  - 75+ model providers and custom endpoints"
+            echo "  - Local model support"
+            echo "  - MCP server support"
+            echo ""
+            echo "Status:      Model-agnostic mode"
             ;;
         *)
             echo -e "${RED}Unknown provider: $provider${NC}"
@@ -9871,7 +10094,7 @@ cmd_run() {
                 echo "  --dry-run          Preview generated PRD without starting"
                 echo "  --no-start         Generate PRD but don't start execution"
                 echo "  --output FILE      Save PRD to custom path"
-                echo "  --provider NAME    AI provider: claude (default), codex, cline, aider"
+                echo "  --provider NAME    AI provider: claude (default), codex, cline, aider, opencode"
                 echo "  --parallel         Enable parallel mode with git worktrees"
                 echo "  --bg, --background Run in background mode"
                 echo "  --simple           Force simple complexity tier"
@@ -9946,7 +10169,7 @@ cmd_run() {
                     # v7.7.11 (council fix): validate against canonical set; include
                     # PID so reader can drop the marker when originating process is gone.
                     case "$2" in
-                        claude|codex|cline|aider)
+                        claude|codex|cline|aider|opencode)
                             mkdir -p "${LOKI_DIR:-.loki}/state" 2>/dev/null || true
                             printf '%s:%s:%s\n' "$2" "$(date +%s)" "$$" \
                                 > "${LOKI_DIR:-.loki}/state/.cli-provider.tmp" 2>/dev/null \
@@ -9966,7 +10189,7 @@ cmd_run() {
                 # UT2-13: Record CLI provider at parse time (atomic write).
                 # v7.7.11 (council fix): validate + include PID.
                 case "$provider_override" in
-                    claude|codex|cline|aider)
+                    claude|codex|cline|aider|opencode)
                         mkdir -p "${LOKI_DIR:-.loki}/state" 2>/dev/null || true
                         printf '%s:%s:%s\n' "$provider_override" "$(date +%s)" "$$" \
                             > "${LOKI_DIR:-.loki}/state/.cli-provider.tmp" 2>/dev/null \
@@ -10597,7 +10820,7 @@ cmd_issue() {
                 echo "  --output FILE      Save PRD to custom path (default: .loki/prd-issue-N.md)"
                 echo ""
                 echo "Options passed to 'start' (when --start is used):"
-                echo "  --provider NAME    AI provider: claude (default), codex, cline, aider"
+                echo "  --provider NAME    AI provider: claude (default), codex, cline, aider, opencode"
                 echo "  --parallel         Enable parallel mode with git worktrees"
                 echo "  --bg, --background Run in background mode"
                 echo ""
@@ -11994,7 +12217,7 @@ cmd_config() {
             echo "  model.planning       Model for planning tier"
             echo "  model.development    Model for development tier"
             echo "  model.fast           Model for fast tier"
-            echo "  provider             Default AI provider: claude, codex, cline, aider"
+            echo "  provider             Default AI provider: claude, codex, cline, aider, opencode"
             echo "  issue.provider       Default issue provider: github, gitlab, jira, azure_devops"
             echo "  blind_validation     Blind validation mode: true, false (default: true)"
             echo "  adversarial_testing  Adversarial testing: true, false (default: true)"
@@ -12055,11 +12278,11 @@ cmd_config_set() {
         provider)
             case "$value" in
                 gemini)
-                    echo -e "${RED}Invalid provider: 'gemini' is deprecated as of v7.5.18. Active providers: claude, codex, cline, aider${NC}"
+                    echo -e "${RED}Invalid provider: 'gemini' is deprecated as of v7.5.18. Active providers: claude, codex, cline, aider, opencode${NC}"
                     return 1
                     ;;
-                claude|codex|cline|aider) ;;
-                *) echo -e "${RED}Invalid provider: $value (expected: claude, codex, cline, aider)${NC}"; return 1 ;;
+                claude|codex|cline|aider|opencode) ;;
+                *) echo -e "${RED}Invalid provider: $value (expected: claude, codex, cline, aider, opencode)${NC}"; return 1 ;;
             esac
             ;;
         issue.provider)
@@ -12870,7 +13093,7 @@ cmd_doctor() {
                 echo "            required egress remains."
                 echo ""
                 echo "Checks: node, python3, jq, git, curl, bash version,"
-                echo "        claude/codex CLIs, disk space, and cockpit render capability."
+                echo "        provider CLIs, disk space, and cockpit render capability."
                 return 0
                 ;;
             *)
@@ -12970,6 +13193,9 @@ cmd_doctor() {
             aider)
                 version=$(aider --version 2>/dev/null | head -1 | sed 's/[^0-9.]//g' | head -1)
                 ;;
+            opencode)
+                version=$(opencode --version 2>/dev/null | head -1 | sed 's/[^0-9.]//g' | head -1)
+                ;;
         esac
 
         local version_display=""
@@ -13025,6 +13251,7 @@ cmd_doctor() {
             codex)  echo "npm install -g @openai/codex" ;;
             cline)  echo "npm install -g cline" ;;
             aider)  echo "pip install aider-chat" ;;
+            opencode) echo "npm install -g opencode-ai" ;;
             *)      echo "" ;;
         esac
     }
@@ -13046,6 +13273,7 @@ cmd_doctor() {
     doctor_check_provider "Codex CLI"   codex  || true
     doctor_check_provider "Cline CLI"   cline  || true
     doctor_check_provider "Aider CLI"   aider  || true
+    doctor_check_provider "opencode CLI" opencode || true
 
     # Check if at least one provider is installed (detect_any_provider is the
     # shared helper from provider-offer.sh, extracted from this exact loop).
@@ -13681,6 +13909,7 @@ checks.append(check_tool('Claude CLI', 'claude', 'optional'))
 checks.append(check_tool('Codex CLI', 'codex', 'optional'))
 checks.append(check_tool('Cline CLI', 'cline', 'optional'))
 checks.append(check_tool('Aider CLI', 'aider', 'optional'))
+checks.append(check_tool('opencode CLI', 'opencode', 'optional'))
 
 # Disk space
 disk_gb = None
@@ -13824,7 +14053,7 @@ elif disk_status == 'fail': fail_count += 1
 elif disk_status == 'warn': warn_count += 1
 
 # AGGREGATE PROVIDER CHECK. Each provider CLI is individually optional --
-# you need Claude OR Codex OR Cline OR Aider, not all four -- so no single
+# you need one of Claude, Codex, Cline, Aider, or opencode -- so no single
 # one can be marked required. But having NONE is a blocker, and the text
 # path reports it as one (the No-AI-provider branch near autonomy/loki:11000).
 #
@@ -17268,8 +17497,11 @@ except Exception: pass
                     # shellcheck disable=SC2086
                     (cd "$codebase_path" && aider --message "$phase_prompt" --yes-always --no-auto-commits --model "$aider_model" $aider_flags 2>&1) || phase_exit=$?
                     ;;
+                opencode)
+                    (cd "$codebase_path" && source "$_LOKI_SCRIPT_DIR/../providers/opencode.sh" && provider_invoke "$phase_prompt" 2>&1) || phase_exit=$?
+                    ;;
                 *)
-                    echo -e "${RED}Error: Unknown provider '${provider_name}'. Supported: claude, codex, cline, aider${NC}"
+                    echo -e "${RED}Error: Unknown provider '${provider_name}'. Supported: claude, codex, cline, aider, opencode${NC}"
                     phase_exit=1
                     ;;
             esac
@@ -18477,10 +18709,13 @@ except Exception: pass
             # shellcheck disable=SC2086
             (cd "$codebase_path" && aider --message "$heal_prompt" --yes-always --no-auto-commits --model "$aider_model" $aider_flags 2>&1) || heal_exit=$?
             ;;
+        opencode)
+            (cd "$codebase_path" && source "$_LOKI_SCRIPT_DIR/../providers/opencode.sh" && provider_invoke "$heal_prompt" 2>&1) || heal_exit=$?
+            ;;
         # BUG-HEAL-003: Unknown provider should error, not silently succeed
         *)
             echo -e "${RED}Error: Unknown provider: $provider${NC}"
-            echo "Supported providers: claude, codex, cline, aider"
+            echo "Supported providers: claude, codex, cline, aider, opencode"
             return 1
             ;;
     esac
@@ -19318,7 +19553,7 @@ with open(failover_file, 'w') as f: json.dump(d, f, indent=2)
                 local IFS=','
                 for p in $new_chain; do
                     case "$p" in
-                        claude|codex|cline|aider) ;;
+                        claude|codex|cline|aider|opencode) ;;
                         *) echo -e "${RED}Error: invalid provider '$p' in chain${NC}"; return 1 ;;
                     esac
                 done
@@ -20517,7 +20752,7 @@ main() {
     # v7.5.18: early guard -- LOKI_PROVIDER=gemini is no longer supported.
     if [ "${LOKI_PROVIDER:-}" = "gemini" ]; then
         echo -e "${RED}Error: Provider 'gemini' is deprecated as of v7.5.18 and has been removed.${NC}" >&2
-        echo "Active providers: claude, codex, cline, aider" >&2
+        echo "Active providers: claude, codex, cline, aider, opencode" >&2
         echo "Unset LOKI_PROVIDER or use: LOKI_PROVIDER=claude" >&2
         exit 1
     fi

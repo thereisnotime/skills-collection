@@ -11145,7 +11145,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 60,
-      "words": 1095,
+      "words": 1099,
       "code_blocks": 0,
       "languages": []
     },
@@ -11211,8 +11211,8 @@
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
-      "lines": 212,
-      "words": 4673,
+      "lines": 214,
+      "words": 4748,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -16114,8 +16114,8 @@
       "description": "Interactive assistant for creating new Claude commands with proper structure, patterns, and MCP tool integration",
       "path": "NeoLabHQ--context-engineering-kit/plugins/customaize-agent/skills/create-command/SKILL.md",
       "remote_path": "plugins/customaize-agent/skills/create-command/SKILL.md",
-      "lines": 563,
-      "words": 1912,
+      "lines": 562,
+      "words": 1910,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -17653,8 +17653,8 @@
       "description": "Interactive assistant for creating new Claude commands with proper structure, patterns, and MCP tool integration",
       "path": "NeoLabHQ--context-engineering-kit/skills/create-command/SKILL.md",
       "remote_path": "skills/create-command/SKILL.md",
-      "lines": 562,
-      "words": 1903,
+      "lines": 561,
+      "words": 1901,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -22390,8 +22390,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-agent/SKILL.md",
       "remote_path": "skills/firecrawl-agent/SKILL.md",
-      "lines": 78,
-      "words": 485,
+      "lines": 58,
+      "words": 295,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -22402,8 +22402,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-interact/SKILL.md",
       "remote_path": "skills/firecrawl-interact/SKILL.md",
-      "lines": 87,
-      "words": 578,
+      "lines": 72,
+      "words": 393,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -22414,8 +22414,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-map/SKILL.md",
       "remote_path": "skills/firecrawl-map/SKILL.md",
-      "lines": 53,
-      "words": 333,
+      "lines": 40,
+      "words": 215,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22426,12 +22426,11 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl/SKILL.md",
       "remote_path": "skills/firecrawl/SKILL.md",
-      "lines": 330,
-      "words": 2496,
-      "code_blocks": 14,
+      "lines": 148,
+      "words": 1197,
+      "code_blocks": 6,
       "languages": [
-        "bash",
-        "json"
+        "bash"
       ]
     },
     {
@@ -22439,8 +22438,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-parse/SKILL.md",
       "remote_path": "skills/firecrawl-parse/SKILL.md",
-      "lines": 62,
-      "words": 421,
+      "lines": 49,
+      "words": 239,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22451,12 +22450,23 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-monitor/SKILL.md",
       "remote_path": "skills/firecrawl-monitor/SKILL.md",
-      "lines": 261,
-      "words": 2627,
-      "code_blocks": 4,
+      "lines": 81,
+      "words": 700,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "json"
+        "bash"
+      ]
+    },
+    {
+      "name": "firecrawl-developer-index",
+      "description": "|",
+      "path": "firecrawl--cli/skills/firecrawl-developer-index/SKILL.md",
+      "remote_path": "skills/firecrawl-developer-index/SKILL.md",
+      "lines": 42,
+      "words": 369,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -22464,8 +22474,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-download/SKILL.md",
       "remote_path": "skills/firecrawl-download/SKILL.md",
-      "lines": 74,
-      "words": 419,
+      "lines": 44,
+      "words": 242,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22476,8 +22486,20 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-crawl/SKILL.md",
       "remote_path": "skills/firecrawl-crawl/SKILL.md",
-      "lines": 61,
-      "words": 405,
+      "lines": 44,
+      "words": 233,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "firecrawl-research-index",
+      "description": "|",
+      "path": "firecrawl--cli/skills/firecrawl-research-index/SKILL.md",
+      "remote_path": "skills/firecrawl-research-index/SKILL.md",
+      "lines": 44,
+      "words": 363,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22488,8 +22510,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-scrape/SKILL.md",
       "remote_path": "skills/firecrawl-scrape/SKILL.md",
-      "lines": 70,
-      "words": 525,
+      "lines": 54,
+      "words": 372,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22500,9 +22522,9 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
-      "lines": 167,
-      "words": 1295,
-      "code_blocks": 4,
+      "lines": 90,
+      "words": 772,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -22524,8 +22546,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl/rules/install.md",
       "remote_path": "skills/firecrawl/rules/install.md",
-      "lines": 86,
-      "words": 302,
+      "lines": 92,
+      "words": 388,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -22846,7 +22868,7 @@
       "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/skill_bug.md",
       "remote_path": ".github/ISSUE_TEMPLATE/skill_bug.md",
       "lines": 30,
-      "words": 103,
+      "words": 104,
       "code_blocks": 0,
       "languages": []
     },
@@ -22856,7 +22878,7 @@
       "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/marketplace_installation.md",
       "remote_path": ".github/ISSUE_TEMPLATE/marketplace_installation.md",
       "lines": 28,
-      "words": 73,
+      "words": 74,
       "code_blocks": 0,
       "languages": []
     },
@@ -22866,7 +22888,7 @@
       "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/skill_update_request.md",
       "remote_path": ".github/ISSUE_TEMPLATE/skill_update_request.md",
       "lines": 45,
-      "words": 300,
+      "words": 301,
       "code_blocks": 0,
       "languages": []
     },
@@ -22876,7 +22898,7 @@
       "path": "hashicorp--agent-skills/.github/ISSUE_TEMPLATE/new_skill_request.md",
       "remote_path": ".github/ISSUE_TEMPLATE/new_skill_request.md",
       "lines": 46,
-      "words": 270,
+      "words": 271,
       "code_blocks": 0,
       "languages": []
     }
@@ -25267,7 +25289,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "transparent-videos",
@@ -25294,7 +25316,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "tailwind",
@@ -25315,7 +25337,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "remotion-best-practices",
@@ -25326,7 +25348,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "remotion-upgrade",
@@ -25339,7 +25361,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "calculate-metadata",
@@ -25365,7 +25387,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "lottie",
@@ -25636,7 +25658,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "remotion-multimedia",
@@ -25647,7 +25669,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "get-audio-duration",
@@ -25696,7 +25718,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "transcribe-captions",
@@ -25748,7 +25770,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "remotion-maps",
@@ -25759,7 +25781,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "rendering",
@@ -25780,7 +25802,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "player",
@@ -25827,7 +25849,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "remotion-create",
@@ -25840,7 +25862,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "tailwind",
@@ -25861,7 +25883,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "remotion-upgrade",
@@ -25874,7 +25896,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "calculate-metadata",
@@ -26029,7 +26051,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "measuring-dom-nodes",
@@ -26171,7 +26193,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "get-audio-duration",
@@ -26194,7 +26216,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "get-video-dimensions",
@@ -26257,7 +26279,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "display-captions",
@@ -26283,7 +26305,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "remotion-maps",
@@ -26294,7 +26316,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "rendering",
@@ -26327,7 +26349,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "framework",
@@ -26348,7 +26370,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "maps-maplibre",
@@ -26439,7 +26461,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.513"
+      "version": "4.0.514"
     },
     {
       "name": "maps-maplibre",
@@ -27584,10 +27606,12 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 77,
-      "words": 767,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 93,
+      "words": 797,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "stripe-apps",
@@ -27680,10 +27704,12 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 77,
-      "words": 767,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 93,
+      "words": 797,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "stripe-apps",
@@ -27786,10 +27812,12 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 77,
-      "words": 767,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 93,
+      "words": 797,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "stripe-apps",
@@ -27882,10 +27910,12 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 77,
-      "words": 767,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 93,
+      "words": 797,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "stripe-apps",
@@ -27988,10 +28018,12 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 77,
-      "words": 767,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 93,
+      "words": 797,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "stripe-apps",
@@ -28084,10 +28116,12 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-directory/SKILL.md",
       "remote_path": "skills/stripe-directory/SKILL.md",
-      "lines": 77,
-      "words": 767,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 93,
+      "words": 797,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
     },
     {
       "name": "stripe-apps",
@@ -28572,7 +28606,7 @@
       "path": "trailofbits--skills/plugins/trailmark/skills/trailmark/SKILL.md",
       "remote_path": "plugins/trailmark/skills/trailmark/SKILL.md",
       "lines": 387,
-      "words": 2049,
+      "words": 2051,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -28625,8 +28659,8 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/trailmark/skills/graph-evolution/SKILL.md",
       "remote_path": "plugins/trailmark/skills/graph-evolution/SKILL.md",
-      "lines": 327,
-      "words": 1560,
+      "lines": 353,
+      "words": 1859,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -29646,9 +29680,9 @@
       "description": "Scans Algorand smart contracts for 11 common vulnerabilities including rekeying attacks, unchecked transaction fees, missing field validations, and access control issues. Use when auditing Algorand pr",
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/algorand-vulnerability-scanner/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/algorand-vulnerability-scanner/SKILL.md",
-      "lines": 285,
-      "words": 1193,
-      "code_blocks": 6,
+      "lines": 286,
+      "words": 1194,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "markdown",
@@ -29660,9 +29694,9 @@
       "description": "Scans TON (The Open Network) smart contracts for 3 critical vulnerabilities including integer-as-boolean misuse, fake Jetton contracts, and forward TON without gas checks. Use when auditing FunC contr",
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/ton-vulnerability-scanner/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/ton-vulnerability-scanner/SKILL.md",
-      "lines": 389,
-      "words": 1434,
-      "code_blocks": 10,
+      "lines": 390,
+      "words": 1435,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "func",
@@ -29675,9 +29709,9 @@
       "description": "Scans Cairo/StarkNet smart contracts for 6 critical vulnerabilities including felt252 arithmetic overflow, L1-L2 messaging issues, address conversion problems, and signature replay. Use when auditing ",
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/cairo-vulnerability-scanner/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/cairo-vulnerability-scanner/SKILL.md",
-      "lines": 331,
-      "words": 1269,
-      "code_blocks": 9,
+      "lines": 332,
+      "words": 1270,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "markdown",
@@ -32280,7 +32314,7 @@
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 474,
-      "words": 3833,
+      "words": 3834,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -34185,8 +34219,8 @@
       "description": "'Detects and analyzes fileless malware that operates entirely in memory",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/detecting-fileless-malware-techniques/SKILL.md",
       "remote_path": "skills/detecting-fileless-malware-techniques/SKILL.md",
-      "lines": 432,
-      "words": 1800,
+      "lines": 434,
+      "words": 1904,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -49077,9 +49111,9 @@
       "description": "Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, build, or author a new skill.",
       "path": "alirezarezvani--claude-skills/.gemini/skills/write-a-skill/SKILL.md",
       "remote_path": ".gemini/skills/write-a-skill/SKILL.md",
-      "lines": 142,
-      "words": 558,
-      "code_blocks": 5,
+      "lines": 158,
+      "words": 681,
+      "code_blocks": 6,
       "languages": [
         "md"
       ],
@@ -50034,6 +50068,19 @@
       "words": 937,
       "code_blocks": 2,
       "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "book-to-skill",
+      "description": "\"Converts books, documentation folders, and source collections (PDF, EPUB, DOCX, HTML, Markdown, RST, AsciiDoc, RTF, MOBI/AZW) into structured agent skills \u2014 extracting named frameworks, principles, t",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/book-to-skill/SKILL.md",
+      "remote_path": ".gemini/skills/book-to-skill/SKILL.md",
+      "lines": 230,
+      "words": 1692,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
       "license": "MIT"
     },
     {
@@ -55884,9 +55931,9 @@
       "description": "Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, build, or author a new skill.",
       "path": "alirezarezvani--claude-skills/engineering/write-a-skill/skills/write-a-skill/SKILL.md",
       "remote_path": "engineering/write-a-skill/skills/write-a-skill/SKILL.md",
-      "lines": 142,
-      "words": 558,
-      "code_blocks": 5,
+      "lines": 158,
+      "words": 681,
+      "code_blocks": 6,
       "languages": [
         "md"
       ],
@@ -55939,6 +55986,29 @@
       "words": 812,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "cs-memory-engineer",
+      "description": "Use when someone is adding memory to an agent, choosing a memory architecture, auditing an existing memory store, or asking why their memory system is expensive, slow, or wrong. Prices the write path,",
+      "path": "alirezarezvani--claude-skills/engineering/memory-engineering/agents/cs-memory-engineer.md",
+      "remote_path": "engineering/memory-engineering/agents/cs-memory-engineer.md",
+      "lines": 79,
+      "words": 576,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "memory-engineering",
+      "description": "Use when designing, reviewing, or paying for an agent memory system \u2014 adding memory to an agent, choosing between long-context / RAG / graph / agentic memory, auditing what a CLAUDE.md or memory direc",
+      "path": "alirezarezvani--claude-skills/engineering/memory-engineering/skills/memory-engineering/SKILL.md",
+      "remote_path": "engineering/memory-engineering/skills/memory-engineering/SKILL.md",
+      "lines": 101,
+      "words": 965,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "zero-hallucination-coder",
@@ -56019,6 +56089,63 @@
       "code_blocks": 2,
       "languages": [],
       "license": "MIT"
+    },
+    {
+      "name": "cs-book-to-skill",
+      "description": "Book-to-skill converter persona. Interrogates whether a source is worth converting before spending a generation pass on it, then drives extract \u2192 analyze \u2192 chapters \u2192 supporting files \u2192 master SKILL.m",
+      "path": "alirezarezvani--claude-skills/engineering/book-to-skill/agents/cs-book-to-skill.md",
+      "remote_path": "engineering/book-to-skill/agents/cs-book-to-skill.md",
+      "lines": 74,
+      "words": 669,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "\"cs-book-to-plugin\"",
+      "description": "\"/cs:book-to-plugin <compiled-skill-dir> [--domain <domain>] \u2014 wrap a compiled book skill in a claude-skills plugin package (manifest + cs-* agent + /cs:* command + README) so the rest of the library ",
+      "path": "alirezarezvani--claude-skills/engineering/book-to-skill/commands/cs-book-to-plugin.md",
+      "remote_path": "engineering/book-to-skill/commands/cs-book-to-plugin.md",
+      "lines": 74,
+      "words": 442,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "\"cs-book-to-skill\"",
+      "description": "\"/cs:book-to-skill <path|folder|glob>... [skill-name] \u2014 convert a book, documentation folder, or source collection into a structured agent skill (core frameworks + on-demand chapters + glossary + patt",
+      "path": "alirezarezvani--claude-skills/engineering/book-to-skill/commands/cs-book-to-skill.md",
+      "remote_path": "engineering/book-to-skill/commands/cs-book-to-skill.md",
+      "lines": 87,
+      "words": 553,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "book-to-skill",
+      "description": "\"Converts books, documentation folders, and source collections (PDF, EPUB, DOCX, HTML, Markdown, RST, AsciiDoc, RTF, MOBI/AZW) into structured agent skills \u2014 extracting named frameworks, principles, t",
+      "path": "alirezarezvani--claude-skills/engineering/book-to-skill/skills/book-to-skill/SKILL.md",
+      "remote_path": "engineering/book-to-skill/skills/book-to-skill/SKILL.md",
+      "lines": 230,
+      "words": 1692,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "<slug>",
+      "description": "\"Knowledge base from \\\"<Full Title>\\\" by <Author(s)>. Use when applying <author>'s frameworks for <3\u20136 key topics>, studying the book, or referencing its concepts.\"",
+      "path": "alirezarezvani--claude-skills/engineering/book-to-skill/skills/book-to-skill/assets/master_skill_template.md",
+      "remote_path": "engineering/book-to-skill/skills/book-to-skill/assets/master_skill_template.md",
+      "lines": 88,
+      "words": 481,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "cs-claude-coach",
@@ -152034,8 +152161,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1788,
-      "words": 28858,
+      "lines": 1789,
+      "words": 28890,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -152348,15 +152475,10 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 1208,
-      "words": 20417,
-      "code_blocks": 27,
-      "languages": [
-        "bash",
-        "json",
-        "markdown",
-        "yaml"
-      ]
+      "lines": 316,
+      "words": 2555,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "stepfun-asr",
@@ -168936,16 +169058,6 @@
         "bash",
         "python"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "context-builder",

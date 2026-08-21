@@ -244,6 +244,7 @@ run_test "Evidence Receipt names the blocking gate (facts, not assessment)" "$SC
 run_test "Evidence Receipt splits exogenous vs advisory verification" "$SCRIPT_DIR/test-receipt-exogenous-split.sh"
 run_test "project-graph bash/bun parity (members discovery default)" "$SCRIPT_DIR/test-parity-project-graph.sh"
 run_test "opencode provider (model-agnostic route, 75+ providers)" "$SCRIPT_DIR/test-opencode-provider.sh"
+run_test "opencode start routing and main-loop dispatch" "$SCRIPT_DIR/test-opencode-start.sh"
 run_test "fast_verify: millisecond deterministic verification" "$SCRIPT_DIR/test-fast-verify.sh"
 run_test "provider_invoke_argv timeout seam (judges keep their timeout)" "$SCRIPT_DIR/test-provider-invoke-argv.sh"
 run_test "Test Mutation Detector (Gate #9)" "$SCRIPT_DIR/detect-test-mutations.sh"
@@ -387,6 +388,7 @@ run_test "Uncertainty Escalation (2-of-3 proxies)" "$SCRIPT_DIR/test-uncertainty
 run_test "AGENTS.md Doc Walker (precedence + fallback)" "$SCRIPT_DIR/test-agents-md-walker.sh"
 run_test "AGENTS.md build_prompt Instruction (all blocks)" "$SCRIPT_DIR/test-agents-md-build-prompt.sh"
 run_test "AGENTS.md Instruction Parity (bash vs Bun)" "$SCRIPT_DIR/test-parity-agents-md.sh"
+run_test "Run-owned temp cleanup scope" "$SCRIPT_DIR/test-safe-cleanup-scope-188.sh"
 
 # F52: DOC_SCOPE instruction scales documentation to detected project complexity
 # (simple -> minimal docs; standard/complex -> full architecture suite).

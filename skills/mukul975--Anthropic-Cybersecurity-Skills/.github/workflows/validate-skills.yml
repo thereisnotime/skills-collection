@@ -4,9 +4,14 @@ on:
   push:
     paths:
       - 'skills/**'
+      - 'tools/validate-skill.py'
+      - '.github/workflows/validate-skills.yml'
   pull_request:
     paths:
       - 'skills/**'
+      - 'tools/validate-skill.py'
+      - '.github/workflows/validate-skills.yml'
+  workflow_dispatch:
 
 jobs:
   validate:
