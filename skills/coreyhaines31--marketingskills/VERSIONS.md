@@ -6,7 +6,7 @@ Current versions of all skills. Agents can compare against local versions to che
 |-------|---------|--------------|
 | ab-testing | 2.0.0 | 2026-05-05 |
 | ad-creative | 2.8.0 | 2026-07-14 |
-| ai-seo | 2.3.0 | 2026-08-19 |
+| ai-seo | 2.4.0 | 2026-08-21 |
 | analytics | 2.0.1 | 2026-07-22 |
 | aso | 2.0.1 | 2026-08-19 |
 | attribution | 1.1.0 | 2026-07-23 |
@@ -55,6 +55,10 @@ Current versions of all skills. Agents can compare against local versions to che
 | video | 2.1.0 | 2026-07-14 |
 
 ## Recent Changes
+
+### 2.10.2 (2026-08-21)
+
+- **ai-seo** (2.3.0 → 2.4.0): new `references/agent-readiness.md` — the access/discovery/parseability layer beneath all content work: can an agent reach, navigate, and parse the site at all. Anchored on the two free scoring tools that shipped in Aug 2026 and made this measurable — **Is Agentic** (Vercel + Ora; `npx is-agentic`; 100+ checks with essential/recommended/bonus tiers, not-applicable excluded rather than failed, plus an observed agent journey) and **Frase's Agent Readiness Checker** (access/discovery/parseability triad with 80/60 score bands) — both credited, with the checks treated as the value rather than the vendor pitch. Covers the access essentials (core content in initial HTML — most agents never run JavaScript; no bot-challenge/firewall blocks on AI crawlers; correct HTTP behavior), the discovery file stack (robots.txt with an explicit AI-crawler stance, clean sitemap, llms.txt plus the newer **`llms-full.txt`** whole-site-in-one-request companion, robots content-usage statements), and the newest parseability technique: a **Markdown representation of every page**, served either by content negotiation (`Accept: text/markdown` at the same canonical URL with a `Vary` header) or an HTTP `Link` header pointing at a parallel Markdown version. Introduces the **agent-actionable** frontier (WebMCP — pages declaring forms/CTAs as callable tools; labeled emerging) with the practical-today floor (highest-intent actions work without JS-only flows). Adds a **citation-source volatility** section built on the Aug 2026 case study — ChatGPT's query fan-out changes nearly wiped Reddit as a citation source within days (practitioner-reported, Ashni of Hype Partners (@ashnichrist) and others), while business-owned sites dominate Gemini citations (~60%) — with the strategy consequences: portfolio over single-surface concentration, owned-site fundamentals as the volatility hedge, citation-share stats treated as dated snapshots verified against your own monitoring, and ~24-hour citation speed as the freshness upside. SKILL.md updates the Reddit lines in the Presence pillar with the volatility flag, points Machine-Readable Files at the new reference, and adds 'agent readiness' / 'is my site agent-ready' / 'llms-full.txt' / 'WebMCP' triggers. New eval (id 9) covers the two-sided prompt: an agent-readiness audit plus a Reddit-concentrated strategy that must get the volatility warning.
 
 ### 2.10.1 (2026-08-19)
 

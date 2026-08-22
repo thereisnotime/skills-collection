@@ -19,9 +19,20 @@ import {
   installOpenClawMcp,
   installSkillsForAgent,
 } from '../../commands/setup';
-import { ALL_SKILL_REPOS } from '../../commands/skills-install';
+import {
+  ALL_SKILL_REPOS,
+  BUILD_SKILLS,
+  CLI_SKILLS,
+  WORKFLOW_SKILLS,
+} from '../../commands/skills-install';
+
+const cliSkillFlags = `--skill ${CLI_SKILLS.join(' ')}`;
+const buildSkillFlags = `--skill ${BUILD_SKILLS.join(' ')}`;
+const workflowSkillFlags = `--skill ${WORKFLOW_SKILLS.join(' ')}`;
 import { configureWebDefaults } from '../../utils/web-defaults';
 import { getApiKey } from '../../utils/config';
+import { browserLogin, isAuthenticated } from '../../utils/auth';
+import { saveCredentials } from '../../utils/credentials';
 
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
@@ -34,6 +45,19 @@ vi.mock('../../utils/web-defaults', () => ({
 
 vi.mock('../../utils/config', () => ({
   getApiKey: vi.fn(() => 'fc-test-key'),
+  updateConfig: vi.fn(),
+}));
+
+vi.mock('../../utils/auth', () => ({
+  isAuthenticated: vi.fn(() => true),
+  browserLogin: vi.fn(async () => ({
+    apiKey: 'fc-browser-key',
+    apiUrl: 'https://api.firecrawl.dev',
+  })),
+}));
+
+vi.mock('../../utils/credentials', () => ({
+  saveCredentials: vi.fn(),
 }));
 
 describe('handleSetupCommand', () => {
@@ -43,6 +67,11 @@ describe('handleSetupCommand', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getApiKey).mockReturnValue('fc-test-key');
+    vi.mocked(isAuthenticated).mockReturnValue(true);
+    vi.mocked(browserLogin).mockResolvedValue({
+      apiKey: 'fc-browser-key',
+      apiUrl: 'https://api.firecrawl.dev',
+    });
     originalHome = process.env.HOME;
     originalApiKey = process.env.FIRECRAWL_API_KEY;
     delete process.env.FIRECRAWL_API_KEY;
@@ -56,37 +85,113 @@ describe('handleSetupCommand', () => {
     vi.restoreAllMocks();
   });
 
-  it('installs core and build skills globally across all detected agents by default', async () => {
+  it('installs the CLI skills from the catalog globally across all detected agents by default', async () => {
     await handleSetupCommand('skills', {});
 
     expect(execSync).toHaveBeenCalledWith(
-      'npx -y skills add firecrawl/cli --full-depth --global --all',
-      expect.objectContaining({ stdio: 'inherit' })
-    );
-    expect(execSync).toHaveBeenCalledWith(
-      'npx -y skills add firecrawl/skills --full-depth --global --all',
+      `npx -y skills add firecrawl/skills --full-depth --global --yes ${cliSkillFlags}`,
       expect.objectContaining({ stdio: 'inherit' })
     );
   });
 
-  it('installs core and build skills globally for a specific agent without using --all', async () => {
+  it('installs the CLI skills globally for a specific agent without using --all', async () => {
     await handleSetupCommand('skills', { agent: 'cursor' });
 
     expect(execSync).toHaveBeenCalledWith(
-      'npx -y skills add firecrawl/cli --full-depth --global --agent cursor',
-      expect.objectContaining({ stdio: 'inherit' })
-    );
-    expect(execSync).toHaveBeenCalledWith(
-      'npx -y skills add firecrawl/skills --full-depth --global --agent cursor',
+      `npx -y skills add firecrawl/skills --full-depth --global --yes --agent cursor ${cliSkillFlags}`,
       expect.objectContaining({ stdio: 'inherit' })
     );
   });
 
-  it('installs workflow skills as a separate setup option', async () => {
+  it('treats "core" as the canonical name for the CLI skill set', async () => {
+    await handleSetupCommand('core', {});
+
+    expect(execSync).toHaveBeenCalledWith(
+      `npx -y skills add firecrawl/skills --full-depth --global --yes ${cliSkillFlags}`,
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('installs the build skills from the catalog as their own group', async () => {
+    await handleSetupCommand('build', {});
+
+    expect(execSync).toHaveBeenCalledWith(
+      `npx -y skills add firecrawl/skills --full-depth --global --yes ${buildSkillFlags}`,
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('does not offer auth when already authenticated', async () => {
+    await handleSetupCommand('core', {});
+
+    expect(browserLogin).not.toHaveBeenCalled();
+  });
+
+  it('prints a hint instead of logging in when unauthenticated and non-interactive', async () => {
+    vi.mocked(isAuthenticated).mockReturnValue(false);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await handleSetupCommand('core', { yes: true });
+
+    expect(browserLogin).not.toHaveBeenCalled();
+    expect(log.mock.calls.flat().join('\n')).toContain(
+      'No Firecrawl API key found'
+    );
+  });
+
+  it('runs the browser login and persists credentials with --browser when unauthenticated', async () => {
+    vi.mocked(isAuthenticated).mockReturnValue(false);
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await handleSetupCommand('core', { yes: true, browser: true });
+
+    expect(browserLogin).toHaveBeenCalled();
+    expect(saveCredentials).toHaveBeenCalledWith({
+      apiKey: 'fc-browser-key',
+      apiUrl: 'https://api.firecrawl.dev',
+    });
+  });
+
+  it('installs a single catalog skill by exact name', async () => {
+    await handleSetupCommand('firecrawl-developer-index', {});
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/skills --full-depth --global --yes --skill firecrawl-developer-index',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('resolves bare skill names by adding the firecrawl- prefix', async () => {
+    await handleSetupCommand('developer-index', {});
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/skills --full-depth --global --yes --skill firecrawl-developer-index',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('prefers the build group over the firecrawl-build skill for bare "build"', async () => {
+    await handleSetupCommand('build', {});
+
+    expect(execSync).toHaveBeenCalledWith(
+      `npx -y skills add firecrawl/skills --full-depth --global --yes ${buildSkillFlags}`,
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+
+    vi.mocked(execSync).mockClear();
+    await handleSetupCommand('firecrawl-build', {});
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/skills --full-depth --global --yes --skill firecrawl-build',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('installs workflow skills from the catalog as a separate setup option', async () => {
     await handleSetupCommand('workflows', {});
 
     expect(execSync).toHaveBeenCalledWith(
-      'npx -y skills add firecrawl/firecrawl-workflows --full-depth --global --all',
+      `npx -y skills add firecrawl/skills --full-depth --global --yes ${workflowSkillFlags}`,
       expect.objectContaining({ stdio: 'inherit' })
     );
   });
@@ -127,11 +232,7 @@ describe('handleSetupCommand', () => {
     await handleSetupCommand(undefined, { yes: true });
 
     expect(execSync).toHaveBeenCalledWith(
-      'npx -y skills add firecrawl/cli --full-depth --global --all --yes',
-      expect.objectContaining({ stdio: 'inherit' })
-    );
-    expect(execSync).toHaveBeenCalledWith(
-      'npx -y skills add firecrawl/skills --full-depth --global --all --yes',
+      `npx -y skills add firecrawl/skills --full-depth --global --yes ${cliSkillFlags}`,
       expect.objectContaining({ stdio: 'inherit' })
     );
     expect(execFileSync).toHaveBeenCalledWith(
@@ -866,7 +967,7 @@ describe('handleSetupCommand', () => {
       const installCalls = allCalls.filter(([cmd]) =>
         cmd.includes('skills add')
       );
-      expect(installCalls.length).toBe(2);
+      expect(installCalls.length).toBe(1);
       for (const [, opts] of installCalls) {
         expect(opts.env).toBeDefined();
         expect(opts.env!.npm_command).toBeUndefined();

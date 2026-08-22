@@ -15,12 +15,21 @@ import os from 'os';
 import path from 'path';
 import readline from 'readline';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { getApiKey } from '../utils/config';
+import { getApiKey, updateConfig } from '../utils/config';
+import { browserLogin, isAuthenticated } from '../utils/auth';
+import { saveCredentials } from '../utils/credentials';
 import {
   buildSkillsInstallArgs,
+  BUILD_SKILL_SELECTION,
+  BUILD_SKILLS,
+  CATALOG_REPO,
   cleanNpmEnv,
+  CLI_SKILL_SELECTION,
+  CLI_SKILLS,
   SKILL_REPOS,
-  WORKFLOW_SKILL_REPOS,
+  WORKFLOW_SKILL_SELECTION,
+  WORKFLOW_SKILLS,
+  type SkillSelection,
 } from './skills-install';
 import { hasNpx, installSkillsNative } from './skills-native';
 import {
@@ -29,7 +38,13 @@ import {
   type WebAgent,
 } from '../utils/web-defaults';
 
-export type SetupSubcommand = 'skills' | 'workflows' | 'mcp' | 'defaults';
+export type SetupSubcommand =
+  | 'skills'
+  | 'core'
+  | 'build'
+  | 'workflows'
+  | 'mcp'
+  | 'defaults';
 
 type SetupIntegration = SetupSubcommand;
 
@@ -53,6 +68,10 @@ export interface SetupOptions {
   quiet?: boolean;
   /** Configure the anonymous hosted MCP path even when a stored key exists. */
   keyless?: boolean;
+  /** If no API key is found after installing skills, log in via browser. */
+  browser?: boolean;
+  /** Internal: bundle flow defers the auth offer until every step ran. */
+  skipAuthOffer?: boolean;
 }
 
 const green = '\x1b[32m';
@@ -274,7 +293,7 @@ function resolveMcpAgent(agent: string | undefined): ResolvedMcpAgent {
  * Main setup command handler
  */
 export async function handleSetupCommand(
-  subcommand?: SetupSubcommand,
+  subcommand?: SetupSubcommand | (string & {}),
   options: SetupOptions = {}
 ): Promise<void> {
   if (!subcommand) {
@@ -283,11 +302,19 @@ export async function handleSetupCommand(
   }
 
   switch (subcommand) {
+    // `skills` is the historical name for the core set; keep it as an alias.
     case 'skills':
-      await installSkills(options, SKILL_REPOS);
+    case 'core':
+      await installSkills(options, [CLI_SKILL_SELECTION]);
+      await offerSkillsAuth(options);
+      break;
+    case 'build':
+      await installSkills(options, [BUILD_SKILL_SELECTION]);
+      await offerSkillsAuth(options);
       break;
     case 'workflows':
-      await installSkills(options, WORKFLOW_SKILL_REPOS);
+      await installSkills(options, [WORKFLOW_SKILL_SELECTION]);
+      await offerSkillsAuth(options);
       break;
     case 'mcp':
       await installMcp(options);
@@ -295,11 +322,22 @@ export async function handleSetupCommand(
     case 'defaults':
       await handleMakeDefaultCommand(options);
       break;
-    default:
-      console.error(`Unknown setup subcommand: ${subcommand}`);
+    default: {
+      const skill = resolveCatalogSkill(subcommand);
+      if (skill) {
+        await installSkills(options, [
+          { repo: CATALOG_REPO, skills: [skill], label: `${skill} skill` },
+        ]);
+        await offerSkillsAuth(options);
+        break;
+      }
+      console.error(`Unknown setup subcommand or skill: ${subcommand}`);
       console.log('\nAvailable subcommands:');
       console.log(
-        '  skills     Install core/build Firecrawl skills into AI coding agents'
+        '  core       Install core Firecrawl skills (scrape, search, crawl, interact, indexes); "skills" is an alias'
+      );
+      console.log(
+        '  build      Install Firecrawl build skills for integrating the API into app code'
       );
       console.log(
         '  workflows  Install Firecrawl workflow skills into AI coding agents'
@@ -310,8 +348,79 @@ export async function handleSetupCommand(
       console.log(
         '  defaults   Make Firecrawl the default web provider (use --undo to restore native web tools)'
       );
+      console.log(
+        '  <skill>    Install one catalog skill by name; the "firecrawl-" prefix is optional (e.g. "developer-index", "seo-audit")'
+      );
       process.exit(1);
+    }
   }
+}
+
+/**
+ * After installing skills, make sure the user can actually run them: the
+ * skills shell out to this CLI, which needs an API key. Never block
+ * automation on a login — the browser flow runs only when `--browser` asks
+ * for it or an interactive user says yes; otherwise print a one-line hint.
+ * Users already authenticated via FIRECRAWL_API_KEY or stored credentials
+ * (e.g. from an earlier init or MCP setup) skip all of this silently.
+ */
+async function offerSkillsAuth(options: SetupOptions): Promise<void> {
+  if (options.skipAuthOffer) return;
+
+  if (isAuthenticated()) return;
+
+  let login = options.browser ?? false;
+  if (!login && !options.yes && process.stdin.isTTY) {
+    const { confirm } = await import('@inquirer/prompts');
+    login = await confirm({
+      message:
+        'No Firecrawl API key found. Log in now so the skills work right away?',
+      default: true,
+    });
+  }
+
+  if (!login) {
+    console.log(
+      `${dim}No Firecrawl API key found. Skills walk agents through setup on first use; to be ready now, run "firecrawl login" or export FIRECRAWL_API_KEY.${reset}`
+    );
+    return;
+  }
+
+  try {
+    const result = await browserLogin();
+    saveCredentials({ apiKey: result.apiKey, apiUrl: result.apiUrl });
+    updateConfig({ apiKey: result.apiKey, apiUrl: result.apiUrl });
+    const teamSuffix = result.teamName ? ` (Team: ${result.teamName})` : '';
+    console.log(`${green}✓${reset} Authenticated${teamSuffix}`);
+  } catch (error) {
+    console.error(
+      'Authentication failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+    console.log(
+      `${dim}You can authenticate later with: firecrawl login${reset}`
+    );
+  }
+}
+
+/** Every installable skill across the three catalog families. */
+const ALL_CATALOG_SKILLS: readonly string[] = [
+  ...CLI_SKILLS,
+  ...BUILD_SKILLS,
+  ...WORKFLOW_SKILLS,
+];
+
+/**
+ * Resolve a `setup` argument to a catalog skill name. Accepts the exact name
+ * or a bare name without the `firecrawl-` prefix. Group subcommands are
+ * matched before this runs, so `build` means the group while `firecrawl-build`
+ * still reaches the skill.
+ */
+function resolveCatalogSkill(name: string): string | undefined {
+  if (ALL_CATALOG_SKILLS.includes(name)) return name;
+  const prefixed = `firecrawl-${name}`;
+  if (ALL_CATALOG_SKILLS.includes(prefixed)) return prefixed;
+  return undefined;
 }
 
 async function handleSetupBundle(options: SetupOptions): Promise<void> {
@@ -323,7 +432,7 @@ async function handleSetupBundle(options: SetupOptions): Promise<void> {
     integrations = await pickSetupIntegrations();
   } else {
     throw new Error(
-      'Setup subcommand is required in non-interactive mode. Use `firecrawl setup --yes` to install skills and MCP, or choose one of: skills, workflows, mcp, defaults.'
+      'Setup subcommand is required in non-interactive mode. Use `firecrawl setup --yes` to install skills and MCP, or choose one of: core, build, workflows, mcp, defaults.'
     );
   }
 
@@ -336,8 +445,16 @@ async function handleSetupBundle(options: SetupOptions): Promise<void> {
     ...options,
     global: options.project ? undefined : (options.global ?? true),
   };
+  const skillIntegrations: SetupIntegration[] = ['skills', 'workflows'];
   for (const integration of integrations) {
-    await handleSetupCommand(integration, bundleOptions);
+    // Offer auth once after the whole bundle instead of per step.
+    await handleSetupCommand(integration, {
+      ...bundleOptions,
+      skipAuthOffer: true,
+    });
+  }
+  if (integrations.some((i) => skillIntegrations.includes(i))) {
+    await offerSkillsAuth(bundleOptions);
   }
 }
 
@@ -463,18 +580,20 @@ export async function handleMakeDefaultCommand(
 
 async function installSkills(
   options: SetupOptions,
-  repos: readonly string[]
+  selections: readonly SkillSelection[]
 ): Promise<void> {
-  for (const repo of repos) {
+  for (const selection of selections) {
+    const { repo } = selection;
     if (options.nativeSkills) {
       try {
         const result = await installSkillsNative(repo, {
           agent: options.agent,
           quiet: options.quiet,
+          skills: selection.skills,
         });
         if (options.quiet) {
           console.log(
-            `  ${green}✓${reset} ${skillRepoLabel(repo)} ${dim}(${result.skillCount})${reset}`
+            `  ${green}✓${reset} ${selection.label} ${dim}(${result.skillCount})${reset}`
           );
         }
       } catch (error) {
@@ -494,6 +613,7 @@ async function installSkills(
         global: true,
         yes: options.yes,
         includeNpxYes: true,
+        skills: selection.skills,
       });
 
       const cmd = args.join(' ');
@@ -509,7 +629,7 @@ async function installSkills(
 
     // Fallback: native install (no npx/Node required)
     try {
-      await installSkillsNative(repo);
+      await installSkillsNative(repo, { skills: selection.skills });
     } catch (error) {
       console.error(
         `Failed to install skills from ${repo}:`,
@@ -525,9 +645,11 @@ export async function installSkillsForAgent(
   options: SetupOptions = {},
   repos: readonly string[] = SKILL_REPOS
 ): Promise<void> {
+  // Legacy whole-repo path (used by `firecrawl launch`): install each repo
+  // in full, labeled by repo name.
   await installSkills(
     { ...options, agent, global: options.global ?? true },
-    repos
+    repos.map((repo) => ({ repo, label: skillRepoLabel(repo) }))
   );
 }
 

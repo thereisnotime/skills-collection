@@ -2236,11 +2236,11 @@ program
 program
   .command('setup')
   .description(
-    'Set up individual firecrawl integrations (skills, workflows, mcp, defaults)'
+    'Set up individual firecrawl integrations (core, build, workflows, mcp, defaults)'
   )
   .argument(
     '[subcommand]',
-    'What to set up: "skills", "workflows", "mcp", or "defaults"; omit for an interactive installer'
+    'What to set up: "core" (alias "skills"), "build", "workflows", "mcp", "defaults", or a single catalog skill name (the "firecrawl-" prefix is optional, e.g. "developer-index"); omit for an interactive installer'
   )
   .option('-g, --global', 'Install globally (user-level)')
   .option(
@@ -2258,6 +2258,10 @@ program
   .option(
     '--keyless',
     'Configure anonymous hosted MCP even when an API key is stored'
+  )
+  .option(
+    '--browser',
+    'If no API key is found after installing skills, log in via browser'
   )
   .option(
     '--undo',

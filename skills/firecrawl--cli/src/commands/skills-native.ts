@@ -29,6 +29,8 @@ export interface NativeSkillsInstallOptions {
   agent?: string;
   /** Suppress per-repo status lines; caller will render its own summary. */
   quiet?: boolean;
+  /** Install only these skills (by name) instead of the whole repo. */
+  skills?: readonly string[];
 }
 
 export interface NativeSkillsInstallResult {
@@ -411,9 +413,20 @@ export async function installSkillsNative(
       throw new Error(`No ${SKILLS_SUBDIR}/ directory found in repository`);
     }
 
-    const skills = discoverSkills(skillsDir);
+    let skills = discoverSkills(skillsDir);
     if (skills.length === 0) {
       throw new Error('No skills found in repository');
+    }
+
+    if (options.skills) {
+      const wanted = new Set(options.skills);
+      skills = skills.filter((skill) => wanted.has(skill.name));
+      const missing = options.skills.filter(
+        (name) => !skills.some((skill) => skill.name === name)
+      );
+      if (missing.length > 0) {
+        throw new Error(`Skills not found in ${repo}: ${missing.join(', ')}`);
+      }
     }
 
     if (!options.quiet) {

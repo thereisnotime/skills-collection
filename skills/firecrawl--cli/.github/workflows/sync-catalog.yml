@@ -1,0 +1,65 @@
+name: Sync core skills to catalog
+
+# Mirrors skills/ into firecrawl/skills under skills/core/.
+# The catalog copy is a read-only mirror; PRs against it are redirected here.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "skills/**"
+      - ".github/workflows/sync-catalog.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalog-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CLI repo
+        uses: actions/checkout@v6
+        with:
+          path: cli
+
+      - name: Checkout catalog
+        uses: actions/checkout@v6
+        with:
+          repository: firecrawl/skills
+          ssh-key: ${{ secrets.CATALOG_DEPLOY_KEY }}
+          path: catalog
+
+      - name: Sync skills/core
+        run: |
+          cd catalog
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          rm -rf skills/core
+          mkdir -p skills/core
+          cp -R ../cli/skills/. skills/core/
+
+          cat > skills/core/README.md <<'EOF'
+          # Core skills (mirror)
+
+          Mirror of [`firecrawl/cli`](https://github.com/firecrawl/cli/tree/main/skills) — do not edit here.
+          PR changes against `firecrawl/cli`; CI overwrites this directory on every sync.
+          EOF
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to sync"
+            exit 0
+          fi
+
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          git commit -m "Sync from firecrawl/cli@${SHORT_SHA}" \
+            -m "Source: https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+
+          # Retry once if another sync landed first; never force-push.
+          git push origin main || { git pull --rebase origin main && git push origin main; }

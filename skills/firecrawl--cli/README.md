@@ -20,14 +20,24 @@ npx -y firecrawl-cli@latest init -y --browser
 
 ### Setup Skills, Workflows, and MCP
 
-If you are using an AI coding agent like Claude Code, you can also install the skills manually:
+If you are using an AI coding agent like Claude Code, you can also install skill groups manually — one command per family:
 
 ```bash
-firecrawl setup skills
-firecrawl setup workflows
+firecrawl setup core       # scrape/search/crawl/interact primitives + index skills ("skills" is an alias)
+firecrawl setup build      # app-integration skills for the Firecrawl API
+firecrawl setup workflows  # end-to-end recipes (lead gen, deep research, ...)
 ```
 
-These install globally across all detected coding editors by default. Use `--agent <agent>` to scope either command to one editor.
+Or install a single skill by name — the `firecrawl-` prefix is optional:
+
+```bash
+firecrawl setup developer-index
+firecrawl setup seo-audit
+```
+
+If no API key is found afterwards, an interactive terminal offers a browser login (pass `--browser` to log in without the prompt); non-interactive runs never block — they print a hint and the skills walk agents through setup on first use.
+
+These install globally across all detected coding editors by default. Use `--agent <agent>` to scope any of them to one editor.
 
 #### Scope setup to a single harness
 
@@ -62,16 +72,24 @@ detected harnesses (all selected by default) so you can pick a subset.
 
 ### Agent skills
 
-The init command installs all Firecrawl agent skill segments into AI coding agents (Cursor, Claude Code, Windsurf, etc.):
+The init command installs the **CLI skills** by default and offers the **workflow skills** as optional extras, into AI coding agents (Cursor, Claude Code, Windsurf, etc.):
 
-- **CLI skills** — teach agents how to use the Firecrawl CLI for live web work (search, scrape, interact, map, crawl, agent)
-- **Build skills** — teach agents how to integrate Firecrawl into application code (choose endpoints, wire SDKs, set up API keys)
-- **Workflow skills** — teach agents how to produce Firecrawl-powered deliverables such as research briefs, SEO audits, QA reports, lead lists, knowledge bases, and design-system extraction
+- **CLI skills** — teach agents how to use the Firecrawl CLI for live web work (search, scrape, interact, map, crawl, agent). Installed by default.
+- **Workflow skills** — teach agents how to produce Firecrawl-powered deliverables such as research briefs, SEO audits, QA reports, lead lists, knowledge bases, and design-system extraction. Interactive multi-select during init.
+
+All skill families live in the [`firecrawl/skills`](https://github.com/firecrawl/skills) catalog — including the **build skills** for integrating Firecrawl into application code:
+
+```bash
+npx skills add firecrawl/skills
+```
+
+> Contributing skills? CLI skills (including the research/developer index skills) → PR this repo (`skills/`). Build/SDK skills → PR the [`firecrawl`](https://github.com/firecrawl/firecrawl) monorepo (`skills/`). Workflow skills → PR [`firecrawl/firecrawl-workflows`](https://github.com/firecrawl/firecrawl-workflows). The catalog ([`firecrawl/skills`](https://github.com/firecrawl/skills)) is read-only — never PR it directly.
 
 To reinstall skills manually:
 
 ```bash
-firecrawl setup skills
+firecrawl setup core
+firecrawl setup build
 firecrawl setup workflows
 ```
 
@@ -961,9 +979,9 @@ firecrawl x download https://docs.firecrawl.dev --include-paths "/features,/sdks
 
 ### Workflow Skills
 
-The old experimental AI workflow commands have moved to the NPX-installable
-[`firecrawl/firecrawl-workflows`](https://github.com/firecrawl/firecrawl-workflows)
-skills package. Workflow skills infer from the user's request first and only ask
+The old experimental AI workflow commands have moved to the
+[`firecrawl/skills`](https://github.com/firecrawl/skills) catalog
+(`skills/workflows/`). Workflow skills infer from the user's request first and only ask
 short clarifying questions when required inputs are missing. Install them with:
 
 ```bash

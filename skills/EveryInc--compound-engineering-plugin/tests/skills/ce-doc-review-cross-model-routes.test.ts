@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test"
+import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import {
   mkdtempSync,
@@ -13,6 +13,10 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
+
+// These tests spawn bash/python/git subprocesses; on a loaded CI runner they cross the 5s default
+// (2026-08-21, PR #1508: three different tests timed out across two reruns with no related change).
+setDefaultTimeout(30_000)
 
 // Every temp root we create, torn down after the suite so runs don't leak dirs.
 const tempRoots: string[] = []
@@ -767,6 +771,37 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
         ...process.env,
         CROSS_MODEL_MODEL_OVERRIDE_TARGET: "composer",
         CROSS_MODEL_MODEL_OVERRIDE: "gpt-5.6-sol",
+      },
+    })
+    expect(crossFamily.status).toBe(2)
+    expect(crossFamily.stderr).toContain("not compatible with route")
+  })
+
+  test("a provider-qualified codex model id is accepted; family is still checked", () => {
+    // A codex CLI pointed at a non-default model_provider may require ids in
+    // that provider's own namespace. Measured against the OpenAI-compatible
+    // surface at bedrock-mantle.<region>.api.aws: `gpt-5.6-luna` 404s there and
+    // `openai.gpt-5.6-sol` serves. Where that holds, the documented
+    // cross_model_model escape hatch has to be able to express the served form.
+    expect(
+      emitAdapter("codex", {
+        CROSS_MODEL_MODEL_OVERRIDE_TARGET: "codex",
+        CROSS_MODEL_MODEL_OVERRIDE: "openai.gpt-5.6-sol",
+      }),
+    ).toContain("-m openai.gpt-5.6-sol")
+    expect(
+      emitAdapter("codex", {
+        CROSS_MODEL_MODEL_OVERRIDE_TARGET: "codex",
+        CROSS_MODEL_MODEL_OVERRIDE: "openai/gpt-5.6-sol",
+      }),
+    ).toContain("-m openai/gpt-5.6-sol")
+
+    const crossFamily = spawnSync("bash", [SCRIPT, "--emit-adapter", "codex"], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        CROSS_MODEL_MODEL_OVERRIDE_TARGET: "codex",
+        CROSS_MODEL_MODEL_OVERRIDE: "bedrock.claude-opus-5",
       },
     })
     expect(crossFamily.status).toBe(2)

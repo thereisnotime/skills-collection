@@ -9647,8 +9647,8 @@
       "description": "|-",
       "path": "anthropics--skills/skills/claude-api/SKILL.md",
       "remote_path": "skills/claude-api/SKILL.md",
-      "lines": 554,
-      "words": 9957,
+      "lines": 557,
+      "words": 10165,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -10952,12 +10952,10 @@
       "description": "\"Give a decisive, project-grounded point of view: a graded verdict on an external-adoption question, a holistic take on a document, or a position on a supplied approach set. Use for a solo POV. Use wh",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
-      "lines": 76,
-      "words": 1181,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 63,
+      "words": 1034,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-promote",
@@ -10976,12 +10974,10 @@
       "description": "Review requirements, plans, or specs with role-specific lenses. Use when the user wants to improve an existing planning document.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
-      "lines": 88,
-      "words": 1083,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 73,
+      "words": 899,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-dogfood",
@@ -11010,9 +11006,9 @@
       "description": "\"Create a durable visual teaching artifact for something worth learning. Use when the user wants to be taught, wants a deep explainer, wants to understand a substantial change, or wants a work recap b",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
-      "lines": 100,
-      "words": 1942,
-      "code_blocks": 2,
+      "lines": 87,
+      "words": 1745,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -11052,24 +11048,20 @@
       "description": "\"Retune a skill corpus for a new model, measurement-first: mine the run archive for a baseline, establish a noise floor, audit the corpus adversarially, then cut in measured passes until a pre-registe",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-retune/SKILL.md",
       "remote_path": "skills/ce-retune/SKILL.md",
-      "lines": 54,
-      "words": 981,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 41,
+      "words": 743,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-brainstorm",
       "description": "\"Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, scope what to build, or needs collaborative product framing before planning.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 79,
-      "words": 1149,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 66,
+      "words": 1002,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-product-pulse",
@@ -11086,21 +11078,19 @@
       "description": "\"Sweep configured feedback sources (Slack, GitHub Issues; email experimental) for new items: acknowledge at source, analyze recordings, verify fixes merged to main, and emit an `lfg`-ready plan. First",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-sweep/SKILL.md",
       "remote_path": "skills/ce-sweep/SKILL.md",
-      "lines": 107,
-      "words": 1159,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 94,
+      "words": 995,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-compound",
       "description": "Document a recently solved problem as a durable repo learning. Use when capturing a learning after work.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 85,
-      "words": 1132,
-      "code_blocks": 2,
+      "lines": 72,
+      "words": 971,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -11120,12 +11110,10 @@
       "description": "\"Simplify settled, recently changed code for clarity, reuse, quality, and efficiency while preserving behavior. Use after implementation and before review; use ce-debug for bugs.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
-      "lines": 78,
-      "words": 1165,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 65,
+      "words": 927,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-commit",
@@ -11211,25 +11199,20 @@
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
-      "lines": 214,
-      "words": 4748,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "text"
-      ]
+      "lines": 59,
+      "words": 959,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-optimize",
       "description": "\"Run metric-driven optimization loops. Use when improving a measurable outcome through experiments.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
-      "lines": 67,
-      "words": 1210,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 54,
+      "words": 1026,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-resolve-pr-feedback",
@@ -11256,60 +11239,50 @@
       "description": "Refresh the repo's captured learnings against the current codebase. Use when auditing stale, overlapping, superseded, or drifted learnings; avoid general refactor, debugging, or code review unless the",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
-      "lines": 94,
-      "words": 1124,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 81,
+      "words": 982,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-work",
       "description": "Execute a plan or concrete work prompt end-to-end. Use when implementing from a plan document, a spec path, or a clear build request; use ce-debug for open-ended bugs. Use when an outer orchestrator n",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
-      "lines": 180,
-      "words": 4085,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 59,
+      "words": 982,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-code-review",
       "description": "\"Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked to review code. Use when the user asks to apply this review's findings locally. Not for resolving feed",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 55,
-      "words": 1204,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 42,
+      "words": 966,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-ideate",
       "description": "\"Generate and evaluate grounded ideas. Use when the user wants ideas, improvements, or surprising directions before choosing one to develop. Not for refining an idea they already have (ce-brainstorm) ",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
-      "lines": 87,
-      "words": 1159,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 74,
+      "words": 987,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-debug",
       "description": "\"Diagnosis loop for bugs and failing behavior. Use when asked to debug or fix failing behavior.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
-      "lines": 130,
-      "words": 2563,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ]
+      "lines": 117,
+      "words": 2325,
+      "code_blocks": 1,
+      "languages": []
     },
     {
       "name": "lfg",
@@ -11317,7 +11290,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 60,
-      "words": 1132,
+      "words": 1145,
       "code_blocks": 0,
       "languages": []
     },
@@ -21370,13 +21343,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 814,
-      "words": 14854,
+      "lines": 816,
+      "words": 14913,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.25.0",
+      "version": "3.25.1",
       "license": "MIT"
     },
     {
@@ -21384,13 +21357,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 814,
-      "words": 14854,
+      "lines": 816,
+      "words": 14913,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.25.0",
+      "version": "3.25.1",
       "license": "MIT"
     }
   ],
@@ -21890,8 +21863,8 @@
       "description": "\"When the user wants to optimize content for AI search engines, get cited by LLMs, or appear in AI-generated answers. Also use when the user mentions 'AI SEO,' 'AEO,' 'GEO,' 'LLMO,' 'answer engine opt",
       "path": "coreyhaines31--marketingskills/skills/ai-seo/SKILL.md",
       "remote_path": "skills/ai-seo/SKILL.md",
-      "lines": 495,
-      "words": 4072,
+      "lines": 497,
+      "words": 4150,
       "code_blocks": 2,
       "languages": [
         "markdown"
@@ -22459,15 +22432,13 @@
     },
     {
       "name": "firecrawl-developer-index",
-      "description": "|",
+      "description": "Search issues, merged pull requests, READMEs, and documentation. Use when the question is how a library or API behaves, what an error means, or whether a bug was fixed; prefer this over a general web ",
       "path": "firecrawl--cli/skills/firecrawl-developer-index/SKILL.md",
       "remote_path": "skills/firecrawl-developer-index/SKILL.md",
-      "lines": 42,
-      "words": 369,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 60,
+      "words": 1174,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "firecrawl-download",
@@ -22495,15 +22466,13 @@
     },
     {
       "name": "firecrawl-research-index",
-      "description": "|",
+      "description": "Find the papers that answer a research query in Firecrawl's research paper index \u2014 a corpus of paper abstracts whose largest share is biomedical and life-science literature (PubMed, bioRxiv, medRxiv),",
       "path": "firecrawl--cli/skills/firecrawl-research-index/SKILL.md",
       "remote_path": "skills/firecrawl-research-index/SKILL.md",
-      "lines": 44,
-      "words": 363,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 70,
+      "words": 1425,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "firecrawl-scrape",
@@ -23649,7 +23618,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
       "lines": 458,
-      "words": 4140,
+      "words": 4194,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -23677,7 +23646,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "lines": 316,
-      "words": 2650,
+      "words": 2735,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -23718,7 +23687,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "lines": 222,
-      "words": 1745,
+      "words": 1731,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -23731,7 +23700,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "lines": 581,
-      "words": 5442,
+      "words": 5438,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -23756,7 +23725,7 @@
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
       "lines": 458,
-      "words": 4140,
+      "words": 4194,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -23784,7 +23753,7 @@
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
       "lines": 316,
-      "words": 2650,
+      "words": 2735,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -23825,7 +23794,7 @@
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
       "lines": 222,
-      "words": 1745,
+      "words": 1731,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -23838,7 +23807,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 581,
-      "words": 5442,
+      "words": 5438,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25289,7 +25258,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "transparent-videos",
@@ -25316,7 +25285,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "tailwind",
@@ -25337,7 +25306,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "remotion-best-practices",
@@ -25348,7 +25317,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "remotion-upgrade",
@@ -25361,7 +25330,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "calculate-metadata",
@@ -25387,7 +25356,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "lottie",
@@ -25658,7 +25627,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "remotion-multimedia",
@@ -25669,7 +25638,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "get-audio-duration",
@@ -25718,7 +25687,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "transcribe-captions",
@@ -25770,7 +25739,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "remotion-maps",
@@ -25781,7 +25750,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "rendering",
@@ -25802,7 +25771,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "player",
@@ -25849,7 +25818,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "remotion-create",
@@ -25862,7 +25831,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "tailwind",
@@ -25883,7 +25852,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "remotion-upgrade",
@@ -25896,7 +25865,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "calculate-metadata",
@@ -26051,7 +26020,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "measuring-dom-nodes",
@@ -26193,7 +26162,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "get-audio-duration",
@@ -26216,7 +26185,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "get-video-dimensions",
@@ -26279,7 +26248,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "display-captions",
@@ -26305,7 +26274,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "remotion-maps",
@@ -26316,7 +26285,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "rendering",
@@ -26349,7 +26318,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "framework",
@@ -26370,7 +26339,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "maps-maplibre",
@@ -26461,7 +26430,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.514"
+      "version": "4.0.515"
     },
     {
       "name": "maps-maplibre",
@@ -28740,6 +28709,16 @@
         "python",
         "yaml"
       ]
+    },
+    {
+      "name": "modern-cpp",
+      "description": "Guides C++ code toward modern idioms (C++20/23/26). Use when writing new C++ code, modernizing legacy patterns, or working on security-critical C++. Replaces raw pointers with smart pointers, SFINAE w",
+      "path": "trailofbits--skills/plugins/modern-cpp/skills/modern-cpp/SKILL.md",
+      "remote_path": "plugins/modern-cpp/skills/modern-cpp/SKILL.md",
+      "lines": 188,
+      "words": 1197,
+      "code_blocks": 4,
+      "languages": []
     },
     {
       "name": "property-based-testing",
@@ -148523,12 +148502,38 @@
       "version": "1.0.0"
     },
     {
+      "name": "omarchy-plugin-architect",
+      "description": "'Design and build Omarchy (Quickshell/QML) bar-widget, panel, and service plugins that actually work on a stock install. Knows the hard runtime constraint (no node on the graphical session PATH), the ",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/.claude/agents/omarchy-plugin-architect.md",
+      "remote_path": ".claude/agents/omarchy-plugin-architect.md",
+      "lines": 213,
+      "words": 1422,
+      "code_blocks": 4,
+      "languages": [
+        "qml"
+      ],
+      "version": "1.0.0"
+    },
+    {
       "name": "beads-warden",
       "description": "'Guard the beads execution record: enforce the write-flush-verify discipline that defeats the bd rapid-write race, audit epic dependency graphs for cycles and orphans, catch closures whose title overs",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/.claude/agents/beads-warden.md",
       "remote_path": ".claude/agents/beads-warden.md",
       "lines": 246,
       "words": 1812,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "name": "omarchy-submission-auditor",
+      "description": "'Audit an Omarchy plugin before it reaches the marketplace: prove it installs and runs on a stock box (no node/python on the session PATH), run the omarchy-submit gate lane, validate on the rig with o",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/.claude/agents/omarchy-submission-auditor.md",
+      "remote_path": ".claude/agents/omarchy-submission-auditor.md",
+      "lines": 148,
+      "words": 1016,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -152476,7 +152481,7 @@
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
       "lines": 316,
-      "words": 2555,
+      "words": 2695,
       "code_blocks": 0,
       "languages": []
     },
