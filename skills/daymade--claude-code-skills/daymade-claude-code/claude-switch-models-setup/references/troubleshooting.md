@@ -77,7 +77,18 @@ Run the profile syncer so every profile mirrors the default profile's `enabledPl
 python3 ~/.config/claude-switch-models-setup/claude-plugins-sync.py
 ```
 
-Restart the affected Claude Code window after syncing.
+This file-level fix also happens automatically, usually within seconds, when
+the `ai.daymade.claude-skill-source-sync` LaunchAgent is installed (see "Local
+skill source changes do not appear in Claude Code or Codex" below) — `claude
+plugin enable/disable --scope user` writes to `~/.claude/settings.json`, which
+is itself a watched path, and the watcher's sync pass calls this same script.
+Run the command above manually when the watcher is not installed, or to force
+convergence without waiting (verified 2026-08-22: `launchctl`'s per-agent run
+counter incremented within 5s of a bare `touch` on the watched file).
+
+Restart the affected Claude Code window after syncing — a running session
+does not re-read `enabledPlugins` mid-session, whether the file was synced by
+hand or by the watcher.
 
 ## Default-profile behavior settings don't reach third-party profiles
 
@@ -194,12 +205,19 @@ The script backs up existing real copies under `.source-sync-backups/` before cr
 
 This should not happen on current scripts: `sync-local-skill-sources.py` and `claude-plugins-sync.py` share a cross-process lock before writing marketplace JSON, installed plugin metadata, or cache symlinks.
 
-If you still see `FileExistsError` while creating a symlink or `FileNotFoundError` while replacing `known_marketplaces.json`, update the installed helper scripts from the source skill and rerun:
+If you still see `FileExistsError` while creating a symlink or `FileNotFoundError` while replacing `known_marketplaces.json`, re-link (not copy — see "Why symlinks and not `cp`" in SKILL.md's install steps; a `cp` here statically forks these files and reintroduces the exact silent-drift failure that section exists to prevent) the installed helper scripts from the source skill and rerun. This is the same install form SKILL.md uses, covering all five deployed scripts:
 
 ```bash
-cp <source>/scripts/claude-profiles.sh ~/.config/claude-switch-models-setup/claude-profiles.sh
-cp <source>/scripts/claude-plugins-sync.py ~/.config/claude-switch-models-setup/claude-plugins-sync.py
-cp <source>/scripts/sync-local-skill-sources.py ~/.config/claude-switch-models-setup/sync-local-skill-sources.py
+REPO=<absolute-path-to-this-repo>/daymade-claude-code/claude-switch-models-setup
+DST=~/.config/claude-switch-models-setup
+mkdir -p "$DST"
+for f in scripts/claude-profiles.sh \
+         scripts/claude-plugins-sync.py \
+         scripts/sync-local-skill-sources.py \
+         scripts/sync-local-skill-sources-daemon.sh \
+         scripts/sync-profile-settings.py; do
+  ln -sf "$REPO/$f" "$DST/$(basename "$f")"
+done
 ```
 
 Then verify with concurrent version probes:

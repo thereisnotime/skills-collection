@@ -82,6 +82,48 @@ def check_pattern_in_history(
     return list(matched), None
 
 
+def check_pattern_in_messages(
+    repo_path: Path, pattern: str, is_regex: bool
+) -> tuple[list[str], int, str | None]:
+    """Return (commit hashes, hit count, error) for commit MESSAGES.
+
+    `git grep <commits>` only searches blob content; a rewrite that covered
+    file content but missed --replace-message would pass blob checks while
+    the entity still named itself in a commit message.
+
+    Decoding uses errors="replace": repos with GBK/legacy-encoded commit
+    messages must not crash verification (a repo being cleaned is by
+    definition a repo with hygiene problems — old encodings included).
+    Hashes are returned so a FAILED report locates the offending commits
+    instead of just counting hits.
+    """
+    log = subprocess.run(
+        ["git", "-C", str(repo_path), "log", "--all",
+         "--format=%H%x1f%B%x1e", "--no-color"],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        check=False,
+    )
+    if log.returncode != 0:
+        return [], 0, f"git log failed: {log.stderr}"
+    rx = re.compile(pattern) if is_regex else None
+    hashes: list[str] = []
+    hits = 0
+    for record in log.stdout.split("\x1e"):
+        sha, sep, msg = record.partition("\x1f")
+        if not sep:
+            continue
+        sha = sha.strip()
+        matched = bool(rx.search(msg)) if rx else pattern in msg
+        if not matched:
+            continue
+        hits += len(rx.findall(msg)) if rx else msg.count(pattern)
+        if sha and sha not in hashes:
+            hashes.append(sha)
+    return hashes, hits, None
+
+
 def run_gitleaks(repo_path: Path) -> list[dict]:
     gitleaks_bin = shutil.which("gitleaks")
     if not gitleaks_bin:
@@ -100,7 +142,7 @@ def run_gitleaks(repo_path: Path) -> list[dict]:
         "--report-path",
         str(tmp_path),
     ]
-    subprocess.run(cmd, capture_output=True, text=True, check=False)
+    subprocess.run(cmd, capture_output=True, text=True, errors="replace", check=False)
 
     findings = []
     if tmp_path.exists():
@@ -166,10 +208,22 @@ def main():
                 {"pattern": item["pattern"], "is_regex": item["is_regex"], "error": error}
             )
             continue
-        if commits:
-            remaining.append(
-                {"pattern": item["pattern"], "is_regex": item["is_regex"], "commits": commits[:10]}
+        msg_hashes, msg_hits, msg_error = check_pattern_in_messages(
+            repo_path, item["pattern"], item["is_regex"]
+        )
+        if msg_error:
+            check_errors.append(
+                {"pattern": item["pattern"], "is_regex": item["is_regex"], "error": msg_error}
             )
+            continue
+        if commits or msg_hits:
+            entry = {"pattern": item["pattern"], "is_regex": item["is_regex"]}
+            if commits:
+                entry["commits"] = commits[:10]
+            if msg_hits:
+                entry["commit_message_hits"] = msg_hits
+                entry["commit_message_commits"] = msg_hashes[:10]
+            remaining.append(entry)
 
     report = {
         "repo": str(repo_path),

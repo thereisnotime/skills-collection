@@ -96,6 +96,89 @@ seen. History cleanup does not invalidate the secret.
 - The skill instructions make this explicit: "Live secrets must be rotated
   before history cleanup."
 
+## Lesson 7: Commit Messages Leak Too — Blob-Only Rewrite and Verify Both Missed Them
+
+**What happened:** A cleanup replaced leaked entities in file content across
+history, but the commit messages kept naming the same entities — including
+the squash-merge message on `main` itself. `rewrite_history.py` only ran
+`--replace-text` (blob content), and `verify_cleanup.py` only ran
+`git grep` over commit trees, which also covers blobs only. Both layers
+agreed the repo was clean while the entity sat in `git log` output.
+
+**Why it matters:** Two checks that share a blind spot read as independent
+confirmation. A rewrite is only as complete as its narrowest channel, and
+commit messages are a first-class leak channel — search engines index them.
+
+**Prevention:**
+
+- `rewrite_history.py --message-replacements <file>` runs
+  `git filter-repo --replace-message` in the same pass; the same replacements
+  file usually covers both channels.
+- `verify_cleanup.py` now greps commit messages (`git log` over all refs,
+  hash-annotated) in addition to blob content, so a message-only leak fails
+  verification.
+
+## Lesson 8: The Clean-Working-Tree Check Blocks Rewrites on Shared Checkouts
+
+**What happened:** A rewrite had to run while untracked directories owned by
+other active sessions sat in the working tree. `rewrite_history.py` aborts on
+any `git status --short` output, and the foreign files could neither be
+committed (not the rewriter's work) nor moved (active writers).
+
+**Why it matters:** The check protects against losing uncommitted tracked
+changes during the post-rewrite checkout, but untracked files are not touched
+by a ref rewrite or by the final `reset --hard` — blocking on them conflates
+two different risks and can stall an urgent cleanup.
+
+**Prevention:** If the tree is clean except foreign-owned untracked paths,
+run the script's exact steps manually (backup bundle, `git filter-repo`,
+verify) and document the deviation — never delete or stash another session's
+files to satisfy the check.
+
+## Lesson 9: The Tooling Crashed on Exactly the Repos It Cleans
+
+**What happened:** Independent review of the Lesson 7 fixes found that the
+tooling itself broke on realistic inputs: `verify_cleanup.py` decoded
+`git log` output with strict UTF-8, so one GBK/legacy-encoded commit message
+crashed verification with an uncaught `UnicodeDecodeError` — no report at
+all. The SKILL.md rewrite command blocks (Step 4 and the script-reference
+section) omitted `--yes`, so following the documentation verbatim exited
+before the backup was even created.
+`rewrite_history.py` ran `git bundle verify` without `-C <repo>`, crashing
+when invoked from a non-git directory, and the resulting `RuntimeError`
+escaped the `except` clause. A FAILED message check reported only a hit
+count, leaving the operator to hand-grep `git log` for the offending
+commits.
+
+A documentation-round review then found the same crash class still open in
+the blob channel (`git grep` decode in `grep_all_commits`) — the
+prescription below had been written before the class was fully closed. It
+was fixed by hardening every subprocess decode in all four scripts, and the
+fix was verified against a GBK-encoded source file containing a leak:
+verification now reports the leak from both channels instead of dying.
+
+**Why it matters:** A repo being cleaned is by definition a repo with
+hygiene problems — legacy encodings included — so the verification tooling
+must be more robust than the code it inspects; a verifier that crashes
+instead of reporting converts "leak still present" into "tool broken" at
+the worst possible moment. And a documented command that cannot be run
+verbatim trains operators to improvise, which is how steps like backups
+get silently skipped.
+
+**Prevention:**
+
+- Decode git output with `errors="replace"` when the goal is detection, not
+  fidelity — this now holds for every subprocess decode in all four scripts,
+  both channels. Report `commit_message_commits` hashes (first 10) so a
+  FAILED check locates commits instead of just counting hits. Boundary:
+  `errors="replace"` prevents the crash but cannot make a UTF-8 pattern
+  match GBK-encoded CJK bytes — non-UTF-8 content belongs to the Layer 4
+  semantic review, not regex.
+- Test every documented command block verbatim — copy-paste from the doc
+  into a shell — before shipping the doc.
+- Pass `-C <repo>` to every git invocation; scripts must behave identically
+  from any working directory.
+
 ## When to Escalate to a Human
 
 Stop and ask the user before proceeding if:

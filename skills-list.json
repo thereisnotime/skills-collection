@@ -11058,8 +11058,8 @@
       "description": "\"Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm, scope what to build, or needs collaborative product framing before planning.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 66,
-      "words": 1002,
+      "lines": 68,
+      "words": 1117,
       "code_blocks": 0,
       "languages": []
     },
@@ -11199,8 +11199,8 @@
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
-      "lines": 59,
-      "words": 959,
+      "lines": 61,
+      "words": 1111,
       "code_blocks": 0,
       "languages": []
     },
@@ -11250,7 +11250,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-work/SKILL.md",
       "remote_path": "skills/ce-work/SKILL.md",
       "lines": 59,
-      "words": 982,
+      "words": 1056,
       "code_blocks": 0,
       "languages": []
     },
@@ -151692,8 +151692,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-sensitive-data-cleanup/SKILL.md",
       "remote_path": "github-sensitive-data-cleanup/SKILL.md",
-      "lines": 323,
-      "words": 1577,
+      "lines": 341,
+      "words": 1696,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -152329,8 +152329,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 450,
-      "words": 4468,
+      "lines": 454,
+      "words": 4544,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -152342,8 +152342,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
       "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
-      "lines": 149,
-      "words": 957,
+      "lines": 160,
+      "words": 1050,
       "code_blocks": 3,
       "languages": [
         "markdown",
@@ -152392,9 +152392,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-history-files-finder/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-history-files-finder/SKILL.md",
-      "lines": 556,
-      "words": 3321,
-      "code_blocks": 19,
+      "lines": 594,
+      "words": 3600,
+      "code_blocks": 20,
       "languages": [
         "bash",
         "text"
@@ -152417,11 +152417,12 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1075,
-      "words": 12222,
-      "code_blocks": 8,
+      "lines": 1149,
+      "words": 12829,
+      "code_blocks": 10,
       "languages": [
-        "bash"
+        "bash",
+        "text"
       ]
     },
     {
@@ -152480,8 +152481,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 316,
-      "words": 2695,
+      "lines": 330,
+      "words": 2830,
       "code_blocks": 0,
       "languages": []
     },

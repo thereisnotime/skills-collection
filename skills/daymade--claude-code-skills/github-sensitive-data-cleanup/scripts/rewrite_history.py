@@ -9,6 +9,14 @@ Usage:
       --repo /path/to/repo \
       --replacements /tmp/sensitive-replacements.txt \
       --backup /tmp/repo-backup.bundle
+
+    # also rewrite commit MESSAGES (entity leaks live there too — file content
+    # can be clean while the commit message still names the private entity):
+    uv run --with gitpython scripts/rewrite_history.py \
+      --repo /path/to/repo \
+      --replacements /tmp/sensitive-replacements.txt \
+      --message-replacements /tmp/sensitive-replacements.txt \
+      --backup /tmp/repo-backup.bundle
 """
 
 import argparse
@@ -24,7 +32,7 @@ def get_current_heads(repo_path: Path) -> dict:
     result = subprocess.run(
         ["git", "-C", str(repo_path), "show-ref", "--heads"],
         capture_output=True,
-        text=True,
+        text=True, errors="replace",
         check=False,
     )
     heads = {}
@@ -49,10 +57,12 @@ def create_backup(repo_path: Path, backup_path: Path) -> None:
     ]
     subprocess.run(cmd, check=True)
 
+    # 与 create 一样带 -C：从非 git 目录调用时 bundle verify 会因找不到
+    # 仓库而失败（错误信息指错方向），且 RuntimeError 要能被调用点接住
     verify = subprocess.run(
-        ["git", "bundle", "verify", str(backup_path)],
+        ["git", "-C", str(repo_path), "bundle", "verify", str(backup_path)],
         capture_output=True,
-        text=True,
+        text=True, errors="replace",
         check=False,
     )
     if verify.returncode != 0:
@@ -64,7 +74,7 @@ def check_clean_working_tree(repo_path: Path) -> None:
     result = subprocess.run(
         ["git", "-C", str(repo_path), "status", "--short"],
         capture_output=True,
-        text=True,
+        text=True, errors="replace",
         check=False,
     )
     if result.stdout.strip():
@@ -81,6 +91,13 @@ def main():
     parser = argparse.ArgumentParser(description="Rewrite repo history to remove sensitive strings.")
     parser.add_argument("--repo", required=True, help="Path to the git repository.")
     parser.add_argument("--replacements", required=True, help="Path to git-filter-repo replacements file.")
+    parser.add_argument(
+        "--message-replacements",
+        default=None,
+        help="Optional replacements file for commit MESSAGES "
+             "(git filter-repo --replace-message). File content and commit "
+             "messages leak differently; pass the same file to cover both.",
+    )
     parser.add_argument("--backup", required=True, help="Path for the output git bundle backup.")
     parser.add_argument(
         "--yes",
@@ -91,6 +108,9 @@ def main():
 
     repo_path = Path(args.repo).resolve()
     replacements_path = Path(args.replacements).resolve()
+    message_replacements_path = (
+        Path(args.message_replacements).resolve() if args.message_replacements else None
+    )
     backup_path = Path(args.backup).resolve()
 
     if not (repo_path / ".git").is_dir():
@@ -99,6 +119,13 @@ def main():
 
     if not replacements_path.is_file():
         print(f"Replacements file not found: {replacements_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if message_replacements_path is not None and not message_replacements_path.is_file():
+        print(
+            f"Message replacements file not found: {message_replacements_path}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     filter_repo_bin = shutil.which("git-filter-repo")
@@ -112,7 +139,7 @@ def main():
     version_check = subprocess.run(
         [filter_repo_bin, "--version"],
         capture_output=True,
-        text=True,
+        text=True, errors="replace",
         check=False,
     )
     if version_check.returncode != 0:
@@ -141,7 +168,7 @@ def main():
     print("Creating backup bundle...")
     try:
         create_backup(repo_path, backup_path)
-    except subprocess.CalledProcessError as e:
+    except (subprocess.CalledProcessError, RuntimeError) as e:
         print(f"Backup failed: {e}", file=sys.stderr)
         sys.exit(1)
     print(f"Backup created: {backup_path}")
@@ -153,6 +180,8 @@ def main():
         "--replace-text",
         str(replacements_path),
     ]
+    if message_replacements_path is not None:
+        cmd += ["--replace-message", str(message_replacements_path)]
     try:
         subprocess.run(cmd, cwd=str(repo_path), check=True)
     except subprocess.CalledProcessError as e:

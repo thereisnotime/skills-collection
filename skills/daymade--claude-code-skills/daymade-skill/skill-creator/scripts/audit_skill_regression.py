@@ -148,7 +148,11 @@ def _git_output(repo: Path, *args: str, text: bool = True) -> str | bytes:
 
 def _git_tree_hash(repo: Path, commit: str, skill_rel: Path) -> str:
     """Hash the distributable/development skill tree exactly as stored in Git."""
-    prefix = skill_rel.as_posix().rstrip("/") + "/"
+    # skill_rel == Path(".")（skill 目录即仓根）时，git ls-tree 输出无前缀路径
+    # （"SKILL.md"），而 ".".rstrip("/")+"/" 拼出的 "./" 永不匹配任何条目，
+    # 会把整个树滤空并报 "does not contain ./SKILL.md"。仓根必须用空前缀。
+    rel = skill_rel.as_posix().rstrip("/")
+    prefix = "" if rel in ("", ".") else rel + "/"
     listing = _git_output(
         repo,
         "ls-tree",
@@ -256,7 +260,7 @@ def _resolve_baseline_provenance(
         expected_source_hash = hashlib.sha256(str(identity_source).encode("utf-8")).hexdigest()
         if manifest.get("source_path_hash") != expected_source_hash:
             if renamed_from is None:
-                hint = " (pass --renamed-from <the path --source pointed at during snapshot> if the skill was renamed/moved)"
+                hint = " (re-run compare with --renamed-from <the path --source pointed at during snapshot> if the skill was renamed/moved)"
             else:
                 hint = (
                     f" (--renamed-from resolved to {identity_source} — verify this is exactly "
@@ -918,7 +922,18 @@ def verify_review(before: Path, after: Path, review_path: Path) -> tuple[bool, l
     after = after.resolve()
     review = _load_review(review_path)
     baseline_origin = review.get("before", {}).get("provenance", {}).get("origin")
-    current = build_report(before, after, baseline_origin=baseline_origin or "")
+    # compare 已把 --renamed-from 记进 provenance；verify 必须沿用同一身份源，
+    # 否则凡 snapshot 源路径 ≠ --after 路径（如 baseline 取自替身目录）时
+    # identity 检查永远失败，形成无解死路。
+    renamed_from_value = review.get("before", {}).get("provenance", {}).get("renamed_from")
+    renamed_from = (
+        Path(renamed_from_value)
+        if isinstance(renamed_from_value, str) and renamed_from_value
+        else None
+    )
+    current = build_report(
+        before, after, baseline_origin=baseline_origin or "", renamed_from=renamed_from
+    )
     errors: list[str] = []
     if review.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"unsupported schema_version: {review.get('schema_version')!r}")
@@ -1013,6 +1028,11 @@ def classify_review(
     compute file fingerprints for file-level candidates, and write entries in
     the exact shape ``verify`` validates. Fail-fast: any problem in the map
     aborts before anything is written, so a half-classified review never lands.
+
+    Map fields: ``destination``, ``reason``, ``disposition`` (default
+    ``preserved_or_moved``), ``needle`` (non-file candidates). Optional
+    ``user_approval`` is passed through verbatim — ``verify`` requires it for
+    runtime ``intentional_boundary`` and ``removed_by_explicit_user_request``.
     """
     after = after.resolve()
     review = _load_review(review_path)
@@ -1038,10 +1058,36 @@ def classify_review(
         candidate = by_id.get(key)
         if candidate is None:
             try:
-                candidate = candidates[int(key)]
+                idx = int(key)
+                # 负数索引在 Python 里合法但在这里是语义错乱（"-1" 会静默指向
+                # 最后一个候选）——索引必须是候选集内的非负整数，否则落到
+                # 前缀/报错路径。
+                if idx >= 0:
+                    candidate = candidates[idx]
             except (ValueError, IndexError):
-                errors.append(f"map key {key!r} matches no candidate index or id")
-                continue
+                candidate = None
+        if candidate is None:
+            # 唯一 id 前缀（≥4 字符）：完整 16 位 id 在终端里难抄，
+            # 前缀唯一即可安全定位；歧义前缀显式报错而不是静默选错。
+            # 纯数字 key 在索引失败（越界/负数）后同样允许走前缀——
+            # 候选 id 是 hex 截断，前几位全数字是常态（4 位全数字概率约 15%）。
+            if isinstance(key, str) and len(key) >= 4:
+                pref = [
+                    c
+                    for cid, c in by_id.items()
+                    if isinstance(cid, str) and cid.startswith(key)
+                ]
+                if len(pref) == 1:
+                    candidate = pref[0]
+                elif len(pref) > 1:
+                    errors.append(
+                        f"map key {key!r} is an ambiguous id prefix "
+                        f"({len(pref)} candidates match)"
+                    )
+                    continue
+        if candidate is None:
+            errors.append(f"map key {key!r} matches no candidate index or id")
+            continue
         if not isinstance(entry, dict):
             errors.append(f"map[{key}] must be an object")
             continue
@@ -1088,18 +1134,21 @@ def classify_review(
                 errors.append(f"map[{key}].needle not found in {destination}: {needle[:60]!r}")
                 continue
             evidence = [{"path": destination, "line": line_no, "contains": needle}]
-        staged.append(
-            (
-                candidate,
-                {
-                    "disposition": disposition,
-                    "reason": reason,
-                    "destination": destination,
-                    "evidence": evidence,
-                    "semantic_review": {"reviewer": reviewer, "rationale": reason},
-                },
-            )
-        )
+        fields: dict[str, Any] = {
+            "disposition": disposition,
+            "reason": reason,
+            "destination": destination,
+            "evidence": evidence,
+            "semantic_review": {"reviewer": reviewer, "rationale": reason},
+        }
+        # Pass through the approval trail verbatim — verify requires it for
+        # runtime intentional_boundary / removed_by_explicit_user_request, and
+        # silently dropping it here forces a hand-edit of the review JSON,
+        # which is exactly what this subcommand exists to prevent.
+        user_approval = str(entry.get("user_approval", "")).strip()
+        if user_approval:
+            fields["user_approval"] = user_approval
+        staged.append((candidate, fields))
 
     if errors:
         raise ValueError("disposition map has problems; nothing was written:\n- " + "\n- ".join(errors))

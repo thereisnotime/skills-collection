@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { readFile } from "fs/promises"
 import path from "path"
 import { describe, expect, test } from "bun:test"
@@ -1469,6 +1470,68 @@ describe("cross-model peer skip legibility", () => {
     })
   }
 
+  for (const reference of routeTokenPairs.map((p) => p.reference)) {
+    // The snippet resolves the harnesses whose markers it names; self-knowledge covers
+    // the rest. Without this, every new harness needs a bash arm AND a prose mapping —
+    // which is how the Grok change had to edit the same fact in two places.
+    test(`${reference} does not require a new attestation branch per harness`, async () => {
+      // ce-pov's panel reference is hard-wrapped, so match on collapsed whitespace.
+      const src = (await readRepoFile(reference)).replace(/\s+/g, " ")
+      expect(src).toContain("The snippet is evidence, not the verdict")
+      expect(src).toContain("attest what you know instead")
+      expect(src).toContain("A harness the snippet does not name needs no new branch here")
+    })
+  }
+
+  for (const reference of routeTokenPairs.map((p) => p.reference)) {
+    test(`${reference} binds grok-cli unless the user asked for Grok through Cursor`, async () => {
+      const src = await readRepoFile(reference)
+      expect(src).toContain("The host harness does not choose the Grok route")
+      expect(src).toContain("Target `grok` binds `grok-cli` when that CLI is installed")
+      expect(src).toContain("Bind `grok-cursor` only when the user asked for Grok through Cursor")
+    })
+  }
+
+  function extractHostAttestation(src: string): string {
+    const m = src.match(
+      /if \[ "\$\{CLAUDECODE:-\}" = "1" \]; then XHOST_HARNESS=claude; XHOST_FAMILY=claude;\n(?:elif .+\n)*else XHOST_HARNESS=unknown; XHOST_FAMILY=unknown; fi/,
+    )
+    expect(m).toBeTruthy()
+    return m![0]
+  }
+
+  function attestHost(snippet: string, env: Record<string, string>): string {
+    const r = spawnSync(
+      "bash",
+      ["-c", `${snippet}\nprintf '%s %s\\n' "$XHOST_HARNESS" "$XHOST_FAMILY"`],
+      {
+        encoding: "utf8",
+        env: { PATH: process.env.PATH ?? "/usr/bin:/bin", ...env },
+      },
+    )
+    expect(r.status).toBe(0)
+    return (r.stdout ?? "").trim()
+  }
+
+  test("cross-model host attestation snippets are identical and map Grok Build to grok", async () => {
+    const snippets = await Promise.all(
+      routeTokenPairs.map(async (p) => extractHostAttestation(await readRepoFile(p.reference))),
+    )
+    for (const snippet of snippets) {
+      expect(snippet).toBe(snippets[0])
+      expect(snippet).toContain('XHOST_HARNESS=grok; XHOST_FAMILY=grok')
+      expect(snippet).toContain("GROK_AGENT")
+      expect(snippet).toContain("GROK_SESSION_ID")
+    }
+    const snippet = snippets[0]
+    expect(attestHost(snippet, {})).toBe("unknown unknown")
+    expect(attestHost(snippet, { GROK_AGENT: "1" })).toBe("grok grok")
+    expect(attestHost(snippet, { GROK_SESSION_ID: "sess" })).toBe("grok grok")
+    expect(attestHost(snippet, { CLAUDECODE: "1", GROK_AGENT: "1" })).toBe("claude claude")
+    expect(attestHost(snippet, { CODEX_SESSION_ID: "sess", GROK_AGENT: "1" })).toBe("codex codex")
+    expect(attestHost(snippet, { CURSOR_AGENT: "1" })).toBe("cursor unknown")
+  })
+
   // The provider runs under `set -m` in its OWN process group so the worker can
   // group-reap it without killing itself. On a clean worker exit the runner's
   // final sweep only kills the worker's pgid, and a survivor the provider left
@@ -1529,5 +1592,26 @@ describe("testing-reviewer contract", () => {
 
     // Non-behavioral changes are excluded
     expect(content).toContain("Non-behavioral changes")
+  })
+})
+
+describe("ce-code-review dispatch templates", () => {
+  // #1509: a placeholder named in the template's prose gets filled like a slot, so
+  // `{diff}` in the closing note re-emitted the whole diff into every reviewer prompt.
+  // Each placeholder may appear only once inside the fenced template, as its slot.
+  test("the reviewer template names each placeholder once, as a slot", async () => {
+    const content = await readRepoFile(
+      "skills/ce-code-review/references/subagent-template.md",
+    )
+    // The template fence nests a ```json example, so bound it by the heading that follows it.
+    const fenced = content.match(/^```\n[\s\S]*?^```\n\n## Variable Reference/m)?.[0]
+    expect(fenced).toBeDefined()
+    const counts = new Map<string, number>()
+    for (const m of fenced!.matchAll(/\{([a-z_]+)\}/g)) {
+      counts.set(m[1], (counts.get(m[1]) ?? 0) + 1)
+    }
+    for (const name of ["file_list", "diff"]) {
+      expect(counts.get(name)).toBe(1)
+    }
   })
 })
