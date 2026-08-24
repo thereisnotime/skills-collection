@@ -10953,7 +10953,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
       "lines": 63,
-      "words": 1034,
+      "words": 1089,
       "code_blocks": 0,
       "languages": []
     },
@@ -10963,7 +10963,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-promote/SKILL.md",
       "remote_path": "skills/ce-promote/SKILL.md",
       "lines": 93,
-      "words": 1100,
+      "words": 1116,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -10975,7 +10975,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
       "lines": 73,
-      "words": 899,
+      "words": 922,
       "code_blocks": 0,
       "languages": []
     },
@@ -11029,7 +11029,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-test-browser/SKILL.md",
       "remote_path": "skills/ce-test-browser/SKILL.md",
       "lines": 51,
-      "words": 928,
+      "words": 963,
       "code_blocks": 0,
       "languages": []
     },
@@ -11069,7 +11069,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-product-pulse/SKILL.md",
       "remote_path": "skills/ce-product-pulse/SKILL.md",
       "lines": 82,
-      "words": 1139,
+      "words": 1162,
       "code_blocks": 0,
       "languages": []
     },
@@ -11101,7 +11101,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
       "lines": 68,
-      "words": 1187,
+      "words": 1223,
       "code_blocks": 0,
       "languages": []
     },
@@ -11111,7 +11111,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
       "lines": 65,
-      "words": 927,
+      "words": 950,
       "code_blocks": 0,
       "languages": []
     },
@@ -11153,7 +11153,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-worktree/SKILL.md",
       "remote_path": "skills/ce-worktree/SKILL.md",
       "lines": 55,
-      "words": 934,
+      "words": 969,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11165,7 +11165,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-strategy/SKILL.md",
       "remote_path": "skills/ce-strategy/SKILL.md",
       "lines": 62,
-      "words": 1263,
+      "words": 1241,
       "code_blocks": 0,
       "languages": []
     },
@@ -11175,7 +11175,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
       "lines": 97,
-      "words": 956,
+      "words": 991,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -11200,7 +11200,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 61,
-      "words": 1111,
+      "words": 1133,
       "code_blocks": 0,
       "languages": []
     },
@@ -11210,7 +11210,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
       "lines": 54,
-      "words": 1026,
+      "words": 1052,
       "code_blocks": 0,
       "languages": []
     },
@@ -11270,7 +11270,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-ideate/SKILL.md",
       "remote_path": "skills/ce-ideate/SKILL.md",
       "lines": 74,
-      "words": 987,
+      "words": 1039,
       "code_blocks": 0,
       "languages": []
     },
@@ -11280,7 +11280,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
       "lines": 117,
-      "words": 2325,
+      "words": 2351,
       "code_blocks": 1,
       "languages": []
     },
@@ -21399,7 +21399,7 @@
       "path": "coreyhaines31--marketingskills/skills/ads/SKILL.md",
       "remote_path": "skills/ads/SKILL.md",
       "lines": 500,
-      "words": 3924,
+      "words": 4092,
       "code_blocks": 2,
       "languages": []
     },
@@ -21408,8 +21408,8 @@
       "description": "When the user wants to conduct, analyze, or synthesize customer research. Use when the user mentions \"customer research,\" \"ICP research,\" \"talk to customers,\" \"analyze transcripts,\" \"customer intervie",
       "path": "coreyhaines31--marketingskills/skills/customer-research/SKILL.md",
       "remote_path": "skills/customer-research/SKILL.md",
-      "lines": 285,
-      "words": 1937,
+      "lines": 306,
+      "words": 2253,
       "code_blocks": 2,
       "languages": []
     },
@@ -21428,8 +21428,8 @@
       "description": "\"When the user wants to plan a product launch, feature announcement, or release strategy. Also use when the user mentions 'launch,' 'Product Hunt,' 'feature release,' 'announcement,' 'go-to-market,' '",
       "path": "coreyhaines31--marketingskills/skills/launch/SKILL.md",
       "remote_path": "skills/launch/SKILL.md",
-      "lines": 354,
-      "words": 1915,
+      "lines": 382,
+      "words": 2298,
       "code_blocks": 0,
       "languages": []
     },
@@ -21504,8 +21504,8 @@
       "description": "When the user wants to write, rewrite, or improve marketing copy for any page \u2014 including homepage, landing pages, pricing pages, feature pages, about pages, or product pages. Also use when the user s",
       "path": "coreyhaines31--marketingskills/skills/copywriting/SKILL.md",
       "remote_path": "skills/copywriting/SKILL.md",
-      "lines": 253,
-      "words": 1157,
+      "lines": 257,
+      "words": 1257,
       "code_blocks": 0,
       "languages": []
     },
@@ -21514,8 +21514,8 @@
       "description": "\"When the user wants to design, construct, or improve an offer \u2014 the thing they actually sell \u2014 including value framing, bonus stacking, guarantee design, scarcity/urgency, naming, and payment structu",
       "path": "coreyhaines31--marketingskills/skills/offers/SKILL.md",
       "remote_path": "skills/offers/SKILL.md",
-      "lines": 154,
-      "words": 1362,
+      "lines": 156,
+      "words": 1434,
       "code_blocks": 1,
       "languages": []
     },
@@ -21524,8 +21524,8 @@
       "description": "\"When the user needs marketing ideas, inspiration, or strategies for their SaaS or software product. Also use when the user asks for 'marketing ideas,' 'growth ideas,' 'how to market,' 'marketing stra",
       "path": "coreyhaines31--marketingskills/skills/marketing-ideas/SKILL.md",
       "remote_path": "skills/marketing-ideas/SKILL.md",
-      "lines": 169,
-      "words": 806,
+      "lines": 172,
+      "words": 859,
       "code_blocks": 0,
       "languages": []
     },
@@ -21546,6 +21546,16 @@
       "remote_path": "skills/sales-enablement/SKILL.md",
       "lines": 360,
       "words": 2278,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "events",
+      "description": "\"When the user wants to plan, run, sponsor, speak at, or get pipeline from events \u2014 webinars, conferences, trade shows, meetups, dinners, workshops, virtual summits, or user conferences. Also use when",
+      "path": "coreyhaines31--marketingskills/skills/events/SKILL.md",
+      "remote_path": "skills/events/SKILL.md",
+      "lines": 132,
+      "words": 1794,
       "code_blocks": 0,
       "languages": []
     },
@@ -21586,8 +21596,8 @@
       "description": "\"When the user wants to find co-marketing partners, plan joint campaigns, or brainstorm partnership opportunities. Use when the user says 'co-marketing,' 'partner marketing,' 'joint campaign,' 'who sh",
       "path": "coreyhaines31--marketingskills/skills/co-marketing/SKILL.md",
       "remote_path": "skills/co-marketing/SKILL.md",
-      "lines": 291,
-      "words": 1527,
+      "lines": 311,
+      "words": 1756,
       "code_blocks": 1,
       "languages": []
     },
@@ -21596,8 +21606,8 @@
       "description": "When the user wants to plan a content strategy, decide what content to create, or figure out what topics to cover. Also use when the user mentions \"content strategy,\" \"what should I write about,\" \"con",
       "path": "coreyhaines31--marketingskills/skills/content-strategy/SKILL.md",
       "remote_path": "skills/content-strategy/SKILL.md",
-      "lines": 383,
-      "words": 2048,
+      "lines": 440,
+      "words": 2754,
       "code_blocks": 2,
       "languages": []
     },
@@ -21673,8 +21683,8 @@
       "description": "\"When the user wants help with pricing decisions, packaging, or monetization strategy. Also use when the user mentions 'pricing,' 'pricing tiers,' 'freemium,' 'free trial,' 'packaging,' 'price increas",
       "path": "coreyhaines31--marketingskills/skills/pricing/SKILL.md",
       "remote_path": "skills/pricing/SKILL.md",
-      "lines": 249,
-      "words": 1384,
+      "lines": 296,
+      "words": 2002,
       "code_blocks": 0,
       "languages": []
     },
@@ -21735,8 +21745,8 @@
       "description": "\"When the user wants to create, optimize, or analyze a referral program, affiliate program, or word-of-mouth strategy. Also use when the user mentions 'referral,' 'affiliate,' 'ambassador,' 'word of m",
       "path": "coreyhaines31--marketingskills/skills/referrals/SKILL.md",
       "remote_path": "skills/referrals/SKILL.md",
-      "lines": 258,
-      "words": 1072,
+      "lines": 278,
+      "words": 1269,
       "code_blocks": 2,
       "languages": []
     },
@@ -21790,8 +21800,8 @@
       "description": "\"When the user wants help with public relations, earned media, press coverage, journalist outreach, or media strategy (not pull requests). Also use when the user mentions 'PR,' 'public relations,' 'pr",
       "path": "coreyhaines31--marketingskills/skills/public-relations/SKILL.md",
       "remote_path": "skills/public-relations/SKILL.md",
-      "lines": 137,
-      "words": 1172,
+      "lines": 143,
+      "words": 1323,
       "code_blocks": 0,
       "languages": []
     },
@@ -21800,8 +21810,8 @@
       "description": "\"Build and leverage online communities to drive product growth and brand loyalty. Use when the user wants to create a community strategy, grow a Discord or Slack community, manage a forum or subreddit",
       "path": "coreyhaines31--marketingskills/skills/community-marketing/SKILL.md",
       "remote_path": "skills/community-marketing/SKILL.md",
-      "lines": 164,
-      "words": 1326,
+      "lines": 176,
+      "words": 1454,
       "code_blocks": 1,
       "languages": []
     },
@@ -21810,8 +21820,8 @@
       "description": "\"When the user wants to generate, iterate, or scale ad creative \u2014 headlines, descriptions, primary text, or full ad variations \u2014 for any paid advertising platform. Also use when the user mentions 'ad ",
       "path": "coreyhaines31--marketingskills/skills/ad-creative/SKILL.md",
       "remote_path": "skills/ad-creative/SKILL.md",
-      "lines": 422,
-      "words": 2979,
+      "lines": 426,
+      "words": 3252,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -21833,8 +21843,8 @@
       "description": "When the user needs a comprehensive marketing plan for a client, a company they advise, or their own product. Also use when the user mentions \"marketing plan,\" \"growth plan,\" \"GTM plan,\" \"go-to-market",
       "path": "coreyhaines31--marketingskills/skills/marketing-plan/SKILL.md",
       "remote_path": "skills/marketing-plan/SKILL.md",
-      "lines": 271,
-      "words": 3121,
+      "lines": 301,
+      "words": 3642,
       "code_blocks": 2,
       "languages": []
     },
@@ -21843,8 +21853,8 @@
       "description": "When the user wants to plan, evaluate, or build a free tool for marketing purposes \u2014 lead generation, SEO value, or brand awareness. Also use when the user mentions \"engineering as marketing,\" \"free t",
       "path": "coreyhaines31--marketingskills/skills/free-tools/SKILL.md",
       "remote_path": "skills/free-tools/SKILL.md",
-      "lines": 180,
-      "words": 909,
+      "lines": 191,
+      "words": 1093,
       "code_blocks": 0,
       "languages": []
     },
@@ -21885,8 +21895,8 @@
       "description": "When the user wants to optimize post-signup onboarding, user activation, first-run experience, or time-to-value. Also use when the user mentions \"onboarding flow,\" \"activation rate,\" \"user activation,",
       "path": "coreyhaines31--marketingskills/skills/onboarding/SKILL.md",
       "remote_path": "skills/onboarding/SKILL.md",
-      "lines": 221,
-      "words": 999,
+      "lines": 262,
+      "words": 1520,
       "code_blocks": 1,
       "languages": []
     },
@@ -25258,7 +25268,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "transparent-videos",
@@ -25285,7 +25295,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "tailwind",
@@ -25306,7 +25316,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "remotion-best-practices",
@@ -25317,7 +25327,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "remotion-upgrade",
@@ -25330,7 +25340,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "calculate-metadata",
@@ -25356,7 +25366,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "lottie",
@@ -25627,7 +25637,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "remotion-multimedia",
@@ -25638,7 +25648,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "get-audio-duration",
@@ -25687,7 +25697,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "transcribe-captions",
@@ -25739,7 +25749,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "remotion-maps",
@@ -25750,7 +25760,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "rendering",
@@ -25771,7 +25781,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "player",
@@ -25818,7 +25828,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "remotion-create",
@@ -25831,7 +25841,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "tailwind",
@@ -25852,7 +25862,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "remotion-upgrade",
@@ -25865,7 +25875,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "calculate-metadata",
@@ -26020,7 +26030,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "measuring-dom-nodes",
@@ -26162,7 +26172,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "get-audio-duration",
@@ -26185,7 +26195,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "get-video-dimensions",
@@ -26248,7 +26258,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "display-captions",
@@ -26274,7 +26284,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "remotion-maps",
@@ -26285,7 +26295,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "rendering",
@@ -26318,7 +26328,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "framework",
@@ -26339,7 +26349,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "maps-maplibre",
@@ -26430,7 +26440,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.515"
+      "version": "4.0.516"
     },
     {
       "name": "maps-maplibre",
@@ -32778,11 +32788,11 @@
     },
     {
       "name": "performing-docker-bench-security-assessment",
-      "description": "Run Docker Bench for Security, the open-source CIS Docker Benchmark audit",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/performing-docker-bench-security-assessment/SKILL.md",
       "remote_path": "skills/performing-docker-bench-security-assessment/SKILL.md",
-      "lines": 154,
-      "words": 603,
+      "lines": 156,
+      "words": 627,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -33709,11 +33719,11 @@
     },
     {
       "name": "detecting-container-escape-attempts",
-      "description": "Detect container escape attempts where an adversary breaks out of container isolation to reach the host or other containers, by monitoring namespace manipulation, capability abuse, kernel exploits, se",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/detecting-container-escape-attempts/SKILL.md",
       "remote_path": "skills/detecting-container-escape-attempts/SKILL.md",
-      "lines": 325,
-      "words": 1255,
+      "lines": 334,
+      "words": 1288,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -33725,11 +33735,11 @@
     },
     {
       "name": "implementing-rbac-hardening-for-kubernetes",
-      "description": "Harden Kubernetes RBAC by implementing least-privilege Roles and ClusterRoles,",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-rbac-hardening-for-kubernetes/SKILL.md",
       "remote_path": "skills/implementing-rbac-hardening-for-kubernetes/SKILL.md",
-      "lines": 270,
-      "words": 890,
+      "lines": 273,
+      "words": 911,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -34093,11 +34103,11 @@
     },
     {
       "name": "implementing-opa-gatekeeper-for-policy-enforcement",
-      "description": "Deploys OPA Gatekeeper via Helm as a Kubernetes admission controller and writes",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-opa-gatekeeper-for-policy-enforcement/SKILL.md",
       "remote_path": "skills/implementing-opa-gatekeeper-for-policy-enforcement/SKILL.md",
-      "lines": 396,
-      "words": 1022,
+      "lines": 400,
+      "words": 1052,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -34211,11 +34221,11 @@
     },
     {
       "name": "analyzing-kubernetes-audit-logs",
-      "description": "'Parses Kubernetes API server audit logs (JSON lines) to detect exec-into-pod,",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/analyzing-kubernetes-audit-logs/SKILL.md",
       "remote_path": "skills/analyzing-kubernetes-audit-logs/SKILL.md",
-      "lines": 83,
-      "words": 290,
+      "lines": 87,
+      "words": 329,
       "code_blocks": 2,
       "languages": [
         "python"
@@ -34252,11 +34262,11 @@
     },
     {
       "name": "performing-kubernetes-etcd-security-assessment",
-      "description": "Assess the security posture of Kubernetes etcd clusters by evaluating",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/performing-kubernetes-etcd-security-assessment/SKILL.md",
       "remote_path": "skills/performing-kubernetes-etcd-security-assessment/SKILL.md",
-      "lines": 228,
-      "words": 926,
+      "lines": 231,
+      "words": 948,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -34335,11 +34345,11 @@
     },
     {
       "name": "implementing-image-provenance-verification-with-cosign",
-      "description": "Signs and verifies container image provenance using Sigstore Cosign,",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-image-provenance-verification-with-cosign/SKILL.md",
       "remote_path": "skills/implementing-image-provenance-verification-with-cosign/SKILL.md",
-      "lines": 337,
-      "words": 948,
+      "lines": 339,
+      "words": 967,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -34350,11 +34360,11 @@
     },
     {
       "name": "implementing-container-network-policies-with-calico",
-      "description": "Enforces Kubernetes network segmentation by creating and auditing Calico",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-container-network-policies-with-calico/SKILL.md",
       "remote_path": "skills/implementing-container-network-policies-with-calico/SKILL.md",
-      "lines": 69,
-      "words": 314,
+      "lines": 73,
+      "words": 353,
       "code_blocks": 0,
       "languages": [],
       "version": "'1.0'",
@@ -34995,11 +35005,11 @@
     },
     {
       "name": "auditing-kubernetes-rbac-privilege-escalation",
-      "description": "Find over-permissive RBAC roles and service-account token abuse paths in Kubernetes using kubectl auth can-i, rbac-police, kubectl-who-can, and rakkess during authorized cluster security reviews.",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/auditing-kubernetes-rbac-privilege-escalation/SKILL.md",
       "remote_path": "skills/auditing-kubernetes-rbac-privilege-escalation/SKILL.md",
-      "lines": 262,
-      "words": 1470,
+      "lines": 269,
+      "words": 1524,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -35581,11 +35591,11 @@
     },
     {
       "name": "escaping-containers-to-host",
-      "description": "Exploit privileged pods, host mounts, runC CVEs, and exposed Docker sockets to break out of a container and reach the underlying host during authorized container-security assessments.",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/escaping-containers-to-host/SKILL.md",
       "remote_path": "skills/escaping-containers-to-host/SKILL.md",
-      "lines": 277,
-      "words": 1764,
+      "lines": 284,
+      "words": 1813,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -35621,11 +35631,11 @@
     },
     {
       "name": "detecting-container-drift-at-runtime",
-      "description": "Detect unauthorized runtime drift in containers by monitoring binary execution, file system changes, and configuration deviations from the original immutable image, using tools like Falco and Microsof",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/detecting-container-drift-at-runtime/SKILL.md",
       "remote_path": "skills/detecting-container-drift-at-runtime/SKILL.md",
-      "lines": 244,
-      "words": 951,
+      "lines": 252,
+      "words": 984,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -36394,11 +36404,11 @@
     },
     {
       "name": "implementing-supply-chain-security-with-in-toto",
-      "description": "Implement software supply chain integrity verification for container",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-supply-chain-security-with-in-toto/SKILL.md",
       "remote_path": "skills/implementing-supply-chain-security-with-in-toto/SKILL.md",
-      "lines": 310,
-      "words": 1111,
+      "lines": 311,
+      "words": 1128,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -36823,11 +36833,11 @@
     },
     {
       "name": "implementing-runtime-security-with-tetragon",
-      "description": "Implement eBPF-based runtime security observability and enforcement in",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-runtime-security-with-tetragon/SKILL.md",
       "remote_path": "skills/implementing-runtime-security-with-tetragon/SKILL.md",
-      "lines": 304,
-      "words": 917,
+      "lines": 307,
+      "words": 938,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -36898,11 +36908,11 @@
     },
     {
       "name": "detecting-container-escape-with-falco-rules",
-      "description": "Write and tune Falco rules that monitor Linux syscalls to detect container escape techniques in real time, including host filesystem mounts, sensitive host path access, kernel module loading, and abus",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/detecting-container-escape-with-falco-rules/SKILL.md",
       "remote_path": "skills/detecting-container-escape-with-falco-rules/SKILL.md",
-      "lines": 342,
-      "words": 1175,
+      "lines": 350,
+      "words": 1211,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -37383,11 +37393,11 @@
     },
     {
       "name": "performing-kubernetes-cis-benchmark-with-kube-bench",
-      "description": "Audit Kubernetes cluster security posture against the CIS Kubernetes",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/performing-kubernetes-cis-benchmark-with-kube-bench/SKILL.md",
       "remote_path": "skills/performing-kubernetes-cis-benchmark-with-kube-bench/SKILL.md",
-      "lines": 240,
-      "words": 872,
+      "lines": 244,
+      "words": 921,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -37711,11 +37721,11 @@
     },
     {
       "name": "performing-kubernetes-penetration-testing",
-      "description": "Systematically evaluate Kubernetes cluster security by simulating attacker",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/performing-kubernetes-penetration-testing/SKILL.md",
       "remote_path": "skills/performing-kubernetes-penetration-testing/SKILL.md",
-      "lines": 284,
-      "words": 1040,
+      "lines": 287,
+      "words": 1066,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -37992,11 +38002,11 @@
     },
     {
       "name": "scanning-docker-images-with-trivy",
-      "description": "Scans Docker container images with Trivy, Aqua Security's open-source",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/scanning-docker-images-with-trivy/SKILL.md",
       "remote_path": "skills/scanning-docker-images-with-trivy/SKILL.md",
-      "lines": 272,
-      "words": 891,
+      "lines": 275,
+      "words": 915,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -38021,11 +38031,11 @@
     },
     {
       "name": "performing-container-security-scanning-with-trivy",
-      "description": "Scan container images, filesystems, Git repositories, and Kubernetes manifests",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/performing-container-security-scanning-with-trivy/SKILL.md",
       "remote_path": "skills/performing-container-security-scanning-with-trivy/SKILL.md",
-      "lines": 78,
-      "words": 405,
+      "lines": 81,
+      "words": 434,
       "code_blocks": 0,
       "languages": [],
       "version": "'1.0'",
@@ -38115,8 +38125,8 @@
       "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-kubernetes-network-policy-with-calico/SKILL.md",
       "remote_path": "skills/implementing-kubernetes-network-policy-with-calico/SKILL.md",
-      "lines": 338,
-      "words": 851,
+      "lines": 341,
+      "words": 894,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -38319,11 +38329,11 @@
     },
     {
       "name": "performing-container-escape-detection",
-      "description": "'Detects container escape attempts by analyzing namespace configurations,",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/performing-container-escape-detection/SKILL.md",
       "remote_path": "skills/performing-container-escape-detection/SKILL.md",
-      "lines": 83,
-      "words": 279,
+      "lines": 87,
+      "words": 314,
       "code_blocks": 2,
       "languages": [
         "python"
@@ -38739,11 +38749,11 @@
     },
     {
       "name": "scanning-container-images-with-grype",
-      "description": "Scans container images, filesystems, and SBOMs for known CVEs using Anchore",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/scanning-container-images-with-grype/SKILL.md",
       "remote_path": "skills/scanning-container-images-with-grype/SKILL.md",
-      "lines": 239,
-      "words": 764,
+      "lines": 241,
+      "words": 794,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -38982,11 +38992,11 @@
     },
     {
       "name": "implementing-network-policies-for-kubernetes",
-      "description": "Writes Kubernetes NetworkPolicy YAML (default-deny-all, DNS egress, namespace/pod",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-network-policies-for-kubernetes/SKILL.md",
       "remote_path": "skills/implementing-network-policies-for-kubernetes/SKILL.md",
-      "lines": 242,
-      "words": 631,
+      "lines": 245,
+      "words": 655,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -39537,11 +39547,11 @@
     },
     {
       "name": "detecting-container-runtime-threats-with-falco",
-      "description": "Write and deploy Falco rules with the modern eBPF driver to detect container escape, namespace abuse, privileged mounts, and anomalous syscalls at runtime in Kubernetes and Docker.",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/detecting-container-runtime-threats-with-falco/SKILL.md",
       "remote_path": "skills/detecting-container-runtime-threats-with-falco/SKILL.md",
-      "lines": 286,
-      "words": 1440,
+      "lines": 293,
+      "words": 1498,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -40594,8 +40604,8 @@
       "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-kubernetes-pod-security-standards/SKILL.md",
       "remote_path": "skills/implementing-kubernetes-pod-security-standards/SKILL.md",
-      "lines": 273,
-      "words": 915,
+      "lines": 283,
+      "words": 1024,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -40663,11 +40673,11 @@
     },
     {
       "name": "scanning-kubernetes-manifests-with-kubesec",
-      "description": "Perform security risk analysis on Kubernetes resource manifests using",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/scanning-kubernetes-manifests-with-kubesec/SKILL.md",
       "remote_path": "skills/scanning-kubernetes-manifests-with-kubesec/SKILL.md",
-      "lines": 308,
-      "words": 1030,
+      "lines": 313,
+      "words": 1084,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -41080,11 +41090,11 @@
     },
     {
       "name": "implementing-pod-security-admission-controller",
-      "description": "Implement Kubernetes Pod Security Admission (PSA), the built-in admission",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-pod-security-admission-controller/SKILL.md",
       "remote_path": "skills/implementing-pod-security-admission-controller/SKILL.md",
-      "lines": 329,
-      "words": 974,
+      "lines": 342,
+      "words": 1070,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -41765,11 +41775,11 @@
     },
     {
       "name": "hardening-docker-containers-for-production",
-      "description": ">",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/hardening-docker-containers-for-production/SKILL.md",
       "remote_path": "skills/hardening-docker-containers-for-production/SKILL.md",
-      "lines": 243,
-      "words": 842,
+      "lines": 244,
+      "words": 871,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -42163,11 +42173,11 @@
     },
     {
       "name": "securing-helm-chart-deployments",
-      "description": "Secures Helm chart deployments by verifying chart signatures and provenance,",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/securing-helm-chart-deployments/SKILL.md",
       "remote_path": "skills/securing-helm-chart-deployments/SKILL.md",
-      "lines": 299,
-      "words": 842,
+      "lines": 301,
+      "words": 858,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -42501,11 +42511,11 @@
     },
     {
       "name": "detecting-privilege-escalation-in-kubernetes-pods",
-      "description": "Detect and prevent privilege escalation in Kubernetes pods by combining",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/detecting-privilege-escalation-in-kubernetes-pods/SKILL.md",
       "remote_path": "skills/detecting-privilege-escalation-in-kubernetes-pods/SKILL.md",
-      "lines": 267,
-      "words": 1018,
+      "lines": 270,
+      "words": 1042,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -42744,11 +42754,11 @@
     },
     {
       "name": "implementing-container-image-minimal-base-with-distroless",
-      "description": "Reduces container attack surface by building application images on Google",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/implementing-container-image-minimal-base-with-distroless/SKILL.md",
       "remote_path": "skills/implementing-container-image-minimal-base-with-distroless/SKILL.md",
-      "lines": 220,
-      "words": 854,
+      "lines": 222,
+      "words": 880,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -42975,11 +42985,11 @@
     },
     {
       "name": "securing-container-registry-with-harbor",
-      "description": "Configures the Harbor open-source container registry's security features",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/securing-container-registry-with-harbor/SKILL.md",
       "remote_path": "skills/securing-container-registry-with-harbor/SKILL.md",
-      "lines": 249,
-      "words": 782,
+      "lines": 252,
+      "words": 810,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -43831,11 +43841,11 @@
     },
     {
       "name": "benchmarking-kubernetes-with-kube-bench",
-      "description": "Run kube-bench (Aqua Security) against a Kubernetes cluster's control-plane, kubelet, and node configuration to check compliance with the CIS Kubernetes Benchmark and remediate PASS/FAIL/WARN findings",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/benchmarking-kubernetes-with-kube-bench/SKILL.md",
       "remote_path": "skills/benchmarking-kubernetes-with-kube-bench/SKILL.md",
-      "lines": 220,
-      "words": 1216,
+      "lines": 228,
+      "words": 1256,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -43930,11 +43940,11 @@
     },
     {
       "name": "hardening-docker-daemon-configuration",
-      "description": "Harden the Docker daemon (dockerd) by configuring /etc/docker/daemon.json with user namespace remapping, TLS client authentication, seccomp profiles, and CIS Docker Benchmark controls such as icc, no-",
+      "description": ">-",
       "path": "mukul975--Anthropic-Cybersecurity-Skills/skills/hardening-docker-daemon-configuration/SKILL.md",
       "remote_path": "skills/hardening-docker-daemon-configuration/SKILL.md",
-      "lines": 331,
-      "words": 1043,
+      "lines": 338,
+      "words": 1062,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -78886,13 +78896,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-auth-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-auth-setup/SKILL.md",
-      "lines": 131,
-      "words": 779,
+      "lines": 147,
+      "words": 882,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "1.2.0",
+      "version": "1.3.0",
       "license": "MIT"
     },
     {
@@ -78900,14 +78910,14 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-bigquery-export/SKILL.md",
       "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-bigquery-export/SKILL.md",
-      "lines": 228,
-      "words": 1471,
+      "lines": 244,
+      "words": 1564,
       "code_blocks": 6,
       "languages": [
         "bash",
         "sql"
       ],
-      "version": "1.2.0",
+      "version": "1.3.0",
       "license": "MIT"
     },
     {
@@ -78915,13 +78925,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-common-reports/SKILL.md",
       "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-common-reports/SKILL.md",
-      "lines": 209,
-      "words": 892,
+      "lines": 234,
+      "words": 1060,
       "code_blocks": 8,
       "languages": [
         "python"
       ],
-      "version": "1.2.0",
+      "version": "1.3.0",
       "license": "MIT"
     },
     {
@@ -78929,13 +78939,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-realtime-api/SKILL.md",
       "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-realtime-api/SKILL.md",
-      "lines": 162,
-      "words": 867,
+      "lines": 178,
+      "words": 966,
       "code_blocks": 5,
       "languages": [
         "python"
       ],
-      "version": "1.2.0",
+      "version": "1.3.0",
       "license": "MIT"
     },
     {
@@ -78943,13 +78953,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/ga4-pack/skills/ga4-data-api-query/SKILL.md",
       "remote_path": "plugins/saas-packs/ga4-pack/skills/ga4-data-api-query/SKILL.md",
-      "lines": 220,
-      "words": 1117,
+      "lines": 236,
+      "words": 1200,
       "code_blocks": 6,
       "languages": [
         "python"
       ],
-      "version": "1.2.0",
+      "version": "1.3.0",
       "license": "MIT"
     },
     {
@@ -78957,13 +78967,13 @@
       "description": "'Create a minimal working Miro example with real board and item operations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-hello-world/SKILL.md",
-      "lines": 255,
-      "words": 866,
+      "lines": 263,
+      "words": 936,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -78971,13 +78981,13 @@
       "description": "'Implement Miro REST API v2 data handling with PII detection in board",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-data-handling/SKILL.md",
-      "lines": 327,
-      "words": 1181,
+      "lines": 343,
+      "words": 1340,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -78985,13 +78995,13 @@
       "description": "'Optimize Miro REST API v2 performance with caching, cursor pagination,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-performance-tuning/SKILL.md",
-      "lines": 287,
-      "words": 1090,
+      "lines": 303,
+      "words": 1249,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -78999,13 +79009,13 @@
       "description": "'Implement a production-ready reference architecture for Miro REST API",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-reference-architecture/SKILL.md",
-      "lines": 376,
-      "words": 1213,
+      "lines": 392,
+      "words": 1372,
       "code_blocks": 8,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79013,14 +79023,14 @@
       "description": "'Configure Miro REST API v2 across development, staging, and production",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-multi-env-setup/SKILL.md",
-      "lines": 244,
-      "words": 863,
+      "lines": 260,
+      "words": 1022,
       "code_blocks": 9,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79028,13 +79038,13 @@
       "description": "'Collect Miro REST API v2 diagnostic evidence for support tickets.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-debug-bundle/SKILL.md",
-      "lines": 203,
-      "words": 833,
+      "lines": 211,
+      "words": 903,
       "code_blocks": 6,
       "languages": [
         "bash"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79042,13 +79052,13 @@
       "description": "'Implement Miro REST API v2 rate limiting with the credit-based system,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-rate-limits/SKILL.md",
-      "lines": 273,
-      "words": 1008,
+      "lines": 289,
+      "words": 1167,
       "code_blocks": 5,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79056,14 +79066,14 @@
       "description": "'Optimize Miro API costs through credit monitoring, request reduction,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-cost-tuning/SKILL.md",
-      "lines": 244,
-      "words": 975,
+      "lines": 260,
+      "words": 1134,
       "code_blocks": 8,
       "languages": [
         "sql",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79071,15 +79081,15 @@
       "description": "'Diagnose and fix Miro REST API v2 errors by HTTP status code.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-common-errors/SKILL.md",
-      "lines": 279,
-      "words": 850,
+      "lines": 295,
+      "words": 1002,
       "code_blocks": 12,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79087,15 +79097,15 @@
       "description": "'Install and configure Miro REST API v2 authentication with OAuth 2.0.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-install-auth/SKILL.md",
-      "lines": 213,
-      "words": 790,
+      "lines": 221,
+      "words": 860,
       "code_blocks": 6,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79103,13 +79113,13 @@
       "description": "'Apply production-ready patterns for @mirohq/miro-api client usage.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-sdk-patterns/SKILL.md",
-      "lines": 344,
-      "words": 1103,
+      "lines": 356,
+      "words": 1223,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79117,13 +79127,13 @@
       "description": "\"Manage Miro boards and items \\u2014 create, read, update, delete boards,\\n\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-core-workflow-a/SKILL.md",
-      "lines": 247,
-      "words": 927,
+      "lines": 259,
+      "words": 1047,
       "code_blocks": 12,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79131,13 +79141,13 @@
       "description": "'Manage Miro connectors, images, embeds, app cards, and document items",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-core-workflow-b/SKILL.md",
-      "lines": 272,
-      "words": 1018,
+      "lines": 284,
+      "words": 1138,
       "code_blocks": 11,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79145,14 +79155,14 @@
       "description": "'Execute Miro REST API v2 incident response with triage, mitigation,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-incident-runbook/SKILL.md",
-      "lines": 266,
-      "words": 1132,
+      "lines": 282,
+      "words": 1291,
       "code_blocks": 10,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79160,15 +79170,15 @@
       "description": "'Set up observability for Miro REST API v2 integrations with Prometheus",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-observability/SKILL.md",
-      "lines": 343,
-      "words": 1042,
+      "lines": 359,
+      "words": 1201,
       "code_blocks": 7,
       "languages": [
         "json",
         "typescript",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79176,14 +79186,14 @@
       "description": "\"Apply Miro REST API v2 security best practices \\u2014 OAuth scope minimization,\\n\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-security-basics/SKILL.md",
-      "lines": 261,
-      "words": 868,
+      "lines": 273,
+      "words": 988,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79191,14 +79201,14 @@
       "description": "\"Execute major Miro migrations \\u2014 migrate boards between teams/orgs,\\n\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-migration-deep-dive/SKILL.md",
-      "lines": 216,
-      "words": 1027,
+      "lines": 232,
+      "words": 1186,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79206,15 +79216,15 @@
       "description": "'Configure Miro local development with hot reload, testing, and ngrok",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-local-dev-loop/SKILL.md",
-      "lines": 273,
-      "words": 915,
+      "lines": 281,
+      "words": 985,
       "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79222,15 +79232,15 @@
       "description": "'Configure CI/CD pipelines for Miro REST API v2 integrations with GitHub",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-ci-integration/SKILL.md",
-      "lines": 239,
-      "words": 808,
+      "lines": 251,
+      "words": 928,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79238,13 +79248,13 @@
       "description": "'Configure Miro Enterprise features: organization management, SCIM provisioning,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-enterprise-rbac/SKILL.md",
-      "lines": 302,
-      "words": 1074,
+      "lines": 318,
+      "words": 1233,
       "code_blocks": 8,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79252,15 +79262,15 @@
       "description": "'Implement Miro REST API v2 webhooks with board subscriptions, event",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-webhooks-events/SKILL.md",
-      "lines": 276,
-      "words": 879,
+      "lines": 288,
+      "words": 999,
       "code_blocks": 7,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79268,8 +79278,8 @@
       "description": "'Deploy Miro REST API v2 integrations to Vercel, Fly.io, and Cloud Run",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-deploy-integration/SKILL.md",
-      "lines": 276,
-      "words": 803,
+      "lines": 288,
+      "words": 923,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -79277,7 +79287,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79285,14 +79295,14 @@
       "description": "'Execute Miro REST API v2 production deployment checklist and rollback",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-prod-checklist/SKILL.md",
-      "lines": 188,
-      "words": 832,
+      "lines": 208,
+      "words": 1015,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -79300,14 +79310,14 @@
       "description": "'Migrate Miro integrations from REST API v1 to v2 and upgrade @mirohq/miro-api",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/miro-pack/skills/miro-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/miro-pack/skills/miro-upgrade-migration/SKILL.md",
-      "lines": 280,
-      "words": 954,
+      "lines": 296,
+      "words": 1113,
       "code_blocks": 9,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89568,15 +89578,15 @@
       "description": "'Deploy Algolia-powered apps to Vercel, Fly.io, and Cloud Run with proper",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-deploy-integration/SKILL.md",
-      "lines": 244,
-      "words": 706,
+      "lines": 252,
+      "words": 775,
       "code_blocks": 9,
       "languages": [
         "bash",
         "tsx",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89584,15 +89594,15 @@
       "description": "'Configure Algolia CI/CD: GitHub Actions for index validation, automated",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-ci-integration/SKILL.md",
-      "lines": 230,
-      "words": 748,
+      "lines": 238,
+      "words": 821,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89600,14 +89610,14 @@
       "description": "'Collect Algolia debug evidence: index stats, API key ACLs, query logs,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-debug-bundle/SKILL.md",
-      "lines": 191,
-      "words": 743,
+      "lines": 199,
+      "words": 800,
       "code_blocks": 2,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89615,13 +89625,13 @@
       "description": "'Implement Algolia reference architecture: index design, multi-index",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-reference-architecture/SKILL.md",
-      "lines": 262,
-      "words": 873,
+      "lines": 280,
+      "words": 1016,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89629,14 +89639,14 @@
       "description": "'Apply Algolia security best practices: API key scoping, secured API",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-security-basics/SKILL.md",
-      "lines": 175,
-      "words": 754,
+      "lines": 189,
+      "words": 867,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89644,14 +89654,14 @@
       "description": "'Migrate to Algolia from Elasticsearch, Typesense, or Meilisearch.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-migration-deep-dive/SKILL.md",
-      "lines": 334,
-      "words": 1181,
+      "lines": 348,
+      "words": 1284,
       "code_blocks": 9,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89659,14 +89669,14 @@
       "description": "'Diagnose and fix the top Algolia API errors: 400, 403, 404, 429, ApiError,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-common-errors/SKILL.md",
-      "lines": 258,
-      "words": 814,
+      "lines": 276,
+      "words": 955,
       "code_blocks": 17,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89674,14 +89684,14 @@
       "description": "'Implement Algolia Insights API for click/conversion tracking, search",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-webhooks-events/SKILL.md",
-      "lines": 225,
-      "words": 742,
+      "lines": 233,
+      "words": 820,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89689,13 +89699,13 @@
       "description": "'Implement Algolia data handling: record transforms, PII filtering before",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-data-handling/SKILL.md",
-      "lines": 262,
-      "words": 961,
+      "lines": 276,
+      "words": 1077,
       "code_blocks": 7,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89703,14 +89713,14 @@
       "description": "'Execute Algolia production readiness checklist: index settings, key",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-prod-checklist/SKILL.md",
-      "lines": 181,
-      "words": 774,
+      "lines": 199,
+      "words": 910,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89718,13 +89728,13 @@
       "description": "'Implement Algolia search with filters, facets, highlighting, and pagination.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-core-workflow-a/SKILL.md",
-      "lines": 194,
-      "words": 675,
+      "lines": 198,
+      "words": 710,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89732,14 +89742,14 @@
       "description": "'Configure Algolia local development with separate dev index, mocking,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-local-dev-loop/SKILL.md",
-      "lines": 219,
-      "words": 681,
+      "lines": 223,
+      "words": 714,
       "code_blocks": 6,
       "languages": [
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89747,14 +89757,14 @@
       "description": "'Install and configure the Algolia JavaScript v5 client with proper API",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-install-auth/SKILL.md",
-      "lines": 177,
-      "words": 665,
+      "lines": 181,
+      "words": 699,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89762,13 +89772,13 @@
       "description": "'Handle Algolia rate limits and throttling: per-key limits, indexing",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-rate-limits/SKILL.md",
-      "lines": 188,
-      "words": 776,
+      "lines": 202,
+      "words": 886,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89776,13 +89786,13 @@
       "description": "'Optimize Algolia search performance: record size, searchable attributes,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-performance-tuning/SKILL.md",
-      "lines": 228,
-      "words": 855,
+      "lines": 242,
+      "words": 966,
       "code_blocks": 7,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89790,13 +89800,13 @@
       "description": "'Configure Algolia enterprise access control: team-scoped API keys, Secured",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-enterprise-rbac/SKILL.md",
-      "lines": 265,
-      "words": 1109,
+      "lines": 279,
+      "words": 1223,
       "code_blocks": 5,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89804,14 +89814,14 @@
       "description": "'Configure Algolia across dev/staging/production: index prefixing, per-environment",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-multi-env-setup/SKILL.md",
-      "lines": 264,
-      "words": 882,
+      "lines": 278,
+      "words": 979,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89819,14 +89829,14 @@
       "description": "'Set up observability for Algolia: Prometheus metrics for search latency/errors,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-observability/SKILL.md",
-      "lines": 293,
-      "words": 911,
+      "lines": 307,
+      "words": 1024,
       "code_blocks": 6,
       "languages": [
         "typescript",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89834,13 +89844,13 @@
       "description": "'Apply production-ready algoliasearch v5 patterns: singleton client,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-sdk-patterns/SKILL.md",
-      "lines": 240,
-      "words": 831,
+      "lines": 248,
+      "words": 899,
       "code_blocks": 5,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89848,13 +89858,13 @@
       "description": "'Optimize Algolia costs: understand search request vs record pricing,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-cost-tuning/SKILL.md",
-      "lines": 213,
-      "words": 925,
+      "lines": 227,
+      "words": 1036,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89862,15 +89872,15 @@
       "description": "'Execute Algolia incident response: triage search failures, distinguish",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-incident-runbook/SKILL.md",
-      "lines": 226,
-      "words": 972,
+      "lines": 244,
+      "words": 1111,
       "code_blocks": 7,
       "languages": [
         "bash",
         "markdown",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89878,13 +89888,13 @@
       "description": "'Implement Algolia indexing pipeline: data sync, partial updates, synonyms,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-core-workflow-b/SKILL.md",
-      "lines": 224,
-      "words": 759,
+      "lines": 228,
+      "words": 792,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89892,14 +89902,14 @@
       "description": "'Upgrade algoliasearch from v4 to v5 with breaking change detection and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/algolia-pack/skills/algolia-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/algolia-pack/skills/algolia-upgrade-migration/SKILL.md",
-      "lines": 177,
-      "words": 723,
+      "lines": 185,
+      "words": 788,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -89913,7 +89923,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99844,15 +99854,15 @@
       "description": "'Diagnose and fix the top Attio REST API errors by HTTP status code.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-common-errors/SKILL.md",
-      "lines": 230,
-      "words": 949,
+      "lines": 246,
+      "words": 1104,
       "code_blocks": 12,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99860,13 +99870,13 @@
       "description": "'Production reference architecture for Attio CRM integrations -- layered",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-reference-architecture/SKILL.md",
-      "lines": 138,
-      "words": 680,
+      "lines": 154,
+      "words": 836,
       "code_blocks": 5,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99874,14 +99884,14 @@
       "description": "'Migrate between Attio API versions, handle breaking changes in the",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-upgrade-migration/SKILL.md",
-      "lines": 234,
-      "words": 943,
+      "lines": 250,
+      "words": 1099,
       "code_blocks": 9,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99889,14 +99899,14 @@
       "description": "'Secure Attio API integrations -- token scoping, secret management,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-security-basics/SKILL.md",
-      "lines": 231,
-      "words": 829,
+      "lines": 243,
+      "words": 935,
       "code_blocks": 8,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99904,13 +99914,13 @@
       "description": "'Full CRUD on Attio records -- create, read, update, delete, and search",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-core-workflow-a/SKILL.md",
-      "lines": 227,
-      "words": 785,
+      "lines": 235,
+      "words": 857,
       "code_blocks": 7,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99918,15 +99928,15 @@
       "description": "'Configure CI/CD pipelines for Attio integrations with GitHub Actions,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-ci-integration/SKILL.md",
-      "lines": 260,
-      "words": 874,
+      "lines": 268,
+      "words": 946,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99934,14 +99944,14 @@
       "description": "'Production readiness checklist for Attio API integrations -- auth,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-prod-checklist/SKILL.md",
-      "lines": 242,
-      "words": 972,
+      "lines": 250,
+      "words": 1044,
       "code_blocks": 12,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99949,15 +99959,15 @@
       "description": "'Make your first Attio API calls -- list objects, create a person,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-hello-world/SKILL.md",
-      "lines": 189,
-      "words": 619,
+      "lines": 197,
+      "words": 691,
       "code_blocks": 7,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99965,14 +99975,14 @@
       "description": "'Collect Attio integration diagnostic evidence -- API health, scopes,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-debug-bundle/SKILL.md",
-      "lines": 214,
-      "words": 1050,
+      "lines": 222,
+      "words": 1122,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99980,13 +99990,13 @@
       "description": "'Optimize Attio API performance -- caching, batch queries, pagination",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-performance-tuning/SKILL.md",
-      "lines": 298,
-      "words": 969,
+      "lines": 310,
+      "words": 1075,
       "code_blocks": 8,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -99994,13 +100004,13 @@
       "description": "'Implement Attio v2 webhooks -- subscribe to record/list/note/task events,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-webhooks-events/SKILL.md",
-      "lines": 137,
-      "words": 517,
+      "lines": 153,
+      "words": 673,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -100008,13 +100018,13 @@
       "description": "'Manage Attio lists, entries, notes, and tasks via the REST API.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-core-workflow-b/SKILL.md",
-      "lines": 238,
-      "words": 787,
+      "lines": 246,
+      "words": 859,
       "code_blocks": 9,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -100022,13 +100032,13 @@
       "description": "'Production-ready patterns for the Attio REST API: typed client,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-sdk-patterns/SKILL.md",
-      "lines": 247,
-      "words": 765,
+      "lines": 255,
+      "words": 837,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -100036,15 +100046,15 @@
       "description": "'Set up Attio REST API authentication with access tokens or OAuth 2.0.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-install-auth/SKILL.md",
-      "lines": 188,
-      "words": 671,
+      "lines": 196,
+      "words": 743,
       "code_blocks": 6,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -100052,14 +100062,14 @@
       "description": "'Optimize Attio API usage costs -- reduce request volume, select the",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-cost-tuning/SKILL.md",
-      "lines": 280,
-      "words": 1114,
+      "lines": 292,
+      "words": 1220,
       "code_blocks": 6,
       "languages": [
         "sql",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -100067,14 +100077,14 @@
       "description": "'Set up a fast local development loop for Attio integrations with",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-local-dev-loop/SKILL.md",
-      "lines": 276,
-      "words": 886,
+      "lines": 284,
+      "words": 958,
       "code_blocks": 7,
       "languages": [
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -100082,8 +100092,8 @@
       "description": "'Deploy Attio integrations to Vercel, Fly.io, Railway, and Cloud Run",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-deploy-integration/SKILL.md",
-      "lines": 267,
-      "words": 803,
+      "lines": 275,
+      "words": 875,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -100091,7 +100101,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -100099,13 +100109,13 @@
       "description": "'Handle Attio API rate limits with exponential backoff, queue-based",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/attio-pack/skills/attio-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/attio-pack/skills/attio-rate-limits/SKILL.md",
-      "lines": 245,
-      "words": 866,
+      "lines": 257,
+      "words": 972,
       "code_blocks": 7,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -112378,48 +112388,52 @@
       "description": "\"Format triage results for terminal display and parse review commands. Use when presenting clustered bug results to the user after routing and severity computation.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/triage-summarizer.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/triage-summarizer.md",
-      "lines": 48,
-      "words": 308,
+      "lines": 52,
+      "words": 319,
       "code_blocks": 1,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "0.3.0"
     },
     {
       "name": "repo-scanner",
       "description": "\"Scan mapped GitHub repos for issue matches, recent commits, affected paths, and deploy changes. Use when gathering evidence for bug clusters after clustering step.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/repo-scanner.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/repo-scanner.md",
-      "lines": 54,
-      "words": 296,
+      "lines": 58,
+      "words": 307,
       "code_blocks": 1,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "0.3.0"
     },
     {
       "name": "bug-clusterer",
       "description": "\"Parse, classify, redact PII, score reliability, and cluster bug candidates by family and signal layers. Use when processing raw X/Twitter posts into structured bug clusters.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/bug-clusterer.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/bug-clusterer.md",
-      "lines": 59,
-      "words": 327,
+      "lines": 63,
+      "words": 338,
       "code_blocks": 1,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "0.3.0"
     },
     {
       "name": "owner-router",
       "description": "\"Recommend likely bug owners using strict 6-level routing precedence with staleness detection and override memory. Use when routing clustered bugs to teams after evidence gathering.\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/mcp/x-bug-triage/agents/owner-router.md",
       "remote_path": "plugins/mcp/x-bug-triage/agents/owner-router.md",
-      "lines": 70,
-      "words": 330,
+      "lines": 74,
+      "words": 341,
       "code_blocks": 2,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "0.3.0"
     },
     {
       "name": "triage-display",
@@ -122856,13 +122870,13 @@
       "description": "'Collect Miro REST API v2 diagnostic evidence for support tickets.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/miro-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/miro-debug-bundle/SKILL.md",
-      "lines": 203,
-      "words": 833,
+      "lines": 211,
+      "words": 903,
       "code_blocks": 6,
       "languages": [
         "bash"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -124616,15 +124630,15 @@
       "description": "'Diagnose and fix Miro REST API v2 errors by HTTP status code.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/miro-common-errors/SKILL.md",
       "remote_path": "skills/.curated/miro-common-errors/SKILL.md",
-      "lines": 279,
-      "words": 850,
+      "lines": 295,
+      "words": 1002,
       "code_blocks": 12,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -124827,15 +124841,15 @@
       "description": "'Install and configure Miro REST API v2 authentication with OAuth 2.0.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/miro-install-auth/SKILL.md",
       "remote_path": "skills/.curated/miro-install-auth/SKILL.md",
-      "lines": 213,
-      "words": 790,
+      "lines": 221,
+      "words": 860,
       "code_blocks": 6,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -131209,14 +131223,14 @@
       "description": "'Configure Algolia local development with separate dev index, mocking,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/algolia-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/algolia-local-dev-loop/SKILL.md",
-      "lines": 219,
-      "words": 681,
+      "lines": 223,
+      "words": 714,
       "code_blocks": 6,
       "languages": [
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -131536,14 +131550,14 @@
       "description": "'Install and configure the Algolia JavaScript v5 client with proper API",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/algolia-install-auth/SKILL.md",
       "remote_path": "skills/.curated/algolia-install-auth/SKILL.md",
-      "lines": 177,
-      "words": 665,
+      "lines": 181,
+      "words": 699,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -137308,15 +137322,15 @@
       "description": "'Set up Attio REST API authentication with access tokens or OAuth 2.0.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/attio-install-auth/SKILL.md",
       "remote_path": "skills/.curated/attio-install-auth/SKILL.md",
-      "lines": 188,
-      "words": 671,
+      "lines": 196,
+      "words": 743,
       "code_blocks": 6,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -146182,7 +146196,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -151534,16 +151548,14 @@
     },
     {
       "name": "macos-cleaner",
-      "description": "Analyze and reclaim macOS disk space through intelligent cleanup recommendations. This skill should be used when users report disk space issues, need to clean up their Mac, or want to understand what'",
+      "description": ">-",
       "path": "daymade--claude-code-skills/macos-cleaner/SKILL.md",
       "remote_path": "macos-cleaner/SKILL.md",
-      "lines": 784,
-      "words": 3849,
-      "code_blocks": 27,
+      "lines": 217,
+      "words": 2670,
+      "code_blocks": 5,
       "languages": [
-        "bash",
-        "markdown",
-        "python"
+        "bash"
       ]
     },
     {
@@ -151740,8 +151752,8 @@
       "description": ">",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1138,
-      "words": 8913,
+      "lines": 1139,
+      "words": 8964,
       "code_blocks": 64,
       "languages": [
         "bash",
@@ -151924,6 +151936,18 @@
       "lines": 157,
       "words": 501,
       "code_blocks": 11,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "tibo-reset-codex",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
+      "remote_path": "tibo-reset-codex/SKILL.md",
+      "lines": 106,
+      "words": 445,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -152166,8 +152190,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1789,
-      "words": 28890,
+      "lines": 1803,
+      "words": 29398,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -152342,8 +152366,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
       "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
-      "lines": 160,
-      "words": 1050,
+      "lines": 212,
+      "words": 1539,
       "code_blocks": 3,
       "languages": [
         "markdown",
@@ -152430,8 +152454,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/continue-codex-work/SKILL.md",
       "remote_path": "daymade-claude-code/continue-codex-work/SKILL.md",
-      "lines": 144,
-      "words": 1397,
+      "lines": 149,
+      "words": 2124,
       "code_blocks": 1,
       "languages": [
         "bash"

@@ -159,8 +159,18 @@ export function gradeHost(opts: {
       }
     }
   }
+  // A roster probe grades the declared team, not narration that merely mentions a
+  // persona. must_not_include marks a roster probe: it reads only the `TEAM:` trailer
+  // and fails when the run declared none, so a run cannot pass by staying quiet.
+  // must_include reads that trailer when present and the whole answer otherwise.
+  const team = lastTrailer(decision, "TEAM")
+  const textScope = team || decision
   for (const needle of opts.grade.must_include ?? []) {
-    if (!decision.includes(needle.toLowerCase())) reasons.push(`missing required text: ${needle}`)
+    if (!textScope.includes(needle.toLowerCase())) reasons.push(`missing required text: ${needle}`)
+  }
+  if (opts.grade.must_not_include?.length && !team) reasons.push("missing TEAM trailer")
+  for (const needle of team ? opts.grade.must_not_include ?? [] : []) {
+    if (team.includes(needle.toLowerCase())) reasons.push(`forbidden text in TEAM trailer: ${needle}`)
   }
   for (const needle of hasActions ? opts.grade.must_exclude ?? [] : []) {
     if (actions.includes(needle)) {

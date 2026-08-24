@@ -76,6 +76,7 @@ See each skill's **Related Skills** section for the full dependency map.
 | [customer-research](skills/customer-research/) | When the user wants to conduct, analyze, or synthesize customer research. Use when the user mentions "customer... |
 | [directory-submissions](skills/directory-submissions/) | When the user wants to submit their product to startup, SaaS, AI, agent, MCP, no-code, or review directories for... |
 | [emails](skills/emails/) | When the user wants to create or optimize an email sequence, drip campaign, automated email flow, or lifecycle email... |
+| [events](skills/events/) | When the user wants to plan, run, sponsor, speak at, or get pipeline from events — webinars, conferences, trade shows,... |
 | [free-tools](skills/free-tools/) | When the user wants to plan, evaluate, or build a free tool for marketing purposes — lead generation, SEO value, or... |
 | [image](skills/image/) | When the user wants to create, generate, edit, or optimize images for marketing — blog heroes, social graphics, product... |
 | [influencer-marketing](skills/influencer-marketing/) | When the user wants to run influencer, creator, or ambassador partnerships to promote their product — finding and... |
@@ -292,6 +293,7 @@ You can also invoke skills directly:
 
 ### Paid & Distribution
 - `ads` - Google, Meta, LinkedIn ad campaigns
+- `events` - Webinars, conferences, sponsorships, speaking
 - `ad-creative` - Bulk ad creative generation and iteration
 - `social` - Social media scheduling and strategy
 

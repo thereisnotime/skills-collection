@@ -849,9 +849,11 @@ describe("ce-doc-review contract", () => {
     expect(skill).toContain("`references/dispatch.md`")
     expect(dispatch).toContain("{decision_primer}")
     expect(dispatch).toContain("<prior-decisions>")
-    // The harness tool names and the fallback trigger moved with the mode rules.
-    expect(modes).toContain("AskUserQuestion")
-    expect(modes).toContain("ToolSearch")
+    // Question-tool discovery matches the current list by capability (issue #1522);
+    // Claude's ToolSearch select:AskUserQuestion is not the portable path.
+    expect(modes).toContain("already in the current tool list")
+    expect(modes).toContain("never call a user-facing question tool")
+    expect(modes).not.toContain("select:AskUserQuestion")
     expect(modes).toContain("numbered-list fallback")
     expect(dispatch).toContain("active-subagent limit")
     expect(dispatch).toContain("spawn errors as backpressure, not reviewer failure")
@@ -878,6 +880,20 @@ describe("ce-doc-review contract", () => {
     expect(line).toMatch(/deployment-ordering risk is a feasibility concern/i)
     // A bare "data handling," enumeration is the unbounded form this replaced.
     expect(line).not.toMatch(/(^|[;,] )data handling,/i)
+  })
+
+  // product-lens activated on "solution selection where alternatives plausibly exist",
+  // which holds for nearly any fix, so a judgment persona (and, through the trio gate,
+  // the cross-model pass) ran on routine bootstrap plans. The leg is now one condition:
+  // an unsettled product position; a mechanism choice is not one.
+  test("product-lens activates on an unsettled product position, not on plausible alternatives", async () => {
+    const content = await readRepoFile("skills/ce-doc-review/references/persona-selection.md")
+    const block = sliceSection(content, "**product-lens**", "**design-lens**")
+    expect(block).toMatch(/product position/)
+    expect(block).toMatch(/no upstream Product Contract settled|origin did not already settle/)
+    expect(block).toMatch(/choice among mechanisms .* is an implementation decision, not a product position/)
+    expect(block).not.toMatch(/alternatives plausibly exist/)
+    expect(block).toMatch(/\*Strategic weight\*/)
   })
 
   test("keeps security document review on the parent capability tier", async () => {
@@ -930,15 +946,17 @@ describe("ce-doc-review contract", () => {
     expect(bulkPreview).toContain("Skipping (N):")
 
     // The preview and question are two ordered user-facing events. The
-    // portable contract names the capability before non-exhaustive adapters.
+    // portable contract names the capability, then matches a tool already in
+    // the current list — not a closed per-host catalog (issue #1522).
     const previewEvent = bulkPreview.indexOf("Preview event")
     const questionCapability = bulkPreview.indexOf(
       "agent-callable blocking-question capability"
     )
-    const adapters = bulkPreview.indexOf("Non-exhaustive adapters")
+    const listMatch = bulkPreview.indexOf("already in the current tool list")
     expect(previewEvent).toBeGreaterThan(-1)
     expect(questionCapability).toBeGreaterThan(previewEvent)
-    expect(adapters).toBeGreaterThan(questionCapability)
+    expect(listMatch).toBeGreaterThan(questionCapability)
+    expect(bulkPreview).not.toContain("select:AskUserQuestion")
     expect(bulkPreview).toContain("user-visible assistant text")
     expect(bulkPreview).toMatch(/(?:thinking|reasoning).*does not count/)
     expect(bulkPreview).toContain("do not invoke the blocking-question capability")

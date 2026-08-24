@@ -18,13 +18,15 @@ python tools/validate-skill.py --all
 
 - SKILL.md exists in the skill directory
 - Valid YAML frontmatter (between `---` markers)
-- Required fields present: `name`, `description`, `domain`, `subdomain`, `tags`
+- Required fields present: `name`, `description`, `domain`, `subdomain`, `tags`, `version`, `author`, `license`
 - Name is kebab-case, 1–64 characters
-- Description is at least 50 characters (no upper limit; multi-line folded scalars are valid)
+- Description is at least 50 characters (agentskills.io caps it at 1024; `tools/validate-agentskills.py` enforces that)
 - Domain is `cybersecurity`
 - Subdomain is from the allowed list
 - Tags is a list with at least 2 items
 
 ### Requirements
 
-Python 3.8+ (stdlib only, no external dependencies)
+Python 3.8+ and PyYAML (`pip install pyyaml`).
+
+All frontmatter is parsed by `skill_frontmatter.py`, the single PyYAML-backed loader. It replaced three hand-rolled regex parsers that silently truncated multi-line descriptions to their first line — that bug shipped 604 of 817 descriptions broken in `index.json`. Do not reintroduce regex frontmatter parsing; CI fails the build if it detects any.

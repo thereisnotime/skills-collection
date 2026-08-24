@@ -4,12 +4,12 @@ on:
   push:
     paths:
       - 'skills/**'
-      - 'tools/validate-skill.py'
+      - 'tools/**'
       - '.github/workflows/validate-skills.yml'
   pull_request:
     paths:
       - 'skills/**'
-      - 'tools/validate-skill.py'
+      - 'tools/**'
       - '.github/workflows/validate-skills.yml'
   workflow_dispatch:
 
@@ -20,11 +20,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      # All frontmatter is parsed by tools/skill_frontmatter.py (PyYAML). Any
+      # reintroduced regex parser silently truncates multi-line descriptions --
+      # that bug shipped 604/817 broken descriptions before it was caught.
+      - name: Guard against hand-rolled YAML parsers
+        run: |
+          if grep -rnE '(re\.(search|match|compile)\([^)]*description|^\s*description:.*\(\.\*\))' \
+               tools/ --include='*.py' ; then
+            echo "::error::Regex-based frontmatter parsing detected. Use tools/skill_frontmatter.py."
+            exit 1
+          fi
+          echo "OK: no regex frontmatter parsers"
+
       # Single source of truth: tools/validate-skill.py validates required
       # frontmatter fields, kebab-case name, description length, subdomain, and
       # tag count. (Previously this step duplicated a weaker inline parser.)
       - name: Validate SKILL.md frontmatter
         run: python3 tools/validate-skill.py --all
+
+      # agentskills.io conformance: name==directory, 1..1024 description,
+      # reserved-word ban, angle-bracket injection check.
+      - name: Validate agentskills.io conformance
+        run: python3 tools/validate-agentskills.py --strict
+
+      # index.json is generated; a PR that changes a description must regenerate it.
+      - name: Check index.json is current
+        run: python3 tools/generate-index.py --check
+
+      # Description quality gate. Pre-existing failures are grandfathered in
+      # tools/lint-baseline.json so this blocks NEW debt only; the baseline is
+      # allowed to shrink and never to grow.
+      - name: Lint descriptions
+        run: python3 tools/lint-descriptions.py --all --stats
+
+      # Ratchet: the number of unreviewed near-duplicate description pairs may
+      # never increase. Lower this cap as disambiguation lands.
+      - name: Detect skill collisions
+        run: python3 tools/detect-collisions.py --max-unreviewed 55
 
       - name: Check for duplicate skill names
         run: |

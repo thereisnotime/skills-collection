@@ -1,0 +1,25 @@
+{
+  "_comment": [
+    "Skill pairs that score as near-duplicates but are legitimately distinct.",
+    "",
+    "Add a pair here ONLY after reading both descriptions and confirming a real",
+    "difference in scope, platform, or offense-vs-defense posture. The 'reason'",
+    "is not bookkeeping: it is the wording each skill's negative trigger should",
+    "use, e.g. reason 'Linux vs Windows' becomes 'Do not use for Windows hosts",
+    "- use hardening-windows-endpoint-with-cis-benchmark.'",
+    "",
+    "A pair that is genuinely ambiguous does NOT belong here. Disambiguate the",
+    "two descriptions instead.",
+    "",
+    "Regenerate the candidate list with: python tools/detect-collisions.py"
+  ],
+  "reviewed_distinct": [
+    {
+      "pair": [
+        "hardening-linux-endpoint-with-cis-benchmark",
+        "hardening-windows-endpoint-with-cis-benchmark"
+      ],
+      "reason": "Same CIS Benchmark methodology, different operating systems. The controls, tooling and audit commands do not overlap, so both must exist; each description must name the OS explicitly and point at the other."
+    }
+  ]
+}

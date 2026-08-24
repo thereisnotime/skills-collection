@@ -77,7 +77,7 @@ Document review is harder than code review in specific ways:
 
 Conditional personas activate from what the doc says, not keyword matching:
 
-- **product-lens** when the doc makes challengeable claims about what to build and why, or the work carries strategic weight
+- **product-lens** when the doc stakes an unsettled product position — what to build, why, or what comes first — that a stakeholder could challenge, or the work carries strategic weight; a choice among mechanisms is not a product position
 - **design-lens** when it contains UI/UX references, user flows, or visual design language
 - **security-lens** when it touches auth, public APIs, sensitive data, payments, or third-party trust boundaries
 - **scope-guardian** when it has multiple priority tiers, a large requirement count, or scope-boundary language that looks misaligned
@@ -151,7 +151,7 @@ The pass needs a peer *agent* CLI (`codex`, `claude`, `grok`, or `cursor-agent`)
 
 `cross_model_review_mode: off` in CE config keeps this pass from running at all — no peer is resolved and nothing leaves the host; the in-process reviewers cover the lens and Coverage says the pass was disabled by checkout config. A direct request in conversation for a peer overrides it for one run. Which target runs the peer is auto-chosen and overridable: conversation, `cross_model_peer:` in CE config, active project instructions, then `codex → claude → grok → composer`. `Cursor` means `cursor-agent` using its configured default/Auto model. `Composer` means a Composer model through Cursor. `Grok` binds the native grok CLI when it is installed; Grok through Cursor is a different route, used when asked or when the grok CLI is missing and Cursor is allowed. `cross_model_model:` and `cross_model_effort:` in CE config pin that target's model (e.g. `fable` for claude or `gpt-5.6-sol` for codex, or a namespace-qualified codex id such as `openai.gpt-5.6-sol` when that CLI routes through a non-default `model_provider`) and reasoning effort; a value the peer cannot honor skips the pass with a stated reason rather than substituting. See the [configuration reference](./configuration.md).
 
-The pass embeds the document into the peer prompt and sends it to an external provider. `CROSS_MODEL_PEERS` restricts which providers may receive content. Peers are strictly read-only. Failures are non-blocking. A second target remains opt-in (`CROSS_MODEL_MAX_PEERS=2`).
+The pass embeds the document into the peer prompt and sends it to an external provider. `CROSS_MODEL_PEERS` restricts which providers may receive content. Peers are strictly read-only. Failures are non-blocking; an exact provider-overload 529 gets one same-route retry, never an unbounded retry loop. A second target remains opt-in (`CROSS_MODEL_MAX_PEERS=2`).
 
 ---
 

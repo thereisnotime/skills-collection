@@ -110,10 +110,12 @@ function emitAdapter(route: string, extraEnv: Record<string, string> = {}): stri
 function sandbox(
   providers: string[],
   stubBody = "#!/bin/sh\nexit 0\n",
+  excludedTools: string[] = [],
 ): { bin: string; env: NodeJS.ProcessEnv } {
   const bin = path.join(mkTempRoot("xmodel-sandbox-"), "bin")
   mkdirSync(bin, { recursive: true })
   for (const [tool, real] of realToolPaths()) {
+    if (excludedTools.includes(tool)) continue
     if (existsSync(path.join(bin, tool))) continue
     try {
       symlinkSync(real, path.join(bin, tool))
@@ -381,6 +383,11 @@ describe("cross-model-doc-review provider selection (R7, R15, R16)", () => {
     const twin = readFileSync(path.join(__dirname, "../../skills/ce-code-review/references/cross-model-review.md"), "utf8")
     expect(twin).toContain("`CROSS_MODEL_PEERS` is an optional egress restriction, not a required approval")
     expect(twin).not.toMatch(/verify every (actual )?recipient against/)
+    const retryDisclosure = "Retrying the same resolved route retains its existing sanction and disclosure; changing the route or any recipient requires a new resolution, sanction, and disclosure before dispatch."
+    expect(ref).toContain(retryDisclosure)
+    expect(twin).toContain(retryDisclosure)
+    expect(ref).not.toContain("Any host-owned retry uses a newly resolved and disclosed fixed route")
+    expect(twin).not.toContain("A failure may be retried only after resolving, sanctioning, and disclosing a new route")
     expect(ref).not.toContain("fail-closed-by-default")
   })
 
@@ -493,6 +500,31 @@ describe("cross-model-doc-review skip paths (R11, R16) — non-blocking, no file
     expect(run(["claude", "codex", "adversarial", "/no/such/doc", "plan", "none", runDir], runDir, env).files).toHaveLength(0)
   })
 
+  test("invalid transient retry delay skips before allocating temp files", () => {
+    const marker = path.join(mkTempRoot("xmodel-doc-mktemp-marker-"), "called")
+    const wrappers = mkTempRoot("xmodel-doc-mktemp-wrapper-")
+    const mktemp = path.join(wrappers, "mktemp")
+    writeFileSync(mktemp, '#!/bin/sh\n: > "$MKTEMP_MARKER"\nexit 1\n')
+    chmodSync(mktemp, 0o755)
+    const { env } = sandbox(["codex"])
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["claude", "codex", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        PATH: `${wrappers}:${env.PATH}`,
+        MKTEMP_MARKER: marker,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "invalid",
+      },
+    )
+
+    expect(r.code).toBe(0)
+    expect(r.stderr).toContain("transient retry delay must be an integer from 0 to 60; skipping")
+    expect(existsSync(marker)).toBe(false)
+  })
+
   test("surfaces short provider errors without dropping the diagnostic", () => {
     const { env } = sandbox(
       ["claude"],
@@ -529,6 +561,537 @@ describe("cross-model-doc-review skip paths (R11, R16) — non-blocking, no file
     )
     expect(r.stderr).toContain("Not logged in")
     expect(r.stderr).toContain("terminal_reason=api_error")
+  })
+
+  test("retries a provider-overload 529 carried by a structured error message", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-529-counter-"), "count")
+    const payload = JSON.stringify({
+      error: { message: "API Error: 529 Overloaded. This is a server-side issue." },
+    }, null, 2)
+    const body = `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+if [ "$n" -eq 1 ]; then
+  printf '%s\n%s' 'provider warning before structured error' '${payload}'
+  exit 1
+fi
+printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"residual_risks":[],"deferred_questions":[]}}'
+`
+    const { env } = sandbox(["claude"], body)
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        COUNTER: counter,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+      },
+    )
+
+    expect(readFileSync(counter, "utf8")).toBe("2")
+    expect(r.files).toContain("adversarial-claude.json")
+    expect(r.stderr).toContain("provider overload 529; retrying same route once")
+  })
+
+  test("retries a provider-overload 529 carried by a terminal HTTP status", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-http-529-counter-"), "count")
+    const payload = JSON.stringify({
+      type: "error",
+      http_status: 529,
+      error: { type: "overloaded_error", message: "Overloaded" },
+    })
+    const body = `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+if [ "$n" -eq 1 ]; then
+  printf '%s' '${payload}'
+  exit 1
+fi
+printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"residual_risks":[],"deferred_questions":[]}}'
+`
+    const { env } = sandbox(["claude"], body)
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        COUNTER: counter,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+      },
+    )
+
+    expect(readFileSync(counter, "utf8")).toBe("2")
+    expect(r.files).toContain("adversarial-claude.json")
+    expect(r.stderr).toContain("provider overload 529; retrying same route once")
+  })
+
+  test("a later successful terminal envelope supersedes an earlier overload", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-recovered-529-counter-"), "count")
+    const overload = JSON.stringify({
+      type: "error",
+      http_status: 529,
+      error: { type: "overloaded_error", message: "Overloaded" },
+    })
+    const success = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      structured_output: { reviewer: "adversarial", findings: [], residual_risks: [], deferred_questions: [] },
+    })
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+printf '%s\n%s\n' '${overload}' '${success}'
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        COUNTER: counter,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+      },
+    )
+
+    expect(readFileSync(counter, "utf8")).toBe("1")
+    expect(r.files).toContain("adversarial-claude.json")
+  })
+
+  test("Codex completion supersedes an earlier transient error event", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-codex-recovered-529-counter-"), "count")
+    const review = JSON.stringify({
+      reviewer: "adversarial",
+      findings: [],
+      residual_risks: [],
+      deferred_questions: [],
+    })
+    const { env } = sandbox(
+      ["codex"],
+      `#!/bin/sh
+out=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = '-o' ]; then out="$2"; shift 2; else shift; fi
+done
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+printf '%s' '${review}' > "$out"
+printf '%s\n%s\n' '{"type":"error","message":"API Error: 529 Overloaded"}' '{"type":"turn.completed","usage":{}}'
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["claude", "codex", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        COUNTER: counter,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+      },
+    )
+
+    expect(readFileSync(counter, "utf8")).toBe("1")
+    expect(r.files).toContain("adversarial-codex.json")
+  })
+
+  test("retries a Codex plain-text provider 529 from its merged diagnostic log", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-codex-529-counter-"), "count")
+    const body = `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+if [ "$n" -eq 1 ]; then
+  printf '%s\n%s\n' 'API Error: 529' 'Overloaded' >&2
+  i=0
+  while [ "$i" -lt 10000 ]; do
+    printf '%s\n' 'additional provider diagnostic context' >&2
+    i=$((i + 1))
+  done
+  exit 1
+fi
+printf '%s' '{"reviewer":"adversarial","findings":[],"residual_risks":[],"deferred_questions":[]}'
+`
+    const { env } = sandbox(["codex"], body)
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["claude", "codex", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        COUNTER: counter,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+      },
+    )
+
+    expect(readFileSync(counter, "utf8")).toBe("2")
+    expect(r.files).toContain("adversarial-codex.json")
+    expect(r.stderr).toContain("provider overload 529; retrying same route once")
+  })
+
+  test("does not classify Codex JSON review prose as a provider 529", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-codex-529-prose-counter-"), "count")
+    const payload = JSON.stringify({
+      reviewer: "adversarial",
+      findings: [{ section: "X", title: "The document mentions API Error: 529 Overloaded." }],
+      residual_risks: [],
+      deferred_questions: [],
+    }, null, 2)
+    const { env } = sandbox(
+      ["codex"],
+      `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+printf '%s' '${payload}'
+exit 1
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    run(
+      ["claude", "codex", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        COUNTER: counter,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+      },
+    )
+
+    expect(readFileSync(counter, "utf8")).toBe("1")
+  })
+
+  test("does not combine unrelated plain-text records into a provider overload", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-529-record-counter-"), "count")
+    const { env } = sandbox(
+      ["codex"],
+      `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+printf '%s\n' 'status: request failed' 'unrelated metric: 529' 'capacity report follows'
+exit 1
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    run(["claude", "codex", "adversarial", doc, "plan", "none", runDir], runDir, {
+      ...env,
+      COUNTER: counter,
+      CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+    })
+
+    expect(readFileSync(counter, "utf8")).toBe("1")
+  })
+
+  test("does not combine overload fragments across diagnostic streams", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-529-stream-boundary-counter-"), "count")
+    const { env } = sandbox(
+      ["grok"],
+      `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+printf '%s' 'API Error: 529'
+printf '%s\n' 'Overloaded' >&2
+exit 1
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    run(["claude", "grok", "adversarial", doc, "plan", "none", runDir], runDir, {
+      ...env,
+      COUNTER: counter,
+      CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+    })
+
+    expect(readFileSync(counter, "utf8")).toBe("1")
+  })
+
+  test("retries a successful-process Grok 529 envelope instead of publishing its schema stub", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-grok-529-stub-counter-"), "count")
+    const first = JSON.stringify({
+      api_error_status: 529,
+      structuredOutput: { reviewer: "adversarial", findings: [] },
+    }, null, 2)
+    const second = JSON.stringify({
+      structuredOutput: { reviewer: "adversarial", findings: [], residual_risks: [], deferred_questions: [] },
+    })
+    const { env } = sandbox(
+      ["grok"],
+      `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+if [ "$n" -eq 1 ]; then printf '%s' '${first}'; else printf '%s' '${second}'; fi
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(["claude", "grok", "adversarial", doc, "plan", "none", runDir], runDir, {
+      ...env,
+      COUNTER: counter,
+      CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+    })
+
+    expect(readFileSync(counter, "utf8")).toBe("2")
+    expect(r.files).toContain("adversarial-grok.json")
+  })
+
+  test("retries a plain-text Grok 529 from stdout", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-grok-stdout-529-counter-"), "count")
+    const body = `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+if [ "$n" -eq 1 ]; then
+  printf '%s\n' 'API Error: 529 Overloaded'
+  exit 1
+fi
+printf '%s' '{"structuredOutput":{"reviewer":"adversarial","findings":[],"residual_risks":[],"deferred_questions":[]}}'
+`
+    const { env } = sandbox(["grok"], body)
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(["claude", "grok", "adversarial", doc, "plan", "none", runDir], runDir, {
+      ...env,
+      COUNTER: counter,
+      CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+    })
+
+    expect(readFileSync(counter, "utf8")).toBe("2")
+    expect(r.files).toContain("adversarial-grok.json")
+  })
+
+  test("rejects a nonnumeric effective route budget before dispatch", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-hard-budget-counter-"), "count")
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh
+cat >/dev/null
+printf invoked > "$COUNTER"
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      { ...env, COUNTER: counter, CROSS_MODEL_HARD_SECS: "oops" },
+    )
+
+    expect(r.code).toBe(0)
+    expect(existsSync(counter)).toBe(false)
+    expect(r.stderr).toContain("peer hard budget must be a positive integer; skipping")
+  })
+
+  test("a missing Python interpreter skips explicitly before provider dispatch", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-python-preflight-counter-"), "count")
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh
+cat >/dev/null
+printf invoked > "$COUNTER"
+printf '%s' '{"type":"result","subtype":"success","structured_output":{"reviewer":"adversarial","findings":[],"residual_risks":[],"deferred_questions":[]}}'
+`,
+      ["python3"],
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      { ...env, COUNTER: counter },
+    )
+
+    expect(r.code).toBe(0)
+    expect(existsSync(counter)).toBe(false)
+    expect(r.files).not.toContain("adversarial-claude.json")
+    expect(r.stderr).toContain("working Python 3 interpreter required for peer outcome classification; skipping")
+  })
+
+  test("rejects a successful-process Grok 429 envelope instead of publishing its schema stub", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-grok-429-stub-counter-"), "count")
+    const payload = JSON.stringify({
+      api_error_status: 429,
+      terminal_reason: "api_error",
+      structuredOutput: { reviewer: "adversarial", findings: [] },
+    }, null, 2)
+    const { env } = sandbox(
+      ["grok"],
+      `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+printf '%s' '${payload}'
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(["claude", "grok", "adversarial", doc, "plan", "none", runDir], runDir, {
+      ...env,
+      COUNTER: counter,
+      CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+    })
+
+    expect(readFileSync(counter, "utf8")).toBe("1")
+    expect(r.files).not.toContain("adversarial-grok.json")
+  })
+
+  test("rejects error statuses even when other terminal fields look successful", () => {
+    const envelopes = [
+      { status: 429 },
+      { error: { status: 429 } },
+      { type: "result", subtype: "success", status: 429 },
+    ]
+    for (const envelope of envelopes) {
+      const payload = JSON.stringify({
+        ...envelope,
+        structured_output: { reviewer: "adversarial", findings: [] },
+      })
+      const { env } = sandbox(
+        ["claude"],
+        `#!/bin/sh
+cat >/dev/null
+printf '%s' '${payload}'
+`,
+      )
+      const doc = makeDoc()
+      const runDir = makeRunDir()
+      const r = run(["codex", "claude", "adversarial", doc, "plan", "none", runDir], runDir, env)
+
+      expect(r.files).not.toContain("adversarial-claude.json")
+    }
+  })
+
+  test("accepts subtype-less result envelopes from Cursor-backed routes", () => {
+    const review = JSON.stringify({
+      reviewer: "adversarial",
+      findings: [],
+      residual_risks: [],
+      deferred_questions: [],
+    })
+    const payload = JSON.stringify({ type: "result", result: review })
+    const routes = [
+      { target: "cursor", route: "cursor", peers: "cursor" },
+      { target: "composer", route: "composer", peers: "composer" },
+      { target: "grok", route: "grok-cursor", peers: "grok,cursor" },
+    ]
+
+    for (const { target, route, peers } of routes) {
+      const { env } = sandbox(
+        ["cursor-agent"],
+        `#!/bin/sh
+cat >/dev/null
+printf '%s' '${payload}'
+`,
+      )
+      const doc = makeDoc()
+      const runDir = makeRunDir()
+      const r = run(["claude", target, "adversarial", doc, "plan", "none", runDir], runDir, {
+        ...env,
+        CROSS_MODEL_FIXED_ROUTE: route,
+        CROSS_MODEL_PEERS: peers,
+      })
+
+      expect(r.files).toContain(`adversarial-${target}.json`)
+    }
+  })
+
+  test("a repeated provider-overload 529 stops after the single retry", () => {
+    const counter = path.join(mkTempRoot("xmodel-doc-529-stop-counter-"), "count")
+    const payload = JSON.stringify({
+      result: "API Error: 529 Overloaded. This is a server-side issue.",
+      api_error_status: 529,
+      terminal_reason: "api_error",
+    })
+    const body = `#!/bin/sh
+cat >/dev/null
+n=0
+[ ! -f "$COUNTER" ] || n="$(cat "$COUNTER")"
+n=$((n + 1))
+printf '%s' "$n" > "$COUNTER"
+printf '%s' '${payload}'
+exit 1
+`
+    const { env } = sandbox(["claude"], body)
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(
+      ["codex", "claude", "adversarial", doc, "plan", "none", runDir],
+      runDir,
+      {
+        ...env,
+        COUNTER: counter,
+        CROSS_MODEL_TRANSIENT_RETRY_DELAY_SECS: "0",
+      },
+    )
+
+    expect(readFileSync(counter, "utf8")).toBe("2")
+    expect(r.files).not.toContain("adversarial-claude.json")
+    expect(r.stderr.match(/retrying same route once/g)).toHaveLength(1)
+  })
+
+  test("rejects a schema-shaped Claude result whose terminal envelope reports max-turn exhaustion", () => {
+    const payload = JSON.stringify({
+      type: "result",
+      subtype: "error_max_turns",
+      is_error: true,
+      structured_output: {
+        reviewer: "adversarial",
+        findings: [],
+        residual_risks: [],
+        deferred_questions: [],
+      },
+    }, null, 2)
+    const { env } = sandbox(
+      ["claude"],
+      `#!/bin/sh
+cat >/dev/null
+printf '%s\n%s' '{"type":"system","subtype":"init"}' '${payload}'
+`,
+    )
+    const doc = makeDoc()
+    const runDir = makeRunDir()
+    const r = run(["codex", "claude", "adversarial", doc, "plan", "none", runDir], runDir, env)
+
+    expect(r.files).not.toContain("adversarial-claude.json")
+    expect(r.stderr).toContain("peer terminal envelope reports failure")
   })
 
   test("ancillary structured fields do not hide an unrecognized human-readable diagnostic", () => {

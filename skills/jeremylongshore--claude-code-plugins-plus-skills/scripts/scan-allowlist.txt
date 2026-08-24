@@ -151,6 +151,11 @@ plugins/skill-enhancers/skill-creator/skills/skill-creator/references/validation
 
 # ── ops-review docs-truth pass (claude-k0h2, 2026-07-14): sources.yaml HEADER COMMENTS only. ──
 plugins/saas-packs/hubspot-pack/skills/hubspot-warehouse-sync/SKILL.md:secret-exfil-cooccur  documented backfill example reads HUBSPOT_ACCESS_TOKEN from env and sends it only to api.hubapi.com (the credential's own service); BigQuery sink uses GCP client creds, not the HubSpot token — reviewed 2026-07-16
+plugins/saas-packs/ga4-pack/skills/ga4-auth-setup/SKILL.md:secret-exfil-cooccur  documented Google Analytics Data API verification reads GOOGLE_APPLICATION_CREDENTIALS only through the official client, which sends it only to Google's own API; no third-party sink
+plugins/saas-packs/algolia-pack/skills/algolia-debug-bundle/SKILL.md:secret-exfil-cooccur  documented official Algolia client reads its own application credentials only to collect Algolia index diagnostics; bundle guidance redacts key values and has no third-party sink
+plugins/saas-packs/algolia-pack/skills/algolia-incident-runbook/SKILL.md:secret-exfil-cooccur  documented emergency recovery uses the official Algolia client with its own backend credentials to create a scoped replacement key; no third-party sink
+plugins/saas-packs/algolia-pack/skills/algolia-migration-deep-dive/SKILL.md:secret-exfil-cooccur  documented migration uses the official Algolia client and backend credentials only for the target Algolia index; source data stays in the adapter, not a foreign sink
+plugins/saas-packs/algolia-pack/skills/algolia-webhooks-events/SKILL.md:secret-exfil-cooccur  documented search and Insights examples use the official Algolia client with its own backend credentials; no third-party sink
 
 # ── dolt-mcp-vcs repo rename (2026-07-17): repoint only, same vetted source. ──
 plugins/saas-packs/notion-pack/skills/notion-advanced-troubleshooting/SKILL.md:secret-exfil-cooccur  documented SaaS API-client example: reads own-service credential from env and sends it only to its own service (NOTION_TOKEN→Notion API); no third-party sink (foreign-host scan empty) — reviewed 2026-07-17
@@ -158,6 +163,25 @@ plugins/saas-packs/notion-pack/skills/notion-advanced-troubleshooting/references
 plugins/saas-packs/notion-pack/skills/notion-common-errors/references/examples.md:secret-exfil-cooccur  documented SaaS API-client example: reads own-service credential from env and sends it only to its own service (NOTION_TOKEN→Notion API); no third-party sink (foreign-host scan empty) — reviewed 2026-07-17
 plugins/saas-packs/notion-pack/skills/notion-debug-bundle/references/implementation.md:secret-exfil-cooccur  documented SaaS API-client example: reads own-service credential from env and sends it only to its own service (NOTION_TOKEN→Notion API); no third-party sink (foreign-host scan empty) — reviewed 2026-07-17
 plugins/saas-packs/notion-pack/skills/notion-deploy-integration/references/examples.md:secret-exfil-cooccur  documented SaaS API-client example: reads own-service credential from env and sends it only to its own service (NOTION_TOKEN→Notion API); no third-party sink (foreign-host scan empty) — reviewed 2026-07-17
+
+# ── Miro internal pack remediation (2026-08-23). ──
+# Each reviewed example sends a Miro OAuth credential only as an Authorization
+# header to Miro's own documented API endpoints; no example forwards that
+# credential to a third-party host or logs it.
+plugins/saas-packs/miro-pack/skills/miro-ci-integration/SKILL.md:secret-exfil-cooccur  documented Miro CI example sends its Miro test token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-core-workflow-a/SKILL.md:secret-exfil-cooccur  documented Miro board-client example sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-deploy-integration/SKILL.md:secret-exfil-cooccur  documented deployment example sends its Miro credential only to Miro's API
+plugins/saas-packs/miro-pack/skills/miro-hello-world/SKILL.md:secret-exfil-cooccur  documented starter API request sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-install-auth/SKILL.md:secret-exfil-cooccur  documented OAuth example sends Miro credentials only to Miro's token endpoint
+plugins/saas-packs/miro-pack/skills/miro-local-dev-loop/SKILL.md:secret-exfil-cooccur  documented local development example sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-multi-env-setup/SKILL.md:secret-exfil-cooccur  documented environment example sends its Miro credential only to Miro's API
+plugins/saas-packs/miro-pack/skills/miro-observability/SKILL.md:secret-exfil-cooccur  documented telemetry example sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-performance-tuning/SKILL.md:secret-exfil-cooccur  documented performance request sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-rate-limits/SKILL.md:secret-exfil-cooccur  documented rate-limit request sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-reference-architecture/SKILL.md:secret-exfil-cooccur  documented architecture client sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-sdk-patterns/SKILL.md:secret-exfil-cooccur  documented SDK example sends its Miro token only to api.miro.com
+plugins/saas-packs/miro-pack/skills/miro-security-basics/SKILL.md:secret-exfil-cooccur  documented security example sends its Miro token only to Miro's API
+plugins/saas-packs/miro-pack/skills/miro-webhooks-events/SKILL.md:secret-exfil-cooccur  documented webhook management example sends its Miro token only to api.miro.com
 plugins/saas-packs/notion-pack/skills/notion-enterprise-rbac/references/implementation.md:secret-exfil-cooccur  documented SaaS API-client example: reads own-service credential from env and sends it only to its own service (NOTION_TOKEN→Notion API); no third-party sink (foreign-host scan empty) — reviewed 2026-07-17
 plugins/saas-packs/notion-pack/skills/notion-incident-runbook/SKILL.md:secret-exfil-cooccur  documented SaaS API-client example: reads own-service credential from env and sends it only to its own service (NOTION_TOKEN→Notion API); no third-party sink (foreign-host scan empty) — reviewed 2026-07-17
 plugins/saas-packs/notion-pack/skills/notion-load-scale/references/implementation.md:secret-exfil-cooccur  documented SaaS API-client example: reads own-service credential from env and sends it only to its own service (NOTION_TOKEN→Notion API); no third-party sink (foreign-host scan empty) — reviewed 2026-07-17
@@ -297,3 +321,16 @@ sources.yaml:sources-change-unscanned  tonone excludes '.claude-plugin/CLAUDE.md
 plugins/testing/kobiton-automate/README.md:secret-exfil-cooccur  Reviewed 2026-08-19 (E3.6 relock): the co-occurrence is Kobiton's documented API-key auth alongside a curl fetch of their own repo's AGENTS.md (raw.githubusercontent.com/kobiton/automate) — verified sponsor source, product install docs, not exfil.
 plugins/testing/kobiton-automate/README.md:mcp-remote  Reviewed 2026-08-19 (E3.6 relock): https://api.kobiton.com/mcp is the product's own remote MCP endpoint on the vendor's domain — the plugin's entire purpose; verified source.
 plugins/mcp/servicegraph/hooks/hooks.json:hook-definition  E4.10 curated hardening reviewed 2026-08-19: a PreToolUse gate matching ONLY mcp__servicegraph__unlock_rows that runs the plugin's own confirm-unlock.sh to emit permissionDecision "ask" — it ADDS a confirmation before paid credit spends and executes nothing else; this is the enforcing artifact for the destructive-policy declaration (790 § 6, AAR 800).
+
+# ── Attio internal pack remediation (2026-08-23). ──
+# Each reviewed example sends an Attio API credential only to Attio's documented
+# API endpoints; no example forwards that credential to a third-party host or logs it.
+plugins/saas-packs/attio-pack/skills/attio-ci-integration/SKILL.md:secret-exfil-cooccur  documented Attio CI example sends its Attio test credential only to api.attio.com
+plugins/saas-packs/attio-pack/skills/attio-debug-bundle/SKILL.md:secret-exfil-cooccur  documented Attio diagnostic request sends its Attio credential only to api.attio.com
+plugins/saas-packs/attio-pack/skills/attio-deploy-integration/SKILL.md:secret-exfil-cooccur  documented deployment example sends its Attio credential only to Attio's API
+plugins/saas-packs/attio-pack/skills/attio-install-auth/SKILL.md:secret-exfil-cooccur  documented authentication example sends Attio credentials only to Attio's API
+plugins/saas-packs/attio-pack/skills/attio-prod-checklist/SKILL.md:secret-exfil-cooccur  documented production verification sends its Attio credential only to api.attio.com
+plugins/saas-packs/attio-pack/skills/attio-sdk-patterns/SKILL.md:secret-exfil-cooccur  documented SDK example sends its Attio credential only to api.attio.com
+plugins/saas-packs/attio-pack/skills/attio-security-basics/SKILL.md:secret-exfil-cooccur  documented security example sends its Attio credential only to Attio's API
+plugins/saas-packs/attio-pack/skills/attio-upgrade-migration/SKILL.md:secret-exfil-cooccur  documented upgrade request sends its Attio credential only to api.attio.com
+plugins/saas-packs/attio-pack/skills/attio-webhooks-events/SKILL.md:secret-exfil-cooccur  documented webhook management example sends its Attio credential only to api.attio.com

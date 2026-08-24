@@ -6,7 +6,7 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.88.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-1.89.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
@@ -1167,7 +1167,7 @@ python scripts/fetch_tweet.py https://x.com/user/status/123 output.md
 
 ### 26. **macos-cleaner** - Intelligent macOS Disk Space Recovery
 
-**The safest way to reclaim disk space on macOS.** Analyze system caches, application remnants, large files, and development environments with intelligent categorization and interactive cleanup.
+**The safest way to reclaim disk space on macOS.** Start with targeted read-only diagnosis when a subsystem is already suspect—including Apple Content Caching—then analyze caches, application remnants, large files, and development environments only as needed.
 
 **Why macos-cleaner stands out:**
 - **Safety-First Philosophy**: Never deletes without explicit user confirmation. Every operation includes risk assessment (🟢 Safe / 🟡 Caution / 🔴 Keep).
@@ -1186,15 +1186,17 @@ python scripts/fetch_tweet.py https://x.com/user/status/123 output.md
 **When to use:**
 - Your Mac is running out of disk space (>80% full)
 - You're a developer with Docker/npm/pip/Homebrew caches piling up
+- Apple Content Caching reports `Caching needs more space`, an unlimited cache, or unexpectedly high `ActualCacheUsed`
 - You want to understand what's consuming space, not just delete blindly
 - You need to clean up after uninstalled applications
 - You prefer understanding over automation
 
 **Key features:**
 - **Smart Cache Analysis**: Categorizes system caches, app caches, logs by safety level
+- **Apple Content Caching**: Separates logical `CacheUsed` from physical `ActualCacheUsed`, verifies peers and protected services, and uses Apple's supported limit/deactivate/flush controls
 - **Application Remnant Detection**: Finds orphaned data from uninstalled apps with confidence scoring
-- **Large File Discovery**: Intelligent categorization (videos, archives, databases, disk images, build artifacts)
-- **Development Environment Cleanup**: Docker (images, containers, volumes, build cache), Homebrew, npm, pip, old Git repos
+- **Large & Duplicate File Discovery**: Intelligent categorization plus optional read-only `fdupes` scans inside exact approved paths
+- **Development Environment Cleanup**: Docker images/containers/volumes, OrbStack, Homebrew, npm, and pip; Docker build cache is measured but prune-based deletion is out of scope
 - **Interactive Safe Deletion**: Batch confirmation, selective deletion, undo-friendly (uses Trash when possible)
 - **Before/After Reports**: Track space recovery with detailed breakdown
 - **Mole Integration**: Seamless workflow with visual cleanup tool for GUI preferences
@@ -1206,7 +1208,7 @@ python scripts/fetch_tweet.py https://x.com/user/status/123 output.md
 - ✅ **Developer-Centric**: We clean Docker, not just browser caches. We understand `.git` directories, `node_modules`, and build artifacts.
 - ✅ **Safety Checks Built-In**: Protection against deleting system files, user data, credentials, active databases, or files in use.
 - ✅ **Educational**: Learn what's safe to delete and why, so you can maintain your Mac confidently.
-- ❌ **Not a One-Click Solution**: We don't delete automatically. If you want "clean everything now", use other tools. We're for users who want control.
+- ❌ **Not a One-Click Solution**: Nothing changes until you approve a scoped command plan. When you ask Claude to execute it, only those confirmed actions run, followed by before/after verification.
 
 **Example usage:**
 ```bash
@@ -1217,7 +1219,7 @@ claude plugin install macos-cleaner@daymade-skills
 "My Mac is running out of space, help me analyze what's using storage"
 
 # Claude will:
-# 1. Run comprehensive disk analysis
+# 1. Route a named suspect to targeted read-only diagnosis; scan broadly only if the source is unknown
 # 2. Present categorized findings with safety levels
 # 3. Explain each category (caches, remnants, large files, dev tools)
 # 4. Recommend cleanup approach
@@ -1254,6 +1256,7 @@ Recommendation: Start with 🟢 Safe items (95 GB), then review 🟡 items toget
 *Coming soon*
 
 📚 **Documentation**: See [macos-cleaner/references/](./macos-cleaner/references/) for:
+- `apple_content_caching.md` - Targeted Apple Content Caching diagnosis and supported repair
 - `cleanup_targets.md` - Detailed explanations of every cleanup target
 - `mole_integration.md` - How to combine scripts with Mole visual tool
 - `safety_rules.md` - Comprehensive safety guidelines and what to never delete
@@ -3069,15 +3072,15 @@ can we merge this contribution and fix the remaining repo bookkeeping ourselves?
 
 **Requirements**: authenticated `gh` CLI, `git` with `merge-tree --write-tree`, and `jq`.
 
-### 86. **local-conversation-history** - Fast Local Claude Code and Codex History
+### 86. **local-conversation-history** - Fast Local Agent Conversation History
 
 > **Install**: `claude plugin install daymade-claude-code@daymade-skills`
 > (suite-only — invoked as `daymade-claude-code:local-conversation-history`)
 
-List recent local Claude Code and Codex conversations for the current workspace
-in one read-only command. The output is presentation-ready Markdown or JSON with
-short titles, timezone-qualified timestamps, exact session IDs, and explicit
-diagnostics.
+List recent local Claude Code, Codex, and Kimi CLI conversations for the current
+workspace in one read-only command. The output is presentation-ready Markdown or
+JSON with short titles, timezone-qualified timestamps, exact session IDs,
+positive-only Codex writer-lock markers, and explicit diagnostics.
 
 **Key features:**
 - Combines active Claude homes with every registered long-term archive by default
@@ -3086,6 +3089,10 @@ diagnostics.
 - De-duplicates copied session IDs, unions their internal ranges, and retains active/archive provenance
 - Selects a compatible Codex state database through schema introspection
 - Visibly falls back to raw Codex rollout JSONL when the database is unavailable
+- Probes every in-scope Codex session and appends any row whose exact canonical
+  writer-lock file is held even beyond the recent-row limit; the marker proves
+  lock state, not holder identity or a running agent, and an unmarked row is
+  never reported as stopped or safe to retire
 - Supports internal-time date windows, custom exact-scope diagnostics, archived
   Codex threads, recursive/all-project scopes, Windows path normalization, and JSON
 - Uses Python's standard library only; performs no network requests or writes
@@ -3094,6 +3101,7 @@ diagnostics.
 ```text
 /daymade-claude-code:local-conversation-history
 list the recent Claude Code and Codex chats for this folder
+show which Codex sessions in this workspace have held canonical writer-lock files
 show Codex threads including archived conversations as JSON
 ```
 
@@ -3363,6 +3371,26 @@ they become load-bearing data.
 操作 Kimi 客户端，用已安装插件核对这组市场数据
 ```
 
+### 97. **tibo-reset-codex** - ChatGPT/Codex 额度重置速查
+
+> **Install**: `claude plugin install tibo-reset-codex@daymade-skills`
+
+查询 ChatGPT/Codex 额度重置时间，解读 Tibo（OpenAI Codex 负责人 @thsottiaux）
+的重置公告。别再凭记忆回答「什么时候重置」——用权威追踪站 API 现查。
+
+**Key features:**
+- 主通道 Tibo Radar JSON API + codexlimitwatch 双源核对，30 秒出结果
+- 解读 Tibo 糙时间写法（「14pm PST」混用 24 小时制、常年写 PST 实为 PDT）
+- 太平洋时间→北京时间当场实测换算命令，含夏令时跨时令处理
+- 证据纪律：tracker 标签 ≠ 已到账，官宣 ≠ 你的账户已到账
+
+**Example usage:**
+```text
+ChatGPT 什么时候重置额度
+banked reset 到了吗
+Tibo 说的 2pm PST 是北京时间几点
+```
+
 ---
 
 ## 🎬 Interactive Demo Gallery
@@ -3439,10 +3467,15 @@ briefing from local Codex rollout files without replaying the full session.
 
 ### For Fast Local Conversation Discovery
 Use **local-conversation-history** when you need a quick, readable list of recent
-Claude Code and Codex chats for the current workspace. It produces both provider
-inventories in one read-only call and excludes internal agents by default. Move
-to **claude-code-history-files-finder** only when you need full-text search,
-tool-call analysis, or deleted-file recovery from Claude Code transcripts.
+Claude Code, Codex, and Kimi CLI chats for the current workspace, including
+positive-only markers for every in-scope Codex session whose canonical
+writer-lock file is held. Held rows beyond the recent limit are appended; the
+marker proves lock state, not holder identity or agent progress. It produces all
+provider inventories in one read-only call and excludes internal agents by
+default. Move to **continue-codex-work** to inspect the stored context for an
+exact marked Codex thread, or to **claude-code-history-files-finder** for
+full-text search, tool-call analysis, or deleted-file recovery from Claude Code
+transcripts.
 
 ### For Web Extraction & WeChat Articles
 Use **scrapling-skill** to install and validate Scrapling CLI, choose between static and browser-backed fetching, and extract clean Markdown from sites like `mp.weixin.qq.com`. Combine with **deep-research** to turn extracted sources into structured reports or with **docs-cleaner** to normalize captured article content.
@@ -3463,7 +3496,7 @@ Use **promptfoo-evaluation** to set up prompt tests, compare model outputs, and 
 Use **iOS-APP-developer** to configure XcodeGen projects, resolve SPM dependency issues, and troubleshoot code signing or device deployment.
 
 ### For macOS System Maintenance & Disk Space Recovery
-Use **macos-cleaner** to intelligently analyze and reclaim disk space on macOS with safety-first approach. Unlike one-click cleaners that blindly delete, macos-cleaner explains what each file is, categorizes by risk level (🟢/🟡/🔴), and requires explicit confirmation before any deletion. Perfect for developers dealing with Docker/Homebrew/npm/pip cache bloat, users wanting to understand storage consumption, or anyone who values transparency over automation. Combines script-based precision with optional Mole visual tool integration for hybrid workflow.
+Use **macos-cleaner** to diagnose and reclaim disk space on macOS with a safety-first approach. It routes known suspects such as Apple Content Caching to targeted read-only checks before any broad scan, distinguishes logical from physical usage, explains impact and recovery, and requires explicit confirmation before state changes. It also covers Docker/OrbStack, Homebrew/npm/pip, application remnants, large files, and optional Mole exploration.
 
 ### For Twitter/X Content Research
 Use **twitter-reader** to fetch tweet content without JavaScript rendering or authentication. Perfect for documenting social media discussions, archiving threads, analyzing tweet content, or gathering reference material from Twitter/X. Combine with **doc-to-markdown** to convert fetched content into other formats, or with **repomix-safe-mixer** to package research collections securely.
@@ -3546,7 +3579,7 @@ Each skill includes:
 - **promptfoo-evaluation**: See `promptfoo-evaluation/references/promptfoo_api.md` for evaluation patterns
 - **iOS-APP-developer**: See `iOS-APP-developer/references/xcodegen-full.md` for XcodeGen options and project.yml details
 - **twitter-reader**: See `twitter-reader/SKILL.md` for API key setup and URL format support
-- **macos-cleaner**: See `macos-cleaner/references/cleanup_targets.md` for detailed cleanup target explanations, `macos-cleaner/references/mole_integration.md` for Mole visual tool integration, and `macos-cleaner/references/safety_rules.md` for comprehensive safety guidelines
+- **macos-cleaner**: See `macos-cleaner/references/apple_content_caching.md` for Apple Content Caching, `macos-cleaner/references/cleanup_targets.md` for cleanup target semantics, `macos-cleaner/references/mole_integration.md` for Mole, and `macos-cleaner/references/safety_rules.md` for safety guidelines
 - **skill-reviewer**: See `daymade-skill/skill-reviewer/references/evaluation_checklist.md` for complete evaluation criteria and `daymade-skill/skill-reviewer/references/pr_template.md` for PR templates
 - **github-contributor**: See `github-contributor/references/pr_checklist.md` for PR quality checklist, `github-contributor/references/project_evaluation.md` for project evaluation criteria, and `github-contributor/references/communication_templates.md` for issue/PR templates
 - **i18n-expert**: See `i18n-expert/SKILL.md` for complete i18n setup workflow, key architecture guidance, and audit procedures

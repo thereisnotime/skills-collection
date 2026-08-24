@@ -13,62 +13,37 @@ Usage:
 import os, re, sys, json, glob
 from collections import Counter
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from skill_frontmatter import description_of, load_frontmatter, FrontmatterError
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ALLOWED = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
-def top_level_keys_and_scalars(fm):
-    """Minimal YAML: top-level keys (col 0) + scalar values for name/description."""
-    keys = []
-    scalars = {}
-    lines = fm.split("\n")
-    for i, line in enumerate(lines):
-        m = re.match(r"^([A-Za-z0-9_-]+):(.*)$", line)
-        if not m:
-            continue
-        key, rest = m.group(1), m.group(2)
-        keys.append(key)
-        val = rest.strip()
-        if val and val[0] in "|>":  # block scalar -> gather following indented lines
-            buf = []
-            for nxt in lines[i + 1:]:
-                if re.match(r"^\s+\S", nxt):
-                    buf.append(nxt.strip())
-                elif nxt.strip() == "":
-                    buf.append("")
-                else:
-                    break
-            val = " ".join(x for x in buf if x != "").strip()
-        elif not val:
-            # could be a folded plain scalar wrapped onto continuation lines
-            buf = []
-            for nxt in lines[i + 1:]:
-                if re.match(r"^\s+-\s", nxt) or re.match(r"^[A-Za-z0-9_-]+:", nxt):
-                    break
-                if re.match(r"^\s+\S", nxt):
-                    buf.append(nxt.strip())
-                else:
-                    break
-            val = " ".join(buf).strip()
-        scalars[key] = val.strip().strip("\"'")
-    return keys, scalars
+# The agentskills.io standard forbids reserved vendor words in a skill name.
+# tools/agentskills-skill.schema.json names this script as the enforcement
+# point, but the check was never actually implemented until now.
+RESERVED_NAME_WORDS = ("anthropic", "claude")
+
 
 def validate(path):
     slug = os.path.basename(os.path.dirname(path))
-    text = open(path, encoding="utf-8").read()
-    m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
     problems = []
-    if not m:
-        return slug, ["no YAML frontmatter block"], []
-    fm = m.group(1)
-    keys, scalars = top_level_keys_and_scalars(fm)
+
+    try:
+        fm = load_frontmatter(path)
+    except FrontmatterError as exc:
+        return slug, [str(exc)], []
+
+    keys = list(fm.keys())
 
     if "name" not in keys:
         problems.append("missing required key: name")
     if "description" not in keys:
         problems.append("missing required key: description")
 
-    name = scalars.get("name", "")
+    name = str(fm.get("name", "") or "")
     if name:
         if not NAME_RE.match(name):
             problems.append(f"name not lowercase-kebab-case: {name!r}")
@@ -76,19 +51,25 @@ def validate(path):
             problems.append(f"name length {len(name)} out of 1..64")
         if name != slug:
             problems.append(f"name {name!r} != directory {slug!r}")
+        for reserved in RESERVED_NAME_WORDS:
+            if reserved in name.lower():
+                problems.append(f"name contains reserved word {reserved!r}: {name!r}")
 
-    desc = scalars.get("description", "")
+    desc = description_of(fm)
     if desc:
         if not (1 <= len(desc) <= 1024):
             problems.append(f"description length {len(desc)} out of 1..1024")
     elif "description" in keys:
         problems.append("description empty")
 
-    # Ignore YAML block-scalar indicators (`key: >`, `key: >-`, `key: |`, ...);
-    # only genuine `<...>`/`>` content in values is an injection concern.
-    fm_no_ind = re.sub(r":[ \t]*[|>][+-]?[ \t]*(?=\n|$)", ":", fm)
-    if "<" in fm_no_ind or ">" in fm_no_ind:
-        problems.append("frontmatter contains angle brackets (injection risk / not allowed)")
+    # Angle brackets are an injection risk. Checking the PARSED values (rather
+    # than the raw text) means YAML block-scalar indicators like `>-` are never
+    # mistaken for content, so no indicator-stripping hack is needed.
+    for key, value in fm.items():
+        if isinstance(value, str) and ("<" in value or ">" in value):
+            problems.append(f"frontmatter value for {key!r} contains angle brackets "
+                            "(injection risk / not allowed)")
+            break
 
     # Additional top-level keys are PERMITTED by the standard (name+description
     # are the only required fields). They are reported for information, not

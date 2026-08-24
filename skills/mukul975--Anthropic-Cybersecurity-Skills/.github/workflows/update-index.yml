@@ -18,72 +18,15 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      # Generation lives in tools/generate-index.py so it is testable outside CI
+      # and shares one PyYAML-backed frontmatter parser with the validators.
+      # The previous inline regex parser silently truncated 604/817 descriptions
+      # to their first line for every YAML scalar style except '>'/'|'.
       - name: Regenerate index.json
-        run: |
-          python3 << 'EOF'
-          import os, json, re
-          from datetime import datetime, timezone
-
-          skills_dir = "skills"
-          skills = []
-
-          for skill_name in sorted(os.listdir(skills_dir)):
-              skill_md = os.path.join(skills_dir, skill_name, "SKILL.md")
-              if not os.path.isfile(skill_md):
-                  continue
-              with open(skill_md, "r", encoding="utf-8") as f:
-                  content = f.read()
-              fm_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
-              description = ""
-              if fm_match:
-                  fm = fm_match.group(1)
-                  dm = re.search(r"^description:[ \t]*(.*)$", fm, re.MULTILINE)
-                  if dm:
-                      first = dm.group(1).strip()
-                      if first[:1] in (">", "|"):
-                          # YAML block scalar: gather the following more-indented lines
-                          buf = []
-                          for ln in fm[dm.end():].split("\n"):
-                              if ln.strip() == "":
-                                  buf.append("")
-                              elif re.match(r"^[ \t]+\S", ln):
-                                  buf.append(ln.strip())
-                              else:
-                                  break
-                          if first.startswith(">"):  # folded: blank line = break, else join w/ space
-                              paras, cur = [], []
-                              for b in buf:
-                                  if b == "":
-                                      if cur: paras.append(" ".join(cur)); cur = []
-                                  else:
-                                      cur.append(b)
-                              if cur: paras.append(" ".join(cur))
-                              description = " ".join(paras).strip()
-                          else:  # literal
-                              description = " ".join(b for b in buf if b).strip()
-                      else:
-                          description = first.strip('"').strip("'")
-              skills.append({
-                  "name": skill_name,
-                  "description": description,
-                  "domain": "cybersecurity",
-                  "path": f"skills/{skill_name}"
-              })
-
-          index = {
-              "version": "1.1.0",
-              "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-              "repository": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
-              "domain": "cybersecurity",
-              "total_skills": len(skills),
-              "skills": skills
-          }
-
-          with open("index.json", "w", encoding="utf-8") as f:
-              json.dump(index, f, separators=(',', ':'))
-
-          print(f"Updated index.json: {len(skills)} skills")
-          EOF
+        run: python3 tools/generate-index.py
 
       - name: Sync skill count into README and marketplace
         run: |
