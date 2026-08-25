@@ -61,5 +61,11 @@ describe("peer-job-runner shared-asset parity", () => {
     expect(kernels[0]).toContain('wait "$sleeper" 2>/dev/null || exit 0')
     expect(kernels[0]).toContain('kill -USR1 "$parent_pid"')
     expect(kernels[0]).toContain('while [ "$_HEARTBEAT_READY" != 1 ]')
+    // Leader-only TERM is deferred across `wait $sleeper`; the group signal
+    // unblocks stop_heartbeat (CI 20s timeout on SIGTERM / failed grok).
+    expect(kernels[0]).toContain('kill -- -"$_HEARTBEAT_PID"')
+    // Heartbeat must be its own process group even after callers set +m.
+    expect(kernels[0]).toContain("local prev_m")
+    expect(kernels[0]).toContain("[ \"$prev_m\" = 0 ] && set +m")
   })
 })

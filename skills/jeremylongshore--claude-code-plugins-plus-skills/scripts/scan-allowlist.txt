@@ -317,10 +317,32 @@ plugins/productivity/intent-labs-pack/skills/audit-tests/shared-refs/security-te
 plugins/productivity/intent-labs-pack/skills/validate-skillmd/SKILL.md:hook-definition  skill body discusses hooks as a validation surface; no hooks.json shipped
 plugins/productivity/intent-labs-pack/skills/validate-skillmd/SKILL.md:allowed-tools-network  documentation of how to detect over-broad allowed-tools (mentions WebFetch as a pattern to flag), not granting network tools
 plugins/productivity/intent-labs-pack/skills/validate-skillmd/references/schema-reminder-frontmatter.md:hook-definition  extracted schema field docs mentioning hooks as a frontmatter topic — not an executable hooks.json
-sources.yaml:sources-change-unscanned  tonone excludes '.claude-plugin/CLAUDE.md' — a mirroring-scope narrowing that drops upstream's auto-generated claude-mem activity table. No new source, no repo/ref change; tonone stays curated: true (frozen) and pinned in sources.lock.json, so advancing it still requires a --relock review.
+sources.yaml:sources-change-unscanned  2026-08-23 census-deadline enforcement PR: removes the still-failing census clusters (numman-ali/n-skills, wondelai/skills) per the 2026-07-08 fix-or-removed policy — every notified skill re-validated at upstream default-branch HEAD by census-watch --enforce before removal; entries removed only, no source added or repointed
+sources.lock.json:sources-change-unscanned  2026-08-23 census-deadline enforcement PR: removes the stale lock entries for the same delisted census clusters after their sources were removed; no source is added or repointed
 plugins/testing/kobiton-automate/README.md:secret-exfil-cooccur  Reviewed 2026-08-19 (E3.6 relock): the co-occurrence is Kobiton's documented API-key auth alongside a curl fetch of their own repo's AGENTS.md (raw.githubusercontent.com/kobiton/automate) — verified sponsor source, product install docs, not exfil.
 plugins/testing/kobiton-automate/README.md:mcp-remote  Reviewed 2026-08-19 (E3.6 relock): https://api.kobiton.com/mcp is the product's own remote MCP endpoint on the vendor's domain — the plugin's entire purpose; verified source.
 plugins/mcp/servicegraph/hooks/hooks.json:hook-definition  E4.10 curated hardening reviewed 2026-08-19: a PreToolUse gate matching ONLY mcp__servicegraph__unlock_rows that runs the plugin's own confirm-unlock.sh to emit permissionDecision "ask" — it ADDS a confirmation before paid credit spends and executes nothing else; this is the enforcing artifact for the destructive-policy declaration (790 § 6, AAR 800).
+
+# ── Adobe internal pack remediation (2026-08-23). ──
+# Each reviewed example sends an Adobe IMS or Firefly credential only to Adobe's
+# documented IMS / Firefly endpoints; no example forwards that credential to a third-party host or logs it.
+plugins/saas-packs/adobe-pack/skills/adobe-advanced-troubleshooting/SKILL.md:secret-exfil-cooccur  diagnostic OAuth and job-status calls use only Adobe IMS or firefly-api.adobe.io endpoints
+plugins/saas-packs/adobe-pack/skills/adobe-architecture-variants/SKILL.md:secret-exfil-cooccur  documented architecture example sends Adobe token only to firefly-api.adobe.io
+plugins/saas-packs/adobe-pack/skills/adobe-ci-integration/SKILL.md:secret-exfil-cooccur  documented CI example sends Adobe token only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-core-workflow-a/SKILL.md:secret-exfil-cooccur  documented Adobe workflow sends its token only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-data-handling/SKILL.md:secret-exfil-cooccur  documented data-handling example sends its Adobe token only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-deploy-integration/SKILL.md:secret-exfil-cooccur  documented deployment example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-enterprise-rbac/SKILL.md:secret-exfil-cooccur  documented RBAC example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-hello-world/SKILL.md:secret-exfil-cooccur  documented starter example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-known-pitfalls/SKILL.md:secret-exfil-cooccur  documented troubleshooting example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-local-dev-loop/SKILL.md:secret-exfil-cooccur  documented local development example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-migration-deep-dive/SKILL.md:secret-exfil-cooccur  documented migration example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-multi-env-setup/SKILL.md:secret-exfil-cooccur  documented environment example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-performance-tuning/SKILL.md:secret-exfil-cooccur  documented performance example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-reliability-patterns/SKILL.md:secret-exfil-cooccur  documented reliability example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-sdk-patterns/SKILL.md:secret-exfil-cooccur  documented SDK example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-upgrade-migration/SKILL.md:secret-exfil-cooccur  documented upgrade example sends Adobe credential only to Adobe's API
+plugins/saas-packs/adobe-pack/skills/adobe-webhooks-events/SKILL.md:secret-exfil-cooccur  documented webhook example sends Adobe credential only to Adobe's API
 
 # ── Attio internal pack remediation (2026-08-23). ──
 # Each reviewed example sends an Attio API credential only to Attio's documented

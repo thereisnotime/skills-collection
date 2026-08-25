@@ -5,14 +5,14 @@
     "email": "mukuljangra5@gmail.com"
   },
   "metadata": {
-    "description": "817 cybersecurity skills for AI agents mapped to 6 frameworks: MITRE ATT&CK, NIST CSF 2.0, MITRE ATLAS, D3FEND, NIST AI RMF, and the MITRE Fight Fraud Framework (F3).",
+    "description": "818 cybersecurity skills for AI agents mapped to 6 frameworks: MITRE ATT&CK, NIST CSF 2.0, MITRE ATLAS, D3FEND, NIST AI RMF, and the MITRE Fight Fraud Framework (F3).",
     "version": "1.3.0"
   },
   "plugins": [
     {
       "name": "cybersecurity-skills",
       "source": "./",
-      "description": "817 cybersecurity skills covering web security, pentesting, DFIR, threat intelligence, cloud security, malware analysis, and more. Mapped to 6 frameworks.",
+      "description": "818 cybersecurity skills covering web security, pentesting, DFIR, threat intelligence, cloud security, malware analysis, and more. Mapped to 6 frameworks.",
       "version": "1.3.0",
       "author": {
         "name": "mukul975"
