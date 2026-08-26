@@ -3,9 +3,10 @@
 #
 # THE GAP. `grep -rlE "codeql|semgrep|bandit|gitleaks|trufflehog|pip-audit|safety"
 # .github/workflows/*.yml` returned NOTHING. security-audit.yml audited npm
-# dependencies only, while FIVE Python requirements files went unscanned -- three
-# of which (dashboard/, mcp/, web-app/requirements.txt) are in package.json
-# files[] and therefore ship to every install. A vulnerable Python dep there
+# dependencies only, while SIX product/test Python dependency manifests went
+# unscanned: five requirements files plus the independently published Python
+# SDK's sdk/python/pyproject.toml. Three requirements files ship in the npm
+# package and the SDK ships on PyPI. A vulnerable Python dependency there
 # reaches users, and nothing in CI would have said so.
 #
 # WHAT THIS TEST IS. A STATIC check of the WORKFLOW DEFINITION. It reads
@@ -89,8 +90,12 @@ for step in job.get('steps') or []:
 
 # The step that actually invokes the scanner, as opposed to the ones that
 # summarise or upload its output.
-_PY_SCAN_STEP="$(_step python-audit 'pip-audit every requirements file')"
+_PY_REQ_SCAN_STEP="$(_step python-audit 'pip-audit every requirements file')"
+_PY_SDK_SCAN_STEP="$(_step python-audit 'pip-audit published Python SDK')"
+_PY_SCAN_STEP="$_PY_REQ_SCAN_STEP
+$_PY_SDK_SCAN_STEP"
 _PY_ASSERT_STEP="$(_step python-audit 'Assert the audit actually produced')"
+_SECRET_INSTALL_STEP="$(_step secret-scan 'Install gitleaks')"
 _SECRET_SCAN_STEP="$(_step secret-scan 'gitleaks scan')"
 _SECRET_ASSERT_STEP="$(_step secret-scan 'Assert the secret scan completed cleanly')"
 _SAST_ASSERT_STEP="$(_step sast 'Assert CodeQL SARIF and reject unreviewed critical findings')"
@@ -100,8 +105,30 @@ d = yaml.safe_load(open(os.environ['_LOKI_WF']))
 steps = ((d.get('jobs') or {}).get('sast') or {}).get('steps') or []
 print('\\n'.join(step.get('uses', '') for step in steps if step.get('uses')))
 " 2>/dev/null )"
+_PY_PERMISSIONS="$( _LOKI_WF="$WF" python3 -c "
+import json, os, yaml
+d = yaml.safe_load(open(os.environ['_LOKI_WF']))
+job = ((d.get('jobs') or {}).get('python-audit') or {})
+print(json.dumps(job.get('permissions') or {}, sort_keys=True))
+" 2>/dev/null )"
+_PY_JOB_NAME="$( _LOKI_WF="$WF" python3 -c "
+import os, yaml
+d = yaml.safe_load(open(os.environ['_LOKI_WF']))
+print((((d.get('jobs') or {}).get('python-audit') or {}).get('name') or ''))
+" 2>/dev/null )"
+_SECRET_CUSTODY="$( _LOKI_WF="$WF" python3 -c "
+import json, os, yaml
+d = yaml.safe_load(open(os.environ['_LOKI_WF']))
+job = ((d.get('jobs') or {}).get('secret-scan') or {})
+checkout = next((s for s in (job.get('steps') or [])
+                 if (s.get('name') or '') == 'Checkout'), {})
+print(json.dumps({'permissions': job.get('permissions') or {},
+                  'checkout_uses': checkout.get('uses') or '',
+                  'fetch_depth': (checkout.get('with') or {}).get('fetch-depth')},
+                 sort_keys=True))
+" 2>/dev/null )"
 
-# --- 1. Every requirements file is covered, ENUMERATED INDIVIDUALLY ---------
+# --- 1. Every Python dependency manifest is covered INDIVIDUALLY ------------
 # Deliberately NOT a count. A count cannot say WHICH file was dropped, and
 # tolerates losing one as long as another is added.
 if [ -z "$_PY_RUNS" ]; then
@@ -117,11 +144,35 @@ else
   done
 fi
 
-# --- 2. The secret scan runs over the tree ----------------------------------
-if printf '%s' "$_SECRET_RUNS" | grep -qE 'gitleaks (dir|detect)'; then
-  ok "gitleaks scans the working tree"
+if printf '%s' "$_PY_SDK_SCAN_STEP" | grep -qE 'pip-audit --strict sdk/python' \
+   && printf '%s' "$_PY_SDK_SCAN_STEP" | grep -q 'set -euo pipefail' \
+   && ! printf '%s' "$_PY_SDK_SCAN_STEP" | grep -q '|| true' \
+   && printf '%s' "$_PY_ASSERT_STEP" | grep -q 'shipped-sdk_python_pyproject.toml.json'; then
+  ok "audited and new-findings-blocking: sdk/python/pyproject.toml (published Python SDK)"
 else
-  bad "no gitleaks tree scan -- secrets are unscanned"
+  bad "NOT BLOCKING: sdk/python/pyproject.toml -- published Python SDK dependencies can ship unscanned"
+fi
+
+if [ "$_PY_PERMISSIONS" = '{"contents": "read"}' ]; then
+  ok "pip-audit has read-only least privilege"
+else
+  bad "pip-audit permissions are not contents:read only ($_PY_PERMISSIONS)"
+fi
+
+if printf '%s' "$_PY_JOB_NAME" | grep -qi 'SDK new-findings-blocking'; then
+  ok "pip-audit job identity names the clean SDK baseline's blocking posture"
+else
+  bad "pip-audit job identity does not disclose the SDK blocking threshold"
+fi
+
+# --- 2. The secret scan runs over every reachable commit --------------------
+_secret_expected_custody='{"checkout_uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262", "fetch_depth": 0, "permissions": {"contents": "read"}}'
+if printf '%s' "$_SECRET_SCAN_STEP" | grep -qE 'gitleaks git( |$)' \
+   && printf '%s' "$_SECRET_SCAN_STEP" | grep -q -- '--log-opts="--all"' \
+   && [ "$_SECRET_CUSTODY" = "$_secret_expected_custody" ]; then
+  ok "gitleaks scans all reachable history from a full, read-only pinned checkout"
+else
+  bad "gitleaks history custody is incomplete -- checkout, permissions, git mode, or --all regressed"
 fi
 
 # --- 3. FAIL CLOSED: a missing tool must fail, not silently pass ------------
@@ -130,11 +181,16 @@ fi
 # absent or crashed binary, turning "the scan never ran" into a green check that
 # implies coverage. sbom.yml:7-23 records this exact failure mode in this repo:
 # a workflow green for months on a dead trigger.
-if printf '%s' "$_PY_SCAN_STEP" | grep -q 'command -v pip-audit' \
-   && printf '%s' "$_PY_SCAN_STEP" | grep -qE 'exit 1'; then
-  ok "pip-audit fails closed when the tool is missing"
+_py_invocations="$(printf '%s\n' "$_PY_SCAN_STEP" | grep -cE '^[[:space:]]*pip-audit ' || true)"
+_py_strict_invocations="$(printf '%s\n' "$_PY_SCAN_STEP" | grep -cE '^[[:space:]]*pip-audit --strict ' || true)"
+if printf '%s' "$_PY_REQ_SCAN_STEP" | grep -q 'command -v pip-audit' \
+   && printf '%s' "$_PY_SDK_SCAN_STEP" | grep -q 'command -v pip-audit' \
+   && printf '%s' "$_PY_SCAN_STEP" | grep -qE 'exit 1' \
+   && [ "$_py_invocations" -eq 3 ] \
+   && [ "$_py_strict_invocations" -eq 3 ]; then
+  ok "pip-audit fails closed on tool absence and strict dependency collection across all manifests"
 else
-  bad "pip-audit does NOT fail closed -- a missing binary would report green"
+  bad "pip-audit does NOT fail closed -- tool absence or incomplete project dependency collection could report green"
 fi
 
 if printf '%s' "$_SECRET_RUNS" | grep -qE '\-x /tmp/gitleaks|command -v gitleaks' \
@@ -167,8 +223,9 @@ fi
 
 # --- 5. Shipped vs test-only requirements are distinguished -----------------
 # Membership is from package.json files[]: dashboard/, mcp/ and
-# web-app/requirements.txt ship to users; the two *-test.txt do not. The split
-# is recorded so the two sets can be promoted to blocking independently.
+# web-app/requirements.txt ship to npm users, sdk/python/pyproject.toml ships to
+# PyPI users, and the two *-test.txt do not. The split is recorded so the two
+# sets can be promoted to blocking independently.
 # NOTE: this asserts the DISTINCTION EXISTS, not that shipped files block --
 # they do not today, by measured decision (see the workflow posture comment).
 # Scoped to the SCAN step: the labels have to be applied where the reports are
@@ -193,10 +250,24 @@ print('ok' if ships('dashboard/requirements.txt') and ships('mcp/')
       and not ships('requirements-test.txt')
       and not ships('web-app/requirements-test.txt') else 'drift')
 " 2>/dev/null || echo error)"
-if [ "$_ships" = "ok" ]; then
-  ok "fixture intact: 3 requirements files ship via files[], the 2 test ones do not"
+_sdk_ships="$(python3 -c "
+import pathlib, tomllib, yaml
+root = pathlib.Path('$REPO_ROOT')
+project = tomllib.loads((root / 'sdk/python/pyproject.toml').read_text()).get('project') or {}
+workflow = yaml.safe_load((root / '.github/workflows/release.yml').read_text())
+job = (workflow.get('jobs') or {}).get('publish-python-sdk') or {}
+steps = job.get('steps') or []
+print('ok' if project.get('name') == 'loki-mode-sdk'
+      and any(step.get('working-directory') == 'sdk/python'
+              and 'python -m build' in (step.get('run') or '') for step in steps)
+      and any(step.get('working-directory') == 'sdk/python'
+              and 'twine upload' in (step.get('run') or '') for step in steps)
+      else 'drift')
+" 2>/dev/null || echo error)"
+if [ "$_ships" = "ok" ] && [ "$_sdk_ships" = "ok" ]; then
+  ok "fixture intact: 3 requirements files ship via npm, Python SDK ships via PyPI, 2 test files do not"
 else
-  bad "FIXTURE DRIFT ($_ships): files[] membership changed, shipped/test labels are now wrong"
+  bad "FIXTURE DRIFT (npm=$_ships sdk=$_sdk_ships): shipped/test labels are now wrong"
 fi
 
 # --- 6. POSITIVE CONTROL: the existing npm audit still runs -----------------
@@ -218,6 +289,27 @@ printf '%s' "$_SECRET_RUNS" | grep -qE "gitleaks/releases/download/v[0-9]" \
   && ok "gitleaks version is pinned" \
   || bad "gitleaks is unpinned -- the baseline can move without a commit"
 
+# Pinning the URL is not enough: a replaced or corrupted release asset would
+# otherwise be extracted and executed with no byte-level provenance check. The
+# digest is the official v8.30.0 linux_x64 release checksum, and verification
+# must happen before extraction so no unauthenticated binary reaches /tmp.
+_gitleaks_linux_x64_sha="79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
+_gitleaks_checksum_order="$( _LOKI_BODY="$_SECRET_INSTALL_STEP" \
+  _LOKI_SHA="$_gitleaks_linux_x64_sha" python3 -c "
+import os
+body = os.environ['_LOKI_BODY']
+sha = os.environ['_LOKI_SHA']
+verify = body.find(sha)
+extract = body.find('tar -xzf /tmp/gitleaks.tar.gz')
+print('ok' if verify >= 0 and 'sha256sum -c' in body[verify:extract]
+      and extract > verify else 'missing')
+" 2>/dev/null )"
+if [ "$_gitleaks_checksum_order" = "ok" ]; then
+  ok "gitleaks archive matches the pinned official SHA-256 before extraction"
+else
+  bad "gitleaks archive is executed without the pinned official pre-extraction checksum"
+fi
+
 # --- 8. Secret findings block outside an exact reviewed baseline ------------
 _secret_name="$( _LOKI_WF="$WF" python3 -c "
 import os, yaml
@@ -238,50 +330,106 @@ else
   bad "gitleaks findings are non-blocking or the exact baseline is not selected"
 fi
 
-_ignore="$REPO_ROOT/.gitleaksignore"
-_ignore_count="$(awk 'NF && $1 !~ /^#/ {n++} END {print n+0}' "$_ignore" 2>/dev/null)"
-_ignore_unique="$(awk 'NF && $1 !~ /^#/ {print}' "$_ignore" 2>/dev/null | sort -u | wc -l | tr -d ' ')"
-_ignore_malformed="$(awk 'NF && $1 !~ /^#/ && $0 !~ /^[^:]+:[a-z0-9-]+:[1-9][0-9]*$/ {n++} END {print n+0}' "$_ignore" 2>/dev/null)"
-if [ "$_ignore_count" -eq 35 ] && [ "$_ignore_unique" -eq 35 ] \
-   && [ "$_ignore_malformed" -eq 0 ]; then
-  ok "gitleaks baseline contains 35 unique exact file/rule/line fingerprints"
+# Override only a disposable copy when mutation-verifying the baseline shape.
+_ignore="${LOKI_GITLEAKS_IGNORE:-$REPO_ROOT/.gitleaksignore}"
+_ignore_shape="$(python3 - "$_ignore" <<'PY'
+import re, sys
+entries = [line.strip() for line in open(sys.argv[1])
+           if line.strip() and not line.lstrip().startswith('#')]
+current = re.compile(r'^[^:]+:[a-z0-9-]+:[1-9][0-9]*$')
+historical = re.compile(r'^[0-9a-f]{40}:[^:]+:[a-z0-9-]+:[1-9][0-9]*$')
+print(len(entries), len(set(entries)),
+      sum(bool(current.fullmatch(e)) for e in entries),
+      sum(bool(historical.fullmatch(e)) for e in entries),
+      sum(not current.fullmatch(e) and not historical.fullmatch(e) for e in entries))
+PY
+)"
+if [ "$_ignore_shape" = "44 44 35 9 0" ]; then
+  ok "gitleaks baseline contains 35 current and 9 commit-qualified historical fingerprints"
 else
-  bad "gitleaks baseline is not the reviewed 35-entry exact-fingerprint set"
+  bad "gitleaks baseline shape drifted ($_ignore_shape; expected 44 44 35 9 0)"
 fi
 
 # Optional live mutation proof. Exact-SHA acceptance supplies the same pinned
 # v8.30.0 binary as the workflow. Ordinary repository tests retain their static
-# coverage when that binary is unavailable.
+# coverage when that binary is unavailable. Both live rungs call this helper so
+# the acceptance test exercises the production git-history mode, not dir mode.
+_run_live_gitleaks_history() {
+  local scan_root="$1" report="$2" ignore="$3"
+  (cd "$scan_root" && "$LOKI_GITLEAKS_BIN" git . \
+    --log-opts="--all" \
+    --gitleaks-ignore-path "$ignore" --report-format json \
+    --report-path "$report" --redact --no-banner >/dev/null 2>&1)
+}
+
+_live_history_helper="$(declare -f _run_live_gitleaks_history)"
+if printf '%s' "$_live_history_helper" | grep -qE 'GITLEAKS_BIN.* git \.' \
+   && printf '%s' "$_live_history_helper" | grep -q -- '--log-opts="--all"'; then
+  ok "live gitleaks oracle is bound to git mode over all reachable history"
+else
+  bad "live gitleaks oracle regressed from git mode or omitted --all"
+fi
+
 if [ -n "${LOKI_GITLEAKS_BIN:-}" ]; then
   if [ ! -x "$LOKI_GITLEAKS_BIN" ]; then
     bad "LOKI_GITLEAKS_BIN is set but is not executable"
   else
-    _clean_report="$(mktemp "${TMPDIR:-/tmp}/loki-gitleaks-clean.XXXXXX")"
-    if (cd "$REPO_ROOT" && "$LOKI_GITLEAKS_BIN" dir . \
-         --gitleaks-ignore-path .gitleaksignore --report-format json \
-         --report-path "$_clean_report" --redact --no-banner >/dev/null 2>&1) \
+    _live_clean_root=''
+    _live_mutation_root=''
+    _cleanup_live_gitleaks() {
+      local path
+      for path in "$_live_clean_root" "$_live_mutation_root"; do
+        [ -n "$path" ] || continue
+        case "$path" in
+          "${TMPDIR:-/tmp}"/loki-gitleaks-*) rm -rf -- "$path" ;;
+          *) return 64 ;;
+        esac
+      done
+    }
+    trap _cleanup_live_gitleaks EXIT
+
+    _live_clean_root="$(mktemp -d "${TMPDIR:-/tmp}/loki-gitleaks-clean.XXXXXX")"
+    _clean_report="$_live_clean_root/report.json"
+    if _run_live_gitleaks_history "$REPO_ROOT" "$_clean_report" ".gitleaksignore" \
        && python3 -c 'import json,sys; assert json.load(open(sys.argv[1])) == []' \
             "$_clean_report"; then
-      ok "live gitleaks accepts the exact reviewed fingerprint baseline"
+      ok "live gitleaks accepts the exact reviewed baseline across repository history"
     else
-      bad "live gitleaks rejects the exact reviewed baseline or emits findings"
+      bad "live gitleaks rejects the reviewed history baseline or emits findings"
     fi
 
-    _mutation_root="$(mktemp -d "${TMPDIR:-/tmp}/loki-gitleaks-mutation.XXXXXX")"
-    _mutation_report="$_mutation_root/report.json"
+    _live_mutation_root="$(mktemp -d "${TMPDIR:-/tmp}/loki-gitleaks-mutation.XXXXXX")"
+    _mutation_repo="$_live_mutation_root/repo"
+    _mutation_report="$_live_mutation_root/report.json"
+    git init -q "$_mutation_repo"
+    git -C "$_mutation_repo" config user.email "gitleaks-test@loki.local"
+    git -C "$_mutation_repo" config user.name "gitleaks test"
+    git -C "$_mutation_repo" config commit.gpgsign false
+    git -C "$_mutation_repo" config core.hooksPath /dev/null
+    cp "$_ignore" "$_mutation_repo/.gitleaksignore"
+    git -C "$_mutation_repo" add .gitleaksignore
+    git -C "$_mutation_repo" commit -qm "baseline" --no-gpg-sign --no-verify
     # Keep the detector literal split in this source file; only the disposable
-    # mutation receives the contiguous, intentionally synthetic token.
+    # committed history receives the contiguous, intentionally synthetic token.
     printf '%s%s\n' 'const key = "AKIA' 'ABCDEFGHIJKLMNOP";' \
-      > "$_mutation_root/novel-secret.js"
-    if "$LOKI_GITLEAKS_BIN" dir "$_mutation_root" \
-         --gitleaks-ignore-path "$_ignore" --report-format json \
-         --report-path "$_mutation_report" --redact --no-banner >/dev/null 2>&1; then
-      bad "live gitleaks accepted a novel unmatched synthetic secret"
+      > "$_mutation_repo/novel-secret.js"
+    git -C "$_mutation_repo" add novel-secret.js
+    git -C "$_mutation_repo" commit -qm "novel secret mutation" --no-gpg-sign --no-verify
+    if _run_live_gitleaks_history "$_mutation_repo" "$_mutation_report" ".gitleaksignore"; then
+      bad "live git-history scan accepted a committed unmatched synthetic secret"
     elif python3 -c 'import json,sys; assert len(json.load(open(sys.argv[1]))) == 1' \
            "$_mutation_report"; then
-      ok "live gitleaks blocks a novel unmatched synthetic secret"
+      ok "live git-history scan blocks one committed unmatched synthetic secret"
     else
-      bad "live gitleaks failed without one parseable novel-finding report"
+      bad "live git-history scan failed without one parseable novel-finding report"
+    fi
+
+    _cleanup_live_gitleaks
+    trap - EXIT
+    if [ ! -e "$_live_clean_root" ] && [ ! -e "$_live_mutation_root" ]; then
+      ok "live gitleaks fixtures are fully cleaned"
+    else
+      bad "live gitleaks fixtures were not fully cleaned"
     fi
   fi
 else

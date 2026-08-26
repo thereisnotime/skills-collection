@@ -554,6 +554,129 @@ class TestChatModes:
         assert req.message == msg
 
 
+class _BoundedImageUpload:
+    def __init__(self, chunks, *, content_type="image/png", filename="shot.png"):
+        self._chunks = iter(chunks)
+        self.content_type = content_type
+        self.filename = filename
+        self.read_sizes = []
+
+    async def read(self, size=-1):
+        self.read_sizes.append(size)
+        if size < 0:
+            raise AssertionError("image upload performed an unbounded read")
+        return next(self._chunks, b"")
+
+
+class TestChatImageUploadBounds:
+    COMPLETE_IMAGES = {
+        "image/png": (
+            b"\x89PNG\r\n\x1a\n"
+            b"\x00\x00\x00\x0dIHDR" + b"\x00" * 13 + b"\x00" * 4
+            + b"\x00\x00\x00\x00IEND" + b"\x00" * 4
+        ),
+        "image/jpeg": b"\xff\xd8\xff\xe0complete\xff\xd9",
+        "image/gif": b"GIF89a" + b"\x00" * 7 + b"\x3b",
+        "image/webp": b"RIFF\x0c\x00\x00\x00WEBPVP8 \x00\x00\x00\x00",
+    }
+
+    @pytest.mark.asyncio
+    async def test_large_image_refuses_with_bounded_reads(self, tmp_path):
+        from server import _store_chat_image
+
+        megabyte = b"x" * (1024 * 1024)
+        upload = _BoundedImageUpload([megabyte] * 11)
+        response = await _store_chat_image(tmp_path, upload)
+
+        assert response.status_code == 413
+        assert all(0 < size <= 1024 * 1024 for size in upload.read_sizes)
+        assert not (tmp_path / ".loki" / "images").exists()
+
+    @pytest.mark.asyncio
+    async def test_unsupported_type_refuses_before_read(self, tmp_path):
+        from server import _store_chat_image
+
+        upload = _BoundedImageUpload([b"not an image"], content_type="text/plain")
+        response = await _store_chat_image(tmp_path, upload)
+
+        assert response.status_code == 415
+        assert upload.read_sizes == []
+        assert not (tmp_path / ".loki" / "images").exists()
+
+    @pytest.mark.asyncio
+    async def test_malformed_supported_type_refuses_without_persistence(self, tmp_path):
+        from server import _store_chat_image
+
+        upload = _BoundedImageUpload([b"not a png"], content_type="image/png")
+        response = await _store_chat_image(tmp_path, upload)
+
+        assert response.status_code == 415
+        assert not (tmp_path / ".loki" / "images").exists()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("content_type", "content"),
+        [
+            ("image/png", b"\x89PNG\r\n\x1a\n"),
+            ("image/jpeg", b"\xff\xd8\xff"),
+            ("image/gif", b"GIF89a"),
+            ("image/webp", b"RIFF\x04\x00\x00\x00WEBP"),
+        ],
+    )
+    async def test_truncated_supported_type_refuses_without_persistence(
+        self, tmp_path, content_type, content
+    ):
+        from server import _store_chat_image
+
+        upload = _BoundedImageUpload([content], content_type=content_type)
+        response = await _store_chat_image(tmp_path, upload)
+
+        assert response.status_code == 415
+        assert not (tmp_path / ".loki" / "images").exists()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("content_type", COMPLETE_IMAGES)
+    async def test_complete_supported_type_remains_persistable(self, tmp_path, content_type):
+        from server import _store_chat_image
+
+        content = self.COMPLETE_IMAGES[content_type]
+        upload = _BoundedImageUpload([content], content_type=content_type)
+        response = await _store_chat_image(tmp_path, upload)
+
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        assert (tmp_path / body["path"]).read_bytes() == content
+
+    @pytest.mark.asyncio
+    async def test_real_multipart_bypass_is_independently_refused(self, tmp_path):
+        import httpx
+        from server import app
+
+        transport = httpx.ASGITransport(app=app)
+        with patch("server._find_session_dir", return_value=tmp_path):
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    "/api/sessions/session-1/chat/image",
+                    files={"image": ("forged.png", b"not a png", "image/png")},
+                )
+
+        assert response.status_code == 415
+        assert not (tmp_path / ".loki" / "images").exists()
+
+    @pytest.mark.asyncio
+    async def test_small_png_remains_supported(self, tmp_path):
+        from server import _store_chat_image
+
+        png = self.COMPLETE_IMAGES["image/png"]
+        upload = _BoundedImageUpload([png])
+        response = await _store_chat_image(tmp_path, upload)
+
+        assert response.status_code == 200
+        body = json.loads(response.body)
+        saved = tmp_path / body["path"]
+        assert saved.read_bytes() == png
+
+
 # ============================================================================
 # Test Command Validation (shell injection prevention)
 # ============================================================================

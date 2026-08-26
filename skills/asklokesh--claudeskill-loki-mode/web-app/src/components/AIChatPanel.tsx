@@ -312,6 +312,34 @@ const modeDescriptions: Record<string, string> = {
   max: 'Max: Full autonomous build from your description',
 };
 
+const CHAT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const CHAT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+
+function attachmentRefusal(file: File): string | null {
+  if (!CHAT_IMAGE_TYPES.has(file.type.toLowerCase())) {
+    return 'This attachment was not added. Use a PNG, JPEG, GIF, or WebP image.';
+  }
+  if (file.size > CHAT_IMAGE_MAX_BYTES) {
+    return 'This attachment was not added because it exceeds the 10 MiB limit.';
+  }
+  return null;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }: AIChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -320,12 +348,15 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
   const [streaming, setStreaming] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachButtonRef = useRef<HTMLButtonElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const activeTaskRef = useRef<string | null>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  const previewUrlsRef = useRef(new Set<string>());
 
   // UX-001: Restore chat history from sessionStorage on mount
   useEffect(() => {
@@ -338,7 +369,8 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
   // UX-001: Persist chat history to sessionStorage (last 50 messages)
   useEffect(() => {
     if (messages.length > 0) {
-      sessionStorage.setItem(`chat_${sessionId}`, JSON.stringify(messages.slice(-50)));
+      const persisted = messages.slice(-50).map(message => ({ ...message, imageUrl: undefined }));
+      sessionStorage.setItem(`chat_${sessionId}`, JSON.stringify(persisted));
     }
   }, [messages, sessionId]);
 
@@ -351,35 +383,50 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
 
   // Cleanup on unmount
   useEffect(() => {
+    const previewUrls = previewUrlsRef.current;
     return () => {
       if (abortRef.current) {
         abortRef.current.abort();
       }
-      // Revoke object URL to prevent memory leaks
-      if (pendingImage?.previewUrl) {
-        URL.revokeObjectURL(pendingImage.previewUrl);
+      for (const previewUrl of previewUrls) {
+        URL.revokeObjectURL(previewUrl);
       }
+      previewUrls.clear();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const releasePreviewUrl = useCallback((previewUrl: string) => {
+    if (!previewUrlsRef.current.delete(previewUrl)) return;
+    URL.revokeObjectURL(previewUrl);
   }, []);
 
   // Handle image file selection
   const handleImageFile = useCallback((file: File) => {
-    if (!file.type.startsWith('image/')) return;
+    if (sending) return;
+    const refusal = attachmentRefusal(file);
+    if (refusal) {
+      setAttachmentError(refusal);
+      return;
+    }
+    setAttachmentError(null);
     // Revoke previous preview URL
     if (pendingImage?.previewUrl) {
-      URL.revokeObjectURL(pendingImage.previewUrl);
+      releasePreviewUrl(pendingImage.previewUrl);
     }
     const previewUrl = URL.createObjectURL(file);
+    previewUrlsRef.current.add(previewUrl);
     setPendingImage({ file, previewUrl });
-  }, [pendingImage?.previewUrl]);
+  }, [pendingImage?.previewUrl, releasePreviewUrl, sending]);
 
   const clearPendingImage = useCallback(() => {
     if (pendingImage?.previewUrl) {
-      URL.revokeObjectURL(pendingImage.previewUrl);
+      releasePreviewUrl(pendingImage.previewUrl);
     }
     setPendingImage(null);
-  }, [pendingImage?.previewUrl]);
+    setAttachmentError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    attachButtonRef.current?.focus();
+  }, [pendingImage?.previewUrl, releasePreviewUrl]);
 
   // Clipboard paste handler (Ctrl+V for images)
   useEffect(() => {
@@ -619,6 +666,8 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
   const handleSend = async () => {
     const trimmed = input.trim();
     if ((!trimmed && !pendingImage) || sending) return;
+    setSending(true);
+    setAttachmentError(null);
 
     // Upload image first if present
     let imageUrl: string | undefined;
@@ -628,12 +677,17 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
     if (pendingImage) {
       setUploadingImage(true);
       try {
+        imageUrl = await readFileAsDataUrl(pendingImage.file);
         const result = await api.chatImageUpload(sessionId, pendingImage.file);
-        imageUrl = pendingImage.previewUrl;
         imageName = result.filename;
         imageContext = `[Attached image: ${result.filename} (id: ${result.image_id})] Make it look like this. `;
       } catch {
-        // Continue without image if upload fails
+        setAttachmentError(
+          'The attachment was refused and no message was sent. Use a valid PNG, JPEG, GIF, or WebP image up to 10 MiB.',
+        );
+        setUploadingImage(false);
+        setSending(false);
+        return;
       }
       setUploadingImage(false);
     }
@@ -658,8 +712,8 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
 
     setMessages(prev => [...prev, userMsg, streamingMsg]);
     setInput('');
+    if (pendingImage) releasePreviewUrl(pendingImage.previewUrl);
     setPendingImage(null);
-    setSending(true);
 
     try {
       // BUG-E2E-004: Send recent conversation history for context continuity.
@@ -772,24 +826,40 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
         </div>
         {/* Pending image preview */}
         {pendingImage && (
-          <div className="flex items-center gap-2 mb-2 px-1">
+          <div
+            role="group"
+            aria-label="Selected attachment"
+            aria-live="polite"
+            className="flex items-center gap-2 mb-2 px-1"
+          >
             <div className="relative">
               <img
                 src={pendingImage.previewUrl}
-                alt="Pending upload"
+                alt={`Preview of ${pendingImage.file.name}`}
                 className="h-16 max-w-[120px] rounded border border-border object-cover"
               />
               <button
                 onClick={clearPendingImage}
                 className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
                 title="Remove image"
+                aria-label={`Remove ${pendingImage.file.name}`}
               >
                 <X size={10} />
               </button>
             </div>
-            <span className="text-[10px] text-muted truncate max-w-[150px]">{pendingImage.file.name}</span>
+            <div className="min-w-0 text-[10px] text-muted">
+              <p className="truncate max-w-[180px] text-ink" title={pendingImage.file.name}>
+                {pendingImage.file.name}
+              </p>
+              <p>{pendingImage.file.type} · {formatFileSize(pendingImage.file.size)}</p>
+            </div>
             {uploadingImage && <span className="text-[10px] text-primary animate-pulse">Uploading...</span>}
           </div>
+        )}
+        {attachmentError && (
+          <p role="alert" className="mb-2 px-1 text-[11px] text-red-400">
+            {attachmentError}
+          </p>
         )}
         {/* Smart suggestions */}
         {!streaming && (
@@ -800,13 +870,16 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
             className="mb-2"
           />
         )}
+        <p id="chat-attachment-guidance" className="mb-1 px-1 text-[10px] text-muted">
+          Attach one PNG, JPEG, GIF, or WebP image up to 10 MiB.
+        </p>
         {/* Input + send */}
         <div className="flex items-center gap-2">
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/gif,image/webp"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -816,10 +889,13 @@ export function AIChatPanel({ sessionId, defaultMode, onFilesChanged, services }
           />
           {/* Image upload button */}
           <button
+            ref={attachButtonRef}
             onClick={() => fileInputRef.current?.click()}
             disabled={sending}
             className="p-1.5 text-muted hover:text-primary rounded transition-colors disabled:opacity-50"
             title="Attach image (or paste/drag-and-drop)"
+            aria-label="Attach image"
+            aria-describedby="chat-attachment-guidance"
           >
             <ImageIcon size={16} />
           </button>

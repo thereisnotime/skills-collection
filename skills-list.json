@@ -9952,8 +9952,8 @@
       "description": "Quality curator for the Claude Blog Brain. Maintains and answers from the Quality theme of the brain, grounded in the vault and its dated sources. Advisory and read-only. Use for the 5-category qualit",
       "path": "AgriciDaniel--claude-blog/brain/agents/blog-quality-curator.md",
       "remote_path": "brain/agents/blog-quality-curator.md",
-      "lines": 34,
-      "words": 293,
+      "lines": 36,
+      "words": 313,
       "code_blocks": 0,
       "languages": []
     },
@@ -9962,8 +9962,8 @@
       "description": "The owner's dedicated Claude Blog agent, grounded in the Claude Blog Brain at <brain-root>. Use for any blog-content work - writing and rewriting for Google rankings and AI citations, E-E-A-T, GEO and",
       "path": "AgriciDaniel--claude-blog/brain/agents/claude-blog-secretary.md",
       "remote_path": "brain/agents/claude-blog-secretary.md",
-      "lines": 64,
-      "words": 682,
+      "lines": 65,
+      "words": 686,
       "code_blocks": 0,
       "languages": []
     },
@@ -10036,6 +10036,478 @@
       "words": 281,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "blog-translator",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
+      "lines": 172,
+      "words": 948,
+      "code_blocks": 2,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "blog-writer",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
+      "lines": 200,
+      "words": 1210,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "blog-seo",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
+      "lines": 131,
+      "words": 744,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-researcher",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
+      "lines": 272,
+      "words": 1832,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-reviewer",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
+      "lines": 231,
+      "words": 1742,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-chart",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
+      "lines": 279,
+      "words": 1376,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "html",
+        "jsx",
+        "mdx",
+        "xml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-multilingual",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
+      "lines": 343,
+      "words": 1596,
+      "code_blocks": 7,
+      "languages": [
+        "html",
+        "json",
+        "xml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-schema",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
+      "lines": 288,
+      "words": 1160,
+      "code_blocks": 8,
+      "languages": [
+        "html",
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-style",
+      "description": "Learn author writing style from 5 to 10 existing blog posts and generate a voice profile for /blog style learn, VOICE.md, blog-persona, and blog-write when users ask to infer tone, analyze author voic",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
+      "lines": 89,
+      "words": 465,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-flow",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
+      "lines": 190,
+      "words": 1113,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-cluster",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
+      "lines": 333,
+      "words": 2725,
+      "code_blocks": 2,
+      "languages": [
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-rewrite",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
+      "lines": 376,
+      "words": 2769,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-notebooklm",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
+      "lines": 255,
+      "words": 1289,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-strategy",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
+      "lines": 374,
+      "words": 2354,
+      "code_blocks": 8,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-seo-check",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
+      "lines": 237,
+      "words": 1781,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-translate",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
+      "lines": 218,
+      "words": 1146,
+      "code_blocks": 3,
+      "languages": [
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-calendar",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
+      "lines": 305,
+      "words": 1746,
+      "code_blocks": 7,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-factcheck",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
+      "lines": 187,
+      "words": 1328,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-repurpose",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
+      "lines": 290,
+      "words": 1703,
+      "code_blocks": 2,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-geo",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
+      "lines": 313,
+      "words": 1726,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-image",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
+      "lines": 309,
+      "words": 1932,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "markdown",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-analyze",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
+      "lines": 332,
+      "words": 2145,
+      "code_blocks": 5,
+      "languages": [
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-persona",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
+      "lines": 227,
+      "words": 1317,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-decay",
+      "description": "Detect content decay from Google Search Console exports by comparing current and previous page performance, flagging quarter-over-quarter traffic drops, dropped pages, and refresh, consolidate, prune,",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
+      "lines": 89,
+      "words": 526,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-brief",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
+      "lines": 275,
+      "words": 1816,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-cannibalization",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
+      "lines": 224,
+      "words": 1288,
+      "code_blocks": 4,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-audio",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
+      "lines": 252,
+      "words": 1255,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "html",
+        "jsx",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-write",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
+      "lines": 499,
+      "words": 3112,
+      "code_blocks": 15,
+      "languages": [
+        "html",
+        "markdown",
+        "mdx",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-google",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
+      "lines": 277,
+      "words": 1452,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-taxonomy",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
+      "lines": 288,
+      "words": 1432,
+      "code_blocks": 14,
+      "languages": [
+        "graphql"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-outline",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
+      "lines": 147,
+      "words": 886,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-audit",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
+      "lines": 255,
+      "words": 1398,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
+      "lines": 471,
+      "words": 4576,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-locale-audit",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
+      "lines": 211,
+      "words": 1238,
+      "code_blocks": 3,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-localize",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
+      "lines": 224,
+      "words": 1390,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-discourse",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
+      "lines": 223,
+      "words": 1894,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "blog-brand",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
+      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
+      "lines": 240,
+      "words": 1404,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ],
+      "license": "MIT"
     },
     {
       "name": "blog-chart",
@@ -10138,8 +10610,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-notebooklm/SKILL.md",
       "remote_path": "skills/blog-notebooklm/SKILL.md",
-      "lines": 256,
-      "words": 1297,
+      "lines": 260,
+      "words": 1325,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -10341,8 +10813,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-google/SKILL.md",
       "remote_path": "skills/blog-google/SKILL.md",
-      "lines": 308,
-      "words": 1721,
+      "lines": 323,
+      "words": 1824,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -10392,8 +10864,8 @@
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog/SKILL.md",
       "remote_path": "skills/blog/SKILL.md",
-      "lines": 347,
-      "words": 3239,
+      "lines": 348,
+      "words": 3237,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -11250,7 +11722,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
       "lines": 81,
-      "words": 982,
+      "words": 1007,
       "code_blocks": 0,
       "languages": []
     },
@@ -23637,26 +24109,12 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 458,
-      "words": 4194,
+      "lines": 481,
+      "words": 4428,
       "code_blocks": 20,
       "languages": [
         "bash",
         "text",
-        "typescript"
-      ]
-    },
-    {
-      "name": "claimable-postgres",
-      "description": ">-",
-      "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/claimable-postgres/SKILL.md",
-      "remote_path": "plugins/neon-postgres/skills/claimable-postgres/SKILL.md",
-      "lines": 261,
-      "words": 1640,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "json",
         "typescript"
       ]
     },
@@ -23706,8 +24164,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
-      "lines": 222,
-      "words": 1731,
+      "lines": 229,
+      "words": 2021,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -23744,26 +24202,12 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 458,
-      "words": 4194,
+      "lines": 481,
+      "words": 4428,
       "code_blocks": 20,
       "languages": [
         "bash",
         "text",
-        "typescript"
-      ]
-    },
-    {
-      "name": "claimable-postgres",
-      "description": ">-",
-      "path": "neondatabase--agent-skills/skills/claimable-postgres/SKILL.md",
-      "remote_path": "skills/claimable-postgres/SKILL.md",
-      "lines": 261,
-      "words": 1640,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "json",
         "typescript"
       ]
     },
@@ -23813,8 +24257,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
-      "lines": 222,
-      "words": 1731,
+      "lines": 229,
+      "words": 2021,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25278,7 +25722,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "transparent-videos",
@@ -25305,7 +25749,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "tailwind",
@@ -25326,7 +25770,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "remotion-best-practices",
@@ -25337,7 +25781,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "remotion-upgrade",
@@ -25350,7 +25794,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "calculate-metadata",
@@ -25376,7 +25820,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "lottie",
@@ -25647,7 +26091,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "remotion-multimedia",
@@ -25658,7 +26102,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "get-audio-duration",
@@ -25707,7 +26151,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "transcribe-captions",
@@ -25759,7 +26203,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "remotion-maps",
@@ -25770,7 +26214,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "rendering",
@@ -25791,7 +26235,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "player",
@@ -25838,7 +26282,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "remotion-create",
@@ -25851,7 +26295,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "tailwind",
@@ -25872,7 +26316,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "remotion-upgrade",
@@ -25885,7 +26329,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "calculate-metadata",
@@ -26040,7 +26484,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "measuring-dom-nodes",
@@ -26182,7 +26626,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "get-audio-duration",
@@ -26205,7 +26649,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "get-video-dimensions",
@@ -26268,7 +26712,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "display-captions",
@@ -26294,7 +26738,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "remotion-maps",
@@ -26305,7 +26749,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "rendering",
@@ -26338,7 +26782,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "framework",
@@ -26359,7 +26803,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "maps-maplibre",
@@ -26450,7 +26894,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.516"
+      "version": "4.0.517"
     },
     {
       "name": "maps-maplibre",
@@ -27607,8 +28051,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 209,
-      "words": 1988,
+      "lines": 212,
+      "words": 2059,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -27705,8 +28149,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 209,
-      "words": 1988,
+      "lines": 212,
+      "words": 2059,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -27813,8 +28257,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 209,
-      "words": 1988,
+      "lines": 212,
+      "words": 2059,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -27911,8 +28355,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 209,
-      "words": 1988,
+      "lines": 212,
+      "words": 2059,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -28019,8 +28463,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 209,
-      "words": 1988,
+      "lines": 212,
+      "words": 2059,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -28117,8 +28561,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-apps/SKILL.md",
       "remote_path": "skills/stripe-apps/SKILL.md",
-      "lines": 209,
-      "words": 1988,
+      "lines": 212,
+      "words": 2059,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -28472,11 +28916,11 @@
     },
     {
       "name": "gh-cli",
-      "description": "Enforces authenticated gh CLI workflows over unauthenticated curl/WebFetch patterns. Use when working with GitHub URLs, API access, pull requests, or issues.",
+      "description": "Enforces authenticated gh CLI workflows over unauthenticated curl, WebFetch, and MCP fetch patterns. Use when working with GitHub URLs, API access, pull requests, or issues.",
       "path": "trailofbits--skills/plugins/gh-cli/skills/gh-cli/SKILL.md",
       "remote_path": "plugins/gh-cli/skills/gh-cli/SKILL.md",
       "lines": 38,
-      "words": 185,
+      "words": 191,
       "code_blocks": 1,
       "languages": [
         "sh"
@@ -29673,7 +30117,7 @@
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/code-maturity-assessor/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/code-maturity-assessor/SKILL.md",
       "lines": 219,
-      "words": 950,
+      "words": 986,
       "code_blocks": 0,
       "languages": []
     },
@@ -29683,7 +30127,7 @@
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/token-integration-analyzer/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/token-integration-analyzer/SKILL.md",
       "lines": 363,
-      "words": 1650,
+      "words": 1672,
       "code_blocks": 4,
       "languages": [
         "solidity"
@@ -29695,7 +30139,7 @@
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/secure-workflow-guide/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/secure-workflow-guide/SKILL.md",
       "lines": 162,
-      "words": 915,
+      "words": 951,
       "code_blocks": 0,
       "languages": []
     },
@@ -29718,7 +30162,7 @@
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/audit-prep-assistant/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/audit-prep-assistant/SKILL.md",
       "lines": 410,
-      "words": 1433,
+      "words": 1481,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -29740,7 +30184,7 @@
       "path": "trailofbits--skills/plugins/building-secure-contracts/skills/guidelines-advisor/SKILL.md",
       "remote_path": "plugins/building-secure-contracts/skills/guidelines-advisor/SKILL.md",
       "lines": 253,
-      "words": 1075,
+      "words": 1107,
       "code_blocks": 0,
       "languages": []
     },
@@ -46637,6 +47081,198 @@
       ]
     },
     {
+      "name": "cs-linkedin-editor",
+      "description": "Drafts, edits, and lints LinkedIn posts to a publishable standard \u2014 hook that survives the ~140-character mobile fold, one idea, real numbers, no engagement bait, no Unicode pseudo-bold, alt text and ",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/agents/cs-linkedin-editor.md",
+      "remote_path": "marketing/linkedin/agents/cs-linkedin-editor.md",
+      "lines": 90,
+      "words": 680,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cs-linkedin-orchestrator",
+      "description": "Routes any LinkedIn organic-growth request to the right lane and gates it against LinkedIn's User Agreement before a word is drafted. Runs the policy gate (ALLOW / CONSTRAIN / REFUSE against \u00a78.2 \u2014 au",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/agents/cs-linkedin-orchestrator.md",
+      "remote_path": "marketing/linkedin/agents/cs-linkedin-orchestrator.md",
+      "lines": 101,
+      "words": 779,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "\"cs-linkedin-outreach\"",
+      "description": "\"/cs:linkedin-outreach \u2014 Build a weekly commenting roster inside a real time budget, and write one outreach message at a time that refuses to be a template. Caps volume against LinkedIn's observed inv",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-linkedin-outreach.md",
+      "remote_path": "marketing/linkedin/commands/cs-linkedin-outreach.md",
+      "lines": 70,
+      "words": 450,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "\"cs-linkedin-plan\"",
+      "description": "\"/cs:linkedin-plan \u2014 Build the positioning brief (objective, audience, 2-4 proof-backed pillars, exclusion list), size a weekly cadence against the hours that actually exist, and gate a newsletter aga",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-linkedin-plan.md",
+      "remote_path": "marketing/linkedin/commands/cs-linkedin-plan.md",
+      "lines": 64,
+      "words": 414,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "\"cs-linkedin-profile\"",
+      "description": "\"/cs:linkedin-profile \u2014 Audit a LinkedIn profile 0-100, rank every fix by points per hour, score the headline on five dimensions against the 220-character cap, and assemble an About section that survi",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-linkedin-profile.md",
+      "remote_path": "marketing/linkedin/commands/cs-linkedin-profile.md",
+      "lines": 65,
+      "words": 406,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "\"cs-linkedin\"",
+      "description": "\"/cs:linkedin \u2014 Route any organic LinkedIn goal to the right lane (profile / strategy / content / engagement / analytics) after gating it against LinkedIn's User Agreement. Refuses automation, scrapin",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-linkedin.md",
+      "remote_path": "marketing/linkedin/commands/cs-linkedin.md",
+      "lines": 79,
+      "words": 512,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "\"cs-linkedin-analyze\"",
+      "description": "\"/cs:linkedin-analyze \u2014 Read your own exported LinkedIn post data, report medians and outlier bands rather than misleading means, test candidate patterns against a seeded permutation null with multipl",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-linkedin-analyze.md",
+      "remote_path": "marketing/linkedin/commands/cs-linkedin-analyze.md",
+      "lines": 73,
+      "words": 500,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "\"cs-linkedin-repurpose\"",
+      "description": "\"/cs:linkedin-repurpose \u2014 Split an article, talk transcript, README, or write-up into standalone LinkedIn units, score each on whether it survives without its context, and skip anything already in the",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-linkedin-repurpose.md",
+      "remote_path": "marketing/linkedin/commands/cs-linkedin-repurpose.md",
+      "lines": 64,
+      "words": 396,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "\"cs-grill-linkedin\"",
+      "description": "\"/cs:grill-linkedin \u2014 Interrogate a LinkedIn plan one forcing question at a time, each with a recommended answer anchored in the plugin's canon. Refuses to start the work until the objective, the audi",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-grill-linkedin.md",
+      "remote_path": "marketing/linkedin/commands/cs-grill-linkedin.md",
+      "lines": 74,
+      "words": 567,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "\"cs-linkedin-post\"",
+      "description": "\"/cs:linkedin-post \u2014 Pick the format the material actually supports, draft to the ~140-character mobile fold, and lint 0-100 across mechanics, hook, integrity, and accessibility. Blocking findings for",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/commands/cs-linkedin-post.md",
+      "remote_path": "marketing/linkedin/commands/cs-linkedin-post.md",
+      "lines": 70,
+      "words": 427,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "linkedin-strategy",
+      "description": "Use when someone needs a LinkedIn plan rather than a post \u2014 content pillars, positioning for a career change or consulting or thought leadership, a sustainable posting cadence, or a newsletter decisio",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/skills/linkedin-strategy/SKILL.md",
+      "remote_path": "marketing/linkedin/skills/linkedin-strategy/SKILL.md",
+      "lines": 100,
+      "words": 722,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "linkedin-analytics",
+      "description": "Use when someone wants to understand their own LinkedIn numbers \u2014 which posts worked, why reach dropped, whether a pattern is real, or how to test a hypothesis. Triggers on \"why did my reach drop\", \"w",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/skills/linkedin-analytics/SKILL.md",
+      "remote_path": "marketing/linkedin/skills/linkedin-analytics/SKILL.md",
+      "lines": 101,
+      "words": 771,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "linkedin-engagement",
+      "description": "Use when someone wants to grow reach through comments, replies, groups, or outreach on LinkedIn \u2014 a commenting roster, a connection request note, a DM or InMail, a networking plan, or a check on wheth",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/skills/linkedin-engagement/SKILL.md",
+      "remote_path": "marketing/linkedin/skills/linkedin-engagement/SKILL.md",
+      "lines": 101,
+      "words": 758,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "linkedin-content",
+      "description": "Use when someone wants to write, edit, or lint a LinkedIn post \u2014 a story, how-to, opinion piece, carousel script, video script, or poll \u2014 or wants an article, talk, or transcript repurposed into posts",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/skills/linkedin-content/SKILL.md",
+      "remote_path": "marketing/linkedin/skills/linkedin-content/SKILL.md",
+      "lines": 100,
+      "words": 792,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "linkedin-profile",
+      "description": "Use when someone wants their LinkedIn profile audited or rewritten \u2014 headline, About section, experience bullets, Featured, banner, recommendations \u2014 or says \"fix my headline\", \"my profile gets views ",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/skills/linkedin-profile/SKILL.md",
+      "remote_path": "marketing/linkedin/skills/linkedin-profile/SKILL.md",
+      "lines": 99,
+      "words": 717,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "linkedin-skills",
+      "description": "Use when someone wants to grow an organic LinkedIn presence \u2014 a content strategy for a career change or consulting or thought leadership, a rewritten profile or headline, post drafts and hooks, a post",
+      "path": "alirezarezvani--claude-skills/marketing/linkedin/skills/linkedin-skills/SKILL.md",
+      "remote_path": "marketing/linkedin/skills/linkedin-skills/SKILL.md",
+      "lines": 101,
+      "words": 805,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "cs-landing",
       "description": "Premium HTML landing page generator persona. Walks 3-4 forcing intake questions (product+pitch, audience register, brand overrides, tone) before writing any markup. Refuses vague product descriptions.",
       "path": "alirezarezvani--claude-skills/marketing/landing/agents/cs-landing.md",
@@ -47987,6 +48623,19 @@
       ]
     },
     {
+      "name": "linkedin-strategy",
+      "description": "Use when someone needs a LinkedIn plan rather than a post \u2014 content pillars, positioning for a career change or consulting or thought leadership, a sustainable posting cadence, or a newsletter decisio",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/linkedin-strategy/SKILL.md",
+      "remote_path": ".gemini/skills/linkedin-strategy/SKILL.md",
+      "lines": 100,
+      "words": 722,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "\"business-growth-skills\"",
       "description": "\"Router/index for the 4 business & growth skills bundled in this plugin: customer-success-manager (health scoring, churn risk, expansion), sales-engineer (RFP analysis, competitive matrices, PoC plann",
       "path": "alirezarezvani--claude-skills/.gemini/skills/business-growth-skills/SKILL.md",
@@ -48337,6 +48986,19 @@
         "bash",
         "json"
       ]
+    },
+    {
+      "name": "linkedin-analytics",
+      "description": "Use when someone wants to understand their own LinkedIn numbers \u2014 which posts worked, why reach dropped, whether a pattern is real, or how to test a hypothesis. Triggers on \"why did my reach drop\", \"w",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/linkedin-analytics/SKILL.md",
+      "remote_path": ".gemini/skills/linkedin-analytics/SKILL.md",
+      "lines": 101,
+      "words": 771,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "\"referral-program\"",
@@ -50180,6 +50842,19 @@
       ]
     },
     {
+      "name": "linkedin-engagement",
+      "description": "Use when someone wants to grow reach through comments, replies, groups, or outreach on LinkedIn \u2014 a commenting roster, a connection request note, a DM or InMail, a networking plan, or a check on wheth",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/linkedin-engagement/SKILL.md",
+      "remote_path": ".gemini/skills/linkedin-engagement/SKILL.md",
+      "lines": 101,
+      "words": 758,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "feature-flags-architect",
       "description": "Use when adding, retiring, or auditing feature flags. Triggers on \"add a flag\", \"ship behind a flag\", \"rollout plan\", \"kill switch\", \"stale flags\", \"flag debt\", \"LaunchDarkly\", \"GrowthBook\", \"Statsig\"",
       "path": "alirezarezvani--claude-skills/.gemini/skills/skills-feature-flags-architect/SKILL.md",
@@ -50283,6 +50958,19 @@
         "bash",
         "jql"
       ]
+    },
+    {
+      "name": "linkedin-content",
+      "description": "Use when someone wants to write, edit, or lint a LinkedIn post \u2014 a story, how-to, opinion piece, carousel script, video script, or poll \u2014 or wants an article, talk, or transcript repurposed into posts",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/linkedin-content/SKILL.md",
+      "remote_path": ".gemini/skills/linkedin-content/SKILL.md",
+      "lines": 100,
+      "words": 792,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "andreessen",
@@ -51114,6 +51802,19 @@
       "license": "MIT"
     },
     {
+      "name": "linkedin-profile",
+      "description": "Use when someone wants their LinkedIn profile audited or rewritten \u2014 headline, About section, experience bullets, Featured, banner, recommendations \u2014 or says \"fix my headline\", \"my profile gets views ",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/linkedin-profile/SKILL.md",
+      "remote_path": ".gemini/skills/linkedin-profile/SKILL.md",
+      "lines": 99,
+      "words": 717,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "\"behuman\"",
       "description": "\"Use when the user wants more human-like AI responses \u2014 less robotic, less listy, more authentic. Triggers: 'behuman', 'be real', 'like a human', 'more human', 'less AI', 'talk like a person', 'mirror",
       "path": "alirezarezvani--claude-skills/.gemini/skills/behuman/SKILL.md",
@@ -51404,6 +52105,19 @@
       "words": 2517,
       "code_blocks": 1,
       "languages": []
+    },
+    {
+      "name": "linkedin-skills",
+      "description": "Use when someone wants to grow an organic LinkedIn presence \u2014 a content strategy for a career change or consulting or thought leadership, a rewritten profile or headline, post drafts and hooks, a post",
+      "path": "alirezarezvani--claude-skills/.gemini/skills/linkedin-skills/SKILL.md",
+      "remote_path": ".gemini/skills/linkedin-skills/SKILL.md",
+      "lines": 101,
+      "words": 805,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
     },
     {
       "name": "\"senior-architect\"",
@@ -69783,20 +70497,6 @@
       "words": 348,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "walkie-talkie",
-      "description": ">-",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/walkie-talkie/SKILL.md",
-      "remote_path": "plugins/community/walkie-talkie/SKILL.md",
-      "lines": 158,
-      "words": 1259,
-      "code_blocks": 3,
-      "languages": [
-        "markdown"
-      ],
       "version": "1.0.0",
       "license": "MIT"
     },
@@ -150876,19 +151576,6 @@
       ]
     },
     {
-      "name": "codex-image-gallery",
-      "description": "Start or reuse a self-contained local web gallery for browsing Codex-generated images. Use when the user asks to browse Codex generated images, open a local image gallery, inspect ~/.codex/generated_i",
-      "path": "daymade--claude-code-skills/codex-image-gallery/SKILL.md",
-      "remote_path": "codex-image-gallery/SKILL.md",
-      "lines": 91,
-      "words": 345,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "text"
-      ]
-    },
-    {
       "name": "fact-checker",
       "description": "Verifies factual claims in documents using web search and official sources, then proposes corrections with user confirmation. Use when the user asks to fact-check, verify information, validate claims,",
       "path": "daymade--claude-code-skills/fact-checker/SKILL.md",
@@ -150927,28 +151614,6 @@
       ]
     },
     {
-      "name": "design-style-picker",
-      "description": "Batch-generate and compare visual design directions so a user can choose the style they actually want. Use when the user says they cannot describe an abstract visual style, asks for many style options",
-      "path": "daymade--claude-code-skills/design-style-picker/SKILL.md",
-      "remote_path": "design-style-picker/SKILL.md",
-      "lines": 80,
-      "words": 687,
-      "code_blocks": 1,
-      "languages": [
-        "text"
-      ]
-    },
-    {
-      "name": "benchmark-due-diligence",
-      "description": ">",
-      "path": "daymade--claude-code-skills/benchmark-due-diligence/SKILL.md",
-      "remote_path": "benchmark-due-diligence/SKILL.md",
-      "lines": 110,
-      "words": 1362,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
       "name": "repomix-unmixer",
       "description": "Extracts files from repomix-packed repositories, restoring original directory structures from XML/Markdown/JSON formats. Activates when users need to unmix repomix files, extract packed repositories, ",
       "path": "daymade--claude-code-skills/repomix-unmixer/SKILL.md",
@@ -150961,28 +151626,6 @@
         "json",
         "markdown",
         "xml"
-      ]
-    },
-    {
-      "name": "macos-watchdog",
-      "description": ">-",
-      "path": "daymade--claude-code-skills/macos-watchdog/SKILL.md",
-      "remote_path": "macos-watchdog/SKILL.md",
-      "lines": 92,
-      "words": 1375,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "macos-cleaner",
-      "description": ">-",
-      "path": "daymade--claude-code-skills/macos-cleaner/SKILL.md",
-      "remote_path": "macos-cleaner/SKILL.md",
-      "lines": 217,
-      "words": 2670,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
       ]
     },
     {
@@ -151034,19 +151677,6 @@
       ]
     },
     {
-      "name": "excel-automation",
-      "description": "Create, parse, and control Excel files on macOS. Professional formatting with openpyxl, complex xlsm parsing with stdlib zipfile+xml for investment bank financial models, and Excel window control via ",
-      "path": "daymade--claude-code-skills/excel-automation/SKILL.md",
-      "remote_path": "excel-automation/SKILL.md",
-      "lines": 314,
-      "words": 1286,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "python"
-      ]
-    },
-    {
       "name": "cli-demo-generator",
       "description": "Generates professional animated CLI demos as GIFs using VHS terminal recordings. Handles tape file creation, self-bootstrapping demos with hidden setup, output noise filtering, post-processing speed-u",
       "path": "daymade--claude-code-skills/cli-demo-generator/SKILL.md",
@@ -151087,8 +151717,8 @@
       "description": "Extract Feishu (Lark) Docs, Wiki pages/collections, spreadsheets, and Minutes (\u5999\u8bb0) transcripts into faithful local Markdown via the lark-cli API (no LLM rewriting of the body; browser-DOM fallback whe",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 186,
-      "words": 3528,
+      "lines": 198,
+      "words": 3859,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -151267,33 +151897,6 @@
       ]
     },
     {
-      "name": "developing-ios-apps",
-      "description": "Develops iOS/macOS apps with XcodeGen, SwiftUI, and SPM, including Apple Developer signing, notarization, and CI/CD pipelines. Use when building iOS/macOS apps, fixing Xcode build failures, deploying ",
-      "path": "daymade--claude-code-skills/iOS-APP-developer/SKILL.md",
-      "remote_path": "iOS-APP-developer/SKILL.md",
-      "lines": 373,
-      "words": 1615,
-      "code_blocks": 15,
-      "languages": [
-        "bash",
-        "swift",
-        "typescript",
-        "yaml"
-      ]
-    },
-    {
-      "name": "local-codex",
-      "description": "\"Launch and manage OpenAI Codex CLI (local agent) as a non-interactive coding sub-agent. Use when the user wants to delegate coding tasks to Codex, run code reviews, generate or refactor code, or use ",
-      "path": "daymade--claude-code-skills/local-codex/SKILL.md",
-      "remote_path": "local-codex/SKILL.md",
-      "lines": 119,
-      "words": 552,
-      "code_blocks": 6,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
       "name": "i18n-expert",
       "description": "This skill should be used when setting up, auditing, or enforcing internationalization/localization in UI codebases (React/TS, i18next or similar, JSON locales), including installing/configuring the i",
       "path": "daymade--claude-code-skills/i18n-expert/SKILL.md",
@@ -151315,19 +151918,6 @@
       "code_blocks": 4,
       "languages": [
         "bash"
-      ]
-    },
-    {
-      "name": "capture-screen",
-      "description": "Programmatic screenshot capture on macOS. Find window IDs with Swift CGWindowListCopyWindowInfo, control application windows via AppleScript (zoom, scroll, select), and capture with screencapture. Use",
-      "path": "daymade--claude-code-skills/capture-screen/SKILL.md",
-      "remote_path": "capture-screen/SKILL.md",
-      "lines": 298,
-      "words": 1367,
-      "code_blocks": 15,
-      "languages": [
-        "bash",
-        "text"
       ]
     },
     {
@@ -151372,9 +151962,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 106,
-      "words": 445,
-      "code_blocks": 2,
+      "lines": 174,
+      "words": 628,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ]
@@ -151427,6 +152017,16 @@
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "benchmark-due-diligence",
+      "description": ">",
+      "path": "daymade--claude-code-skills/daymade-financial/benchmark-due-diligence/SKILL.md",
+      "remote_path": "daymade-financial/benchmark-due-diligence/SKILL.md",
+      "lines": 110,
+      "words": 1362,
+      "code_blocks": 1,
+      "languages": []
     },
     {
       "name": "gangtise-copilot",
@@ -151567,6 +152167,19 @@
       ]
     },
     {
+      "name": "excel-automation",
+      "description": "Create, parse, and control Excel files on macOS. Professional formatting with openpyxl, complex xlsm parsing with stdlib zipfile+xml for investment bank financial models, and Excel window control via ",
+      "path": "daymade--claude-code-skills/daymade-docs/excel-automation/SKILL.md",
+      "remote_path": "daymade-docs/excel-automation/SKILL.md",
+      "lines": 314,
+      "words": 1286,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
       "name": "pdf-creator",
       "description": "Convert markdown files to professional PDF documents with proper Chinese font support, theme system, and visual self-check. Use whenever the user asks to create PDFs, convert markdown to PDF, generate",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-creator/SKILL.md",
@@ -151633,10 +152246,11 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
       "remote_path": "daymade-skill/skill-governance/SKILL.md",
-      "lines": 173,
-      "words": 1494,
-      "code_blocks": 3,
+      "lines": 219,
+      "words": 1846,
+      "code_blocks": 4,
       "languages": [
+        "bash",
         "markdown"
       ]
     },
@@ -151729,8 +152343,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/marketplace-dev/SKILL.md",
       "remote_path": "daymade-claude-code/marketplace-dev/SKILL.md",
-      "lines": 377,
-      "words": 1953,
+      "lines": 401,
+      "words": 2251,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -151969,6 +152583,93 @@
       "code_blocks": 1,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "codex-image-gallery",
+      "description": "Start or reuse a self-contained local web gallery for browsing Codex-generated images. Use when the user asks to browse Codex generated images, open a local image gallery, inspect ~/.codex/generated_i",
+      "path": "daymade--claude-code-skills/daymade-codex/codex-image-gallery/SKILL.md",
+      "remote_path": "daymade-codex/codex-image-gallery/SKILL.md",
+      "lines": 91,
+      "words": 345,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "text"
+      ]
+    },
+    {
+      "name": "design-style-picker",
+      "description": "Batch-generate and compare visual design directions so a user can choose the style they actually want. Use when the user says they cannot describe an abstract visual style, asks for many style options",
+      "path": "daymade--claude-code-skills/daymade-codex/design-style-picker/SKILL.md",
+      "remote_path": "daymade-codex/design-style-picker/SKILL.md",
+      "lines": 80,
+      "words": 687,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "local-codex",
+      "description": "\"Launch and manage OpenAI Codex CLI (local agent) as a non-interactive coding sub-agent. Use when the user wants to delegate coding tasks to Codex, run code reviews, generate or refactor code, or use ",
+      "path": "daymade--claude-code-skills/daymade-codex/local-codex/SKILL.md",
+      "remote_path": "daymade-codex/local-codex/SKILL.md",
+      "lines": 119,
+      "words": 552,
+      "code_blocks": 6,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "developing-ios-apps",
+      "description": "Develops iOS/macOS apps with XcodeGen, SwiftUI, and SPM, including Apple Developer signing, notarization, and CI/CD pipelines. Use when building iOS/macOS apps, fixing Xcode build failures, deploying ",
+      "path": "daymade--claude-code-skills/daymade-macos/developing-ios-apps/SKILL.md",
+      "remote_path": "daymade-macos/developing-ios-apps/SKILL.md",
+      "lines": 373,
+      "words": 1615,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "swift",
+        "typescript",
+        "yaml"
+      ]
+    },
+    {
+      "name": "macos-watchdog",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
+      "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
+      "lines": 92,
+      "words": 1375,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "macos-cleaner",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
+      "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
+      "lines": 217,
+      "words": 2670,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "capture-screen",
+      "description": "Programmatic screenshot capture on macOS. Find window IDs with Swift CGWindowListCopyWindowInfo, control application windows via AppleScript (zoom, scroll, select), and capture with screencapture. Use",
+      "path": "daymade--claude-code-skills/daymade-macos/capture-screen/SKILL.md",
+      "remote_path": "daymade-macos/capture-screen/SKILL.md",
+      "lines": 298,
+      "words": 1367,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "text"
       ]
     }
   ],
