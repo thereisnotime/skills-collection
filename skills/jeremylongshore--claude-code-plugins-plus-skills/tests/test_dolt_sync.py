@@ -5,19 +5,22 @@ current-run grades export).
 
 Run: python3 -m unittest tests.test_dolt_sync -v
 
-Coverage honesty: these are pure-function tests only — no dolt binary, no
-network, no repo state. The commit/tag/push/gc state machine
-(commit_and_tag's crash-retry, tag-suffix, and head-message branches;
-push's stranded-tag reconciliation; maybe_gc) is NOT covered here, and the
-"the sync itself exercises it" framing only holds for the happy path — the
-rare branches (e.g. the run-9.1 tag-suffix event of 2026-07-13) run in
-production first. Treat any change to that state machine as untested until
-a dolt-backed round-trip test exists.
+Coverage honesty: most tests are pure-function tests — no dolt binary,
+network, or repo state. The push recovery contract is mocked below; the
+commit/tag/gc state-machine branches (commit_and_tag's crash-retry,
+tag-suffix, and head-message branches; maybe_gc) still lack a dolt-backed
+round-trip test. Treat any change to those branches as untested until such a
+test exists.
 """
 
 import importlib.util
+import hashlib
 import sqlite3
+import subprocess
+import sys
+import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "freshie" / "scripts" / "dolt-sync.py"
@@ -262,6 +265,38 @@ class ExportAllowlistTests(unittest.TestCase):
         self.assertIn("run-jrig-eval.sh", msg)
         self.assertIn("DROP TABLE", msg)
 
+
+class ForgeProofRetentionGateTests(unittest.TestCase):
+    def test_unretained_and_hash_mismatched_proofs_demote_to_e0(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact = Path(directory) / "retained.json"
+            artifact.write_text('{"ok":true}', encoding="utf-8")
+            valid_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
+            conn = fixture_conn(
+                "CREATE TABLE forge_proofs ("
+                "id INTEGER PRIMARY KEY, evidence_class TEXT, artifact_uri TEXT, artifact_sha256 TEXT);"
+            )
+            conn.executemany(
+                "INSERT INTO forge_proofs VALUES (?, ?, ?, ?)",
+                [
+                    (1, "E3", None, None),
+                    (2, "E2", str(Path(directory) / "missing.json"), valid_hash),
+                    (3, "E2", str(artifact), "0" * 64),
+                    (4, "E2", str(artifact), valid_hash),
+                ],
+            )
+            demoted = dolt_sync.demote_unretained_forge_proofs(conn)
+            self.assertEqual([row[0] for row in demoted], [1, 2, 3])
+            self.assertEqual(
+                conn.execute("SELECT evidence_class FROM forge_proofs ORDER BY id").fetchall(),
+                [("E0",), ("E0",), ("E0",), ("E2",)],
+            )
+
+    def test_old_ledger_schema_refuses_export_until_migrated(self):
+        conn = fixture_conn("CREATE TABLE forge_proofs (id INTEGER PRIMARY KEY);")
+        with self.assertRaisesRegex(dolt_sync.SyncError, "evidence schema is too old"):
+            dolt_sync.demote_unretained_forge_proofs(conn)
+
     def test_jrig_tables_are_never_allowlisted(self):
         # The two sets must stay disjoint — allowlisting a j-rig runtime
         # table would re-open the exact leak this gate exists to prevent.
@@ -269,9 +304,77 @@ class ExportAllowlistTests(unittest.TestCase):
             dolt_sync.JRIG_RUNTIME_TABLES & dolt_sync.EXPORT_ALLOWLIST, frozenset()
         )
 
+    def test_cli_refuses_leaked_jrig_table_before_creating_dolt_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = root / "inventory.sqlite"
+            repo = root / "dolt" / "inventory"
+            with sqlite3.connect(db) as conn:
+                conn.execute("CREATE TABLE skills (id INTEGER PRIMARY KEY)")
+                conn.execute("CREATE TABLE criterion_results (id INTEGER PRIMARY KEY)")
+
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--db", str(db), "--dolt-dir", str(repo), "--no-push"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            repo_created = repo.exists()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("criterion_results", result.stdout)
+        self.assertIn("refusing to publish", result.stdout)
+        self.assertFalse(repo_created, "allowlist gate must abort before Dolt initialization")
+
     def test_empty_table_list_passes(self):
         dolt_sync.gate_export_allowlist([])
 
+
+class SingleWriterTests(unittest.TestCase):
+    """A live Dolt SQL server must never overlap a CLI export."""
+
+    def test_sql_server_lock_hard_fails_before_sync(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "inventory"
+            lock = repo / ".dolt" / "sql-server.lock"
+            lock.parent.mkdir(parents=True)
+            lock.write_text("live server\n")
+
+            with self.assertRaises(dolt_sync.SyncError) as ctx:
+                dolt_sync.refuse_if_server_running(repo)
+
+        message = str(ctx.exception)
+        self.assertIn("sql-server", message)
+        self.assertIn(str(lock), message)
+        self.assertIn("corrupt", message)
+
+    def test_absent_sql_server_lock_allows_sync_to_proceed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "inventory"
+            (repo / ".dolt").mkdir(parents=True)
+
+            self.assertIsNone(dolt_sync.refuse_if_server_running(repo))
+
+    def test_cli_refuses_before_it_can_write_when_server_lock_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = root / "inventory.sqlite"
+            sqlite3.connect(db).close()
+            repo = root / "inventory"
+            lock = repo / ".dolt" / "sql-server.lock"
+            lock.parent.mkdir(parents=True)
+            lock.write_text("live server\n")
+
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--db", str(db), "--dolt-dir", str(repo)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sql-server", result.stdout)
+        self.assertIn("stop it before syncing", result.stdout)
 
 class GradesExportTests(unittest.TestCase):
     """grades.csv must reflect the CURRENT run only — latest-per-skill across
@@ -339,6 +442,50 @@ class GradesExportTests(unittest.TestCase):
         self.assertEqual(json.loads(hist_text)["total"], 0)
         conn.close()
 
+    def test_scratch_output_paths_are_created(self):
+        import tempfile
+
+        conn = fixture_conn(self.DDL)
+        conn.execute(
+            "INSERT INTO skill_compliance (skill_path, grade, score, run_id) "
+            "VALUES ('plugins/alive', 'A', 99.0, 1)"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "isolated" / "exports"
+            csv_path = output / "grades.csv"
+            hist_path = output / "grade-histogram.json"
+            dolt_sync.write_grades_export(conn, 1, csv_path, hist_path)
+            self.assertTrue(csv_path.is_file())
+            self.assertTrue(hist_path.is_file())
+        conn.close()
+
+    def test_grade_exports_are_byte_reproducible_from_clean_output_dirs(self):
+        import tempfile
+
+        conn = fixture_conn(self.DDL)
+        conn.executemany(
+            "INSERT INTO skill_compliance (skill_path, grade, score, run_id) VALUES (?,?,?,?)",
+            [
+                ("plugins/zeta", "B", 80.0, 9),
+                ("plugins/alpha", "A", 99.5, 9),
+                ("plugins/legacy", "C", 70.0, 8),
+            ],
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            first = root / "clean-one"
+            second = root / "clean-two"
+            dolt_sync.write_grades_export(conn, 9, first / "grades.csv", first / "grade-histogram.json")
+            dolt_sync.write_grades_export(conn, 9, second / "grades.csv", second / "grade-histogram.json")
+            self.assertEqual(
+                (first / "grades.csv").read_bytes(), (second / "grades.csv").read_bytes()
+            )
+            self.assertEqual(
+                (first / "grade-histogram.json").read_bytes(),
+                (second / "grade-histogram.json").read_bytes(),
+            )
+        conn.close()
+
 
 class StampDoltCommitTests(unittest.TestCase):
     """The post-commit hash stamp must add dolt_commit without disturbing
@@ -399,6 +546,7 @@ class RunCompletenessGateTests(unittest.TestCase):
         "CREATE TABLE discovery_runs (id INTEGER PRIMARY KEY, run_date TEXT, "
         "commit_hash TEXT, total_packs INTEGER, total_plugins INTEGER, "
         "total_skills INTEGER, total_files INTEGER, total_root_files INTEGER);"
+        "CREATE TABLE skills (id INTEGER PRIMARY KEY, name TEXT, run_id INTEGER);"
     )
 
     def test_incomplete_newest_run_raises(self):
@@ -409,9 +557,27 @@ class RunCompletenessGateTests(unittest.TestCase):
 
     def test_complete_run_passes(self):
         conn = fixture_conn(
-            self.DDL + "INSERT INTO discovery_runs (id, total_skills) VALUES (1, 42);"
+            self.DDL
+            + "INSERT INTO discovery_runs (id, total_skills) VALUES (1, 1);"
+            + "INSERT INTO skills (id, name, run_id) VALUES (1, 'one', 1);"
         )
         dolt_sync.gate_run_completeness(conn, 1)  # must not raise
+        conn.close()
+
+    def test_run_six_shape_with_3000_header_and_19_rows_hard_fails(self):
+        conn = fixture_conn(
+            self.DDL + "INSERT INTO discovery_runs (id, total_skills) VALUES (6, 3000);"
+        )
+        conn.executemany(
+            "INSERT INTO skills (id, name, run_id) VALUES (?, ?, 6)",
+            [(index, f"skill-{index}") for index in range(1, 20)],
+        )
+        with self.assertRaises(dolt_sync.SyncError) as ctx:
+            dolt_sync.gate_run_completeness(conn, 6)
+        message = str(ctx.exception)
+        self.assertIn("3000", message)
+        self.assertIn("19", message)
+        self.assertIn("mismatch", message)
         conn.close()
 
     def test_run_zero_passes(self):
@@ -426,6 +592,68 @@ class RunCompletenessGateTests(unittest.TestCase):
         )
         dolt_sync.gate_run_completeness(conn, 1)  # cannot judge — do not block
         conn.close()
+
+
+class PushRecoveryTests(unittest.TestCase):
+    """A failed tag push must be retried once by a later successful sync."""
+
+    def test_stranded_tag_is_recovered_once_and_not_replayed(self):
+        repo = Path("/tmp/fake-dolt-repo")
+        pushed: list[str] = []
+
+        def fake_dolt(args, _repo, check=True, input_text=None):
+            self.assertEqual(_repo, repo)
+            self.assertFalse(check)
+            self.assertEqual(args[:2], ["push", "origin"])
+            pushed.append(args[2])
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        # A prior run committed/tagged run-41 but its push failed. The
+        # subsequent run-42 sync sees run-41 locally but not remotely.
+        with (
+            mock.patch.object(dolt_sync, "ensure_remote"),
+            mock.patch.object(dolt_sync, "check_creds"),
+            mock.patch.object(dolt_sync, "check_repo_exists", return_value=True),
+            mock.patch.object(dolt_sync, "remote_tags", return_value=set()),
+            mock.patch.object(
+                dolt_sync,
+                "dolt_csv_query",
+                return_value=[["run-41"], ["run-42"]],
+            ),
+            mock.patch.object(dolt_sync, "dolt", side_effect=fake_dolt),
+        ):
+            dolt_sync.push(repo, "example", "inventory", "run-42")
+
+        self.assertEqual(
+            pushed,
+            [
+                "main",
+                "refs/tags/run-42:refs/tags/run-42",
+                "refs/tags/run-41:refs/tags/run-41",
+            ],
+        )
+
+        # After recovery, the remote contains both tags. A later run must not
+        # replay run-41; it pushes only its own new run tag.
+        pushed.clear()
+        with (
+            mock.patch.object(dolt_sync, "ensure_remote"),
+            mock.patch.object(dolt_sync, "check_creds"),
+            mock.patch.object(dolt_sync, "check_repo_exists", return_value=True),
+            mock.patch.object(dolt_sync, "remote_tags", return_value={"run-41", "run-42"}),
+            mock.patch.object(
+                dolt_sync,
+                "dolt_csv_query",
+                return_value=[["run-41"], ["run-42"], ["run-43"]],
+            ),
+            mock.patch.object(dolt_sync, "dolt", side_effect=fake_dolt),
+        ):
+            dolt_sync.push(repo, "example", "inventory", "run-43")
+
+        self.assertEqual(
+            pushed,
+            ["main", "refs/tags/run-43:refs/tags/run-43"],
+        )
 
 
 if __name__ == "__main__":

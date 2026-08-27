@@ -6,7 +6,7 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.90.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-2.1.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
@@ -189,15 +189,24 @@ claude plugin install daymade-macos@daymade-skills
 
 These skills are bundle-only under `daymade-macos`.
 
-**Codex Suite** (shared namespace for Codex-assisted coding and visual exploration):
+**Codex Suite** (shared namespace for Codex workstation setup, assisted coding, and visual exploration):
 ```bash
 claude plugin install daymade-codex@daymade-skills
+```
+
+Codex CLI and Desktop users can install the same suite through Codex's plugin
+marketplace:
+
+```bash
+codex plugin marketplace add daymade/claude-code-skills
+codex plugin add daymade-codex@daymade-skills
 ```
 
 ```text
 /daymade-codex:codex-image-gallery
 /daymade-codex:local-codex
 /daymade-codex:design-style-picker
+/daymade-codex:codex-1m-context-window-setup
 ```
 
 These skills are bundle-only under `daymade-codex`.
@@ -207,12 +216,12 @@ These skills are bundle-only under `daymade-codex`.
 claude plugin install daymade-claude-code@daymade-skills
 ```
 
-This suite bundles the skills that extend Claude Code itself — fast local conversation discovery across Claude Code and Codex, session recovery, CLAUDE.md tuning, troubleshooting, statusline configuration, export repair, marketplace development and suite consolidation, terminal screenshot rendering, usage analysis, multi-provider model switching, and automatic local skill-source sync for Claude Code/Codex installs:
+This suite bundles the skills that extend Claude Code itself — cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; fast local conversation discovery across Claude Code and Codex; session recovery; CLAUDE.md tuning; troubleshooting; statusline configuration; export repair; marketplace development and suite consolidation; terminal screenshot rendering; usage analysis; and multi-provider model switching:
 
 ```text
-/daymade-claude-code:local-conversation-history
-/daymade-claude-code:claude-code-history-files-finder
-/daymade-claude-code:continue-claude-work
+/daymade-claude-code:read-claude-code-history
+/daymade-claude-code:read-codex-history
+/daymade-claude-code:continue-claude-code-work
 /daymade-claude-code:continue-codex-work
 /daymade-claude-code:claude-skills-troubleshooting
 /daymade-claude-code:claude-md-progressive-disclosurer
@@ -222,6 +231,10 @@ This suite bundles the skills that extend Claude Code itself — fast local conv
 /daymade-claude-code:terminal-screenshot
 /daymade-claude-code:claude-usage-analyst
 /daymade-claude-code:claude-switch-models-setup
+/daymade-claude-code:read-claude-web-conversation
+/daymade-claude-code:claude-migrate-memory-to-doc
+/daymade-claude-code:claude-code-hooks
+/daymade-claude-code:prior-work-retrieval
 ```
 
 Installed names render as `daymade-claude-code:<skill>` under a single shared namespace. These skills are bundle-only — install the suite to get all members.
@@ -676,18 +689,19 @@ Safely package codebases with repomix by automatically detecting and removing ha
 
 > **Install**: `claude plugin install daymade-audio@daymade-skills` (suite-only — invoked as `daymade-audio:transcript-fixer`)
 
-Correct speech-to-text (ASR/STT) transcription errors through dictionary-based rules and AI-powered corrections with automatic pattern learning.
+Correct speech-to-text (ASR/STT) errors with a Stage 1 dictionary pre-filter, a required Native AI whole-transcript pass, and an audio-backed human gate for unresolved wording, names, numbers, and entities.
 
 **When to use:**
 - Correcting meeting notes, lecture recordings, or interview transcripts
 - Fixing Chinese/English homophone errors and technical terminology
-- Building domain-specific correction dictionaries
-- Improving transcript accuracy through iterative learning
+- Reviewing one exact transcript with its original audio instead of searching a global queue
+- Improving future transcripts without turning one-off fixes into broad dictionary rules
 - Collaborating with teams on shared correction knowledge bases
 
 **Key features:**
-- Two-stage correction pipeline (dictionary + AI)
-- Automatic pattern detection and learning
+- Stage 1 + Native AI correction pipeline; Stage 1 alone is never completion
+- Exact-file review queue, deep-linked dashboard, timestamped audio playback, and machine-readable zero-pending readback
+- Conservative pattern learning: file-only, dictionary, roster, and context have separate admission rules
 - Domain-specific dictionaries (general, embodied_ai, finance, medical)
 - SQLite-based correction repository
 - Team collaboration with import/export
@@ -703,17 +717,18 @@ uv run scripts/fix_transcription.py --add "错误词" "正确词" --domain gener
 # Run full correction pipeline
 uv run scripts/fix_transcription.py --input meeting.md --stage 3
 
-# Review and approve learned patterns
-uv run scripts/fix_transcription.py --review-learned
+# Open only this transcript's unresolved items and listen before deciding
+uv run scripts/review-dashboard/server.py --file "/absolute/meeting.md"
+
+# Read the human verdicts back; pending_total must be 0 before final delivery
+uv run scripts/fix_transcription.py \
+  --list-review --review-file "/absolute/meeting.md" \
+  --review-status all --json
 ```
-
-**🎬 Live Demo**
-
-*Coming soon*
 
 📚 **Documentation**: See [daymade-audio/transcript-fixer/references/](./daymade-audio/transcript-fixer/references/) for workflow guides, SQL queries, troubleshooting, best practices, team collaboration, and API setup.
 
-**Requirements**: Python 3.6+, uv package manager, GLM API key (get from https://open.bigmodel.cn/)
+**Requirements**: Python 3.10+ and uv. Native AI correction uses the active agent; an external API key is needed only for the optional agent-less API route.
 
 ---
 
@@ -879,16 +894,18 @@ Transform vague prompts into precise, well-structured specifications using EARS 
 
 ---
 
-### 18. **claude-code-history-files-finder** - Session History Recovery
+### 18. **read-claude-code-history** - Read Local Claude Code History
 
-> **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:claude-code-history-files-finder`)
+> **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:read-claude-code-history`)
 
-Find and recover content from Claude Code session history across all active
-config homes and the long-term archives registered in
-`~/.claude/history-sources.json`.
+Read, search, and export Claude Code history across all active config homes and
+the long-term archives registered in `~/.claude/history-sources.json`, without
+resuming or modifying the old task.
 
 **When to use:**
 - Recovering deleted or lost files from previous Claude Code sessions
+- Reconstructing one known Session as a chronological user/assistant handoff
+- Listing what the human actually typed, including queued mid-turn corrections
 - Searching for specific code across conversation history
 - Tracking file modifications across multiple sessions
 - Finding sessions containing specific keywords or implementations
@@ -896,7 +913,8 @@ config homes and the long-term archives registered in
 
 **Key features:**
 - **Complete source set**: Search active homes and registered archives by default
-- **Cross-project sweep**: `--all-projects` searches every project when the project is unknown; `--codex` also covers Codex rollout history; `--exclude-session` skips self-matches
+- **Provider boundary**: Claude-only by default; Codex requests route to `read-codex-history`
+- **Cross-project sweep**: `--all-projects` searches every Claude project when the project is unknown; `--exclude-session` skips self-matches
 - **Copy-safe union**: Search distinct records from every copy of a session ID without double-counting identical records
 - **Internal-time search**: Filter matching records by JSONL timestamps, never file mtime
 - **Structured search**: Cover messages, thinking, tools, results, queues, attachments, summaries, and original file-history paths
@@ -905,11 +923,18 @@ config homes and the long-term archives registered in
 - **Statistics analysis**: Message counts, tool usage breakdown, file operations
 - **Batch operations**: Process multiple sessions with keyword filtering
 - **Streaming processing**: Handle large session files (>100MB) efficiently
+- **Read/continue separation**: Produces an evidence receipt and never resumes work itself
 
 **Example usage:**
 ```bash
 # List recent sessions for a project
 python3 scripts/analyze_sessions.py list /path/to/project
+
+# Read one Session chronologically, preserving queued human input
+python3 scripts/read_claude_session.py --session <session-id> --project /path/to/project --full
+
+# Export recent human wording grouped by Session
+python3 scripts/extract_user_messages.py ./user-words --days 7 --group-by session
 
 # Search sessions for keywords
 python3 scripts/analyze_sessions.py search /path/to/project \
@@ -931,7 +956,7 @@ python3 scripts/analyze_sessions.py stats /path/to/session.jsonl --show-files
 
 *Coming soon*
 
-📚 **Documentation**: See [daymade-claude-code/claude-code-history-files-finder/references/](./daymade-claude-code/claude-code-history-files-finder/references/) for:
+📚 **Documentation**: See [daymade-claude-code/read-claude-code-history/references/](./daymade-claude-code/read-claude-code-history/references/) for:
 - `session_file_format.md` - JSONL structure and extraction patterns
 - `workflow_examples.md` - Detailed recovery and analysis workflows
 
@@ -1884,11 +1909,14 @@ claude plugin install daymade-macos@daymade-skills
 
 ---
 
-### 42. **continue-claude-work** - Resume Interrupted Claude Work
+### 42. **continue-claude-code-work** - Resume Interrupted Claude Work
 
-> **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:continue-claude-work`)
+> **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:continue-claude-code-work`)
 
-Recover actionable context from local `~/.claude` session artifacts and continue implementation without reopening the old interactive session. Uses a bundled Python script for intelligent context extraction.
+Continue a verified Claude Code Session without reopening the old interactive
+session. The continuation layer first consumes `read-claude-code-history`, then
+reconstructs the original business outcome, unfulfilled requests, corrections,
+proven prior assets, and one next action that directly advances the goal.
 
 **When to use:**
 - A user provides a Claude session ID and wants the task continued
@@ -1897,12 +1925,10 @@ Recover actionable context from local `~/.claude` session artifacts and continue
 - A multi-agent workflow was interrupted and you need to know which subagents completed
 
 **Key features:**
-- Compact-boundary-aware extraction — reads Claude's own session compaction summaries as highest-signal context
-- Subagent workflow recovery — reports completed vs. interrupted subagents with last outputs
-- Session end reason detection — classifies clean exit, interrupted (ctrl-c), error cascade, or abandoned
-- Size-adaptive strategy — different reading approaches for small (<500KB) vs. large (>5MB) sessions
-- Noise filtering — skips progress/queue-operation/api_error messages (37-53% of session lines)
-- Self-session exclusion, stale index fallback, MEMORY.md integration, git workspace state
+- Requires a chronological read receipt rather than separate user/assistant tail lists
+- Restores original outcome, remaining work, rejected routes, and successful assets
+- Verifies current files, git state, external writes, and background work before duplicating anything
+- Makes the business result—not parser success, review completion, or subprocess exit—the completion unit
 
 **Example usage:**
 ```bash
@@ -1912,7 +1938,7 @@ Recover actionable context from local `~/.claude` session artifacts and continue
 "check what I was working on in the last session and keep going"
 ```
 
-📚 **Documentation**: See [continue-claude-work/SKILL.md](./daymade-claude-code/continue-claude-work/SKILL.md).
+📚 **Documentation**: See [continue-claude-code-work/SKILL.md](./daymade-claude-code/continue-claude-code-work/SKILL.md).
 
 **Requirements**: Python 3.8+, `git` for workspace reconciliation.
 
@@ -2323,7 +2349,7 @@ Transcribe audio and video files to text using Qwen3-ASR via two interchangeable
 **Key features:**
 - Dual inference paths — local MLX (15-27x realtime, free) and remote API, with automatic platform detection
 - Bundled `transcribe_local_mlx.py` loads the model once and processes files sequentially (no GPU contention)
-- Defaults `max_tokens=200000` to defeat the upstream `mlx-audio` 8192-token truncation that silently cuts audio past ~40 minutes
+- Uses low-energy ~20-minute chunks with an 8192-token per-chunk bound, atomic checkpoints/resume, and full process-tree cleanup so one bad chunk cannot become an unbounded GPU job
 - Remote fallback `overlap_merge_transcribe.py` splits into 18-minute chunks with 2-minute overlap and fuzzy-merges
 - ffmpeg video→16kHz mono WAV extraction, truncation verification, and proxy-bypass handling
 - Proactively suggests `transcript-fixer` to clean ASR recognition errors on the output
@@ -2802,7 +2828,7 @@ developer-menu toggle.
 claude plugin install setup-notifications-via-wecom@daymade-skills
 ```
 
-Set up reusable WeCom (Enterprise WeChat) webhook notifications for technical status reports, alerts, and completion messages.
+Set up reusable WeCom (Enterprise WeChat) webhook notifications for technical status reports, alerts, and completion messages. The target is explicitly classified: the user's own channel may send automatically; every other target requires human confirmation.
 
 **When to use:**
 - Configuring a reusable 企业微信 / WeCom notification channel
@@ -2819,14 +2845,14 @@ Set up reusable WeCom (Enterprise WeChat) webhook notifications for technical st
 claude plugin install notify-wecom@daymade-skills
 ```
 
-Send a single WeCom group-bot message without setting up a reusable notification workflow.
+Send a single WeCom group-bot message using the configured target identity: `self` sends directly, while `others` requires human confirmation.
 
 **When to use:**
 - `/notify-wecom`
 - 临时发一条企业微信 / 企微通知一下
 - One-shot alerts that do not need templates or persistent setup
 
-**Requirements**: WeCom bot webhook URL.
+**Requirements**: WeCom bot webhook URL plus the explicit recipient scope/label and canonical sender binding created by the setup command.
 
 ---
 
@@ -3105,23 +3131,24 @@ can we merge this contribution and fix the remaining repo bookkeeping ourselves?
 
 **Requirements**: authenticated `gh` CLI, `git` with `merge-tree --write-tree`, and `jq`.
 
-### 86. **local-conversation-history** - Fast Local Agent Conversation History
+### 86. **read-codex-history** - Read Local Codex History
 
 > **Install**: `claude plugin install daymade-claude-code@daymade-skills`
-> (suite-only — invoked as `daymade-claude-code:local-conversation-history`)
+> (suite-only — invoked as `daymade-claude-code:read-codex-history`)
 
-List recent local Claude Code, Codex, and Kimi CLI conversations for the current
-workspace in one read-only command. The output is presentation-ready Markdown or
-JSON with short titles, timezone-qualified timestamps, exact session IDs,
-positive-only Codex writer-lock markers, and explicit diagnostics.
+Read, search, and export local Codex history without continuing the old task.
+It keeps the prompt ledger, state database, and rollout JSONL as three distinct
+evidence surfaces so exact user input, inventory metadata, and Agent behavior are
+never silently substituted for one another.
 
 **Key features:**
-- Combines active Claude homes with every registered long-term archive by default
-- Streams complete Claude JSONL and raw Codex rollout files to compute exact
-  internal timestamp ranges; never orders or filters conversations by file mtime
-- De-duplicates copied session IDs, unions their internal ranges, and retains active/archive provenance
+- Lists Codex sessions with internal time ranges and active/archive provenance
+- Extracts exact prompt-ledger inputs newest-first and groups them only by Session
+- Reconstructs one rollout as a chronological user/assistant timeline with exact fork byte boundaries and compacted context
+- Searches Codex rollouts only; it cannot silently mix Claude matches into a Codex request
 - Selects a compatible Codex state database through schema introspection
 - Visibly falls back to raw Codex rollout JSONL when the database is unavailable
+- Requires internal `session_meta.id` equality and reports fused/missing rollout gaps instead of guessing
 - Probes every in-scope Codex session and appends any row whose exact canonical
   writer-lock file is held even beyond the recent-row limit; the marker proves
   lock state, not holder identity or a running agent, and an unmarked row is
@@ -3132,14 +3159,16 @@ positive-only Codex writer-lock markers, and explicit diagnostics.
 
 **Example usage:**
 ```text
-/daymade-claude-code:local-conversation-history
-list the recent Claude Code and Codex chats for this folder
+/daymade-claude-code:read-codex-history
+list the recent Codex chats for this folder
+show my 200 most recent original Codex inputs, grouped by Session
+read Codex Session 01abc... chronologically and show its fork lineage
 show which Codex sessions in this workspace have held canonical writer-lock files
 show Codex threads including archived conversations as JSON
 ```
 
 📚 **Documentation**: See
-[storage_and_portability.md](./daymade-claude-code/local-conversation-history/references/storage_and_portability.md)
+[storage_and_portability.md](./daymade-claude-code/read-codex-history/references/storage_and_portability.md)
 for source selection, path normalization, privacy boundaries, and diagnostics.
 
 **Requirements**: Python 3.10+; no third-party packages or network access.
@@ -3151,11 +3180,14 @@ for source selection, path normalization, privacy boundaries, and diagnostics.
 > **Install**: `claude plugin install daymade-claude-code@daymade-skills`
 > (suite-only — invoked as `daymade-claude-code:continue-codex-work`)
 
-Recover actionable context from a prior Codex CLI rollout and continue in the
-current conversation without replaying the full session through `codex resume`.
-The bundled extractor can select a session by ID, title query, latest project
-activity, or list view; it reports the end reason, surviving requests, recent
-tools/files, errors, and current workspace state before work resumes.
+Continue a prior Codex task without replaying it through `codex resume`.
+The Skill first requires `read-codex-history` to prove selected identity, fork
+lineage, chronology, compacted context, and gaps; it then rebuilds the original
+business outcome, unfulfilled requests, user corrections, proven assets, and one
+direct next action before changing the project.
+It is for a new/different Agent context taking over an earlier rollout. When
+Codex itself natively resumes the same conversation and prior context is already
+present, continue directly instead of invoking this Skill.
 
 ```text
 /daymade-claude-code:continue-codex-work 019f66...
@@ -3424,6 +3456,53 @@ banked reset 到了吗
 Tibo 说的 2pm PST 是北京时间几点
 ```
 
+### 98. **prior-work-retrieval** - Retrieve Proven Work Before Producing
+
+> **Install**: `claude plugin install daymade-claude-code@daymade-skills`
+> (suite-only — invoked as `daymade-claude-code:prior-work-retrieval`)
+
+Find and verify existing successful code, decisions, Skills/SOPs, meetings,
+WeChat archives, documents, and conversation history before starting a new
+implementation or plan. Every run leaves an auditable reuse/adapt/reject receipt;
+zero ranked hits never become an absence claim.
+
+**Key features:**
+- Explicit source manifest and per-carrier coverage
+- Original-source authority and freshness verification
+- Reuse/adapt/reject decisions tied to the current business outcome
+- Deterministic receipt check before substantial production
+
+**Example usage:**
+```text
+/daymade-claude-code:prior-work-retrieval
+we solved this before; find the code and successful path before changing anything
+don't rebuild the workflow until you have checked our existing Skills and history
+```
+
+### 99. **codex-1m-context-window-setup** - Model-Aware Long Context for Codex
+
+> **Install**: `claude plugin install daymade-codex@daymade-skills`
+> (suite-only — invoked as `daymade-codex:codex-1m-context-window-setup`)
+
+Configure the shared Codex CLI/Desktop base config for the largest context window
+the selected model actually declares, up to a one-million-token request. The Skill
+discovers the live model contract, explains the familiar ~258K default, applies a
+60% auto-compaction threshold, preserves unrelated TOML, backs up changed bytes,
+and rolls back if Codex strict-config validation fails.
+
+**Key features:**
+- Model-aware ceiling instead of a hard-coded 1M claim
+- Read-only `doctor`, transactional `apply`, and drift-detecting `verify` modes
+- Exact rollback, idempotent no-op behavior, and macOS/Windows support
+- Changes only `model_context_window` and `model_auto_compact_token_limit`
+
+**Example usage:**
+```text
+/daymade-codex:codex-1m-context-window-setup doctor
+configure Codex CLI and Desktop for the largest verified context window
+verify that my long-context setup still matches the selected model
+```
+
 ---
 
 ## 🎬 Interactive Demo Gallery
@@ -3490,25 +3569,31 @@ Use **qa-expert** to establish comprehensive QA testing infrastructure with auto
 Use **prompt-optimizer** to transform vague feature requests into precise EARS specifications with domain theory grounding. Perfect for product requirements documents, AI-assisted coding, and learning prompt engineering best practices. Combine with **skill-creator** to create well-structured skill prompts, or with **ppt-creator** to ensure presentation content requirements are clearly specified.
 
 ### For Session History & File Recovery
-Use **claude-code-history-files-finder** to recover deleted files from previous Claude Code sessions, search for specific implementations across conversation history, or track file evolution over time. Essential for recovering accidentally deleted code or finding that feature implementation you remember but can't locate.
+Use **read-claude-code-history** to recover deleted files from previous Claude Code sessions, search for specific implementations across conversation history, or track file evolution over time. Essential for recovering accidentally deleted code or finding that feature implementation you remember but can't locate.
+
+### For Reusing Existing Work Before Producing
+Use **prior-work-retrieval** before a substantial implementation, plan, report, workflow, document, or external message may already have an answer elsewhere. It searches the explicit local source manifest across current code, project decisions, Skills/SOPs, meetings, archived WeChat, and conversation history; then requires source verification plus an auditable reuse/adapt/reject receipt. A zero-hit ranked search never becomes an absence claim.
+
+### For Codex Workstation Setup
+Use **codex-1m-context-window-setup** when Codex CLI or Desktop shows about 258K
+context, compacts too early, or a classroom/workstation needs a reproducible
+long-context policy. It reads the selected model's live catalog entry, requests up
+to 1M raw tokens, and verifies the exact base-config values without touching the
+model, sandbox, approvals, plugins, or other user settings.
 
 ### For Resuming Interrupted Claude Sessions
-Use **continue-claude-work** to recover the last actionable request from local `~/.claude` artifacts and continue implementation without reopening the original session. Combine with **claude-code-history-files-finder** when you need broader cross-session search, statistics, or deleted-file recovery.
+Use **continue-claude-code-work** to recover the last actionable request from local `~/.claude` artifacts and continue implementation without reopening the original session. Combine with **read-claude-code-history** when you need broader cross-session search, statistics, or deleted-file recovery.
 
 For a prior Codex CLI run, use **continue-codex-work** instead; it reconstructs a
 briefing from local Codex rollout files without replaying the full session.
 
-### For Fast Local Conversation Discovery
-Use **local-conversation-history** when you need a quick, readable list of recent
-Claude Code, Codex, and Kimi CLI chats for the current workspace, including
-positive-only markers for every in-scope Codex session whose canonical
-writer-lock file is held. Held rows beyond the recent limit are appended; the
-marker proves lock state, not holder identity or agent progress. It produces all
-provider inventories in one read-only call and excludes internal agents by
-default. Move to **continue-codex-work** to inspect the stored context for an
-exact marked Codex thread, or to **claude-code-history-files-finder** for
-full-text search, tool-call analysis, or deleted-file recovery from Claude Code
-transcripts.
+### For Local Conversation Evidence
+Use **read-claude-code-history** for Claude Code inventory, exact timelines,
+queued human input, full-event search, and deleted-file recovery. Use
+**read-codex-history** for Codex inventory, exact prompt-ledger inputs, verified
+rollout identity, fork/compaction lineage, and Codex-only search. The two readers
+remain read-only; move to the matching **continue-claude-code-work** or
+**continue-codex-work** only when the user asks to execute the unfinished task.
 
 ### For Web Extraction & WeChat Articles
 Use **scrapling-skill** to install and validate Scrapling CLI, choose between static and browser-backed fetching, and extract clean Markdown from sites like `mp.weixin.qq.com`. Combine with **deep-research** to turn extracted sources into structured reports or with **docs-cleaner** to normalize captured article content.
@@ -3602,8 +3687,10 @@ Each skill includes:
 - **transcript-fixer**: See `daymade-audio/transcript-fixer/references/workflow_guide.md` for step-by-step workflows and `daymade-audio/transcript-fixer/references/team_collaboration.md` for collaboration patterns
 - **qa-expert**: See `qa-expert/references/master_qa_prompt.md` for autonomous execution (100x speedup) and `qa-expert/references/google_testing_standards.md` for AAA pattern and OWASP testing
 - **prompt-optimizer**: See `prompt-optimizer/references/ears_syntax.md` for EARS transformation patterns, `prompt-optimizer/references/domain_theories.md` for theory catalog, and `prompt-optimizer/references/examples.md` for complete transformations
-- **local-conversation-history**: See `daymade-claude-code/local-conversation-history/references/storage_and_portability.md` for local-store selection, cross-platform paths, privacy boundaries, and diagnostics
-- **claude-code-history-files-finder**: See `daymade-claude-code/claude-code-history-files-finder/references/session_file_format.md` for JSONL structure and `daymade-claude-code/claude-code-history-files-finder/references/workflow_examples.md` for recovery workflows
+- **read-codex-history**: See `daymade-claude-code/read-codex-history/references/storage_and_portability.md` for local-store selection, cross-platform paths, privacy boundaries, and diagnostics
+- **read-claude-code-history**: See `daymade-claude-code/read-claude-code-history/references/session_file_format.md` for JSONL structure and `daymade-claude-code/read-claude-code-history/references/workflow_examples.md` for recovery workflows
+- **prior-work-retrieval**: See `daymade-claude-code/prior-work-retrieval/SKILL.md` for the retrieval/verification workflow and `daymade-claude-code/prior-work-retrieval/references/source-manifest.md` for the explicit carrier contract
+- **codex-1m-context-window-setup**: See `daymade-codex/codex-1m-context-window-setup/SKILL.md` for the doctor/apply/verify workflow and `daymade-codex/codex-1m-context-window-setup/references/context_window_contract.md` for model-cap, usable-window, and compaction semantics
 - **docs-cleaner**: See `daymade-docs/docs-cleaner/SKILL.md` for consolidation workflows
 - **deep-research**: See `deep-research/references/research_report_template.md` for report structure and `deep-research/references/source_quality_rubric.md` for source triage
 - **pdf-creator**: See `daymade-docs/pdf-creator/SKILL.md` for PDF conversion and font setup
@@ -3623,7 +3710,7 @@ Each skill includes:
 - **product-analysis**: See `product-analysis/SKILL.md` for workflow and `product-analysis/references/synthesis_methodology.md` for cross-agent weighting and recommendation logic
 - **excel-automation**: See `daymade-docs/excel-automation/SKILL.md` for create/parse/control workflows and `daymade-docs/excel-automation/references/formatting-reference.md` for formatting standards
 - **capture-screen**: See `daymade-macos/capture-screen/SKILL.md` for CGWindowID-based screenshot workflows on macOS
-- **continue-claude-work**: See `daymade-claude-code/continue-claude-work/SKILL.md` for local artifact recovery, drift checks, and resume workflow
+- **continue-claude-code-work**: See `daymade-claude-code/continue-claude-code-work/SKILL.md` for local artifact recovery, drift checks, and resume workflow
 - **continue-codex-work**: See `daymade-claude-code/continue-codex-work/SKILL.md` for Codex rollout discovery, end-reason diagnosis, and continuation workflow
 - **scrapling-skill**: See `scrapling-skill/SKILL.md` for the CLI workflow and `scrapling-skill/references/troubleshooting.md` for verified Scrapling failure modes
 - **ima-copilot**: See `ima-copilot/SKILL.md` for the wrapper architecture and routing, `ima-copilot/references/installation_flow.md` for the install deep dive, `ima-copilot/references/known_issues.md` for the issue registry and repair commands, and `ima-copilot/references/search_best_practices.md` for the fan-out strategy and 100-result truncation details
@@ -3639,6 +3726,7 @@ Each skill includes:
 ## 🛠️ Requirements
 
 - **Claude Code** 2.0.13 or higher
+- **Codex CLI with `doctor --json` and `debug models` + uv/Python 3.11+** (for codex-1m-context-window-setup)
 - **Python 3.10+** (marketplace-wide baseline; individual skills may support older versions)
 - **gh CLI** (for github-ops and github-review-pr)
 - **git with `merge-tree --write-tree` + jq** (for github-review-pr)
@@ -3663,7 +3751,7 @@ Each skill includes:
 - **Bigdata.com API key** (for `daymade-financial:bigdata-skill`): `bd_v2_` key from [https://www.bigdata.com/](https://www.bigdata.com/)
 - **Gangtise credentials** (for `daymade-financial:gangtise-copilot`): accessKey + secretAccessKey from [https://open.gangtise.com/](https://open.gangtise.com/)
 - **macOS** (for capture-screen and excel-automation AppleScript control workflows)
-- **Python 3.8+** (for continue-claude-work): bundled script for session extraction (no external dependencies)
+- **Python 3.10+** (for the four local history read/continue skills): bundled standard-library readers and validators
 - **uv + Scrapling CLI** (for scrapling-skill): `uv tool install 'scrapling[shell]'` and `scrapling install` for browser-backed fetches
 - **Node.js 18+ + curl + unzip** (for ima-copilot): `npx skills` is fetched on demand from the npm registry; IMA OpenAPI credentials from [https://ima.qq.com/agent-interface](https://ima.qq.com/agent-interface)
 - **StepFun API key** (for stepfun-tts and stepfun-asr — must be "Normal" tier, Plan keys silently fail on audio endpoints): Available at [https://platform.stepfun.com/](https://platform.stepfun.com/) → API Keys
@@ -3677,7 +3765,9 @@ Start with **skill-creator** if you want to create your own skills. Otherwise, b
 
 ### Can I use these skills without Claude Code?
 
-No, these skills are specifically designed for Claude Code. You'll need Claude Code 2.0.13 or higher.
+Most marketplace skills target Claude Code. Skills in the `daymade-codex` suite
+that explicitly document Codex support can also be installed through Codex's
+plugin marketplace; check each Skill's requirements before use.
 
 ### How do I update skills?
 

@@ -8,7 +8,8 @@
 #   an ignored gate is worse than no gate. Adding a line here is a reviewable decision.
 #
 # ADMISSION CRITERIA — a suite belongs here only if all four hold:
-#   1. standard library only (no pip/npm install beyond the runner itself)
+#   1. Python/Node dependencies are standard-library only (no pip/npm install);
+#      any required OS CLI is explicitly provisioned by the Linux job
 #   2. no network, no credentials, no paths outside its own temp directory
 #   3. deterministic — same result on a rerun
 #   4. verified green on Linux before being added, not just on the author's machine
@@ -52,7 +53,10 @@ python-unittest  git-safety-net/tests
 python-unittest  tests
 python-unittest  auto-repo-setup/tests
 python-unittest  llm-wiki-setup/tests
-python-unittest  daymade-claude-code/local-conversation-history/tests
-python-unittest  daymade-claude-code/claude-code-history-files-finder/tests
-python-unittest  daymade-claude-code/continue-codex-work/tests
+python-unittest  daymade-claude-code/read-codex-history/tests
+python-unittest  daymade-claude-code/read-claude-code-history/tests
+python-unittest  daymade-claude-code/prior-work-retrieval/tests
+python-unittest  daymade-skill/skill-governance/tests
+python-unittest  daymade-codex/codex-1m-context-window-setup/tests
+python-unittest  daymade-audio/asr-transcribe-to-text/tests
 python-unittest  feishu-doc-scraper/tests

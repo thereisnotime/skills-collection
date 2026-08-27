@@ -6,7 +6,7 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.90.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-2.1.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
@@ -187,15 +187,23 @@ claude plugin install daymade-macos@daymade-skills
 
 这些技能仅作为 `daymade-macos` 套件成员发布。
 
-**Codex 套件**（为 Codex 辅助编码与视觉探索提供统一命名空间）：
+**Codex 套件**（为 Codex 工作站配置、辅助编码与视觉探索提供统一命名空间）：
 ```bash
 claude plugin install daymade-codex@daymade-skills
+```
+
+Codex CLI 与 Desktop 用户也可以直接通过 Codex 插件市场安装同一套件：
+
+```bash
+codex plugin marketplace add daymade/claude-code-skills
+codex plugin add daymade-codex@daymade-skills
 ```
 
 ```text
 /daymade-codex:codex-image-gallery
 /daymade-codex:local-codex
 /daymade-codex:design-style-picker
+/daymade-codex:codex-1m-context-window-setup
 ```
 
 这些技能仅作为 `daymade-codex` 套件成员发布。
@@ -205,12 +213,12 @@ claude plugin install daymade-codex@daymade-skills
 claude plugin install daymade-claude-code@daymade-skills
 ```
 
-一次安装即可获得扩展 Claude Code 本体的全部 power-user 技能——跨 Claude Code/Codex 的快速本地对话发现、会话恢复、CLAUDE.md 调优、故障诊断、statusline 配置、导出修复、marketplace 开发与 suite 收敛、终端截图渲染、用量分析、多 Provider 模型切换，以及 Claude Code/Codex 安装目录的自动本地 skill 源码同步：
+一次安装即可获得扩展 Claude Code 本体的全部 power-user 技能——跨代码、项目文档、Skill/SOP、会议、微信归档与对话历史的已有工作检索；跨 Claude Code/Codex 的快速本地对话发现；会话恢复；CLAUDE.md 调优；故障诊断；statusline 配置；导出修复；marketplace 开发与 suite 收敛；终端截图渲染；用量分析；以及多 Provider 模型切换：
 
 ```text
-/daymade-claude-code:local-conversation-history
-/daymade-claude-code:claude-code-history-files-finder
-/daymade-claude-code:continue-claude-work
+/daymade-claude-code:read-claude-code-history
+/daymade-claude-code:read-codex-history
+/daymade-claude-code:continue-claude-code-work
 /daymade-claude-code:continue-codex-work
 /daymade-claude-code:claude-skills-troubleshooting
 /daymade-claude-code:claude-md-progressive-disclosurer
@@ -220,6 +228,10 @@ claude plugin install daymade-claude-code@daymade-skills
 /daymade-claude-code:terminal-screenshot
 /daymade-claude-code:claude-usage-analyst
 /daymade-claude-code:claude-switch-models-setup
+/daymade-claude-code:read-claude-web-conversation
+/daymade-claude-code:claude-migrate-memory-to-doc
+/daymade-claude-code:claude-code-hooks
+/daymade-claude-code:prior-work-retrieval
 ```
 
 安装后调用统一显示为 `daymade-claude-code:<skill>`，共享同一命名空间。这些技能仅作为套件发布——安装套件即可获得全部技能。
@@ -727,38 +739,37 @@ python3 scripts/safe_mix.py /path/to/codebase
 
 > **安装**：`claude plugin install daymade-audio@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-audio:transcript-fixer`）
 
-通过基于字典的规则和 AI 驱动的校正来纠正语音转文本（ASR/STT）转录错误。
+用 Stage 1 字典预处理、必须执行的 Native AI 全文通读，以及带原始音频的人审门，纠正语音转文本（ASR/STT）中的措辞、人名、数字和实体错误。
 
 **使用场景：**
 - 纠正会议记录、讲座录音、访谈中的转录错误
-- 修复同音词错误（"their"/"there"，"to"/"too"）
-- 处理 ASR/STT 转录文件
-- 改进转录文本的可读性和准确性
+- 修复中英文同音、术语和专名错误
+- 只打开当前这份逐字稿的待审项，并直接听对应时间片段
+- 让稳定错误复用，同时把一次性误识留在当前文件
 
 **主要功能：**
-- 基于字典的规则引擎
-- AI 驱动的上下文校正
-- 自动学习和字典更新
-- 批处理
-- 团队协作模式（共享字典）
-- 支持多种 ASR 引擎（Whisper、Google Speech、Azure Speech）
+- Stage 1 + Native AI 完整纠错；Stage 1 单独运行不算完成
+- 精确文件审核队列、deep link、时间戳音频播放和机器可读的 zero-pending 读回
+- file-only / dictionary / roster / context 四种沉淀边界，避免一次性错误污染长期规则
+- SQLite 审计、批处理和团队知识协作
 
 **示例用法：**
 ```bash
-# 校正转录文件
-python3 scripts/fix_transcript.py meeting_notes.txt
+# 执行完整纠错
+uv run scripts/fix_transcription.py --input meeting.md --stage 3
 
-# 使用自定义字典
-python3 scripts/fix_transcript.py transcript.txt --dictionary custom_dict.json
+# 只打开这份逐字稿并听音频裁定
+uv run scripts/review-dashboard/server.py --file "/absolute/meeting.md"
+
+# 人审结束后精确读回；pending_total 必须为 0
+uv run scripts/fix_transcription.py \
+  --list-review --review-file "/absolute/meeting.md" \
+  --review-status all --json
 ```
-
-**🎬 实时演示**
-
-*即将推出*
 
 📚 **文档**：参见 [daymade-audio/transcript-fixer/references/workflow_guide.md](./daymade-audio/transcript-fixer/references/workflow_guide.md) 了解分步工作流
 
-**要求**：Python 3.8+
+**要求**：Python 3.10+ 与 uv。Native AI 使用当前 Agent；只有可选的无 Agent API 路线需要外部 API key。
 
 ---
 
@@ -917,15 +928,17 @@ python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 
 ---
 
-### 18. **claude-code-history-files-finder** - 会话历史恢复
+### 18. **read-claude-code-history** - 读取本地 Claude Code 历史
 
-> **安装**：`claude plugin install daymade-claude-code@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-claude-code:claude-code-history-files-finder`）
+> **安装**：`claude plugin install daymade-claude-code@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-claude-code:read-claude-code-history`）
 
 从所有活跃配置目录和 `~/.claude/history-sources.json` 已登记的长期备份中，
-查找并恢复 Claude Code 会话历史内容。
+读取、搜索和导出 Claude Code 历史，但不续做或修改旧任务。
 
 **使用场景：**
 - 从之前的 Claude Code 会话中恢复已删除或丢失的文件
+- 把一个已知 Session 重建成按时间交替的用户／Assistant 上下文
+- 读取人类真实输入，包括工作中途排队的纠正消息
 - 在对话历史中搜索特定代码
 - 跨多个会话跟踪文件修改
 - 查找包含特定关键字或实现的会话
@@ -933,6 +946,7 @@ python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 
 **主要功能：**
 - **完整来源集**：默认同时检索活跃目录与已登记备份
+- **Provider 边界**：默认只读 Claude；Codex 请求交给 `read-codex-history`
 - **跨项目扩搜**：项目未知时用 `--all-projects` 一次检索全部项目；可同时传多个关键词
 - **副本安全并集**：同一会话 ID 的所有副本都参与检索，相同记录不重复计数
 - **内部时间检索**：按 JSONL 记录时间过滤，不用文件 mtime
@@ -942,11 +956,18 @@ python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 - **统计分析**：消息计数、工具使用明细、文件操作
 - **批量操作**：使用关键字过滤处理多个会话
 - **流式处理**：高效处理大型会话文件（>100MB）
+- **读／续做分离**：只产出证据回执，本 Skill 不自行继续工作
 
 **示例用法：**
 ```bash
 # 列出项目的最近会话
 python3 scripts/analyze_sessions.py list /path/to/project
+
+# 按时间读取一个 Session，并保留中途排队的人类输入
+python3 scripts/read_claude_session.py --session <session-id> --project /path/to/project --full
+
+# 按 Session 导出近期人类原话
+python3 scripts/extract_user_messages.py ./user-words --days 7 --group-by session
 
 # 搜索包含关键字的会话
 python3 scripts/analyze_sessions.py search /path/to/project \
@@ -968,7 +989,7 @@ python3 scripts/analyze_sessions.py stats /path/to/session.jsonl --show-files
 
 *即将推出*
 
-📚 **文档**：参见 [daymade-claude-code/claude-code-history-files-finder/references/](./daymade-claude-code/claude-code-history-files-finder/references/)：
+📚 **文档**：参见 [daymade-claude-code/read-claude-code-history/references/](./daymade-claude-code/read-claude-code-history/references/)：
 - `session_file_format.md` - JSONL 结构和提取模式
 - `workflow_examples.md` - 详细的恢复和分析工作流
 
@@ -1920,11 +1941,13 @@ claude plugin install daymade-macos@daymade-skills
 
 ---
 
-### 42. **continue-claude-work** - 续做中断的 Claude 工作
+### 42. **continue-claude-code-work** - 续做中断的 Claude 工作
 
-> **安装**：`claude plugin install daymade-claude-code@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-claude-code:continue-claude-work`）
+> **安装**：`claude plugin install daymade-claude-code@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-claude-code:continue-claude-code-work`）
 
-从本地 `~/.claude` 会话产物中恢复可执行上下文，并在不重新打开旧交互会话的前提下继续实现工作。内置 Python 脚本实现智能上下文提取。
+在不重新打开旧交互会话的前提下，续做一个已经核实的 Claude Code
+Session。续做层先消费 `read-claude-code-history`，再恢复原始业务结果、
+尚未完成的要求、用户纠正、已验证资产，以及一个直接推进目标的下一步。
 
 **使用场景：**
 - 用户提供 Claude 会话 ID，希望继续上次的任务
@@ -1933,12 +1956,10 @@ claude plugin install daymade-macos@daymade-skills
 - 多 agent 工作流被中断，需要了解哪些 subagent 已完成
 
 **主要功能：**
-- Compact-boundary 感知提取 — 读取 Claude 自身的会话压缩摘要作为最高信噪比上下文
-- Subagent 工作流恢复 — 报告已完成与被中断的 subagent 及其最后输出
-- 会话结束原因检测 — 区分正常退出、中断（ctrl-c）、错误级联、废弃会话
-- 大小自适应策略 — 对小型（<500KB）和大型（>5MB）会话采用不同读取方式
-- 噪声过滤 — 跳过 progress/queue-operation/api_error 消息（占会话行数的 37-53%）
-- 自会话排除、过期索引回退、MEMORY.md 集成、git 工作区状态
+- 强制先获得按时间交替的读取回执，不再把用户和 Assistant 分栏错配
+- 恢复原始目标、剩余工作、被否决路线与以前成功的资产
+- 动手前验证当前文件、Git、外部写入与后台任务，避免重复执行
+- 以业务结果作为完成单位，而不是解析器、审阅或进程完成
 
 **示例用法：**
 ```bash
@@ -1948,7 +1969,7 @@ claude plugin install daymade-macos@daymade-skills
 "查看上次会话做了什么，然后继续"
 ```
 
-📚 **文档**：参见 [continue-claude-work/SKILL.md](./daymade-claude-code/continue-claude-work/SKILL.md)。
+📚 **文档**：参见 [continue-claude-code-work/SKILL.md](./daymade-claude-code/continue-claude-code-work/SKILL.md)。
 
 **要求**：Python 3.8+，用于工作区核对的 `git`。
 
@@ -2320,7 +2341,7 @@ claude plugin install daymade-docs@daymade-skills
 **主要功能：**
 - 双推理路径——本地 MLX（15-27 倍实时、免费）与远端 API，自动检测平台
 - 内置 `transcribe_local_mlx.py`：只加载一次模型并顺序处理多个文件（无 GPU 争用）
-- 默认 `max_tokens=200000`，规避上游 `mlx-audio` 的 8192 token 截断（会静默截掉 ~40 分钟以上的音频）
+- 采用约 20 分钟的低能量切块、单块 8192 token 上限、原子 checkpoint/续跑与完整进程树回收，避免单个异常块演变成无边界 GPU 任务
 - 远端兜底 `overlap_merge_transcribe.py`：切成 18 分钟片段、2 分钟重叠、模糊合并
 - ffmpeg 视频→16kHz 单声道 WAV 提取、截断校验与代理绕过处理
 - 主动建议用 `transcript-fixer` 清理输出中的 ASR 识别错误
@@ -2834,7 +2855,7 @@ AppleScript fallback 需要 macOS，以及由用户手动开启一次 Chrome 开
 claude plugin install setup-notifications-via-wecom@daymade-skills
 ```
 
-配置可复用的企业微信/WeCom webhook 通知，用于技术状态报告、告警和任务完成消息。
+配置可复用的企业微信/WeCom webhook 通知，用于技术状态报告、告警和任务完成消息。收件目标必须显式分类：用户本人通道可自动发送，其他目标必须经人类确认。
 
 **使用场景：**
 - 配置可复用的企业微信 / WeCom 通知通道
@@ -2851,14 +2872,14 @@ claude plugin install setup-notifications-via-wecom@daymade-skills
 claude plugin install notify-wecom@daymade-skills
 ```
 
-发送单条企业微信群机器人消息，不建立可复用通知工作流。
+按显式收件目标发送单条企业微信群机器人消息：`self` 直接发送，`others` 必须经人类确认。
 
 **使用场景：**
 - `/notify-wecom`
 - 临时发一条企业微信 / 企微通知一下
 - 不需要模板或持久配置的一次性提醒
 
-**要求**：企业微信机器人 webhook URL。
+**要求**：企业微信机器人 webhook URL，以及由配置命令写入的显式收件范围、标签和规范 sender 绑定。
 
 ---
 
@@ -3132,21 +3153,23 @@ main 在上次 review 后变了，重新告诉我现在真正会合进去什么
 
 **依赖**：已认证的 `gh` CLI、支持 `merge-tree --write-tree` 的 `git`、`jq`。
 
-### 86. **local-conversation-history** - 快速查看本地 Agent 对话
+### 86. **read-codex-history** - 读取本地 Codex 历史
 
 > **安装**：`claude plugin install daymade-claude-code@daymade-skills`
->（仅作为套件成员发布，调用方式 `daymade-claude-code:local-conversation-history`）
+>（仅作为套件成员发布，调用方式 `daymade-claude-code:read-codex-history`）
 
-用一次只读命令列出当前工作区最近的 Claude Code、Codex 与 Kimi CLI 本地
-对话。输出已经是可直接阅读的 Markdown 或 JSON，包含短标题、带时区时间、
-精确会话 ID、Codex writer lock 阳性标记和明确诊断信息。
+读取、搜索和导出本地 Codex 历史，但不续做旧任务。它把 prompt ledger、
+状态数据库与 rollout JSONL 保持为三种不同的证据面，避免把用户原始输入、
+会话元数据和 Agent 行为互相偷换。
 
 **主要能力：**
-- 默认合并所有活跃 Claude 配置目录与已登记的长期备份
-- 流式读完整 Claude JSONL 与 Codex raw rollout，计算精确内部时间范围；排序和筛选绝不使用文件 mtime
-- 按会话 ID 去重、合并各副本的内部时间范围，同时保留活跃目录/备份来源信息
+- 列出 Codex Session、内部时间范围和 active/archive 来源
+- 从 prompt ledger 精确读取用户输入，从新到旧且只按 Session 分组
+- 把一个 rollout 重建为按时间交替的用户／Assistant 时间线，并保留 fork 精确字节边界与 compaction
+- Codex-only 搜索不会再把 Claude 命中混进来
 - 通过 schema 检查选择兼容的 Codex 状态数据库
 - 数据库不可用时明确告警，再读取原始 Codex rollout JSONL
+- 强制校验内部 `session_meta.id`，遇 fused／缺失 rollout 时显式报缺口而不是猜
 - 检查范围内每条 Codex 会话；精确的规范 writer-lock 文件被占用时才加标记，
   即使位于最近条数限制之外也会补入。标记只证明锁状态，不证明持锁者身份或
   agent 正在运行；无标记不会被解释为已停止或可以注销
@@ -3155,14 +3178,16 @@ main 在上次 review 后变了，重新告诉我现在真正会合进去什么
 
 **示例：**
 ```text
-/daymade-claude-code:local-conversation-history
-列出当前文件夹最近的 Claude Code 和 Codex 对话
+/daymade-claude-code:read-codex-history
+列出当前文件夹最近的 Codex 对话
+按 Session 列出我最近 200 条 Codex 原始输入
+按时间读取 Codex Session 01abc... 并显示 fork lineage
 显示当前工作区哪些 Codex 会话的规范 writer-lock 文件被持有
 把包含归档会话的 Codex 记录输出成 JSON
 ```
 
 📚 **文档**：参见
-[storage_and_portability.md](./daymade-claude-code/local-conversation-history/references/storage_and_portability.md)
+[storage_and_portability.md](./daymade-claude-code/read-codex-history/references/storage_and_portability.md)
 了解数据源选择、路径归一化、隐私边界和诊断方法。
 
 **依赖**：Python 3.10+；无需第三方包或网络。
@@ -3174,10 +3199,12 @@ main 在上次 review 后变了，重新告诉我现在真正会合进去什么
 > **安装**：`claude plugin install daymade-claude-code@daymade-skills`
 >（仅作为套件成员发布，调用方式 `daymade-claude-code:continue-codex-work`）
 
-从本地 Codex CLI rollout 中恢复可执行上下文，在当前对话继续工作，无需用
-`codex resume` 重放整个旧会话。内置提取器支持按会话 ID、标题关键词、当前
-项目最近活动或列表定位，并在续做前报告结束原因、遗留请求、近期工具与文件、
-错误和当前工作区状态。
+在不使用 `codex resume` 重放旧会话的前提下续做 Codex 任务。该 Skill 先要求
+`read-codex-history` 证明所选 rollout 身份、fork lineage、时间顺序、compaction
+与证据缺口，再恢复原始业务结果、尚未完成的要求、用户纠正、既有成功资产和
+一个直接推进目标的下一步。
+它只用于新会话/不同 Agent 接手旧 rollout。若 Codex 自己原生恢复的是同一个
+会话，且旧 turns 或 compaction 已在当前上下文中，就直接继续，不触发本 Skill。
 
 ```text
 /daymade-claude-code:continue-codex-work 019f66...
@@ -3432,6 +3459,51 @@ banked reset 到了吗
 Tibo 最新的重置公告换算成北京时间是几点
 ```
 
+### 98. **prior-work-retrieval** - 产出前检索并核实已有成功工作
+
+> **安装**：`claude plugin install daymade-claude-code@daymade-skills`
+>（仅作为套件成员发布，调用方式 `daymade-claude-code:prior-work-retrieval`）
+
+开始新的实现或方案之前，先检索并核实已有代码、决策、Skill／SOP、会议、
+微信归档、项目文档与对话历史。每次运行都会留下可审计的复用／适配／淘汰
+回执；排序检索零命中不会被偷换成「不存在」。
+
+**核心能力：**
+- 显式来源清单与逐载体覆盖状态
+- 回到原始来源核对权威性与时效性
+- 围绕当前业务结果作复用／适配／淘汰决策
+- 大规模产出前可用确定性命令检查回执
+
+**使用示例：**
+```text
+/daymade-claude-code:prior-work-retrieval
+我们以前解决过，先找到已有代码和成功路径再改
+先检查现有 Skill、SOP 和历史，不要重新造工作流
+```
+
+### 99. **codex-1m-context-window-setup** - 为 Codex 设置模型感知的长上下文
+
+> **安装**：`claude plugin install daymade-codex@daymade-skills`
+>（仅作为套件成员发布，调用方式 `daymade-codex:codex-1m-context-window-setup`）
+
+为 Codex CLI 与 Desktop 共用的基础配置写入当前模型真实支持的最大上下文，
+请求上限为 100 万 token。该 Skill 会读取实时模型契约、解释常见的约 258K
+默认值、把自动压缩阈值设为可达窗口的 60%，同时保留无关 TOML；若 Codex
+严格配置校验失败，则精确回滚。
+
+**核心功能：**
+- 按模型上限计算，不把「1M」硬说成每个模型都能达到
+- 提供只读 `doctor`、事务式 `apply` 与漂移检测 `verify`
+- 变更前备份、无变化不重复写入，并支持 macOS 与 Windows
+- 只修改 `model_context_window` 和 `model_auto_compact_token_limit`
+
+**使用示例：**
+```text
+/daymade-codex:codex-1m-context-window-setup doctor
+把 Codex CLI 和 Desktop 配成当前模型可验证的最大上下文
+验证长上下文设置在升级或切换模型后是否仍然正确
+```
+
 ---
 
 ## 🎬 交互式演示画廊
@@ -3497,23 +3569,29 @@ review 后修复/落地时，使用 **github-review-pr**。
 使用 **prompt-optimizer** 将模糊的功能请求转换为具有领域理论基础的精确 EARS 规范。非常适合产品需求文档、AI 辅助编码和学习提示词工程最佳实践。与 **skill-creator** 结合使用以创建结构良好的技能提示，或与 **ppt-creator** 结合使用以确保演示内容需求清晰明确。
 
 ### 会话历史与文件恢复
-使用 **claude-code-history-files-finder** 从之前的 Claude Code 会话中恢复已删除的文件、在对话历史中搜索特定实现，或跟踪文件随时间的演变。对于恢复意外删除的代码或查找你记得但找不到的功能实现至关重要。
+使用 **read-claude-code-history** 从之前的 Claude Code 会话中恢复已删除的文件、在对话历史中搜索特定实现，或跟踪文件随时间的演变。对于恢复意外删除的代码或查找你记得但找不到的功能实现至关重要。
+
+### 产出前复用已有工作
+当新的实现、方案、报告、流程、文档或对外消息可能在别处已有答案时，先使用 **prior-work-retrieval**。它按显式清单检索当前代码、项目决策、Skill/SOP、会议、微信归档与对话历史，再要求回到原始来源核验，并留下可审计的复用／适配／淘汰回执；排序检索零命中不会被偷换成「不存在」。
+
+### Codex 工作站配置
+当 Codex CLI 或 Desktop 只显示约 258K 上下文、过早自动压缩，或需要给课堂／
+工作站复制同一套长上下文策略时，使用 **codex-1m-context-window-setup**。
+它读取当前模型的实时目录项，请求最多 100 万 raw token，并核验基础配置的
+精确值；不会顺手修改模型、sandbox、审批、插件或其他个人设置。
 
 ### 续做中断的 Claude 会话
-使用 **continue-claude-work** 从本地 `~/.claude` 产物中恢复最后一个可执行请求，并在不重新打开原始会话的情况下继续实现。若还需要跨会话搜索、统计分析或恢复已删除文件，可与 **claude-code-history-files-finder** 配合使用。
+使用 **continue-claude-code-work** 从本地 `~/.claude` 产物中恢复最后一个可执行请求，并在不重新打开原始会话的情况下继续实现。若还需要跨会话搜索、统计分析或恢复已删除文件，可与 **read-claude-code-history** 配合使用。
 
 若旧工作来自 Codex CLI，则改用 **continue-codex-work**；它从本地 Codex
 rollout 重建简报，不会把完整旧会话重新灌入上下文。
 
-### 快速发现本地对话
-需要快速查看当前工作区最近的 Claude Code、Codex 与 Kimi CLI 对话，或确认
-哪些 Codex 会话的规范 writer-lock 文件当前被持有时，使用
-**local-conversation-history**。它检查范围内全部 Codex 会话，最近窗口外的
-阳性项也会补入；该标记只证明锁状态，不证明持锁者身份或 agent 进度。它用
-一次只读调用输出各来源的可读清单，并默认排除内部 agent。要查看某个已标记
-Codex 会话的存量上下文，把精确 ID 交给 **continue-codex-work**；需要全文
-搜索、分析工具调用或从 Claude Code 逐字稿恢复文件时，再切换到
-**claude-code-history-files-finder**。
+### 本地对话证据
+Claude Code 的会话清单、精确时间线、中途排队的人类输入、全事件搜索与文件
+恢复使用 **read-claude-code-history**；Codex 的会话清单、prompt ledger 原话、
+rollout 身份、fork／compaction lineage 与 Codex-only 搜索使用
+**read-codex-history**。两者都只读取证；只有用户明确要求续做时，才进入对应的
+**continue-claude-code-work** 或 **continue-codex-work**。
 
 ### 网页提取与微信公众号文章
 使用 **scrapling-skill** 安装并验证 Scrapling CLI，判断应使用静态抓取还是浏览器抓取，并从 `mp.weixin.qq.com` 等页面提取干净的 Markdown。可与 **deep-research** 配合，将抓取内容整理为结构化报告，或与 **docs-cleaner** 配合清理抽取后的文章内容。
@@ -3607,8 +3685,10 @@ Codex 会话的存量上下文，把精确 ID 交给 **continue-codex-work**；�
 - **transcript-fixer**：参见 `daymade-audio/transcript-fixer/references/workflow_guide.md` 了解分步工作流和 `daymade-audio/transcript-fixer/references/team_collaboration.md` 了解协作模式
 - **qa-expert**：参见 `qa-expert/references/master_qa_prompt.md` 了解自主执行（100 倍加速）和 `qa-expert/references/google_testing_standards.md` 了解 AAA 模式和 OWASP 测试
 - **prompt-optimizer**：参见 `prompt-optimizer/references/ears_syntax.md` 了解 EARS 转换模式、`prompt-optimizer/references/domain_theories.md` 了解理论目录和 `prompt-optimizer/references/examples.md` 了解完整转换示例
-- **local-conversation-history**：参见 `daymade-claude-code/local-conversation-history/references/storage_and_portability.md` 了解本地数据源选择、跨平台路径、隐私边界和诊断方法
-- **claude-code-history-files-finder**：参见 `daymade-claude-code/claude-code-history-files-finder/references/session_file_format.md` 了解 JSONL 结构和 `daymade-claude-code/claude-code-history-files-finder/references/workflow_examples.md` 了解恢复工作流
+- **read-codex-history**：参见 `daymade-claude-code/read-codex-history/references/storage_and_portability.md` 了解本地数据源选择、跨平台路径、隐私边界和诊断方法
+- **read-claude-code-history**：参见 `daymade-claude-code/read-claude-code-history/references/session_file_format.md` 了解 JSONL 结构和 `daymade-claude-code/read-claude-code-history/references/workflow_examples.md` 了解恢复工作流
+- **prior-work-retrieval**：参见 `daymade-claude-code/prior-work-retrieval/SKILL.md` 了解检索／核验工作流，参见 `daymade-claude-code/prior-work-retrieval/references/source-manifest.md` 了解显式载体清单契约
+- **codex-1m-context-window-setup**：参见 `daymade-codex/codex-1m-context-window-setup/SKILL.md` 了解 doctor/apply/verify 工作流，参见 `daymade-codex/codex-1m-context-window-setup/references/context_window_contract.md` 了解模型上限、可用窗口和压缩语义
 - **docs-cleaner**：参见 `daymade-docs/docs-cleaner/SKILL.md` 了解整合工作流
 - **deep-research**：参见 `deep-research/references/research_report_template.md` 了解报告结构，并参见 `deep-research/references/source_quality_rubric.md` 了解来源分级标准
 - **pdf-creator**：参见 `daymade-docs/pdf-creator/SKILL.md` 了解 PDF 转换与字体设置
@@ -3628,7 +3708,7 @@ Codex 会话的存量上下文，把精确 ID 交给 **continue-codex-work**；�
 - **product-analysis**：参见 `product-analysis/SKILL.md` 了解工作流，参见 `product-analysis/references/synthesis_methodology.md` 了解跨代理加权与推荐逻辑
 - **excel-automation**：参见 `daymade-docs/excel-automation/SKILL.md` 了解创建/解析/控制工作流，参见 `daymade-docs/excel-automation/references/formatting-reference.md` 了解格式规范
 - **capture-screen**：参见 `daymade-macos/capture-screen/SKILL.md` 了解基于 CGWindowID 的 macOS 截图流程
-- **continue-claude-work**：参见 `daymade-claude-code/continue-claude-work/SKILL.md` 了解本地会话产物恢复、漂移检查与续做流程
+- **continue-claude-code-work**：参见 `daymade-claude-code/continue-claude-code-work/SKILL.md` 了解本地会话产物恢复、漂移检查与续做流程
 - **continue-codex-work**：参见 `daymade-claude-code/continue-codex-work/SKILL.md` 了解 Codex rollout 定位、结束原因诊断与续做流程
 - **scrapling-skill**：参见 `scrapling-skill/SKILL.md` 了解 CLI 工作流，参见 `scrapling-skill/references/troubleshooting.md` 了解已验证的 Scrapling 故障模式
 - **ima-copilot**：参见 `ima-copilot/SKILL.md` 了解包装层架构与路由规则，参见 `ima-copilot/references/installation_flow.md` 了解安装流程细节，参见 `ima-copilot/references/known_issues.md` 了解已知问题清单与修复命令，参见 `ima-copilot/references/search_best_practices.md` 了解扇出搜索策略与 100 条截断处理
@@ -3644,6 +3724,7 @@ Codex 会话的存量上下文，把精确 ID 交给 **continue-codex-work**；�
 ## 🛠️ 系统要求
 
 - **Claude Code** 2.0.13 或更高版本
+- **支持 `doctor --json` 与 `debug models` 的 Codex CLI + uv/Python 3.11+**（用于 codex-1m-context-window-setup）
 - **Python 3.10+**（市场整体基线；个别 skill 可能支持更旧版本）
 - **gh CLI**（用于 github-ops 和 github-review-pr）
 - **支持 `merge-tree --write-tree` 的 git + jq**（用于 github-review-pr）
@@ -3665,7 +3746,7 @@ Codex 会话的存量上下文，把精确 ID 交给 **continue-codex-work**；�
 - **Bigdata.com API 密钥**（用于 `daymade-financial:bigdata-skill`）：从 [https://www.bigdata.com/](https://www.bigdata.com/) 获取 `bd_v2_` 密钥
 - **Gangtise 凭据**（用于 `daymade-financial:gangtise-copilot`）：从 [https://open.gangtise.com/](https://open.gangtise.com/) 获取 accessKey + secretAccessKey
 - **macOS**（用于 capture-screen 与 excel-automation 的 AppleScript 控制流程）
-- **Python 3.8+**（用于 continue-claude-work）：内置脚本进行会话提取（无外部依赖）
+- **Python 3.10+**（用于四个本地历史读取／续做 Skill）：内置标准库 reader 与 validator
 - **uv + Scrapling CLI**（用于 scrapling-skill）：`uv tool install 'scrapling[shell]'`，浏览器抓取前运行 `scrapling install`
 - **Node.js 18+ + curl + unzip**（用于 ima-copilot）：`npx skills` 按需从 npm registry 拉取；IMA OpenAPI 凭据从 [https://ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 获取
 - **StepFun API key**（用于 stepfun-tts 和 stepfun-asr——必须是 "Normal" 等级，Plan key 调音频端点会无声失败）：在 [https://platform.stepfun.com/](https://platform.stepfun.com/) → API Keys 获取
@@ -3679,7 +3760,8 @@ Codex 会话的存量上下文，把精确 ID 交给 **continue-codex-work**；�
 
 ### 没有 Claude Code 可以使用这些技能吗？
 
-不可以，这些技能是专门为 Claude Code 设计的。你需要 Claude Code 2.0.13 或更高版本。
+大多数 marketplace 技能面向 Claude Code。`daymade-codex` 套件中明确标注支持
+Codex 的技能也可以通过 Codex 插件市场安装；使用前请查看对应 Skill 的要求。
 
 ### 如何更新技能？
 

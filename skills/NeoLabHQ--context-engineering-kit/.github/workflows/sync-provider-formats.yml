@@ -1,9 +1,9 @@
-# Keeps the root-level Gemini CLI / Antigravity CLI provider bundle
-# (skills/, agents/, gemini-extension.json, plugin.json) in sync with
+# Keeps the Gemini CLI / Antigravity CLI provider bundles (skills/,
+# agents/, gemini-extension.json, plugin.json and antigravity/) in sync with
 # plugins/*/skills, plugins/*/agents, and the marketplace manifest.
 #
-# `just sync-provider-formats` (see justfile) fully regenerates those four
-# paths from the current plugin content. This workflow runs it on every PR
+# `just sync-provider-formats` (see justfile) fully regenerates those paths
+# from the current plugin content. This workflow runs it on every PR
 # that could change the bundle and reacts to exactly four outcomes:
 #   1. Sync ran fine, no drift               -> pass, nothing to do.
 #   2. Sync ran fine, drift found, same-repo  -> commit + push the fix back.
@@ -75,7 +75,7 @@ jobs:
       - name: Check for drift against the committed bundle
         id: diff
         run: |
-          git add -A -- skills agents gemini-extension.json plugin.json
+          git add -A -- skills agents gemini-extension.json plugin.json antigravity
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -86,7 +86,7 @@ jobs:
       - name: Fail with instructions (fork PR is out of sync)
         if: steps.diff.outputs.changed == 'true' && github.event.pull_request.head.repo.fork == true
         run: |
-          echo "::error::The provider bundle (skills/, agents/, gemini-extension.json, plugin.json) is out of date. Run 'just sync-provider-formats' locally and commit the result, then push again. Automatic push-back is unavailable for pull requests from forks because the default GITHUB_TOKEN cannot push to fork branches."
+          echo "::error::The provider bundles (skills/, agents/, gemini-extension.json, plugin.json, antigravity/) are out of date. Run 'just sync-provider-formats' locally and commit the result, then push again. Automatic push-back is unavailable for pull requests from forks because the default GITHUB_TOKEN cannot push to fork branches."
           exit 1
 
       # Files are already staged by the diff-check step above, so this only

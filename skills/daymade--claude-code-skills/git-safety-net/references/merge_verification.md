@@ -7,6 +7,7 @@
 - Pick the diff FORM from the question you're asking (two-dot vs three-dot)
 - Why safety-biased: a false "merged" loses work, a false "unmerged" only costs a look
 - Manual-only investigation hints (do NOT auto-decide on these)
+- Converging many branches to one main under active concurrency
 - Worktree retirement — prove the checkout is disposable before removal
 - Adversarial multi-agent verification (for a whole repo of branches)
 - Rules for the verification agents
@@ -212,6 +213,96 @@ most likely to be restored on instinct.
 
 Same safety bias as everywhere else in this skill: prove supersession per item, or keep the item.
 
+## Converging many branches to one main under active concurrency
+
+Use this READ-DO sequence when the outcome is not one deletion but a repository-wide convergence:
+keep every unique behavior, preserve current WIP, and leave exactly one maintained `main`. A branch
+list is a moving snapshot while other sessions are alive, so the start-of-task audit cannot double
+as the deletion gate.
+
+The executing agent owns this sequence. `--verify-current` mechanically decides only whether exact
+ref tips stayed unchanged; unique-behavior and supersession judgments still require the content
+evidence below and have no automatic enforcement.
+
+### 1. Freeze the outcome and the first ref snapshot
+
+Record the exact local and remote-tracking refs, then query the hosting service for its current
+branch list and PR heads. Keep the two inventories separate: remote-tracking refs are a Git cache;
+the hosting API is authority for branches that exist on the server. Record every exact tip SHA.
+
+Classify each non-main ref by content. Use the trial-merge verdict first. For NEEDS REVIEW refs,
+walk the supersession ladder above and open distinctive code/tests at authority. `git cherry` may
+surface candidates, but every `+` after a squash merge is still only a hypothesis. Merge or adapt
+the smallest unique behavior; never merge an old whole branch merely because it has many `+`
+commits or a compelling name.
+
+### 2. Build keeper commits without touching a shared writer
+
+When another session is actively changing files, do not switch the shared checkout or use its real
+index. Build from the freshly fetched base with Mode D's alternate-index plumbing. Preserve each
+candidate as an exact `(mode, object ID, path)` tuple from an immutable commit; copying only blob
+bytes can silently strip executable (`100755`), symlink (`120000`), or gitlink (`160000`) behavior.
+An owned temporary regular file may be hashed only after its intended `100644`/`100755` mode is
+verified explicitly; symlinks and submodules must use the immutable-entry route. Never hash the
+shared worktree, which can silently capture someone else's in-progress bytes. Run the candidate's
+deterministic tests and the exact hook/security gates that a normal commit would have run before
+opening the PR.
+
+After a squash merge, do not compare commit SHAs: GitHub creates a new base-branch commit. If the
+base did not otherwise move, equal tree IDs prove byte-identical landing. If it did move, compare
+the owned path set or re-run the trial merge so unrelated base work does not manufacture a failure.
+GitHub-side duplicate/superseded PR handling belongs to the `github-ops` skill.
+
+### 3. Preserve refs and dirty WIP through different channels
+
+Create a repository-external bundle containing every branch/ref whose deletion is authorized, then
+verify it. The bundle is the ref manifest: immediately before deletion run:
+
+```bash
+scripts/git_export_before_drop.sh --all-refs --out <external-backup-dir>
+scripts/git_export_before_drop.sh --verify-current <external-backup-dir>/all-refs.bundle
+```
+
+Bundles cannot preserve untracked bytes. Freeze an explicit dirty-path manifest, save tracked
+changes as a binary diff, copy or tar the exact dirty/untracked paths outside the repository, then
+extract to a fresh verification directory and byte-compare every declared path. Do not use stash,
+a temporary clone, or a worktree as the backup mechanism.
+
+If the new base now tracks a path that was untracked WIP at the first snapshot, it will collide
+with checkout materialization. Move that exact path to the verified external backup, update the
+clean base, then restore the saved bytes; it should naturally become a tracked modification. Never
+drop it because "main now has a file with that name."
+
+If another writer is still active, leave the real HEAD/index/worktree alone and postpone local
+branch convergence. Publishing an isolated PR is safe; switching the shared checkout is not. When
+an exclusive window exists, update only paths proven clean, or restore the complete verified WIP
+set after materializing the new base.
+
+### 4. Re-freeze immediately before deletion
+
+Fetch again, re-query hosting branches/PRs, and re-enumerate local refs. Compare the result with the
+bundle heads. A new branch, a changed tip, or a late PR is new evidence: stop, classify its unique
+behavior, and rebuild the bundle. This is not an optional "final check"; it is the only check that
+covers work created after the first audit.
+
+Delete only refs whose current SHA still equals the verified snapshot. For remote branch deletion,
+query the exact hosted ref one last time; then delete it through the normal push/API route and prune
+stale local remote-tracking refs.
+
+### 5. Prove the user-visible terminal state
+
+The task is complete only when all are independently true:
+
+- the hosting service lists only the intended maintained branch;
+- local `refs/heads/` contains only `main`, and `HEAD`, local `main`, and the refreshed
+  `origin/main` resolve to the intended commit;
+- the index has no staged residue from the convergence;
+- every pre-existing WIP path still byte-matches its frozen source/backup, even if Git now reports
+  a different tracked/untracked classification;
+- the recovery bundle still verifies and lists the retired exact tips.
+
+Counts and checksums support those claims; they do not replace them.
+
 ## Worktree retirement — prove the checkout is disposable before removal
 
 A linked worktree is both a checkout and a ref boundary. A clean branch elsewhere does not prove
@@ -220,21 +311,48 @@ the worktree itself has no uncommitted files, and a detached worktree HEAD is ab
 
 1. **Inventory and identify the primary checkout:** run `git worktree list --porcelain`. Keep the
    first/primary checkout; select only the exact linked path the user intends to retire.
-2. **Inspect the linked checkout itself:** run `git -C <worktree-path> status --short --branch`.
-   Any tracked or untracked output blocks removal. Do not substitute the primary checkout's status.
-3. **Record the exact identity:** copy `git -C <worktree-path> rev-parse HEAD` and
+2. **Inspect tracked and untracked state in the linked checkout itself:** run
+   `git -C <worktree-path> status --porcelain=v1 --untracked-files=all`. The output must be
+   empty. Do not substitute the primary checkout's status.
+3. **Inventory ignored physical files separately:** run
+   `git -C <worktree-path> status --porcelain=v1 --ignored --untracked-files=all` and inspect every
+   `!!` path. A normal clean status and `git worktree remove` both ignore this layer, while
+   bundle/archive/format-patch cannot reach it. Freeze the complete ignored inventory before
+   removal: expand ignored directories to leaf entries and record every relative path and entry
+   type, including items classified as disposable. For every regular leaf, record
+   `git hash-object --no-filters -- <path>`; for every symlink, record its `readlink` output. Stop on
+   an unsupported special-file type. Explicitly classify reproducible caches/build outputs as
+   disposable; copy any user-authored or uncertain item outside the worktree first, preserving its
+   relative path under the backup. Run the same hash/readlink check on each source and backup copy
+   and require equality. Use `git check-ignore -v <path>` when the ignore rule itself is unclear.
+4. **Record the exact identity:** copy `git -C <worktree-path> rev-parse HEAD` and
    `git -C <worktree-path> branch --show-current`. An empty branch means detached HEAD, not "no
    work". Confirm the recorded HEAD appears in the all-worktree loss audit.
-4. **Prove containment:** run `scripts/git_verify_branch_merged.sh <recorded-head> <base>`. An
+5. **Prove containment against a fresh base:** fetch the maintained repository, then run
+   `scripts/git_verify_branch_merged.sh <recorded-head> <base>`. An
    ancestor/content-contained verdict proves the committed state is on the base; NEEDS REVIEW
    requires manual supersession triage or preserving the commit under a branch/ref.
-5. **Back up before deletion:** pin dangling commits, then run
+6. **Back up before deletion:** pin dangling commits, then run
    `scripts/git_export_before_drop.sh --all-refs --out <backup-dir>` and verify the bundle. `--all`
-   includes linked-worktree HEAD refs; truly dangling objects appear only after pinning.
-6. **Remove through Git, without force:** run `git worktree remove <absolute-worktree-path>` and
-   re-run `git worktree list --porcelain`. Never use `rm -rf` or `git worktree remove --force` to
-   make a dirty/uninspectable worktree disappear.
-7. **Retire its branch separately:** prefer `git branch -d <branch>`. If Git refuses after a
+   includes linked-worktree HEAD refs; truly dangling objects appear only after pinning. Keep any
+   ignored-file copies from step 3 beside this backup—the bundle does not contain them.
+7. **Obtain current-session deletion authority, then remove through Git without force:** run
+   the tracked/untracked status check again. Then re-run the exact ignored-inventory command from
+   step 3, expand directories the same way, and rebuild the ignored manifest. Its path set, entry
+   types, regular-file hashes, and symlink targets must exactly equal the frozen step 3 manifest;
+   any added or missing path, type change, content change, or link-target change aborts removal.
+   Also require every preserved source and backup copy to match that manifest. Make
+   `git worktree remove <absolute-worktree-path>` the next operation—no intervening command may
+   reopen the race. Never use `rm -rf` or
+   `git worktree remove --force` to make a dirty/uninspectable worktree disappear.
+8. **Verify the postconditions independently:** re-run `git worktree list --porcelain`, prove the
+   exact path no longer exists, resolve the kept local branch if one exists, and re-run the
+   recorded-HEAD containment check (or locate that HEAD in the verified bundle). These observations
+   distinguish "checkout removed, history preserved" from a partial cleanup. Re-hash every copied
+   ignored file at its backup-relative path and compare it with the pre-removal manifest; merely
+   seeing a destination file is not an integrity check.
+9. **Retire its branch separately:** prefer `git branch -d <branch>`. Worktree-removal authority
+   does not authorize branch deletion. If Git refuses after a
    proven squash/supersession case, require the verified backup and explicit deletion authority
    before `-D`. A worktree removal does not itself prove a remote branch may be deleted.
 

@@ -6,9 +6,9 @@
   },
   "stats": {
     "totalPlugins": 442,
-    "totalSkills": 3068,
+    "totalSkills": 3067,
     "totalDocs": 24,
-    "totalItems": 3534,
+    "totalItems": 3533,
     "categories": [
       "ai-agency",
       "ai-ml",
@@ -311,6 +311,7 @@
       "Bash(top:*)",
       "Bash(traceroute:*)",
       "Bash(util:*)",
+      "Bash(uv:*)",
       "Bash(vastai:*)",
       "Bash(vault:*)",
       "Bash(vercel:*)",
@@ -14820,7 +14821,7 @@
       "isFeatured": false,
       "isNew": false,
       "badges": [],
-      "skillCount": 2,
+      "skillCount": 1,
       "searchText": "llm box terminal-first workflow automation engine. generate and execute yaml workflows from plain english with 20+ nodes and 15+ llm providers. community workflow automation terminal cli yaml llm mcp"
     },
     {
@@ -14871,7 +14872,7 @@
         "email": "jeremy@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "0.1.0",
+      "version": "7.2.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -14901,7 +14902,7 @@
         "url": "https://github.com/el-zachariah"
       },
       "authorType": "community",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -15067,7 +15068,7 @@
         "email": "jeremy@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -15093,7 +15094,7 @@
         "name": "builtbyzac"
       },
       "authorType": "community",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -16409,7 +16410,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "agent-safety-preflight",
         "category": "security"
@@ -16472,7 +16473,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -29448,7 +29449,7 @@
         "WebFetch"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -29600,7 +29601,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -29621,7 +29622,7 @@
         "Task"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -32762,7 +32763,7 @@
         "Read",
         "Write",
         "Edit",
-        "Bash",
+        "Bash(uv:*)",
         "Glob"
       ],
       "compatibleWith": [],
@@ -32771,7 +32772,7 @@
         "name": "framecraft",
         "category": "community"
       },
-      "searchText": "demo-video 'generate polished demo videos from a single prompt. use when the user community read write edit bash glob "
+      "searchText": "demo-video 'generate polished demo videos from a single prompt. use when the user community read write edit bash(uv:*) glob "
     },
     {
       "type": "skill",
@@ -33030,7 +33031,7 @@
       "id": "detecting-exposed-secrets-files",
       "slug": "detecting-exposed-secrets-files",
       "name": "detecting-exposed-secrets-files",
-      "description": "Probe a target for accidentally-served secret-bearing files in the web root — `.git/`, `.env`, `.DS_Store`, backup files, database dumps, key files, CI configs, IDE configs. Use when: post-deploy verification on a new release, or SOC2 auditor asked \"what's reachable in the web root that shouldn't be,\" or a bug-bounty report hints at a leaked file. Threshold: any of the canonical 40+ paths returns 200 OR returns a body matching the expected fingerprint of the file type (e.g., `.git/HEAD` returns content starting with `ref:` or a 40-char hex SHA). Trigger with: \"check exposed files\", \"git directory exposure\", \"env file leak\", \"backup file scan\".",
+      "description": "Probe a target for accidentally-served secret-bearing files in the web root — .git/, .env, .DS_Store, backup files, database dumps, key files, CI configs, IDE configs. Use when: post-deploy verification on a new release, or SOC2 auditor asked \"what's reachable in the web root that shouldn't be,\" or a bug-bounty report hints at a leaked file. Threshold: any of the canonical 40+ paths returns 200 OR returns a body matching the expected fingerprint of the file type (e.g., .git/HEAD returns content starting with ref: or a 40-char hex SHA). Trigger with: \"check exposed files\", \"git directory exposure\", \"env file leak\", \"backup file scan\".",
       "category": "security",
       "allowedTools": [
         "Read",
@@ -33043,7 +33044,7 @@
         "name": "penetration-tester",
         "category": "security"
       },
-      "searchText": "detecting-exposed-secrets-files probe a target for accidentally-served secret-bearing files in the web root — `.git/`, `.env`, `.ds_store`, backup files, database dumps, key files, ci configs, ide configs. use when: post-deploy verification on a new release, or soc2 auditor asked \"what's reachable in the web root that shouldn't be,\" or a bug-bounty report hints at a leaked file. threshold: any of the canonical 40+ paths returns 200 or returns a body matching the expected fingerprint of the file type (e.g., `.git/head` returns content starting with `ref:` or a 40-char hex sha). trigger with: \"check exposed files\", \"git directory exposure\", \"env file leak\", \"backup file scan\". security read bash(python3:*) bash(curl:*) "
+      "searchText": "detecting-exposed-secrets-files probe a target for accidentally-served secret-bearing files in the web root — .git/, .env, .ds_store, backup files, database dumps, key files, ci configs, ide configs. use when: post-deploy verification on a new release, or soc2 auditor asked \"what's reachable in the web root that shouldn't be,\" or a bug-bounty report hints at a leaked file. threshold: any of the canonical 40+ paths returns 200 or returns a body matching the expected fingerprint of the file type (e.g., .git/head returns content starting with ref: or a 40-char hex sha). trigger with: \"check exposed files\", \"git directory exposure\", \"env file leak\", \"backup file scan\". security read bash(python3:*) bash(curl:*) "
     },
     {
       "type": "skill",
@@ -41634,7 +41635,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -46747,14 +46748,16 @@
       "name": "hyperfocus",
       "description": "'ADHD-friendly output formatting for Claude Code. Restructures responses",
       "category": "productivity",
-      "allowedTools": [],
+      "allowedTools": [
+        "Read"
+      ],
       "compatibleWith": [],
       "version": "0.2.0",
       "parentPlugin": {
         "name": "hyperfocus",
         "category": "productivity"
       },
-      "searchText": "hyperfocus 'adhd-friendly output formatting for claude code. restructures responses productivity  "
+      "searchText": "hyperfocus 'adhd-friendly output formatting for claude code. restructures responses productivity read "
     },
     {
       "type": "skill",
@@ -50779,7 +50782,7 @@
       "id": "langchain-deploy-integration",
       "slug": "langchain-deploy-integration",
       "name": "langchain-deploy-integration",
-      "description": "\"Deploy a LangChain 1.0 / LangGraph 1.0 app to Cloud Run, Vercel, or\\",
+      "description": ">-",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -50795,7 +50798,7 @@
         "name": "langchain-py-pack",
         "category": "saas-packs"
       },
-      "searchText": "langchain-deploy-integration \"deploy a langchain 1.0 / langgraph 1.0 app to cloud run, vercel, or\\ saas-packs read write edit bash(docker:*) bash(gcloud:*) bash(vercel:*) "
+      "searchText": "langchain-deploy-integration >- saas-packs read write edit bash(docker:*) bash(gcloud:*) bash(vercel:*) "
     },
     {
       "type": "skill",
@@ -50887,7 +50890,7 @@
       "id": "langchain-langgraph-agents",
       "slug": "langchain-langgraph-agents",
       "name": "langchain-langgraph-agents",
-      "description": "\"Build a correct LangGraph 1.0 ReAct agent with `create_react_agent`\\",
+      "description": ">-",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -50901,7 +50904,7 @@
         "name": "langchain-py-pack",
         "category": "saas-packs"
       },
-      "searchText": "langchain-langgraph-agents \"build a correct langgraph 1.0 react agent with `create_react_agent`\\ saas-packs read write edit bash(python:*) "
+      "searchText": "langchain-langgraph-agents >- saas-packs read write edit bash(python:*) "
     },
     {
       "type": "skill",
@@ -50951,7 +50954,7 @@
       "id": "langchain-langgraph-human-in-loop",
       "slug": "langchain-langgraph-human-in-loop",
       "name": "langchain-langgraph-human-in-loop",
-      "description": "\"Build LangGraph 1.0 human-in-the-loop approval flows with `interrupt_before`\\",
+      "description": "\"Build LangGraph 1.0 human-in-the-loop approval flows with interrupt_before\\",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -50965,7 +50968,7 @@
         "name": "langchain-py-pack",
         "category": "saas-packs"
       },
-      "searchText": "langchain-langgraph-human-in-loop \"build langgraph 1.0 human-in-the-loop approval flows with `interrupt_before`\\ saas-packs read write edit bash(python:*) "
+      "searchText": "langchain-langgraph-human-in-loop \"build langgraph 1.0 human-in-the-loop approval flows with interrupt_before\\ saas-packs read write edit bash(python:*) "
     },
     {
       "type": "skill",
@@ -56476,7 +56479,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -57831,7 +57834,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -57851,7 +57854,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -63661,7 +63664,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -65166,7 +65169,7 @@
         "WebFetch"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -69038,7 +69041,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -72366,16 +72369,21 @@
       "id": "setup-2",
       "slug": "setup-2",
       "name": "setup",
-      "description": "Install and configure llm-box, including the MCP server connection for Claude Code.",
+      "description": "Install and configure aflare, including the MCP server connection for Claude Code.",
       "category": "community",
-      "allowedTools": [],
+      "allowedTools": [
+        "Read",
+        "Edit",
+        "Write",
+        "Bash"
+      ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "0.6.0",
       "parentPlugin": {
         "name": "llm-box",
         "category": "community"
       },
-      "searchText": "setup install and configure llm-box, including the mcp server connection for claude code. community  "
+      "searchText": "setup install and configure aflare, including the mcp server connection for claude code. community read edit write bash "
     },
     {
       "type": "skill",
@@ -76618,7 +76626,7 @@
         "WebFetch"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "general-legal-assistant",
         "category": "business-tools"
@@ -78359,7 +78367,7 @@
         "AskUserQuestion\""
       ],
       "compatibleWith": [],
-      "version": "5.0.1",
+      "version": "7.2.0",
       "parentPlugin": {
         "name": "intent-labs-pack",
         "category": "productivity"
@@ -82216,22 +82224,6 @@
     },
     {
       "type": "skill",
-      "id": "workflow-2",
-      "slug": "workflow-2",
-      "name": "workflow",
-      "description": "Generate and execute terminal workflows using llm-box. Use when the user wants to automate multi-step terminal tasks, chain commands, fetch URLs, process data, create reusable pipelines, or build CI/CD-like automation locally.",
-      "category": "community",
-      "allowedTools": [],
-      "compatibleWith": [],
-      "version": "1.0.0",
-      "parentPlugin": {
-        "name": "llm-box",
-        "category": "community"
-      },
-      "searchText": "workflow generate and execute terminal workflows using llm-box. use when the user wants to automate multi-step terminal tasks, chain commands, fetch urls, process data, create reusable pipelines, or build ci/cd-like automation locally. community  "
-    },
-    {
-      "type": "skill",
       "id": "workhuman-ci-integration",
       "slug": "workhuman-ci-integration",
       "name": "workhuman-ci-integration",
@@ -82680,7 +82672,7 @@
         "WebFetch"
       ],
       "compatibleWith": [],
-      "version": "\"2.5.0\"",
+      "version": "1.0.0",
       "parentPlugin": {
         "name": "x-twitter-scraper",
         "category": "api-development"

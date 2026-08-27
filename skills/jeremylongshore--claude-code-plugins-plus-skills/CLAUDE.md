@@ -96,7 +96,7 @@ CI fails if any derived file is out of sync. Never hand-edit auto-generated file
 
 ## Marketplace Build Pipeline
 
-`npm run build` in `marketplace/` runs 9 sequential steps via `scripts/build.mjs`: discover-skills → extract-readme-sections → sync-catalog → enrich-jrig-data → generate-unified-search → build-cowork-zips → validate-cowork-manifest → copy-public-data → astro build. `readme-sections.json` and `jrig-data.json` are untracked build projections; `npm run dev` regenerates the README projection before Astro starts. The JRig projection has no live page consumer after PR #1046 removed the badge UI and remains only as a temporary build-adjacent inspection output pending its E9.2 removal.
+`npm run build` in `marketplace/` runs 8 sequential steps via `scripts/build.mjs`: discover-skills → extract-readme-sections → sync-catalog → generate-unified-search → build-cowork-zips → validate-cowork-manifest → copy-public-data → astro build. `readme-sections.json` is an untracked build projection; `npm run dev` regenerates the README projection before Astro starts. Marketplace pages do not publish a JRig verification badge: behavioral-eval results remain governed evidence in Freshie until a retained-evidence class and a separately reviewed public projection exist.
 
 `discover-skills.mjs` emits two artifacts (schema 3.4.0+): `skills-index.json` (L0, ~97 KB gzipped, metadata only — for trigger-match / browse) and `skills-catalog.json` (L1, ~5.5 MB gzipped, full body HTML). Both carry top-level `schemaVersion` + `level` fields. CLI flag `--level=metadata|full|file` (default `full`).
 
@@ -122,7 +122,7 @@ Performance budgets (CI-enforced; authority is `scripts/check-performance.mjs` `
 2. `cowork:validate` (`scripts/validate-cowork-manifest.mjs`) — drift gate. Fails the build if catalog ↔ manifest ↔ disk fall out of alignment (orphan zips, missing entries, or stale manifest rows). Runs again in CI as a discrete step in `.github/workflows/validate-plugins.yml` so the failure signal is clearly named.
 3. `astro build` — copies `marketplace/public/` → `marketplace/dist/`. The `/cowork/` page reads `cowork-manifest.json` at build time and renders the download grid.
 
-**Deploy propagates the wipe.** The VPS force-command script `/usr/local/sbin/deploy-tonsofskills` ends with `rsync -a --delete /srv/tonsofskills/build/marketplace/dist/ /srv/tonsofskills/dist/`, so orphan files removed by the cowork build are also pruned from the served `dist/`. Current deployment authority is `intent-os/ops/deploy/`.
+**Deployment authority.** Intent OS owns the deployment runbook, host state, and operational behavior. Consult `intent-os/ops/deploy/` for the current deployment record; this repository must not restate host commands or paths.
 
 **Don't commit downloads/.** `marketplace/public/downloads/` is gitignored (see `.gitignore:146`). CI checks out fresh and rebuilds from scratch — local state cannot leak to prod. Never commit or hand-edit anything under that directory.
 
@@ -187,7 +187,7 @@ Beyond the 8 required fields, schema 3.5.0+ adds optional visibility-gating fiel
 
 **Branch protection on `main` requires THREE always-reporting contexts: `ci-required` + `gitleaks` + `skill-conform`** (GitHub Actions app; `strict:false`, `enforce_admins:false`, 1 approving review).
 
-- **`ci-required`** is the final job in `.github/workflows/validate-plugins.yml` — `if: always()`, `needs:` all 22 gate jobs (validate, verify, test, check-package-manager, marketplace-validation, cli-smoke-tests, shellcheck-skills, skill-codeblock-syntax, typescript-coverage-audit, eslint-check, format-check, ruff-check, ruff-format-check, markdownlint, scan-synced-content, promote-curated-check, check-submission-docs, commit-scope-check, codeowners-drift, generated-content-drift, doc-governance, secret-diff-scan). It fails if any needed job ended `failure`/`cancelled`; a `skipped` result counts as PASS — legitimate **only** for a designed job-level `if:`.
+- **`ci-required`** is the final job in `.github/workflows/validate-plugins.yml` — `if: always()`, `needs:` all 23 gate jobs (validate, marketplace-compliance-ratchet, verify, test, check-package-manager, marketplace-validation, cli-smoke-tests, shellcheck-skills, skill-codeblock-syntax, typescript-coverage-audit, eslint-check, format-check, ruff-check, ruff-format-check, markdownlint, scan-synced-content, promote-curated-check, check-submission-docs, commit-scope-check, codeowners-drift, generated-content-drift, doc-governance, secret-diff-scan). It fails if any needed job ended `failure`/`cancelled`; a `skipped` result counts as PASS — legitimate **only** for a designed job-level `if:`.
 - **`gitleaks`** comes from `secret-scan.yml` (also unfiltered).
 - **`skill-conform`** is its **own** workflow (`.github/workflows/skill-conform.yml`) — `pnpm exec audit-harness conform --strict` over the full marketplace corpus. Always-reports (no path filter). **Never** folded into `ci-required`'s `needs:` (doc 110 § 5: a skippable/path-scoped job must not green the aggregate). Baseline after #1108/#1118: thousands PASS / 0 FAIL; remaining ADVISORY is the harness-side missing marketplace schema only.
 - **Advisory (never required):** `.github/workflows/skill-eval-advisory.yml` — j-rig behavioral eval on changed skills that already carry `eval-spec.yaml`. Kill-switch `vars.ENABLE_SKILL_EVAL=true` + same-repo guard + `MINIMAX_API_KEY`. Graduation to required needs Jeremy + ≥4-week clean flap window (doc 110).
@@ -303,7 +303,7 @@ Source of truth: `marketplace/src/data/spotlights.json`.
 
 ## Key Identifiers — Do Not "Normalize"
 
-- **GitHub repo (canonical):** `jeremylongshore/claude-code-plugins-plus-skills`
+- **GitHub repo (canonical):** `jeremylongshore/tons-of-skills-marketplace`
 - **Marketplace catalog id:** `claude-code-plugins-plus`
 - **Public install slug:** `jeremylongshore/claude-code-plugins` (legacy, GitHub 301s to canonical — hardcoded in CLI, Hero snippet, hundreds of READMEs — renaming is a breaking API change)
 
@@ -376,7 +376,7 @@ DoltHub push exits non-zero on purpose: until pushed, Dolt history is
 single-copy on this box. Exporter unit tests: `python3 -m unittest
 tests.test_dolt_sync`. Full details + restore path: `freshie/README.md`.
 
-Key tables: `skill_compliance` (scores, grades, JRig columns) and `forge_proofs` (durable JRig behavioral-evaluation evidence). `enrich-jrig-data.mjs` can render an untracked build projection from `forge_proofs`, but no live marketplace page consumes it after PR #1046 removed the badge UI.
+Key tables: `skill_compliance` (scores, grades, JRig columns) and `forge_proofs` (durable JRig behavioral-evaluation evidence). No marketplace projection or badge is generated from `forge_proofs`; publishing one requires retained, hash-matched evidence and a separately reviewed public-evidence boundary.
 
 ## npm Publish Pipeline
 

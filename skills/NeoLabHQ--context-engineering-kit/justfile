@@ -41,20 +41,30 @@ sync-plugins-to-docs:
     done
     @echo "Done."
 
-# Regenerate the root-level Gemini CLI / Antigravity CLI provider bundle (skills/, agents/, gemini-extension.json, plugin.json)
+# Regenerate the Gemini CLI / Antigravity CLI provider bundles (skills/, agents/, gemini-extension.json, plugin.json, antigravity/)
 #
 # Neither Gemini CLI nor Antigravity CLI has a marketplace concept - each
 # `gemini extensions install`/`agy plugin install` installs exactly one
-# extension/plugin from a repo root manifest. So every plugin's skills/ and
-# agents/ folders are merged into one root-level bundle instead of staying
-# per-plugin. Full regeneration (delete then rebuild) keeps the bundle in
-# sync automatically when plugin content is added or removed.
+# extension/plugin. So every plugin's skills/ and agents/ folders are merged
+# into one bundle instead of staying per-plugin. Full regeneration (delete
+# then rebuild) keeps the bundles in sync automatically when plugin content
+# is added or removed.
+#
+# The same merged content is emitted twice:
+#   - repo root - skills/, agents/, gemini-extension.json, plugin.json, since
+#     `gemini extensions install <repo-url>` reads its manifest at the root.
+#   - antigravity/ - plugin.json, skills/, agents/: a self-contained plugin
+#     installable straight from its subpath with
+#     `agy plugin install <repo-url>/antigravity`. Only these agent copies
+#     carry a `tools:` grant, because Antigravity gives an agent no tools by
+#     default while Gemini CLI drops agents listing tool names it doesn't
+#     know - see scripts/filter-frontmatter.py.
 #
 # Collision check runs first and touches nothing: if it fails, the previous
-# bundle is left completely intact, so a real collision never leaves skills/,
-# agents/, or the manifests in a partially-rebuilt state.
+# bundles are left completely intact, so a real collision never leaves skills/,
+# agents/, antigravity/, or the manifests in a partially-rebuilt state.
 sync-provider-formats:
-    @echo "Syncing provider formats (Gemini CLI / Antigravity CLI) at repo root..."
+    @echo "Syncing provider formats (Gemini CLI at repo root / Antigravity CLI in antigravity/)..."
     @echo "  Checking for skill/agent name collisions across plugins..."; \
     declare -A skill_owner; \
     declare -A agent_owner; \
@@ -83,7 +93,7 @@ sync-provider-formats:
         fi; \
     done; \
     echo "  No collisions found."
-    @rm -rf skills agents gemini-extension.json plugin.json; \
+    @rm -rf skills agents gemini-extension.json plugin.json antigravity; \
     mkdir -p skills agents; \
     for plugin in {{plugins}}; do \
         if [ -d "plugins/$plugin/skills" ]; then \
@@ -103,6 +113,12 @@ sync-provider-formats:
     @echo "  Filtering front matter in the bundle (keeping only name, description)..."; \
     find skills agents -type f -name "*.md" -print0 | xargs -0 -r python3 scripts/filter-frontmatter.py; \
     echo "  Front matter filtered."
+    @echo "  Copying the bundle into antigravity/ and granting its agents tools..."; \
+    mkdir -p antigravity; \
+    cp -R skills antigravity/skills; \
+    cp -R agents antigravity/agents; \
+    find antigravity/agents -type f -name "*.md" -print0 | xargs -0 -r python3 scripts/filter-frontmatter.py --add-tools; \
+    echo "  Generated: antigravity/skills, antigravity/agents"
     @name=$(jq -r '.name' {{marketplace}}); \
     version=$(jq -r '.version' {{marketplace}}); \
     description=$(jq -r '.description' {{marketplace}}); \
@@ -113,7 +129,9 @@ sync-provider-formats:
     jq -n --arg name "$name" --arg description "$description" \
         '{"$schema": "https://antigravity.google/schemas/v1/plugin.json", name: $name, description: $description}' \
         > plugin.json; \
-    echo "  Generated: plugin.json"
+    echo "  Generated: plugin.json"; \
+    cp plugin.json antigravity/plugin.json; \
+    echo "  Generated: antigravity/plugin.json"
     @echo "Done."
 
 # Set version for a specific plugin

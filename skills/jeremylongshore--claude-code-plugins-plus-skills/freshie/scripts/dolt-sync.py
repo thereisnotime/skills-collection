@@ -115,6 +115,7 @@ import json
 import math
 import os
 import shutil
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -521,6 +522,23 @@ def refuse_if_server_running(repo: Path) -> None:
             f"a dolt sql-server holds {server_lock} — stop it before syncing "
             "(concurrent server + CLI writes corrupt the working set)"
         )
+    # Dolt 2.x does not consistently materialize sql-server.lock. Its default
+    # integration port is nevertheless the documented single-writer boundary:
+    # a live server makes the repository read-only and a CLI exporter otherwise
+    # gets partway through its import before failing. Refuse before any snapshot
+    # or DDL work when the port is accepting connections.
+    try:
+        with socket.create_connection(("127.0.0.1", 3308), timeout=0.2):
+            raise SyncError(
+                "a dolt sql-server holds port 3308 — stop it before syncing "
+                "(concurrent server + CLI writes corrupt the working set)"
+            )
+    except ConnectionRefusedError:
+        return
+    except TimeoutError:
+        # A non-responsive listener cannot prove it is Dolt; preserve the
+        # existing lock-file behavior rather than refusing on an unknown host.
+        return
 
 
 # ---------------------------------------------------------------------------
@@ -713,6 +731,53 @@ def gate_export_allowlist(tables) -> None:
     raise SyncError(" ".join(parts))
 
 
+def demote_unretained_forge_proofs(conn: sqlite3.Connection) -> list[tuple[int, str]]:
+    """Downgrade ledger claims whose primary artifact is absent or hash-invalid.
+
+    This runs against the writable local ledger before the exporter snapshots it.
+    An E2/E3 claim without retrievable primary bytes is E0 by definition; keeping
+    it at a stronger class until a later run would republish a false claim.
+    """
+    tables = {
+        row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    if "forge_proofs" not in tables:
+        return []
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(forge_proofs)")}
+    required = {"id", "evidence_class", "artifact_uri", "artifact_sha256"}
+    missing = sorted(required - columns)
+    if missing:
+        raise SyncError(
+            "forge_proofs evidence schema is too old for safe export; run the "
+            f"validator migration first (missing: {', '.join(missing)})"
+        )
+
+    demoted: list[tuple[int, str]] = []
+    rows = conn.execute(
+        "SELECT id, evidence_class, artifact_uri, artifact_sha256 FROM forge_proofs"
+    ).fetchall()
+    for row_id, evidence_class, uri, expected_hash in rows:
+        reason = None
+        if not isinstance(uri, str) or not uri:
+            reason = "E0-PRIMARY-ARTIFACT-UNRETAINED"
+        elif not isinstance(expected_hash, str):
+            reason = "E0-PRIMARY-ARTIFACT-HASH-MISSING"
+        elif len(expected_hash) != 64 or any(ch not in "0123456789abcdef" for ch in expected_hash.lower()):
+            reason = "E0-PRIMARY-ARTIFACT-HASH-MISSING"
+        else:
+            try:
+                artifact = Path(uri)
+                actual_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
+                if actual_hash != expected_hash.lower():
+                    reason = "E0-PRIMARY-ARTIFACT-HASH-MISMATCH"
+            except OSError:
+                reason = "E0-PRIMARY-ARTIFACT-UNRETAINED"
+        if reason and evidence_class != "E0":
+            conn.execute("UPDATE forge_proofs SET evidence_class = 'E0' WHERE id = ?", (row_id,))
+            demoted.append((int(row_id), reason))
+    return demoted
+
+
 def gate_row_counts(conn: sqlite3.Connection, repo: Path, tables: list[str]) -> None:
     for t in tables:
         want = conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
@@ -813,6 +878,24 @@ def gate_run_completeness(conn: sqlite3.Connection, run_id: int) -> None:
             f"freshie/scripts/rebuild-inventory.py (it purges the newest phantom "
             f"and rescans) before syncing to Dolt."
         )
+    if row is None:
+        raise SyncError(f"discovery run {run_id} is missing from discovery_runs")
+    try:
+        actual_skills = conn.execute(
+            "SELECT COUNT(*) FROM skills WHERE run_id=?", (run_id,)
+        ).fetchone()[0]
+    except sqlite3.OperationalError as exc:
+        raise SyncError(
+            "cannot verify discovery run coherence: skills.run_id is required "
+            "to compare discovery_runs.total_skills"
+        ) from exc
+    declared_skills = row[0]
+    if declared_skills != actual_skills:
+        raise SyncError(
+            f"discovery run {run_id} skill-count mismatch: header total_skills="
+            f"{declared_skills}, skills rows={actual_skills}. Re-run "
+            "freshie/scripts/rebuild-inventory.py before syncing to Dolt."
+        )
 
 
 def gate_varchar_lengths(conn: sqlite3.Connection, guards: list[tuple[str, str]]) -> None:
@@ -862,6 +945,8 @@ def write_grades_export(conn: sqlite3.Connection, run_id: int,
                 f"export. Run the validator --populate-db step for run {run_id} "
                 f"before syncing."
             )
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    histogram_path.parent.mkdir(parents=True, exist_ok=True)
     with open(csv_path, "w", newline="") as fh:
         writer = csv.writer(fh, lineterminator="\n")
         writer.writerow(["skill_path", "grade", "score"])
@@ -973,7 +1058,8 @@ def load_run_delta():
 
 
 def post_commit_outputs(repo: Path, run_id: int, tag: str | None,
-                        head_hash: str) -> bool:
+                        head_hash: str, histogram_path: Path = GRADE_HISTOGRAM,
+                        reports_dir: Path | None = None) -> bool:
     """Stamp the histogram + emit the run-delta report. Returns True when
     grade regressions were found (the --alert-on-regression signal).
 
@@ -992,14 +1078,15 @@ def post_commit_outputs(repo: Path, run_id: int, tag: str | None,
             "and run-delta report")
         return regressions_found
     try:
-        stamp_dolt_commit(GRADE_HISTOGRAM, head_hash)
-        log(f"stamped dolt_commit {head_hash} into {GRADE_HISTOGRAM.name}")
+        stamp_dolt_commit(histogram_path, head_hash)
+        log(f"stamped dolt_commit {head_hash} into {histogram_path.name}")
     except (OSError, json.JSONDecodeError) as exc:
         log(f"WARNING: could not stamp dolt_commit into "
-            f"{GRADE_HISTOGRAM.name} ({exc}) — the sync itself succeeded")
+            f"{histogram_path.name} ({exc}) — the sync itself succeeded")
     try:
         run_delta = load_run_delta()
-        out_path, report = run_delta.emit(repo, run_id, head_hash, tag)
+        kwargs = {"reports_dir": reports_dir} if reports_dir is not None else {}
+        out_path, report = run_delta.emit(repo, run_id, head_hash, tag, **kwargs)
         log(run_delta.summary_line(report, out_path))
         regressions_found = bool(report["grade_regressions"])
     except Exception as exc:  # noqa: BLE001 — deliberately non-fatal
@@ -1200,6 +1287,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     parser.add_argument("--db", type=Path, default=DB_DEFAULT)
     parser.add_argument("--dolt-dir", type=Path, default=DOLT_PARENT / DOLT_DB_NAME)
+    parser.add_argument("--grades-csv", type=Path, default=GRADES_CSV,
+                        help="write the current-run grades CSV here (default: freshie/grades.csv)")
+    parser.add_argument("--grade-histogram", type=Path, default=GRADE_HISTOGRAM,
+                        help="write the current-run grade histogram here (default: freshie/grade-histogram.json)")
+    parser.add_argument("--reports-dir", type=Path, default=None,
+                        help="write run-delta reports here (default: freshie/reports)")
     parser.add_argument("--org", default=DEFAULT_ORG)
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--no-push", action="store_true",
@@ -1227,6 +1320,17 @@ def main() -> int:
             if (repo / ".dolt").is_dir():
                 refuse_if_server_running(repo)
             ensure_dolt_identity()
+            # This is intentionally before VACUUM INTO: the snapshot is the
+            # public-export input and must carry the demoted class, not merely
+            # diagnose it after the fact.
+            writable = sqlite3.connect(args.db)
+            try:
+                demoted = demote_unretained_forge_proofs(writable)
+                writable.commit()
+            finally:
+                writable.close()
+            if demoted:
+                log(f"evidence gate: demoted {len(demoted)} forge_proofs row(s) to E0")
 
         # Snapshot for read consistency across the whole export.
         shm = Path("/dev/shm")
@@ -1329,7 +1433,7 @@ def main() -> int:
         gate_real_checksums(conn, repo, reals)
         gate_json_checksums(conn, repo, schema)
 
-        write_grades_export(conn, run_id)
+        write_grades_export(conn, run_id, args.grades_csv, args.grade_histogram)
         conn.close()
 
         committed, tag, head_hash = commit_and_tag(repo, run_id, source_git_sha())
@@ -1337,7 +1441,9 @@ def main() -> int:
 
         # Non-fatal by contract; runs BEFORE push so the report exists even
         # when a push fails (exit 3) — the local commit it describes does.
-        regressions_found = post_commit_outputs(repo, run_id, tag, head_hash)
+        regressions_found = post_commit_outputs(
+            repo, run_id, tag, head_hash, args.grade_histogram, args.reports_dir
+        )
 
         if args.no_push:
             log("--no-push: skipping DoltHub push (history is LOCAL-ONLY until pushed)")

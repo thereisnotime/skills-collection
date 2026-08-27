@@ -24,6 +24,32 @@ compatibility: Designed for Claude Code
 
 Quick reference for the most common Flexport API v2 errors. The API returns standard HTTP codes with JSON error bodies containing `code`, `message`, and sometimes `details` fields.
 
+## Prerequisites
+
+- An authorized support role, opaque correlation ID, redacted telemetry, and a safe sandbox or read-only reproduction path.
+- An incident owner for credentials, shipment data, customs documents, and external notifications.
+
+## Instructions
+
+1. Classify the failure as authentication, authorization, schema, throttling, upstream availability, or delivery.
+2. Reproduce with a fictional or read-only sandbox request before retrying a production operation.
+3. Check scoped credentials, environment, payload schema, target/destination policy, and queue state in order.
+4. Apply the smallest reversible correction, verify success and safe failure behavior, and escalate possible exposure immediately.
+
+## Error Handling
+
+- Do not retry permission failures with broader keys; route them to the authorized owner.
+- Bound retry/backoff, maintain idempotency, and quarantine exhausted work for review.
+- Redact commercial terms, addresses, invoices, documents, and headers from support evidence.
+
+## Output
+
+Return a diagnostic receipt with the error category, opaque correlation ID, safe reproduction result, corrective action, verification, owner, and follow-up. Keep shipment records, commercial documents, addresses, and credentials in authorized systems rather than the receipt.
+
+## Examples
+
+Use a synthetic booking to trigger a controlled validation error, correct the field mapping, and verify the result using only an opaque identifier. On a permission failure, pause the worker until the approved owner validates a least-privilege sandbox request.
+
 ## Error Reference
 
 ### 401 Unauthorized — Invalid or Missing API Key

@@ -2,6 +2,7 @@ import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -33,6 +34,8 @@ const ROUTE_CONTRACTS = {
   "grok-cursor": { target: "grok", harness: "cursor-agent", intermediaries: ["cursor"], model: "cursor-grok-4.6-high", restriction: "adapter-enforced" },
 } as const
 const roots: string[] = []
+const templateRoots: string[] = []
+let seedCanonical: string | null = null
 
 function temp(prefix: string): string {
   const dir = mkdtempSync(path.join(tmpdir(), prefix))
@@ -40,7 +43,27 @@ function temp(prefix: string): string {
   return dir
 }
 
-afterAll(() => roots.forEach((dir) => rmSync(dir, { recursive: true, force: true })))
+afterAll(() => {
+  for (const dir of [...roots, ...templateRoots]) rmSync(dir, { recursive: true, force: true })
+})
+
+function seedCanonicalRepo(): string {
+  if (seedCanonical) return seedCanonical
+  const root = mkdtempSync(path.join(tmpdir(), "ce-work-route-template-"))
+  templateRoots.push(root)
+  const canonical = path.join(root, "canonical")
+  mkdirSync(canonical)
+  mkdirSync(path.join(canonical, "docs", "plans"), { recursive: true })
+  writeFileSync(path.join(canonical, "README.md"), "seed\n")
+  writeFileSync(path.join(canonical, "docs", "plans", "plan.md"), "# Test plan\n")
+  spawnSync("git", ["init", "-q", canonical])
+  spawnSync("git", ["-C", canonical, "config", "user.email", "test@example.com"])
+  spawnSync("git", ["-C", canonical, "config", "user.name", "Test"])
+  spawnSync("git", ["-C", canonical, "add", "."])
+  spawnSync("git", ["-C", canonical, "commit", "-qm", "seed"])
+  seedCanonical = canonical
+  return canonical
+}
 
 function fixture() {
   const root = temp("ce-work-route-")
@@ -48,17 +71,10 @@ function fixture() {
   const packet = path.join(root, "packet.md")
   const capture = path.join(root, "capture")
   const runs = path.join(root, "runs")
-  mkdirSync(canonical)
+  mkdirSync(root, { recursive: true })
   mkdirSync(capture)
   writeFileSync(packet, "Implement U3 only.\n")
-  spawnSync("git", ["init", "-q", canonical])
-  spawnSync("git", ["-C", canonical, "config", "user.email", "test@example.com"])
-  spawnSync("git", ["-C", canonical, "config", "user.name", "Test"])
-  mkdirSync(path.join(canonical, "docs", "plans"), { recursive: true })
-  writeFileSync(path.join(canonical, "README.md"), "seed\n")
-  writeFileSync(path.join(canonical, "docs", "plans", "plan.md"), "# Test plan\n")
-  spawnSync("git", ["-C", canonical, "add", "."])
-  spawnSync("git", ["-C", canonical, "commit", "-qm", "seed"])
+  cpSync(seedCanonicalRepo(), canonical, { recursive: true })
   return {
     root,
     canonical,
@@ -520,7 +536,7 @@ describe("ce-work fixed write routes", () => {
     const quietBin = temp("ce-work-bin-")
     writeFileSync(path.join(quietBin, "claude"), `#!/bin/sh
 cat > '${quiet.capture}/stdin'
-sleep 2
+sleep 1.1
 exit 7
 `)
     chmodSync(path.join(quietBin, "claude"), 0o755)
@@ -882,7 +898,7 @@ printf '%s' '${prefix}${sentinel}${"y".repeat(maxRawBytes)}'
     const bin = temp("ce-work-bin-")
     writeFileSync(path.join(bin, "claude"), `#!/bin/sh
 cat > '${f.capture}/stdin'
-python3 -c 'import sys; sys.stdout.buffer.write(b"x" * 8388608)'
+python3 -c 'import sys; sys.stdout.buffer.write(b"x" * 65536)'
 `)
     chmodSync(path.join(bin, "claude"), 0o755)
 
@@ -890,6 +906,7 @@ python3 -c 'import sys; sys.stdout.buffer.write(b"x" * 8388608)'
       ...process.env,
       PATH: `${bin}:${process.env.PATH}`,
       CE_WORK_MAX_RAW_BYTES: String(maxRawBytes),
+      CE_WORK_ACTIVITY_POLL_SECS: "1",
     })
 
     expect(result.code).toBe(1)

@@ -59,6 +59,19 @@ jobs:
       - name: Assert sources.yaml and sources.lock.json key parity
         run: pnpm run validate:sources-lock-parity
 
+      # Blueprint 727 E7.14 / P2: every configured mirror must explicitly
+      # select license text and every checked-in mirrored artifact must carry it
+      # at its root. This is a hard gate, not a sync-time warning.
+      - name: Enforce mirror license coverage
+        run: pnpm run validate:mirror-licenses
+
+      # Blueprint 727 E7.5: package display versions must agree across the
+      # plugin manifest, editable marketplace catalog, and skill frontmatter.
+      # This is deliberately inside the existing validate job so it blocks
+      # ci-required without adding another required status context.
+      - name: Enforce version-surface agreement
+        run: node scripts/reconstruct-versions.mjs --check
+
       # Credential pre-flight (blueprint 727 E1.14 / § 18.7): the root
       # .mcp.json must never hold a live-shaped credential in plaintext env —
       # values are SOPS-encrypted in the untracked machine-local .env.sops and
@@ -98,6 +111,16 @@ jobs:
         run: |
           python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
           pnpm run validate:safety-ratchet
+
+      # Blueprint 727 E8.1: Freshie's graded cohort is the authority for the
+      # disposition ledger. Regenerate-and-compare proves each current graded
+      # artifact has exactly one first-match-wins outcome; missing/stale rows
+      # fail closed instead of silently changing publication eligibility.
+      - name: Verify the generated legacy disposition ledger
+        run: pnpm run validate:disposition-ledger
+
+      - name: Keep quarantined external mirrors off publishable grade surfaces
+        run: pnpm run validate:mirror-quarantine
 
       # E4.13: a denylist (disallowed-tools) posture is enforced by the
       # Claude Code runtime only. This gate forbids silent-drop: a
@@ -208,11 +231,14 @@ jobs:
         run: |
           python3 -m unittest tests.test_sql_classifier -v
           python3 -m unittest tests.test_dolt_sync -v
+          python3 -m unittest tests.test_promote_curated_workflow -v
           python3 -m unittest tests.test_run_delta -v
           python3 -m unittest tests.test_batch_remediate_compat -v
           python3 -m unittest tests.test_hms_readiness_classifier -v
           python3 -m unittest tests.test_enable_system_schemas -v
           python3 -m unittest tests.test_cluster_forensics -v
+          python3 -m unittest tests.test_marketplace_compliance_baseline -v
+          python3 -m unittest tests.test_marketplace_compliance_ratchet -v
 
       # Reject PRs that reformat .claude-plugin/marketplace.extended.json beyond
       # the line budget implied by added/modified entries. Prevents prettier or
@@ -364,6 +390,9 @@ jobs:
       - name: Test npm publication locks
         run: node --test scripts/npm-publication-lock.test.mjs
 
+      - name: Pin the required skill-conform harness exactly
+        run: node --test scripts/check-audit-harness-pin.test.mjs
+
       - name: Validate marketplace catalog
         run: |
           echo "Validating marketplace catalog..."
@@ -499,6 +528,39 @@ jobs:
             fi
           done
           echo "✅ Dependency scan complete"
+
+  # Blueprint 727 E6.4: R1 needs an independently visible, always-reporting
+  # blocking job.  It is listed in ci-required below rather than being folded
+  # into `validate`, so a pre-existing failure in an unrelated validation lane
+  # cannot obscure the compliance-ratchet result.  The validator emits the
+  # complete skills/commands/agents/manifests corpus; observed runtime is
+  # about 70 seconds, bounded here at two minutes.
+  marketplace-compliance-ratchet:
+    name: marketplace-compliance-ratchet
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Refuse unauthorized marketplace baseline growth
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          python3 scripts/check-marketplace-compliance-baseline.py \
+            --check-growth-only \
+            --base "origin/$BASE_REF" \
+            --head-ref "$HEAD_REF"
+      - name: Reject marketplace compliance debt outside the pinned baseline
+        run: |
+          python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
+          python3 scripts/check-marketplace-compliance-baseline.py
 
   # Verification Pipeline (scoring + badge generation)
   verify:
@@ -1779,6 +1841,7 @@ jobs:
     if: always()
     needs:
       - validate
+      - marketplace-compliance-ratchet
       - verify
       - test
       - check-package-manager
