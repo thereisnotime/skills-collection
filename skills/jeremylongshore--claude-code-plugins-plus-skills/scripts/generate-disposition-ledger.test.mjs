@@ -11,6 +11,14 @@ test('parseGrades rejects duplicate and unsafe inventory rows', () => {
   assert.throws(() => parseGrades('skill_path,grade,score\n../a,A,99\n'), /unsafe/);
 });
 
+test('parseGrades uses locale-independent code-point path order', () => {
+  const rows = parseGrades('skill_path,grade,score\na,A,99\nB,A,99\n');
+  assert.deepEqual(
+    rows.map((row) => row.path),
+    ['B/SKILL.md', 'a/SKILL.md'],
+  );
+});
+
 test('G0 shell substitution wins before all later facts', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'ledger-'));
   mkdirSync(path.join(root, 'plugins/example/skill'), { recursive: true });
@@ -46,4 +54,34 @@ test('structural failures auto-migrate and unknown failures require deep remedia
     validation: { errors: 1, error_details: ['[body] invalid substantive claim'] },
   });
   assert.deepEqual([deep.gate, deep.disposition], ['G4', 'DEEP-REMEDIATE']);
+});
+
+test('ledger diagnostics are serialized in deterministic order', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'ledger-'));
+  mkdirSync(path.join(root, 'plugins/example/skill'), { recursive: true });
+  writeFileSync(path.join(root, 'plugins/example/skill/SKILL.md'), '---\nname: x\n---\nbody\n');
+  const result = classifyArtifact({
+    root,
+    row: { path: 'plugins/example/skill/SKILL.md', grade: 'B', score: 82 },
+    validation: {
+      errors: [
+        "[frontmatter] Missing required field: 'version' (marketplace)",
+        "[frontmatter] Missing required field: 'author' (marketplace)",
+      ],
+    },
+  });
+  assert.deepEqual(result.diagnostics, [...result.diagnostics].sort());
+
+  const numericResult = classifyArtifact({
+    root,
+    row: { path: 'plugins/example/skill/SKILL.md', grade: 'B', score: 82 },
+    validation: {
+      errors: 2,
+      error_details: [
+        "[frontmatter] Missing required field: 'version' (marketplace)",
+        "[frontmatter] Missing required field: 'author' (marketplace)",
+      ],
+    },
+  });
+  assert.deepEqual(numericResult.diagnostics, [...numericResult.diagnostics].sort());
 });

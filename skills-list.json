@@ -10038,478 +10038,6 @@
       "languages": []
     },
     {
-      "name": "blog-translator",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-translator.md",
-      "lines": 172,
-      "words": 948,
-      "code_blocks": 2,
-      "languages": [
-        "markdown",
-        "yaml"
-      ]
-    },
-    {
-      "name": "blog-writer",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-writer.md",
-      "lines": 200,
-      "words": 1210,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
-      "name": "blog-seo",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-seo.md",
-      "lines": 131,
-      "words": 744,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "blog-researcher",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-researcher.md",
-      "lines": 272,
-      "words": 1832,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "blog-reviewer",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/agents/blog-reviewer.md",
-      "lines": 231,
-      "words": 1742,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "blog-chart",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-chart/SKILL.md",
-      "lines": 279,
-      "words": 1376,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "html",
-        "jsx",
-        "mdx",
-        "xml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-multilingual",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-multilingual/SKILL.md",
-      "lines": 343,
-      "words": 1596,
-      "code_blocks": 7,
-      "languages": [
-        "html",
-        "json",
-        "xml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-schema",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-schema/SKILL.md",
-      "lines": 288,
-      "words": 1160,
-      "code_blocks": 8,
-      "languages": [
-        "html",
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-style",
-      "description": "Learn author writing style from 5 to 10 existing blog posts and generate a voice profile for /blog style learn, VOICE.md, blog-persona, and blog-write when users ask to infer tone, analyze author voic",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-style/SKILL.md",
-      "lines": 89,
-      "words": 465,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-flow",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-flow/SKILL.md",
-      "lines": 190,
-      "words": 1113,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-cluster",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cluster/SKILL.md",
-      "lines": 333,
-      "words": 2725,
-      "code_blocks": 2,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-rewrite",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-rewrite/SKILL.md",
-      "lines": 376,
-      "words": 2769,
-      "code_blocks": 3,
-      "languages": [
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-notebooklm",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-notebooklm/SKILL.md",
-      "lines": 255,
-      "words": 1289,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-strategy",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-strategy/SKILL.md",
-      "lines": 374,
-      "words": 2354,
-      "code_blocks": 8,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-seo-check",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-seo-check/SKILL.md",
-      "lines": 237,
-      "words": 1781,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-translate",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-translate/SKILL.md",
-      "lines": 218,
-      "words": 1146,
-      "code_blocks": 3,
-      "languages": [
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-calendar",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-calendar/SKILL.md",
-      "lines": 305,
-      "words": 1746,
-      "code_blocks": 7,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-factcheck",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-factcheck/SKILL.md",
-      "lines": 187,
-      "words": 1328,
-      "code_blocks": 0,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-repurpose",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-repurpose/SKILL.md",
-      "lines": 290,
-      "words": 1703,
-      "code_blocks": 2,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-geo",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-geo/SKILL.md",
-      "lines": 313,
-      "words": 1726,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-image",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-image/SKILL.md",
-      "lines": 309,
-      "words": 1932,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-analyze",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-analyze/SKILL.md",
-      "lines": 332,
-      "words": 2145,
-      "code_blocks": 5,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-persona",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-persona/SKILL.md",
-      "lines": 227,
-      "words": 1317,
-      "code_blocks": 1,
-      "languages": [
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-decay",
-      "description": "Detect content decay from Google Search Console exports by comparing current and previous page performance, flagging quarter-over-quarter traffic drops, dropped pages, and refresh, consolidate, prune,",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-decay/SKILL.md",
-      "lines": 89,
-      "words": 526,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-brief",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brief/SKILL.md",
-      "lines": 275,
-      "words": 1816,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-cannibalization",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-cannibalization/SKILL.md",
-      "lines": 224,
-      "words": 1288,
-      "code_blocks": 4,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-audio",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audio/SKILL.md",
-      "lines": 252,
-      "words": 1255,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "html",
-        "jsx",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-write",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-write/SKILL.md",
-      "lines": 499,
-      "words": 3112,
-      "code_blocks": 15,
-      "languages": [
-        "html",
-        "markdown",
-        "mdx",
-        "yaml"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-google",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-google/SKILL.md",
-      "lines": 277,
-      "words": 1452,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-taxonomy",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-taxonomy/SKILL.md",
-      "lines": 288,
-      "words": 1432,
-      "code_blocks": 14,
-      "languages": [
-        "graphql"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-outline",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-outline/SKILL.md",
-      "lines": 147,
-      "words": 886,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-audit",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-audit/SKILL.md",
-      "lines": 255,
-      "words": 1398,
-      "code_blocks": 7,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog/SKILL.md",
-      "lines": 471,
-      "words": 4576,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-locale-audit",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-locale-audit/SKILL.md",
-      "lines": 211,
-      "words": 1238,
-      "code_blocks": 3,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-localize",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-localize/SKILL.md",
-      "lines": 224,
-      "words": 1390,
-      "code_blocks": 1,
-      "languages": [],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-discourse",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-discourse/SKILL.md",
-      "lines": 223,
-      "words": 1894,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "json",
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
-      "name": "blog-brand",
-      "description": ">",
-      "path": "AgriciDaniel--claude-blog/brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
-      "remote_path": "brain/.raw/sources/claude-blog-skill/skills/blog-brand/SKILL.md",
-      "lines": 240,
-      "words": 1404,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
-      ],
-      "license": "MIT"
-    },
-    {
       "name": "blog-chart",
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-chart/SKILL.md",
@@ -11424,8 +10952,8 @@
       "description": "\"Applies this repository's skill-authoring standard as a procedure. Use for any change to, or judgment about, a file under skills/** \u2014 a SKILL.md, a reference, a persona prompt, a bundled script's ins",
       "path": "EveryInc--compound-engineering-plugin/.agents/skills/ce-skill-work/SKILL.md",
       "remote_path": ".agents/skills/ce-skill-work/SKILL.md",
-      "lines": 54,
-      "words": 1541,
+      "lines": 55,
+      "words": 1619,
       "code_blocks": 0,
       "languages": []
     },
@@ -11771,8 +11299,8 @@
       "description": "\"Run the full autonomous shipping pipeline end-to-end, hands-off with no check-ins. Use only when the user explicitly asks to build or ship something autonomously all the way to an open PR, or invokes",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 60,
-      "words": 1145,
+      "lines": 58,
+      "words": 1143,
       "code_blocks": 0,
       "languages": []
     },
@@ -29197,7 +28725,7 @@
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 702,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29295,7 +28823,7 @@
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 702,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29403,7 +28931,7 @@
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 702,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29501,7 +29029,7 @@
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 702,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29609,7 +29137,7 @@
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 702,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -29707,7 +29235,7 @@
       "path": "stripe--ai/skills/stripe-best-practices/SKILL.md",
       "remote_path": "skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 702,
+      "words": 717,
       "code_blocks": 0,
       "languages": []
     },
@@ -31622,7 +31150,7 @@
       "path": "trailofbits--skills/plugins/audit-context-building/skills/audit-context-building/SKILL.md",
       "remote_path": "plugins/audit-context-building/skills/audit-context-building/SKILL.md",
       "lines": 73,
-      "words": 630,
+      "words": 631,
       "code_blocks": 0,
       "languages": []
     },
@@ -32041,8 +31569,8 @@
       "description": "Guide for implementing smooth, native-feeling animations using React's View Transition API (`<ViewTransition>` component, `addTransitionType`, and CSS view transition pseudo-elements). Use this skill ",
       "path": "vercel-labs--agent-skills/skills/react-view-transitions/SKILL.md",
       "remote_path": "skills/react-view-transitions/SKILL.md",
-      "lines": 332,
-      "words": 1801,
+      "lines": 333,
+      "words": 1799,
       "code_blocks": 14,
       "languages": [
         "jsx"
@@ -78182,14 +77710,14 @@
       "description": "'Configure Langfuse enterprise organization management and access control.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-enterprise-rbac/SKILL.md",
-      "lines": 232,
-      "words": 890,
+      "lines": 246,
+      "words": 979,
       "code_blocks": 5,
       "languages": [
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78197,8 +77725,8 @@
       "description": "'Configure Langfuse across development, staging, and production environments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-multi-env-setup/SKILL.md",
-      "lines": 249,
-      "words": 822,
+      "lines": 262,
+      "words": 900,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -78206,7 +77734,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78214,15 +77742,15 @@
       "description": "'Deploy Langfuse with your application across different platforms.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-deploy-integration/SKILL.md",
-      "lines": 244,
-      "words": 761,
+      "lines": 258,
+      "words": 858,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78230,14 +77758,14 @@
       "description": "'Troubleshoot and respond to Langfuse-related incidents and outages.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-incident-runbook/SKILL.md",
-      "lines": 225,
-      "words": 955,
+      "lines": 244,
+      "words": 1083,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78245,14 +77773,14 @@
       "description": "'Collect Langfuse debug evidence for support tickets and troubleshooting.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-debug-bundle/SKILL.md",
-      "lines": 218,
-      "words": 789,
+      "lines": 232,
+      "words": 874,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78260,14 +77788,14 @@
       "description": "'Execute Langfuse primary workflow: Tracing LLM calls and spans.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-a/SKILL.md",
-      "lines": 281,
-      "words": 922,
+      "lines": 294,
+      "words": 1004,
       "code_blocks": 6,
       "languages": [
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78275,14 +77803,15 @@
       "description": "'Configure Langfuse CI/CD integration with GitHub Actions and automated",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-ci-integration/SKILL.md",
-      "lines": 292,
-      "words": 988,
-      "code_blocks": 6,
+      "lines": 310,
+      "words": 1073,
+      "code_blocks": 7,
       "languages": [
+        "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78290,13 +77819,13 @@
       "description": "'Production-grade Langfuse architecture patterns and best practices.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-reference-architecture/SKILL.md",
-      "lines": 324,
-      "words": 1106,
+      "lines": 341,
+      "words": 1223,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78304,13 +77833,13 @@
       "description": "'Optimize Langfuse tracing performance for high-throughput applications.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-performance-tuning/SKILL.md",
-      "lines": 280,
-      "words": 1034,
+      "lines": 294,
+      "words": 1119,
       "code_blocks": 7,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78318,15 +77847,15 @@
       "description": "'Upgrade Langfuse SDK versions and migrate between API changes.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-upgrade-migration/SKILL.md",
-      "lines": 258,
-      "words": 955,
+      "lines": 274,
+      "words": 1056,
       "code_blocks": 11,
       "languages": [
         "bash",
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78334,13 +77863,13 @@
       "description": "'Monitor and optimize LLM costs using Langfuse analytics and dashboards.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-cost-tuning/SKILL.md",
-      "lines": 275,
-      "words": 1043,
+      "lines": 289,
+      "words": 1139,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78348,15 +77877,15 @@
       "description": "'Install and configure Langfuse SDK authentication for LLM observability.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-install-auth/SKILL.md",
-      "lines": 209,
-      "words": 738,
+      "lines": 221,
+      "words": 812,
       "code_blocks": 7,
       "languages": [
         "bash",
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78364,14 +77893,14 @@
       "description": "'Create a minimal working Langfuse trace example.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-hello-world/SKILL.md",
-      "lines": 237,
-      "words": 811,
+      "lines": 250,
+      "words": 894,
       "code_blocks": 5,
       "languages": [
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78379,14 +77908,14 @@
       "description": "'Manage Langfuse data export, retention, and compliance requirements.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-data-handling/SKILL.md",
-      "lines": 271,
-      "words": 831,
+      "lines": 285,
+      "words": 927,
       "code_blocks": 6,
       "languages": [
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78394,14 +77923,14 @@
       "description": "'Diagnose and fix common Langfuse errors and exceptions.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-common-errors/SKILL.md",
-      "lines": 342,
-      "words": 980,
+      "lines": 370,
+      "words": 1192,
       "code_blocks": 18,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78409,13 +77938,13 @@
       "description": "'Langfuse SDK best practices, patterns, and idiomatic usage.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-sdk-patterns/SKILL.md",
-      "lines": 275,
-      "words": 971,
+      "lines": 300,
+      "words": 1162,
       "code_blocks": 7,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78423,14 +77952,14 @@
       "description": "'Execute complex Langfuse migrations including data migration and platform",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-migration-deep-dive/SKILL.md",
-      "lines": 310,
-      "words": 1067,
+      "lines": 322,
+      "words": 1141,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78438,13 +77967,13 @@
       "description": "'Langfuse production readiness checklist and verification.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-prod-checklist/SKILL.md",
-      "lines": 232,
-      "words": 897,
+      "lines": 253,
+      "words": 1018,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78452,13 +77981,13 @@
       "description": "'Implement Langfuse rate limiting, batching, and backoff patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-rate-limits/SKILL.md",
-      "lines": 246,
-      "words": 838,
+      "lines": 259,
+      "words": 923,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78466,14 +77995,14 @@
       "description": "'Configure Langfuse webhooks for prompt change notifications and event-driven",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-webhooks-events/SKILL.md",
-      "lines": 287,
-      "words": 882,
+      "lines": 304,
+      "words": 990,
       "code_blocks": 5,
       "languages": [
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78481,15 +78010,15 @@
       "description": "'Set up comprehensive observability for Langfuse with metrics, dashboards,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-observability/SKILL.md",
-      "lines": 277,
-      "words": 880,
+      "lines": 292,
+      "words": 973,
       "code_blocks": 7,
       "languages": [
         "json",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78497,13 +78026,13 @@
       "description": "'Execute Langfuse secondary workflow: Evaluation, scoring, and datasets.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-core-workflow-b/SKILL.md",
-      "lines": 279,
-      "words": 924,
+      "lines": 292,
+      "words": 996,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78511,8 +78040,8 @@
       "description": "'Set up Langfuse local development workflow with hot reload and debugging.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-local-dev-loop/SKILL.md",
-      "lines": 253,
-      "words": 792,
+      "lines": 269,
+      "words": 905,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -78520,7 +78049,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -78528,15 +78057,15 @@
       "description": "'Implement Langfuse security best practices for API keys and data privacy.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/langfuse-pack/skills/langfuse-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/langfuse-pack/skills/langfuse-security-basics/SKILL.md",
-      "lines": 230,
-      "words": 843,
+      "lines": 246,
+      "words": 952,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82455,11 +81984,11 @@
       "description": "'Configure enterprise role-based access control for Lindy AI workspaces.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-enterprise-rbac/SKILL.md",
-      "lines": 200,
-      "words": 980,
+      "lines": 215,
+      "words": 1080,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82467,14 +81996,14 @@
       "description": "'Comprehensive debugging toolkit for Lindy AI agents.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-debug-bundle/SKILL.md",
-      "lines": 213,
-      "words": 882,
+      "lines": 227,
+      "words": 976,
       "code_blocks": 5,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82488,7 +82017,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82500,7 +82029,7 @@
       "words": 917,
       "code_blocks": 2,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82512,7 +82041,7 @@
       "words": 976,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82520,15 +82049,15 @@
       "description": "'Configure CI/CD pipelines for testing Lindy AI agent integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-ci-integration/SKILL.md",
-      "lines": 237,
-      "words": 750,
+      "lines": 250,
+      "words": 840,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82542,7 +82071,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82558,7 +82087,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82566,11 +82095,11 @@
       "description": "'Optimize Lindy AI costs through credit management, model selection,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-cost-tuning/SKILL.md",
-      "lines": 207,
-      "words": 1004,
+      "lines": 221,
+      "words": 1081,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82585,7 +82114,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82599,7 +82128,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82615,7 +82144,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82631,7 +82160,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82647,7 +82176,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82655,11 +82184,11 @@
       "description": "'Data handling best practices for Lindy AI agents.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-data-handling/SKILL.md",
-      "lines": 200,
-      "words": 1046,
+      "lines": 215,
+      "words": 1142,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82675,7 +82204,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82690,7 +82219,7 @@
         "html",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82698,11 +82227,11 @@
       "description": "'Build and configure multi-step Lindy AI agent workflows.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-core-workflow-a/SKILL.md",
-      "lines": 194,
-      "words": 944,
+      "lines": 207,
+      "words": 1026,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82718,7 +82247,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82726,13 +82255,13 @@
       "description": "'Troubleshoot common Lindy AI agent errors and workflow failures.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-common-errors/SKILL.md",
-      "lines": 193,
-      "words": 1033,
+      "lines": 215,
+      "words": 1166,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82740,8 +82269,8 @@
       "description": "'Deploy applications that integrate with Lindy AI agents.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-deploy-integration/SKILL.md",
-      "lines": 232,
-      "words": 807,
+      "lines": 242,
+      "words": 880,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -82749,7 +82278,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82757,13 +82286,13 @@
       "description": "'Create your first Lindy AI agent with a real trigger and action.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-hello-world/SKILL.md",
-      "lines": 168,
-      "words": 718,
+      "lines": 183,
+      "words": 819,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82777,7 +82306,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -82785,11 +82314,11 @@
       "description": "'Configure Lindy triggers, scheduling, multi-agent delegation, and automation.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-core-workflow-b/SKILL.md",
-      "lines": 181,
-      "words": 864,
+      "lines": 194,
+      "words": 944,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -121803,11 +121332,11 @@
       "description": "'Configure enterprise role-based access control for Lindy AI workspaces.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-enterprise-rbac/SKILL.md",
       "remote_path": "skills/.curated/lindy-enterprise-rbac/SKILL.md",
-      "lines": 200,
-      "words": 980,
+      "lines": 215,
+      "words": 1080,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -121874,14 +121403,14 @@
       "description": "'Configure Langfuse enterprise organization management and access control.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-enterprise-rbac/SKILL.md",
       "remote_path": "skills/.curated/langfuse-enterprise-rbac/SKILL.md",
-      "lines": 232,
-      "words": 890,
+      "lines": 246,
+      "words": 979,
       "code_blocks": 5,
       "languages": [
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -121990,14 +121519,14 @@
       "description": "'Comprehensive debugging toolkit for Lindy AI agents.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/lindy-debug-bundle/SKILL.md",
-      "lines": 213,
-      "words": 882,
+      "lines": 227,
+      "words": 976,
       "code_blocks": 5,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -122118,7 +121647,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -123415,7 +122944,7 @@
       "words": 917,
       "code_blocks": 2,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -124098,7 +123627,7 @@
       "words": 976,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -124162,15 +123691,15 @@
       "description": "'Configure CI/CD pipelines for testing Lindy AI agent integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-ci-integration/SKILL.md",
       "remote_path": "skills/.curated/lindy-ci-integration/SKILL.md",
-      "lines": 237,
-      "words": 750,
+      "lines": 250,
+      "words": 840,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -126168,7 +125697,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -126478,7 +126007,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -127010,11 +126539,11 @@
       "description": "'Optimize Lindy AI costs through credit management, model selection,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/lindy-cost-tuning/SKILL.md",
-      "lines": 207,
-      "words": 1004,
+      "lines": 221,
+      "words": 1081,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -127372,14 +126901,14 @@
       "description": "'Troubleshoot and respond to Langfuse-related incidents and outages.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-incident-runbook/SKILL.md",
       "remote_path": "skills/.curated/langfuse-incident-runbook/SKILL.md",
-      "lines": 225,
-      "words": 955,
+      "lines": 244,
+      "words": 1083,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -127988,14 +127517,14 @@
       "description": "'Collect Langfuse debug evidence for support tickets and troubleshooting.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/langfuse-debug-bundle/SKILL.md",
-      "lines": 218,
-      "words": 789,
+      "lines": 232,
+      "words": 874,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -128466,7 +127995,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -132169,13 +131698,13 @@
       "description": "'Production-grade Langfuse architecture patterns and best practices.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/langfuse-reference-architecture/SKILL.md",
-      "lines": 324,
-      "words": 1106,
+      "lines": 341,
+      "words": 1223,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -133960,7 +133489,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -134071,7 +133600,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -135142,7 +134671,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -135296,15 +134825,15 @@
       "description": "'Upgrade Langfuse SDK versions and migrate between API changes.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/langfuse-upgrade-migration/SKILL.md",
-      "lines": 258,
-      "words": 955,
+      "lines": 274,
+      "words": 1056,
       "code_blocks": 11,
       "languages": [
         "bash",
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -135341,13 +134870,13 @@
       "description": "'Monitor and optimize LLM costs using Langfuse analytics and dashboards.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/langfuse-cost-tuning/SKILL.md",
-      "lines": 275,
-      "words": 1043,
+      "lines": 289,
+      "words": 1139,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -135840,7 +135369,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -137107,11 +136636,11 @@
       "description": "'Data handling best practices for Lindy AI agents.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-data-handling/SKILL.md",
       "remote_path": "skills/.curated/lindy-data-handling/SKILL.md",
-      "lines": 200,
-      "words": 1046,
+      "lines": 215,
+      "words": 1142,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -137662,7 +137191,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -137670,15 +137199,15 @@
       "description": "'Install and configure Langfuse SDK authentication for LLM observability.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-install-auth/SKILL.md",
       "remote_path": "skills/.curated/langfuse-install-auth/SKILL.md",
-      "lines": 209,
-      "words": 738,
+      "lines": 221,
+      "words": 812,
       "code_blocks": 7,
       "languages": [
         "bash",
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -138523,7 +138052,7 @@
         "html",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -138558,11 +138087,11 @@
       "description": "'Build and configure multi-step Lindy AI agent workflows.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/lindy-core-workflow-a/SKILL.md",
-      "lines": 194,
-      "words": 944,
+      "lines": 207,
+      "words": 1026,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -139682,14 +139211,14 @@
       "description": "'Manage Langfuse data export, retention, and compliance requirements.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-data-handling/SKILL.md",
       "remote_path": "skills/.curated/langfuse-data-handling/SKILL.md",
-      "lines": 271,
-      "words": 831,
+      "lines": 285,
+      "words": 927,
       "code_blocks": 6,
       "languages": [
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -141453,13 +140982,13 @@
       "description": "'Langfuse SDK best practices, patterns, and idiomatic usage.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-sdk-patterns/SKILL.md",
       "remote_path": "skills/.curated/langfuse-sdk-patterns/SKILL.md",
-      "lines": 275,
-      "words": 971,
+      "lines": 300,
+      "words": 1162,
       "code_blocks": 7,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -142055,14 +141584,14 @@
       "description": "'Execute complex Langfuse migrations including data migration and platform",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-migration-deep-dive/SKILL.md",
       "remote_path": "skills/.curated/langfuse-migration-deep-dive/SKILL.md",
-      "lines": 310,
-      "words": 1067,
+      "lines": 322,
+      "words": 1141,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -143635,13 +143164,13 @@
       "description": "'Langfuse production readiness checklist and verification.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/langfuse-prod-checklist/SKILL.md",
-      "lines": 232,
-      "words": 897,
+      "lines": 253,
+      "words": 1018,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -143674,7 +143203,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -145227,13 +144756,13 @@
       "description": "'Troubleshoot common Lindy AI agent errors and workflow failures.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-common-errors/SKILL.md",
       "remote_path": "skills/.curated/lindy-common-errors/SKILL.md",
-      "lines": 193,
-      "words": 1033,
+      "lines": 215,
+      "words": 1166,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -145607,13 +145136,13 @@
       "description": "'Implement Langfuse rate limiting, batching, and backoff patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/langfuse-rate-limits/SKILL.md",
-      "lines": 246,
-      "words": 838,
+      "lines": 259,
+      "words": 923,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -146822,15 +146351,15 @@
       "description": "'Set up comprehensive observability for Langfuse with metrics, dashboards,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/langfuse-observability/SKILL.md",
       "remote_path": "skills/.curated/langfuse-observability/SKILL.md",
-      "lines": 277,
-      "words": 880,
+      "lines": 292,
+      "words": 973,
       "code_blocks": 7,
       "languages": [
         "json",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -147245,8 +146774,8 @@
       "description": "'Deploy applications that integrate with Lindy AI agents.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-deploy-integration/SKILL.md",
       "remote_path": "skills/.curated/lindy-deploy-integration/SKILL.md",
-      "lines": 232,
-      "words": 807,
+      "lines": 242,
+      "words": 880,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -147254,7 +146783,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -148482,13 +148011,13 @@
       "description": "'Create your first Lindy AI agent with a real trigger and action.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-hello-world/SKILL.md",
       "remote_path": "skills/.curated/lindy-hello-world/SKILL.md",
-      "lines": 168,
-      "words": 718,
+      "lines": 183,
+      "words": 819,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -148994,7 +148523,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -149423,11 +148952,11 @@
       "description": "'Configure Lindy triggers, scheduling, multi-agent delegation, and automation.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/lindy-core-workflow-b/SKILL.md",
-      "lines": 181,
-      "words": 864,
+      "lines": 194,
+      "words": 944,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.15.0",
+      "version": "1.17.0",
       "license": "MIT"
     },
     {
@@ -154768,9 +154297,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 535,
-      "words": 5863,
-      "code_blocks": 12,
+      "lines": 572,
+      "words": 6222,
+      "code_blocks": 13,
       "languages": [
         "bash"
       ]
@@ -155202,7 +154731,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
       "lines": 1803,
-      "words": 29398,
+      "words": 29403,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -155217,12 +154746,11 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
       "remote_path": "daymade-skill/skill-governance/SKILL.md",
-      "lines": 256,
-      "words": 2182,
-      "code_blocks": 5,
+      "lines": 163,
+      "words": 981,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "markdown"
+        "bash"
       ]
     },
     {
@@ -155310,6 +154838,18 @@
       "languages": []
     },
     {
+      "name": "lark-cli-router",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/lark-cli-router/SKILL.md",
+      "remote_path": "daymade-claude-code/lark-cli-router/SKILL.md",
+      "lines": 126,
+      "words": 850,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "marketplace-dev",
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/marketplace-dev/SKILL.md",
@@ -155353,8 +154893,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 454,
-      "words": 4544,
+      "lines": 463,
+      "words": 4990,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -155415,8 +154955,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 223,
-      "words": 1446,
+      "lines": 262,
+      "words": 1854,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -155549,8 +155089,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 335,
-      "words": 3183,
+      "lines": 336,
+      "words": 3318,
       "code_blocks": 0,
       "languages": []
     },
@@ -155636,6 +155176,19 @@
       "code_blocks": 6,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "interaction-design-board",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-codex/interaction-design-board/SKILL.md",
+      "remote_path": "daymade-codex/interaction-design-board/SKILL.md",
+      "lines": 217,
+      "words": 1398,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "text"
       ]
     },
     {
@@ -170594,11 +170147,11 @@
     },
     {
       "name": "nasiko-control-plane",
-      "description": "Install, detect, and operate the optional Nasiko agent control plane through ECC with pinned artifacts, explicit consent, and telemetry and secrets boundaries.",
+      "description": "Use the experimental Nasiko CLI lifecycle bridge for pinned installation, read-only status, and qualified uninstall with explicit consent and telemetry and secrets boundaries.",
       "path": "affaan-m--everything-claude-code/skills/nasiko-control-plane/SKILL.md",
       "remote_path": "skills/nasiko-control-plane/SKILL.md",
       "lines": 50,
-      "words": 338,
+      "words": 348,
       "code_blocks": 0,
       "languages": []
     },

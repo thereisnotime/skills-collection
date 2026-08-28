@@ -5040,7 +5040,14 @@ cmd_ship() {
     echo -e "${BOLD}Running quality gates on the diff (loki review)...${NC}"
     echo ""
     local rc=0
-    cmd_review "${review_args[@]}" || rc=$?
+    # Bash 3.2 treats an empty-array expansion as an unbound variable under
+    # `set -u`. macOS still ships that shell, so the documented zero-option
+    # `loki ship` path must call review without expanding an empty array.
+    if [ "${#review_args[@]}" -gt 0 ]; then
+        cmd_review "${review_args[@]}" || rc=$?
+    else
+        cmd_review || rc=$?
+    fi
 
     if [ "$rc" -ge 1 ]; then
         echo ""
@@ -12699,9 +12706,18 @@ cmd_setup_skill() {
             continue
         fi
 
-        # Remove broken symlink
-        if [ -L "$target_dir" ]; then
+        # A dangling link is safe to repair. Any live path without SKILL.md is
+        # operator-owned: `ln -sf SOURCE DIRECTORY` would otherwise create a
+        # nested link and report success, while a regular file could be
+        # replaced outright. Refuse both cases without changing the path.
+        if [ -L "$target_dir" ] && [ ! -e "$target_dir" ]; then
             rm -f "$target_dir"
+        fi
+
+        if [ -e "$target_dir" ] || [ -L "$target_dir" ]; then
+            echo -e "  ${RED}FAIL${NC}  $target_name  ${DIM}($short_path exists without SKILL.md; move it aside and re-run)${NC}"
+            failed=$((failed + 1))
+            continue
         fi
 
         # Create parent directory

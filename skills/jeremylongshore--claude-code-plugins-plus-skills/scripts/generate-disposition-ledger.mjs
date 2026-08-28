@@ -88,7 +88,9 @@ export function parseGrades(text) {
     return { path: skillPath, grade: fields[1], score: Number(fields[2]) };
   });
   if (rows.length === 0) fail('grades export has no rows');
-  return rows.sort((left, right) => left.path.localeCompare(right.path));
+  // `localeCompare` varies with the runner locale. The ledger is a
+  // byte-addressed artifact, so order paths by code point instead.
+  return rows.sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
 }
 
 function validatorJson(root, args, maxBuffer) {
@@ -207,10 +209,13 @@ function mirrorRefuseFindings(root, markerPath) {
 }
 
 function errorsFor(record) {
-  if (Array.isArray(record?.errors)) return record.errors;
+  // The Python validator aggregates some facts from unordered collections.
+  // Preserve every diagnostic, but canonicalize their serialization so a
+  // ledger generated on CI byte-matches one generated locally.
+  if (Array.isArray(record?.errors)) return [...record.errors].sort();
   if (!Number.isInteger(record?.errors) || record.errors < 0) return ['VALIDATOR_FACT_UNAVAILABLE'];
   if (!Array.isArray(record.error_details)) return ['VALIDATOR_DIAGNOSTICS_UNAVAILABLE'];
-  return record.error_details;
+  return [...record.error_details].sort();
 }
 
 export function classifyArtifact({ root, row, validation, cache = new Map() }) {
@@ -351,9 +356,15 @@ export function main(argv = process.argv.slice(2)) {
   });
   const rendered = `${JSON.stringify(ledger, null, 2)}\n`;
   if (options.check) {
-    if (!fs.existsSync(options.out) || fs.readFileSync(options.out, 'utf8') !== rendered) {
+    const actual = fs.existsSync(options.out) ? fs.readFileSync(options.out, 'utf8') : null;
+    if (actual !== rendered) {
+      const expectedDigest = crypto.createHash('sha256').update(rendered).digest('hex');
+      const actualDigest = actual
+        ? crypto.createHash('sha256').update(actual).digest('hex')
+        : 'missing';
       fail(
-        `${relative(options.root, options.out)} is stale; rerun generate-disposition-ledger.mjs`,
+        `${relative(options.root, options.out)} is stale; rerun generate-disposition-ledger.mjs ` +
+          `(expected sha256 ${expectedDigest}, actual sha256 ${actualDigest})`,
       );
     }
   } else {
