@@ -10948,6 +10948,16 @@
       "languages": []
     },
     {
+      "name": "demo",
+      "description": "Use when you want a demo.",
+      "path": "EveryInc--compound-engineering-plugin/tests/skill-eval-cell/fixtures/standards-mixed-scope/skills/demo.md",
+      "remote_path": "tests/skill-eval-cell/fixtures/standards-mixed-scope/skills/demo.md",
+      "lines": 6,
+      "words": 13,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "ce-skill-work",
       "description": "\"Applies this repository's skill-authoring standard as a procedure. Use for any change to, or judgment about, a file under skills/** \u2014 a SKILL.md, a reference, a persona prompt, a bundled script's ins",
       "path": "EveryInc--compound-engineering-plugin/.agents/skills/ce-skill-work/SKILL.md",
@@ -11184,8 +11194,8 @@
       "description": "\"Check Compound Engineering health and repo-local config.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 97,
-      "words": 991,
+      "lines": 99,
+      "words": 1030,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -22035,9 +22045,9 @@
       "description": "\"Archive irreplaceable raw data (sequencing runs, imaging, field data) to write-once cloud cold storage \u2014 generate checksums, verify before upload, stream a tarball to S3 Deep Archive under Object Loc",
       "path": "brunoasm--my_claude_skills/secure_raw_data_backup/SKILL.md",
       "remote_path": "secure_raw_data_backup/SKILL.md",
-      "lines": 220,
-      "words": 1575,
-      "code_blocks": 5,
+      "lines": 242,
+      "words": 1751,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ]
@@ -22486,13 +22496,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 817,
-      "words": 14942,
+      "lines": 849,
+      "words": 15782,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.26.0",
+      "version": "3.28.0",
       "license": "MIT"
     },
     {
@@ -22500,13 +22510,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 817,
-      "words": 14942,
+      "lines": 849,
+      "words": 15782,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.26.0",
+      "version": "3.28.0",
       "license": "MIT"
     }
   ],
@@ -28700,9 +28710,9 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 93,
-      "words": 797,
-      "code_blocks": 1,
+      "lines": 113,
+      "words": 1134,
+      "code_blocks": 2,
       "languages": [
         "sh"
       ]
@@ -28798,9 +28808,9 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 93,
-      "words": 797,
-      "code_blocks": 1,
+      "lines": 113,
+      "words": 1134,
+      "code_blocks": 2,
       "languages": [
         "sh"
       ]
@@ -28906,9 +28916,9 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 93,
-      "words": 797,
-      "code_blocks": 1,
+      "lines": 113,
+      "words": 1134,
+      "code_blocks": 2,
       "languages": [
         "sh"
       ]
@@ -29004,9 +29014,9 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 93,
-      "words": 797,
-      "code_blocks": 1,
+      "lines": 113,
+      "words": 1134,
+      "code_blocks": 2,
       "languages": [
         "sh"
       ]
@@ -29112,9 +29122,9 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-directory/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-directory/SKILL.md",
-      "lines": 93,
-      "words": 797,
-      "code_blocks": 1,
+      "lines": 113,
+      "words": 1134,
+      "code_blocks": 2,
       "languages": [
         "sh"
       ]
@@ -29210,9 +29220,9 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-directory/SKILL.md",
       "remote_path": "skills/stripe-directory/SKILL.md",
-      "lines": 93,
-      "words": 797,
-      "code_blocks": 1,
+      "lines": 113,
+      "words": 1134,
+      "code_blocks": 2,
       "languages": [
         "sh"
       ]
@@ -153979,8 +153989,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 221,
-      "words": 892,
+      "lines": 222,
+      "words": 902,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -154093,8 +154103,8 @@
       "description": "Fetch comprehensive, login-free data for any Bilibili (B\u7ad9) video \u2014 title, UP name and follower count, publish date, partition, tags, per-part cids, live stats (view, like, coin, favorite, share, reply",
       "path": "daymade--claude-code-skills/bilibili-source/SKILL.md",
       "remote_path": "bilibili-source/SKILL.md",
-      "lines": 93,
-      "words": 957,
+      "lines": 94,
+      "words": 1072,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -154297,9 +154307,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 572,
-      "words": 6222,
-      "code_blocks": 13,
+      "lines": 575,
+      "words": 6349,
+      "code_blocks": 12,
       "languages": [
         "bash"
       ]
@@ -154692,6 +154702,18 @@
       ]
     },
     {
+      "name": "read-docx-review",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-docs/read-docx-review/SKILL.md",
+      "remote_path": "daymade-docs/read-docx-review/SKILL.md",
+      "lines": 125,
+      "words": 451,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "ppt-creator",
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/ppt-creator/SKILL.md",
@@ -154730,8 +154752,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1803,
-      "words": 29403,
+      "lines": 1807,
+      "words": 29499,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -154889,6 +154911,18 @@
       ]
     },
     {
+      "name": "claude-code-ping-start-5h-quota",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-ping-start-5h-quota/SKILL.md",
+      "remote_path": "daymade-claude-code/claude-code-ping-start-5h-quota/SKILL.md",
+      "lines": 134,
+      "words": 540,
+      "code_blocks": 4,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "claude-switch-models-setup",
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
@@ -154991,9 +155025,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1149,
-      "words": 12829,
-      "code_blocks": 10,
+      "lines": 1191,
+      "words": 13327,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "text"
@@ -155089,8 +155123,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 336,
-      "words": 3318,
+      "lines": 337,
+      "words": 3395,
       "code_blocks": 0,
       "languages": []
     },
@@ -155893,11 +155927,11 @@
     },
     {
       "name": "doc-updater",
-      "description": "Documentation and codemap specialist. Use PROACTIVELY for updating codemaps and documentation. Runs /update-codemaps and /update-docs, generates docs/CODEMAPS/*, updates READMEs and guides.",
+      "description": "Documentation and codemap specialist. Use PROACTIVELY for updating codemaps and documentation. Generates docs/CODEMAPS/*, updates READMEs and guides. Backs the /update-codemaps and /update-docs comman",
       "path": "affaan-m--everything-claude-code/agents/doc-updater.md",
       "remote_path": "agents/doc-updater.md",
       "lines": 117,
-      "words": 602,
+      "words": 604,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -156089,8 +156123,8 @@
       "description": "\"GAN Harness \u2014 Evaluator agent. Tests the live running application via Playwright, scores against rubric, and provides actionable feedback to the Generator.\"",
       "path": "affaan-m--everything-claude-code/agents/gan-evaluator.md",
       "remote_path": "agents/gan-evaluator.md",
-      "lines": 219,
-      "words": 1200,
+      "lines": 233,
+      "words": 1296,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -156292,11 +156326,11 @@
     },
     {
       "name": "harness-optimizer",
-      "description": "Analyze and improve the local agent harness configuration for reliability, cost, and throughput.",
+      "description": "Improve local agent-harness configuration reliability and cost using eval-driven grading (pass@k/pass^k) derived from the eval-harness skill.",
       "path": "affaan-m--everything-claude-code/agents/harness-optimizer.md",
       "remote_path": "agents/harness-optimizer.md",
-      "lines": 45,
-      "words": 266,
+      "lines": 56,
+      "words": 672,
       "code_blocks": 0,
       "languages": []
     },
@@ -156695,11 +156729,11 @@
     },
     {
       "name": "doc-updater",
-      "description": "Documentation and codemap specialist. Use PROACTIVELY for updating codemaps and documentation. Runs /update-codemaps and /update-docs, generates docs/CODEMAPS/*, updates READMEs and guides.",
+      "description": "Documentation and codemap specialist. Use PROACTIVELY for updating codemaps and documentation. Generates docs/CODEMAPS/*, updates READMEs and guides. Backs the /update-codemaps and /update-docs comman",
       "path": "affaan-m--everything-claude-code/.kiro/agents/doc-updater.md",
       "remote_path": ".kiro/agents/doc-updater.md",
       "lines": 109,
-      "words": 459,
+      "words": 461,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -157520,8 +157554,8 @@
       "description": "Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction.",
       "path": "affaan-m--everything-claude-code/.kiro/skills/strategic-compact/SKILL.md",
       "remote_path": ".kiro/skills/strategic-compact/SKILL.md",
-      "lines": 134,
-      "words": 801,
+      "lines": 148,
+      "words": 967,
       "code_blocks": 1,
       "languages": [
         "json"
@@ -157967,8 +158001,8 @@
       "description": "Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction. Use when a session is approaching a context limit and a task phas",
       "path": "affaan-m--everything-claude-code/.agents/skills/strategic-compact/SKILL.md",
       "remote_path": ".agents/skills/strategic-compact/SKILL.md",
-      "lines": 108,
-      "words": 808,
+      "lines": 122,
+      "words": 974,
       "code_blocks": 1,
       "languages": [
         "json"
@@ -160595,8 +160629,8 @@
       "description": "LLM API\u306e\u4f7f\u7528\u91cf\u306e\u30b3\u30b9\u30c8\u6700\u9069\u5316\u30d1\u30bf\u30fc\u30f3 \u2014 \u30bf\u30b9\u30af\u306e\u8907\u96d1\u3055\u306b\u3088\u308b\u30e2\u30c7\u30eb\u30eb\u30fc\u30c6\u30a3\u30f3\u30b0\u3001\u4e88\u7b97\u8ffd\u8de1\u3001\u30ea\u30c8\u30e9\u30a4\u30ed\u30b8\u30c3\u30af\u3001\u30d7\u30ed\u30f3\u30d7\u30c8\u30ad\u30e3\u30c3\u30b7\u30f3\u30b0\u3002",
       "path": "affaan-m--everything-claude-code/docs/ja-JP/skills/cost-aware-llm-pipeline/SKILL.md",
       "remote_path": "docs/ja-JP/skills/cost-aware-llm-pipeline/SKILL.md",
-      "lines": 184,
-      "words": 392,
+      "lines": 188,
+      "words": 439,
       "code_blocks": 5,
       "languages": [
         "python"
@@ -163982,8 +164016,8 @@
       "description": "LLM API \u4f7f\u7528\u6210\u672c\u4f18\u5316\u6a21\u5f0f \u2014\u2014 \u57fa\u4e8e\u4efb\u52a1\u590d\u6742\u5ea6\u7684\u6a21\u578b\u8def\u7531\u3001\u9884\u7b97\u8ddf\u8e2a\u3001\u91cd\u8bd5\u903b\u8f91\u548c\u63d0\u793a\u7f13\u5b58\u3002",
       "path": "affaan-m--everything-claude-code/docs/zh-CN/skills/cost-aware-llm-pipeline/SKILL.md",
       "remote_path": "docs/zh-CN/skills/cost-aware-llm-pipeline/SKILL.md",
-      "lines": 184,
-      "words": 446,
+      "lines": 188,
+      "words": 493,
       "code_blocks": 5,
       "languages": [
         "python"
@@ -167448,8 +167482,8 @@
       "description": "Use this skill when retrieving Jira tickets, analyzing requirements, updating ticket status, adding comments, or transitioning issues. Provides Jira API patterns via MCP or direct REST calls.",
       "path": "affaan-m--everything-claude-code/skills/jira-integration/SKILL.md",
       "remote_path": "skills/jira-integration/SKILL.md",
-      "lines": 304,
-      "words": 1289,
+      "lines": 313,
+      "words": 1435,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -167471,8 +167505,8 @@
       "description": "X/Twitter API integration for posting tweets, threads, reading timelines, search, and analytics. Covers OAuth auth patterns, rate limits, and platform-native content posting. Use when the user wants t",
       "path": "affaan-m--everything-claude-code/skills/x-api/SKILL.md",
       "remote_path": "skills/x-api/SKILL.md",
-      "lines": 236,
-      "words": 760,
+      "lines": 245,
+      "words": 882,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -167593,8 +167627,8 @@
       "description": "GitHub repository operations, automation, and management. Issue triage, PR management, CI/CD operations, release management, and security monitoring using the gh CLI. Use when the user wants to manage",
       "path": "affaan-m--everything-claude-code/skills/github-ops/SKILL.md",
       "remote_path": "skills/github-ops/SKILL.md",
-      "lines": 146,
-      "words": 698,
+      "lines": 156,
+      "words": 858,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -167771,8 +167805,8 @@
       "description": "Multi-source deep research using firecrawl and exa MCPs. Searches the web, synthesizes findings, and delivers cited reports with source attribution. Use when the user wants thorough research on any to",
       "path": "affaan-m--everything-claude-code/skills/deep-research/SKILL.md",
       "remote_path": "skills/deep-research/SKILL.md",
-      "lines": 161,
-      "words": 701,
+      "lines": 171,
+      "words": 877,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -168238,8 +168272,8 @@
       "description": "Neural search via Exa MCP for web, code, and company research. Use when the user needs web search, code examples, company intel, people lookup, or AI-powered deep research with Exa's neural search eng",
       "path": "affaan-m--everything-claude-code/skills/exa-search/SKILL.md",
       "remote_path": "skills/exa-search/SKILL.md",
-      "lines": 109,
-      "words": 521,
+      "lines": 118,
+      "words": 648,
       "code_blocks": 7,
       "languages": [
         "json"
@@ -168589,8 +168623,8 @@
       "description": "Multi-platform content distribution across X, LinkedIn, Threads, and Bluesky. Adapts content per platform using content-engine patterns. Never posts identical content cross-platform. Use when the user",
       "path": "affaan-m--everything-claude-code/skills/crosspost/SKILL.md",
       "remote_path": "skills/crosspost/SKILL.md",
-      "lines": 113,
-      "words": 571,
+      "lines": 124,
+      "words": 719,
       "code_blocks": 0,
       "languages": []
     },
@@ -168725,8 +168759,8 @@
       "description": "Agent-driven scheduling and publishing of social media posts across 13 platforms via SocialClaw. Use when the user wants to publish to X, LinkedIn, Instagram, Facebook Pages, TikTok, Discord, Telegram",
       "path": "affaan-m--everything-claude-code/skills/social-publisher/SKILL.md",
       "remote_path": "skills/social-publisher/SKILL.md",
-      "lines": 131,
-      "words": 553,
+      "lines": 140,
+      "words": 645,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -169093,8 +169127,8 @@
       "description": "Cost optimization patterns for LLM API usage \u2014 model routing by task complexity, budget tracking, retry logic, and prompt caching. Use when LLM spend needs to come down, or when routing tasks across m",
       "path": "affaan-m--everything-claude-code/skills/cost-aware-llm-pipeline/SKILL.md",
       "remote_path": "skills/cost-aware-llm-pipeline/SKILL.md",
-      "lines": 185,
-      "words": 721,
+      "lines": 189,
+      "words": 768,
       "code_blocks": 5,
       "languages": [
         "python"
@@ -169280,8 +169314,8 @@
       "description": "AI-native lead intelligence and outreach pipeline. Replaces Apollo, Clay, and ZoomInfo with agent-powered signal scoring, mutual ranking, warm path discovery, source-derived voice modeling, and channe",
       "path": "affaan-m--everything-claude-code/skills/lead-intelligence/SKILL.md",
       "remote_path": "skills/lead-intelligence/SKILL.md",
-      "lines": 323,
-      "words": 1684,
+      "lines": 334,
+      "words": 1903,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -170310,8 +170344,8 @@
       "description": "Build a fully automated AI-powered data collection agent for any public source \u2014 job boards, prices, news, GitHub, sports, anything. Runs on a schedule, enriches data with a free LLM (Gemini Flash), s",
       "path": "affaan-m--everything-claude-code/skills/data-scraper-agent/SKILL.md",
       "remote_path": "skills/data-scraper-agent/SKILL.md",
-      "lines": 766,
-      "words": 2962,
+      "lines": 777,
+      "words": 3192,
       "code_blocks": 22,
       "languages": [
         "python",
@@ -170407,8 +170441,8 @@
       "description": "Evidence-first mailbox triage, drafting, send verification, and sent-mail-safe follow-up workflow for ECC. Use when the user wants to organize email, draft or send through the real mail surface, or pr",
       "path": "affaan-m--everything-claude-code/skills/email-ops/SKILL.md",
       "remote_path": "skills/email-ops/SKILL.md",
-      "lines": 123,
-      "words": 572,
+      "lines": 134,
+      "words": 734,
       "code_blocks": 1,
       "languages": [
         "text"
@@ -170640,8 +170674,8 @@
       "description": "Suggests manual context compaction at logical intervals to preserve context through task phases rather than arbitrary auto-compaction. Use when a session is approaching a context limit and a task phas",
       "path": "affaan-m--everything-claude-code/skills/strategic-compact/SKILL.md",
       "remote_path": "skills/strategic-compact/SKILL.md",
-      "lines": 143,
-      "words": 1101,
+      "lines": 157,
+      "words": 1267,
       "code_blocks": 1,
       "languages": [
         "json"
@@ -170754,8 +170788,8 @@
       "description": "Conduct market research, competitive analysis, investor due diligence, and industry intelligence with source attribution and decision-oriented summaries. Use when the user wants market sizing, competi",
       "path": "affaan-m--everything-claude-code/skills/market-research/SKILL.md",
       "remote_path": "skills/market-research/SKILL.md",
-      "lines": 77,
-      "words": 331,
+      "lines": 88,
+      "words": 485,
       "code_blocks": 0,
       "languages": []
     },

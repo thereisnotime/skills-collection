@@ -1673,7 +1673,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 <details>
 <summary><h3 style="display:inline">Marketing</h3></summary>
 
-- **[BrianRWagner/ai-marketing-skills](https://github.com/BrianRWagner/ai-marketing-skills)** - 17 marketing frameworks for cold outreach, homepage audit, social cards, and more
+- **[BrianRWagner/ai-marketing-claude-code-skills](https://github.com/BrianRWagner/ai-marketing-claude-code-skills)** - 17 marketing frameworks for cold outreach, homepage audit, social cards, and more
 - **[AgriciDaniel/claude-seo](https://github.com/AgriciDaniel/claude-seo)** - Universal SEO skill for comprehensive website analysis and optimization
 - **[wshuyi/x-article-publisher-skill](https://github.com/wshuyi/x-article-publisher-skill)** - Publish articles to X/Twitter
 - **[CosmoBlk/email-marketing-bible](https://github.com/CosmoBlk/email-marketing-bible)** - 55K-word email marketing guide as an AI skill
@@ -1689,7 +1689,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[taisly/agent](https://github.com/taisly/agent)** - Codex plugin, Agent Skill, CLI, and MCP server for publishing approved short-form videos to TikTok, Instagram Reels, YouTube Shorts, X, and Facebook through Taisly
 - **[indranilbanerjee/digital-marketing-pro](https://github.com/indranilbanerjee/digital-marketing-pro)** - 150-skill engagement methodology — 12-Part Strategy Flow, 25 specialist agents, EU AI Act Article 50 ready (C2PA signing), 6-platform AEO/GEO incl. Google AI Mode
 - **[infrasity-labs/dev-gtm-claude-skills](https://github.com/infrasity-labs/dev-gtm-claude-skills)**: GTM-focused skill collection for developer go-to-market workflows including launch planning, positioning, and outbound sequences.
-- **[nowork-studio/NotFair](https://github.com/nowork-studio/NotFair)** - SEO, GEO, Google Ads, and Meta Ads skills with live data
+- **[nowork-studio/notfair-plugin](https://github.com/nowork-studio/notfair-plugin)** - SEO, GEO, Google Ads, and Meta Ads skills with live data
 - **[aaron-he-zhu/aaron-marketing-skills](https://github.com/aaron-he-zhu/aaron-marketing-skills)** - 69 marketing skills across SEO/GEO, influencer, paid ads, and email on one shared contract, with 5 benchmark-driven auditor gates (CORE-EEAT, CITE, C³, ROAS, SEND) and keyless data connectors
 - **[gooseworks-ai/goose-skills](https://github.com/gooseworks-ai/goose-skills)** - 125 growth and GTM skills: ads, content, lead gen, SEO
 - **[sergebulaev/linkedin-skills](https://github.com/sergebulaev/linkedin-skills)** - LinkedIn marketing skills: viral hooks, comment drafting, algorithm audit, humanizer
@@ -1727,9 +1727,9 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[openaccountants/openaccountants](https://github.com/openaccountants/openaccountants)** - 371 tax classification skills across 134 countries
 - **[wrsmith108/linear-claude-skill](https://github.com/wrsmith108/linear-claude-skill)** - Manage Linear issues, projects, and teams
 - **[hanfang/claude-memory-skill](https://github.com/hanfang/claude-memory-skill)** - Minimal, low-friction hierarchical memory system with background agents and filesystem-based persistence
-- **[kreuzberg-dev/xberg](https://github.com/kreuzberg-dev/kreuzberg/tree/main/plugin/skills/xberg)** - Extract text, tables, and metadata from 101+ document formats
+- **[xberg-io/xberg](https://github.com/xberg-io/xberg/tree/main/plugin/skills/xberg)** - Extract text, tables, and metadata from 101+ document formats
 - **[Paramchoudhary/ResumeSkills](https://github.com/Paramchoudhary/ResumeSkills)** - 20 specialized skills for resume optimization, ATS analysis, interview prep, and career transitions
-- **[RoundTable02/tutor-skills](https://github.com/RoundTable02/tutor-skills)** - Transform docs or codebases into Obsidian StudyVaults with interactive quizzes
+- **[bevibing/tutor-skills](https://github.com/bevibing/tutor-skills)** - Transform docs or codebases into Obsidian StudyVaults with interactive quizzes
 - **[NeoLabHQ/write-concisely](https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/docs/skills/write-concisely)** - Applies the famous *The Elements of Style* book principles to make documentation and writing clearer and more professional by eliminating wordiness and improving structure.
 - **[ReScienceLab/opc-skills](https://github.com/ReScienceLab/opc-skills)** - Agent skills for solopreneurs with SEO, geo, and LLM tools
 - **[SeanZoR/claude-speed-reader](https://github.com/SeanZoR/claude-speed-reader)** - Speed read Claude's responses at 600+ WPM using RSVP with Spritz-style ORP highlighting
@@ -1756,7 +1756,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[robzolkos/skill-rails-upgrade](https://github.com/robzolkos/skill-rails-upgrade)** - Analyze Rails apps and provide upgrade assessments
 - **[antonbabenko/terraform-skill](https://github.com/antonbabenko/terraform-skill)** - Terraform and OpenTofu patterns: testing, modules, state, CI/CD.
 - **[zxkane/aws-skills](https://github.com/zxkane/aws-skills)** - AWS development with infrastructure automation and cloud architecture patterns
-- **[Rootly-AI-Labs/rootly-incident-responder](https://github.com/Rootly-AI-Labs/Rootly-MCP-server/blob/main/examples/skills/rootly-incident-responder.md)** - AI-powered incident response with ML similarity matching, solution suggestions, and on-call coordination. Requires [Rootly MCP Server](https://github.com/Rootly-AI-Labs/Rootly-MCP-server)
+- **[Rootly-AI-Labs/rootly-incident-responder](https://github.com/rootlyhq/rootly-mcp-server/blob/main/examples/skills/rootly-incident-responder.md)** - AI-powered incident response with ML similarity matching, solution suggestions, and on-call coordination. Requires [Rootly MCP Server](https://github.com/rootlyhq/rootly-mcp-server)
 - **[conorluddy/ios-simulator-skill](https://github.com/conorluddy/ios-simulator-skill)** - Control iOS Simulator
 - **[ramzesenok/iOS-Accessibility-Audit-Skill](https://github.com/ramzesenok/iOS-Accessibility-Audit-Skill)** - Audit iOS App against Accessibility norms
 - **[truongduy2611/app-store-preflight-skills](https://github.com/truongduy2611/app-store-preflight-skills)** - Scan iOS/macOS projects to catch common mistakes that lead to App Store rejection before submission
@@ -1782,13 +1782,13 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[obra/writing-skills](https://github.com/obra/superpowers/blob/main/skills/writing-skills/SKILL.md)** - Develop and document capabilities
 - **[fvadicamo/dev-agent-skills](https://github.com/fvadicamo/dev-agent-skills)** - Git and GitHub workflow skills for commits, PRs, and code reviews
 - **[omkamal/pypict-skill](https://github.com/omkamal/pypict-claude-skill/blob/main/SKILL.md)** - Pairwise test generation
-- **[alinaqi/claude-bootstrap](https://github.com/alinaqi/claude-bootstrap)** - Opinionated project initialization with security-first guardrails, spec-driven atomic todos, LLM testing patterns, and CLI tool orchestration (gh, vercel, supabase)
+- **[alinaqi/maggy](https://github.com/alinaqi/maggy)** - Opinionated project initialization with security-first guardrails, spec-driven atomic todos, LLM testing patterns, and CLI tool orchestration (gh, vercel, supabase)
 - **[ZhangHanDong/makepad-skills](https://github.com/ZhangHanDong/makepad-skills)** - Makepad UI development skills for Rust apps: setup, patterns, shaders, packaging, and troubleshooting.
 - **[massimodeluisa/recursive-decomposition-skill](https://github.com/massimodeluisa/recursive-decomposition-skill)** - Handle long-context tasks (100+ files, 50k+ tokens) through recursive decomposition strategies based on RLM research
 - **[AvdLee/swiftui-expert-skill](https://github.com/AvdLee/SwiftUI-Agent-Skill/tree/main/swiftui-expert-skill)** - Modern SwiftUI best practices and iOS 26+ Liquid Glass adoption
 - **[efremidze/swift-patterns-skill](https://github.com/efremidze/swift-patterns-skill/tree/main/swift-patterns)** - Modern Swift/SwiftUI best practices
-- **[Joannis/claude-skills](https://github.com/Joannis/claude-skills)** - Swift Server development guidance with linting tool for best practices
-- **[rudrankriyam/app-store-connect-cli-skills](https://github.com/rudrankriyam/app-store-connect-cli-skills)** - Automate App Store deployments and management using ASC CLI
+- **[wendylabsinc/claude-skills](https://github.com/wendylabsinc/claude-skills)** - Swift Server development guidance with linting tool for best practices
+- **[rorkai/app-store-connect-cli-skills](https://github.com/rorkai/app-store-connect-cli-skills)** - Automate App Store deployments and management using ASC CLI
 - **[rameerez/claude-code-startup-skills](https://github.com/rameerez/claude-code-startup-skills)** - Skills for building and running software startups, apps, and SaaS
 - **[zscole/model-hierarchy-skill](https://github.com/zscole/model-hierarchy-skill)** - Cost-optimized model routing based on task complexity
 - **[CloudAI-X/threejs-skills](https://github.com/CloudAI-X/threejs-skills)** - Three.js skills for creating 3D elements and interactive experiences
@@ -1809,7 +1809,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[Kevin7Qi/codex-collab](https://github.com/Kevin7Qi/codex-collab)** - Collaborate with Codex from Claude Code
 - **[ethos-link/rails-conventions](https://github.com/ethos-link/rails-conventions)** - Rails 8 conventions for consistent production code changes
 - **[mcollina/skills](https://github.com/mcollina/skills/tree/main/skills)** - 11 skills by Matteo Collina: Node.js, Fastify, TypeScript, OAuth, Git/GitHub, ESLint neostandard, documentation (Diataxis), Node.js core internals, skill optimizer, and more
-- **[Lum1104/understand-anything](https://github.com/Lum1104/Understand-Anything)** - Interactive codebase knowledge graphs via multi-agent LLM analysis
+- **[Lum1104/understand-anything](https://github.com/Egonex-AI/Understand-Anything)** - Interactive codebase knowledge graphs via multi-agent LLM analysis
 - **[hqhq1025/skill-optimizer](https://github.com/hqhq1025/skill-optimizer)** - Diagnose and optimize Agent Skills (SKILL.md) with real session data and research-backed static analysis. Works with Claude Code, Codex, and any Agent Skills-compatible agent
 - **[LambdaTest/agent-skills](https://github.com/LambdaTest/agent-skills)** - TestMu AI (Formerly LambdaTest) Skills is a curated collection of Agent Skills that teach AI coding assistants how to write production-grade test automation.
 - **[foryourhealth111-pixel/Vibe-Skills](https://github.com/foryourhealth111-pixel/Vibe-Skills)** - A skills governed plug-and-play harness for staged, test-driven skill orchestration
@@ -1875,24 +1875,24 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[shouldnotappearcalm/a-share-skill](https://github.com/shouldnotappearcalm/a-share-skill)** - China A-share (Shanghai/Shenzhen) skills: real-time quotes, K-line history, technical indicators, events, capital flows, sector heatmaps, and paper trading. Works with Claude Code, Cursor, Codex, and Qoder
 - **[transloadit/skills](https://github.com/transloadit/skills/tree/main/skills)** - Transloadit skill collection (6)
 - **[honeydew-ai/honeydew-ai-coding-agents-plugins](https://github.com/honeydew-ai/honeydew-ai-coding-agents-plugins)** - 11 skills for the Honeydew semantic layer over Snowflake, Databricks, and BigQuery: model exploration, entity/relation/attribute/metric/context/domain creation, validation, query, filtering, and workspace branching
-- **[raintree-technology/apple-hig-skills](https://github.com/raintree-technology/apple-hig-skills)** - Apple Human Interface Guidelines as 14 agent skills covering platforms, foundations, components, patterns, inputs, and technologies for iOS, macOS, visionOS, watchOS, and tvOS
-- **[K-Dense-AI/claude-scientific-skills](https://github.com/K-Dense-AI/claude-scientific-skills)** - Scientific research and analysis skills
+- **[raintree-technology/hig-doctor](https://github.com/raintree-technology/hig-doctor)** - Apple Human Interface Guidelines as 14 agent skills covering platforms, foundations, components, patterns, inputs, and technologies for iOS, macOS, visionOS, watchOS, and tvOS
+- **[K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills)** - Scientific research and analysis skills
 - **[NotMyself/claude-win11-speckit-update-skill](https://github.com/NotMyself/claude-win11-speckit-update-skill)** - Windows 11 system management
 - **[sanjay3290/imagen](https://github.com/sanjay3290/ai-skills/tree/main/skills/imagen)** - Generate images using Google Gemini's API
 - **[SHADOWPR0/security-bluebook-builder](https://github.com/SHADOWPR0/security-bluebook-builder)** - Build security Blue Books for sensitive apps
-- **[huifer/Claude-Ally-Health](https://github.com/huifer/Claude-Ally-Health)** - A health assistant skill for medical information analysis, symptom tracking, and wellness guidance.
+- **[huifer/WellAlly-health](https://github.com/huifer/WellAlly-health)** - A health assistant skill for medical information analysis, symptom tracking, and wellness guidance.
 - **[frmoretto/clarity-gate](https://github.com/frmoretto/clarity-gate)** - Epistemic quality verification for RAG systems
 - **[wanshuiyin/Auto-claude-code-research-in-sleep](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep)** - Autonomous ML research with cross-model review loops and GPU deployment
-- **[zechenzhangAGI/AI-research-SKILLs](https://github.com/zechenzhangAGI/AI-research-SKILLs)** - 77 AI research skills for model training, inference, and MLOps
+- **[Orchestra-Research/AI-Research-SKILLs](https://github.com/Orchestra-Research/AI-Research-SKILLs)** - 77 AI research skills for model training, inference, and MLOps
 - **[Orchestra-Research/AI-research-SKILLs](https://github.com/Orchestra-Research/AI-research-SKILLs)** - 20-module AI research skill library for model architecture, training, and ML paper writing
 - **[komal-SkyNET/claude-skill-homeassistant](https://github.com/komal-SkyNET/claude-skill-homeassistant)** - Supercharge and manage Home Assistant workflows
 - **[more-io/apple-bridges](https://github.com/more-io/claude-apple-bridges)** - Native macOS app access — manage Apple Reminders, Calendar, Contacts, Notes, Mail, and tmux sessions via Swift CLI bridges
 - **[hanhuark/mechanical-engineering-research-skill](https://github.com/hanhuark/mechanical-engineering-research-skill)** - Thermal-fluid research writing, proposals, DOE, and presentation feedback
 - **[prompt-security/clawsec](https://github.com/prompt-security/clawsec)** - Security skill suite with drift detection, automated audits, and skill integrity verification
 - **[BehiSecc/vibesec](https://github.com/BehiSecc/VibeSec-Skill)** - Helps write secure code by preventing common vulnerabilities including IDOR, XSS, SQL injection, SSRF, and weak authentication, approaching code from a bug hunter's perspective
-- **[lawvable/awesome-legal-skills](https://github.com/lawvable/awesome-legal-skills)** - Curated agent skills for automating legal workflows
+- **[lawve-ai/awesome-legal-skills](https://github.com/lawve-ai/awesome-legal-skills)** - Curated agent skills for automating legal workflows
 - **[peas/genealogy-research](https://paulo.com.br/skills/genealogy-research/SKILL.md)** - Genealogy research agent with OCR, FamilySearch, YAML data, and human-in-the-loop
-- **[zw008/VMware-AIops](https://github.com/zw008/VMware-AIops)** - AI-powered VMware vCenter/ESXi monitoring and operations: inventory queries, health/alarms, VM lifecycle (create, delete, snapshot, clone, migrate), vSAN management, Aria Operations analytics, and scheduled log scanning. Supports Claude Code, Gemini CLI, Codex, Aider, Trae, Kimi, and MCP.
+- **[vmware-skills/VMware-AIops](https://github.com/vmware-skills/VMware-AIops)** - AI-powered VMware vCenter/ESXi monitoring and operations: inventory queries, health/alarms, VM lifecycle (create, delete, snapshot, clone, migrate), vSAN management, Aria Operations analytics, and scheduled log scanning. Supports Claude Code, Gemini CLI, Codex, Aider, Trae, Kimi, and MCP.
 - **[video-db/skills](https://github.com/video-db/skills)** - Realtime and batch video workflows: capture screen/audio, ingest URLs/YouTube/RTSP, transcribe, index, search, generate subtitles, edit timelines, and stream HLS output
 - **[materials-simulation-skills](https://github.com/HeshamFS/materials-simulation-skills)** - Agent skills for computational materials science: numerical stability, time-stepping, linear solvers, mesh generation, simulation validation, parameter optimization, and post-processing
 - **[Ericyoung-183/alpha-insights](https://github.com/Ericyoung-183/alpha-insights)** - Harness-enforced business research for Claude Code and Codex

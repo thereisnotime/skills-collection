@@ -4,6 +4,59 @@ All notable changes to this project are documented here.
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **README adds a restrained related-work block.** Links to Conor's public
+  builds, Chain of Thought, and `repo-audit` now sit after the core product and
+  usage documentation.
+
+---
+
+## [3.28.0] — 2026-08-28
+
+### Added
+
+- **Seven rhetorical-tic pattern categories adapted from Simon Willison's
+  [LLM cliché highlighter](https://tools.simonwillison.net/llm-cliche-highlighter).**
+  Three ship with detector types: `performed-insight` (essayist tics that
+  announce profundity — "sit with that", "that's not nothing", sentence-initial
+  "Turns out", "is the whole point", "X is dead; long live X"),
+  `negation-chain` (three-part "no fluff, no filler, no jargon" chains,
+  stacked "didn't …" clauses, "don't call it X — call it Y"), and
+  `dev-blog-boilerplate` ("it just works", "zero config", "sane defaults",
+  "fits in your head"). Four are skill-only
+  judgment rules with the reasons recorded in `CATEGORIES.md`: stacked
+  rhetorical questions, same-opener sentence runs, stranded auxiliary
+  contrast, and colon into a triple. Negation-chain items carry a stop-list
+  so idiomatic pairs ("no more, no less", "no matter") stay clean.
+
+### Fixed
+
+- **The deterministic subset stays narrower than the judgment rules.** The
+  `no …` matcher now requires three short items, literal "the punchline",
+  "worth naming", and "batteries included" senses stay out of regex matching,
+  and "it just works out of the box" remains detectable without reviving the
+  ordinary "works out to" false positive.
+
+---
+
+## [3.27.0] — 2026-08-26
+
+### Added
+
+- **`analyzeText()` can score rendered Markdown instead of source-only
+  metadata (#123).** Pass `sourceMode: "rendered-markdown"` to mask initial
+  YAML frontmatter and HTML comments before pattern and document analysis.
+  Code-span comment examples remain visible, frontmatter recognition accepts
+  LF, CRLF, and CR without hiding thematic-break sections, and masks preserve
+  issue and sentence-highlight offsets. `stats` reports the selected mode,
+  explicit fallbacks, and masked-span counts. Plain mode remains compatible
+  with its existing scoring behavior.
+
+---
+
 ## [3.26.0] — 2026-08-24
 
 ### Fixed
