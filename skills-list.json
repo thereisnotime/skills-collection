@@ -11239,8 +11239,8 @@
       "description": "Resolve PR review feedback. Use when addressing feedback already left on a PR. Not for reviewing the code before feedback exists; that is ce-code-review.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-resolve-pr-feedback/SKILL.md",
       "remote_path": "skills/ce-resolve-pr-feedback/SKILL.md",
-      "lines": 58,
-      "words": 875,
+      "lines": 60,
+      "words": 978,
       "code_blocks": 0,
       "languages": []
     },
@@ -11310,7 +11310,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 58,
-      "words": 1143,
+      "words": 1156,
       "code_blocks": 0,
       "languages": []
     },
@@ -12813,8 +12813,8 @@
       "description": "Rowan is a cloud-native molecular modeling and medicinal-chemistry workflow platform with a Python API. Use for pKa and macropKa prediction, conformer and tautomer ensembles, docking and analogue dock",
       "path": "K-Dense-AI--claude-scientific-skills/skills/rowan/SKILL.md",
       "remote_path": "skills/rowan/SKILL.md",
-      "lines": 382,
-      "words": 1633,
+      "lines": 399,
+      "words": 1735,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -59141,7 +59141,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-76-architecture-migration-planner/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-76-architecture-migration-planner/SKILL.md",
       "lines": 106,
-      "words": 1029,
+      "words": 1047,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59153,7 +59153,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-74-architecture-decision-recorder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-74-architecture-decision-recorder/SKILL.md",
       "lines": 104,
-      "words": 928,
+      "words": 946,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59165,7 +59165,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-72-current-architecture-documenter/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-72-current-architecture-documenter/SKILL.md",
       "lines": 104,
-      "words": 956,
+      "words": 974,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59177,7 +59177,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
       "lines": 106,
-      "words": 1048,
+      "words": 1066,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59189,7 +59189,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-71-system-design-baseline-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-71-system-design-baseline-builder/SKILL.md",
       "lines": 107,
-      "words": 1084,
+      "words": 1102,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59201,7 +59201,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
       "lines": 104,
-      "words": 965,
+      "words": 983,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59213,7 +59213,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
       "lines": 111,
-      "words": 1366,
+      "words": 1383,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59225,7 +59225,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "lines": 117,
-      "words": 1744,
+      "words": 1761,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59237,7 +59237,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "lines": 117,
-      "words": 1712,
+      "words": 1729,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59249,7 +59249,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
       "lines": 131,
-      "words": 1988,
+      "words": 2005,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59261,7 +59261,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
       "lines": 139,
-      "words": 1989,
+      "words": 2006,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59273,7 +59273,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
       "lines": 128,
-      "words": 1935,
+      "words": 1952,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59285,7 +59285,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
       "lines": 123,
-      "words": 1784,
+      "words": 1801,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59297,7 +59297,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
       "lines": 143,
-      "words": 2333,
+      "words": 2350,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59309,7 +59309,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-35-surgical-change-implementer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-35-surgical-change-implementer/SKILL.md",
       "lines": 121,
-      "words": 1775,
+      "words": 1793,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59321,7 +59321,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
       "lines": 129,
-      "words": 1703,
+      "words": 1720,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59333,7 +59333,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
       "lines": 129,
-      "words": 1743,
+      "words": 1760,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59345,7 +59345,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
       "lines": 122,
-      "words": 1587,
+      "words": 1604,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59357,7 +59357,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "lines": 128,
-      "words": 1834,
+      "words": 1851,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -59393,7 +59393,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
       "lines": 109,
-      "words": 1423,
+      "words": 1440,
       "code_blocks": 0,
       "languages": []
     },
@@ -59403,7 +59403,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-64-community-announcer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-64-community-announcer/SKILL.md",
       "lines": 105,
-      "words": 1210,
+      "words": 1227,
       "code_blocks": 0,
       "languages": []
     },
@@ -59413,7 +59413,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
       "lines": 107,
-      "words": 1288,
+      "words": 1305,
       "code_blocks": 0,
       "languages": []
     },
@@ -59423,7 +59423,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "lines": 105,
-      "words": 1164,
+      "words": 1181,
       "code_blocks": 0,
       "languages": []
     }
@@ -71311,26 +71311,54 @@
       "license": "MIT"
     },
     {
+      "name": "contribute-publish",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-publish/SKILL.md",
+      "remote_path": "plugins/community/contributing-clanker/skills/contribute-publish/SKILL.md",
+      "lines": 119,
+      "words": 682,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.9.0\"",
+      "license": "\"MIT\""
+    },
+    {
       "name": "contribute",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute/SKILL.md",
       "remote_path": "plugins/community/contributing-clanker/skills/contribute/SKILL.md",
-      "lines": 458,
-      "words": 3268,
-      "code_blocks": 10,
+      "lines": 160,
+      "words": 858,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "\"0.8.0\"",
+      "version": "\"0.9.0\"",
+      "license": "\"MIT\""
+    },
+    {
+      "name": "contribute-prepare",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-prepare/SKILL.md",
+      "remote_path": "plugins/community/contributing-clanker/skills/contribute-prepare/SKILL.md",
+      "lines": 142,
+      "words": 704,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "version": "\"0.9.0\"",
       "license": "\"MIT\""
     },
     {
       "name": "researcher",
       "description": "Builds and refreshes per-repo dossiers capturing CLA/DCO requirements, branch conventions, AI disclosure policy, review bots, and maintainer pet peeves as the gate system's source of truth. Use when s",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute/agents/researcher.md",
-      "remote_path": "plugins/community/contributing-clanker/skills/contribute/agents/researcher.md",
-      "lines": 267,
-      "words": 1536,
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-prepare/agents/researcher.md",
+      "remote_path": "plugins/community/contributing-clanker/skills/contribute-prepare/agents/researcher.md",
+      "lines": 268,
+      "words": 1547,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -71341,10 +71369,10 @@
     {
       "name": "scout",
       "description": "Discovers and scores OSS contribution candidates by star-tier bracket using gh search, applying profile-driven filters for language, CLA tolerance, and competition density. Use when finding new repos ",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute/agents/scout.md",
-      "remote_path": "plugins/community/contributing-clanker/skills/contribute/agents/scout.md",
-      "lines": 202,
-      "words": 1090,
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-prepare/agents/scout.md",
+      "remote_path": "plugins/community/contributing-clanker/skills/contribute-prepare/agents/scout.md",
+      "lines": 203,
+      "words": 1095,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -71354,8 +71382,8 @@
     {
       "name": "test-runner",
       "description": "Runs an upstream repo's native test suite using auto-detected stack conventions (pnpm/yarn/npm/pytest/cargo/sbt/composer/bundle) and logs structured output for gate consumption. Use when verifying a c",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute/agents/test-runner.md",
-      "remote_path": "plugins/community/contributing-clanker/skills/contribute/agents/test-runner.md",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-prepare/agents/test-runner.md",
+      "remote_path": "plugins/community/contributing-clanker/skills/contribute-prepare/agents/test-runner.md",
       "lines": 86,
       "words": 524,
       "code_blocks": 2,
@@ -71366,22 +71394,20 @@
     },
     {
       "name": "draft-writer",
-      "description": "Drafts Design Issue bodies or PR descriptions from a working branch diff, writes them to the candidate file, and pre-fills required gate sections. Use when preparing an OSS contribution for submission",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute/agents/draft-writer.md",
-      "remote_path": "plugins/community/contributing-clanker/skills/contribute/agents/draft-writer.md",
-      "lines": 126,
-      "words": 697,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
-      ],
-      "version": "1.0.0"
+      "description": "Drafts a Design Issue, claim, or pull-request body from a prepared diff and evidence packet without publishing it. Use when local contribution work is ready for review.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-prepare/agents/draft-writer.md",
+      "remote_path": "plugins/community/contributing-clanker/skills/contribute-prepare/agents/draft-writer.md",
+      "lines": 86,
+      "words": 308,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "repo-analyzer",
       "description": "Runs one-shot repo eligibility checks \u2014 CLA status, maintainer activity, competing PRs, and CONTRIBUTING.md \u2014 and issues a claim/wait/skip verdict. Use when quickly qualifying a repo before committing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute/agents/repo-analyzer.md",
-      "remote_path": "plugins/community/contributing-clanker/skills/contribute/agents/repo-analyzer.md",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/contributing-clanker/skills/contribute-prepare/agents/repo-analyzer.md",
+      "remote_path": "plugins/community/contributing-clanker/skills/contribute-prepare/agents/repo-analyzer.md",
       "lines": 84,
       "words": 443,
       "code_blocks": 2,
@@ -126314,13 +126340,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/contribute/SKILL.md",
       "remote_path": "skills/.curated/contribute/SKILL.md",
-      "lines": 458,
-      "words": 3268,
-      "code_blocks": 10,
+      "lines": 160,
+      "words": 858,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "\"0.8.0\"",
+      "version": "\"0.9.0\"",
       "license": "\"MIT\""
     },
     {
@@ -149291,72 +149317,6 @@
       "license": "MIT"
     },
     {
-      "name": "researcher",
-      "description": "Builds and refreshes per-repo dossiers capturing CLA/DCO requirements, branch conventions, AI disclosure policy, review bots, and maintainer pet peeves as the gate system's source of truth. Use when s",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/contribute/agents/researcher.md",
-      "remote_path": "skills/.curated/contribute/agents/researcher.md",
-      "lines": 267,
-      "words": 1536,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "scout",
-      "description": "Discovers and scores OSS contribution candidates by star-tier bracket using gh search, applying profile-driven filters for language, CLA tolerance, and competition density. Use when finding new repos ",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/contribute/agents/scout.md",
-      "remote_path": "skills/.curated/contribute/agents/scout.md",
-      "lines": 202,
-      "words": 1090,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "test-runner",
-      "description": "Runs an upstream repo's native test suite using auto-detected stack conventions (pnpm/yarn/npm/pytest/cargo/sbt/composer/bundle) and logs structured output for gate consumption. Use when verifying a c",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/contribute/agents/test-runner.md",
-      "remote_path": "skills/.curated/contribute/agents/test-runner.md",
-      "lines": 86,
-      "words": 524,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "draft-writer",
-      "description": "Drafts Design Issue bodies or PR descriptions from a working branch diff, writes them to the candidate file, and pre-fills required gate sections. Use when preparing an OSS contribution for submission",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/contribute/agents/draft-writer.md",
-      "remote_path": "skills/.curated/contribute/agents/draft-writer.md",
-      "lines": 126,
-      "words": 697,
-      "code_blocks": 2,
-      "languages": [
-        "markdown"
-      ],
-      "version": "1.0.0"
-    },
-    {
-      "name": "repo-analyzer",
-      "description": "Runs one-shot repo eligibility checks \u2014 CLA status, maintainer activity, competing PRs, and CONTRIBUTING.md \u2014 and issues a claim/wait/skip verdict. Use when quickly qualifying a repo before committing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/contribute/agents/repo-analyzer.md",
-      "remote_path": "skills/.curated/contribute/agents/repo-analyzer.md",
-      "lines": 84,
-      "words": 443,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.0.0"
-    },
-    {
       "name": "plane-expert",
       "description": "\"Plane API surface specialist that answers endpoint discovery, response shape, and pagination questions from api-surface.md without firing live API calls \u2014 suggests compound commands when a behavioral",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/plane/agents/plane-expert.md",
@@ -153989,11 +153949,12 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 222,
-      "words": 902,
-      "code_blocks": 8,
+      "lines": 184,
+      "words": 1312,
+      "code_blocks": 4,
       "languages": [
-        "bash"
+        "bash",
+        "text"
       ]
     },
     {
@@ -154319,9 +154280,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1148,
-      "words": 9059,
-      "code_blocks": 64,
+      "lines": 1261,
+      "words": 11273,
+      "code_blocks": 71,
       "languages": [
         "bash",
         "json",
@@ -154694,9 +154655,9 @@
       "description": "Convert markdown files to professional PDF documents with proper Chinese font support, theme system, and visual self-check. Use whenever the user asks to create PDFs, convert markdown to PDF, generate",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-creator/SKILL.md",
       "remote_path": "daymade-docs/pdf-creator/SKILL.md",
-      "lines": 173,
-      "words": 1923,
-      "code_blocks": 3,
+      "lines": 197,
+      "words": 2487,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ]
@@ -154928,12 +154889,22 @@
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "lines": 463,
-      "words": 4990,
+      "words": 4994,
       "code_blocks": 11,
       "languages": [
         "bash",
         "json"
       ]
+    },
+    {
+      "name": "local-conversation-history",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
+      "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
+      "lines": 117,
+      "words": 1096,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "statusline-generator",
@@ -154977,8 +154948,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 160,
-      "words": 1022,
+      "lines": 169,
+      "words": 1134,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -154989,8 +154960,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 262,
-      "words": 1854,
+      "lines": 263,
+      "words": 1892,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -155001,8 +154972,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 156,
-      "words": 989,
+      "lines": 169,
+      "words": 1127,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -155058,8 +155029,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/references/legacy_multi_provider_inventory.md",
       "remote_path": "daymade-claude-code/read-codex-history/references/legacy_multi_provider_inventory.md",
-      "lines": 263,
-      "words": 1936,
+      "lines": 270,
+      "words": 2024,
       "code_blocks": 5,
       "languages": [
         "markdown",
@@ -155071,8 +155042,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/references/legacy_cross_provider_workflow.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/references/legacy_cross_provider_workflow.md",
-      "lines": 642,
-      "words": 3934,
+      "lines": 649,
+      "words": 4010,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -155123,8 +155094,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 337,
-      "words": 3395,
+      "lines": 339,
+      "words": 3498,
       "code_blocks": 0,
       "languages": []
     },
@@ -170310,11 +170281,12 @@
       "description": "Fact-forcing gate that blocks Edit/Write/Bash (including MultiEdit) and demands concrete investigation (importers, data schemas, user instruction) before allowing the action. Measurably improves outpu",
       "path": "affaan-m--everything-claude-code/skills/gateguard/SKILL.md",
       "remote_path": "skills/gateguard/SKILL.md",
-      "lines": 134,
-      "words": 795,
-      "code_blocks": 6,
+      "lines": 183,
+      "words": 1177,
+      "code_blocks": 7,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ]
     },
     {

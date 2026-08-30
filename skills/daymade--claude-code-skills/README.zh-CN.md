@@ -217,6 +217,7 @@ claude plugin install daymade-claude-code@daymade-skills
 一次安装即可获得扩展 Claude Code 本体的全部 power-user 技能——跨代码、项目文档、Skill/SOP、会议、微信归档与对话历史的已有工作检索；跨 Claude Code/Codex 的快速本地对话发现；会话恢复；CLAUDE.md 调优；随 lark-cli 版本同步的飞书路由；故障诊断；statusline 配置；导出修复；marketplace 开发与 suite 收敛；终端截图渲染；用量分析；以及多 Provider 模型切换：
 
 ```text
+/daymade-claude-code:local-conversation-history
 /daymade-claude-code:read-claude-code-history
 /daymade-claude-code:read-codex-history
 /daymade-claude-code:continue-claude-code-work
@@ -386,20 +387,21 @@ CC-Switch 支持以下中国 AI 服务提供商：
 
 ### **github-ops** - GitHub 操作套件
 
-使用 gh CLI 和 GitHub API 进行全面的 GitHub 操作。
+通过 gh CLI 和 GitHub API 操作 GitHub；每次变更明确目标、影响范围，并独立读回状态。
 
 **使用场景：**
 - 创建、查看或管理拉取请求
 - 管理问题和仓库设置
+- 管理协作者、团队、组织权限与 2FA 要求
 - 查询 GitHub API 端点
 - 使用 GitHub Actions 工作流
 - 自动化 GitHub 操作
 
 **主要功能：**
-- 带 JIRA 集成的 PR 创建
-- 问题管理工作流
-- GitHub API（REST 和 GraphQL）操作
-- 工作流自动化
+- PR、问题、仓库与 Actions 的可验证变更流程
+- 并行或被替代 PR 的收敛
+- 组织访问、成员权限与 2FA 影响预检
+- REST、GraphQL 与 GitHub 设置页面的通道路由
 - 企业 GitHub 支持
 
 **🎬 实时演示**
@@ -928,6 +930,28 @@ python3 scripts/calculate_metrics.py tests/TEST-EXECUTION-TRACKING.csv
 - `examples.md` - 包含前后对比的完整转换示例
 
 **💡 创新**：EARS 方法论通过强制明确条件、触发器和可测量标准来消除歧义。结合领域理论基础（GTD、BJ Fogg、格式塔等），它将"构建一个待办事项应用"转换为包含行为心理学原则、UX 最佳实践和具体测试用例的完整规范 - 从第一天起就支持测试驱动开发。
+
+---
+
+### **local-conversation-history** - 跨 provider 历史统一入口
+
+> **安装**：`claude plugin install daymade-claude-code@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-claude-code:local-conversation-history`）
+
+四个「平台 × 动作」历史 Skill 之上的入口层。它按平台（Claude Code / OpenAI Codex /
+Kimi CLI）和动作（取证 vs 续做）把请求分流给真正拥有它的那一个，并独占一件谁都不单独
+拥有的事：**一次列出全部三家 provider 的会话清单**。
+
+**使用场景：**
+- provider 未知或不止一个——「我们的历史」「我最近都在忙什么」
+- 列 Kimi CLI 会话，它没有专属 Skill
+- 分不清要的是取证还是续做
+- 你记得的就是这个入口名
+
+**不适用**：平台和动作**都**已经明确时，直接加载对应的执行 Skill——此时路由只多一跳，
+不提供额外信息。
+
+**设计**：薄路由层。不含解析逻辑、不含 `--source` 以外的 provider 专属参数、不复制执行
+Skill 的命令，因此不会漂移成教一条过期的调用方式。
 
 ---
 
@@ -2762,7 +2786,7 @@ claude plugin install daymade-claude-code@daymade-skills
 - 为学员配置课后环境，复现同样的多 provider 工作流
 
 **主要功能：**
-- 一键安装器把五个运行脚本链接到 `~/.config/claude-switch-models-setup/`，且只在激活清单不存在时创建空模板
+- 一键安装器把声明的运行脚本链接到 `~/.config/claude-switch-models-setup/`，且只在激活清单不存在时创建空模板
 - 内置 provider 专用的 `~/.claude/settings/<provider>.json` 模板，并带上必要的隔离标志
 - `claude-profiles-init` 创建隔离目录 `~/.claude-profiles/<provider>/`，其余资源通过 symlink 共享
 - profile 同步会镜像默认 Claude profile 的 enabled plugins，并共享 installed plugin state
@@ -3620,7 +3644,7 @@ lark-cli 提示 user 身份缺少 scope
 ## 🎯 使用场景
 
 ### GitHub 工作流
-使用 **github-ops** 简化 PR 创建、问题管理和 API 操作。维护者要对一个现有
+使用 **github-ops** 完成可验证的 PR、问题、Actions、仓库、组织访问和 API 操作。维护者要对一个现有
 贡献者 PR 或完整 open PR 队列做基于当前 base 的代码 review、责任归因或
 review 后修复/落地时，使用 **github-review-pr**。
 
