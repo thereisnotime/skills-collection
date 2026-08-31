@@ -26393,7 +26393,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "transparent-videos",
@@ -26420,7 +26420,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "tailwind",
@@ -26441,7 +26441,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "remotion-best-practices",
@@ -26452,7 +26452,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "remotion-upgrade",
@@ -26465,7 +26465,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "calculate-metadata",
@@ -26491,7 +26491,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "lottie",
@@ -26762,7 +26762,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "remotion-multimedia",
@@ -26773,7 +26773,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "get-audio-duration",
@@ -26822,7 +26822,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "transcribe-captions",
@@ -26874,7 +26874,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "remotion-maps",
@@ -26885,7 +26885,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "rendering",
@@ -26906,7 +26906,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "player",
@@ -26953,7 +26953,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "remotion-create",
@@ -26966,7 +26966,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "tailwind",
@@ -26987,7 +26987,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "remotion-upgrade",
@@ -27000,7 +27000,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "calculate-metadata",
@@ -27155,7 +27155,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "measuring-dom-nodes",
@@ -27297,7 +27297,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "get-audio-duration",
@@ -27320,7 +27320,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "get-video-dimensions",
@@ -27383,7 +27383,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "display-captions",
@@ -27409,7 +27409,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "remotion-maps",
@@ -27420,7 +27420,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "rendering",
@@ -27453,7 +27453,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "framework",
@@ -27474,7 +27474,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "maps-maplibre",
@@ -27565,7 +27565,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.518"
+      "version": "4.0.519"
     },
     {
       "name": "maps-maplibre",
@@ -82024,7 +82024,7 @@
       "words": 1080,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82039,7 +82039,7 @@
         "bash",
         "markdown"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82047,13 +82047,14 @@
       "description": "'Production readiness checklist for Lindy AI agent deployments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-prod-checklist/SKILL.md",
-      "lines": 172,
-      "words": 954,
-      "code_blocks": 1,
+      "lines": 198,
+      "words": 1159,
+      "code_blocks": 2,
       "languages": [
-        "bash"
+        "bash",
+        "markdown"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82061,11 +82062,13 @@
       "description": "'Manage Lindy agent configuration changes, platform updates, and migrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-upgrade-migration/SKILL.md",
-      "lines": 194,
-      "words": 917,
-      "code_blocks": 2,
-      "languages": [],
-      "version": "1.17.0",
+      "lines": 188,
+      "words": 1213,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ],
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82073,11 +82076,13 @@
       "description": "'Optimize Lindy AI agent execution speed, reliability, and cost efficiency.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-performance-tuning/SKILL.md",
-      "lines": 191,
-      "words": 976,
-      "code_blocks": 5,
-      "languages": [],
-      "version": "1.17.0",
+      "lines": 221,
+      "words": 1323,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82093,7 +82098,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82101,13 +82106,14 @@
       "description": "'Configure Lindy AI webhook triggers, callback patterns, and event handling.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-webhooks-events/SKILL.md",
-      "lines": 264,
-      "words": 958,
-      "code_blocks": 10,
+      "lines": 230,
+      "words": 1345,
+      "code_blocks": 4,
       "languages": [
+        "text",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82115,15 +82121,15 @@
       "description": "'Configure Lindy AI across development, staging, and production environments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-multi-env-setup/SKILL.md",
-      "lines": 216,
-      "words": 740,
+      "lines": 232,
+      "words": 840,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82135,22 +82141,19 @@
       "words": 1081,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
       "name": "lindy-security-basics",
-      "description": "'Implement security best practices for Lindy AI agents and integrations.",
+      "description": "'Implement security best practices for Lindy agents and integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-security-basics/SKILL.md",
-      "lines": 192,
-      "words": 857,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
+      "lines": 187,
+      "words": 1243,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82158,45 +82161,44 @@
       "description": "'Manage Lindy AI credits, rate limits, and usage optimization.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-rate-limits/SKILL.md",
-      "lines": 206,
-      "words": 915,
+      "lines": 195,
+      "words": 1109,
       "code_blocks": 3,
       "languages": [
-        "typescript"
+        "text",
+        "typescript",
+        "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
       "name": "lindy-install-auth",
-      "description": "'Set up Lindy AI account, API access, and webhook authentication.",
+      "description": "'Set up a Lindy account and authenticated webhook trigger.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-install-auth/SKILL.md",
-      "lines": 157,
-      "words": 612,
-      "code_blocks": 7,
+      "lines": 136,
+      "words": 699,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "python",
-        "typescript"
+        "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
       "name": "lindy-sdk-patterns",
-      "description": "'Lindy AI integration patterns for webhook handling, HTTP actions, and",
+      "description": "'Lindy integration patterns for webhook handling, HTTP actions, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-sdk-patterns/SKILL.md",
-      "lines": 234,
-      "words": 866,
-      "code_blocks": 7,
+      "lines": 216,
+      "words": 1165,
+      "code_blocks": 2,
       "languages": [
         "python",
-        "text",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82204,15 +82206,15 @@
       "description": "'Incident response procedures for Lindy AI agent failures and outages.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-incident-runbook/SKILL.md",
-      "lines": 241,
-      "words": 1061,
+      "lines": 277,
+      "words": 1313,
       "code_blocks": 4,
       "languages": [
         "bash",
         "markdown",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82224,7 +82226,7 @@
       "words": 1142,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82232,15 +82234,14 @@
       "description": "'Monitor Lindy AI agent health, task success rates, and credit consumption.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-observability/SKILL.md",
-      "lines": 239,
-      "words": 998,
-      "code_blocks": 5,
+      "lines": 248,
+      "words": 1297,
+      "code_blocks": 2,
       "languages": [
         "json",
-        "typescript",
-        "yaml"
+        "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82248,14 +82249,14 @@
       "description": "'Reference architectures for Lindy AI agent integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-reference-architecture/SKILL.md",
-      "lines": 252,
-      "words": 930,
+      "lines": 314,
+      "words": 1629,
       "code_blocks": 7,
       "languages": [
-        "html",
-        "typescript"
+        "text",
+        "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82267,7 +82268,7 @@
       "words": 1026,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82275,15 +82276,15 @@
       "description": "'Set up local development workflow for testing Lindy AI agent integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-local-dev-loop/SKILL.md",
-      "lines": 208,
-      "words": 681,
-      "code_blocks": 9,
+      "lines": 231,
+      "words": 860,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82297,7 +82298,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82314,7 +82315,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82328,7 +82329,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82336,13 +82337,13 @@
       "description": "'Advanced migration strategies for moving to Lindy AI from other platforms.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/lindy-pack/skills/lindy-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/lindy-pack/skills/lindy-migration-deep-dive/SKILL.md",
-      "lines": 222,
-      "words": 1080,
+      "lines": 239,
+      "words": 1203,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -82354,7 +82355,7 @@
       "words": 944,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -95896,7 +95897,7 @@
         "python",
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -95911,7 +95912,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -95926,7 +95927,7 @@
         "sql",
         "yaml"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -95941,7 +95942,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -95957,7 +95958,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -95971,7 +95972,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -95979,14 +95980,14 @@
       "description": "'Choose and implement Snowflake architecture blueprints: data lakehouse,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-architecture-variants/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-architecture-variants/SKILL.md",
-      "lines": 258,
-      "words": 1063,
-      "code_blocks": 7,
+      "lines": 262,
+      "words": 1491,
+      "code_blocks": 5,
       "languages": [
         "python",
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96000,7 +96001,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96017,7 +96018,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96033,7 +96034,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96047,7 +96048,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96055,15 +96056,14 @@
       "description": "'Identify and avoid Snowflake anti-patterns and common mistakes in SQL,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-known-pitfalls/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-known-pitfalls/SKILL.md",
-      "lines": 347,
-      "words": 1121,
-      "code_blocks": 21,
+      "lines": 292,
+      "words": 1631,
+      "code_blocks": 11,
       "languages": [
-        "bash",
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96077,7 +96077,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96094,7 +96094,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96109,7 +96109,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96126,7 +96126,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96141,7 +96141,7 @@
         "bash",
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96149,15 +96149,14 @@
       "description": "'Execute Snowflake incident response with triage, rollback, and postmortem",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-incident-runbook/SKILL.md",
-      "lines": 243,
-      "words": 870,
-      "code_blocks": 10,
+      "lines": 233,
+      "words": 1509,
+      "code_blocks": 2,
       "languages": [
         "bash",
-        "markdown",
-        "sql"
+        "markdown"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96171,7 +96170,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96179,16 +96178,16 @@
       "description": "'Apply advanced Snowflake debugging with query profiling, spill analysis,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-advanced-troubleshooting/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-advanced-troubleshooting/SKILL.md",
-      "lines": 242,
-      "words": 953,
-      "code_blocks": 8,
+      "lines": 387,
+      "words": 2065,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "python",
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96203,7 +96202,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96219,7 +96218,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96235,7 +96234,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96250,7 +96249,7 @@
         "python",
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96267,7 +96266,7 @@
         "sql",
         "yaml"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96281,7 +96280,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96296,7 +96295,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96304,16 +96303,14 @@
       "description": "'Diagnose and fix common Snowflake errors and SQL compilation failures.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-common-errors/SKILL.md",
-      "lines": 273,
-      "words": 855,
-      "code_blocks": 19,
+      "lines": 193,
+      "words": 1270,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "python",
-        "sql",
-        "typescript"
+        "markdown",
+        "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96328,7 +96325,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -96342,7 +96339,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -121372,7 +121369,7 @@
       "words": 1080,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -121562,7 +121559,7 @@
         "bash",
         "markdown"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -121677,13 +121674,14 @@
       "description": "'Production readiness checklist for Lindy AI agent deployments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/lindy-prod-checklist/SKILL.md",
-      "lines": 172,
-      "words": 954,
-      "code_blocks": 1,
+      "lines": 198,
+      "words": 1159,
+      "code_blocks": 2,
       "languages": [
-        "bash"
+        "bash",
+        "markdown"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -122976,11 +122974,13 @@
       "description": "'Manage Lindy agent configuration changes, platform updates, and migrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/lindy-upgrade-migration/SKILL.md",
-      "lines": 194,
-      "words": 917,
-      "code_blocks": 2,
-      "languages": [],
-      "version": "1.17.0",
+      "lines": 188,
+      "words": 1213,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ],
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -123659,11 +123659,13 @@
       "description": "'Optimize Lindy AI agent execution speed, reliability, and cost efficiency.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/lindy-performance-tuning/SKILL.md",
-      "lines": 191,
-      "words": 976,
-      "code_blocks": 5,
-      "languages": [],
-      "version": "1.17.0",
+      "lines": 221,
+      "words": 1323,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ],
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -123735,7 +123737,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -125727,13 +125729,14 @@
       "description": "'Configure Lindy AI webhook triggers, callback patterns, and event handling.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/lindy-webhooks-events/SKILL.md",
-      "lines": 264,
-      "words": 958,
-      "code_blocks": 10,
+      "lines": 230,
+      "words": 1345,
+      "code_blocks": 4,
       "languages": [
+        "text",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -126035,15 +126038,15 @@
       "description": "'Configure Lindy AI across development, staging, and production environments.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-multi-env-setup/SKILL.md",
       "remote_path": "skills/.curated/lindy-multi-env-setup/SKILL.md",
-      "lines": 216,
-      "words": 740,
+      "lines": 232,
+      "words": 840,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -126579,7 +126582,7 @@
       "words": 1081,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -128021,17 +128024,14 @@
     },
     {
       "name": "lindy-security-basics",
-      "description": "'Implement security best practices for Lindy AI agents and integrations.",
+      "description": "'Implement security best practices for Lindy agents and integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-security-basics/SKILL.md",
       "remote_path": "skills/.curated/lindy-security-basics/SKILL.md",
-      "lines": 192,
-      "words": 857,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.17.0",
+      "lines": 187,
+      "words": 1243,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -133519,13 +133519,15 @@
       "description": "'Manage Lindy AI credits, rate limits, and usage optimization.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/lindy-rate-limits/SKILL.md",
-      "lines": 206,
-      "words": 915,
+      "lines": 195,
+      "words": 1109,
       "code_blocks": 3,
       "languages": [
-        "typescript"
+        "text",
+        "typescript",
+        "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -133625,18 +133627,16 @@
     },
     {
       "name": "lindy-install-auth",
-      "description": "'Set up Lindy AI account, API access, and webhook authentication.",
+      "description": "'Set up a Lindy account and authenticated webhook trigger.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-install-auth/SKILL.md",
       "remote_path": "skills/.curated/lindy-install-auth/SKILL.md",
-      "lines": 157,
-      "words": 612,
-      "code_blocks": 7,
+      "lines": 136,
+      "words": 699,
+      "code_blocks": 3,
       "languages": [
-        "bash",
-        "python",
-        "typescript"
+        "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -134696,18 +134696,17 @@
     },
     {
       "name": "lindy-sdk-patterns",
-      "description": "'Lindy AI integration patterns for webhook handling, HTTP actions, and",
+      "description": "'Lindy integration patterns for webhook handling, HTTP actions, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-sdk-patterns/SKILL.md",
       "remote_path": "skills/.curated/lindy-sdk-patterns/SKILL.md",
-      "lines": 234,
-      "words": 866,
-      "code_blocks": 7,
+      "lines": 216,
+      "words": 1165,
+      "code_blocks": 2,
       "languages": [
         "python",
-        "text",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -135397,15 +135396,15 @@
       "description": "'Incident response procedures for Lindy AI agent failures and outages.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-incident-runbook/SKILL.md",
       "remote_path": "skills/.curated/lindy-incident-runbook/SKILL.md",
-      "lines": 241,
-      "words": 1061,
+      "lines": 277,
+      "words": 1313,
       "code_blocks": 4,
       "languages": [
         "bash",
         "markdown",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -136676,7 +136675,7 @@
       "words": 1142,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -136943,7 +136942,7 @@
         "bash",
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -137219,15 +137218,14 @@
       "description": "'Monitor Lindy AI agent health, task success rates, and credit consumption.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-observability/SKILL.md",
       "remote_path": "skills/.curated/lindy-observability/SKILL.md",
-      "lines": 239,
-      "words": 998,
-      "code_blocks": 5,
+      "lines": 248,
+      "words": 1297,
+      "code_blocks": 2,
       "languages": [
         "json",
-        "typescript",
-        "yaml"
+        "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -138081,14 +138079,14 @@
       "description": "'Reference architectures for Lindy AI agent integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/lindy-reference-architecture/SKILL.md",
-      "lines": 252,
-      "words": 930,
+      "lines": 314,
+      "words": 1629,
       "code_blocks": 7,
       "languages": [
-        "html",
-        "typescript"
+        "text",
+        "yaml"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -138127,7 +138125,7 @@
       "words": 1026,
       "code_blocks": 5,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -139314,7 +139312,7 @@
       "languages": [
         "sql"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -140589,7 +140587,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -143231,15 +143229,15 @@
       "description": "'Set up local development workflow for testing Lindy AI agent integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/lindy-local-dev-loop/SKILL.md",
-      "lines": 208,
-      "words": 681,
-      "code_blocks": 9,
+      "lines": 231,
+      "words": 860,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -144798,7 +144796,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -146819,7 +146817,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -148053,7 +148051,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -148553,13 +148551,13 @@
       "description": "'Advanced migration strategies for moving to Lindy AI from other platforms.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/lindy-migration-deep-dive/SKILL.md",
       "remote_path": "skills/.curated/lindy-migration-deep-dive/SKILL.md",
-      "lines": 222,
-      "words": 1080,
+      "lines": 239,
+      "words": 1203,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -148992,7 +148990,7 @@
       "words": 944,
       "code_blocks": 4,
       "languages": [],
-      "version": "1.17.0",
+      "version": "1.20.0",
       "license": "MIT"
     },
     {
@@ -154047,6 +154045,18 @@
       ]
     },
     {
+      "name": "peer-message",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/peer-message/SKILL.md",
+      "remote_path": "peer-message/SKILL.md",
+      "lines": 105,
+      "words": 549,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "fact-checker",
       "description": "Verifies factual claims in documents using web search and official sources, then proposes corrections with user confirmation. Use when the user asks to fact-check, verify information, validate claims,",
       "path": "daymade--claude-code-skills/fact-checker/SKILL.md",
@@ -154268,8 +154278,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 575,
-      "words": 6349,
+      "lines": 593,
+      "words": 6623,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -154421,9 +154431,9 @@
       "description": "Fetch Twitter/X post content including long-form Articles with full images and metadata. Use when Claude needs to retrieve tweet/article content, author info, engagement metrics, and embedded media. S",
       "path": "daymade--claude-code-skills/twitter-reader/SKILL.md",
       "remote_path": "twitter-reader/SKILL.md",
-      "lines": 157,
-      "words": 501,
-      "code_blocks": 11,
+      "lines": 181,
+      "words": 664,
+      "code_blocks": 12,
       "languages": [
         "bash"
       ]
@@ -154433,8 +154443,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 174,
-      "words": 628,
+      "lines": 208,
+      "words": 785,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -154590,6 +154600,32 @@
       ]
     },
     {
+      "name": "peer-message-official-feature",
+      "description": "Current Claude Code and Codex messaging surfaces, availability checks, permission boundaries, and fallback decisions.",
+      "path": "daymade--claude-code-skills/peer-message/references/official-feature.md",
+      "remote_path": "peer-message/references/official-feature.md",
+      "lines": 102,
+      "words": 441,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
+    },
+    {
+      "name": "peer-message-protocol-and-discovery",
+      "description": "Transport-neutral addressing, Claude UDS and Codex queue contracts, message envelopes, and receiver-side verification.",
+      "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
+      "remote_path": "peer-message/references/protocol-and-discovery.md",
+      "lines": 143,
+      "words": 519,
+      "code_blocks": 6,
+      "languages": [
+        "json",
+        "text",
+        "xml"
+      ]
+    },
+    {
       "name": "pdf-to-html",
       "description": "Converts a PDF into one self-contained, readable HTML file that preserves images, tables, charts and reading order \u2014 optionally translating it into another language while keeping every figure. Uses st",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-to-html/SKILL.md",
@@ -154627,11 +154663,11 @@
     },
     {
       "name": "doc-to-markdown",
-      "description": "Converts DOCX/PDF/PPTX to high-quality Markdown with automatic post-processing. Fixes pandoc grid tables, simple tables, image paths, CJK bold spacing, attribute noise, and code blocks. Benchmarked be",
+      "description": "Converts DOCX/PDF/PPTX to high-quality Markdown with automatic post-processing. Fixes pandoc grid tables, simple tables, image paths, CJK bold spacing, attribute noise, and code blocks; for PDFs also ",
       "path": "daymade--claude-code-skills/daymade-docs/doc-to-markdown/SKILL.md",
       "remote_path": "daymade-docs/doc-to-markdown/SKILL.md",
-      "lines": 187,
-      "words": 930,
+      "lines": 206,
+      "words": 1190,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -154655,9 +154691,9 @@
       "description": "Convert markdown files to professional PDF documents with proper Chinese font support, theme system, and visual self-check. Use whenever the user asks to create PDFs, convert markdown to PDF, generate",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-creator/SKILL.md",
       "remote_path": "daymade-docs/pdf-creator/SKILL.md",
-      "lines": 197,
-      "words": 2487,
-      "code_blocks": 4,
+      "lines": 239,
+      "words": 3656,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ]
@@ -154713,8 +154749,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1807,
-      "words": 29499,
+      "lines": 1824,
+      "words": 29687,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -154889,7 +154925,7 @@
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "lines": 463,
-      "words": 4994,
+      "words": 5033,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -154960,8 +154996,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 263,
-      "words": 1892,
+      "lines": 268,
+      "words": 1931,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -154996,8 +155032,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1191,
-      "words": 13327,
+      "lines": 1240,
+      "words": 13900,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -155226,8 +155262,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 217,
-      "words": 2670,
+      "lines": 228,
+      "words": 2890,
       "code_blocks": 5,
       "languages": [
         "bash"

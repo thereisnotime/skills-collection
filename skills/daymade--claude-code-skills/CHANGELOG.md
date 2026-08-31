@@ -7,7 +7,193 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **peer-message** v1.0.0 (marketplace v3.6.0): restore the previously uncommitted Claude UDS messenger from its source session and extend it into a local Claude Code ↔ Codex coordination layer. The bundled stdlib CLI discovers `claude:` and `codex:` targets across isolated standard Claude profiles, preserves the original authenticated UDS fallback, routes Codex through the first-party `codex queue --thread` command, supports explicitly counted cross-provider broadcasts, adds source/reply envelopes with explicit provenance strength, and verifies delivery from Claude transcripts or Codex queue/thread history without writing either product's SQLite stores. Claude uses a host-recognized peer wrapper; Codex currently stores the envelope as ordinary `userMessage` text, so its non-authorization warning remains advisory and must be enforced by receiver-side governing instructions. Current official Claude documentation replaces the recovered 2.1.234-era availability claims: same-machine messaging now supports native Windows and every provider/feature-fetching mode at the documented version thresholds; external Codex→Claude UDS sends still honor inbound controls and may be held by bypass receivers unless the user explicitly configures `crossSessionInbound: accept`. Twelve isolated stdlib tests pass; live Codex queue acceptance and subsequent thread-history consumption were independently read back.
+
+### Changed
+- **macos-cleaner** (daymade-macos v1.0.0 → v1.1.0): add a targeted Chromium code-sign-clone branch and current-user-scoped analyzer that separates active, inactive, and unknown children, binds approved batches to a candidate SHA, preserves explicit exclusions across activity races, and supports a final read-only recheck while the exact-path deletion prompt waits. Rank nominal APFS path accounting separately from expected physical release, require df readback for actual reclaimed space, and stop the legacy deletion helper from silently shrinking a changed batch, labeling measured totals as physically “freed,” or continuing after the first failure.
+
 ### Fixed
+- **prior-work-retrieval / claude-switch-models-setup** (daymade-claude-code v3.7.9 → v3.7.13): remove `uv run` from the synchronous Claude/Codex prior-work hook entrypoint and require the profile-convergence SessionStart hook to use an absolute direct-Python command. The prior-work wrapper now also fails closed when that runtime is missing or a relative override is supplied, rather than falling back to PATH `python3`. Repository and Skill contracts distinguish package-manager-free hook launch from explicit `uv` retrieval, validation, and test lifecycles. Shared UV cache cleanup or lock contention can no longer stall every PreToolUse decision or prevent profile repair; v3.7.10 remains reserved by an in-flight read-history change.
+- **tunnel-doctor** v1.11.0 → v1.11.1: correct the Windows/v2rayN chain-repair note that assumed every manual exit was a residential VLESS profile and treated a fixed exit-IP range as the authority. The generic workflow now reads the exact protocol from the owning client, keeps credentials out of output and Git, discovers the live SQLite schema, independently reads back type/presence/pointers/active front, and treats IP/ASN as observation rather than proof of billing class.
+- **twitter-reader** v1.1.1 → v1.2.0: fix the single-source-of-failure on
+  Jina exposed by live tests. Single-post text now routes through the
+  fxtwitter mirror API first (login-free, key-free, direct connection,
+  full note_tweet body in `tweet.text` — 2,324-char long-form verified);
+  X Articles with images keep `fetch_article.py`. The Jina path is
+  demoted to fallback with its real reliability profile recorded: the
+  anonymous `r.jina.ai` lane gets 403-globally-banned for hours when
+  *third-party* users abuse x.com, then recovers (verified live — ban
+  expired and anonymous fetch returned post text), so it is intermittent,
+  never load-bearing; and `fetch_tweets.sh` hard-requires `JINA_API_KEY`,
+  which is currently 402 out of balance and blocks the batch script
+  until recharged. README facet updated to match.
+- **tibo-reset-codex** v1.2.0 → v1.2.1: precision pass on the Jina
+  verdict after re-test — the ban is *intermittent* (expired after hours;
+  anonymous fetch then returned the post body), not "dead". Jina is
+  usable-but-unreliable backup; fxtwitter stays primary.
+- **tibo-reset-codex** v1.1.0 → v1.2.0: replace the dead Jina fallback for
+  reading Tibo's X posts with the fxtwitter mirror API — login-free, works
+  direct, and returns the full note_tweet body in `tweet.text` (**not**
+  `full_text`; the first draft shipped the wrong field name and failed the
+  reviewer's verbatim re-run). syndication/oembed demoted to metadata-grade
+  fallbacks (both truncate at the 276-char display limit; oembed needs `-L`
+  to follow the 301 to publish.x.com). Record the Jina kill mechanism:
+  anonymous x.com access through r.jina.ai gets 403-globally-banned for
+  hours over *third-party* abuse, and the repo's Jina key is out of
+  balance. Correct the LunarWerx positioning — its verification leg is
+  independent (it checks against OpenAI's status page) but its data inputs
+  are still public reset records including Tibo signals, so it cross-checks
+  third-party *readings* of Tibo posts, never serves as an
+  independently-observed second source; §4's chain now carries that
+  qualifier. Codify the milestone-celebration reading rule: Tibo binds
+  resets to user milestones (7M/8M/20M all delivered; 500k explicitly
+  excluded after re-verification showed it was a bug-compensation payout,
+  not a milestone), so "celebration moved to tomorrow" reads as a reset
+  announcement — the misreading that started this update. Two-round
+  independent fresh-context review: round 1 = 1 blocker (wrong field name)
+  + 4 should + 2 note, all fixed; round 2 = all seven confirmed fixed, plus
+  4 wording residues (500k milestone misread, unqualified "independent
+  second source" in §4, oembed 312→273 chars, "9M 时"→"逼近 9M 时") also
+  fixed. quick_validate + regression audit green.
+- **claude-code-hooks** (`daymade-claude-code` v3.7.9): refresh the tracked
+  security-scan attestation against the v3.7.8 content so a fresh checkout can
+  package the reviewed Skill without first regenerating derived evidence.
+- **claude-code-hooks** (`daymade-claude-code` v3.7.8): distinguish recurring
+  advisory cadence from blocking remediation budgets. Advisory injectors remain
+  available throughout long sessions and prove long-horizon liveness;
+  per-session ceilings are reserved for blocking loops whose capped exit
+  explicitly leaves work blocked, unshipped, or pending.
+- **git-safety-net** (`git-safety-net` v1.13.0): Mode D now names the shared-index drift trap
+  that index-bypassing commits leave behind, and the prevention reference's commit-scope hygiene
+  check is upgraded to match. A bare `git commit` snapshots the *whole* index, not just what you
+  staged — but the skill never said so, and nothing warned that `commit-tree` + `update-ref` (or
+  a temporary `GIT_INDEX_FILE` commit) advances HEAD while the shared index stays on its old
+  baseline, so the commit's own files show as staged deletions (`D ` + `??` in `git status`) that
+  anyone's next bare commit turns real. Verified mechanically on throwaway repos: the drift
+  produces exactly those status pairs; a bare commit deletes the delivered files from HEAD while
+  the working tree looks untouched; `git restore --staged -- <paths>` re-syncs; and
+  `git commit -- <path>` neither creates nor repairs the drift. The new Mode D bullet assigns
+  the two obligations — whoever advanced the branch past the index re-syncs immediately, and
+  whoever commits bare on a shared tree reads `git diff --cached --name-status` as the blast
+  radius and stops on any entry they don't recognize. The hygiene section's pre-commit check
+  moves from `--name-only` to `--name-status`, because the status letter is what exposes a
+  phantom `D` for a file you never deleted. Real incident: a 24-file delivered directory sat in
+  the drift window with `D ` lines as the only sign; one bare commit by a parallel session would
+  have deleted it from the branch tip.
+- **claude-code-hooks** (`daymade-claude-code` v3.7.7): the skill asserted that a non-git
+  heredoc whose body carries trigger-looking data leaves a fail-closed guard with "no cheap
+  middle ground" — only declare-it-fail-open or a real shell grammar. That is now shown to be
+  wrong, with the middle ground and its contract: **strip heredoc bodies by sink**. A body
+  feeding a data consumer (`git commit -F -`, `python3 - <<'PY'`) is data and comes out; a body
+  feeding a shell (`cat > x.sh <<'EOS'`, `bash <<'EOS'`, `ssh host <<'EOS'`) *is* command text
+  and stays in. The `keep` branch is the half a first cut omits, and omitting it is not
+  cosmetic: on an 852-command replay the wholesale-strip version passed its fixtures and then
+  missed that shape's only true positive in the corpus, which lived inside a `cat > … <<'EOS'`
+  that was executed two lines later. The published contract states the failure direction (an
+  unnamed sink means the body is stripped — a miss, never a false block, per rule 1), that it
+  does not raise pitfall #11's grammar ceiling, and that the sink list is the only side safe to
+  extend. The same walker section carried the overturned claim a second time — its
+  false-block-direction list headed with "non-git heredoc bodies (declared, not patched)" and a
+  blanket "each block-side entry is declared because fixing it takes real shell grammar." Both
+  were corrected in place; leaving them would have had the file assert "only a grammar fixes
+  this" and "a heuristic fixes most of this" about one category within twenty lines.
+  Recipe smoke-run verbatim (11 shapes, including the three the prose names as genuine misses).
+
+  Two new pitfalls, both measured while writing a guard under this skill's own rules:
+  **#42** — a hook that locates a sibling file with `dirname "${BASH_SOURCE[0]}"` looks in the
+  wrong directory, because rule 3 requires `~/.claude/hooks/<name>.sh` to be a symlink and
+  `BASH_SOURCE` is the *invocation* path. The sibling lookup exits 127, and the SessionStart
+  health check renders that as `selftest failed` for a completely healthy guard — a permanent
+  false alarm, the direction that trains operators to ignore the whole line. Same root as #41
+  (unresolved symlink), different victim (locates from the link vs stats the link); the two now
+  cross-reference. Fix is the portable link-walk loop, plus the calibration that catches it:
+  exercise the selftest through the *registered* path, not only the SSOT path.
+  **#43** — `settings.json` hook paths come in three spellings (measured in one active profile:
+  45 `~/…`, 8 absolute, 5 `$HOME/…`; all three fire). A consumer that expands only `~` leaves
+  `$HOME` literal, the path fails `[ -r ]`, and the tool files live guards under "can't check
+  this one" — four registered PreToolUse guards had never actually been audited. One-way
+  silent, and toward false *unknown*, which reads as noise. Fix expands both; the calibration
+  is asserting targets-found equals entries-registered.
+
+  Rule 9 (corpus replay) gains the false-positive family that is structural rather than
+  incidental: for a guard whose detector is a text pattern, **documenting the anti-pattern
+  reproduces its own trigger**. Of the 4 corpus commands matching that guard's headline shape,
+  3 were healthy — a commit message about the guard, a doc write embedding the pattern, and the
+  calibration command that runs the bad form beside the good one. A naive detector would have
+  been 75% wrong on its own signature shape, blocking its author mid-sentence. Retired by the
+  sink-discriminating stripper plus a "correct form present in the same command" exemption,
+  the same shape as a `pipefail` escape hatch.
+- **daymade-audio / asr-transcribe-to-text** (`daymade-audio` v1.32.4): prevent single-character or degenerate aligned turns from emitting `start == end` and `duration == 0`. The Qwen aligner and Whisper.cpp late-fusion producer now share one half-up integer-millisecond contract for direct and interpolated lattice points, turn fields, TXT, CSV, and alignment JSON; degenerate turns receive only the smallest 1 ms interval and never borrow a later timestamp across a speaker change or long silence. Both speaker-bundle producers record their reviewed edge-inheritance tolerance in the final receipt (Qwen 1 s; overlap-only fusion 0 s), and the shared time-contract module is covered by each pipeline hash. This keeps identically named artifacts semantically consistent without weakening downstream positive-duration or diarization-support checks; the receipt-less legacy cascade remains outside the strict bundle contract.
+- **pdf-creator** (`daymade-docs` v1.13.0): the table-border check could clear the defect it
+  exists to catch, and separately failed most healthy documents. Both were found by calibrating
+  it against real material rather than fixtures.
+
+  *False pass.* The check compares raster ink against the rules the object layer promises, but
+  Chrome DROPS geometry lying entirely outside its page clip, and a rule that was never written
+  is never looked for — measured, a table with vertical rules and no cell fills printed
+  `5/5 promised rules painted — PASS` with its right border genuinely absent. New `--reference`
+  mode compares the subject's distinct-rule count against the same document rendered by the other
+  backend; the verdict is symmetric, so a swapped pair fails rather than silently clearing the
+  damaged file. Counts rather than positions, and document-wide rather than per page, because the
+  backends break one 60-row table into 5 pages vs 3 (`default`) and 3 vs 15 (`warm-terra-menu`)
+  with identical rule counts throughout. A reference-free pass now states what it did not check,
+  and `NOTHING CHECKED` exits 3 rather than sharing 0 with a real pass.
+
+  *False failures.* Against 46 delivered PDFs the ink check failed 34. It read every vertical
+  edge as a promised rule, and an `<hr>` is a rect 0.7pt tall whose ends are vertical edges — so
+  it hunted for a full-height rule at the page margin of documents with no table at all. Scoping
+  to the table bbox left 10, on inline `<code>` backgrounds inside cells. The promised set now
+  comes from each table's detected cell grid, and degenerate detections (one row, or one column)
+  are declined rather than accused. A coverage threshold was tried and rejected: at a clipped
+  edge a single header-row fill is often the only geometry left (29.63pt of a 90pt table), so
+  "must span the table" silently switched the primary detection off.
+
+  *Also rejected*: requiring the rules to bracket the table's text. On healthy `warm-terra-menu`
+  output the text runs 65.50pt past the rightmost rule — a larger asymmetry than the 37.60pt of
+  the real defect. And `MAX_STROKE_PT`, added in the previous change to exclude fill edges, is
+  removed: it never excluded anything (pdfplumber reports `width=0` on a `rect_edge`), and had it
+  worked it would have blinded the check at the clipped edge.
+
+  The mandatory visual self-check now names the border check as its second step. It previously
+  listed the clip among the failures it exists to catch, then prescribed only "read the PNGs" —
+  the procedure the same document calls unreliable for this defect.
+
+  The reference file is ink-checked too, so argument order cannot decide whether the damaged
+  file is examined — for a border Chrome *clipped* rather than *dropped* both renders promise the
+  same rule count, so the count comparison sees nothing and only the ink check finds it. Measured:
+  before this, passing the clipped file as `--reference` produced an unqualified PASS.
+
+  Calibration: 5 themes × single- and multi-page × both argument orders = 20 runs — the 12 pairs
+  with no clipped file pass in both orders, the 8 that have one are caught in both; 14 real
+  markdown documents × 2 themes = 28 single-file runs, zero false positives.
+- **read-claude-code-history** (`daymade-claude-code` v3.7.6):
+  make bounded keyword search usable as an observability path instead of parsing every
+  session twice before it can report one match. Search now de-duplicates aliased physical
+  project directories, builds a bounded internal-sessionId index, runs a native file-level
+  candidate pass, and fully parses only exact candidate paths while retaining renamed
+  active/archive copies of the same session. This keeps source provenance, date-window
+  untimed-record counts, and record unions exact. The shared file prefilter used by both
+  `read-claude-code-history` and `read-codex-history` now safely handles uncased Unicode such
+  as CJK with an exact matcher for every raw UTF-8 / JSON-escaped mixture; unsafe folds still
+  fall back to full parsing.
+  On a real 8,500+ physical-file / 5,200+ session / 260+ project inventory, a
+  representative one-day CJK search completed in about 11s and fewer than 1% of
+  sessions required full-session parsing. Deterministic regressions prove 1/41 full metadata parses,
+  byte-identical output with `--no-prefilter`, archived-copy untimed-count fidelity,
+  escaped-CJK recall, and honest zero-candidate reporting.
+- **read-claude-code-history / read-codex-history** (`daymade-claude-code` v3.7.5):
+  stop scanning the same multi-gigabyte Claude history tree once per profile label.
+  Multi-model profiles commonly expose distinct config homes whose `projects/` paths are
+  symlinks to one physical tree; the inventory previously parsed that tree again for every
+  alias and only de-duplicated sessions after paying the full I/O cost. It now groups sources
+  by the resolved physical `projects/` path, scans each tree once, and attaches every nominal
+  active/archive label to the resulting conversations before the existing cross-tree merge;
+  the original-word exporter now applies the same grouping to each of its two logical passes.
+  A deterministic main + aliased-profile + distinct-archive regression proves two physical
+  parses instead of three, full provenance retention, and non-inflated subagent exclusion
+  counts, while a second regression proves two exporter reads instead of four; both complete
+  reader suites remain green.
 - **prior-work-retrieval** (`daymade-claude-code` v3.7.4): the Search routing table was
   provider-blind in one row and short one row. "Meaning remembered, wording changed" carried no
   platform qualifier while its adapter is a Claude-only index, and no row covered prior

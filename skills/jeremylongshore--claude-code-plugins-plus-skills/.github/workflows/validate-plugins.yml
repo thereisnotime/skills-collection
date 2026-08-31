@@ -112,6 +112,14 @@ jobs:
           python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
           pnpm run validate:safety-ratchet
 
+      # Blueprint 727 E8.8: missing-required-frontmatter remediation stops at
+      # a .source.json boundary. The canonical validator reports editable
+      # first-party and upstream mirror records separately; first-party debt is
+      # pinned at zero with count + set-hash + members, while every mirror row
+      # must remain QUARANTINE in the disposition ledger. No waiver path exists.
+      - name: Enforce the structural remediation ratchet
+        run: pnpm run validate:structural-ratchet
+
       # Blueprint 727 E8.1: Freshie's graded cohort is the authority for the
       # disposition ledger. Regenerate-and-compare proves each current graded
       # artifact has exactly one first-match-wins outcome; missing/stale rows
@@ -1784,6 +1792,14 @@ jobs:
       # byte budgets) are enforced inside generate-readme-toc.mjs itself.
       - name: Check the README landing contract
         run: pnpm run validate:readme-contract
+
+      # Model-neutral rename compatibility (blueprint 727 E11.10 / decision
+      # 803): canonical repository/catalog endpoints coexist with the frozen
+      # marketplace slug, npm package, ccpi command, and tons binary alias.
+      # Public redirects are checked separately with the script's --live mode;
+      # required CI remains deterministic and network-free.
+      - name: Check the post-rename identity compatibility contract
+        run: pnpm run validate:identity-compatibility
 
       # The canonical harness-free skill contract (blueprint 727 § 5.2, Epic 3
       # E3.2): schemas/canonical/v0 must compile under Ajv 2020 strict and hold

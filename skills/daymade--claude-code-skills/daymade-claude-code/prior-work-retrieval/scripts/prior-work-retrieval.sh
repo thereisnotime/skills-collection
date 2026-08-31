@@ -13,10 +13,22 @@ while [ -L "$SOURCE" ]; do
   esac
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-UV_BIN="${PRIOR_WORK_UV_BIN:-$HOME/.local/bin/uv}"
+PYTHON_BIN="${PRIOR_WORK_PYTHON_BIN:-${HOME:-}/.local/bin/python3.12}"
 
-if [ ! -x "$UV_BIN" ]; then
-  echo "prior-work hook: uv missing at $UV_BIN" >&2
+case "$PYTHON_BIN" in
+  /*) ;;
+  *)
+    echo "prior-work hook: direct Python runtime must be an absolute path" >&2
+    exit 2
+    ;;
+esac
+
+if [ ! -x "$PYTHON_BIN" ]; then
+  echo "prior-work hook: direct Python runtime missing" >&2
   exit 2
 fi
-exec "$UV_BIN" run --no-project python "$SCRIPT_DIR/prior_work_hook.py" "$@"
+
+# This synchronous hook is intentionally package-manager-free. A missing fixed
+# runtime fails closed instead of falling back to PATH-based environment
+# dispatch, which could reintroduce a shared package-manager cache lock.
+exec "$PYTHON_BIN" "$SCRIPT_DIR/prior_work_hook.py" "$@"

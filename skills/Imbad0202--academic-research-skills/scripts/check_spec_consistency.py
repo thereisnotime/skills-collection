@@ -13,11 +13,13 @@ if __package__:  # Package import in tests.
         NON_RELATIVE_LINK_PREFIXES,
         extract_link_targets,
     )
+    from ._skill_lint import iter_skill_files
 else:  # pragma: no cover - exercised by the CLI smoke path
     from _markdown_lint_util import (
         NON_RELATIVE_LINK_PREFIXES,
         extract_link_targets,
     )
+    from _skill_lint import iter_skill_files
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,14 +97,17 @@ def check_claude_md() -> None:
         expect_absent(rel_path, forbidden)
 
 
-# All four skills carry the same frontmatter (`version` / `last_updated`) + Version-Info-table
-# (`| Skill Version |` / `| Last Updated |`) pair. Pre-#377 only the reviewer was policed.
-_SKILL_VERSION_PATHS = (
-    "academic-pipeline/SKILL.md",
-    "academic-paper/SKILL.md",
-    "academic-paper-reviewer/SKILL.md",
-    "deep-research/SKILL.md",
-)
+# Every top-level skill carries the same frontmatter (`version` / `last_updated`) +
+# Version-Info-table (`| Skill Version |` / `| Last Updated |`) pair. Pre-#377 only the
+# reviewer was policed. Derived from disk (#809) rather than hand-listed, so a new skill
+# directory is policed the moment it exists; check_skill_inventory_parity.py pins that
+# the on-disk set matches every surface that advertises it.
+def _skill_version_paths() -> tuple[str, ...]:
+    """Read ROOT at call time (tests swap `csc.ROOT` for fixture trees; an
+    import-time tuple would carry the real checkout's skills into them)."""
+    return tuple(
+        f"{skill_md.parent.name}/SKILL.md" for skill_md in iter_skill_files(ROOT)
+    )
 
 # The single skill whose `version` tracks the suite version. The other three move independently,
 # so only this one's date is sanity-checked against the release (CHANGELOG) in #377(b).
@@ -139,7 +144,7 @@ def _parse_skill_version_block(rel_path: str) -> tuple[str, str, str, str] | Non
 def check_skill_version_blocks() -> None:
     """#377(a): for ALL FOUR SKILL.md, the frontmatter version/last_updated must match the
     Version-Info-table rows (an internal per-file consistency check)."""
-    for rel_path in _SKILL_VERSION_PATHS:
+    for rel_path in _skill_version_paths():
         parsed = _parse_skill_version_block(rel_path)
         if parsed is None:
             continue

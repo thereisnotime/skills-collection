@@ -271,6 +271,9 @@ claude plugin install github-ops@daymade-skills
 # Teams communication
 claude plugin install teams-channel-post-writer@daymade-skills
 
+# Local Claude/Codex agent messaging
+claude plugin install peer-message@daymade-skills
+
 # Repomix extraction
 claude plugin install repomix-unmixer@daymade-skills
 
@@ -489,6 +492,37 @@ Creates educational Teams channel posts for internal knowledge sharing.
 **🎬 Live Demo**
 
 ![Teams Channel Post Writer Demo](./demos/teams-channel-post-writer/write-post.gif)
+
+---
+
+### **peer-message** - Local Claude/Codex Agent Communication
+
+> **Install**: `claude plugin install peer-message@daymade-skills`
+
+Discovers, messages, broadcasts to, and independently verifies local Claude Code sessions and Codex threads through each product's own transport.
+
+**When to use:**
+- Asking one terminal's Claude or Codex agent to coordinate with another
+- Sending a dependency, pause, handoff, or completion notice across sessions
+- Reaching a Claude inbox from a third-party profile or Codex process
+- Broadcasting one explicit coordination message to a reviewed target list
+
+**Key features:**
+- Official Claude `ListAgents`/`SendMessage` first, authenticated UDS fallback second
+- Codex delivery through `codex queue --thread`, never direct SQLite writes
+- Unified `claude:` / `codex:` addressing and source/reply envelopes
+- Receiver-side verification from Claude transcripts or Codex queue/thread history
+- Permission-laundering contract: Claude has host-recognized peer provenance; Codex's text envelope is advisory and needs receiver-side governing instructions
+
+**Example usage:**
+```bash
+python3 peer-message/scripts/peer.py list
+python3 peer-message/scripts/peer.py send codex:<thread-id> --message "The dependency is ready." --wait 120
+```
+
+📚 **Documentation**: See [peer-message/SKILL.md](./peer-message/SKILL.md) and [peer-message/references/](./peer-message/references/).
+
+**Requirements**: Python 3.10+; `codex queue` for Codex targets; Claude UDS fallback on macOS/Linux/WSL2.
 
 ---
 
@@ -1197,15 +1231,19 @@ xcodebuild -destination 'platform=iOS Simulator,name=iPhone 17' build
 
 ### **twitter-reader** - Twitter/X Content Fetching
 
-Fetch Twitter/X post content using Jina.ai API to bypass JavaScript restrictions without authentication.
+Fetch Twitter/X post and article content. Single-post text goes through the
+fxtwitter mirror API (login-free, key-free, full long-form body); X Articles
+with images go through `fetch_article.py`; the Jina API path remains as a
+fallback with a known intermittent-ban risk.
 
 **When to use:**
 - Retrieving tweet content for analysis or documentation
-- Fetching thread replies and conversation context
+- Fetching X Articles (long-form) with all images downloaded locally
 - Extracting images and media from posts
 - Batch downloading multiple tweets for reference
 
 **Key features:**
+- Single posts: fxtwitter mirror — no key, no login, full `tweet.text` body including note_tweet long-form
 - No JavaScript rendering or browser automation needed
 - No Twitter authentication required
 - Returns markdown-formatted content with metadata
@@ -1215,10 +1253,16 @@ Fetch Twitter/X post content using Jina.ai API to bypass JavaScript restrictions
 
 **Example usage:**
 ```bash
-# Set your Jina API key (get from https://jina.ai/)
-export JINA_API_KEY="your_api_key_here"
+# Single post text (preferred): fxtwitter mirror, no key needed
+curl -sS "https://api.fxtwitter.com/USER/status/TWEET_ID" \
+  | python3 -c "import json,sys; t=json.load(sys.stdin)['tweet']; print(t['text'])"
 
-# Fetch a single tweet
+# X Article with images (full mode)
+uv run --with pyyaml python scripts/fetch_article.py \
+  "https://x.com/USER/status/TWEET_ID" ./Clippings
+
+# Jina fallback (intermittent — see SKILL.md risk note)
+export JINA_API_KEY="your_api_key_here"
 curl "https://r.jina.ai/https://x.com/USER/status/TWEET_ID" \
   -H "Authorization: Bearer ${JINA_API_KEY}"
 
@@ -1238,9 +1282,9 @@ python scripts/fetch_tweet.py https://x.com/user/status/123 output.md
 📚 **Documentation**: See [twitter-reader/SKILL.md](./twitter-reader/SKILL.md) for full details and URL format support.
 
 **Requirements**:
-- **Jina.ai API key** (get from https://jina.ai/ - free tier available)
-- **curl** (pre-installed on most systems)
-- **Python 3.6+** (for Python script)
+- **curl** (pre-installed on most systems) — single-post path needs nothing else
+- **Python 3.6+** (for Python scripts)
+- **Jina.ai API key** (only for the Jina fallback; intermittent-ban risk, and the shared repo key is currently out of balance / 402)
 
 ---
 
@@ -3506,10 +3550,10 @@ they become load-bearing data.
 的重置公告。别再凭记忆回答「什么时候重置」——用权威追踪站 API 现查。
 
 **Key features:**
-- 主通道 Tibo Radar JSON API + codexlimitwatch 双源核对，30 秒出结果
+- 公告索引 Tibo Radar JSON API 现查；读 X 原帖走 fxtwitter 镜像拿完整长文（30 秒出结果）
 - 解读 Tibo 糙时间写法（「14pm PST」混用 24 小时制、常年写 PST 实为 PDT）
 - 太平洋时间→北京时间当场实测换算命令，含夏令时跨时令处理
-- 证据纪律：tracker 标签 ≠ 已到账，官宣 ≠ 你的账户已到账
+- 证据纪律：tracker 标签 ≠ 已到账，官宣 ≠ 你的账户已到账；celebration 帖 = 里程碑重置预告
 
 **Example usage:**
 ```text
@@ -3676,6 +3720,9 @@ Use **pdf-creator** to convert markdown to print-ready PDFs with proper Chinese 
 ### For Team Communication
 Use **teams-channel-post-writer** to share knowledge and **statusline-generator** to track costs while working.
 
+### For Local Agent Coordination
+Use **peer-message** when Claude Code profiles and Codex threads on the same machine need to exchange targeted handoffs, pause/resume notices, dependency updates, or an explicit multi-target broadcast. It keeps peer input separate from user authorization and independently reads back receiver-side evidence before calling a message delivered.
+
 ### For Repository Management & Security
 Use **repomix-unmixer** to extract and validate repomix-packed skills or repositories. Use **repomix-safe-mixer** to package codebases securely, automatically detecting and blocking hardcoded credentials before distribution.
 
@@ -3818,6 +3865,7 @@ Each skill includes:
 - **mermaid-tools**: See `daymade-docs/mermaid-tools/references/setup_and_troubleshooting.md` for setup guide
 - **statusline-generator**: See `daymade-claude-code/statusline-generator/references/color_codes.md` for customization
 - **teams-channel-post-writer**: See `teams-channel-post-writer/references/writing-guidelines.md` for quality standards
+- **peer-message**: See `peer-message/SKILL.md` for the routing workflow and `peer-message/references/protocol-and-discovery.md` for Claude UDS, Codex queue, envelope, and verification contracts
 - **repomix-unmixer**: See `repomix-unmixer/references/repomix-format.md` for format specifications
 - **skill-creator**: See `daymade-skill/skill-creator/SKILL.md` for complete skill creation workflow
 - **llm-icon-finder**: See `llm-icon-finder/references/icons-list.md` for available icons
@@ -3891,6 +3939,7 @@ Each skill includes:
 - **Promptfoo** (for promptfoo-evaluation): `npx promptfoo@latest`
 - **macOS + Xcode, XcodeGen** (for developing-ios-apps)
 - **Codex CLI** (optional, for product-analysis multi-model mode)
+- **`codex queue` + Python 3.10+** (for peer-message Codex targets; Claude UDS fallback needs macOS/Linux/WSL2)
 - **uv + openpyxl** (for excel-automation): `uv run --with openpyxl ...`
 - **Bigdata.com API key** (for `daymade-financial:bigdata-skill`): `bd_v2_` key from [https://www.bigdata.com/](https://www.bigdata.com/)
 - **Gangtise credentials** (for `daymade-financial:gangtise-copilot`): accessKey + secretAccessKey from [https://open.gangtise.com/](https://open.gangtise.com/)

@@ -14,17 +14,17 @@
     "source": "scripts/validate-skills-schema.py --marketplace --skills-only --json",
     "status": "measured",
     "values": {
-      "a_error_total": 64,
-      "a_failing": 30,
-      "ab_error_total": 679,
-      "ab_failing": 327,
-      "b_failing": 297,
-      "error_files": 819,
-      "error_total": 3963,
+      "a_error_total": 35,
+      "a_failing": 18,
+      "ab_error_total": 645,
+      "ab_failing": 313,
+      "b_failing": 295,
+      "error_files": 800,
+      "error_total": 3909,
       "grade_distribution": {
-        "A": 1872,
-        "B": 1117,
-        "C": 479,
+        "A": 1879,
+        "B": 1115,
+        "C": 474,
         "D": 157,
         "F": 5
       },
@@ -42,7 +42,7 @@
       "values": {
         "plugin_agent_files": 347,
         "raw_tracked_plugin_skill_files": 3130,
-        "tracked_files": 23133
+        "tracked_files": 23149
       }
     },
     "2": {
@@ -90,7 +90,7 @@
           "validator_reported_mixed_denominator_percent": 80.8
         },
         "marketplace_terminal": {
-          "error_total_all_validated_surfaces": 4200,
+          "error_total_all_validated_surfaces": 4146,
           "fully_compliant_surfaces": 1138,
           "terminal_denominator": {
             "agents": 357,
@@ -104,17 +104,17 @@
           "validator_reported_mixed_denominator_percent": 23
         },
         "skill_rows": {
-          "a_error_total": 64,
-          "a_failing": 30,
-          "ab_error_total": 679,
-          "ab_failing": 327,
-          "b_failing": 297,
-          "error_files": 819,
-          "error_total": 3963,
+          "a_error_total": 35,
+          "a_failing": 18,
+          "ab_error_total": 645,
+          "ab_failing": 313,
+          "b_failing": 295,
+          "error_files": 800,
+          "error_total": 3909,
           "grade_distribution": {
-            "A": 1872,
-            "B": 1117,
-            "C": 479,
+            "A": 1879,
+            "B": 1115,
+            "C": 474,
             "D": 157,
             "F": 5
           },
@@ -131,16 +131,16 @@
       "values": {
         "average_score": 87.2,
         "grade_distribution": {
-          "A": 1872,
-          "B": 1117,
-          "C": 479,
+          "A": 1879,
+          "B": 1115,
+          "C": 474,
           "D": 157,
           "F": 5
         },
         "grade_percentages": {
-          "A": 51.6,
-          "B": 30.8,
-          "C": 13.2,
+          "A": 51.8,
+          "B": 30.7,
+          "C": 13.1,
           "D": 4.3,
           "F": 0.1
         },
@@ -154,12 +154,12 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "a_error_total": 64,
-        "a_failing": 30,
-        "ab_error_total": 679,
-        "ab_failing": 327,
-        "b_error_total": 615,
-        "b_failing": 297,
+        "a_error_total": 35,
+        "a_failing": 18,
+        "ab_error_total": 645,
+        "ab_failing": 313,
+        "b_error_total": 610,
+        "b_failing": 295,
         "certified_target": 0,
         "skill_summary_rows": 3630
       }
@@ -286,7 +286,7 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 45,
+        "distinct_values": 52,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
@@ -324,10 +324,34 @@
           },
           {
             "count": 1,
+            "value": "Compatible with AI coding agents that can read Markdown and analyze workflow measurements"
+          },
+          {
+            "count": 1,
+            "value": "Compatible with AI coding agents that can read Markdown and review application code"
+          },
+          {
+            "count": 1,
+            "value": "Compatible with AI coding agents that can read Markdown and review monitoring configurations"
+          },
+          {
+            "count": 1,
+            "value": "Compatible with AI coding agents that can read Markdown; optional verification probes require a shell with curl"
+          },
+          {
+            "count": 1,
+            "value": "Compatible with AI coding agents that can read and edit Markdown evidence records"
+          },
+          {
+            "count": 1,
+            "value": "Compatible with AI coding agents that can read and edit application code and Markdown"
+          },
+          {
+            "count": 1,
             "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
-            "count": 3321,
+            "count": 3314,
             "value": "Designed for Claude Code"
           },
           {
@@ -421,6 +445,10 @@
           {
             "count": 1,
             "value": "Portable doctrine — Claude Code, Codex App/CLI, OpenCode, Antigravity, Cursor, Grok"
+          },
+          {
+            "count": 1,
+            "value": "Portable instructions for agent harnesses that can read Markdown and edit architecture documents"
           },
           {
             "count": 1,
@@ -1136,7 +1164,7 @@
           },
           {
             "cohort": "marketplace-visible",
-            "value": 3069
+            "value": 3039
           }
         ],
         "distinct_numeric_answers": 5,
@@ -1582,17 +1610,19 @@
       }
     },
     "38": {
-      "cohort": "locally pinned root package dependencies",
+      "cohort": "exact root pins, retained npm registry observation, and coupling workflow",
       "dimension": "Kernel, eval CLI, and harness pins",
-      "limitations": [
-        "local exactness is measured; latest versions and staleness are not inferred without a registry or clock"
-      ],
-      "reason_code": "EXTERNAL_PACKAGE_REGISTRY_STATE_NOT_COMMITTED",
       "reproduce": "pnpm run measure:e1 --row=38 --stdout",
-      "required_inputs": ["versioned package-registry metadata snapshot"],
-      "source": ["package.json"],
-      "status": "partial",
+      "source": [
+        ".github/workflows/kernel-vendor-hash.yml",
+        "000-docs/810-RA-DATA-epic-9-boundary-evidence.json",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "status": "target_met",
       "values": {
+        "one_resolved_core_version": true,
+        "ordering_test_blocking": true,
         "pins": {
           "@intentsolutions/audit-harness": {
             "exact": true,
@@ -1607,20 +1637,62 @@
             "version": "0.2.0"
           }
         },
-        "published_latest_versions": null
+        "published_latest_versions": {
+          "@intentsolutions/audit-harness": "1.3.1",
+          "@intentsolutions/core": "0.10.0",
+          "@intentsolutions/jrig-cli": "0.2.0"
+        },
+        "registry_matches_pins": true,
+        "staleness_alert_routed": true,
+        "target_met": true
       }
     },
     "39": {
-      "cohort": "kernel shadow output",
+      "cohort": "retained exact-head kernel-shadow boundary report",
       "dimension": "Kernel shadow report",
-      "reason_code": "KERNEL_SHADOW_REPORT_NOT_TRACKED",
-      "reproduce": "pnpm run measure:e1 --row=39 --stdout",
-      "required_inputs": [
-        "deterministic tracked shadow report generated at the current kernel pin"
+      "limitations": [
+        "this is a point-in-time exact-head closure receipt; the advisory workflow remains the live recurring observation lane"
       ],
-      "source": [],
-      "status": "not_reproducible",
-      "values": null
+      "reproduce": "pnpm run measure:e1 --row=39 --stdout",
+      "source": ["000-docs/810-RA-DATA-epic-9-boundary-evidence.json", "package.json"],
+      "status": "target_met",
+      "values": {
+        "report": {
+          "command": "node scripts/kernel-shadow-validation.mjs",
+          "corpus_files": 3630,
+          "frontmatter_deviations": [
+            "plugins/community/claude-reflect/SKILL.md",
+            "plugins/community/llm-box/skills/setup/SKILL.md",
+            "plugins/productivity/publishing-skills/skills/blog-editorial-calendar/SKILL.md",
+            "plugins/productivity/publishing-skills/skills/blog-topic-research/SKILL.md",
+            "plugins/saas-packs/podium-pack/skills/podium-rate-limit-survival/SKILL.md",
+            "plugins/testing/kobiton-automate/skills/run-automation-suite/SKILL.md"
+          ],
+          "full_report_sha256": "045be75e4110a4c2e05e722c3e4122b8a1999f6abb474c419bab2af81692a15d",
+          "kernel_package": "@intentsolutions/core",
+          "kernel_pin": "0.10.0",
+          "kernel_version": "0.10.0",
+          "lanes": {
+            "authoring/v1": {
+              "body_scope_only": 544,
+              "existing_fail_kernel_pass": 550,
+              "existing_pass_kernel_fail": 0,
+              "frontmatter_agree": 3624,
+              "frontmatter_deviation_percent": 0.17,
+              "frontmatter_disagree": 6
+            },
+            "authoring/v2": {
+              "decision_relevant_metric": "existing-PASS / kernel-FAIL",
+              "existing_fail_kernel_pass": 546,
+              "existing_pass_kernel_fail": 0,
+              "existing_pass_kernel_fail_percent": 0,
+              "kernel_unparseable_frontmatter": 0,
+              "strict": true
+            }
+          }
+        },
+        "root_kernel_pin": "0.10.0"
+      }
     },
     "40": {
       "cohort": "tracked workflow command lines invoking the canonical validator with --marketplace",
@@ -1769,10 +1841,10 @@
       ],
       "status": "measured",
       "values": {
-        "index_entries": 250,
+        "index_entries": 252,
         "missing_from_index": [],
         "target_equal": true,
-        "tracked_documents": 250,
+        "tracked_documents": 252,
         "untracked_index_entries": []
       }
     },
@@ -1798,7 +1870,7 @@
         "invalid_patterns": 0,
         "invisible_files": 21,
         "target_invisible_files": 0,
-        "tracked_files": 23133
+        "tracked_files": 23149
       }
     },
     "47": {

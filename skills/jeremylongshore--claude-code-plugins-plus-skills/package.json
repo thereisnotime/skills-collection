@@ -18,7 +18,7 @@
     "measure:e1:check": "node --test scripts/corpus-resolver.test.mjs scripts/measure-epic-1.test.mjs scripts/measure-epic-1-scorecard.test.mjs && node scripts/measure-epic-1.mjs --check",
     "normalize:dead-domain-projections": "node scripts/normalize-retired-domain-projections.mjs",
     "validate:dead-domain": "node --test scripts/dead-domain-policy.test.mjs scripts/normalize-retired-domain-projections.test.mjs && node scripts/check-dead-domain.mjs",
-    "validate:generated-artifacts": "node --test scripts/check-generated-artifacts.test.mjs scripts/generated-artifact-registry.test.mjs && node scripts/check-generated-artifacts.mjs",
+    "validate:generated-artifacts": "node --test scripts/check-generated-artifacts.test.mjs scripts/generated-artifact-registry.test.mjs scripts/generate-plugin-package-jsons.test.mjs && node scripts/check-generated-artifacts.mjs",
     "validate:generated-content": "node --test scripts/generated-content-ci.test.mjs marketplace/scripts/sync-catalog.test.mjs && node marketplace/scripts/discover-skills.mjs --level=full --check && node marketplace/scripts/sync-catalog.mjs --check",
     "validate:published-count-cohorts": "node --test scripts/check-published-count-cohorts.test.mjs && node scripts/check-published-count-cohorts.mjs",
     "validate:jrig-db-boundary": "node --test scripts/check-jrig-db-boundary.test.mjs && node scripts/check-jrig-db-boundary.mjs",
@@ -32,16 +32,18 @@
     "validate:mcp-destructive-policy": "node --test scripts/check-mcp-destructive-policy.test.mjs && node scripts/check-mcp-destructive-policy.mjs",
     "validate:denylist-degradation": "node --test scripts/check-denylist-degradation.test.mjs && node scripts/check-denylist-degradation.mjs",
     "validate:safety-ratchet": "node --test scripts/check-safety-ratchet.test.mjs && node scripts/check-safety-ratchet.mjs",
+    "validate:structural-ratchet": "node --test scripts/check-structural-ratchet.test.mjs && node scripts/check-structural-ratchet.mjs",
     "validate:doc-fact-assertions": "node --test scripts/check-doc-fact-assertions.test.mjs && node scripts/check-doc-fact-assertions.mjs",
     "evaluate:certification": "node scripts/evaluate-certification.mjs",
     "generate:disposition-ledger": "node scripts/generate-disposition-ledger.mjs",
     "validate:disposition-ledger": "node --test scripts/generate-disposition-ledger.test.mjs && node scripts/generate-disposition-ledger.mjs --check",
-    "validate:mirror-quarantine": "node scripts/check-mirror-quarantine.mjs",
+    "validate:mirror-quarantine": "node --test scripts/check-mirror-quarantine.test.mjs && node scripts/check-mirror-quarantine.mjs",
     "validate:llm-box-provenance": "node scripts/check-llm-box-provenance.mjs",
     "evaluate:launch-readiness": "node scripts/evaluate-launch-readiness.mjs",
     "sweep:certification-expiry": "node scripts/sweep-certification-expiry.mjs",
     "validate:certification-separation": "node --test scripts/check-certification-separation.test.mjs",
     "validate:readme-contract": "node --test scripts/check-readme-contract.test.mjs && node scripts/check-readme-contract.mjs",
+    "validate:identity-compatibility": "node --test scripts/check-identity-compatibility.test.mjs && node scripts/check-identity-compatibility.mjs",
     "validate:canonical-schema": "node --test scripts/check-canonical-schema.test.mjs",
     "validate:capability-coverage": "node --test scripts/check-capability-coverage.test.mjs && node scripts/check-capability-coverage.mjs",
     "validate:model-id-classifier": "node --test scripts/classify-model-ids.test.mjs && node scripts/classify-model-ids.mjs --check",
@@ -69,11 +71,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jeremylongshore/claude-code-plugins-plus-skills.git"
+    "url": "git+https://github.com/jeremylongshore/tons-of-skills-marketplace.git"
   },
   "homepage": "https://tonsofskills.com",
   "bugs": {
-    "url": "https://github.com/jeremylongshore/claude-code-plugins-plus-skills/issues"
+    "url": "https://github.com/jeremylongshore/tons-of-skills-marketplace/issues"
   },
   "engines": {
     "node": ">=20.0.0",
