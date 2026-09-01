@@ -507,22 +507,7 @@ Discovers, messages, broadcasts to, and independently verifies local Claude Code
 - Reaching a Claude inbox from a third-party profile or Codex process
 - Broadcasting one explicit coordination message to a reviewed target list
 
-**Key features:**
-- Official Claude `ListAgents`/`SendMessage` first, authenticated UDS fallback second
-- Codex delivery through `codex queue --thread`, never direct SQLite writes
-- Unified `claude:` / `codex:` addressing and source/reply envelopes
-- Receiver-side verification from Claude transcripts or Codex queue/thread history
-- Permission-laundering contract: Claude has host-recognized peer provenance; Codex's text envelope is advisory and needs receiver-side governing instructions
-
-**Example usage:**
-```bash
-python3 peer-message/scripts/peer.py list
-python3 peer-message/scripts/peer.py send codex:<thread-id> --message "The dependency is ready." --wait 120
-```
-
-📚 **Documentation**: See [peer-message/SKILL.md](./peer-message/SKILL.md) and [peer-message/references/](./peer-message/references/).
-
-**Requirements**: Python 3.10+; `codex queue` for Codex targets; Claude UDS fallback on macOS/Linux/WSL2.
+📚 **Documentation and commands**: [peer-message/SKILL.md](./peer-message/SKILL.md) owns routing, stable runtime prerequisites, and the peer-cannot-authorize boundary; `peer-message/scripts/peer.py --help` owns CLI syntax; [protocol-and-discovery.md](./peer-message/references/protocol-and-discovery.md) owns addressing, envelopes, and delivery evidence; [official-feature.md](./peer-message/references/official-feature.md) owns volatile product-specific requirements and mechanics; [coordination-and-learning-loop.md](./peer-message/references/coordination-and-learning-loop.md) owns parent/worker handoff language and evidence-gated Skill improvement.
 
 ---
 
@@ -2177,7 +2162,7 @@ uv run douban-skill/scripts/douban-rss-sync.py <douban-user-id>
 
 ### **terraform-skill** - Terraform Operational Traps
 
-Failure patterns from real Terraform deployments — every item caused an actual incident. Organized as *exact error → root cause → copy-paste fix*. Covers provisioner timing races, SSH connection conflicts, multi-environment isolation, DNS record duplication, volume permissions, database bootstrap gaps, snapshot cross-contamination, Cloudflare credential format errors, hardcoded domains in Caddyfiles/compose, and init-data-only-on-first-boot pitfalls.
+Designs and diagnoses safe Terraform releases as well as the provisioner traps learned from real incidents. It keeps staging and production on one required configuration schema, validates exact candidate bytes + the Compose-rendered environment + the immutable runtime before live mutation, and binds saved plans to staging evidence, source provenance, explicit production authorization, and independent readback.
 
 **When to use:**
 - Writing `null_resource` provisioners or `remote-exec` blocks that SSH into fresh instances
@@ -2186,11 +2171,14 @@ Failure patterns from real Terraform deployments — every item caused an actual
 - Hitting "docker: not found" in remote-exec, rsync connection drops in local-exec, or TLS cert errors
 - Troubleshooting drift or provisioner failures during re-runs
 - Configuring Caddy/gateway resources with Cloudflare credentials
+- Reviewing a saved plan or broad deploy resource that may also mutate a shared gateway
+- Closing staging/production config drift, receipt, provenance, or production-approval gaps
 
 **Key features:**
-- Copy-paste `.hcl` snippets for each trap, not abstract advice
-- Coverage spanning cloud-init, Docker, file provisioners, DNS, TLS, snapshots, and cross-env contamination
-- Every pattern tagged with the exact symptom so grep finds it fast
+- One required-key contract for every environment; values may differ, requiredness may not
+- Exact-bundle prevalidation for every normal and recovery writer before any live write/restart
+- Saved-plan, staging-receipt, remote-main provenance, production-approval, and live-readback gates
+- Corrected provider/provisioner patterns for cloud-init, Docker, DNS, TLS, snapshots, and fresh hosts
 
 **Example usage:**
 ```bash
@@ -2198,6 +2186,7 @@ Failure patterns from real Terraform deployments — every item caused an actual
 "I'm getting 'docker: not found' in my null_resource provisioner after apply"
 "My rsync local-exec is failing with 'connection unexpectedly closed'"
 "Help me write a multi-env Terraform setup without snapshot cross-contamination"
+"Staging has this Caddy variable but production leaves it empty — how do I validate both safely?"
 ```
 
 **🎬 Live Demo**
@@ -3865,7 +3854,7 @@ Each skill includes:
 - **mermaid-tools**: See `daymade-docs/mermaid-tools/references/setup_and_troubleshooting.md` for setup guide
 - **statusline-generator**: See `daymade-claude-code/statusline-generator/references/color_codes.md` for customization
 - **teams-channel-post-writer**: See `teams-channel-post-writer/references/writing-guidelines.md` for quality standards
-- **peer-message**: See `peer-message/SKILL.md` for the routing workflow and `peer-message/references/protocol-and-discovery.md` for Claude UDS, Codex queue, envelope, and verification contracts
+- **peer-message**: See `peer-message/SKILL.md` for routing, stable prerequisites, and the safety boundary; `peer-message/scripts/peer.py --help` for CLI syntax; `peer-message/references/protocol-and-discovery.md` for transport and verification; `peer-message/references/official-feature.md` for volatile product requirements and mechanics; and `peer-message/references/coordination-and-learning-loop.md` for parent/worker handoffs and evidence-gated improvement
 - **repomix-unmixer**: See `repomix-unmixer/references/repomix-format.md` for format specifications
 - **skill-creator**: See `daymade-skill/skill-creator/SKILL.md` for complete skill creation workflow
 - **llm-icon-finder**: See `llm-icon-finder/references/icons-list.md` for available icons
@@ -3919,7 +3908,6 @@ Each skill includes:
 
 - **Claude Code** 2.0.13 or higher
 - **Codex CLI with `doctor --json` and `debug models` + uv/Python 3.11+** (for codex-1m-context-window-setup)
-- **Python 3.10+** (marketplace-wide baseline; individual skills may support older versions)
 - **gh CLI** (for github-ops and github-review-pr)
 - **git with `merge-tree --write-tree` + jq** (for github-review-pr)
 - **markitdown** (for doc-to-markdown)
@@ -3939,7 +3927,6 @@ Each skill includes:
 - **Promptfoo** (for promptfoo-evaluation): `npx promptfoo@latest`
 - **macOS + Xcode, XcodeGen** (for developing-ios-apps)
 - **Codex CLI** (optional, for product-analysis multi-model mode)
-- **`codex queue` + Python 3.10+** (for peer-message Codex targets; Claude UDS fallback needs macOS/Linux/WSL2)
 - **uv + openpyxl** (for excel-automation): `uv run --with openpyxl ...`
 - **Bigdata.com API key** (for `daymade-financial:bigdata-skill`): `bd_v2_` key from [https://www.bigdata.com/](https://www.bigdata.com/)
 - **Gangtise credentials** (for `daymade-financial:gangtise-copilot`): accessKey + secretAccessKey from [https://open.gangtise.com/](https://open.gangtise.com/)

@@ -102,6 +102,11 @@ describe("ce-work native characterization", () => {
     expect(engines).not.toContain("inline/subagent flow in `SKILL.md`")
     expect(strategy).toMatch(/\*\*Inline\*\* \| Trivial work/)
     expect(strategy).toContain("native workers")
+    // Worktree-isolated dispatch must verify snapshot fidelity: a harness-cut
+    // worktree can be based on the primary checkout's default branch, not the
+    // session's tree (docs/solutions/skill-design/verify-harness-worktree-snapshot-fidelity.md).
+    expect(strategy).toContain("intended base commit SHA")
+    expect(strategy).toContain("`HEAD` equals that SHA")
     expect(engineGate).toContain("cross-model execution")
   })
 
@@ -364,7 +369,7 @@ describe("ce-work cross-model engine contract", () => {
     expect(protocol).toContain("claude")
     expect(protocol).toContain("grok")
     expect(protocol).toContain("Fixed controller route tokens")
-    expect(protocol).toContain("`codex`, `claude`, `grok-cli`, `cursor`, `composer`, or `grok-cursor`")
+    expect(protocol).toContain("`codex`, `claude`, `grok-cli`, `cursor`, `composer`, `grok-cursor`, or `opencode`")
   })
 
   test("defines prefer, require, fixed-recipient sanction, and restriction failure", async () => {
@@ -748,5 +753,18 @@ describe("ce-work right-sized routes", () => {
     expect(triage).toMatch(/an in-conversation brief from `ce-plan`/)
     const intake = await readRepoFile("skills/ce-work/references/work-intake.md")
     expect(intake).toMatch(/Unless `ce-plan` already sized this prompt in this session/)
+  })
+})
+
+describe("ce-work out-of-repo unit completion (#1574)", () => {
+  test("implementation loop does not treat a clean tree as not-started for external deliverables", async () => {
+    const loop = await readRepoFile("skills/ce-work/references/implementation-loop.md")
+    expect(loop).toContain("out-of-repo state")
+    expect(loop).toContain("no git-derived completion signal")
+    expect(loop.indexOf("out-of-repo state")).toBeLessThan(
+      loop.indexOf("If the unit's entire completion signal is repository-derived"),
+    )
+    const docs = await readRepoFile("docs/guides/ce-work.md")
+    expect(docs).toContain("no git-derived completion signal")
   })
 })

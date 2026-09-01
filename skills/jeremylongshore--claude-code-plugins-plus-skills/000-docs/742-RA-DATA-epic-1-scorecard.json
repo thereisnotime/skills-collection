@@ -16,19 +16,19 @@
     "values": {
       "a_error_total": 35,
       "a_failing": 18,
-      "ab_error_total": 645,
-      "ab_failing": 313,
-      "b_failing": 295,
-      "error_files": 800,
-      "error_total": 3909,
+      "ab_error_total": 639,
+      "ab_failing": 310,
+      "b_failing": 292,
+      "error_files": 775,
+      "error_total": 3850,
       "grade_distribution": {
-        "A": 1879,
-        "B": 1115,
-        "C": 474,
+        "A": 1883,
+        "B": 1112,
+        "C": 452,
         "D": 157,
         "F": 5
       },
-      "rows": 3630
+      "rows": 3609
     }
   },
   "rows": {
@@ -41,8 +41,8 @@
       "target_status": "informational",
       "values": {
         "plugin_agent_files": 347,
-        "raw_tracked_plugin_skill_files": 3130,
-        "tracked_files": 23149
+        "raw_tracked_plugin_skill_files": 3109,
+        "tracked_files": 23784
       }
     },
     "2": {
@@ -53,9 +53,9 @@
       "status": "measured",
       "target_status": "pass",
       "values": {
-        "distinct_names": 442,
+        "distinct_names": 443,
         "duplicate_names": [],
-        "entries": 442
+        "entries": 443
       }
     },
     "3": {
@@ -80,45 +80,45 @@
       "values": {
         "agent_lane": {
           "error_total_all_validated_surfaces": 236,
-          "fully_compliant_surfaces": 768,
+          "fully_compliant_surfaces": 769,
           "terminal_denominator": {
             "agents": 357,
-            "files": 950,
+            "files": 951,
             "label": "agents_plus_plugin_manifests",
-            "plugin_manifests": 593
+            "plugin_manifests": 594
           },
-          "validator_reported_mixed_denominator_percent": 80.8
+          "validator_reported_mixed_denominator_percent": 80.9
         },
         "marketplace_terminal": {
-          "error_total_all_validated_surfaces": 4146,
-          "fully_compliant_surfaces": 1138,
+          "error_total_all_validated_surfaces": 4087,
+          "fully_compliant_surfaces": 1145,
           "terminal_denominator": {
             "agents": 357,
             "commands": 373,
-            "files": 4953,
+            "files": 4933,
             "label": "skills_plus_commands_plus_agents_plus_plugin_manifests",
-            "plugin_manifests": 593,
-            "skills": 3630
+            "plugin_manifests": 594,
+            "skills": 3609
           },
-          "validated_plugin_manifests": 601,
-          "validator_reported_mixed_denominator_percent": 23
+          "validated_plugin_manifests": 602,
+          "validator_reported_mixed_denominator_percent": 23.2
         },
         "skill_rows": {
           "a_error_total": 35,
           "a_failing": 18,
-          "ab_error_total": 645,
-          "ab_failing": 313,
-          "b_failing": 295,
-          "error_files": 800,
-          "error_total": 3909,
+          "ab_error_total": 639,
+          "ab_failing": 310,
+          "b_failing": 292,
+          "error_files": 775,
+          "error_total": 3850,
           "grade_distribution": {
-            "A": 1879,
-            "B": 1115,
-            "C": 474,
+            "A": 1883,
+            "B": 1112,
+            "C": 452,
             "D": 157,
             "F": 5
           },
-          "rows": 3630
+          "rows": 3609
         }
       }
     },
@@ -129,22 +129,22 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "average_score": 87.2,
+        "average_score": 87.3,
         "grade_distribution": {
-          "A": 1879,
-          "B": 1115,
-          "C": 474,
+          "A": 1883,
+          "B": 1112,
+          "C": 452,
           "D": 157,
           "F": 5
         },
         "grade_percentages": {
-          "A": 51.8,
-          "B": 30.7,
-          "C": 13.1,
-          "D": 4.3,
+          "A": 52.2,
+          "B": 30.8,
+          "C": 12.5,
+          "D": 4.4,
           "F": 0.1
         },
-        "rows": 3630
+        "rows": 3609
       }
     },
     "6": {
@@ -156,12 +156,12 @@
       "values": {
         "a_error_total": 35,
         "a_failing": 18,
-        "ab_error_total": 645,
-        "ab_failing": 313,
-        "b_error_total": 610,
-        "b_failing": 295,
+        "ab_error_total": 639,
+        "ab_failing": 310,
+        "b_error_total": 604,
+        "b_failing": 292,
         "certified_target": 0,
-        "skill_summary_rows": 3630
+        "skill_summary_rows": 3609
       }
     },
     "7": {
@@ -212,7 +212,7 @@
       "values": {
         "agent_errors": 236,
         "agent_files": 357,
-        "reported_compliance_percent": 80.8,
+        "reported_compliance_percent": 80.9,
         "target_errors": 0,
         "target_percent_max": 100
       }
@@ -270,12 +270,12 @@
       ],
       "status": "partial",
       "values": {
-        "declared": 3619,
+        "declared": 3598,
         "folded_scalar": 5,
         "malformed_frontmatter": 0,
         "malformed_shape": 0,
         "missing": 11,
-        "rows": 3630,
+        "rows": 3609,
         "target_malformed": 0
       }
     },
@@ -286,7 +286,7 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 52,
+        "distinct_values": 54,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
@@ -351,7 +351,7 @@
             "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
-            "count": 3314,
+            "count": 3285,
             "value": "Designed for Claude Code"
           },
           {
@@ -431,6 +431,10 @@
             "value": "Designed for Claude Code; the same MCP server also works in Claude Desktop, Cursor, Windsurf, and OpenAI Codex CLI. Requires the mnemos binary on PATH — run mnemos init to wire the MCP server and mnemos doctor to verify."
           },
           {
+            "count": 7,
+            "value": "Model-agnostic workflow; requires Python 3.10+; optional Snowflake CLI for live read-only evidence collection"
+          },
+          {
             "count": 1,
             "value": "Model-agnostic; requires explicit state/workspace paths, git, jq, Bash, and an authenticated GitHub CLI"
           },
@@ -441,6 +445,10 @@
           {
             "count": 1,
             "value": "Model-agnostic; requires git, jq, and an authenticated GitHub CLI for live GitHub reads"
+          },
+          {
+            "count": 1,
+            "value": "Model-neutral; requires Python 3.10+. Optional collection requires Snowflake CLI with an existing read-only profile."
           },
           {
             "count": 1,
@@ -569,8 +577,8 @@
       "cohort": "literal docs.anthropic.com occurrences in tracked text-like files",
       "dimension": "docs.anthropic.com occurrences",
       "measured_proxy": {
-        "files": 173,
-        "occurrences": 487,
+        "files": 189,
+        "occurrences": 521,
         "paths": [
           "000-docs/198-DR-SOPS-03-mcp-reliability.md",
           "000-docs/688-AA-AACR-2026-06-04-wiki-audit.md",
@@ -688,17 +696,33 @@
           "scripts/measure-canonical-surface.mjs",
           "skills/.curated/agent-context-loader/SKILL.md",
           "skills/.curated/agent-safety-preflight/SKILL.md",
+          "skills/.curated/anth-advanced-troubleshooting/SKILL.md",
+          "skills/.curated/anth-architecture-variants/SKILL.md",
           "skills/.curated/anth-ci-integration/SKILL.md",
+          "skills/.curated/anth-common-errors/SKILL.md",
           "skills/.curated/anth-core-workflow-a/SKILL.md",
+          "skills/.curated/anth-core-workflow-b/SKILL.md",
           "skills/.curated/anth-cost-tuning/SKILL.md",
+          "skills/.curated/anth-debug-bundle/SKILL.md",
           "skills/.curated/anth-deploy-integration/SKILL.md",
+          "skills/.curated/anth-enterprise-rbac/SKILL.md",
           "skills/.curated/anth-hello-world/SKILL.md",
+          "skills/.curated/anth-incident-runbook/SKILL.md",
           "skills/.curated/anth-install-auth/SKILL.md",
+          "skills/.curated/anth-known-pitfalls/SKILL.md",
           "skills/.curated/anth-load-scale/SKILL.md",
           "skills/.curated/anth-local-dev-loop/SKILL.md",
+          "skills/.curated/anth-migration-deep-dive/SKILL.md",
           "skills/.curated/anth-multi-env-setup/SKILL.md",
+          "skills/.curated/anth-observability/SKILL.md",
+          "skills/.curated/anth-performance-tuning/SKILL.md",
+          "skills/.curated/anth-policy-guardrails/SKILL.md",
           "skills/.curated/anth-prod-checklist/SKILL.md",
+          "skills/.curated/anth-rate-limits/SKILL.md",
+          "skills/.curated/anth-reference-architecture/SKILL.md",
+          "skills/.curated/anth-reliability-patterns/SKILL.md",
           "skills/.curated/anth-security-basics/SKILL.md",
+          "skills/.curated/anth-upgrade-migration/SKILL.md",
           "skills/.curated/anth-webhooks-events/SKILL.md",
           "skills/.curated/clade-advanced-troubleshooting/SKILL.md",
           "skills/.curated/clade-architecture-variants/SKILL.md",
@@ -869,17 +893,33 @@
         "scripts/measure-canonical-surface.mjs",
         "skills/.curated/agent-context-loader/SKILL.md",
         "skills/.curated/agent-safety-preflight/SKILL.md",
+        "skills/.curated/anth-advanced-troubleshooting/SKILL.md",
+        "skills/.curated/anth-architecture-variants/SKILL.md",
         "skills/.curated/anth-ci-integration/SKILL.md",
+        "skills/.curated/anth-common-errors/SKILL.md",
         "skills/.curated/anth-core-workflow-a/SKILL.md",
+        "skills/.curated/anth-core-workflow-b/SKILL.md",
         "skills/.curated/anth-cost-tuning/SKILL.md",
+        "skills/.curated/anth-debug-bundle/SKILL.md",
         "skills/.curated/anth-deploy-integration/SKILL.md",
+        "skills/.curated/anth-enterprise-rbac/SKILL.md",
         "skills/.curated/anth-hello-world/SKILL.md",
+        "skills/.curated/anth-incident-runbook/SKILL.md",
         "skills/.curated/anth-install-auth/SKILL.md",
+        "skills/.curated/anth-known-pitfalls/SKILL.md",
         "skills/.curated/anth-load-scale/SKILL.md",
         "skills/.curated/anth-local-dev-loop/SKILL.md",
+        "skills/.curated/anth-migration-deep-dive/SKILL.md",
         "skills/.curated/anth-multi-env-setup/SKILL.md",
+        "skills/.curated/anth-observability/SKILL.md",
+        "skills/.curated/anth-performance-tuning/SKILL.md",
+        "skills/.curated/anth-policy-guardrails/SKILL.md",
         "skills/.curated/anth-prod-checklist/SKILL.md",
+        "skills/.curated/anth-rate-limits/SKILL.md",
+        "skills/.curated/anth-reference-architecture/SKILL.md",
+        "skills/.curated/anth-reliability-patterns/SKILL.md",
         "skills/.curated/anth-security-basics/SKILL.md",
+        "skills/.curated/anth-upgrade-migration/SKILL.md",
         "skills/.curated/anth-webhooks-events/SKILL.md",
         "skills/.curated/clade-advanced-troubleshooting/SKILL.md",
         "skills/.curated/clade-architecture-variants/SKILL.md",
@@ -1148,7 +1188,7 @@
         "answers": [
           {
             "cohort": "curated-mirror",
-            "value": 2037
+            "value": 2427
           },
           {
             "cohort": "curriculum",
@@ -1156,15 +1196,15 @@
           },
           {
             "cohort": "first-party",
-            "value": 2786
+            "value": 2765
           },
           {
             "cohort": "graded",
-            "value": 3630
+            "value": 3609
           },
           {
             "cohort": "marketplace-visible",
-            "value": 3039
+            "value": 3018
           }
         ],
         "distinct_numeric_answers": 5,
@@ -1595,7 +1635,7 @@
         "distinct_actions": 8,
         "mutable_uses": [],
         "target_mutable_uses": 0,
-        "total_uses": 36
+        "total_uses": 38
       }
     },
     "37": {
@@ -1868,9 +1908,9 @@
       "values": {
         "allowlist_patterns": 10,
         "invalid_patterns": 0,
-        "invisible_files": 21,
+        "invisible_files": 22,
         "target_invisible_files": 0,
-        "tracked_files": 23149
+        "tracked_files": 23784
       }
     },
     "47": {
@@ -1955,17 +1995,17 @@
       "dimension": "Inventory header versus rows",
       "reproduce": "pnpm run measure:e1 --row=52 --stdout",
       "source": [
-        "freshie/reports/run-delta-14.json",
+        "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
       "status": "target_met",
       "values": {
-        "dolt_commit": "2ljhn79ge74uj1kd7q2chqgo9ne0tulb",
-        "header_total_skills": 3053,
-        "run_id": 14,
+        "dolt_commit": "ui4r79m97pkp5dk37a5v5rtfu355avl1",
+        "header_total_skills": 3031,
+        "run_id": 19,
         "skill_row_delta": 0,
-        "skill_rows": 3053,
+        "skill_rows": 3031,
         "target_skill_row_delta": 0
       }
     },
@@ -1976,32 +2016,32 @@
       "source": [
         "freshie/grade-histogram.json",
         "freshie/grades.csv",
-        "freshie/reports/run-delta-14.json"
+        "freshie/reports/run-delta-19.json"
       ],
       "status": "target_met",
       "values": {
-        "compliance_rows": 3630,
-        "export_dolt_commit": "2ljhn79ge74uj1kd7q2chqgo9ne0tulb",
-        "export_run_id": 14,
-        "grades_csv_rows": 3630,
-        "grades_csv_sha256": "72fbb289e8451d9a4bbe95cae0b9a1797588c0197589f94ddd1cde48241e4ef0",
+        "compliance_rows": 3609,
+        "export_dolt_commit": "ui4r79m97pkp5dk37a5v5rtfu355avl1",
+        "export_run_id": 19,
+        "grades_csv_rows": 3609,
+        "grades_csv_sha256": "a46de16f6347a3ec0cd9b036b6ff77349b8778292447a13e104d21ad50c30495",
         "histogram_grades": {
-          "A": 1872,
-          "B": 1117,
-          "C": 479,
+          "A": 1883,
+          "B": 1112,
+          "C": 452,
           "D": 157,
           "F": 5
         },
-        "histogram_total": 3630,
+        "histogram_total": 3609,
         "immutable_grade_counts": {
-          "A": 1872,
-          "B": 1117,
-          "C": 479,
+          "A": 1883,
+          "B": 1112,
+          "C": 452,
           "D": 157,
           "F": 5
         },
-        "inventory_dolt_commit": "2ljhn79ge74uj1kd7q2chqgo9ne0tulb",
-        "inventory_run_id": 14,
+        "inventory_dolt_commit": "ui4r79m97pkp5dk37a5v5rtfu355avl1",
+        "inventory_run_id": 19,
         "target_lag_runs": 0
       }
     },
@@ -2011,7 +2051,7 @@
       "reproduce": "pnpm run measure:e1 --row=54 --stdout",
       "source": [
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-14.json",
+        "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py",
         "scripts/record-jrig-proofs.mjs"
@@ -2027,9 +2067,9 @@
         "invalid_identities": 0,
         "legacy_e0_records": 3,
         "retained_e2_e3": 0,
-        "source_dolt_commit": "2ljhn79ge74uj1kd7q2chqgo9ne0tulb",
-        "source_run_id": 14,
-        "source_tag": "run-14",
+        "source_dolt_commit": "ui4r79m97pkp5dk37a5v5rtfu355avl1",
+        "source_run_id": 19,
+        "source_tag": "run-19",
         "target_legacy_e0_records": 3,
         "target_unclassified": 0,
         "total_e2_e3": 0,
@@ -2047,7 +2087,7 @@
       "source": [
         "000-docs/807-DR-STND-evaluation-evidence.md",
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-14.json",
+        "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
@@ -2095,6 +2135,14 @@
         "plugins/saas-packs/databricks-pack/skills/databricks-uc-migration-pilot/eval-spec.yaml",
         "plugins/saas-packs/hubspot-pack/skills/hubspot-warehouse-sync/eval-spec.yaml",
         "plugins/saas-packs/sentry-pack/skills/sentry-data-handling/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-access-guardian/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-cost-leak-hunter/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-data-quality-sentinel/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-deploy-medic/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-failover-readiness-drill/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-pipeline-guardian/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-query-forensics/eval-spec.yaml",
+        "plugins/saas-packs/snowflake-pack/skills/snowflake-strong-auth-migration-pilot/eval-spec.yaml",
         "plugins/saas-packs/supabase-pack/skills/supabase-known-pitfalls/eval-spec.yaml",
         "plugins/skill-enhancers/skill-creator/skills/skill-creator/eval-spec.yaml",
         "skills/.curated/audit-tests/eval-spec.yaml",
@@ -2109,16 +2157,24 @@
         "skills/.curated/hubspot-warehouse-sync/eval-spec.yaml",
         "skills/.curated/sentry-data-handling/eval-spec.yaml",
         "skills/.curated/skill-creator/eval-spec.yaml",
+        "skills/.curated/snowflake-access-guardian/eval-spec.yaml",
+        "skills/.curated/snowflake-cost-leak-hunter/eval-spec.yaml",
+        "skills/.curated/snowflake-data-quality-sentinel/eval-spec.yaml",
+        "skills/.curated/snowflake-deploy-medic/eval-spec.yaml",
+        "skills/.curated/snowflake-failover-readiness-drill/eval-spec.yaml",
+        "skills/.curated/snowflake-pipeline-guardian/eval-spec.yaml",
+        "skills/.curated/snowflake-query-forensics/eval-spec.yaml",
+        "skills/.curated/snowflake-strong-auth-migration-pilot/eval-spec.yaml",
         "skills/.curated/supabase-known-pitfalls/eval-spec.yaml",
         "skills/.curated/validate-skillmd/eval-spec.yaml"
       ],
       "status": "measured",
       "values": {
-        "adoption_percent": 0.45,
-        "curated_copies": 14,
-        "plugin_skill_rows": 3130,
-        "source_eval_specs": 14,
-        "tracked_eval_specs": 28
+        "adoption_percent": 0.71,
+        "curated_copies": 22,
+        "plugin_skill_rows": 3109,
+        "source_eval_specs": 22,
+        "tracked_eval_specs": 44
       }
     },
     "58": {

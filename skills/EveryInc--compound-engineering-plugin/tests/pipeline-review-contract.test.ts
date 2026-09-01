@@ -90,6 +90,14 @@ describe("ce-work review contract", () => {
   test("standalone shipping has an always-loaded code-review completion gate", async () => {
     const content = await readRepoFile("skills/ce-work/SKILL.md")
     const shipping = await readRepoFile("skills/ce-work/references/shipping-workflow.md")
+    const unavailableBranch = sliceSection(
+      shipping,
+      "**If the top-level `ce-code-review` attempt cannot produce a completed receipt:**",
+      "4. **Residual Work Gate**",
+    )
+    const reviewSummaryStart = shipping.indexOf("## Code Review")
+    expect(reviewSummaryStart, "Code Review summary anchor not found").toBeGreaterThanOrEqual(0)
+    const reviewSummary = shipping.slice(reviewSummaryStart)
 
     // Always-loaded body owns the gate (not only the lazy reference)
     expect(content).toContain("Code-review completion gate")
@@ -112,6 +120,13 @@ describe("ce-work review contract", () => {
     expect(shipping).toContain("Code review: harness-native fallback")
     expect(shipping).toContain("multi-file mechanical-only")
     expect(shipping).toContain("Never substitute")
+    // The caller decides only from the owning boundary: definition load or the
+    // terminal top-level receipt. Internal review events cannot authorize fallback.
+    for (const section of [unavailableBranch, reviewSummary]) {
+      expect(section).toContain("intermediate internal events never establish caller-owned unavailability")
+      expect(section).toContain("A missing dedicated runner, executable, or binary is not evidence")
+    }
+    expect(unavailableBranch).toContain("proceed through 3a and let `ce-code-review` own its recovery")
   })
 
   test("delegates commit and PR to dedicated skills", async () => {
