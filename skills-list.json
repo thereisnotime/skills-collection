@@ -255,8 +255,8 @@
       "description": "\"Modernize Golang code to use recent language features, standard library improvements, and idiomatic patterns. Trigger proactively when writing or reviewing Go code and old-style patterns are detected",
       "path": "samber--cc-skills-golang/skills/golang-modernize/SKILL.md",
       "remote_path": "skills/golang-modernize/SKILL.md",
-      "lines": 159,
-      "words": 1533,
+      "lines": 166,
+      "words": 1660,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -9647,8 +9647,8 @@
       "description": "|-",
       "path": "anthropics--skills/skills/claude-api/SKILL.md",
       "remote_path": "skills/claude-api/SKILL.md",
-      "lines": 557,
-      "words": 10165,
+      "lines": 571,
+      "words": 11698,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -11153,7 +11153,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-babysit-pr/SKILL.md",
       "remote_path": "skills/ce-babysit-pr/SKILL.md",
       "lines": 60,
-      "words": 1099,
+      "words": 1108,
       "code_blocks": 0,
       "languages": []
     },
@@ -24762,8 +24762,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 481,
-      "words": 4446,
+      "lines": 491,
+      "words": 4691,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -24830,8 +24830,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 581,
-      "words": 5438,
+      "lines": 620,
+      "words": 6018,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -24855,8 +24855,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 481,
-      "words": 4446,
+      "lines": 491,
+      "words": 4691,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -24923,8 +24923,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 581,
-      "words": 5438,
+      "lines": 620,
+      "words": 6018,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -29364,9 +29364,9 @@
       "description": "Searches and explores Burp Suite project files (.burp) from the command line. Use when searching response headers or bodies with regex patterns, extracting security audit findings, dumping proxy histo",
       "path": "trailofbits--skills/plugins/burpsuite-project-parser/skills/burpsuite-project-parser/SKILL.md",
       "remote_path": "plugins/burpsuite-project-parser/skills/burpsuite-project-parser/SKILL.md",
-      "lines": 357,
-      "words": 1655,
-      "code_blocks": 30,
+      "lines": 421,
+      "words": 2395,
+      "code_blocks": 32,
       "languages": [
         "bash",
         "powershell"
@@ -29374,12 +29374,12 @@
     },
     {
       "name": "second-opinion",
-      "description": "\"Runs external LLM code reviews (OpenAI Codex or Google Gemini CLI) on uncommitted changes, branch diffs, or specific commits. Use when the user asks for a second opinion, external review, codex revie",
+      "description": "\"Runs external LLM code reviews (OpenAI Codex or Google Antigravity CLI) on uncommitted changes, branch diffs, or specific commits. Use when the user asks for a second opinion, external review, codex ",
       "path": "trailofbits--skills/plugins/second-opinion/skills/second-opinion/SKILL.md",
       "remote_path": "plugins/second-opinion/skills/second-opinion/SKILL.md",
-      "lines": 290,
-      "words": 1415,
-      "code_blocks": 13,
+      "lines": 296,
+      "words": 1571,
+      "code_blocks": 12,
       "languages": [
         "bash"
       ]
@@ -84066,331 +84066,6 @@
       "license": "MIT"
     },
     {
-      "name": "veeva-cost-tuning",
-      "description": "'Veeva Vault cost tuning for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-cost-tuning/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-enterprise-rbac",
-      "description": "'Veeva Vault enterprise rbac for enterprise operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-enterprise-rbac/SKILL.md",
-      "lines": 51,
-      "words": 153,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-hello-world",
-      "description": "'Veeva Vault hello world with REST API and VQL.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-hello-world/SKILL.md",
-      "lines": 109,
-      "words": 326,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-data-handling",
-      "description": "'Veeva Vault data handling for enterprise operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-data-handling/SKILL.md",
-      "lines": 51,
-      "words": 153,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-incident-runbook",
-      "description": "'Veeva Vault incident runbook for enterprise operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-incident-runbook/SKILL.md",
-      "lines": 51,
-      "words": 153,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-debug-bundle",
-      "description": "'Veeva Vault debug bundle for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-debug-bundle/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-install-auth",
-      "description": "'Veeva Vault install auth with REST API and VQL.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-install-auth/SKILL.md",
-      "lines": 91,
-      "words": 277,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-local-dev-loop",
-      "description": "'Veeva Vault local dev loop for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-local-dev-loop/SKILL.md",
-      "lines": 69,
-      "words": 252,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-multi-env-setup",
-      "description": "'Veeva Vault multi env setup for enterprise operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-multi-env-setup/SKILL.md",
-      "lines": 51,
-      "words": 157,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-reference-architecture",
-      "description": "'Veeva Vault reference architecture for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-reference-architecture/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-ci-integration",
-      "description": "'Veeva Vault ci integration for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-ci-integration/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-sdk-patterns",
-      "description": "'Veeva Vault sdk patterns for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-sdk-patterns/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-rate-limits",
-      "description": "'Veeva Vault rate limits for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-rate-limits/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-security-basics",
-      "description": "'Veeva Vault security basics for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-security-basics/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-core-workflow-b",
-      "description": "'Veeva Vault core workflow b for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-core-workflow-b/SKILL.md",
-      "lines": 69,
-      "words": 252,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-common-errors",
-      "description": "'Veeva Vault common errors for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-common-errors/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-observability",
-      "description": "'Veeva Vault observability for enterprise operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-observability/SKILL.md",
-      "lines": 51,
-      "words": 149,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-upgrade-migration",
-      "description": "'Veeva Vault upgrade migration for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-upgrade-migration/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-prod-checklist",
-      "description": "'Veeva Vault prod checklist for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-prod-checklist/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-webhooks-events",
-      "description": "'Veeva Vault webhooks events for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-webhooks-events/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-migration-deep-dive",
-      "description": "'Veeva Vault migration deep dive for enterprise operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-migration-deep-dive/SKILL.md",
-      "lines": 51,
-      "words": 157,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-performance-tuning",
-      "description": "'Veeva Vault performance tuning for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-performance-tuning/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-deploy-integration",
-      "description": "'Veeva Vault deploy integration for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-deploy-integration/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
-      "name": "veeva-core-workflow-a",
-      "description": "'Veeva Vault core workflow a for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/veeva-pack/skills/veeva-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/veeva-pack/skills/veeva-core-workflow-a/SKILL.md",
-      "lines": 69,
-      "words": 252,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
       "name": "clickup-hello-world",
       "description": "'Make your first ClickUp API v2 calls: list workspaces, spaces, and create",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clickup-pack/skills/clickup-hello-world/SKILL.md",
@@ -95891,7 +95566,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -95906,7 +95581,7 @@
         "bash",
         "sql"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -95921,7 +95596,7 @@
         "bash",
         "json"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -95935,7 +95610,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -95949,7 +95624,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -95963,7 +95638,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -95977,7 +95652,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -95985,13 +95660,13 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-query-forensics/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-query-forensics/SKILL.md",
-      "lines": 300,
-      "words": 1959,
+      "lines": 325,
+      "words": 2251,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -104932,18 +104607,6 @@
       "license": "MIT"
     },
     {
-      "name": "stackblitz-cost-tuning",
-      "description": "'StackBlitz pricing tiers: free embedding, WebContainer API commercial",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-cost-tuning/SKILL.md",
-      "lines": 49,
-      "words": 137,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "stackblitz-rate-limits",
       "description": "'WebContainer resource limits: memory, CPU, file system size, process",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-rate-limits/SKILL.md",
@@ -104954,19 +104617,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-performance-tuning",
-      "description": "'Optimize WebContainer boot time, file system mounts, and process spawning.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-performance-tuning/SKILL.md",
-      "lines": 48,
-      "words": 140,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -104982,7 +104633,7 @@
         "javascript",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -104996,43 +104647,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-ci-integration",
-      "description": "'CI testing for WebContainer apps with Playwright browser tests.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-ci-integration/SKILL.md",
-      "lines": 48,
-      "words": 139,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-upgrade-migration",
-      "description": "'Migrate between WebContainer API versions and StackBlitz SDK updates.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-upgrade-migration/SKILL.md",
-      "lines": 48,
-      "words": 139,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-prod-checklist",
-      "description": "'Production checklist for WebContainer apps: headers, browser support,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-prod-checklist/SKILL.md",
-      "lines": 49,
-      "words": 137,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -105041,12 +104656,12 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-security-basics/SKILL.md",
       "lines": 80,
-      "words": 272,
+      "words": 278,
       "code_blocks": 3,
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -105060,19 +104675,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-reference-architecture",
-      "description": "'Production architecture for WebContainer-powered browser IDEs and playgrounds.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-reference-architecture/SKILL.md",
-      "lines": 48,
-      "words": 135,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -105087,7 +104690,7 @@
         "html",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -105101,31 +104704,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-deploy-integration",
-      "description": "'Deploy WebContainer apps to Vercel, Netlify with proper COOP/COEP headers.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-deploy-integration/SKILL.md",
-      "lines": 48,
-      "words": 140,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-webhooks-events",
-      "description": "'WebContainer lifecycle events: server-ready, port changes, error handling.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-webhooks-events/SKILL.md",
-      "lines": 48,
-      "words": 136,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -105139,7 +104718,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -105154,7 +104733,7 @@
         "html",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -105169,7 +104748,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -107940,7 +107519,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -107954,7 +107533,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -107968,7 +107547,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -107982,7 +107561,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -107998,7 +107577,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108013,7 +107592,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108027,7 +107606,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108042,7 +107621,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108056,7 +107635,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108065,13 +107644,13 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/together-pack/skills/together-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/together-pack/skills/together-common-errors/SKILL.md",
       "lines": 105,
-      "words": 710,
+      "words": 714,
       "code_blocks": 2,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108080,25 +107659,13 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/together-pack/skills/together-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/together-pack/skills/together-local-dev-loop/SKILL.md",
       "lines": 122,
-      "words": 575,
+      "words": 580,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "together-performance-tuning",
-      "description": "'Together AI performance tuning for inference, fine-tuning, and model",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/together-pack/skills/together-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/together-pack/skills/together-performance-tuning/SKILL.md",
-      "lines": 56,
-      "words": 202,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108107,24 +107674,12 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/together-pack/skills/together-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/together-pack/skills/together-rate-limits/SKILL.md",
       "lines": 140,
-      "words": 646,
+      "words": 651,
       "code_blocks": 3,
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "together-debug-bundle",
-      "description": "'Together AI debug bundle for inference, fine-tuning, and model deployment.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/together-pack/skills/together-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/together-pack/skills/together-debug-bundle/SKILL.md",
-      "lines": 55,
-      "words": 202,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108138,7 +107693,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108152,7 +107707,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108166,7 +107721,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -108182,7 +107737,7 @@
         "dockerfile",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -120601,18 +120156,6 @@
       "license": "MIT"
     },
     {
-      "name": "stackblitz-cost-tuning",
-      "description": "'StackBlitz pricing tiers: free embedding, WebContainer API commercial",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/stackblitz-cost-tuning/SKILL.md",
-      "lines": 49,
-      "words": 137,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
       "name": "cursor-keybindings",
       "description": "'Master Cursor keyboard shortcuts and customize keybindings for AI features",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/cursor-keybindings/SKILL.md",
@@ -121484,7 +121027,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -121658,18 +121201,6 @@
         "bash",
         "typescript"
       ],
-      "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "stackblitz-performance-tuning",
-      "description": "'Optimize WebContainer boot time, file system mounts, and process spawning.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/stackblitz-performance-tuning/SKILL.md",
-      "lines": 48,
-      "words": 140,
-      "code_blocks": 0,
-      "languages": [],
       "version": "1.5.0",
       "license": "MIT"
     },
@@ -122483,7 +122014,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -124017,7 +123548,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -125159,20 +124690,6 @@
       "license": "MIT"
     },
     {
-      "name": "veeva-hello-world",
-      "description": "'Veeva Vault hello world with REST API and VQL.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/veeva-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/veeva-hello-world/SKILL.md",
-      "lines": 109,
-      "words": 326,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
       "name": "clari-performance-tuning",
       "description": "'Optimize Clari API performance with caching, batch exports, and data",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-performance-tuning/SKILL.md",
@@ -125200,7 +124717,7 @@
         "javascript",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -126130,20 +125647,6 @@
       "license": "MIT"
     },
     {
-      "name": "veeva-debug-bundle",
-      "description": "'Veeva Vault debug bundle for REST API and clinical operations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/veeva-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/veeva-debug-bundle/SKILL.md",
-      "lines": 69,
-      "words": 248,
-      "code_blocks": 1,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.3.0",
-      "license": "MIT"
-    },
-    {
       "name": "podium-review-request-automation",
       "description": "Trigger Podium review requests from Shopify order-shipped events and survive the",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/podium-review-request-automation/SKILL.md",
@@ -126652,7 +126155,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -128027,7 +127530,7 @@
         "bash",
         "sql"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -130824,7 +130327,7 @@
         "bash",
         "json"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -134264,13 +133767,13 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/together-common-errors/SKILL.md",
       "remote_path": "skills/.curated/together-common-errors/SKILL.md",
       "lines": 105,
-      "words": 710,
+      "words": 714,
       "code_blocks": 2,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -134412,7 +133915,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -140368,7 +139871,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -141818,7 +141321,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -147417,7 +146920,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -148698,7 +148201,7 @@
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -149567,7 +149070,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -154253,7 +153756,7 @@
         "html",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -154421,13 +153924,13 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-query-forensics/SKILL.md",
       "remote_path": "skills/.curated/snowflake-query-forensics/SKILL.md",
-      "lines": 300,
-      "words": 1959,
+      "lines": 325,
+      "words": 2251,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "2.1.0",
+      "version": "3.0.0",
       "license": "MIT"
     },
     {
@@ -154633,7 +154136,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.5.0",
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -156558,6 +156061,19 @@
       "languages": [],
       "version": "1.0.0",
       "license": "MIT"
+    },
+    {
+      "name": "omarchy-coverage-reporter",
+      "description": "'Use this agent when an Omarchy plugin verification reports PASS and you need to establish what actually ran, which checks were inapplicable, and which applicable checks remain unproven. Produces a re",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/.claude/agents/omarchy-coverage-reporter.md",
+      "remote_path": ".claude/agents/omarchy-coverage-reporter.md",
+      "lines": 205,
+      "words": 1205,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "skill-auditor",
@@ -159739,9 +159255,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 593,
-      "words": 6623,
-      "code_blocks": 12,
+      "lines": 705,
+      "words": 8089,
+      "code_blocks": 14,
       "languages": [
         "bash"
       ]
@@ -159904,11 +159420,12 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 212,
-      "words": 818,
-      "code_blocks": 3,
+      "lines": 352,
+      "words": 1337,
+      "code_blocks": 6,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ]
     },
     {
@@ -160564,8 +160081,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 969,
-      "words": 6921,
+      "lines": 1010,
+      "words": 7241,
       "code_blocks": 43,
       "languages": [
         "bash",
@@ -160603,8 +160120,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 339,
-      "words": 3498,
+      "lines": 340,
+      "words": 3557,
       "code_blocks": 0,
       "languages": []
     },
@@ -177302,6 +176819,16 @@
       ]
     },
     {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "context-builder",
       "description": "Generate interactive AI transformation context-builder prompts for consulting clients. Use when creating structured discovery session prompts that guide a company through context gathering about their",
       "path": "glebis--claude-skills/context-builder/SKILL.md",
@@ -177546,8 +177073,8 @@
       "description": "Use when orchestrating or resuming Cull's complete release cycle, reporting its current release state, or fulfilling an explicit Cull patch, minor, or major release request through verified GitHub and",
       "path": "glebis--claude-skills/cull-release/SKILL.md",
       "remote_path": "cull-release/SKILL.md",
-      "lines": 33,
-      "words": 190,
+      "lines": 39,
+      "words": 235,
       "code_blocks": 0,
       "languages": []
     },

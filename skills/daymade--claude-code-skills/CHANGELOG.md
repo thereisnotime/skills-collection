@@ -11,6 +11,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **peer-message** v1.0.0 (marketplace v3.6.0): restore the previously uncommitted Claude UDS messenger from its source session and extend it into a local Claude Code ↔ Codex coordination layer. The bundled stdlib CLI discovers `claude:` and `codex:` targets across isolated standard Claude profiles, preserves the original authenticated UDS fallback, routes Codex through the first-party `codex queue --thread` command, supports explicitly counted cross-provider broadcasts, adds source/reply envelopes with explicit provenance strength, and verifies delivery from Claude transcripts or Codex queue/thread history without writing either product's SQLite stores. Claude uses a host-recognized peer wrapper; Codex provenance remains advisory text enforced by receiver-side governing instructions. The Skill-local official-feature reference owns the corrected availability and inbound-policy boundaries. The registered test suite, live Codex queue acceptance, and subsequent thread-history consumption were independently verified.
 
 ### Changed
+- **daymade-audio** v1.32.5 → v1.33.0 (`asr-transcribe-to-text`): replaces the stale “Minute URL always ends the job” rule with explicit outcomes. Upload-only still stops at the URL; a request that names upload but no downstream result lands at resumable `outcome_pending` instead of forcing a guess; transcript-only waits for a readable Feishu transcript; project delivery hands preprocessing into `meeting-ingest` and cannot finish until routing, full correction, project indexes, verified Git handoff, and the pushed delivery receipt are complete. A later downstream request preserves the same `minute_token`/URL and resumes instead of re-uploading.
+- **git-safety-net** v1.15.0 → v1.15.1: put mechanical judges under the three
+  scripts that had none — and they were the load-bearing three.
+  `git_verify_branch_merged.sh` is what the Skill's own rules call the only check
+  that was right every time, what Mode E rung 1 accepts as deletion-grade evidence,
+  and what Mode C routes "is everything merged?" to; it is referenced six times and
+  had zero tests. `git_loss_audit.sh` (the Mode B evidence path, required before any
+  rebase or branch-delete) and `git_preserve_danglers.sh` (the only script here that
+  writes refs) were likewise untested, while the three scripts that did have tests
+  were the lower-stakes ones. 27 tests close that inversion. No runtime behaviour
+  changes: not one line of any script was edited.
+  Every expectation was calibrated by running the script against the fixture first,
+  which is how two wrong assumptions were caught before they became tests — deleting
+  a branch does not create a dangling commit (the reflog keeps it reachable until
+  expired, so a naive fixture would have asserted against an empty run and passed for
+  the wrong reason), and a branch whose content is a textual subset of the base's is
+  still correctly reported UNMERGED, because containment is decided by a three-way
+  merge rather than by line presence.
+  The suite was then mutation-calibrated rather than trusted for being green: breaking
+  the containment check turns six tests red, restoring the `set -e` abort that the
+  script's own comments record as a past regression turns the conflict test red,
+  inverting the local-vs-remote ref precedence turns three red, widening the audit's
+  exit 1 to cover a routine stash turns the two alarm-fatigue tests red, and making
+  the pinning script delete a ref or use the wrong namespace turns the
+  non-destructive-invariant test red. One mutation was NOT caught — removing the `--`
+  pathspec guard leaves every test green, because the script resolves to a fully
+  qualified ref before the diff — so that test was renamed to what it actually proves
+  and the gap is stated in its docstring instead of being implied away.
+  The content-containment expectations are skipped below git 2.38, where
+  `merge-tree --write-tree` does not exist and the script deliberately degrades to a
+  conservative verdict; failing a healthy older runner would teach people to bypass
+  the suite.
+- **git-safety-net** v1.14.0 → v1.15.0: add the inverse of the shared-checkout
+  failure the previous release covered. v1.14.0 handles *your uncommitted work*
+  being stranded on *another session's* branch; this adds *their commit* landing
+  in *your branch's history*, where it ships inside your PR. Every check the skill
+  already prescribes reports green on it, because the foreign work left both the
+  working tree and the index the moment it was committed; only the branch's
+  cumulative range against its recorded base reveals it, so that read-only
+  comparison becomes a pre-push/pre-PR step, with the accidental tell named — a
+  validator or CI job reporting a wider blast radius than you worked on. Repair
+  is routed through the contracts this Skill already carries rather than restated
+  inline: finding a foreign commit is itself evidence another writer was in the
+  checkout, so the standing quiesce/ownership rules apply before anything else,
+  and the sequence that follows is the existing one — Mode B evidence path,
+  `backup/pre-rewrite` at your own tip per "Snapshot before any history rewrite",
+  a separate rescue ref for their commit, then the rebase, with either ref retired
+  only under Mode C/E deletion-grade evidence. The base SHA is recorded at branch
+  creation because recovering it later reads a cached remote ref whose refresh is
+  a gated fetch. Three measured instrument corrections ship with it: `--contains`
+  reports zero refs for a commit whose work already merged under a
+  squash-rewritten SHA; hash-equality comparison of whole files against the
+  integration branch reports differences as soon as the branch moves on; and
+  `merge-base --is-ancestor` answers only where the merge preserved the commit, so
+  under squash merges its exit 1 means "not this object", not "not landed" — the
+  probe that survives either strategy is a content grep carrying a known-absent
+  control line; `--is-ancestor` also has a third exit code, 128, for a SHA this
+  repository does not have — a different answer from 1. The prescribed rebase is
+  `--onto "<foreign-sha>^"`, never `--onto "$base"`: the latter replays
+  `<foreign-sha>..<branch>` and so discards the author's *own* earlier commits when
+  the foreign one is not first after the base, silently and with exit 0 (measured
+  on an `A(yours) → F(foreign) → C(yours)` branch: `A` vanished). Because a rebase
+  exit code cannot report that, re-running the detection is now a required step,
+  and the already-pushed case routes to the existing force-push contract instead of
+  inventing one. Troubleshooting also gains the lost-receipt entry (a moved remote
+  ref is not proof *your* write landed when concurrent sessions are merging) and a
+  probe-shape entry: `git ls-remote > f; [ -s f ]` is wrong in **both** directions
+  depending on one redirection detail — bare `> f` leaves 0 bytes because Git
+  writes the failure to stderr, so a live branch reads as "already gone", while
+  `2>&1` writes 155 bytes and a deleted branch reads as "still there";
+  `--exit-code` separates matched (0), no match (2), and probe failure (128). The
+  `rebase.autoStash` hazard is documented from measurement: on a conflicted rebase
+  a sibling session's uncommitted work leaves the working tree while
+  `git stash list` shows nothing, because an autostash is not a stash entry.
+  Every probe that ships carries the guard that stops it failing green: an
+  unresolvable base turns `"$base"..HEAD` into `HEAD..HEAD` and prints nothing at
+  exit 0, indistinguishable from "clean", so the base is verified first; Git cannot
+  attribute commits in a shared checkout (both sessions write the same author), so
+  "which are mine" is a recorded fact and a stop condition, not a query; the
+  content grep needs its diff `+` stripped and its path checked, since a renamed
+  file and an unstripped needle both return 0 with the control line passing;
+  `--contains` stops reporting zero the moment the rescue ref exists, so the
+  reading must exclude it; `ls-remote` takes a fully-qualified `refs/heads/<branch>`
+  because a bare name also matches a same-named tag; and `cat-file -e` returns 128
+  for a mistyped branch and a symlinked path as well as a missing file.
+  Every exit code, both failure directions, and each of the three wrong
+  instruments were measured, not recalled.
+- **tibo-reset-codex** v1.2.2 → v1.3.1: add the missing local-account
+  forensics leg and close the announcement path's structural blind spot,
+  both exposed by the 2026-09-01 live run. The skill previously could only
+  point the user at the product usage page or `/status`; it now reads the
+  `rate_limits` snapshots in `~/.codex/sessions/**/rollout-*.jsonl`, which
+  are the same evidence tier but scriptable, historical, and precise enough
+  to bound a reset to a minutes-wide interval. Three traps that return
+  plausible wrong answers without erroring are documented with the filters
+  that defeat them: `primary` does not always denote the weekly window,
+  `limit_id` includes a permanently-zero decoy bucket that manufactures
+  dozens of phantom resets, and `resets_at` drifts by seconds on every
+  snapshot so it cannot be used as a reset predicate. Window-anchor shape
+  now distinguishes a button-press reset (clean +7d) from a quota
+  reconfiguration (anchor moved into the past), and concurrent sessions are
+  noted as emitting the same reset twice. On the announcement side, Radar
+  indexes only @thsottiaux and therefore cannot see @ChatGPT or
+  status.openai.com — half the predictive signal, since resets fire on
+  outage compensation as well as milestones — so the outage line and
+  codexrunway.com join the channel list. Both new scripts were executed
+  verbatim as a reader would paste them; that is how the status-page command
+  was found to need built-in retries rather than a bare call.
 - **peer-message** v1.0.1 → v1.1.0: add an operational coordination and learning contract distilled from post-release Claude/Codex use. A read-only `whoami` command gives parent tasks an exact reply address before delegation; worker reports correlate the incoming task through `in_reply_to`; multiline or data-rich reports use the CLI's UTF-8 message-file entry; and bounded verification stops at transport, receiver queue/history, explicit reply, or independently verified task completion instead of collapsing them into “delivered.” The evidence-gated improvement loop admits layer-bounded sender errors as well as receiver records, task outcomes, deterministic tests, and user corrections, routes each failure to its owner, requires executable When/Do/Evidence/Missing/Do-not-infer/Stop rules, and separates bounded Skill evolution from unsupported autonomous RSI. Existing transports, receipts, exit codes, and authorization boundaries are unchanged.
 - **terraform-skill** v1.0.1 → v1.1.0: replace deploy-and-pray advice with a release-safety contract grounded in current Terraform, Docker Compose, Caddy, and Cloudflare behavior. Staging and production now share one required-key schema; every runtime writer must validate the exact candidate bytes, full Compose-rendered environment, and immutable image before live mutation. Saved plans are bound to source/artifact provenance, staging receipts follow live verification, and production authorization remains a distinct last-reversible-point decision. Correct the prior claims that Compose ignores shell overrides, `terraform validate` proves environment/runtime behavior, token shape proves Cloudflare capability, and disabling `set -e` is the right way to preserve failure diagnostics.
 - **macos-cleaner** (daymade-macos v1.0.0 → v1.1.0): add a targeted Chromium code-sign-clone branch and current-user-scoped analyzer that separates active, inactive, and unknown children, binds approved batches to a candidate SHA, preserves explicit exclusions across activity races, and supports a final read-only recheck while the exact-path deletion prompt waits. Rank nominal APFS path accounting separately from expected physical release, require df readback for actual reclaimed space, and stop the legacy deletion helper from silently shrinking a changed batch, labeling measured totals as physically “freed,” or continuing after the first failure.
@@ -27,6 +135,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an order-inverted stitched quote — both fixed and re-verified pre-ship.
 
 ### Fixed
+- **git-safety-net** v1.13.0 → v1.14.0: replace the over-broad “one worktree per
+  concurrent session” prescription with an authority-first, single-writer shared-checkout
+  contract. Mode D now treats worktrees as explicitly authorized named exceptions, preserves
+  narrow higher-authority stash contracts instead of declaring a universal ban, stops every
+  repository mutation while another writer is active, freezes handoffs and merges by exact
+  local/remote SHA, makes completion an AND gate over session-owned bytes,
+  remote containment, and attributed residuals, and keeps cleanup in separately authorized
+  Mode E. The prevention reference now counts any scheduled job that can write the checkout as a
+  writer even when paths are disjoint: an idle process snapshot is not a lock, so existing
+  coordination must quiesce it and transfer exclusive ownership before Git mutation; stopping,
+  leasing, or rescheduling automation remains a separate design decision. The reachable Mode E
+  convergence workflow now applies the same gate to alternate-index commits, ref/bundle writes,
+  push/PR, and fetch; parallel verification agents receive frozen SHAs and never move
+  remote-tracking refs. Bundle-relative helpers are no longer presented as commands assumed to
+  exist on `PATH`.
 - **peer-message** v1.1.0 → v1.1.1: stop Claude receiver-evidence verification from collapsing unreadable transcripts or malformed matching JSONL into ordinary `unverified`. The verifier now keeps scanning other candidates and later lines for valid enqueue evidence, but fails loudly if no valid match exists and any evidence read/parse error occurred; a clean, fully readable miss remains `unverified`. Four deterministic regression cases cover read failure, malformed matching JSON, later valid evidence, and the healthy-miss control.
 - **peer-message** v1.0.0 → v1.0.1: make documentation ownership executable instead of duplicative. `SKILL.md` keeps only routing, stable prerequisites, safety, and owner pointers; `peer.py --help` owns CLI syntax; the protocol reference owns addressing, envelopes, receipt, exit, transport, and verification semantics; the official-feature reference owns volatile product interfaces and inbound mechanics. README/README.zh-CN and `CLAUDE.md` point to those owners, while the changelog and private review stop persisting derived test, session, reachability, and file totals.
 - **prior-work-retrieval / claude-switch-models-setup** (daymade-claude-code v3.7.9 → v3.7.13): remove `uv run` from the synchronous Claude/Codex prior-work hook entrypoint and require the profile-convergence SessionStart hook to use an absolute direct-Python command. The prior-work wrapper now also fails closed when that runtime is missing or a relative override is supplied, rather than falling back to PATH `python3`. Repository and Skill contracts distinguish package-manager-free hook launch from explicit `uv` retrieval, validation, and test lifecycles. Shared UV cache cleanup or lock contention can no longer stall every PreToolUse decision or prevent profile repair.

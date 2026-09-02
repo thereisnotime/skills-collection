@@ -3285,6 +3285,8 @@ Codex 上次做到一半中断了，读取 rollout 后把工作做完
 - 按内容验证分支是否已合并，破解 squash-merge 后“100 commits ahead”的幻觉
 - 删除 linked worktree 前证明其 HEAD 已被吸收，并把全部 refs 导出为校验过的 bundle
 - 高风险“是否真的全部合并了”场景可选对抗性多 agent 验证
+- 在开 PR 前抓出并行 session 的提交混入自己分支——分支级检查全绿也照样发生
+- 网络吞掉 push/merge 回执时，按内容而不是「远端 ref 动了」判定自己的写入是否落地
 - 预防习惯：切分支前先提交、尽早 push WIP、删除前审计每一个 checkout
 
 **示例：**
@@ -3526,7 +3528,9 @@ A 股行业投研工作流：全板块成分股 Top N 涨幅计算、公告窗�
 不要凭记忆回答“什么时候恢复额度”，应通过权威追踪通道现查并换算北京时间。
 
 **核心能力：**
-- Tibo Radar JSON API 与 codexlimitwatch 双源核对
+- Tibo Radar JSON API 现查公告；Radar 与 codexlimitwatch 属同一来源家族，只能互查解析一致，不作独立双源
+- 另查官方故障线（@ChatGPT / status.openai.com）：重置有里程碑与故障补偿两个触发，Radar 只索引前者
+- 本机 `~/.codex` rollout 快照取证：重建周额度曲线、把重置定位到分钟级区间
 - 识别公告中的混合时间写法和 PST/PDT 夏令时差异
 - 太平洋时间到北京时间的当场实测换算
 - 区分 tracker 标签、官方公告与用户账户实际到账状态

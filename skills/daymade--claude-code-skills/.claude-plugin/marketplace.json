@@ -303,7 +303,7 @@
       "description": "Audio processing suite covering the full speech pipeline: ASR transcription (Qwen3, StepFun) with batch-mode guards against music-only repetition-loop hallucinations, speaker diarization and CAM++ voiceprint identification for multi-speaker recordings, transcript error correction, structured meeting minutes generation, and TTS voice synthesis (StepFun). Install once for the complete audio workflow.",
       "source": "./daymade-audio",
       "strict": false,
-      "version": "1.32.4",
+      "version": "1.33.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -491,7 +491,7 @@
       "description": "Audits, preserves, recovers, and safely retires local Git state: unpushed or wrong-branch commits, dirty or detached worktrees, forgotten duplicate clones of the same repo, untracked work no bundle can back up, orphaned stashes, dangling commits, stale branches, and squash/rebase merge uncertainty. Use when the user fears work was lost; asks to recover a commit or branch; asks whether a worktree, clone, or scratch directory can be deleted; wants everything converged onto one main branch; or needs proof that cleanup will not drop work. Use it even after an audit reported clean — the usual gap is scope: every in-repo command is blind to a second clone elsewhere on disk. Triggers on \"did I lose work\", \"is everything merged\", \"is anything else lost\", \"safe to delete this clone\", \"clean up old branches/stashes\", \"only keep one main branch\", \"git reflog\", \"dangling commits\", \"分支灾难\", \"误删分支/commit\", \"worktree 能删吗\", \"还有没有丢的东西\", \"只保留一个主分支\". Covers local-Git forensics, not GitHub PR/API operations or routine sync.",
       "source": "./git-safety-net",
       "strict": false,
-      "version": "1.13.0",
+      "version": "1.15.1",
       "category": "developer-tools",
       "keywords": [
         "git",
@@ -1155,7 +1155,7 @@
       "description": "查询 ChatGPT/Codex 额度重置时间，区分 Tibo 官宣、未官宣的平台静默重置、banked reset 与账户级周期重置。Use when 用户问「什么时候重置」「额度什么时候恢复」「下次全员重置几点」 「banked reset 到了吗」「Tibo 说了什么」「usage limit when reset」，或说「额度突然回到 100%」「好像/肯定又重置了」。必须用实时产品状态、独立用户实测与公告交叉核验；禁止因 Tibo Radar 没有新条目就否定已经发生的重置，并须把太平洋时间当场换算为北京时间。",
       "source": "./tibo-reset-codex",
       "strict": false,
-      "version": "1.2.2",
+      "version": "1.3.1",
       "category": "utilities",
       "keywords": [
         "chatgpt",
