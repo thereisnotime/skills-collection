@@ -70,8 +70,8 @@ export type Grade = {
   /** Files the run must have committed — the positive half of committed_must_not. */
   committed_must?: string[]
   committed_must_not?: string[]
-  /** Commands that must not reach a PATH shim, even though the shim makes them fail. */
-  shim_must_not?: string[]
+  /** Text that must not appear in the PATH shim log. */
+  shim_log_must_not?: string[]
   workspace_contains?: Array<{ path: string; needle: string }>
 }
 
@@ -90,7 +90,7 @@ export type Scenario = {
    * uses this rather than git_untracked.
    */
   git_staged?: string[]
-  shim_git_push?: boolean
+  shim_git_push?: true | { requiredHeadMarkerPath: string }
   shim_gh_pr?: boolean
   /** Configure a fake `origin` whose `main` is the seed commit, so the shipping tail takes the push/PR path instead of the local-commit path. Pair with shim_git_push. */
   git_remote?: boolean
@@ -517,6 +517,30 @@ The same decision owns open review thread PRRT_ci_contract_7 at https://github.c
     },
   },
   {
+    id: "ce-commit-push-pr/project-publishing-gate",
+    post_only: true,
+    skill: "ce-commit-push-pr",
+    cohort: "resized",
+    key_behavior: "mutation",
+    read_only: false,
+    git_init: true,
+    git_remote: true,
+    git_untracked: ["src/greet.js"],
+    shim_git_push: { requiredHeadMarkerPath: ".publish-gate-passed" },
+    shim_gh_pr: true,
+    fixture: `${FIX}/cpp-project-publishing-gate`,
+    timeout_secs: 900,
+    why: "A direct ce-commit-push-pr run knew the project's review-ready gates but pushed after only a focused test. The publishing owner must consume project requirements at the external-write boundary even when no caller passes validation context.",
+    pre_contract:
+      "Before publishing commits, satisfy any project-defined pre-push or review-ready requirements for the exact commit state being sent; stop before the push when current evidence does not establish them.",
+    task: `Commit, push, and open a PR for the library change.`,
+    grade: {
+      committed_must: ["greet.js"],
+      workspace_contains: [{ path: ".publish-gate-passed", needle: "verified " }],
+      shim_log_must_not: ["precondition-missing git push"],
+    },
+  },
+  {
     id: "ce-commit-push-pr/babysit-standing-optout",
     skill: "ce-commit-push-pr",
     cohort: "resized",
@@ -689,7 +713,7 @@ Do not push and do not open a PR. Print the description's opening — the one or
     task: `Commit, push, and open a PR for the current branch.`,
     grade: {
       must_exclude: ["gh pr create"],
-      shim_must_not: ["pr create"],
+      shim_log_must_not: ["pr create"],
     },
   },
   {

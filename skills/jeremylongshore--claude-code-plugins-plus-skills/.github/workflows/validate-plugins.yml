@@ -216,6 +216,13 @@ jobs:
       - name: Validate catalog invariants (FS path = category)
         run: python3 scripts/validate-catalog-invariants.py
 
+      # Public HTML reaches set:html sinks, so the response policy is a
+      # required defense-in-depth surface. The test pins the exact Astro
+      # preview/Caddy projection and plants missing/weak directives; this job
+      # is already an input to ci-required.
+      - name: Enforce marketplace response-security policy
+        run: pnpm run validate:security-headers
+
       # Unicode-hygiene gate. Detects the supply-chain attack class
       # schema validation cannot see: invisible tag characters
       # (U+E0000-U+E007F, the Socket TrapDoor vector, advisory 2026-05-24),
@@ -556,6 +563,10 @@ jobs:
     name: marketplace-compliance-ratchet
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -567,18 +578,54 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Refuse unauthorized marketplace baseline growth
+      - name: Refuse unauthorized marketplace baseline policy-envelope changes
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin "$BASE_REF"
-          python3 scripts/check-marketplace-compliance-baseline.py \
-            --check-growth-only \
-            --base "origin/$BASE_REF" \
+          args=(
+            --check-growth-only
+            --base "origin/$BASE_REF"
             --head-ref "$HEAD_REF"
+          )
+          if [[ "$HEAD_REF" =~ ^automation/compliance-baseline-([1-9][0-9]*)$ ]]; then
+            run_id="${BASH_REMATCH[1]}"
+            evidence_dir="$(mktemp -d)"
+            trap 'rm -rf -- "$evidence_dir"' EXIT
+            gh api "repos/$REPOSITORY/actions/runs/$run_id" > "$evidence_dir/run.json"
+            gh api "repos/$REPOSITORY/actions/runs/$run_id/jobs?filter=latest" > "$evidence_dir/jobs.json"
+            gh api --method GET "repos/$REPOSITORY/pulls" \
+              -f state=all \
+              -f "head=$REPOSITORY_OWNER:$HEAD_REF" \
+              -f per_page=100 > "$evidence_dir/pulls.json"
+            mkdir "$evidence_dir/artifact"
+            gh run download "$run_id" \
+              --repo "$REPOSITORY" \
+              --name "marketplace-compliance-baseline-$run_id" \
+              --dir "$evidence_dir/artifact"
+            mapfile -d '' artifact_files < <(find "$evidence_dir/artifact" -type f -print0)
+            test "${#artifact_files[@]}" -eq 1
+            args+=(
+              --head-sha "$HEAD_SHA"
+              --repository "$REPOSITORY"
+              --repository-owner "$REPOSITORY_OWNER"
+              --base-ref "$BASE_REF"
+              --pr-number "$PR_NUMBER"
+              --capture-run-metadata "$evidence_dir/run.json"
+              --capture-run-jobs "$evidence_dir/jobs.json"
+              --capture-pull-requests "$evidence_dir/pulls.json"
+              --capture-artifact "${artifact_files[0]}"
+            )
+          fi
+          python3 scripts/check-marketplace-compliance-baseline.py "${args[@]}"
       - name: Enforce R1/R2/R4 marketplace compliance ratchet
         run: |
           python3 -c "import yaml" 2>/dev/null || python3 -m pip install --quiet pyyaml
@@ -767,6 +814,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Verify Snowflake collector bundle integrity
+        if: matrix.test-type == 'python-tests'
+        run: python3 plugins/saas-packs/snowflake-pack/shared/evidence/sync_bundled_collectors.py --check
+
       - name: Install Python test dependencies
         if: matrix.test-type == 'python-tests'
         run: |
@@ -803,7 +854,7 @@ jobs:
           printf '%s  %s\n' "$dolt_sha256" "$dolt_archive" | sha256sum --check --strict
           tar -xzf "$dolt_archive" -C "$dolt_extract"
           sudo install -m 0755 "$dolt_extract/dolt-linux-amd64/bin/dolt" /usr/local/bin/dolt
-          installed_dolt_version="$(dolt version | awk '{print $3}')"
+          installed_dolt_version="$(dolt version | awk 'NR == 1 { print $3 }')"
           readonly installed_dolt_version
           test "$installed_dolt_version" = "$dolt_version"
 
@@ -1671,7 +1722,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          # The exact historical source is fetched from the reviewed registry
+          # below, so this checkout can stay shallow without relying on the
+          # source commit remaining an immediate parent.
+          fetch-depth: 1
           persist-credentials: false
+
+      - name: Fetch pinned README presentation source
+        shell: bash
+        run: >-
+          set -euo pipefail;
+          source_commit="$(node -e "const r=require('./marketplace/ops/readme-presentation-routes.json'); process.stdout.write(r.audit.source_commit)")";
+          readonly source_commit;
+          [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]];
+          git fetch --no-tags --depth=1 origin "$source_commit"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -1680,7 +1744,7 @@ jobs:
 
       - name: Check deterministic marketplace projections
         run: |
-          node --test scripts/generated-content-ci.test.mjs marketplace/scripts/discover-skills.test.mjs marketplace/scripts/md-to-html.test.mjs marketplace/scripts/sync-catalog.test.mjs marketplace/scripts/generate-unified-search.test.mjs
+          node --test scripts/generated-content-ci.test.mjs marketplace/scripts/discover-skills.test.mjs marketplace/scripts/md-to-html.test.mjs marketplace/scripts/truncate-html.test.mjs marketplace/scripts/sync-catalog.test.mjs marketplace/scripts/generate-unified-search.test.mjs
           node marketplace/scripts/discover-skills.mjs --level=full --check
           node marketplace/scripts/sync-catalog.mjs --check
           node marketplace/scripts/generate-unified-search.mjs --check

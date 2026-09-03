@@ -1010,16 +1010,8 @@ function rowSources(...paths) {
   return paths.flat().filter(Boolean);
 }
 
-function latestFreshieRunReceipt(reader) {
-  const candidates = reader.paths
-    .map((path) => ({ match: /^freshie\/reports\/run-delta-(\d+)\.json$/.exec(path), path }))
-    .filter((entry) => entry.match)
-    .map((entry) => ({ path: entry.path, runId: Number(entry.match[1]) }))
-    .sort((left, right) => left.runId - right.runId);
-  if (candidates.length === 0) return null;
-
-  const latest = candidates.at(-1);
-  const report = reader.json(latest.path);
+function freshieRunReceipt(reader, path, runId) {
+  const report = reader.json(path);
   const coherence = report?.run_coherence;
   const headerTotal = finiteCount(coherence?.header_total_skills);
   const skillRows = finiteCount(coherence?.skill_rows);
@@ -1070,11 +1062,11 @@ function latestFreshieRunReceipt(reader) {
   }
   const valid =
     report?.schema_version === 'freshie-run-delta/v3' &&
-    report?.run_id === latest.runId &&
-    new RegExp(`^run-${latest.runId}(?:\\.\\d+)?$`).test(report?.to_tag ?? '') &&
+    report?.run_id === runId &&
+    new RegExp(`^run-${runId}(?:\\.\\d+)?$`).test(report?.to_tag ?? '') &&
     typeof report?.dolt_commit === 'string' &&
     /^[a-z0-9]{20,64}$/i.test(report.dolt_commit) &&
-    coherence?.discovery_run_id === latest.runId &&
+    coherence?.discovery_run_id === runId &&
     headerTotal !== null &&
     headerTotal > 0 &&
     skillRows !== null &&
@@ -1099,11 +1091,24 @@ function latestFreshieRunReceipt(reader) {
     finiteCount(forgeProofs?.total_e2_e3) === computedE2E3 &&
     finiteCount(forgeProofs?.retained_e2_e3) === computedE2E3;
   return {
-    ...latest,
+    path,
+    runId,
     report,
     coherence: { headerTotal, skillRows, skillDelta, complianceRows },
     valid,
   };
+}
+
+function latestFreshieRunReceipt(reader) {
+  const candidates = reader.paths
+    .map((path) => ({ match: /^freshie\/reports\/run-delta-(\d+)\.json$/.exec(path), path }))
+    .filter((entry) => entry.match)
+    .map((entry) => ({ path: entry.path, runId: Number(entry.match[1]) }))
+    .sort((left, right) => left.runId - right.runId);
+  if (candidates.length === 0) return null;
+
+  const latest = candidates.at(-1);
+  return freshieRunReceipt(reader, latest.path, latest.runId);
 }
 
 function canonicalJson(value) {
@@ -1120,14 +1125,20 @@ function canonicalJson(value) {
 function forgeProofReceipt(reader, freshieRun) {
   const path = 'freshie/reports/legacy-forge-proofs-demotion.json';
   const payload = reader.json(path);
-  const snapshot = freshieRun?.report?.forge_proofs;
+  const sourceRunId = finiteCount(payload?.source_run_id);
+  const sourcePath = sourceRunId === null ? null : `freshie/reports/run-delta-${sourceRunId}.json`;
+  const sourceRun = sourcePath === null ? null : freshieRunReceipt(reader, sourcePath, sourceRunId);
+  const snapshot = sourceRun?.report?.forge_proofs;
+  const currentSnapshot = freshieRun?.report?.forge_proofs;
   if (
     !freshieRun?.valid ||
+    !sourceRun?.valid ||
     payload?.schema_version !== 'forge-proof-demotion/v2' ||
     !Array.isArray(payload.records) ||
-    !Array.isArray(snapshot?.records)
+    !Array.isArray(snapshot?.records) ||
+    !Array.isArray(currentSnapshot?.records)
   ) {
-    return { path, valid: false };
+    return { path, sourcePath, valid: false };
   }
   const identities = new Set();
   const classCounts = { E0: 0, E1: 0, E2: 0, E3: 0 };
@@ -1160,14 +1171,15 @@ function forgeProofReceipt(reader, freshieRun) {
   ).length;
   const recordsHash = createHash('sha256').update(canonicalJson(payload.records)).digest('hex');
   const linked =
-    payload.source_run_id === freshieRun.runId &&
-    payload.source_tag === freshieRun.report.to_tag &&
-    payload.source_dolt_commit === freshieRun.report.dolt_commit &&
+    payload.source_run_id === sourceRun.runId &&
+    payload.source_tag === sourceRun.report.to_tag &&
+    payload.source_dolt_commit === sourceRun.report.dolt_commit &&
     payload.records_sha256 === snapshot.records_sha256 &&
     recordsHash === snapshot.records_sha256 &&
     canonicalJson(payload.records) === canonicalJson(snapshot.records);
   return {
     path,
+    sourcePath,
     valid:
       linked &&
       payload.records.length === snapshot.row_count &&
@@ -1177,11 +1189,12 @@ function forgeProofReceipt(reader, freshieRun) {
       class_counts: classCounts,
       invalid_identities: invalidIdentities,
       legacy_e0_records: legacyE0,
-      retained_e2_e3: snapshot.retained_e2_e3,
+      current_run_id: freshieRun.runId,
+      retained_e2_e3: currentSnapshot.retained_e2_e3,
       source_dolt_commit: payload.source_dolt_commit,
       source_run_id: payload.source_run_id,
       source_tag: payload.source_tag,
-      total_e2_e3: snapshot.total_e2_e3,
+      total_e2_e3: currentSnapshot.total_e2_e3,
       total_records: payload.records.length,
       unclassified,
     },
@@ -1270,7 +1283,7 @@ PY`;
     /^printf '%s {2}%s\\n' "\$dolt_sha256" "\$dolt_archive" \| sha256sum --check --strict$/,
     /^tar -xzf "\$dolt_archive" -C "\$dolt_extract"$/,
     new RegExp(`^${canonicalDoltInstall.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
-    /^installed_dolt_version="\$\(dolt version \| awk '\{print \$3\}'\)"$/,
+    /^installed_dolt_version="\$\(dolt version \| awk 'NR == 1 \{ print \$3 \}'\)"$/,
     /^readonly installed_dolt_version$/,
     /^test "\$installed_dolt_version" = "\$dolt_version"$/,
   ];
@@ -1316,7 +1329,7 @@ PY`;
       /sudo install -m 0755 "\$dolt_extract\/dolt-linux-amd64\/bin\/dolt" \/usr\/local\/bin\/dolt/.test(
         doltRun,
       ) &&
-      /installed_dolt_version="\$\(dolt version \| awk '\{print \$3\}'\)"\s+readonly installed_dolt_version/.test(
+      /installed_dolt_version="\$\(dolt version \| awk 'NR == 1 \{ print \$3 \}'\)"\s+readonly installed_dolt_version/.test(
         doltRun,
       ) &&
       /test "\$installed_dolt_version" = "\$dolt_version"/.test(doltRun),
@@ -2044,6 +2057,7 @@ export function buildExtendedScorecardRows({
       'tag-bound forge-proof ledger snapshot and legacy demotion receipt',
       [
         proofs.path,
+        proofs.sourcePath,
         freshieRun.path,
         'freshie/scripts/dolt-sync.py',
         'freshie/scripts/run-delta.py',
@@ -2059,6 +2073,7 @@ export function buildExtendedScorecardRows({
       'tag-bound evidence-class snapshot and canonical retention standard',
       [
         proofs.path,
+        proofs.sourcePath,
         freshieRun.path,
         '000-docs/807-DR-STND-evaluation-evidence.md',
         'freshie/scripts/dolt-sync.py',

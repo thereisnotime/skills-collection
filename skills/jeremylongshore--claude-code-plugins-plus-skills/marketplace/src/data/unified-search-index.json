@@ -5,10 +5,10 @@
     "generator": "marketplace/scripts/generate-unified-search.mjs"
   },
   "stats": {
-    "totalPlugins": 440,
-    "totalSkills": 2984,
+    "totalPlugins": 439,
+    "totalSkills": 2954,
     "totalDocs": 24,
-    "totalItems": 3448,
+    "totalItems": 3417,
     "categories": [
       "ai-agency",
       "ai-ml",
@@ -463,7 +463,6 @@
       "anima",
       "anomaly",
       "ansible",
-      "answers",
       "anthropic",
       "anthropic-spec",
       "anti-slop",
@@ -1235,7 +1234,6 @@
       "performance",
       "performance-budget",
       "perpetuals",
-      "perplexity",
       "persistence",
       "persistent",
       "persistent-memory",
@@ -1707,7 +1705,7 @@
     "totalHooks": 28,
     "pluginsWithAgents": 90,
     "pluginsWithHooks": 20,
-    "officialPlugins": 390,
+    "officialPlugins": 389,
     "communityPlugins": 50,
     "communityContributors": 39
   },
@@ -10323,39 +10321,6 @@
     },
     {
       "type": "plugin",
-      "id": "perplexity-pack",
-      "slug": "perplexity-pack",
-      "name": "perplexity-pack",
-      "displayName": "perplexity pack",
-      "description": "Complete Perplexity integration skill pack with 30 skills covering AI search, real-time answers, citations, and research workflows. Flagship+ tier vendor pack.",
-      "category": "saas-packs",
-      "keywords": [
-        "perplexity",
-        "ai-search",
-        "research",
-        "citations",
-        "real-time",
-        "knowledge",
-        "answers"
-      ],
-      "author": {
-        "name": "Jeremy Longshore",
-        "email": "jeremy@intentsolutions.io",
-        "url": "https://github.com/jeremylongshore"
-      },
-      "authorType": "official",
-      "version": "1.12.0",
-      "isFeatured": false,
-      "isNew": false,
-      "badges": [],
-      "skillCount": 30,
-      "verificationScore": 79,
-      "verificationGrade": "C",
-      "verificationBadge": "silver",
-      "searchText": "perplexity pack complete perplexity integration skill pack with 30 skills covering ai search, real-time answers, citations, and research workflows. flagship+ tier vendor pack. saas-packs perplexity ai-search research citations real-time knowledge answers"
-    },
-    {
-      "type": "plugin",
       "id": "replit-pack",
       "slug": "replit-pack",
       "name": "replit-pack",
@@ -10377,7 +10342,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -11136,7 +11101,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -13376,7 +13341,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "3.0.0",
+      "version": "3.2.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -56089,7 +56054,7 @@
         "Bash(gh:*)"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56109,7 +56074,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56131,7 +56096,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56153,7 +56118,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56172,7 +56137,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56192,7 +56157,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56214,7 +56179,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56237,7 +56202,7 @@
         "Bash(gcloud:*)"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56257,7 +56222,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56277,7 +56242,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56298,7 +56263,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56321,7 +56286,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56344,7 +56309,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56367,7 +56332,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56389,7 +56354,7 @@
         "Bash(vault:*)"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56409,7 +56374,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56429,7 +56394,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56450,7 +56415,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56470,7 +56435,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56489,7 +56454,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56509,7 +56474,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56529,7 +56494,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56551,7 +56516,7 @@
         "Bash(git:*)"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -56572,7 +56537,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "parentPlugin": {
         "name": "mistral-pack",
         "category": "saas-packs"
@@ -62056,634 +62021,6 @@
     },
     {
       "type": "skill",
-      "id": "perplexity-advanced-troubleshooting",
-      "slug": "perplexity-advanced-troubleshooting",
-      "name": "perplexity-advanced-troubleshooting",
-      "description": "Apply advanced debugging techniques for hard-to-diagnose Perplexity Sonar API issues. Use when standard troubleshooting fails, investigating inconsistent citations, or preparing evidence for support escalation. Trigger with phrases like \"perplexity hard bug\", \"perplexity mystery error\", \"perplexity inconsistent results\", \"difficult perplexity issue\", \"perplexity deep debug\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep",
-        "Bash(kubectl:*)",
-        "Bash(curl:*)",
-        "Bash(tcpdump:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-advanced-troubleshooting apply advanced debugging techniques for hard-to-diagnose perplexity sonar api issues. use when standard troubleshooting fails, investigating inconsistent citations, or preparing evidence for support escalation. trigger with phrases like \"perplexity hard bug\", \"perplexity mystery error\", \"perplexity inconsistent results\", \"difficult perplexity issue\", \"perplexity deep debug\". saas-packs read grep bash(kubectl:*) bash(curl:*) bash(tcpdump:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-architecture-variants",
-      "slug": "perplexity-architecture-variants",
-      "name": "perplexity-architecture-variants",
-      "description": "Choose and implement Perplexity architecture blueprints for different scales: direct search widget, cached research layer, and multi-query pipeline. Trigger with phrases like \"perplexity architecture\", \"perplexity blueprint\", \"how to structure perplexity\", \"perplexity project layout\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-architecture-variants choose and implement perplexity architecture blueprints for different scales: direct search widget, cached research layer, and multi-query pipeline. trigger with phrases like \"perplexity architecture\", \"perplexity blueprint\", \"how to structure perplexity\", \"perplexity project layout\". saas-packs read grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-ci-integration",
-      "slug": "perplexity-ci-integration",
-      "name": "perplexity-ci-integration",
-      "description": "Configure CI/CD for Perplexity Sonar API integrations with GitHub Actions. Use when setting up automated testing, configuring CI pipelines, or integrating Perplexity tests into your build process. Trigger with phrases like \"perplexity CI\", \"perplexity GitHub Actions\", \"perplexity automated tests\", \"CI perplexity pipeline\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(gh:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-ci-integration configure ci/cd for perplexity sonar api integrations with github actions. use when setting up automated testing, configuring ci pipelines, or integrating perplexity tests into your build process. trigger with phrases like \"perplexity ci\", \"perplexity github actions\", \"perplexity automated tests\", \"ci perplexity pipeline\". saas-packs read write edit bash(gh:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-common-errors",
-      "slug": "perplexity-common-errors",
-      "name": "perplexity-common-errors",
-      "description": "Diagnose and fix Perplexity Sonar API errors and exceptions. Use when encountering Perplexity errors, debugging failed requests, or troubleshooting integration issues. Trigger with phrases like \"perplexity error\", \"fix perplexity\", \"perplexity not working\", \"debug perplexity\", \"perplexity 429\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-common-errors diagnose and fix perplexity sonar api errors and exceptions. use when encountering perplexity errors, debugging failed requests, or troubleshooting integration issues. trigger with phrases like \"perplexity error\", \"fix perplexity\", \"perplexity not working\", \"debug perplexity\", \"perplexity 429\". saas-packs read grep bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-core-workflow-a",
-      "slug": "perplexity-core-workflow-a",
-      "name": "perplexity-core-workflow-a",
-      "description": "Execute Perplexity primary workflow: single-query search with citations. Use when implementing AI search, building fact-checking tools, or integrating web-grounded answers into your application. Trigger with phrases like \"perplexity search\", \"perplexity query\", \"search with citations\", \"perplexity main workflow\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-core-workflow-a execute perplexity primary workflow: single-query search with citations. use when implementing ai search, building fact-checking tools, or integrating web-grounded answers into your application. trigger with phrases like \"perplexity search\", \"perplexity query\", \"search with citations\", \"perplexity main workflow\". saas-packs read write edit bash(npm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-core-workflow-b",
-      "slug": "perplexity-core-workflow-b",
-      "name": "perplexity-core-workflow-b",
-      "description": "Execute Perplexity multi-turn research sessions and batch query pipelines. Use when conducting in-depth investigations, generating research briefs, or processing multiple related search queries. Trigger with phrases like \"perplexity research\", \"perplexity batch search\", \"multi-query perplexity\", \"perplexity deep dive\", \"perplexity report\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-core-workflow-b execute perplexity multi-turn research sessions and batch query pipelines. use when conducting in-depth investigations, generating research briefs, or processing multiple related search queries. trigger with phrases like \"perplexity research\", \"perplexity batch search\", \"multi-query perplexity\", \"perplexity deep dive\", \"perplexity report\". saas-packs read write edit bash(npm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-cost-tuning",
-      "slug": "perplexity-cost-tuning",
-      "name": "perplexity-cost-tuning",
-      "description": "Optimize Perplexity costs through model routing, caching, token limits, and budget monitoring. Use when analyzing Perplexity billing, reducing API costs, or implementing budget alerts for Perplexity Sonar API. Trigger with phrases like \"perplexity cost\", \"perplexity billing\", \"reduce perplexity costs\", \"perplexity pricing\", \"perplexity budget\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-cost-tuning optimize perplexity costs through model routing, caching, token limits, and budget monitoring. use when analyzing perplexity billing, reducing api costs, or implementing budget alerts for perplexity sonar api. trigger with phrases like \"perplexity cost\", \"perplexity billing\", \"reduce perplexity costs\", \"perplexity pricing\", \"perplexity budget\". saas-packs read grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-data-handling",
-      "slug": "perplexity-data-handling",
-      "name": "perplexity-data-handling",
-      "description": "Implement Perplexity query sanitization, citation validation, result caching, and conversation context management for search workflows. Trigger with phrases like \"perplexity data\", \"perplexity PII\", \"perplexity citations\", \"perplexity cache\", \"perplexity context\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-data-handling implement perplexity query sanitization, citation validation, result caching, and conversation context management for search workflows. trigger with phrases like \"perplexity data\", \"perplexity pii\", \"perplexity citations\", \"perplexity cache\", \"perplexity context\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-debug-bundle",
-      "slug": "perplexity-debug-bundle",
-      "name": "perplexity-debug-bundle",
-      "description": "Collect Perplexity debug evidence for support tickets and troubleshooting. Use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for Perplexity problems. Trigger with phrases like \"perplexity debug\", \"perplexity support bundle\", \"collect perplexity logs\", \"perplexity diagnostic\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Bash(grep:*)",
-        "Bash(curl:*)",
-        "Bash(tar:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-debug-bundle collect perplexity debug evidence for support tickets and troubleshooting. use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for perplexity problems. trigger with phrases like \"perplexity debug\", \"perplexity support bundle\", \"collect perplexity logs\", \"perplexity diagnostic\". saas-packs read bash(grep:*) bash(curl:*) bash(tar:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-deploy-integration",
-      "slug": "perplexity-deploy-integration",
-      "name": "perplexity-deploy-integration",
-      "description": "Deploy Perplexity Sonar API integrations to Vercel, Cloud Run, and Docker. Use when deploying Perplexity-powered applications to production, configuring platform-specific secrets, or setting up edge functions. Trigger with phrases like \"deploy perplexity\", \"perplexity Vercel\", \"perplexity production deploy\", \"perplexity Cloud Run\", \"perplexity Docker\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(vercel:*)",
-        "Bash(fly:*)",
-        "Bash(gcloud:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-deploy-integration deploy perplexity sonar api integrations to vercel, cloud run, and docker. use when deploying perplexity-powered applications to production, configuring platform-specific secrets, or setting up edge functions. trigger with phrases like \"deploy perplexity\", \"perplexity vercel\", \"perplexity production deploy\", \"perplexity cloud run\", \"perplexity docker\". saas-packs read write edit bash(vercel:*) bash(fly:*) bash(gcloud:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-enterprise-rbac",
-      "slug": "perplexity-enterprise-rbac",
-      "name": "perplexity-enterprise-rbac",
-      "description": "Configure Perplexity API key scoping, per-team model access, cost controls, and search domain restrictions for enterprise deployments. Trigger with phrases like \"perplexity enterprise\", \"perplexity RBAC\", \"perplexity team access\", \"perplexity roles\", \"perplexity permissions\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-enterprise-rbac configure perplexity api key scoping, per-team model access, cost controls, and search domain restrictions for enterprise deployments. trigger with phrases like \"perplexity enterprise\", \"perplexity rbac\", \"perplexity team access\", \"perplexity roles\", \"perplexity permissions\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-hello-world",
-      "slug": "perplexity-hello-world",
-      "name": "perplexity-hello-world",
-      "description": "Create a minimal working Perplexity Sonar search example with citations. Use when starting a new Perplexity integration, testing your setup, or learning basic search-with-citations patterns. Trigger with phrases like \"perplexity hello world\", \"perplexity example\", \"perplexity quick start\", \"simple perplexity search\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-hello-world create a minimal working perplexity sonar search example with citations. use when starting a new perplexity integration, testing your setup, or learning basic search-with-citations patterns. trigger with phrases like \"perplexity hello world\", \"perplexity example\", \"perplexity quick start\", \"simple perplexity search\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-incident-runbook",
-      "slug": "perplexity-incident-runbook",
-      "name": "perplexity-incident-runbook",
-      "description": "Execute Perplexity incident response procedures with triage, mitigation, and postmortem. Use when responding to Perplexity API outages, investigating search failures, or running post-incident reviews for Perplexity integration issues. Trigger with phrases like \"perplexity incident\", \"perplexity outage\", \"perplexity down\", \"perplexity on-call\", \"perplexity emergency\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep",
-        "Bash(kubectl:*)",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-incident-runbook execute perplexity incident response procedures with triage, mitigation, and postmortem. use when responding to perplexity api outages, investigating search failures, or running post-incident reviews for perplexity integration issues. trigger with phrases like \"perplexity incident\", \"perplexity outage\", \"perplexity down\", \"perplexity on-call\", \"perplexity emergency\". saas-packs read grep bash(kubectl:*) bash(curl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-install-auth",
-      "slug": "perplexity-install-auth",
-      "name": "perplexity-install-auth",
-      "description": "Install and configure Perplexity Sonar API authentication. Use when setting up a new Perplexity integration, configuring API keys, or initializing the OpenAI-compatible client for Perplexity. Trigger with phrases like \"install perplexity\", \"setup perplexity\", \"perplexity auth\", \"configure perplexity API key\", \"perplexity sonar setup\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(pip:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-install-auth install and configure perplexity sonar api authentication. use when setting up a new perplexity integration, configuring api keys, or initializing the openai-compatible client for perplexity. trigger with phrases like \"install perplexity\", \"setup perplexity\", \"perplexity auth\", \"configure perplexity api key\", \"perplexity sonar setup\". saas-packs read write edit bash(npm:*) bash(pip:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-known-pitfalls",
-      "slug": "perplexity-known-pitfalls",
-      "name": "perplexity-known-pitfalls",
-      "description": "Identify and avoid Perplexity anti-patterns and common integration mistakes. Use when reviewing Perplexity code, onboarding new developers, or auditing existing integrations for best practices violations. Trigger with phrases like \"perplexity mistakes\", \"perplexity anti-patterns\", \"perplexity pitfalls\", \"perplexity code review\", \"perplexity gotchas\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-known-pitfalls identify and avoid perplexity anti-patterns and common integration mistakes. use when reviewing perplexity code, onboarding new developers, or auditing existing integrations for best practices violations. trigger with phrases like \"perplexity mistakes\", \"perplexity anti-patterns\", \"perplexity pitfalls\", \"perplexity code review\", \"perplexity gotchas\". saas-packs read grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-load-scale",
-      "slug": "perplexity-load-scale",
-      "name": "perplexity-load-scale",
-      "description": "Load test Perplexity Sonar API integrations and plan capacity. Use when running performance tests, planning for traffic growth, or benchmarking Perplexity latency under load. Trigger with phrases like \"perplexity load test\", \"perplexity scale\", \"perplexity performance test\", \"perplexity capacity\", \"perplexity benchmark\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(k6:*)",
-        "Bash(kubectl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-load-scale load test perplexity sonar api integrations and plan capacity. use when running performance tests, planning for traffic growth, or benchmarking perplexity latency under load. trigger with phrases like \"perplexity load test\", \"perplexity scale\", \"perplexity performance test\", \"perplexity capacity\", \"perplexity benchmark\". saas-packs read write edit bash(k6:*) bash(kubectl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-local-dev-loop",
-      "slug": "perplexity-local-dev-loop",
-      "name": "perplexity-local-dev-loop",
-      "description": "Configure Perplexity local development with mocking, testing, and hot reload. Use when setting up a development environment, configuring test workflows, or establishing a fast iteration cycle with Perplexity Sonar API. Trigger with phrases like \"perplexity dev setup\", \"perplexity local development\", \"perplexity dev environment\", \"develop with perplexity\", \"mock perplexity\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(pnpm:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-local-dev-loop configure perplexity local development with mocking, testing, and hot reload. use when setting up a development environment, configuring test workflows, or establishing a fast iteration cycle with perplexity sonar api. trigger with phrases like \"perplexity dev setup\", \"perplexity local development\", \"perplexity dev environment\", \"develop with perplexity\", \"mock perplexity\". saas-packs read write edit bash(npm:*) bash(pnpm:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-migration-deep-dive",
-      "slug": "perplexity-migration-deep-dive",
-      "name": "perplexity-migration-deep-dive",
-      "description": "Migrate to Perplexity Sonar from other search/LLM APIs using the strangler fig pattern. Use when switching from Google Custom Search, Bing API, or other LLMs to Perplexity, or migrating from legacy pplx-api models. Trigger with phrases like \"migrate to perplexity\", \"switch to perplexity\", \"replace search API with perplexity\", \"perplexity replatform\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(node:*)",
-        "Bash(kubectl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-migration-deep-dive migrate to perplexity sonar from other search/llm apis using the strangler fig pattern. use when switching from google custom search, bing api, or other llms to perplexity, or migrating from legacy pplx-api models. trigger with phrases like \"migrate to perplexity\", \"switch to perplexity\", \"replace search api with perplexity\", \"perplexity replatform\". saas-packs read write edit bash(npm:*) bash(node:*) bash(kubectl:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-multi-env-setup",
-      "slug": "perplexity-multi-env-setup",
-      "name": "perplexity-multi-env-setup",
-      "description": "Configure Perplexity Sonar API across development, staging, and production environments. Use when setting up multi-environment search integrations, managing API keys per environment, or controlling cost through model routing by env. Trigger with phrases like \"perplexity environments\", \"perplexity staging\", \"perplexity dev prod\", \"perplexity environment config\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(aws:*)",
-        "Bash(gcloud:*)",
-        "Bash(vault:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-multi-env-setup configure perplexity sonar api across development, staging, and production environments. use when setting up multi-environment search integrations, managing api keys per environment, or controlling cost through model routing by env. trigger with phrases like \"perplexity environments\", \"perplexity staging\", \"perplexity dev prod\", \"perplexity environment config\". saas-packs read write edit bash(aws:*) bash(gcloud:*) bash(vault:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-observability",
-      "slug": "perplexity-observability",
-      "name": "perplexity-observability",
-      "description": "Set up monitoring for Perplexity Sonar API with latency, cost, citation quality, and error tracking. Use when implementing monitoring dashboards, setting up alerts, or tracking Perplexity API health in production. Trigger with phrases like \"perplexity monitoring\", \"perplexity metrics\", \"perplexity observability\", \"monitor perplexity\", \"perplexity dashboard\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-observability set up monitoring for perplexity sonar api with latency, cost, citation quality, and error tracking. use when implementing monitoring dashboards, setting up alerts, or tracking perplexity api health in production. trigger with phrases like \"perplexity monitoring\", \"perplexity metrics\", \"perplexity observability\", \"monitor perplexity\", \"perplexity dashboard\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-performance-tuning",
-      "slug": "perplexity-performance-tuning",
-      "name": "perplexity-performance-tuning",
-      "description": "Optimize Perplexity Sonar API performance with caching, streaming, model routing, and batching. Use when experiencing slow API responses, implementing caching strategies, or optimizing request throughput for Perplexity integrations. Trigger with phrases like \"perplexity performance\", \"optimize perplexity\", \"perplexity latency\", \"perplexity caching\", \"perplexity slow\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-performance-tuning optimize perplexity sonar api performance with caching, streaming, model routing, and batching. use when experiencing slow api responses, implementing caching strategies, or optimizing request throughput for perplexity integrations. trigger with phrases like \"perplexity performance\", \"optimize perplexity\", \"perplexity latency\", \"perplexity caching\", \"perplexity slow\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-policy-guardrails",
-      "slug": "perplexity-policy-guardrails",
-      "name": "perplexity-policy-guardrails",
-      "description": "Implement content moderation, model selection policy, citation quality enforcement, and per-user usage quotas for Perplexity Sonar API. Trigger with phrases like \"perplexity policy\", \"perplexity guardrails\", \"perplexity content moderation\", \"perplexity usage limits\", \"perplexity safety\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npx:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-policy-guardrails implement content moderation, model selection policy, citation quality enforcement, and per-user usage quotas for perplexity sonar api. trigger with phrases like \"perplexity policy\", \"perplexity guardrails\", \"perplexity content moderation\", \"perplexity usage limits\", \"perplexity safety\". saas-packs read write edit bash(npx:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-prod-checklist",
-      "slug": "perplexity-prod-checklist",
-      "name": "perplexity-prod-checklist",
-      "description": "Execute Perplexity production deployment checklist for Sonar API integrations. Use when deploying Perplexity integrations to production, preparing for launch, or implementing go-live procedures. Trigger with phrases like \"perplexity production\", \"deploy perplexity\", \"perplexity go-live\", \"perplexity launch checklist\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Bash(kubectl:*)",
-        "Bash(curl:*)",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-prod-checklist execute perplexity production deployment checklist for sonar api integrations. use when deploying perplexity integrations to production, preparing for launch, or implementing go-live procedures. trigger with phrases like \"perplexity production\", \"deploy perplexity\", \"perplexity go-live\", \"perplexity launch checklist\". saas-packs read bash(kubectl:*) bash(curl:*) grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-rate-limits",
-      "slug": "perplexity-rate-limits",
-      "name": "perplexity-rate-limits",
-      "description": "Implement Perplexity rate limiting, backoff, and request queuing. Use when handling 429 errors, implementing retry logic, or optimizing API request throughput for Perplexity Sonar. Trigger with phrases like \"perplexity rate limit\", \"perplexity throttling\", \"perplexity 429\", \"perplexity retry\", \"perplexity backoff\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-rate-limits implement perplexity rate limiting, backoff, and request queuing. use when handling 429 errors, implementing retry logic, or optimizing api request throughput for perplexity sonar. trigger with phrases like \"perplexity rate limit\", \"perplexity throttling\", \"perplexity 429\", \"perplexity retry\", \"perplexity backoff\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-reference-architecture",
-      "slug": "perplexity-reference-architecture",
-      "name": "perplexity-reference-architecture",
-      "description": "Implement Perplexity reference architecture with model routing, citation pipeline, and research automation. Use when designing new Perplexity integrations, reviewing project structure, or establishing architecture for search-augmented apps. Trigger with phrases like \"perplexity architecture\", \"perplexity project structure\", \"how to organize perplexity\", \"perplexity design patterns\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-reference-architecture implement perplexity reference architecture with model routing, citation pipeline, and research automation. use when designing new perplexity integrations, reviewing project structure, or establishing architecture for search-augmented apps. trigger with phrases like \"perplexity architecture\", \"perplexity project structure\", \"how to organize perplexity\", \"perplexity design patterns\". saas-packs read grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-reliability-patterns",
-      "slug": "perplexity-reliability-patterns",
-      "name": "perplexity-reliability-patterns",
-      "description": "Implement reliability patterns for Perplexity Sonar API: circuit breaker, model fallback, streaming timeout, and citation validation. Trigger with phrases like \"perplexity reliability\", \"perplexity circuit breaker\", \"perplexity fallback\", \"perplexity resilience\", \"perplexity timeout\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-reliability-patterns implement reliability patterns for perplexity sonar api: circuit breaker, model fallback, streaming timeout, and citation validation. trigger with phrases like \"perplexity reliability\", \"perplexity circuit breaker\", \"perplexity fallback\", \"perplexity resilience\", \"perplexity timeout\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-sdk-patterns",
-      "slug": "perplexity-sdk-patterns",
-      "name": "perplexity-sdk-patterns",
-      "description": "Apply production-ready Perplexity Sonar API patterns for TypeScript and Python. Use when implementing Perplexity integrations, refactoring SDK usage, or establishing team coding standards for search-augmented generation. Trigger with phrases like \"perplexity SDK patterns\", \"perplexity best practices\", \"perplexity code patterns\", \"idiomatic perplexity\", \"perplexity wrapper\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-sdk-patterns apply production-ready perplexity sonar api patterns for typescript and python. use when implementing perplexity integrations, refactoring sdk usage, or establishing team coding standards for search-augmented generation. trigger with phrases like \"perplexity sdk patterns\", \"perplexity best practices\", \"perplexity code patterns\", \"idiomatic perplexity\", \"perplexity wrapper\". saas-packs read write edit "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-security-basics",
-      "slug": "perplexity-security-basics",
-      "name": "perplexity-security-basics",
-      "description": "Apply Perplexity security best practices for API key management and query safety. Use when securing API keys, implementing query sanitization, or auditing Perplexity security configuration. Trigger with phrases like \"perplexity security\", \"perplexity secrets\", \"secure perplexity\", \"perplexity API key security\", \"perplexity PII\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Grep"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-security-basics apply perplexity security best practices for api key management and query safety. use when securing api keys, implementing query sanitization, or auditing perplexity security configuration. trigger with phrases like \"perplexity security\", \"perplexity secrets\", \"secure perplexity\", \"perplexity api key security\", \"perplexity pii\". saas-packs read write grep "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-upgrade-migration",
-      "slug": "perplexity-upgrade-migration",
-      "name": "perplexity-upgrade-migration",
-      "description": "Migrate between Perplexity model generations and API parameter changes. Use when upgrading to new Sonar models, handling deprecated parameters, or migrating from legacy pplx-api models. Trigger with phrases like \"upgrade perplexity\", \"perplexity migration\", \"perplexity model change\", \"update perplexity\", \"perplexity deprecated\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(git:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-upgrade-migration migrate between perplexity model generations and api parameter changes. use when upgrading to new sonar models, handling deprecated parameters, or migrating from legacy pplx-api models. trigger with phrases like \"upgrade perplexity\", \"perplexity migration\", \"perplexity model change\", \"update perplexity\", \"perplexity deprecated\". saas-packs read write edit bash(npm:*) bash(git:*) "
-    },
-    {
-      "type": "skill",
-      "id": "perplexity-webhooks-events",
-      "slug": "perplexity-webhooks-events",
-      "name": "perplexity-webhooks-events",
-      "description": "Build event-driven architectures around Perplexity Sonar API with streaming, batch pipelines, and scheduled search monitoring. Trigger with phrases like \"perplexity streaming\", \"perplexity events\", \"perplexity batch search\", \"perplexity news monitor\", \"perplexity SSE\".",
-      "category": "saas-packs",
-      "allowedTools": [
-        "Read",
-        "Write",
-        "Edit",
-        "Bash(curl:*)"
-      ],
-      "compatibleWith": [],
-      "version": "1.12.0",
-      "parentPlugin": {
-        "name": "perplexity-pack",
-        "category": "saas-packs"
-      },
-      "searchText": "perplexity-webhooks-events build event-driven architectures around perplexity sonar api with streaming, batch pipelines, and scheduled search monitoring. trigger with phrases like \"perplexity streaming\", \"perplexity events\", \"perplexity batch search\", \"perplexity news monitor\", \"perplexity sse\". saas-packs read write edit bash(curl:*) "
-    },
-    {
-      "type": "skill",
       "id": "persona-ci-integration",
       "slug": "persona-ci-integration",
       "name": "persona-ci-integration",
@@ -67183,7 +66520,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67202,7 +66539,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67223,7 +66560,7 @@
         "Bash(gh:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67235,20 +66572,19 @@
       "id": "replit-common-errors",
       "slug": "replit-common-errors",
       "name": "replit-common-errors",
-      "description": "Diagnose and fix the top Replit errors: container sleep, port binding, Nix failures, DB limits. Use when encountering Replit errors, debugging failed deployments, or troubleshooting workspace and hosting issues. Trigger with phrases like \"replit error\", \"fix replit\", \"replit not working\", \"debug replit\", \"replit broken\", \"replit deploy failed\".",
+      "description": "Diagnose Replit Preview and publishing failures involving commands, dependencies, ports, production Secrets, storage, authentication, or deployment type. Use when an app works in one Replit environment but fails in another. Trigger with phrases like \"replit error\", \"replit not working\", \"replit deploy failed\", or \"debug replit\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Grep",
-        "Bash(curl:*)"
+        "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
       },
-      "searchText": "replit-common-errors diagnose and fix the top replit errors: container sleep, port binding, nix failures, db limits. use when encountering replit errors, debugging failed deployments, or troubleshooting workspace and hosting issues. trigger with phrases like \"replit error\", \"fix replit\", \"replit not working\", \"debug replit\", \"replit broken\", \"replit deploy failed\". saas-packs read grep bash(curl:*) "
+      "searchText": "replit-common-errors diagnose replit preview and publishing failures involving commands, dependencies, ports, production secrets, storage, authentication, or deployment type. use when an app works in one replit environment but fails in another. trigger with phrases like \"replit error\", \"replit not working\", \"replit deploy failed\", or \"debug replit\". saas-packs read grep "
     },
     {
       "type": "skill",
@@ -67266,7 +66602,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67288,7 +66624,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67307,7 +66643,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67327,7 +66663,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67349,7 +66685,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67370,7 +66706,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67391,7 +66727,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67413,7 +66749,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67425,20 +66761,21 @@
       "id": "replit-incident-runbook",
       "slug": "replit-incident-runbook",
       "name": "replit-incident-runbook",
-      "description": "Execute Replit incident response: triage deployment failures, database issues, and platform outages. Use when responding to Replit-related outages, investigating deployment crashes, or running post-incident reviews for Replit app failures. Trigger with phrases like \"replit incident\", \"replit outage\", \"replit down\", \"replit emergency\", \"replit broken\", \"replit crash\".",
+      "description": "Triage a Replit published-app incident, separate platform from application failures, contain safely, and preserve redacted evidence. Use when handling outages, crash loops, failed releases, database errors, or production authentication failures. Trigger with phrases like \"replit incident\", \"replit outage\", \"replit down\", or \"replit crash\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Grep",
-        "Bash(curl:*)"
+        "Bash(curl:*)",
+        "Bash(jq:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
       },
-      "searchText": "replit-incident-runbook execute replit incident response: triage deployment failures, database issues, and platform outages. use when responding to replit-related outages, investigating deployment crashes, or running post-incident reviews for replit app failures. trigger with phrases like \"replit incident\", \"replit outage\", \"replit down\", \"replit emergency\", \"replit broken\", \"replit crash\". saas-packs read grep bash(curl:*) "
+      "searchText": "replit-incident-runbook triage a replit published-app incident, separate platform from application failures, contain safely, and preserve redacted evidence. use when handling outages, crash loops, failed releases, database errors, or production authentication failures. trigger with phrases like \"replit incident\", \"replit outage\", \"replit down\", or \"replit crash\". saas-packs read grep bash(curl:*) bash(jq:*) "
     },
     {
       "type": "skill",
@@ -67457,7 +66794,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67469,19 +66806,20 @@
       "id": "replit-known-pitfalls",
       "slug": "replit-known-pitfalls",
       "name": "replit-known-pitfalls",
-      "description": "Avoid the top Replit anti-patterns: ephemeral filesystem, public secrets, port binding, Nix gotchas, and database limits. Use when reviewing Replit code, onboarding developers, or auditing existing Replit apps for common mistakes. Trigger with phrases like \"replit mistakes\", \"replit anti-patterns\", \"replit pitfalls\", \"replit what not to do\", \"replit code review\".",
+      "description": "Audit a Replit App for persistence, Secrets, publishing, port, authentication, and deployment mistakes. Use when reviewing Replit code or diagnosing a Preview-to-production mismatch. Trigger with phrases like \"replit mistakes\", \"replit anti-patterns\", \"replit pitfalls\", or \"replit code review\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Grep"
+        "Grep",
+        "Bash(grep:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
       },
-      "searchText": "replit-known-pitfalls avoid the top replit anti-patterns: ephemeral filesystem, public secrets, port binding, nix gotchas, and database limits. use when reviewing replit code, onboarding developers, or auditing existing replit apps for common mistakes. trigger with phrases like \"replit mistakes\", \"replit anti-patterns\", \"replit pitfalls\", \"replit what not to do\", \"replit code review\". saas-packs read grep "
+      "searchText": "replit-known-pitfalls audit a replit app for persistence, secrets, publishing, port, authentication, and deployment mistakes. use when reviewing replit code or diagnosing a preview-to-production mismatch. trigger with phrases like \"replit mistakes\", \"replit anti-patterns\", \"replit pitfalls\", or \"replit code review\". saas-packs read grep bash(grep:*) "
     },
     {
       "type": "skill",
@@ -67498,7 +66836,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67520,7 +66858,7 @@
         "Bash(npx:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67542,7 +66880,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67562,7 +66900,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67582,7 +66920,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67602,7 +66940,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67623,7 +66961,7 @@
         "Bash(npx:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67635,20 +66973,20 @@
       "id": "replit-prod-checklist",
       "slug": "replit-prod-checklist",
       "name": "replit-prod-checklist",
-      "description": "Execute Replit production deployment checklist with rollback and health monitoring. Use when deploying Replit apps to production, preparing for launch, or implementing go-live procedures with Autoscale or Reserved VM. Trigger with phrases like \"replit production\", \"deploy replit\", \"replit go-live\", \"replit launch checklist\", \"replit prod ready\".",
+      "description": "Prepare, publish, and verify a production Replit App with explicit access, Secrets, auth, storage, health, monitoring, cost, and recovery checks. Use when going live or republishing an Autoscale, Reserved VM, Static, or Scheduled workload. Trigger with phrases like \"replit production\", \"publish replit\", \"replit launch checklist\", or \"replit prod ready\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(curl:*)",
-        "Grep"
+        "Grep",
+        "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
       },
-      "searchText": "replit-prod-checklist execute replit production deployment checklist with rollback and health monitoring. use when deploying replit apps to production, preparing for launch, or implementing go-live procedures with autoscale or reserved vm. trigger with phrases like \"replit production\", \"deploy replit\", \"replit go-live\", \"replit launch checklist\", \"replit prod ready\". saas-packs read bash(curl:*) grep "
+      "searchText": "replit-prod-checklist prepare, publish, and verify a production replit app with explicit access, secrets, auth, storage, health, monitoring, cost, and recovery checks. use when going live or republishing an autoscale, reserved vm, static, or scheduled workload. trigger with phrases like \"replit production\", \"publish replit\", \"replit launch checklist\", or \"replit prod ready\". saas-packs read grep bash(curl:*) "
     },
     {
       "type": "skill",
@@ -67663,7 +67001,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67675,19 +67013,19 @@
       "id": "replit-reference-architecture",
       "slug": "replit-reference-architecture",
       "name": "replit-reference-architecture",
-      "description": "Implement Replit reference architecture with best-practice project layout, data layer, and deployment. Use when designing new Replit apps, reviewing project structure, or establishing architecture standards for production Replit applications. Trigger with phrases like \"replit architecture\", \"replit best practices\", \"replit project structure\", \"how to organize replit\", \"replit production layout\".",
+      "description": "Design a production Replit App with explicit Preview/published boundaries, supported authentication, durable storage, safe configuration, health checks, and a workload-appropriate deployment type. Use when starting or reviewing a customer-facing Replit architecture. Trigger with phrases like \"replit architecture\", \"replit production layout\", or \"replit best practices\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
       },
-      "searchText": "replit-reference-architecture implement replit reference architecture with best-practice project layout, data layer, and deployment. use when designing new replit apps, reviewing project structure, or establishing architecture standards for production replit applications. trigger with phrases like \"replit architecture\", \"replit best practices\", \"replit project structure\", \"how to organize replit\", \"replit production layout\". saas-packs read grep "
+      "searchText": "replit-reference-architecture design a production replit app with explicit preview/published boundaries, supported authentication, durable storage, safe configuration, health checks, and a workload-appropriate deployment type. use when starting or reviewing a customer-facing replit architecture. trigger with phrases like \"replit architecture\", \"replit production layout\", or \"replit best practices\". saas-packs read grep "
     },
     {
       "type": "skill",
@@ -67702,7 +67040,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67722,7 +67060,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67742,7 +67080,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67764,7 +67102,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -67785,7 +67123,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "parentPlugin": {
         "name": "replit-pack",
         "category": "saas-packs"
@@ -72812,7 +72150,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"
@@ -72832,7 +72170,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"
@@ -72851,7 +72189,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"
@@ -72871,7 +72209,7 @@
         "Bash(terraform:plan*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"
@@ -72890,7 +72228,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"
@@ -72909,7 +72247,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"
@@ -72929,7 +72267,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"
@@ -72948,7 +72286,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "parentPlugin": {
         "name": "snowflake-pack",
         "category": "saas-packs"

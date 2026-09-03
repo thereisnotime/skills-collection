@@ -121,8 +121,8 @@
       "description": "\"In-memory caching in Golang using samber/hot \u2014 eviction algorithms (LRU, LFU, TinyLFU, W-TinyLFU, S3FIFO, ARC, TwoQueue, SIEVE, FIFO), TTL, cache loaders, sharding, stale-while-revalidate, missing ke",
       "path": "samber--cc-skills-golang/skills/golang-samber-hot/SKILL.md",
       "remote_path": "skills/golang-samber-hot/SKILL.md",
-      "lines": 138,
-      "words": 1033,
+      "lines": 142,
+      "words": 1034,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -200,8 +200,8 @@
       "description": "\"Comprehensive documentation guide for Golang projects, covering godoc comments, README, CONTRIBUTING, CHANGELOG, Go Playground, Example tests, API docs, and llms.txt. Use when writing or reviewing do",
       "path": "samber--cc-skills-golang/skills/golang-documentation/SKILL.md",
       "remote_path": "skills/golang-documentation/SKILL.md",
-      "lines": 243,
-      "words": 1787,
+      "lines": 246,
+      "words": 1785,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -215,8 +215,8 @@
       "description": "\"Structured logging extensions for Golang using samber/slog-**** packages \u2014 multi-handler pipelines (slog-multi), log sampling (slog-sampling), attribute formatting (slog-formatter), HTTP middleware (",
       "path": "samber--cc-skills-golang/skills/golang-samber-slog/SKILL.md",
       "remote_path": "skills/golang-samber-slog/SKILL.md",
-      "lines": 231,
-      "words": 1390,
+      "lines": 235,
+      "words": 1391,
       "code_blocks": 5,
       "languages": [
         "go"
@@ -228,8 +228,8 @@
       "description": "\"Monadic types for Golang using samber/mo \u2014 Option, Result, Either, Future, IO, Task, and State types for type-safe nullable values, error handling, and functional composition with pipeline sub-packag",
       "path": "samber--cc-skills-golang/skills/golang-samber-mo/SKILL.md",
       "remote_path": "skills/golang-samber-mo/SKILL.md",
-      "lines": 278,
-      "words": 1497,
+      "lines": 282,
+      "words": 1498,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -242,8 +242,8 @@
       "description": "\"Provides gRPC usage guidelines, protobuf organization, and production-ready patterns for Golang microservices. Use when implementing, reviewing, or debugging gRPC servers/clients, writing proto files",
       "path": "samber--cc-skills-golang/skills/golang-grpc/SKILL.md",
       "remote_path": "skills/golang-grpc/SKILL.md",
-      "lines": 224,
-      "words": 1253,
+      "lines": 228,
+      "words": 1254,
       "code_blocks": 5,
       "languages": [
         "go"
@@ -252,11 +252,11 @@
     },
     {
       "name": "golang-modernize",
-      "description": "\"Modernize Golang code to use recent language features, standard library improvements, and idiomatic patterns. Trigger proactively when writing or reviewing Go code and old-style patterns are detected",
+      "description": "\"Modernize Golang code to use recent language features, standard library improvements, and idiomatic patterns. Use when reviewing Go code with old-style patterns, when encountering a deprecation warni",
       "path": "samber--cc-skills-golang/skills/golang-modernize/SKILL.md",
       "remote_path": "skills/golang-modernize/SKILL.md",
-      "lines": 166,
-      "words": 1660,
+      "lines": 173,
+      "words": 1798,
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
@@ -266,8 +266,8 @@
       "description": "\"Golang project layout and workspace setup \u2014 cmd/internal/pkg directory conventions, module and package naming, go.work workspaces, and essential configuration files. Use when starting a new Go projec",
       "path": "samber--cc-skills-golang/skills/golang-project-layout/SKILL.md",
       "remote_path": "skills/golang-project-layout/SKILL.md",
-      "lines": 124,
-      "words": 958,
+      "lines": 130,
+      "words": 965,
       "code_blocks": 1,
       "languages": [
         "go"
@@ -305,8 +305,8 @@
       "description": "\"Golang CLI command tree library using spf13/cobra \u2014 cobra.Command, RunE vs Run, PersistentPreRunE hook chain, Args validators (NoArgs, ExactArgs, MatchAll, custom), persistent vs local flags, command",
       "path": "samber--cc-skills-golang/skills/golang-spf13-cobra/SKILL.md",
       "remote_path": "skills/golang-spf13-cobra/SKILL.md",
-      "lines": 173,
-      "words": 1327,
+      "lines": 177,
+      "words": 1328,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -341,8 +341,8 @@
       "description": "\"Golang library and framework selection \u2014 vetted production-ready options by category (web, database, testing, logging, messaging), new and experimental stdlib packages, standard-library-first tradeof",
       "path": "samber--cc-skills-golang/skills/golang-popular-libraries/SKILL.md",
       "remote_path": "skills/golang-popular-libraries/SKILL.md",
-      "lines": 72,
-      "words": 633,
+      "lines": 76,
+      "words": 636,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT"
@@ -352,8 +352,8 @@
       "description": "\"Golang concurrency design \u2014 goroutine lifecycle and leak prevention, channels and `select`, channel ownership and direction, `sync.Mutex`/`RWMutex`/`sync.Map`/`sync.Once`/atomics, `errgroup`, `single",
       "path": "samber--cc-skills-golang/skills/golang-concurrency/SKILL.md",
       "remote_path": "skills/golang-concurrency/SKILL.md",
-      "lines": 157,
-      "words": 1327,
+      "lines": 155,
+      "words": 1320,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -365,8 +365,8 @@
       "description": "\"Golang OpenAPI/Swagger documentation with swaggo/swag \u2014 annotation comments (@Summary, @Param, @Success, @Router, @Security), swag init code generation, framework integrations (gin, echo, fiber, chi,",
       "path": "samber--cc-skills-golang/skills/golang-swagger/SKILL.md",
       "remote_path": "skills/golang-swagger/SKILL.md",
-      "lines": 231,
-      "words": 1173,
+      "lines": 235,
+      "words": 1175,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -390,8 +390,8 @@
       "description": "\"Golang application framework using uber-go/fx \u2014 fx.New, fx.Provide, fx.Invoke, fx.Module, fx.Lifecycle hooks, fx.Annotate (name/group/As), fx.Decorate, fx.Supply, fx.Replace, fx.WithLogger, and signa",
       "path": "samber--cc-skills-golang/skills/golang-uber-fx/SKILL.md",
       "remote_path": "skills/golang-uber-fx/SKILL.md",
-      "lines": 234,
-      "words": 1436,
+      "lines": 238,
+      "words": 1437,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -428,8 +428,8 @@
       "description": "\"GitHub Actions CI/CD pipeline configuration for Golang projects \u2014 workflow files for test, lint, SAST, coverage and vulnerability-scan jobs, Dependabot and Renovate config files, GoReleaser release p",
       "path": "samber--cc-skills-golang/skills/golang-continuous-integration/SKILL.md",
       "remote_path": "skills/golang-continuous-integration/SKILL.md",
-      "lines": 275,
-      "words": 1856,
+      "lines": 281,
+      "words": 1906,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -442,7 +442,7 @@
       "path": "samber--cc-skills-golang/skills/golang-pkg-go-dev/SKILL.md",
       "remote_path": "skills/golang-pkg-go-dev/SKILL.md",
       "lines": 202,
-      "words": 1727,
+      "words": 1728,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -454,8 +454,8 @@
       "description": "\"Structured error handling in Golang with samber/oops \u2014 error builders, stack traces, error codes, error context, error wrapping, error attributes, user-facing vs developer messages, panic recovery, a",
       "path": "samber--cc-skills-golang/skills/golang-samber-oops/SKILL.md",
       "remote_path": "skills/golang-samber-oops/SKILL.md",
-      "lines": 279,
-      "words": 1220,
+      "lines": 283,
+      "words": 1221,
       "code_blocks": 11,
       "languages": [
         "go"
@@ -467,8 +467,8 @@
       "description": "\"Dependency management for Golang projects \u2014 go.mod and go.sum, `go get` install and upgrade flows, Minimal Version Selection, conflict resolution with replace/exclude/retract, `govulncheck` scanning ",
       "path": "samber--cc-skills-golang/skills/golang-dependency-management/SKILL.md",
       "remote_path": "skills/golang-dependency-management/SKILL.md",
-      "lines": 226,
-      "words": 1349,
+      "lines": 228,
+      "words": 1383,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -481,8 +481,8 @@
       "description": "\"Dependency injection in Golang using samber/do \u2014 service containers, lifecycle management, scopes, health checks, graceful shutdown, and module organization. Apply when using or adopting samber/do, w",
       "path": "samber--cc-skills-golang/skills/golang-samber-do/SKILL.md",
       "remote_path": "skills/golang-samber-do/SKILL.md",
-      "lines": 229,
-      "words": 1100,
+      "lines": 237,
+      "words": 1104,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -495,8 +495,8 @@
       "description": "\"Golang benchmarking, profiling, and performance measurement. Use when writing, running, or comparing Go benchmarks, profiling hot paths with pprof, interpreting CPU/memory/trace profiles, analyzing r",
       "path": "samber--cc-skills-golang/skills/golang-benchmark/SKILL.md",
       "remote_path": "skills/golang-benchmark/SKILL.md",
-      "lines": 201,
-      "words": 1673,
+      "lines": 207,
+      "words": 1727,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -509,8 +509,8 @@
       "description": "\"Reactive streams and event-driven programming in Golang using samber/ro \u2014 ReactiveX implementation with 150+ type-safe operators, cold/hot observables, 5 subject types (Publish, Behavior, Replay, Asy",
       "path": "samber--cc-skills-golang/skills/golang-samber-ro/SKILL.md",
       "remote_path": "skills/golang-samber-ro/SKILL.md",
-      "lines": 184,
-      "words": 1612,
+      "lines": 188,
+      "words": 1613,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -547,8 +547,8 @@
       "description": "\"Golang everyday observability \u2014 the always-on signals in production. Covers structured logging with slog, Prometheus metrics, OpenTelemetry distributed tracing, continuous profiling with pprof/Pyrosc",
       "path": "samber--cc-skills-golang/skills/golang-observability/SKILL.md",
       "remote_path": "skills/golang-observability/SKILL.md",
-      "lines": 197,
-      "words": 1749,
+      "lines": 201,
+      "words": 1759,
       "code_blocks": 7,
       "languages": [
         "go"
@@ -560,8 +560,8 @@
       "description": "\"Implements dependency injection in Golang using uber-go/dig \u2014 reflection-based container, Provide/Invoke, dig.In/dig.Out parameter and result objects, named values, value groups, optional dependencie",
       "path": "samber--cc-skills-golang/skills/golang-uber-dig/SKILL.md",
       "remote_path": "skills/golang-uber-dig/SKILL.md",
-      "lines": 228,
-      "words": 1402,
+      "lines": 232,
+      "words": 1406,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -574,8 +574,8 @@
       "description": "\"Compile-time dependency injection in Golang using google/wire \u2014 wire.NewSet, wire.Build, wire.Bind (interface\u2192concrete), wire.Struct, wire.Value, wire.InterfaceValue, wire.FieldsOf, cleanup functions",
       "path": "samber--cc-skills-golang/skills/golang-google-wire/SKILL.md",
       "remote_path": "skills/golang-google-wire/SKILL.md",
-      "lines": 232,
-      "words": 1420,
+      "lines": 236,
+      "words": 1421,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -588,8 +588,8 @@
       "description": "\"Production-ready Golang tests \u2014 table-driven tests, testify suites and mocks, parallel tests, fuzzing, fixtures, goroutine leak detection with goleak, snapshot testing, code coverage, integration tes",
       "path": "samber--cc-skills-golang/skills/golang-testing/SKILL.md",
       "remote_path": "skills/golang-testing/SKILL.md",
-      "lines": 418,
-      "words": 2217,
+      "lines": 425,
+      "words": 2337,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -626,8 +626,8 @@
       "description": "\"Functional programming helpers for Golang using samber/lo \u2014 500+ type-safe generic functions for slices, maps, channels, strings, math, tuples, and concurrency (Map, Filter, Reduce, GroupBy, Chunk, F",
       "path": "samber--cc-skills-golang/skills/golang-samber-lo/SKILL.md",
       "remote_path": "skills/golang-samber-lo/SKILL.md",
-      "lines": 186,
-      "words": 1391,
+      "lines": 190,
+      "words": 1392,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -640,8 +640,8 @@
       "description": "\"Comprehensive guide to stretchr/testify for Golang testing. Covers assert, require, mock, and suite packages in depth. Use when writing tests with testify, creating mocks, setting up test suites, or ",
       "path": "samber--cc-skills-golang/skills/golang-stretchr-testify/SKILL.md",
       "remote_path": "skills/golang-stretchr-testify/SKILL.md",
-      "lines": 198,
-      "words": 803,
+      "lines": 202,
+      "words": 804,
       "code_blocks": 5,
       "languages": [
         "go"
@@ -666,8 +666,8 @@
       "description": "\"Golang configuration library using spf13/viper \u2014 layered precedence (flag > env > file > KV > default), BindPFlag/BindPFlags, SetEnvPrefix + SetEnvKeyReplacer + AutomaticEnv, ReadInConfig + ConfigFil",
       "path": "samber--cc-skills-golang/skills/golang-spf13-viper/SKILL.md",
       "remote_path": "skills/golang-spf13-viper/SKILL.md",
-      "lines": 183,
-      "words": 1258,
+      "lines": 191,
+      "words": 1261,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -680,8 +680,8 @@
       "description": "\"Golang data structures \u2014 slices (internals, capacity growth, preallocation, slices package), maps (internals, hash buckets, maps package), arrays, container/list/heap/ring, strings.Builder vs bytes.B",
       "path": "samber--cc-skills-golang/skills/golang-data-structures/SKILL.md",
       "remote_path": "skills/golang-data-structures/SKILL.md",
-      "lines": 187,
-      "words": 1417,
+      "lines": 195,
+      "words": 1423,
       "code_blocks": 4,
       "languages": [
         "go"
@@ -706,8 +706,8 @@
       "description": "\"Implements GraphQL APIs in Golang using gqlgen or graphql-go. Apply when building GraphQL servers, designing schemas, writing resolvers, handling subscriptions, or integrating GraphQL with existing G",
       "path": "samber--cc-skills-golang/skills/golang-graphql/SKILL.md",
       "remote_path": "skills/golang-graphql/SKILL.md",
-      "lines": 279,
-      "words": 1629,
+      "lines": 283,
+      "words": 1631,
       "code_blocks": 8,
       "languages": [
         "go",
@@ -11105,11 +11105,11 @@
     },
     {
       "name": "ce-compound",
-      "description": "Document a recently solved problem as a durable repo learning. Use when capturing a learning after work.",
+      "description": "Document a solved problem as a durable repo learning. Use when verified work produced non-obvious reasoning absent from its final code, tests, or existing docs; avoid routine fixes whose artifacts alr",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 72,
-      "words": 971,
+      "lines": 76,
+      "words": 1079,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11120,8 +11120,8 @@
       "description": "Commit, push, and open a PR. Use when asked to ship/open a PR, or for PR-description-only flows like writing, rewriting, or describing a PR body.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
-      "lines": 68,
-      "words": 1223,
+      "lines": 70,
+      "words": 1222,
       "code_blocks": 0,
       "languages": []
     },
@@ -11300,7 +11300,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
       "lines": 121,
-      "words": 2469,
+      "words": 2488,
       "code_blocks": 1,
       "languages": []
     },
@@ -12460,8 +12460,8 @@
       "description": "Write competitive research proposals for NSF, NIH, DOE, DARPA, and Taiwan NSTC. Agency-specific formatting, review criteria, budget preparation, broader impacts, significance statements, innovation na",
       "path": "K-Dense-AI--claude-scientific-skills/skills/research-grants/SKILL.md",
       "remote_path": "skills/research-grants/SKILL.md",
-      "lines": 297,
-      "words": 1673,
+      "lines": 314,
+      "words": 1808,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -12473,8 +12473,8 @@
       "description": "Deep generative models for single-cell omics. Use when you need probabilistic batch correction (scVI), transfer learning, differential expression with uncertainty, or multi-modal integration (TOTALVI,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scvi-tools/SKILL.md",
       "remote_path": "skills/scvi-tools/SKILL.md",
-      "lines": 202,
-      "words": 928,
+      "lines": 218,
+      "words": 1063,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -12487,8 +12487,8 @@
       "description": "Create and audit truthful, accessible, publication-ready scientific figures with Matplotlib, Seaborn, or Plotly. Use for figure design, multi-panel layouts, uncertainty and missing-data displays, colo",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-visualization/SKILL.md",
       "remote_path": "skills/scientific-visualization/SKILL.md",
-      "lines": 286,
-      "words": 1569,
+      "lines": 303,
+      "words": 1704,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -12501,8 +12501,8 @@
       "description": "Plans and audits use of ChicagoHAI HypoGeniC/HypoRefine for LLM-assisted hypothesis generation from labeled text datasets. Use for the `hypogenic` package, its task configs, hypothesis banks, or HypoB",
       "path": "K-Dense-AI--claude-scientific-skills/skills/hypogenic/SKILL.md",
       "remote_path": "skills/hypogenic/SKILL.md",
-      "lines": 291,
-      "words": 1526,
+      "lines": 308,
+      "words": 1661,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -12514,8 +12514,8 @@
       "description": "Build, run, and debug Nextflow data pipelines and nf-core workflows end to end. Use whenever the user mentions Nextflow, nf-core, .nf files, nextflow.config, DSL2, processes/channels/operators, sample",
       "path": "K-Dense-AI--claude-scientific-skills/skills/nextflow/SKILL.md",
       "remote_path": "skills/nextflow/SKILL.md",
-      "lines": 196,
-      "words": 1577,
+      "lines": 213,
+      "words": 1712,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -12528,8 +12528,8 @@
       "description": "Comprehensive molecular biology toolkit. Use for sequence manipulation, file parsing (FASTA/GenBank/PDB), phylogenetics, and programmatic NCBI/PubMed access (Bio.Entrez). Best for batch processing, cu",
       "path": "K-Dense-AI--claude-scientific-skills/skills/biopython/SKILL.md",
       "remote_path": "skills/biopython/SKILL.md",
-      "lines": 473,
-      "words": 1952,
+      "lines": 489,
+      "words": 2087,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -12542,8 +12542,8 @@
       "description": "Use Gtars for local genomic interval models and set algebra, overlaps and counts, consensus and coverage, tokenization, fragment processing, and refget/BEDbase planning across Python, Rust, and the CL",
       "path": "K-Dense-AI--claude-scientific-skills/skills/gtars/SKILL.md",
       "remote_path": "skills/gtars/SKILL.md",
-      "lines": 283,
-      "words": 1535,
+      "lines": 300,
+      "words": 1670,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -12557,8 +12557,8 @@
       "description": "Statistical models library for Python. Use when you need specific model classes (OLS, GLM, mixed models, ARIMA) with detailed diagnostics, residuals, and inference. Best for econometrics, time series,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/statsmodels/SKILL.md",
       "remote_path": "skills/statsmodels/SKILL.md",
-      "lines": 239,
-      "words": 1209,
+      "lines": 256,
+      "words": 1344,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -12570,8 +12570,8 @@
       "description": "Use NeuroKit2 to build or audit reproducible research workflows for physiological time-series preprocessing, event/interval analysis, multimodal alignment, variability, and complexity. Trigger when co",
       "path": "K-Dense-AI--claude-scientific-skills/skills/neurokit2/SKILL.md",
       "remote_path": "skills/neurokit2/SKILL.md",
-      "lines": 324,
-      "words": 1617,
+      "lines": 341,
+      "words": 1752,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -12584,8 +12584,8 @@
       "description": "Prepare journal manuscripts, conference papers, research posters, and grant documents using venue-specific formatting guidance and bundled LaTeX scaffolds. Use when selecting an official template, che",
       "path": "K-Dense-AI--claude-scientific-skills/skills/venue-templates/SKILL.md",
       "remote_path": "skills/venue-templates/SKILL.md",
-      "lines": 270,
-      "words": 1462,
+      "lines": 287,
+      "words": 1597,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -12598,8 +12598,8 @@
       "description": "Create safety-bounded draft structures and run local deterministic checks for clinical case, diagnostic, trial, safety, and aggregate research reports. Use only with synthetic, de-identified, or aggre",
       "path": "K-Dense-AI--claude-scientific-skills/skills/clinical-reports/SKILL.md",
       "remote_path": "skills/clinical-reports/SKILL.md",
-      "lines": 249,
-      "words": 1673,
+      "lines": 266,
+      "words": 1808,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -12611,8 +12611,8 @@
       "description": "Build, simulate, transpile, and execute quantum circuits with Qiskit and IBM Quantum Runtime. Use for Qiskit 2.x circuits and operators, V2 Sampler or Estimator primitives, target-aware transpilation,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/qiskit/SKILL.md",
       "remote_path": "skills/qiskit/SKILL.md",
-      "lines": 260,
-      "words": 1277,
+      "lines": 277,
+      "words": 1412,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -12625,8 +12625,8 @@
       "description": "Evaluate scientific claims and evidence quality. Use for assessing experimental design validity, identifying biases and confounders, applying evidence grading frameworks (GRADE, Cochrane Risk of Bias)",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-critical-thinking/SKILL.md",
       "remote_path": "skills/scientific-critical-thinking/SKILL.md",
-      "lines": 181,
-      "words": 1103,
+      "lines": 198,
+      "words": 1238,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -12652,8 +12652,8 @@
       "description": "Unified Python interface to 40+ bioinformatics services. Use when querying multiple databases (UniProt, KEGG, ChEMBL, Reactome) in a single workflow with consistent API. Best for cross-database analys",
       "path": "K-Dense-AI--claude-scientific-skills/skills/bioservices/SKILL.md",
       "remote_path": "skills/bioservices/SKILL.md",
-      "lines": 400,
-      "words": 1474,
+      "lines": 416,
+      "words": 1609,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -12679,8 +12679,8 @@
       "description": "Create publication-quality scientific diagrams using Nano Banana 2 AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Only regenerates if quality is below threshold for your",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-schematics/SKILL.md",
       "remote_path": "skills/scientific-schematics/SKILL.md",
-      "lines": 371,
-      "words": 2372,
+      "lines": 388,
+      "words": 2507,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -12692,8 +12692,8 @@
       "description": "Build with and use Pi, the minimal terminal coding harness. Use for installing Pi, configuring providers/models/settings/environment variables, creating Pi skills/extensions/packages/themes/prompt tem",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pi-agent/SKILL.md",
       "remote_path": "skills/pi-agent/SKILL.md",
-      "lines": 84,
-      "words": 771,
+      "lines": 101,
+      "words": 906,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -12705,8 +12705,8 @@
       "description": "Prepare and validate research-only clinical decision-support evaluation, evidence-profile, cohort, survival, biomarker/model, privacy, and governance artifacts. Use for aggregate or synthetic research",
       "path": "K-Dense-AI--claude-scientific-skills/skills/clinical-decision-support/SKILL.md",
       "remote_path": "skills/clinical-decision-support/SKILL.md",
-      "lines": 239,
-      "words": 1495,
+      "lines": 256,
+      "words": 1630,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -12732,8 +12732,8 @@
       "description": "Plan, execute, and document validation, verification, and transfer of analytical procedures under the governing framework - ICH Q2(R2) and Q14, USP <1220>/<1225>/<1226>, ICH M10 bioanalytical, CLSI EP",
       "path": "K-Dense-AI--claude-scientific-skills/skills/analytical-method-validation/SKILL.md",
       "remote_path": "skills/analytical-method-validation/SKILL.md",
-      "lines": 300,
-      "words": 2267,
+      "lines": 317,
+      "words": 2402,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -12745,8 +12745,8 @@
       "description": "Use this skill for processing and analyzing large tabular datasets (billions of rows) that exceed available RAM. Vaex excels at out-of-core DataFrame operations, lazy evaluation, fast aggregations, ef",
       "path": "K-Dense-AI--claude-scientific-skills/skills/vaex/SKILL.md",
       "remote_path": "skills/vaex/SKILL.md",
-      "lines": 205,
-      "words": 1064,
+      "lines": 221,
+      "words": 1199,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -12759,8 +12759,8 @@
       "description": "Molecular featurization for ML (100+ featurizers). ECFP, MACCS, descriptors, pretrained models (ChemBERTa), convert SMILES to features, for QSAR and molecular ML.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/molfeat/SKILL.md",
       "remote_path": "skills/molfeat/SKILL.md",
-      "lines": 349,
-      "words": 1407,
+      "lines": 366,
+      "words": 1542,
       "code_blocks": 15,
       "languages": [
         "bash",
@@ -12773,8 +12773,8 @@
       "description": "Analyze, manipulate, compare, annotate, and visualize phylogenetic or other hierarchical trees with ETE 4. Use for Newick/Nexus tree I/O, topology edits and pattern matching, Robinson-Foulds compariso",
       "path": "K-Dense-AI--claude-scientific-skills/skills/etetoolkit/SKILL.md",
       "remote_path": "skills/etetoolkit/SKILL.md",
-      "lines": 328,
-      "words": 1272,
+      "lines": 345,
+      "words": 1407,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -12787,8 +12787,8 @@
       "description": "Provide qualitative-first, evidence-traceable developmental review of scholarly works and audit low-stakes research-assessment rubrics with optional local quality controls. Never use for ranking peopl",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scholar-evaluation/SKILL.md",
       "remote_path": "skills/scholar-evaluation/SKILL.md",
-      "lines": 297,
-      "words": 1266,
+      "lines": 314,
+      "words": 1401,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -12800,8 +12800,8 @@
       "description": "Pharmacokinetic and pharmacodynamic modelling and simulation - non-compartmental analysis, compartmental and population PK, PK/PD and exposure-response, TMDD, PBPK orientation, bioequivalence, allomet",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pkpd-modeling/SKILL.md",
       "remote_path": "skills/pkpd-modeling/SKILL.md",
-      "lines": 382,
-      "words": 2990,
+      "lines": 399,
+      "words": 3125,
       "code_blocks": 20,
       "languages": [
         "bash"
@@ -12858,8 +12858,8 @@
       "description": "Search and read full-text biomedical papers, FDA/PMDA/EMA regulatory documents, clinical trial registries, and UniProt/PDB/ChEMBL entries with the Paperclip CLI from GXL. Covers installing and authent",
       "path": "K-Dense-AI--claude-scientific-skills/skills/paperclip/SKILL.md",
       "remote_path": "skills/paperclip/SKILL.md",
-      "lines": 414,
-      "words": 3167,
+      "lines": 431,
+      "words": 3302,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -12872,8 +12872,8 @@
       "description": "Cheminformatics toolkit for fine-grained molecular control. SMILES/SDF parsing, descriptors (MW, LogP, TPSA), fingerprints, substructure search, 2D/3D generation, similarity, reactions. For standard w",
       "path": "K-Dense-AI--claude-scientific-skills/skills/rdkit/SKILL.md",
       "remote_path": "skills/rdkit/SKILL.md",
-      "lines": 95,
-      "words": 745,
+      "lines": 112,
+      "words": 880,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -12885,8 +12885,8 @@
       "description": "\"Fast CLI/Python queries to 20+ bioinformatics databases. Use for quick lookups: gene info, BLAST/BLAT, viral sequence downloads, AlphaFold structures, enrichment analysis, OpenTargets, COSMIC, CELLxG",
       "path": "K-Dense-AI--claude-scientific-skills/skills/gget/SKILL.md",
       "remote_path": "skills/gget/SKILL.md",
-      "lines": 154,
-      "words": 987,
+      "lines": 171,
+      "words": 1122,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -12898,8 +12898,8 @@
       "description": "Observe the user's screen via screenpipe, detect repeated research workflows, match them against existing scientific-agent-skills, and draft new skills (or composition recipes that chain existing ones",
       "path": "K-Dense-AI--claude-scientific-skills/skills/autoskill/SKILL.md",
       "remote_path": "skills/autoskill/SKILL.md",
-      "lines": 234,
-      "words": 1531,
+      "lines": 251,
+      "words": 1666,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -12925,8 +12925,8 @@
       "description": "Create and audit editable scientific posters in macro-free PowerPoint (.pptx) from author-approved local content and assets. Use when the requested deliverable is a PowerPoint research/conference post",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pptx-posters/SKILL.md",
       "remote_path": "skills/pptx-posters/SKILL.md",
-      "lines": 259,
-      "words": 1301,
+      "lines": 276,
+      "words": 1436,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -12939,8 +12939,8 @@
       "description": "Interact with Zotero reference management libraries using the pyzotero Python client. Retrieve, create, update, and delete items, collections, tags, and attachments via the Zotero Web API v3. Use this",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pyzotero/SKILL.md",
       "remote_path": "skills/pyzotero/SKILL.md",
-      "lines": 138,
-      "words": 649,
+      "lines": 155,
+      "words": 784,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -12953,8 +12953,8 @@
       "description": "High-performance DataFrame library for Python ETL, analytics, and pandas migration. Use for expression-based data manipulation with lazy query optimization, parallel execution, streaming out-of-core p",
       "path": "K-Dense-AI--claude-scientific-skills/skills/polars/SKILL.md",
       "remote_path": "skills/polars/SKILL.md",
-      "lines": 394,
-      "words": 1148,
+      "lines": 410,
+      "words": 1283,
       "code_blocks": 25,
       "languages": [
         "bash",
@@ -12967,8 +12967,8 @@
       "description": "Plan, configure, inspect, restart, and analyze bounded FluidSim computational-fluid-dynamics simulations with explicit numerical-validity and HPC safety checks. Use for FluidSim solver selection, para",
       "path": "K-Dense-AI--claude-scientific-skills/skills/fluidsim/SKILL.md",
       "remote_path": "skills/fluidsim/SKILL.md",
-      "lines": 280,
-      "words": 1276,
+      "lines": 297,
+      "words": 1411,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -12981,8 +12981,8 @@
       "description": "Query live pathogen genomic surveillance data through the GenSpectrum LAPIS API to find which viral lineages are circulating now, how fast they are growing, and what mutations they carry. Use whenever",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pathogen-variant-surveillance/SKILL.md",
       "remote_path": "skills/pathogen-variant-surveillance/SKILL.md",
-      "lines": 209,
-      "words": 1625,
+      "lines": 226,
+      "words": 1760,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -12994,8 +12994,8 @@
       "description": "Hardware-agnostic quantum ML framework with automatic differentiation. Use when training quantum circuits via gradients, building hybrid quantum-classical models, or needing device portability across ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pennylane/SKILL.md",
       "remote_path": "skills/pennylane/SKILL.md",
-      "lines": 241,
-      "words": 956,
+      "lines": 257,
+      "words": 1091,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -13008,8 +13008,8 @@
       "description": "Comprehensive geospatial science skill covering remote sensing, GIS, spatial analysis, machine learning for earth observation, and 30+ scientific domains. Supports satellite imagery processing (Sentin",
       "path": "K-Dense-AI--claude-scientific-skills/skills/geomaster/SKILL.md",
       "remote_path": "skills/geomaster/SKILL.md",
-      "lines": 367,
-      "words": 1302,
+      "lines": 384,
+      "words": 1437,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -13022,8 +13022,8 @@
       "description": "Guided statistical analysis for research data - test selection, assumption checking, effect sizes, power analysis, Bayesian alternatives, and APA-formatted reporting. Use whenever a user wants to comp",
       "path": "K-Dense-AI--claude-scientific-skills/skills/statistical-analysis/SKILL.md",
       "remote_path": "skills/statistical-analysis/SKILL.md",
-      "lines": 447,
-      "words": 2704,
+      "lines": 464,
+      "words": 2839,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -13036,8 +13036,8 @@
       "description": "PyTorch Geometric (PyG) for graph neural networks \u2014 node/link/graph classification, message passing (GCN, GAT, GraphSAGE, GIN), heterogeneous graphs, neighbor sampling, and custom datasets. Use when w",
       "path": "K-Dense-AI--claude-scientific-skills/skills/torch-geometric/SKILL.md",
       "remote_path": "skills/torch-geometric/SKILL.md",
-      "lines": 459,
-      "words": 2120,
+      "lines": 476,
+      "words": 2255,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -13050,8 +13050,8 @@
       "description": "Modal is a serverless cloud platform for running Python on demand, including on-demand GPUs. Use when deploying or serving AI/ML models, running GPU-accelerated workloads (training, fine-tuning, infer",
       "path": "K-Dense-AI--claude-scientific-skills/skills/modal/SKILL.md",
       "remote_path": "skills/modal/SKILL.md",
-      "lines": 469,
-      "words": 1845,
+      "lines": 486,
+      "words": 1980,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -13064,8 +13064,8 @@
       "description": "Version-aware guidance for PufferLib reinforcement-learning environments, vectorization, policies, PuffeRL training, evaluation, and safe checkpoint review. Use when adapting Gymnasium/PettingZoo envi",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pufferlib/SKILL.md",
       "remote_path": "skills/pufferlib/SKILL.md",
-      "lines": 329,
-      "words": 1372,
+      "lines": 346,
+      "words": 1507,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -13093,8 +13093,8 @@
       "description": "Create, analyze, and visualize complex networks and graphs in Python with NetworkX. Use when working with network/graph data structures, computing graph algorithms (shortest paths, centrality, cluster",
       "path": "K-Dense-AI--claude-scientific-skills/skills/networkx/SKILL.md",
       "remote_path": "skills/networkx/SKILL.md",
-      "lines": 441,
-      "words": 1512,
+      "lines": 457,
+      "words": 1647,
       "code_blocks": 25,
       "languages": [
         "python"
@@ -13106,8 +13106,8 @@
       "description": "Pythonic wrapper around RDKit with simplified interface and sensible defaults. Preferred for standard drug discovery including SMILES parsing, standardization, descriptors, fingerprints, clustering, 3",
       "path": "K-Dense-AI--claude-scientific-skills/skills/datamol/SKILL.md",
       "remote_path": "skills/datamol/SKILL.md",
-      "lines": 201,
-      "words": 998,
+      "lines": 218,
+      "words": 1133,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -13120,8 +13120,8 @@
       "description": "Multi-objective optimization framework. NSGA-II, NSGA-III, MOEA/D, Pareto fronts, constraint handling, benchmarks (ZDT, DTLZ), for engineering design and optimization problems.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pymoo/SKILL.md",
       "remote_path": "skills/pymoo/SKILL.md",
-      "lines": 277,
-      "words": 1265,
+      "lines": 294,
+      "words": 1400,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -13134,8 +13134,8 @@
       "description": "Use when the user is doing AI/ML work in a scientific domain such as biology, chemistry, physics, astronomy, climate, genomics, materials, medicine, ecology, energy, engineering, math, drug discovery,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/hugging-science/SKILL.md",
       "remote_path": "skills/hugging-science/SKILL.md",
-      "lines": 133,
-      "words": 1475,
+      "lines": 150,
+      "words": 1610,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -13147,8 +13147,8 @@
       "description": "Build slide decks and presentations for research talks. Use this for making PowerPoint slides, conference presentations, seminar talks, research presentations, thesis defense slides, or any scientific",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-slides/SKILL.md",
       "remote_path": "skills/scientific-slides/SKILL.md",
-      "lines": 380,
-      "words": 2596,
+      "lines": 397,
+      "words": 2731,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -13175,8 +13175,8 @@
       "description": "Hugging Face Transformers for loading Hub models, running pipeline inference, text generation, and Trainer fine-tuning on NLP, vision, audio, and multimodal tasks. Use when working with AutoModel, pip",
       "path": "K-Dense-AI--claude-scientific-skills/skills/transformers/SKILL.md",
       "remote_path": "skills/transformers/SKILL.md",
-      "lines": 196,
-      "words": 847,
+      "lines": 213,
+      "words": 982,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -13203,8 +13203,8 @@
       "description": "Data structure for annotated matrices in single-cell analysis. Use when working with .h5ad files or integrating with the scverse ecosystem. This is the data format skill\u2014for analysis workflows use sca",
       "path": "K-Dense-AI--claude-scientific-skills/skills/anndata/SKILL.md",
       "remote_path": "skills/anndata/SKILL.md",
-      "lines": 432,
-      "words": 1413,
+      "lines": 448,
+      "words": 1548,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -13217,8 +13217,8 @@
       "description": "\"Create professional research posters in LaTeX using beamerposter, tikzposter, or baposter. Support for conference presentations, academic posters, and scientific communication. Includes layout design",
       "path": "K-Dense-AI--claude-scientific-skills/skills/latex-posters/SKILL.md",
       "remote_path": "skills/latex-posters/SKILL.md",
-      "lines": 370,
-      "words": 2111,
+      "lines": 388,
+      "words": 2249,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -13229,8 +13229,8 @@
       "description": "Core Python library for astronomy and astrophysics workflows that need Astropy APIs, including units/quantities, coordinates, FITS I/O, tables, time systems, WCS, and cosmology. Use when implementing ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/astropy/SKILL.md",
       "remote_path": "skills/astropy/SKILL.md",
-      "lines": 354,
-      "words": 1811,
+      "lines": 370,
+      "words": 1946,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -13243,8 +13243,8 @@
       "description": "Machine learning in Python with scikit-learn. Use when working with supervised learning (classification, regression), unsupervised learning (clustering, dimensionality reduction), model evaluation, hy",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scikit-learn/SKILL.md",
       "remote_path": "skills/scikit-learn/SKILL.md",
-      "lines": 325,
-      "words": 1117,
+      "lines": 342,
+      "words": 1252,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -13257,8 +13257,8 @@
       "description": "Read, inspect, and write Flow Cytometry Standard (FCS) 2.0, 3.0, and 3.1 files with FlowIO. Use for low-level FCS metadata and channel inspection, NumPy event extraction, multi-dataset files, table ex",
       "path": "K-Dense-AI--claude-scientific-skills/skills/flowio/SKILL.md",
       "remote_path": "skills/flowio/SKILL.md",
-      "lines": 311,
-      "words": 1343,
+      "lines": 328,
+      "words": 1478,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -13271,8 +13271,8 @@
       "description": "Format and structurally validate local treatment-plan documentation after clinical decisions have already been supplied and verified by authorized licensed professionals. Use for source traceability, ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/treatment-plans/SKILL.md",
       "remote_path": "skills/treatment-plans/SKILL.md",
-      "lines": 175,
-      "words": 1197,
+      "lines": 192,
+      "words": 1332,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -13284,8 +13284,8 @@
       "description": "Differential gene expression analysis for bulk RNA-seq with PyDESeq2, including formulaic designs, Wald tests, FDR correction, LFC shrinkage, and result visualization.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pydeseq2/SKILL.md",
       "remote_path": "skills/pydeseq2/SKILL.md",
-      "lines": 370,
-      "words": 1326,
+      "lines": 387,
+      "words": 1461,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -13298,8 +13298,8 @@
       "description": "Simulate and audit closed and open quantum-system models with QuTiP 5, including deterministic, trajectory, steady-state, spectral, and phase-space workflows. Use for local quantum-dynamics work where",
       "path": "K-Dense-AI--claude-scientific-skills/skills/qutip/SKILL.md",
       "remote_path": "skills/qutip/SKILL.md",
-      "lines": 318,
-      "words": 1591,
+      "lines": 335,
+      "words": 1726,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -13312,8 +13312,8 @@
       "description": "Convert genomic intervals between coordinate conventions, normalise and compare variant representations, and detect assembly or contig-naming mismatches before they corrupt an analysis. Use whenever c",
       "path": "K-Dense-AI--claude-scientific-skills/skills/genomic-coordinates/SKILL.md",
       "remote_path": "skills/genomic-coordinates/SKILL.md",
-      "lines": 190,
-      "words": 1276,
+      "lines": 207,
+      "words": 1411,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -13325,8 +13325,8 @@
       "description": "Securely inspect and automate microscopy data workflows against OMERO.server with omero-py, BlitzGateway, OMERO CLI, tables, annotations, ROIs, rendering, and documented OMERO.web APIs. Use for scoped",
       "path": "K-Dense-AI--claude-scientific-skills/skills/omero-integration/SKILL.md",
       "remote_path": "skills/omero-integration/SKILL.md",
-      "lines": 223,
-      "words": 1131,
+      "lines": 240,
+      "words": 1266,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -13339,8 +13339,8 @@
       "description": "Local document and PDF parsing that returns spatial text with bounding boxes. Use for extracting text from PDFs, DOCX, Office files, and images; running OCR on scans; producing layout-preserved JSON f",
       "path": "K-Dense-AI--claude-scientific-skills/skills/liteparse/SKILL.md",
       "remote_path": "skills/liteparse/SKILL.md",
-      "lines": 296,
-      "words": 1192,
+      "lines": 313,
+      "words": 1327,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -13353,8 +13353,8 @@
       "description": "Resolve free-text scientific labels to ontology term IDs and validate existing CURIEs against the EBI Ontology Lookup Service (OLS4). Use whenever an ontology identifier must be produced or checked - ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/ontology-term-resolution/SKILL.md",
       "remote_path": "skills/ontology-term-resolution/SKILL.md",
-      "lines": 148,
-      "words": 1136,
+      "lines": 165,
+      "words": 1271,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -13366,8 +13366,8 @@
       "description": "Use Therapeutics Data Commons through the PyTDC Python package for registry discovery, approved dataset access, task-aware splits, evaluator metrics, benchmark groups, and bounded molecular-oracle wor",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pytdc/SKILL.md",
       "remote_path": "skills/pytdc/SKILL.md",
-      "lines": 298,
-      "words": 1492,
+      "lines": 315,
+      "words": 1627,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -13407,8 +13407,8 @@
       "description": "Lightweight WSI tile extraction and preprocessing. Use for basic slide processing, tissue detection, tile extraction, and stain normalization for H&E images. Best for simple pipelines, dataset prepara",
       "path": "K-Dense-AI--claude-scientific-skills/skills/histolab/SKILL.md",
       "remote_path": "skills/histolab/SKILL.md",
-      "lines": 244,
-      "words": 1158,
+      "lines": 261,
+      "words": 1293,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -13432,8 +13432,8 @@
       "description": "Use when working directly with the `esm` Python SDK, ESM3 or ESMC model IDs, Forge/Biohub inference clients, or ESMFold2 folding workflows.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/esm/SKILL.md",
       "remote_path": "skills/esm/SKILL.md",
-      "lines": 335,
-      "words": 1380,
+      "lines": 351,
+      "words": 1515,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -13446,8 +13446,8 @@
       "description": "Detect host inventory and effective CPU, memory, disk, scheduler, container, and accelerator limits when a user asks for resource-aware planning or before a clearly resource-sensitive local workload. ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/get-available-resources/SKILL.md",
       "remote_path": "skills/get-available-resources/SKILL.md",
-      "lines": 261,
-      "words": 1181,
+      "lines": 278,
+      "words": 1316,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -13459,8 +13459,8 @@
       "description": "Use pydicom to read, inspect, write, transform, and safely preflight local DICOM datasets and pixel data. Applies to DICOM metadata, transfer syntaxes, compression plugins, frames, private elements, J",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pydicom/SKILL.md",
       "remote_path": "skills/pydicom/SKILL.md",
-      "lines": 382,
-      "words": 1786,
+      "lines": 399,
+      "words": 1921,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -13473,8 +13473,8 @@
       "description": "\"How to use the Adaptyv Bio Foundry API and Python SDK for protein experiment design, submission, and results retrieval. Use this skill whenever the user mentions Adaptyv, Foundry API, protein binding",
       "path": "K-Dense-AI--claude-scientific-skills/skills/adaptyv/SKILL.md",
       "remote_path": "skills/adaptyv/SKILL.md",
-      "lines": 241,
-      "words": 1030,
+      "lines": 258,
+      "words": 1165,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -13488,8 +13488,8 @@
       "description": "Design experiments and studies BEFORE data is collected \u2014 choosing a design, randomizing, blocking, and laying out treatment combinations so results are interpretable. Use whenever someone is planning",
       "path": "K-Dense-AI--claude-scientific-skills/skills/experimental-design/SKILL.md",
       "remote_path": "skills/experimental-design/SKILL.md",
-      "lines": 235,
-      "words": 1677,
+      "lines": 252,
+      "words": 1812,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -13502,8 +13502,8 @@
       "description": "Analyze Neuropixels extracellular recordings end-to-end with SpikeInterface. Covers loading SpikeGLX/Open Ephys/NWB data, preprocessing, drift/motion correction, Kilosort4 (and CPU) spike sorting, qua",
       "path": "K-Dense-AI--claude-scientific-skills/skills/neuropixels-analysis/SKILL.md",
       "remote_path": "skills/neuropixels-analysis/SKILL.md",
-      "lines": 413,
-      "words": 1653,
+      "lines": 430,
+      "words": 1788,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -13516,8 +13516,8 @@
       "description": "Explain and audit machine-learning predictions with SHAP. Use for selecting SHAP explainers and maskers, computing and validating feature attributions, handling multi-output explanations, and producin",
       "path": "K-Dense-AI--claude-scientific-skills/skills/shap/SKILL.md",
       "remote_path": "skills/shap/SKILL.md",
-      "lines": 283,
-      "words": 1533,
+      "lines": 300,
+      "words": 1668,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -13530,8 +13530,8 @@
       "description": "Self-hosted, open-source alternative to Google NotebookLM for AI-powered research and document analysis. Use when organizing research materials into notebooks, ingesting diverse content sources (PDFs,",
       "path": "K-Dense-AI--claude-scientific-skills/skills/open-notebook/SKILL.md",
       "remote_path": "skills/open-notebook/SKILL.md",
-      "lines": 297,
-      "words": 1266,
+      "lines": 315,
+      "words": 1401,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -13544,8 +13544,8 @@
       "description": "Query the Precision Medicine Knowledge Graph (PrimeKG) for multiscale biological data including genes, drugs, diseases, phenotypes, and more.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/primekg/SKILL.md",
       "remote_path": "skills/primekg/SKILL.md",
-      "lines": 100,
-      "words": 484,
+      "lines": 117,
+      "words": 619,
       "code_blocks": 3,
       "languages": [
         "python"
@@ -13557,9 +13557,9 @@
       "description": "DiffDock and DiffDock-L molecular docking. Use for protein-small-molecule pose prediction from PDB or sequence plus SMILES/SDF/MOL2, batch docking, virtual screening, and pose-confidence interpretatio",
       "path": "K-Dense-AI--claude-scientific-skills/skills/diffdock/SKILL.md",
       "remote_path": "skills/diffdock/SKILL.md",
-      "lines": 489,
-      "words": 2029,
-      "code_blocks": 18,
+      "lines": 496,
+      "words": 2162,
+      "code_blocks": 16,
       "languages": [
         "bash",
         "csv",
@@ -13585,8 +13585,8 @@
       "description": "Query the CZ CELLxGENE Census programmatically for versioned public single-cell and spatial transcriptomics data. Use when you need population-scale cell metadata, gene expression slices, Census summa",
       "path": "K-Dense-AI--claude-scientific-skills/skills/cellxgene-census/SKILL.md",
       "remote_path": "skills/cellxgene-census/SKILL.md",
-      "lines": 284,
-      "words": 1242,
+      "lines": 301,
+      "words": 1377,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -13599,8 +13599,8 @@
       "description": "Constraint-based metabolic modeling (COBRA). FBA, FVA, gene knockouts, flux sampling, SBML models, for systems biology and metabolic engineering analysis.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/cobrapy/SKILL.md",
       "remote_path": "skills/cobrapy/SKILL.md",
-      "lines": 497,
-      "words": 1642,
+      "lines": 513,
+      "words": 1777,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -13613,8 +13613,8 @@
       "description": "\"Create professional infographics using Nano Banana Pro AI with smart iterative refinement. Uses Gemini 3.6 Flash for quality review. Integrates research-lookup and web search for accurate data. Suppo",
       "path": "K-Dense-AI--claude-scientific-skills/skills/infographics/SKILL.md",
       "remote_path": "skills/infographics/SKILL.md",
-      "lines": 316,
-      "words": 1414,
+      "lines": 334,
+      "words": 1552,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -13625,8 +13625,8 @@
       "description": "Autonomously improve a real artifact (code, training recipe, agent harness, data pipeline, prompt) against an objective and an evaluator, using Hypothesis Tree Refinement (HTR) from the Arbor paper. U",
       "path": "K-Dense-AI--claude-scientific-skills/skills/arbor/SKILL.md",
       "remote_path": "skills/arbor/SKILL.md",
-      "lines": 153,
-      "words": 2032,
+      "lines": 170,
+      "words": 2167,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -13638,8 +13638,8 @@
       "description": "Build, register, debug, and operate bioinformatics workflows on Latch using the Python SDK, CLI, Latch Data and Registry, Nextflow, Snakemake, programmatic execution, and Latch MCP. Use when authoring",
       "path": "K-Dense-AI--claude-scientific-skills/skills/latchbio-integration/SKILL.md",
       "remote_path": "skills/latchbio-integration/SKILL.md",
-      "lines": 228,
-      "words": 1111,
+      "lines": 245,
+      "words": 1246,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -13663,8 +13663,8 @@
       "description": "Build and operate reproducible genomics workloads on DNAnexus with the dx CLI, dxpy, apps/applets, native workflows, dxCompiler, and Nextflow. Use for DNAnexus data transfers, dxapp.json development, ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/dnanexus-integration/SKILL.md",
       "remote_path": "skills/dnanexus-integration/SKILL.md",
-      "lines": 326,
-      "words": 1350,
+      "lines": 343,
+      "words": 1485,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -13677,8 +13677,8 @@
       "description": "Analyze, validate, convert, and transform materials structures and computed materials data with current pymatgen APIs, including local phase diagrams, symmetry sensitivity, electronic-structure I/O, a",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pymatgen/SKILL.md",
       "remote_path": "skills/pymatgen/SKILL.md",
-      "lines": 405,
-      "words": 1697,
+      "lines": 422,
+      "words": 1832,
       "code_blocks": 18,
       "languages": [
         "bash",
@@ -13692,8 +13692,8 @@
       "description": "Read, validate, and safely export protocols.io data with current official REST/MCP contracts, or create non-executing mutation plans. The bundled client makes bounded official-host GET requests only w",
       "path": "K-Dense-AI--claude-scientific-skills/skills/protocolsio-integration/SKILL.md",
       "remote_path": "skills/protocolsio-integration/SKILL.md",
-      "lines": 237,
-      "words": 1354,
+      "lines": 254,
+      "words": 1489,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -13705,8 +13705,8 @@
       "description": "Complete mass spectrometry analysis platform. Use for proteomics and metabolomics workflows\u2014feature detection, peptide/protein identification, label-free and isobaric quantification, adduct/accurate-m",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pyopenms/SKILL.md",
       "remote_path": "skills/pyopenms/SKILL.md",
-      "lines": 180,
-      "words": 946,
+      "lines": 197,
+      "words": 1081,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -13719,8 +13719,8 @@
       "description": "Build and troubleshoot TorchDrug 0.2.1 workflows for molecular graphs, property prediction, self-supervised pretraining, molecule generation, retrosynthesis, protein representation learning, and knowl",
       "path": "K-Dense-AI--claude-scientific-skills/skills/torchdrug/SKILL.md",
       "remote_path": "skills/torchdrug/SKILL.md",
-      "lines": 242,
-      "words": 1003,
+      "lines": 259,
+      "words": 1138,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -13733,8 +13733,8 @@
       "description": "Draft, revise, and audit scientific manuscripts or reports with explicit evidence provenance, reporting-guideline coverage, authorship accountability, confidentiality controls, and local consistency c",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-writing/SKILL.md",
       "remote_path": "skills/scientific-writing/SKILL.md",
-      "lines": 357,
-      "words": 1608,
+      "lines": 374,
+      "words": 1743,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -13747,8 +13747,8 @@
       "description": "Google quantum computing framework. Use when targeting Google Quantum AI hardware, designing noise-aware circuits, or running quantum characterization experiments. Best for Google hardware, noise mode",
       "path": "K-Dense-AI--claude-scientific-skills/skills/cirq/SKILL.md",
       "remote_path": "skills/cirq/SKILL.md",
-      "lines": 371,
-      "words": 1380,
+      "lines": 387,
+      "words": 1515,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -13761,8 +13761,8 @@
       "description": "Distributed computing for larger-than-RAM pandas/NumPy workflows. Use when you need to scale existing pandas/NumPy code beyond memory or across clusters. Best for parallel file processing, distributed",
       "path": "K-Dense-AI--claude-scientific-skills/skills/dask/SKILL.md",
       "remote_path": "skills/dask/SKILL.md",
-      "lines": 483,
-      "words": 2025,
+      "lines": 499,
+      "words": 2160,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -13775,8 +13775,8 @@
       "description": "Securely integrate with the official LabArchives ELN REST-like API and Inventory API v1. Use for regional endpoint selection, signed-request construction, user authorization and UID flows, local LA co",
       "path": "K-Dense-AI--claude-scientific-skills/skills/labarchive-integration/SKILL.md",
       "remote_path": "skills/labarchive-integration/SKILL.md",
-      "lines": 217,
-      "words": 1285,
+      "lines": 234,
+      "words": 1420,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -13788,8 +13788,8 @@
       "description": "Benchling Python SDK and REST API integration for registry entities, inventory, ELN entries, workflows, Benchling Apps, and Data Warehouse queries. Use when automating lab data with benchling-sdk or t",
       "path": "K-Dense-AI--claude-scientific-skills/skills/benchling-integration/SKILL.md",
       "remote_path": "skills/benchling-integration/SKILL.md",
-      "lines": 230,
-      "words": 843,
+      "lines": 247,
+      "words": 978,
       "code_blocks": 7,
       "languages": [
         "python"
@@ -13801,8 +13801,8 @@
       "description": "Conduct comprehensive, systematic literature reviews using multiple academic databases (PubMed, arXiv, bioRxiv, Semantic Scholar, etc.). This skill should be used when conducting systematic literature",
       "path": "K-Dense-AI--claude-scientific-skills/skills/literature-review/SKILL.md",
       "remote_path": "skills/literature-review/SKILL.md",
-      "lines": 264,
-      "words": 1547,
+      "lines": 281,
+      "words": 1682,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -13814,8 +13814,8 @@
       "description": "Deep learning framework (PyTorch Lightning / lightning package). Organize PyTorch code into LightningModules, configure Trainers for multi-GPU/TPU, implement data pipelines, callbacks, logging (W&B, T",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pytorch-lightning/SKILL.md",
       "remote_path": "skills/pytorch-lightning/SKILL.md",
-      "lines": 192,
-      "words": 852,
+      "lines": 208,
+      "words": 987,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -13855,8 +13855,8 @@
       "description": "Bayesian modeling with PyMC. Build hierarchical models, MCMC (NUTS), variational inference, LOO/WAIC comparison, posterior checks, for probabilistic programming and inference.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pymc/SKILL.md",
       "remote_path": "skills/pymc/SKILL.md",
-      "lines": 311,
-      "words": 1273,
+      "lines": 328,
+      "words": 1408,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -13869,8 +13869,8 @@
       "description": "This skill should be used for time series machine learning tasks including classification, regression, clustering, forecasting, anomaly detection, segmentation, and similarity search. Use when working",
       "path": "K-Dense-AI--claude-scientific-skills/skills/aeon/SKILL.md",
       "remote_path": "skills/aeon/SKILL.md",
-      "lines": 403,
-      "words": 1275,
+      "lines": 419,
+      "words": 1410,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -13883,8 +13883,8 @@
       "description": "Molecular ML with diverse featurizers and pre-built datasets. Use for property prediction (ADMET, toxicity) with traditional ML or GNNs when you want extensive featurization options and MoleculeNet be",
       "path": "K-Dense-AI--claude-scientific-skills/skills/deepchem/SKILL.md",
       "remote_path": "skills/deepchem/SKILL.md",
-      "lines": 245,
-      "words": 1213,
+      "lines": 262,
+      "words": 1348,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -13897,8 +13897,8 @@
       "description": "Submit and manage protocols on Ginkgo Bioworks Cloud Lab (cloud.ginkgo.bio), a web-based interface for autonomous lab execution on Reconfigurable Automation Carts (RACs). Use when the user wants to ru",
       "path": "K-Dense-AI--claude-scientific-skills/skills/ginkgo-cloud-lab/SKILL.md",
       "remote_path": "skills/ginkgo-cloud-lab/SKILL.md",
-      "lines": 107,
-      "words": 981,
+      "lines": 125,
+      "words": 1119,
       "code_blocks": 0,
       "languages": [],
       "license": "MIT license"
@@ -13908,8 +13908,8 @@
       "description": "Production-ready reinforcement learning algorithms (PPO, SAC, DQN, TD3, DDPG, A2C) with scikit-learn-like API. Use for standard RL experiments, quick prototyping, and well-documented algorithm impleme",
       "path": "K-Dense-AI--claude-scientific-skills/skills/stable-baselines3/SKILL.md",
       "remote_path": "skills/stable-baselines3/SKILL.md",
-      "lines": 326,
-      "words": 1159,
+      "lines": 342,
+      "words": 1294,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -13922,8 +13922,8 @@
       "description": "End-to-end bulk RNA-seq orchestrator \u2014 takes raw FASTQ reads through QC and trimming (FastQC, fastp/Trim Galore), alignment and quantification (STAR, Salmon, featureCounts), assembles a gene-level cou",
       "path": "K-Dense-AI--claude-scientific-skills/skills/bulk-rnaseq/SKILL.md",
       "remote_path": "skills/bulk-rnaseq/SKILL.md",
-      "lines": 199,
-      "words": 1864,
+      "lines": 216,
+      "words": 1999,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -13936,8 +13936,8 @@
       "description": "Statistical visualization with pandas integration. Use for quick exploration of distributions, relationships, and categorical comparisons with attractive defaults. Best for box plots, violin plots, pa",
       "path": "K-Dense-AI--claude-scientific-skills/skills/seaborn/SKILL.md",
       "remote_path": "skills/seaborn/SKILL.md",
-      "lines": 255,
-      "words": 1137,
+      "lines": 272,
+      "words": 1272,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -13950,8 +13950,8 @@
       "description": "Build, evaluate, and audit right-censored or competing-risk survival workflows with scikit-survival, including leakage-safe preprocessing, model selection, probability prediction, and censoring-aware ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scikit-survival/SKILL.md",
       "remote_path": "skills/scikit-survival/SKILL.md",
-      "lines": 314,
-      "words": 1454,
+      "lines": 331,
+      "words": 1589,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -13977,8 +13977,8 @@
       "description": "Multivariate severity assessment and humane endpoint prediction for laboratory animal studies using the RELSA (RELative Severity Assessment) score and ARIMA-based foRcast forecasting. Use when combini",
       "path": "K-Dense-AI--claude-scientific-skills/skills/relsa-severity-assessment/SKILL.md",
       "remote_path": "skills/relsa-severity-assessment/SKILL.md",
-      "lines": 355,
-      "words": 2670,
+      "lines": 372,
+      "words": 2805,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -13991,8 +13991,8 @@
       "description": "Biological data toolkit. Sequence analysis, alignments, phylogenetic trees, diversity metrics (alpha/beta, UniFrac), ordination (PCoA), PERMANOVA, FASTA/Newick I/O, for microbiome analysis.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scikit-bio/SKILL.md",
       "remote_path": "skills/scikit-bio/SKILL.md",
-      "lines": 471,
-      "words": 2320,
+      "lines": 487,
+      "words": 2455,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -14005,8 +14005,8 @@
       "description": "\"Use Parallel CLI for web search, URL extraction, deep research, structured data enrichment, entity discovery, and recurring web monitoring. Best for requests that explicitly need current web evidence",
       "path": "K-Dense-AI--claude-scientific-skills/skills/parallel-web/SKILL.md",
       "remote_path": "skills/parallel-web/SKILL.md",
-      "lines": 129,
-      "words": 878,
+      "lines": 146,
+      "words": 1013,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14018,8 +14018,8 @@
       "description": "\"Compile current scholarly evidence for a scientific manuscript or research brief. Use when the user explicitly asks to gather literature, references, background evidence, competing findings, or a man",
       "path": "K-Dense-AI--claude-scientific-skills/skills/research-lookup/SKILL.md",
       "remote_path": "skills/research-lookup/SKILL.md",
-      "lines": 339,
-      "words": 1753,
+      "lines": 356,
+      "words": 1888,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -14032,8 +14032,8 @@
       "description": "Build evidence-traceable market research reports and assumption-driven market sizing or forecast scenarios. Use for market definition, industry and customer evidence, competitive landscapes, TAM/SAM/S",
       "path": "K-Dense-AI--claude-scientific-skills/skills/market-research-reports/SKILL.md",
       "remote_path": "skills/market-research-reports/SKILL.md",
-      "lines": 338,
-      "words": 1605,
+      "lines": 355,
+      "words": 1740,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -14046,8 +14046,8 @@
       "description": "\"Use Geniml for audited local genomic-interval workflows: validate BED and universe contracts, plan Region2Vec or scEmbed runs, inspect model/tokenizer compatibility, and assess consensus universes.\"",
       "path": "K-Dense-AI--claude-scientific-skills/skills/geniml/SKILL.md",
       "remote_path": "skills/geniml/SKILL.md",
-      "lines": 311,
-      "words": 1564,
+      "lines": 328,
+      "words": 1699,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -14074,8 +14074,8 @@
       "description": "Formulate evidence-bounded scientific questions, candidate hypotheses, rival explanations, causal or associational claims, discriminating predictions, measurements, and preregistration-ready analysis ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/hypothesis-generation/SKILL.md",
       "remote_path": "skills/hypothesis-generation/SKILL.md",
-      "lines": 265,
-      "words": 1811,
+      "lines": 282,
+      "words": 1946,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -14087,8 +14087,8 @@
       "description": "High-performance genomic interval operations and bioinformatics file I/O on Polars DataFrames. Overlap, nearest, merge, coverage, complement, subtract for BED/VCF/BAM/GFF intervals. Streaming, cloud-n",
       "path": "K-Dense-AI--claude-scientific-skills/skills/polars-bio/SKILL.md",
       "remote_path": "skills/polars-bio/SKILL.md",
-      "lines": 380,
-      "words": 1834,
+      "lines": 397,
+      "words": 1969,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -14101,8 +14101,8 @@
       "description": "Infer gene regulatory networks (GRNs) from gene expression data using scalable algorithms (GRNBoost2, GENIE3). Use when analyzing transcriptomics data (bulk RNA-seq, single-cell RNA-seq) to identify t",
       "path": "K-Dense-AI--claude-scientific-skills/skills/arboreto/SKILL.md",
       "remote_path": "skills/arboreto/SKILL.md",
-      "lines": 268,
-      "words": 919,
+      "lines": 284,
+      "words": 1054,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -14115,8 +14115,8 @@
       "description": "Medicinal chemistry filters for compound triage. Apply drug-likeness rules (Lipinski, Veber, CNS), structural alert catalogs (PAINS, NIBR, ChEMBL), complexity metrics, and the medchem query language f",
       "path": "K-Dense-AI--claude-scientific-skills/skills/medchem/SKILL.md",
       "remote_path": "skills/medchem/SKILL.md",
-      "lines": 322,
-      "words": 1161,
+      "lines": 339,
+      "words": 1296,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -14166,8 +14166,8 @@
       "description": "Low-level plotting library for full customization. Use when you need fine-grained control over every plot element, creating novel plot types, or integrating with specific scientific workflows. Export ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/matplotlib/SKILL.md",
       "remote_path": "skills/matplotlib/SKILL.md",
-      "lines": 379,
-      "words": 1481,
+      "lines": 395,
+      "words": 1616,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -14180,8 +14180,8 @@
       "description": "Chunked N-D arrays for cloud storage (Zarr-Python 3). Compressed arrays, parallel I/O, S3/GCS via fsspec, NumPy/Dask/Xarray compatible, for large-scale scientific computing pipelines.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/zarr-python/SKILL.md",
       "remote_path": "skills/zarr-python/SKILL.md",
-      "lines": 242,
-      "words": 883,
+      "lines": 259,
+      "words": 1018,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -14194,8 +14194,8 @@
       "description": "Author, review, migrate, simulate, and troubleshoot official Opentrons Python Protocol API v2 protocols for Flex and OT-2 robots. Use for robot-specific liquid handling, deck and labware setup, pipett",
       "path": "K-Dense-AI--claude-scientific-skills/skills/opentrons-integration/SKILL.md",
       "remote_path": "skills/opentrons-integration/SKILL.md",
-      "lines": 323,
-      "words": 1670,
+      "lines": 340,
+      "words": 1805,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -14208,8 +14208,8 @@
       "description": "\"Use PathML for local, research-only computational pathology workflows: load and tile slides, build preprocessing and QC pipelines, manage h5path data, quantify multiplex images, construct spatial gra",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pathml/SKILL.md",
       "remote_path": "skills/pathml/SKILL.md",
-      "lines": 223,
-      "words": 1239,
+      "lines": 240,
+      "words": 1374,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -14236,8 +14236,8 @@
       "description": "Process, clean, compare, and search tandem mass spectra with matchms. Use for MS/MS file I/O, metadata harmonization, peak filtering, spectral similarity, library matching, score matrices, and molecul",
       "path": "K-Dense-AI--claude-scientific-skills/skills/matchms/SKILL.md",
       "remote_path": "skills/matchms/SKILL.md",
-      "lines": 277,
-      "words": 1174,
+      "lines": 293,
+      "words": 1309,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -14250,8 +14250,8 @@
       "description": "Generate or edit images with AI models through the OpenRouter Image API (Gemini, Seedream, Recraft, GPT-Image, Riverflow). Use for photos, illustrations, artwork, concept art, visual assets, logos, an",
       "path": "K-Dense-AI--claude-scientific-skills/skills/generate-image/SKILL.md",
       "remote_path": "skills/generate-image/SKILL.md",
-      "lines": 305,
-      "words": 2027,
+      "lines": 322,
+      "words": 2162,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -14265,8 +14265,8 @@
       "description": "Facilitates evidence-aware scientific ideation with independent generation, structured discussion, explicit assumptions, transparent evaluation, adversarial review, and decision logs. Use for early-st",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scientific-brainstorming/SKILL.md",
       "remote_path": "skills/scientific-brainstorming/SKILL.md",
-      "lines": 283,
-      "words": 1611,
+      "lines": 300,
+      "words": 1746,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -14278,8 +14278,8 @@
       "description": "Query the U.S. Treasury Fiscal Data REST API for federal financial data. No API key required. Use for national debt (Debt to the Penny), Daily Treasury Statements, Monthly Treasury Statements, Treasur",
       "path": "K-Dense-AI--claude-scientific-skills/skills/usfiscaldata/SKILL.md",
       "remote_path": "skills/usfiscaldata/SKILL.md",
-      "lines": 172,
-      "words": 766,
+      "lines": 189,
+      "words": 901,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -14293,8 +14293,8 @@
       "description": "Python/HTSlib workflows for genomic files. Use when reading, querying, filtering, or writing SAM/BAM/CRAM, VCF/BCF, FASTA/FASTQ, or tabix data with pysam, including pileup, coverage, indexing, and CRA",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pysam/SKILL.md",
       "remote_path": "skills/pysam/SKILL.md",
-      "lines": 331,
-      "words": 1337,
+      "lines": 348,
+      "words": 1472,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -14321,8 +14321,8 @@
       "description": "Build, inspect, test, and analyze bounded process-based discrete-event simulations with SimPy, including events, resources, interrupts, monitoring, replications, warm-up, and reproducible output analy",
       "path": "K-Dense-AI--claude-scientific-skills/skills/simpy/SKILL.md",
       "remote_path": "skills/simpy/SKILL.md",
-      "lines": 284,
-      "words": 1536,
+      "lines": 301,
+      "words": 1671,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -14335,8 +14335,8 @@
       "description": "Design custom laboratory hardware as parametric build123d models and export fabrication-ready STEP, STL, and DXF files - microfluidic chips and molds, optomechanical mounts and breadboard adapters, cu",
       "path": "K-Dense-AI--claude-scientific-skills/skills/lab-hardware-cad/SKILL.md",
       "remote_path": "skills/lab-hardware-cad/SKILL.md",
-      "lines": 373,
-      "words": 3106,
+      "lines": 390,
+      "words": 3241,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -14349,8 +14349,8 @@
       "description": "Standard single-cell RNA-seq analysis pipeline. Use for QC, normalization, dimensionality reduction (PCA/UMAP/t-SNE), clustering, differential expression, visualization, and converting R-friendly sing",
       "path": "K-Dense-AI--claude-scientific-skills/skills/scanpy/SKILL.md",
       "remote_path": "skills/scanpy/SKILL.md",
-      "lines": 304,
-      "words": 1947,
+      "lines": 321,
+      "words": 2082,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -14363,8 +14363,8 @@
       "description": "Run pathway and gene-set enrichment analysis on gene lists or ranked gene data, then interpret the results. Use whenever the user has a set of genes (differentially expressed genes from PyDESeq2/Scanp",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pathway-enrichment/SKILL.md",
       "remote_path": "skills/pathway-enrichment/SKILL.md",
-      "lines": 195,
-      "words": 1678,
+      "lines": 212,
+      "words": 1813,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -14390,8 +14390,8 @@
       "description": "Use when you need exact symbolic math in Python \u2014 algebra, calculus, equation solving, symbolic linear algebra, or code generation via lambdify/LaTeX. Prefer NumPy or SciPy when floating-point approxi",
       "path": "K-Dense-AI--claude-scientific-skills/skills/sympy/SKILL.md",
       "remote_path": "skills/sympy/SKILL.md",
-      "lines": 355,
-      "words": 1293,
+      "lines": 372,
+      "words": 1428,
       "code_blocks": 19,
       "languages": [
         "bash",
@@ -14418,8 +14418,8 @@
       "description": "\"Perform bounded, local exploratory analysis of explicitly supported scientific files. Use for redacted CSV/TSV/JSON profiles; optional NumPy, HDF5, FASTA/FASTQ, and basic image metadata inspection; m",
       "path": "K-Dense-AI--claude-scientific-skills/skills/exploratory-data-analysis/SKILL.md",
       "remote_path": "skills/exploratory-data-analysis/SKILL.md",
-      "lines": 281,
-      "words": 1456,
+      "lines": 298,
+      "words": 1591,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -14431,8 +14431,8 @@
       "description": "Track physical units and propagate measurement uncertainty in scientific calculations using pint and uncertainties. Use for unit conversion and dimensional checking, GUM uncertainty budgets, Type A an",
       "path": "K-Dense-AI--claude-scientific-skills/skills/uncertainty-and-units/SKILL.md",
       "remote_path": "skills/uncertainty-and-units/SKILL.md",
-      "lines": 385,
-      "words": 2534,
+      "lines": 402,
+      "words": 2669,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -14445,8 +14445,8 @@
       "description": "Prepare evidence-bounded, constructive peer-review drafts and structured manuscript assessments. Use for authorized review of scientific manuscripts, protocols, preprints, or research proposals; repor",
       "path": "K-Dense-AI--claude-scientific-skills/skills/peer-review/SKILL.md",
       "remote_path": "skills/peer-review/SKILL.md",
-      "lines": 289,
-      "words": 1422,
+      "lines": 306,
+      "words": 1557,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -14458,8 +14458,8 @@
       "description": "Sample-size and statistical power calculations for planning studies. Use whenever someone asks \"how many subjects/samples/replicates do I need\", wants an a priori power analysis, a minimum detectable ",
       "path": "K-Dense-AI--claude-scientific-skills/skills/statistical-power/SKILL.md",
       "remote_path": "skills/statistical-power/SKILL.md",
-      "lines": 201,
-      "words": 2024,
+      "lines": 218,
+      "words": 2159,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -14472,8 +14472,8 @@
       "description": "Use UMAP-learn for nonlinear dimensionality reduction, 2D/3D embeddings, clustering preprocessing, supervised or semi-supervised UMAP, DensMAP, AlignedUMAP, and Parametric UMAP workflows.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/umap-learn/SKILL.md",
       "remote_path": "skills/umap-learn/SKILL.md",
-      "lines": 489,
-      "words": 1949,
+      "lines": 505,
+      "words": 2084,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -14500,8 +14500,8 @@
       "description": "Develop and review PyLabRobot lab-automation resources, liquid-handling plans, offline simulations, and supported-device integrations. Use for PyLabRobot protocols or API questions; keep physical exec",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pylabrobot/SKILL.md",
       "remote_path": "skills/pylabrobot/SKILL.md",
-      "lines": 217,
-      "words": 1021,
+      "lines": 234,
+      "words": 1156,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -14514,8 +14514,8 @@
       "description": "Prepares and structurally reviews readiness evidence for ISO management-system and laboratory-competence standards - ISO 13485 medical device QMS, ISO 14971 device risk management, ISO/IEC 17025 testi",
       "path": "K-Dense-AI--claude-scientific-skills/skills/iso-standards-readiness/SKILL.md",
       "remote_path": "skills/iso-standards-readiness/SKILL.md",
-      "lines": 353,
-      "words": 1955,
+      "lines": 370,
+      "words": 2090,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -14527,8 +14527,8 @@
       "description": "Query documented public database APIs with explicit endpoints, filters, pagination, and provenance. Use when a scientific, regulatory, financial, or other database-backed fact must be retrieved reprod",
       "path": "K-Dense-AI--claude-scientific-skills/skills/database-lookup/SKILL.md",
       "remote_path": "skills/database-lookup/SKILL.md",
-      "lines": 387,
-      "words": 3790,
+      "lines": 404,
+      "words": 3925,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -14540,8 +14540,8 @@
       "description": "NGS analysis toolkit. BAM to bigWig conversion, QC (correlation, PCA, fingerprints), heatmaps/profiles (TSS, peaks), for ChIP-seq, RNA-seq, ATAC-seq visualization.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/deeptools/SKILL.md",
       "remote_path": "skills/deeptools/SKILL.md",
-      "lines": 413,
-      "words": 1935,
+      "lines": 430,
+      "words": 2070,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -14567,8 +14567,8 @@
       "description": "Comprehensive citation management for academic research. Search OpenAlex, PubMed, and Google Scholar for papers, extract accurate metadata, validate citations, and generate properly formatted BibTeX e",
       "path": "K-Dense-AI--claude-scientific-skills/skills/citation-management/SKILL.md",
       "remote_path": "skills/citation-management/SKILL.md",
-      "lines": 330,
-      "words": 1746,
+      "lines": 347,
+      "words": 1881,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -14580,8 +14580,8 @@
       "description": "Use when working with LaminDB, the open-source lineage-native lakehouse for biological datasets and models. Covers setup, artifact registration, query/search, lineage tracking, validation, ontology-ba",
       "path": "K-Dense-AI--claude-scientific-skills/skills/lamindb/SKILL.md",
       "remote_path": "skills/lamindb/SKILL.md",
-      "lines": 409,
-      "words": 1915,
+      "lines": 425,
+      "words": 2050,
       "code_blocks": 4,
       "languages": [
         "python"
@@ -14593,8 +14593,8 @@
       "description": "Build, review, migrate, and safely plan MATLAB or GNU Octave numerical workflows, including arrays, tabular/time data, tests, projects, graphics, MAT files, and explicit Python interoperability.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/matlab/SKILL.md",
       "remote_path": "skills/matlab/SKILL.md",
-      "lines": 275,
-      "words": 1703,
+      "lines": 292,
+      "words": 1838,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -14607,8 +14607,8 @@
       "description": "Build clinical/healthcare deep-learning pipelines with PyHealth \u2014 loading EHR/signal/imaging datasets (MIMIC-III/IV, eICU, OMOP, SleepEDF, ChestXray14, EHRShot), defining tasks (mortality, readmission",
       "path": "K-Dense-AI--claude-scientific-skills/skills/pyhealth/SKILL.md",
       "remote_path": "skills/pyhealth/SKILL.md",
-      "lines": 125,
-      "words": 972,
+      "lines": 142,
+      "words": 1107,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -14620,8 +14620,8 @@
       "description": "Search 11 academic literature APIs for papers, preprints, citations, and open-access full text, and return results with reproducible provenance. Covers PubMed, PMC (full text), Europe PMC (full-text a",
       "path": "K-Dense-AI--claude-scientific-skills/skills/paper-lookup/SKILL.md",
       "remote_path": "skills/paper-lookup/SKILL.md",
-      "lines": 264,
-      "words": 3282,
+      "lines": 281,
+      "words": 3417,
       "code_blocks": 4,
       "languages": [
         "bash"
@@ -14633,8 +14633,8 @@
       "description": "Guidance and local audit tools for Python workflows that directly use GeoPandas GeoSeries, GeoDataFrame, spatial operations, or vector-data I/O.",
       "path": "K-Dense-AI--claude-scientific-skills/skills/geopandas/SKILL.md",
       "remote_path": "skills/geopandas/SKILL.md",
-      "lines": 251,
-      "words": 1460,
+      "lines": 268,
+      "words": 1595,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -14647,8 +14647,8 @@
       "description": "Convert heterogeneous documents and selected URIs to Markdown with Microsoft MarkItDown for text analysis, search, and LLM/RAG ingestion. Covers safe local conversion, streams, Office/PDF/data formats",
       "path": "K-Dense-AI--claude-scientific-skills/skills/markitdown/SKILL.md",
       "remote_path": "skills/markitdown/SKILL.md",
-      "lines": 265,
-      "words": 1358,
+      "lines": 282,
+      "words": 1493,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -14661,8 +14661,8 @@
       "description": "Use when working with Outpost Bio's open microbiome foundation models - the Waypoint checkpoints (Waypoint-6m, Waypoint-45m, Waypoint-170m), the Atlas pretraining corpus, the Compass eight-task benchm",
       "path": "K-Dense-AI--claude-scientific-skills/skills/waypoint-bio/SKILL.md",
       "remote_path": "skills/waypoint-bio/SKILL.md",
-      "lines": 274,
-      "words": 1660,
+      "lines": 291,
+      "words": 1795,
       "code_blocks": 9,
       "languages": [
         "bash"
@@ -14674,8 +14674,8 @@
       "description": "GPU-accelerates scientific Python on NVIDIA hardware and verifies that the result is correct and faster. Use for CUDA/GPU optimization; CPU-bound NumPy, SciPy, pandas, scikit-learn, NetworkX, scikit-i",
       "path": "K-Dense-AI--claude-scientific-skills/skills/optimize-for-gpu/SKILL.md",
       "remote_path": "skills/optimize-for-gpu/SKILL.md",
-      "lines": 177,
-      "words": 1699,
+      "lines": 194,
+      "words": 1834,
       "code_blocks": 1,
       "languages": [
         "python"
@@ -22347,7 +22347,7 @@
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
       "lines": 249,
-      "words": 1187,
+      "words": 1188,
       "code_blocks": 9,
       "languages": []
     },
@@ -22394,7 +22394,7 @@
       "path": "cloudflare--skills/skills/cloudflare-email-service/SKILL.md",
       "remote_path": "skills/cloudflare-email-service/SKILL.md",
       "lines": 104,
-      "words": 1099,
+      "words": 1100,
       "code_blocks": 2,
       "languages": [
         "jsonc",
@@ -23262,8 +23262,8 @@
       "description": "Framework (OSS). Guidelines for upgrading Expo SDK versions and fixing dependency issues",
       "path": "expo--skills/plugins/expo/skills/expo-upgrade/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-upgrade/SKILL.md",
-      "lines": 149,
-      "words": 987,
+      "lines": 151,
+      "words": 1060,
       "code_blocks": 6,
       "languages": [
         "bash",
@@ -23568,8 +23568,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-monitor/SKILL.md",
       "remote_path": "skills/firecrawl-monitor/SKILL.md",
-      "lines": 82,
-      "words": 714,
+      "lines": 83,
+      "words": 732,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23660,8 +23660,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl/rules/install.md",
       "remote_path": "skills/firecrawl/rules/install.md",
-      "lines": 92,
-      "words": 388,
+      "lines": 93,
+      "words": 399,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -24750,8 +24750,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 178,
-      "words": 1213,
+      "lines": 194,
+      "words": 1289,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -24763,7 +24763,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
       "lines": 491,
-      "words": 4691,
+      "words": 4697,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -24777,7 +24777,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "lines": 316,
-      "words": 2735,
+      "words": 2740,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -24818,7 +24818,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "lines": 229,
-      "words": 2021,
+      "words": 2026,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -24831,7 +24831,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "lines": 620,
-      "words": 6018,
+      "words": 6027,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -24843,8 +24843,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 178,
-      "words": 1213,
+      "lines": 194,
+      "words": 1289,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -24856,7 +24856,7 @@
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
       "lines": 491,
-      "words": 4691,
+      "words": 4697,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -24870,7 +24870,7 @@
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
       "lines": 316,
-      "words": 2735,
+      "words": 2740,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -24911,7 +24911,7 @@
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
       "lines": 229,
-      "words": 2021,
+      "words": 2026,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -24924,7 +24924,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 620,
-      "words": 6018,
+      "words": 6027,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -45094,6 +45094,20 @@
         "sql"
       ],
       "version": "3.0.0"
+    },
+    {
+      "name": "Supply Chain Security",
+      "description": "Software supply chain security \u2014 SBOM generation and analysis, dependency confusion and typosquatting detection, malicious package indicators, CI/CD pipeline hardening, and artifact provenance/signing",
+      "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/20-supply-chain-security/SKILL.md",
+      "remote_path": "skills/20-supply-chain-security/SKILL.md",
+      "lines": 201,
+      "words": 1532,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "Reverse Engineering & Binary Analysis",
@@ -76390,7 +76404,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76406,7 +76420,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76421,7 +76435,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76437,7 +76451,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76452,7 +76466,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76467,7 +76481,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76482,7 +76496,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76497,7 +76511,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76512,7 +76526,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76526,7 +76540,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76540,7 +76554,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76555,7 +76569,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76569,7 +76583,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76584,7 +76598,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76598,7 +76612,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76614,7 +76628,7 @@
         "dockerfile",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76629,7 +76643,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76644,7 +76658,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76652,14 +76666,15 @@
       "description": "'Diagnose and fix Mistral AI common errors and exceptions.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/mistral-pack/skills/mistral-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/mistral-pack/skills/mistral-common-errors/SKILL.md",
-      "lines": 332,
-      "words": 989,
-      "code_blocks": 21,
+      "lines": 416,
+      "words": 1471,
+      "code_blocks": 22,
       "languages": [
         "bash",
+        "text",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76674,7 +76689,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76689,7 +76704,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76704,7 +76719,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76720,7 +76735,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -76728,14 +76743,14 @@
       "description": "'Execute Mistral AI incident response procedures with triage, mitigation,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/mistral-pack/skills/mistral-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/mistral-pack/skills/mistral-incident-runbook/SKILL.md",
-      "lines": 256,
-      "words": 998,
+      "lines": 324,
+      "words": 1493,
       "code_blocks": 10,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -78098,457 +78113,6 @@
         "yaml"
       ],
       "version": "1.17.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-advanced-troubleshooting",
-      "description": "'Apply advanced debugging techniques for hard-to-diagnose Perplexity",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-advanced-troubleshooting/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-advanced-troubleshooting/SKILL.md",
-      "lines": 265,
-      "words": 932,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-security-basics",
-      "description": "'Apply Perplexity security best practices for API key management and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-security-basics/SKILL.md",
-      "lines": 180,
-      "words": 654,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-architecture-variants",
-      "description": "'Choose and implement Perplexity architecture blueprints for different",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-architecture-variants/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-architecture-variants/SKILL.md",
-      "lines": 249,
-      "words": 842,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-multi-env-setup",
-      "description": "'Configure Perplexity Sonar API across development, staging, and production",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-multi-env-setup/SKILL.md",
-      "lines": 222,
-      "words": 860,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-core-workflow-a",
-      "description": "'Execute Perplexity primary workflow: single-query search with citations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-core-workflow-a/SKILL.md",
-      "lines": 219,
-      "words": 731,
-      "code_blocks": 6,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-upgrade-migration",
-      "description": "'Migrate between Perplexity model generations and API parameter changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-upgrade-migration/SKILL.md",
-      "lines": 194,
-      "words": 672,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-deploy-integration",
-      "description": "'Deploy Perplexity Sonar API integrations to Vercel, Cloud Run, and Docker.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-deploy-integration/SKILL.md",
-      "lines": 226,
-      "words": 730,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "json",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-prod-checklist",
-      "description": "'Execute Perplexity production deployment checklist for Sonar API integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-prod-checklist/SKILL.md",
-      "lines": 167,
-      "words": 755,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-hello-world",
-      "description": "'Create a minimal working Perplexity Sonar search example with citations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-hello-world/SKILL.md",
-      "lines": 184,
-      "words": 617,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-cost-tuning",
-      "description": "'Optimize Perplexity costs through model routing, caching, token limits,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-cost-tuning/SKILL.md",
-      "lines": 224,
-      "words": 946,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-data-handling",
-      "description": "'Implement Perplexity query sanitization, citation validation, result",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-data-handling/SKILL.md",
-      "lines": 280,
-      "words": 959,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-observability",
-      "description": "'Set up monitoring for Perplexity Sonar API with latency, cost, citation",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-observability/SKILL.md",
-      "lines": 260,
-      "words": 931,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-local-dev-loop",
-      "description": "'Configure Perplexity local development with mocking, testing, and hot",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-local-dev-loop/SKILL.md",
-      "lines": 229,
-      "words": 777,
-      "code_blocks": 6,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-enterprise-rbac",
-      "description": "'Configure Perplexity API key scoping, per-team model access, cost controls,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-enterprise-rbac/SKILL.md",
-      "lines": 244,
-      "words": 936,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-known-pitfalls",
-      "description": "'Identify and avoid Perplexity anti-patterns and common integration mistakes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-known-pitfalls/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-known-pitfalls/SKILL.md",
-      "lines": 232,
-      "words": 957,
-      "code_blocks": 10,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-ci-integration",
-      "description": "'Configure CI/CD for Perplexity Sonar API integrations with GitHub Actions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-ci-integration/SKILL.md",
-      "lines": 207,
-      "words": 775,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-performance-tuning",
-      "description": "'Optimize Perplexity Sonar API performance with caching, streaming, model",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-performance-tuning/SKILL.md",
-      "lines": 240,
-      "words": 913,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-load-scale",
-      "description": "'Load test Perplexity Sonar API integrations and plan capacity.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-load-scale/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-load-scale/SKILL.md",
-      "lines": 261,
-      "words": 1024,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "javascript",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-common-errors",
-      "description": "'Diagnose and fix Perplexity Sonar API errors and exceptions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-common-errors/SKILL.md",
-      "lines": 222,
-      "words": 725,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "json",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-webhooks-events",
-      "description": "'Build event-driven architectures around Perplexity Sonar API with streaming,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-webhooks-events/SKILL.md",
-      "lines": 265,
-      "words": 891,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-reference-architecture",
-      "description": "'Implement Perplexity reference architecture with model routing, citation",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-reference-architecture/SKILL.md",
-      "lines": 251,
-      "words": 902,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-install-auth",
-      "description": "'Install and configure Perplexity Sonar API authentication.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-install-auth/SKILL.md",
-      "lines": 149,
-      "words": 594,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-core-workflow-b",
-      "description": "'Execute Perplexity multi-turn research sessions and batch query pipelines.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-core-workflow-b/SKILL.md",
-      "lines": 266,
-      "words": 908,
-      "code_blocks": 6,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-debug-bundle",
-      "description": "'Collect Perplexity debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-debug-bundle/SKILL.md",
-      "lines": 177,
-      "words": 713,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-policy-guardrails",
-      "description": "'Implement content moderation, model selection policy, citation quality",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-policy-guardrails/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-policy-guardrails/SKILL.md",
-      "lines": 294,
-      "words": 925,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-rate-limits",
-      "description": "'Implement Perplexity rate limiting, backoff, and request queuing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-rate-limits/SKILL.md",
-      "lines": 219,
-      "words": 766,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-incident-runbook",
-      "description": "'Execute Perplexity incident response procedures with triage, mitigation,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-incident-runbook/SKILL.md",
-      "lines": 234,
-      "words": 903,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-reliability-patterns",
-      "description": "'Implement reliability patterns for Perplexity Sonar API: circuit breaker,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-reliability-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-reliability-patterns/SKILL.md",
-      "lines": 267,
-      "words": 920,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-sdk-patterns",
-      "description": "'Apply production-ready Perplexity Sonar API patterns for TypeScript",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-sdk-patterns/SKILL.md",
-      "lines": 290,
-      "words": 902,
-      "code_blocks": 5,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-migration-deep-dive",
-      "description": "'Migrate to Perplexity Sonar from other search/LLM APIs using the strangler",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/perplexity-pack/skills/perplexity-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/perplexity-pack/skills/perplexity-migration-deep-dive/SKILL.md",
-      "lines": 230,
-      "words": 854,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -92841,7 +92405,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92858,7 +92422,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92872,7 +92436,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92888,7 +92452,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92904,7 +92468,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92920,7 +92484,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92937,7 +92501,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92951,7 +92515,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92966,7 +92530,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92983,7 +92547,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -92999,25 +92563,22 @@
         "python",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "replit-known-pitfalls",
-      "description": "'Avoid the top Replit anti-patterns: ephemeral filesystem, public secrets,",
+      "description": "'Audit a Replit App for persistence, Secrets, publishing, port, authentication, and deployment mistakes. Use when reviewing Replit code or diagnosing a Preview-to-production mismatch. Trigger with phr",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-known-pitfalls/SKILL.md",
       "remote_path": "plugins/saas-packs/replit-pack/skills/replit-known-pitfalls/SKILL.md",
-      "lines": 313,
-      "words": 1140,
-      "code_blocks": 12,
+      "lines": 137,
+      "words": 971,
+      "code_blocks": 2,
       "languages": [
         "bash",
-        "markdown",
-        "nix",
-        "python",
-        "typescript"
+        "text"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93034,7 +92595,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93050,7 +92611,7 @@
         "python",
         "toml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93068,7 +92629,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93086,7 +92647,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93102,26 +92663,21 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "replit-common-errors",
-      "description": "'Diagnose and fix the top Replit errors: container sleep, port binding,",
+      "description": "'Diagnose Replit Preview and publishing failures involving commands, dependencies, ports, production Secrets, storage, authentication, or deployment type. Use when an app works in one Replit environme",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/replit-pack/skills/replit-common-errors/SKILL.md",
-      "lines": 283,
-      "words": 914,
-      "code_blocks": 19,
+      "lines": 131,
+      "words": 1020,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "nix",
-        "python",
-        "text",
-        "toml",
-        "typescript"
+        "text"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93136,24 +92692,22 @@
         "bash",
         "markdown"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "replit-prod-checklist",
-      "description": "'Execute Replit production deployment checklist with rollback and health",
+      "description": "'Prepare, publish, and verify a production Replit App with explicit access, Secrets, auth, storage, health, monitoring, cost, and recovery checks. Use when going live or republishing an Autoscale, Res",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/replit-pack/skills/replit-prod-checklist/SKILL.md",
-      "lines": 213,
-      "words": 826,
-      "code_blocks": 7,
+      "lines": 165,
+      "words": 1160,
+      "code_blocks": 2,
       "languages": [
         "bash",
-        "markdown",
-        "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93173,38 +92727,38 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "replit-incident-runbook",
-      "description": "'Execute Replit incident response: triage deployment failures, database",
+      "description": "'Triage a Replit published-app incident, separate platform from application failures, contain safely, and preserve redacted evidence. Use when handling outages, crash loops, failed releases, database ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/replit-pack/skills/replit-incident-runbook/SKILL.md",
-      "lines": 280,
-      "words": 1125,
-      "code_blocks": 13,
+      "lines": 147,
+      "words": 1002,
+      "code_blocks": 3,
       "languages": [
         "bash",
-        "markdown"
+        "text"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "replit-reference-architecture",
-      "description": "'Implement Replit reference architecture with best-practice project layout,",
+      "description": "'Design a production Replit App with explicit Preview/published boundaries, supported authentication, durable storage, safe configuration, health checks, and a workload-appropriate deployment type. Us",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/replit-pack/skills/replit-reference-architecture/SKILL.md",
-      "lines": 272,
-      "words": 1027,
-      "code_blocks": 7,
+      "lines": 184,
+      "words": 1159,
+      "code_blocks": 5,
       "languages": [
-        "nix",
+        "text",
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93222,7 +92776,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93238,7 +92792,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93253,7 +92807,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93269,7 +92823,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93285,7 +92839,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93301,7 +92855,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -93319,7 +92873,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95566,7 +95120,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -95581,7 +95135,7 @@
         "bash",
         "sql"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -95596,7 +95150,7 @@
         "bash",
         "json"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -95610,7 +95164,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -95624,7 +95178,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -95638,7 +95192,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -95652,7 +95206,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -95666,7 +95220,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -119038,7 +118592,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -119219,7 +118773,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -119680,22 +119234,6 @@
         "typescript"
       ],
       "version": "1.38.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-advanced-troubleshooting",
-      "description": "'Apply advanced debugging techniques for hard-to-diagnose Perplexity",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-advanced-troubleshooting/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-advanced-troubleshooting/SKILL.md",
-      "lines": 265,
-      "words": 932,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -120449,21 +119987,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-security-basics",
-      "description": "'Apply Perplexity security best practices for API key management and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-security-basics/SKILL.md",
-      "lines": 180,
-      "words": 654,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "notion-observability",
       "description": "'Set up observability for Notion integrations with metrics, traces, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/notion-observability/SKILL.md",
@@ -120506,7 +120029,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -120629,7 +120152,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -121683,7 +121206,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -122165,21 +121688,6 @@
         "text"
       ],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-multi-env-setup",
-      "description": "'Configure Perplexity Sonar API across development, staging, and production",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-multi-env-setup/SKILL.md",
-      "lines": 222,
-      "words": 860,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -122717,21 +122225,6 @@
         "typescript"
       ],
       "version": "1.54.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-core-workflow-a",
-      "description": "'Execute Perplexity primary workflow: single-query search with citations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-core-workflow-a/SKILL.md",
-      "lines": 219,
-      "words": 731,
-      "code_blocks": 6,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -123548,7 +123041,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -123730,21 +123223,6 @@
         "json"
       ],
       "version": "1.20.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-upgrade-migration",
-      "description": "'Migrate between Perplexity model generations and API parameter changes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-upgrade-migration/SKILL.md",
-      "lines": 194,
-      "words": 672,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -125320,23 +124798,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-deploy-integration",
-      "description": "'Deploy Perplexity Sonar API integrations to Vercel, Cloud Run, and Docker.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-deploy-integration/SKILL.md",
-      "lines": 226,
-      "words": 730,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "json",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "customerio-core-feature",
       "description": "'Implement Customer.io core features: transactional messages,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/customerio-core-feature/SKILL.md",
@@ -125448,7 +124909,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -125821,7 +125282,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -126705,20 +126166,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-prod-checklist",
-      "description": "'Execute Perplexity production deployment checklist for Sonar API integrations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-prod-checklist/SKILL.md",
-      "lines": 167,
-      "words": 755,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "adobe-install-auth",
       "description": "'Install and configure Adobe Developer Console OAuth Server-to-Server",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/adobe-install-auth/SKILL.md",
@@ -127530,7 +126977,7 @@
         "bash",
         "sql"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -127558,21 +127005,6 @@
         "sql"
       ],
       "version": "7.2.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-hello-world",
-      "description": "'Create a minimal working Perplexity Sonar search example with citations.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-hello-world/SKILL.md",
-      "lines": 184,
-      "words": 617,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -128340,21 +127772,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-cost-tuning",
-      "description": "'Optimize Perplexity costs through model routing, caching, token limits,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-cost-tuning/SKILL.md",
-      "lines": 224,
-      "words": 946,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "castai-security-basics",
       "description": "'Secure CAST AI API keys, RBAC configuration, and Kvisor security agent.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/castai-security-basics/SKILL.md",
@@ -128471,7 +127888,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -130296,7 +129713,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -130327,7 +129744,7 @@
         "bash",
         "json"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -131111,7 +130528,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -131778,21 +131195,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-observability",
-      "description": "'Set up monitoring for Perplexity Sonar API with latency, cost, citation",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-observability/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-observability/SKILL.md",
-      "lines": 260,
-      "words": 931,
-      "code_blocks": 5,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "alchemy-prod-checklist",
       "description": "'Execute production readiness checklist for Alchemy-powered dApps.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/alchemy-prod-checklist/SKILL.md",
@@ -132130,21 +131532,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-local-dev-loop",
-      "description": "'Configure Perplexity local development with mocking, testing, and hot",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-local-dev-loop/SKILL.md",
-      "lines": 229,
-      "words": 777,
-      "code_blocks": 6,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "speak-upgrade-migration",
       "description": "'Upgrade Speak SDK versions, migrate between language learning platforms,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/speak-upgrade-migration/SKILL.md",
@@ -132471,7 +131858,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -133101,7 +132488,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -133173,7 +132560,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -133418,7 +132805,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -133594,21 +132981,6 @@
         "typescript"
       ],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-known-pitfalls",
-      "description": "'Identify and avoid Perplexity anti-patterns and common integration mistakes.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-known-pitfalls/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-known-pitfalls/SKILL.md",
-      "lines": 232,
-      "words": 957,
-      "code_blocks": 10,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -133915,7 +133287,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -134549,22 +133921,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-ci-integration",
-      "description": "'Configure CI/CD for Perplexity Sonar API integrations with GitHub Actions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-ci-integration/SKILL.md",
-      "lines": 207,
-      "words": 775,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "retellai-policy-guardrails",
       "description": "\"Retell AI policy guardrails \\u2014 AI voice agent and phone call automation.\\n\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/retellai-policy-guardrails/SKILL.md",
@@ -134606,20 +133962,6 @@
         "python"
       ],
       "version": "2.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-performance-tuning",
-      "description": "'Optimize Perplexity Sonar API performance with caching, streaming, model",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-performance-tuning/SKILL.md",
-      "lines": 240,
-      "words": 913,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -134854,23 +134196,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-load-scale",
-      "description": "'Load test Perplexity Sonar API integrations and plan capacity.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-load-scale/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-load-scale/SKILL.md",
-      "lines": 261,
-      "words": 1024,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "javascript",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "detecting-data-anomalies",
       "description": "'Process identify anomalies and outliers in datasets using machine learning",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/detecting-data-anomalies/SKILL.md",
@@ -134895,22 +134220,6 @@
         "typescript"
       ],
       "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-common-errors",
-      "description": "'Diagnose and fix Perplexity Sonar API errors and exceptions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-common-errors/SKILL.md",
-      "lines": 222,
-      "words": 725,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "json",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -135690,7 +134999,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -135880,7 +135189,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -137078,7 +136387,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -137975,7 +137284,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -138212,20 +137521,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-reference-architecture",
-      "description": "'Implement Perplexity reference architecture with model routing, citation",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-reference-architecture/SKILL.md",
-      "lines": 251,
-      "words": 902,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "prompt-improver",
       "description": "'Analyze and improve plugin prompts, skill definitions, and command instructions",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/prompt-improver/SKILL.md",
@@ -138353,7 +137648,7 @@
         "dockerfile",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -138830,7 +138125,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -139055,7 +138350,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -139871,7 +139166,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -140797,14 +140092,15 @@
       "description": "'Diagnose and fix Mistral AI common errors and exceptions.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/mistral-common-errors/SKILL.md",
       "remote_path": "skills/.curated/mistral-common-errors/SKILL.md",
-      "lines": 332,
-      "words": 989,
-      "code_blocks": 21,
+      "lines": 416,
+      "words": 1471,
+      "code_blocks": 22,
       "languages": [
         "bash",
+        "text",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -140921,6 +140217,21 @@
         "yaml"
       ],
       "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "replit-known-pitfalls",
+      "description": "'Audit a Replit App for persistence, Secrets, publishing, port, authentication, and deployment mistakes. Use when reviewing Replit code or diagnosing a Preview-to-production mismatch. Trigger with phr",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-known-pitfalls/SKILL.md",
+      "remote_path": "skills/.curated/replit-known-pitfalls/SKILL.md",
+      "lines": 137,
+      "words": 971,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "text"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -141321,7 +140632,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -142023,22 +141334,6 @@
       "license": "MIT"
     },
     {
-      "name": "perplexity-install-auth",
-      "description": "'Install and configure Perplexity Sonar API authentication.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-install-auth/SKILL.md",
-      "lines": 149,
-      "words": 594,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
       "name": "flexport-hello-world",
       "description": "\"Create a minimal working Flexport example \\u2014 list shipments and\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flexport-hello-world/SKILL.md",
@@ -142240,7 +141535,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -142907,20 +142202,6 @@
         "python"
       ],
       "version": "2.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-debug-bundle",
-      "description": "'Collect Perplexity debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-debug-bundle/SKILL.md",
-      "lines": 177,
-      "words": 713,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -144826,7 +144107,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -145803,21 +145084,16 @@
     },
     {
       "name": "replit-common-errors",
-      "description": "'Diagnose and fix the top Replit errors: container sleep, port binding,",
+      "description": "'Diagnose Replit Preview and publishing failures involving commands, dependencies, ports, production Secrets, storage, authentication, or deployment type. Use when an app works in one Replit environme",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-common-errors/SKILL.md",
       "remote_path": "skills/.curated/replit-common-errors/SKILL.md",
-      "lines": 283,
-      "words": 914,
-      "code_blocks": 19,
+      "lines": 131,
+      "words": 1020,
+      "code_blocks": 2,
       "languages": [
-        "bash",
-        "nix",
-        "python",
-        "text",
-        "toml",
-        "typescript"
+        "text"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -146565,7 +145841,7 @@
         "bash",
         "markdown"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -146703,7 +145979,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -147157,7 +146433,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -147187,7 +146463,7 @@
         "sql",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -148163,19 +147439,17 @@
     },
     {
       "name": "replit-prod-checklist",
-      "description": "'Execute Replit production deployment checklist with rollback and health",
+      "description": "'Prepare, publish, and verify a production Replit App with explicit access, Secrets, auth, storage, health, monitoring, cost, and recovery checks. Use when going live or republishing an Autoscale, Res",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/replit-prod-checklist/SKILL.md",
-      "lines": 213,
-      "words": 826,
-      "code_blocks": 7,
+      "lines": 165,
+      "words": 1160,
+      "code_blocks": 2,
       "languages": [
         "bash",
-        "markdown",
-        "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -148201,7 +147475,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -148624,7 +147898,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -149619,17 +148893,17 @@
     },
     {
       "name": "replit-incident-runbook",
-      "description": "'Execute Replit incident response: triage deployment failures, database",
+      "description": "'Triage a Replit published-app incident, separate platform from application failures, contain safely, and preserve redacted evidence. Use when handling outages, crash loops, failed releases, database ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-incident-runbook/SKILL.md",
       "remote_path": "skills/.curated/replit-incident-runbook/SKILL.md",
-      "lines": 280,
-      "words": 1125,
-      "code_blocks": 13,
+      "lines": 147,
+      "words": 1002,
+      "code_blocks": 3,
       "languages": [
         "bash",
-        "markdown"
+        "text"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -149645,7 +148919,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.13.0",
       "license": "MIT"
     },
     {
@@ -149718,21 +148992,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "perplexity-rate-limits",
-      "description": "'Implement Perplexity rate limiting, backoff, and request queuing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/perplexity-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/perplexity-rate-limits/SKILL.md",
-      "lines": 219,
-      "words": 766,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -150152,6 +149411,22 @@
         "toml"
       ],
       "version": "2.5.0",
+      "license": "MIT"
+    },
+    {
+      "name": "replit-reference-architecture",
+      "description": "'Design a production Replit App with explicit Preview/published boundaries, supported authentication, durable storage, safe configuration, health checks, and a workload-appropriate deployment type. Us",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-reference-architecture/SKILL.md",
+      "remote_path": "skills/.curated/replit-reference-architecture/SKILL.md",
+      "lines": 184,
+      "words": 1159,
+      "code_blocks": 5,
+      "languages": [
+        "text",
+        "toml",
+        "typescript"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -150697,7 +149972,7 @@
         "toml",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -150799,7 +150074,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -151696,7 +150971,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -152055,7 +151330,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -153452,6 +152727,21 @@
       "license": "MIT"
     },
     {
+      "name": "mistral-incident-runbook",
+      "description": "'Execute Mistral AI incident response procedures with triage, mitigation,",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/mistral-incident-runbook/SKILL.md",
+      "remote_path": "skills/.curated/mistral-incident-runbook/SKILL.md",
+      "lines": 324,
+      "words": 1493,
+      "code_blocks": 10,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "version": "1.13.0",
+      "license": "MIT"
+    },
+    {
       "name": "quicknode-deploy-integration",
       "description": "\"QuickNode deploy integration \\u2014 blockchain RPC and Web3 infrastructure\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/quicknode-deploy-integration/SKILL.md",
@@ -153710,7 +153000,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.13.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -153930,7 +153220,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.0.0",
+      "version": "3.2.0",
       "license": "MIT"
     },
     {
@@ -159255,8 +158545,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 705,
-      "words": 8089,
+      "lines": 736,
+      "words": 8429,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -159420,9 +158710,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 352,
-      "words": 1337,
-      "code_blocks": 6,
+      "lines": 574,
+      "words": 2081,
+      "code_blocks": 10,
       "languages": [
         "bash",
         "json"
@@ -159915,7 +159205,7 @@
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "lines": 463,
-      "words": 5033,
+      "words": 5109,
       "code_blocks": 11,
       "languages": [
         "bash",

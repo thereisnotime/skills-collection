@@ -176,7 +176,7 @@ function fixture() {
           printf '%s  %s\\n' "$dolt_sha256" "$dolt_archive" | sha256sum --check --strict
           tar -xzf "$dolt_archive" -C "$dolt_extract"
           sudo install -m 0755 "$dolt_extract/dolt-linux-amd64/bin/dolt" /usr/local/bin/dolt
-          installed_dolt_version="$(dolt version | awk '{print $3}')"
+          installed_dolt_version="$(dolt version | awk 'NR == 1 { print $3 }')"
           readonly installed_dolt_version
           test "$installed_dolt_version" = "$dolt_version"`,
   );
@@ -732,6 +732,47 @@ class HermeticFreshieCycleTests(unittest.TestCase):
   rows = buildExtendedScorecardRows(input(base));
   assert.equal(rows[52].status, 'not_reproducible');
   assert.equal(rows[52].values, null);
+});
+
+test('legacy forge-proof evidence remains bound to its source when a newer run is empty', () => {
+  const base = fixture();
+  const run9Path = 'freshie/reports/run-delta-9.json';
+  const run10Path = 'freshie/reports/run-delta-10.json';
+  const run10 = JSON.parse(readFileSync(join(base.root, run9Path), 'utf8'));
+  run10.run_id = 10;
+  run10.from_tag = null;
+  run10.to_tag = 'run-10';
+  run10.dolt_commit = 'b'.repeat(32);
+  run10.run_coherence.discovery_run_id = 10;
+  run10.forge_proofs = {
+    row_count: 0,
+    records_sha256: createHash('sha256').update('[]').digest('hex'),
+    class_counts: { E0: 0, E1: 0, E2: 0, E3: 0 },
+    retained_e2_e3: 0,
+    total_e2_e3: 0,
+    records: [],
+  };
+  put(base.root, run10Path, JSON.stringify(run10));
+  base.paths.push(run10Path);
+  const histogramPath = 'freshie/grade-histogram.json';
+  const histogram = JSON.parse(readFileSync(join(base.root, histogramPath), 'utf8'));
+  histogram.run_id = 10;
+  histogram.dolt_commit = run10.dolt_commit;
+  put(base.root, histogramPath, JSON.stringify(histogram));
+
+  let rows = buildExtendedScorecardRows(input(base));
+  for (const number of [52, 53, 54, 55]) assert.equal(rows[number].status, 'target_met');
+  assert.equal(rows[54].values.source_run_id, 9);
+  assert.equal(rows[54].values.current_run_id, 10);
+  assert.ok(rows[54].source.includes(run9Path));
+  assert.ok(rows[54].source.includes(run10Path));
+
+  const source = JSON.parse(readFileSync(join(base.root, run9Path), 'utf8'));
+  source.dolt_commit = 'c'.repeat(32);
+  put(base.root, run9Path, JSON.stringify(source));
+  rows = buildExtendedScorecardRows(input(base));
+  assert.equal(rows[54].status, 'not_reproducible');
+  assert.equal(rows[55].status, 'not_reproducible');
 });
 
 test('measures privileged workflow action pins and exposes mutable references', () => {

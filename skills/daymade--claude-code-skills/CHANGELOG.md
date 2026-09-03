@@ -11,7 +11,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **peer-message** v1.0.0 (marketplace v3.6.0): restore the previously uncommitted Claude UDS messenger from its source session and extend it into a local Claude Code ↔ Codex coordination layer. The bundled stdlib CLI discovers `claude:` and `codex:` targets across isolated standard Claude profiles, preserves the original authenticated UDS fallback, routes Codex through the first-party `codex queue --thread` command, supports explicitly counted cross-provider broadcasts, adds source/reply envelopes with explicit provenance strength, and verifies delivery from Claude transcripts or Codex queue/thread history without writing either product's SQLite stores. Claude uses a host-recognized peer wrapper; Codex provenance remains advisory text enforced by receiver-side governing instructions. The Skill-local official-feature reference owns the corrected availability and inbound-policy boundaries. The registered test suite, live Codex queue acceptance, and subsequent thread-history consumption were independently verified.
 
 ### Changed
+- **tibo-reset-codex** (v1.3.1 → v1.4.0): fix a multi-account exclusion check that was
+  structurally incapable of failing, and stop reading "clean +7d" as proof of a reset.
+  §2 told the agent to exclude multi-account interleaving by counting `account_id`s in
+  `~/.codex/auth.json` and entries in `~/.cc-switch/cc-switch.db` — but auth.json stores
+  only the currently logged-in account and cc-switch never sees a manual `codex login`,
+  so both probes answer a historical question with current state and always return "one
+  account". On a machine demonstrably rotating two Pro accounts, both reported single-
+  account and the whole attribution came out inverted. Replaced with a three-layer check
+  that can actually fail: (A) `auth.json` `last_refresh` aligned against the zero-out
+  interval plus the decoded `id_token` identity, (B) the cc-switch `providers` table
+  (not `profiles`, which was empty on the observed machine) with per-entry `id_token`
+  decoding, (C) an anchor back-jump scan derived from rollout alone — the only layer
+  still lit when the user switches accounts by hand. Reordered the concurrent-session
+  dedup rule to run *after* the back-jump scan: the records it discards are where the
+  decisive evidence lives (`used_percent` rising, which quota can never do). The two-
+  shape anchor taxonomy becomes three shapes, with "clean +7d" explicitly demoted from
+  "button reset" to "reset **or** account switch, indistinguishable on this axis alone"
+  — reading it the old way turned 8 deduplicated account rotations into "8 silent
+  resets" on the observed machine. Adds trap 4: `sessions/<Y>/<M>/<D>/` directory dates do not bound
+  timestamps, because a session running past midnight keeps writing next-day timestamps
+  into the previous day's directory — scanning N date directories silently under-samples
+  and drops exactly the long-session interleaving that multi-account rotation produces
+  (same one-minute window: 9 rows across 7 directories vs 67 across 9). The bundled
+  rebuild script now decouples directory scan from the time window, reports the back-jump
+  count, and labels each zero-out with its pre-drop usage peak. Back-jump detection was
+  calibrated both ways on real rollout data: it catches the `used 0%→82%` account switch
+  and returns 0 on a known single-anchor-chain period, with a 5-minute threshold added to
+  suppress the false hits produced by the documented second-level `resets_at` drift. All
+  four documented commands were extracted verbatim from SKILL.md and executed.
+  An independent fresh-context review of §2's executability then found nine issues, all
+  fixed and re-verified: the rebuild script crashed with an unguarded `rows[0]` on an
+  empty `~/.codex` (a state §2 elsewhere treats as meaningful) and now exits with an
+  explanation; the back-jump `used%` comparison read the *first* row of the previous
+  anchor run instead of the strictly adjacent snapshot, which printed one real transition
+  as `0%→0%` when it was `100%→0%` — the "quota never un-spends" invariant only holds
+  between adjacent rows, so the loop now compares adjacent rows; the three-layer gate
+  claimed three clean layers proved a single account, when all three are positive-only
+  detectors that can be simultaneously silent during exactly the rotation the section
+  calls its most expensive error, so it now concludes "no positive evidence" and routes
+  to the one question that can settle it; the A layer was labelled decisive though
+  `last_refresh` is indistinguishable from a token renewal on the observed data
+  (`iat` equal, `exp` exactly +3600s) and covers at most one of ten zero-out intervals;
+  the B-layer rule counted an API-key provider row (`auth_mode=None`, `email=None`) as a
+  second account and now filters to `auth_mode='chatgpt'`; the prose pointed at
+  anchor-keyed dedup as the place the decisive record is discarded, which is structurally
+  impossible since dedup merges same-anchor rows, and now points at the back-jump output
+  where the record actually appears; the C-layer middle band had no rule; run order was
+  unstated although the A layer needs an interval only the script produces; and the
+  "widest adjacent gap 1h56m" figure was stale (measured 9.65h, with 39 gaps over the
+  600-second `clean` tolerance).
+- **claude-switch-models-setup** (`daymade-claude-code` v3.7.14 → v3.7.15): close the
+  enabledPlugins write-back hole that erased installed skills. `claude plugin
+  install/enable` writes the new key into the ACTIVE profile's settings.json only; the
+  next `claude-plugins-sync.py` pass then mirrored the default profile's map wholesale,
+  wiping the key from every profile — the mechanical root cause of recurring "my skills
+  disappeared" losses. The sync now adopts profile-only enabledPlugins keys back into
+  the default settings.json before mirroring: consistent values only; cross-profile
+  conflicts are kept per-profile behind a standing warning instead of being silently
+  overwritten, and a corrupted profile settings file now skips its own mirror instead of
+  crashing the whole pass. Adds `skill-install-audit.py`, a read-only reconciliation
+  across the local marketplace registries, installed_plugins.json, enabledPlugins, the
+  codex-active-skills.json manifest, and the real `~/.agents/skills` links (sections:
+  ENABLED / INSTALLED_DISABLED / INSTALLED_NO_KEY / REGISTERED_NOT_INSTALLED /
+  ORPHAN_INSTALLED / PROFILE_ONLY_RISK / MANUAL_LINK_RISK / CODEX_UNLISTED_ENABLED).
+  Deterministic fixture suite registered as `scripts/claude-plugins-sync.test.py`
+  (27 checks, tmp-dir isolated via CLAUDE_BASE_DIR / CLAUDE_PROFILES_DIR).
+- **git-safety-net** v1.16.0 → v1.16.1: closes a discrimination gap in the
+  eval suite's first negative case. `evals.json` eval 9 asserted that ordinary
+  edit-and-commit work draws no forensic sweep, but it did so by enumerating
+  three commands — so an agent that reached for `git log -g`, which inspects
+  the same reflog, would have passed a check written to catch exactly that
+  over-triggering. The assertion now names the category (any command searching
+  for lost or unreferenced work) and keeps the three commands as anchoring
+  examples, which is what a grader with no knowledge of this Skill can still
+  match against.
+
+  Found by the second independent reviewer and deliberately reported outside
+  its own scope: it was judging assertion *judgeability*, and noted this as a
+  weakness of a different kind rather than folding it into its findings. Kept
+  as a separate change so the axis boundary stays visible.
+- **git-safety-net** v1.15.2 → v1.16.0: adds the Skill's first behavioural eval
+  suite and trims one paragraph of Mode D.
+
+  `evals/evals.json` holds ten scenarios. Eight are failure shapes measured
+  first-hand rather than imagined: an empty `git branch --contains` for work that
+  did land (a squash merge rewrote the SHA); a sibling session's commit adopted
+  onto your branch, invisible to `git status` and to every per-commit check; a
+  `git rebase --onto <base> <foreign-sha>` that silently discards the commits
+  before the foreign one and exits 0; `merge-base --is-ancestor` answering 1 for
+  squash-merged work and 128 for a SHA it does not have; an `ls-remote > file`
+  emptiness probe that reports "gone" for any failure written to stderr; an
+  autostash that a conflicted rebase leaves outside `git stash list`; a shared
+  index carrying another session's staged files; and a `git worktree remove` that
+  refuses over untracked files, where forcing past it destroys content the object
+  store holds no copy of while the branch's commits would have survived anyway. The remaining two are negative: an
+  ordinary edit-and-commit in a clean solo repo, and a week-old stash in a
+  fully-pushed one, must not draw an audit, a rescue ref, or an alarm — the
+  Skill's own boundary is forensics, not routine work, and a check that fires on
+  healthy input trains its reader to bypass it. Assertions are written against
+  intent rather than a named script, so an agent reaching the same outcome by
+  another sanctioned route passes; each is a statement a grader holding only the
+  session transcript can mark true or false.
+
+  Separately, the Mode D paragraph on the base-SHA verify line moves its measured
+  detail — the `HEAD..HEAD` degeneration, the contrasting `fatal: Invalid
+  revision range` at exit 128, and the full rationale for recording the base at
+  branch creation — into `prevention_practices.md`, newly routed by two
+  `§`-pointers. The directional fact the guard exists for, that the empty case is
+  the silent one, stays inline: a reader who cannot see why the guard matters
+  deletes it as noise.
 - **daymade-audio** v1.32.5 → v1.33.0 (`asr-transcribe-to-text`): replaces the stale “Minute URL always ends the job” rule with explicit outcomes. Upload-only still stops at the URL; a request that names upload but no downstream result lands at resumable `outcome_pending` instead of forcing a guess; transcript-only waits for a readable Feishu transcript; project delivery hands preprocessing into `meeting-ingest` and cannot finish until routing, full correction, project indexes, verified Git handoff, and the pushed delivery receipt are complete. A later downstream request preserves the same `minute_token`/URL and resumes instead of re-uploading.
+- **git-safety-net** v1.15.1 → v1.15.2: give the references section-level
+  routing. Measured before the change: of 39 reference sections, only 11 had any
+  inbound pointer naming them — `recovery_playbook.md` had exactly one, so its
+  recovery ladder, the rung an agent actually needs when work has gone missing, was
+  reachable only by opening a 223-line file and scanning. SKILL.md now cites the
+  specific `§ <section>` at each decision point: Mode A routes by symptom to the
+  ladder rung that handles it, Mode B names the at-risk definition and the pinning
+  rationale, Mode C distributes the six merge-verification topics to the sentences
+  that raise them, and every Mode D bullet carries the `§` name of its full
+  treatment. 37 citations; all resolve, checked with a negative control. One
+  measured gap remains by design: `merge_verification.md` was already the
+  best-routed file and needed the least.
+  The change is routing, not rules. The regression audit flagged 18 units whose
+  wording moved; each was classified `preserved_or_moved` against a needle taken
+  from the changed file, and the 31 load-bearing phrases across the nine reworded
+  paragraphs were verified still present by literal match with a negative control.
+  One illustrative example ("an orphan from a rebase") that the rewrite had dropped
+  was restored rather than argued away. No command, condition, verdict, or stop
+  point changed, and the 63-test suite still passes.
 - **git-safety-net** v1.15.0 → v1.15.1: put mechanical judges under the three
   scripts that had none — and they were the load-bearing three.
   `git_verify_branch_merged.sh` is what the Skill's own rules call the only check

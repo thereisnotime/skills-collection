@@ -953,6 +953,11 @@ No priority action items — report is fully in sync with official documentation
 |---|----------|------|--------|--------|
 | 1 | MED | Changed Description | Update `/permissions` — add Auto mode tab detail (view or edit classifier rules and review recent auto mode denials), added v2.1.246 | ✅ COMPLETE (description updated at #13 in Config tag) |
 | 2 | MED | Changed Description | Update `/skills` — keybinding changed: `Space` **or** `Enter` cycles visibility; `Esc` saves and closes (was `Space` to cycle, `Enter` to save) | ✅ COMPLETE (description updated at #50 in Extensions tag) |
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> ad442ccbc1f35a8abd3cbac0c541b1e208e190b4
 
 ---
 
@@ -1002,3 +1007,9 @@ No priority action items — report is fully in sync with official documentation
 | 4 | LOW | Changed Description | Update `/scroll-speed` — add "Only available in fullscreen rendering" and "Not available in JetBrains terminals" | ✅ COMPLETE (availability qualifiers added) |
 | 5 | LOW | Changed Description | Update `/tasks` — narrow scope to "background work in the current session, including subagents that have finished" | ✅ COMPLETE (description narrowed to match official docs) |
 | 6 | LOW | Changed Description | Update `/effort` — v2.1.252 saving-as-default detail and v2.1.257 `s` key for session-only effort not yet in official docs table | ✋ ON HOLD (recurring from 2026-09-01 — official docs still do not include either detail; defer to next run) |
+
+---
+
+## [2026-09-03 11:16 AM PKT] Claude Code v2.1.259
+
+No priority action items — report is fully in sync with official documentation (20 frontmatter fields, 92 built-in commands).

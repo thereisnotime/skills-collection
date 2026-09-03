@@ -5,10 +5,10 @@
     "generator": "marketplace/scripts/sync-catalog.mjs"
   },
   "stats": {
-    "totalPlugins": 440,
-    "totalSkills": 2984,
+    "totalPlugins": 439,
+    "totalSkills": 2954,
     "totalCommands": 85,
-    "pluginsWithSkills": 407,
+    "pluginsWithSkills": 406,
     "byCategory": {
       "productivity": 29,
       "security": 27,
@@ -26,7 +26,7 @@
       "business-tools": 6,
       "community": 20,
       "examples": 5,
-      "saas-packs": 105,
+      "saas-packs": 104,
       "analytics": 1,
       "design": 2
     },
@@ -7627,40 +7627,11 @@
       "type": "instruction-plugin"
     },
     {
-      "slug": "perplexity-pack",
-      "name": "perplexity-pack",
-      "displayName": "perplexity pack",
-      "description": "Complete Perplexity integration skill pack with 30 skills covering AI search, real-time answers, citations, and research workflows. Flagship+ tier vendor pack.",
-      "version": "1.12.0",
-      "category": "saas-packs",
-      "keywords": [
-        "perplexity",
-        "ai-search",
-        "research",
-        "citations",
-        "real-time",
-        "knowledge",
-        "answers"
-      ],
-      "hasSkills": true,
-      "skillCount": 30,
-      "commandCount": 0,
-      "installCommand": "/plugin install perplexity-pack",
-      "sourcePath": "./plugins/saas-packs/perplexity-pack",
-      "isFeatured": false,
-      "author": {
-        "name": "Jeremy Longshore",
-        "email": "jeremy@intentsolutions.io",
-        "url": "https://github.com/jeremylongshore"
-      },
-      "type": "instruction-plugin"
-    },
-    {
       "slug": "replit-pack",
       "name": "replit-pack",
       "displayName": "replit pack",
       "description": "Complete Replit integration skill pack with 30 skills covering cloud IDE, deployments, AI assistance, and collaborative coding. Flagship+ tier vendor pack.",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "category": "saas-packs",
       "keywords": [
         "replit",
@@ -8330,7 +8301,7 @@
       "name": "mistral-pack",
       "displayName": "mistral pack",
       "description": "Complete Mistral AI integration skill pack with 24 skills covering model inference, embeddings, fine-tuning, and production deployments. Flagship tier vendor pack.",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "category": "saas-packs",
       "keywords": [
         "mistral",
@@ -10293,7 +10264,7 @@
       "name": "snowflake-pack",
       "displayName": "snowflake pack",
       "description": "Eight model-neutral Snowflake operator skills with read-only evidence collection for cost, performance, pipelines, governance, data quality, and failover",
-      "version": "3.0.0",
+      "version": "3.2.0",
       "category": "saas-packs",
       "keywords": [
         "snowflake",
