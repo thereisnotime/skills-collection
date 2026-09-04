@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **excalidraw-use** v1.0.0 (marketplace v3.7.0): place existing images onto an Excalidraw whiteboard — the one Excalidraw job the ecosystem does not cover. The available MCP servers and skills (including the 26-tool one) document element CRUD, alignment, export and Mermaid conversion but no `image` element type, no `dataURL` handling and no `files` map; they export diagrams rather than embed pictures. `build_scene.py` writes a grid-laid scene with content-hash dedupe, exclusion of images already on the board, and a read-back check that fails on a missing/mismatched file entry, a distorted aspect ratio, or any overlap; `--template-from` deep-copies the image-element field set out of the user's own board, because Excalidraw's published schema stops before `fileId`/`status`/`scale`/`crop`. `split_scene.py` partitions a scene for the clipboard route. `inspect_scene.py` reports element mix, payload size, key/content mismatches and occupied extent read-only. `shoot_deck.mjs` turns a Vite/React deck into per-slide PNGs with presenter chrome hidden and staged reveals expanded, and reports fragments that stayed at opacity 0 — the failure that otherwise ships plausible screenshots with content missing. Bundled references carry the paste workflow (Open and drag-and-drop **replace** the scene; only the clipboard merges) and the deck-capture pitfalls (a stale build silently removes a source feature; `innerText` reads hidden fragments as present). Scripts verified end-to-end on generated fixtures and a real 30-slide deck, with both the stale-build warning and `--strict` calibrated against known-bad and known-good input.
 - **peer-message** v1.0.0 (marketplace v3.6.0): restore the previously uncommitted Claude UDS messenger from its source session and extend it into a local Claude Code ↔ Codex coordination layer. The bundled stdlib CLI discovers `claude:` and `codex:` targets across isolated standard Claude profiles, preserves the original authenticated UDS fallback, routes Codex through the first-party `codex queue --thread` command, supports explicitly counted cross-provider broadcasts, adds source/reply envelopes with explicit provenance strength, and verifies delivery from Claude transcripts or Codex queue/thread history without writing either product's SQLite stores. Claude uses a host-recognized peer wrapper; Codex provenance remains advisory text enforced by receiver-side governing instructions. The Skill-local official-feature reference owns the corrected availability and inbound-policy boundaries. The registered test suite, live Codex queue acceptance, and subsequent thread-history consumption were independently verified.
 
 ### Changed
@@ -264,6 +265,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an order-inverted stitched quote — both fixed and re-verified pre-ship.
 
 ### Fixed
+- **excalidraw-use** v1.0.0 → v1.0.1 (marketplace v3.7.1): link
+  `references/scene_file_format.md` from SKILL.md. It shipped unreferenced, so the
+  executing agent had no route to it — an unlinked reference is unreachable at runtime
+  no matter how good its content is, and this one carries the field-by-field scene
+  breakdown behind `--template-from`. Caught by checking that every file under
+  `references/` appears in a SKILL.md link, which is worth running before any skill
+  ships. Regression audit against the merge commit confirms the three untouched
+  references and four scripts are byte-identical; only SKILL.md changed.
 - **git-safety-net** v1.13.0 → v1.14.0: replace the over-broad “one worktree per
   concurrent session” prescription with an authority-first, single-writer shared-checkout
   contract. Mode D now treats worktrees as explicitly authorized named exceptions, preserves

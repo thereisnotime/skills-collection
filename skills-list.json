@@ -9636,8 +9636,8 @@
       "description": "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defau",
       "path": "anthropics--skills/skills/frontend-design/SKILL.md",
       "remote_path": "skills/frontend-design/SKILL.md",
-      "lines": 56,
-      "words": 1336,
+      "lines": 72,
+      "words": 1516,
       "code_blocks": 0,
       "languages": [],
       "license": "Complete terms in LICENSE.txt"
@@ -11108,8 +11108,8 @@
       "description": "Document a solved problem as a durable repo learning. Use when verified work produced non-obvious reasoning absent from its final code, tests, or existing docs; avoid routine fixes whose artifacts alr",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
-      "lines": 76,
-      "words": 1079,
+      "lines": 80,
+      "words": 1091,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11195,7 +11195,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
       "lines": 99,
-      "words": 1030,
+      "words": 1040,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -11259,10 +11259,12 @@
       "description": "Refresh the repo's captured learnings against the current codebase. Use when auditing stale, overlapping, superseded, or drifted learnings; avoid general refactor, debugging, or code review unless the",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound-refresh/SKILL.md",
       "remote_path": "skills/ce-compound-refresh/SKILL.md",
-      "lines": 81,
-      "words": 1007,
-      "code_blocks": 0,
-      "languages": []
+      "lines": 89,
+      "words": 1143,
+      "code_blocks": 1,
+      "languages": [
+        "text"
+      ]
     },
     {
       "name": "ce-work",
@@ -22496,13 +22498,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 849,
-      "words": 15782,
+      "lines": 873,
+      "words": 16952,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.28.0",
+      "version": "3.29.0",
       "license": "MIT"
     },
     {
@@ -22510,14 +22512,93 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 849,
-      "words": 15782,
+      "lines": 873,
+      "words": 16952,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.28.0",
+      "version": "3.29.0",
       "license": "MIT"
+    },
+    {
+      "name": "avoid-ai-writing-router",
+      "description": "Use when a request combines AI-writing audit, rewrite, file editing, voice preservation, false-positive interpretation, verification, or when the user invokes Avoid AI Writing without naming a mode.",
+      "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing-router/SKILL.md",
+      "remote_path": "skills/avoid-ai-writing-router/SKILL.md",
+      "lines": 117,
+      "words": 861,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "preservation-verifier",
+      "description": "Use when the user provides an original and rewritten version, asks whether a rewrite preserved protected content, or wants a deterministic check for code, frontmatter, quotes, tables, links, paths, nu",
+      "path": "conorbronsdon--avoid-ai-writing/skills/preservation-verifier/SKILL.md",
+      "remote_path": "skills/preservation-verifier/SKILL.md",
+      "lines": 104,
+      "words": 601,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "js"
+      ]
+    },
+    {
+      "name": "avoid-ai-writing",
+      "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
+      "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
+      "remote_path": "skills/avoid-ai-writing/SKILL.md",
+      "lines": 873,
+      "words": 16952,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.29.0",
+      "license": "MIT"
+    },
+    {
+      "name": "voice-preserving-rewriter",
+      "description": "Use when the user asks to rewrite, humanize, clean up, or remove AI-isms from text while preserving the writer's voice, facts, intent, structure, register, and protected material.",
+      "path": "conorbronsdon--avoid-ai-writing/skills/voice-preserving-rewriter/SKILL.md",
+      "remote_path": "skills/voice-preserving-rewriter/SKILL.md",
+      "lines": 100,
+      "words": 704,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "ai-writing-detector",
+      "description": "Use when the user asks to detect, scan, audit, score, or flag AI-writing patterns without rewriting the text, including requests for a deterministic local detector result when the host can execute Nod",
+      "path": "conorbronsdon--avoid-ai-writing/skills/ai-writing-detector/SKILL.md",
+      "remote_path": "skills/ai-writing-detector/SKILL.md",
+      "lines": 90,
+      "words": 563,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "file-edit-in-place",
+      "description": "Use when the user names a local file and explicitly asks to clean, rewrite, humanize, or remove AI-writing patterns in that file itself, with minimal targeted edits and post-edit verification.",
+      "path": "conorbronsdon--avoid-ai-writing/skills/file-edit-in-place/SKILL.md",
+      "remote_path": "skills/file-edit-in-place/SKILL.md",
+      "lines": 103,
+      "words": 654,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "false-positive-reviewer",
+      "description": "Use when a user asks what AI-writing flags mean, whether detector output proves AI authorship, or wants a careful interpretation of possible false positives, especially for academic, hiring, publicati",
+      "path": "conorbronsdon--avoid-ai-writing/skills/false-positive-reviewer/SKILL.md",
+      "remote_path": "skills/false-positive-reviewer/SKILL.md",
+      "lines": 80,
+      "words": 588,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "conorluddy--ios-simulator-skill": [
@@ -23212,6 +23293,21 @@
       "license": "MIT"
     },
     {
+      "name": "eas-update",
+      "description": "\"EAS service (paid). Configure and use EAS Update for over-the-air JavaScript and asset updates with expo-updates and EAS CLI. Use when setting up OTA updates, running eas update:configure or eas upda",
+      "path": "expo--skills/plugins/expo/skills/eas-update/SKILL.md",
+      "remote_path": "plugins/expo/skills/eas-update/SKILL.md",
+      "lines": 147,
+      "words": 1380,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "text"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "expo-skill-feedback",
       "description": "'Submit feedback on an Expo skill\u2014or Expo itself\u2014and control bundled anonymous usage telemetry (off by default / opt-in). Submit feedback with: npx --yes submit-expo-feedback@latest \"ACTIONABLE_FEEDBA",
       "path": "expo--skills/plugins/expo/skills/expo-skill-feedback/SKILL.md",
@@ -23477,8 +23573,8 @@
       "description": "\"Framework (OSS). Entry point and router for every Expo or EAS task. Load this skill first \u2014 before writing code and before choosing another expo-* / eas-* skill \u2014 when the request, PRD, or spec menti",
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
-      "lines": 111,
-      "words": 1324,
+      "lines": 112,
+      "words": 1335,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -95114,13 +95210,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-failover-readiness-drill/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-failover-readiness-drill/SKILL.md",
-      "lines": 132,
-      "words": 774,
+      "lines": 170,
+      "words": 975,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -95128,14 +95224,14 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-cost-leak-hunter/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-cost-leak-hunter/SKILL.md",
-      "lines": 289,
-      "words": 1840,
-      "code_blocks": 3,
+      "lines": 313,
+      "words": 2061,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "sql"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -95143,14 +95239,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-strong-auth-migration-pilot/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-strong-auth-migration-pilot/SKILL.md",
-      "lines": 189,
-      "words": 1196,
+      "lines": 214,
+      "words": 1429,
       "code_blocks": 3,
       "languages": [
-        "bash",
-        "json"
+        "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -95158,13 +95253,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-deploy-medic/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-deploy-medic/SKILL.md",
-      "lines": 249,
-      "words": 1530,
-      "code_blocks": 2,
+      "lines": 281,
+      "words": 1846,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -95172,13 +95267,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-data-quality-sentinel/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-data-quality-sentinel/SKILL.md",
-      "lines": 132,
-      "words": 667,
-      "code_blocks": 3,
+      "lines": 170,
+      "words": 859,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -95186,13 +95281,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-pipeline-guardian/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-pipeline-guardian/SKILL.md",
-      "lines": 252,
-      "words": 1604,
-      "code_blocks": 2,
+      "lines": 220,
+      "words": 1243,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -95200,13 +95295,41 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-access-guardian/SKILL.md",
       "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-access-guardian/SKILL.md",
-      "lines": 181,
-      "words": 1164,
+      "lines": 228,
+      "words": 1530,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.16.0",
+      "license": "MIT"
+    },
+    {
+      "name": "snowflake-native-app-release-sheriff",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-native-app-release-sheriff/SKILL.md",
+      "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-native-app-release-sheriff/SKILL.md",
+      "lines": 169,
+      "words": 959,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
+      "license": "MIT"
+    },
+    {
+      "name": "snowflake-governance-coverage-auditor",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/snowflake-pack/skills/snowflake-governance-coverage-auditor/SKILL.md",
+      "remote_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-governance-coverage-auditor/SKILL.md",
+      "lines": 146,
+      "words": 782,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -95220,7 +95343,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -123035,13 +123158,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-failover-readiness-drill/SKILL.md",
       "remote_path": "skills/.curated/snowflake-failover-readiness-drill/SKILL.md",
-      "lines": 132,
-      "words": 774,
+      "lines": 170,
+      "words": 975,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -126970,14 +127093,14 @@
       "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-cost-leak-hunter/SKILL.md",
       "remote_path": "skills/.curated/snowflake-cost-leak-hunter/SKILL.md",
-      "lines": 289,
-      "words": 1840,
-      "code_blocks": 3,
+      "lines": 313,
+      "words": 2061,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "sql"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -129737,14 +129860,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-strong-auth-migration-pilot/SKILL.md",
       "remote_path": "skills/.curated/snowflake-strong-auth-migration-pilot/SKILL.md",
-      "lines": 189,
-      "words": 1196,
+      "lines": 214,
+      "words": 1429,
       "code_blocks": 3,
       "languages": [
-        "bash",
-        "json"
+        "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -133281,13 +133403,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-deploy-medic/SKILL.md",
       "remote_path": "skills/.curated/snowflake-deploy-medic/SKILL.md",
-      "lines": 249,
-      "words": 1530,
-      "code_blocks": 2,
+      "lines": 281,
+      "words": 1846,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -139160,13 +139282,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-data-quality-sentinel/SKILL.md",
       "remote_path": "skills/.curated/snowflake-data-quality-sentinel/SKILL.md",
-      "lines": 132,
-      "words": 667,
-      "code_blocks": 3,
+      "lines": 170,
+      "words": 859,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -140626,13 +140748,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-pipeline-guardian/SKILL.md",
       "remote_path": "skills/.curated/snowflake-pipeline-guardian/SKILL.md",
-      "lines": 252,
-      "words": 1604,
-      "code_blocks": 2,
+      "lines": 220,
+      "words": 1243,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -147469,13 +147591,13 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-access-guardian/SKILL.md",
       "remote_path": "skills/.curated/snowflake-access-guardian/SKILL.md",
-      "lines": 181,
-      "words": 1164,
-      "code_blocks": 2,
+      "lines": 228,
+      "words": 1530,
+      "code_blocks": 3,
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -148935,6 +149057,20 @@
         "yaml"
       ],
       "version": "1.4.0",
+      "license": "MIT"
+    },
+    {
+      "name": "snowflake-native-app-release-sheriff",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-native-app-release-sheriff/SKILL.md",
+      "remote_path": "skills/.curated/snowflake-native-app-release-sheriff/SKILL.md",
+      "lines": 169,
+      "words": 959,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -151139,6 +151275,20 @@
       "license": "MIT"
     },
     {
+      "name": "snowflake-governance-coverage-auditor",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/snowflake-governance-coverage-auditor/SKILL.md",
+      "remote_path": "skills/.curated/snowflake-governance-coverage-auditor/SKILL.md",
+      "lines": 146,
+      "words": 782,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.16.0",
+      "license": "MIT"
+    },
+    {
       "name": "persona-install-auth",
       "description": "'Configure Persona API authentication with sandbox and production API",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-install-auth/SKILL.md",
@@ -153220,7 +153370,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.2.0",
+      "version": "3.16.0",
       "license": "MIT"
     },
     {
@@ -158468,6 +158618,18 @@
       "lines": 198,
       "words": 3859,
       "code_blocks": 8,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "excalidraw-use",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/excalidraw-use/SKILL.md",
+      "remote_path": "excalidraw-use/SKILL.md",
+      "lines": 184,
+      "words": 1442,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ]
@@ -176107,16 +176269,6 @@
         "bash",
         "python"
       ]
-    },
-    {
-      "name": "cognitive-toolkit",
-      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
-      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
-      "remote_path": "cognitive-toolkit/skill.md",
-      "lines": 98,
-      "words": 617,
-      "code_blocks": 1,
-      "languages": []
     },
     {
       "name": "context-builder",

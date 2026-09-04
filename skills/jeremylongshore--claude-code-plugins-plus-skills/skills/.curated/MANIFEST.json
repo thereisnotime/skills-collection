@@ -6,22 +6,22 @@
   "validated": true,
   "grade_export": {
     "run_id": 30,
-    "total": 3545,
+    "total": 3547,
     "grades": {
-      "A": 1887,
+      "A": 1889,
       "B": 1087,
       "C": 409,
       "D": 157,
       "F": 5
     },
-    "grades_csv_sha256": "82bdc99fd54110aea887bba1f630e85026f7fccfb085aeab8cebda8f68816566"
+    "grades_csv_sha256": "47d8e4adf2b4a827166e9cc5887ff58ff7fd3840c786e7e98c4d4eec3052ba75"
   },
   "selection": {
     "resolver": "graded∩first-party",
-    "count": 2406,
-    "sha256": "248066c8f347b6a43bb60293e7224b73bdbe5ca423b3f0ffafaa63f7ead493f7"
+    "count": 2408,
+    "sha256": "57618fbb0b707e04770b84011c658cf05c80e5a69875e085ea0487837e122b84"
   },
-  "count": 2406,
+  "count": 2408,
   "skills": [
     {
       "curated_name": "abridge-ci-integration",
@@ -31459,7 +31459,7 @@
       "category": "saas-packs",
       "plugin": "snowflake-pack",
       "recorded_grade": "A",
-      "recorded_score": "95",
+      "recorded_score": "92",
       "fresh_grade": "A",
       "run_id": 30,
       "files": [
@@ -31467,13 +31467,23 @@
         "eval-spec.yaml",
         "references/audit-queries.md",
         "references/authorization-model.md",
+        "references/current-evidence-contract.md",
         "references/managed-access-and-future-grants.md",
         "references/verification-and-rollback.md",
         "scripts/analyze_access.py",
+        "scripts/analyze_access_evidence.py",
         "scripts/collect_snowflake_evidence.py",
+        "scripts/sql/access-database-role-current.sql",
+        "scripts/sql/access-future-database.sql",
+        "scripts/sql/access-future-schema.sql",
+        "scripts/sql/access-role-current.sql",
+        "scripts/sql/access-role-parents.sql",
+        "scripts/sql/access-session.sql",
+        "scripts/sql/access-user-current.sql",
         "scripts/sql/access.sql",
         "tests/fixtures/access.json",
-        "tests/test_access_analyzer.py"
+        "tests/test_access_analyzer.py",
+        "tests/test_access_evidence.py"
       ]
     },
     {
@@ -31490,15 +31500,25 @@
         "eval-spec.yaml",
         "references/attribution-and-staleness.md",
         "references/controls-boundaries.md",
+        "references/cost-ledger-and-surfaces.md",
         "references/output-contract.md",
         "references/pareto-and-right-sizing.md",
         "references/warehouse-and-idle-evidence.md",
         "scripts/analyze_cost_evidence.py",
         "scripts/collect_snowflake_evidence.py",
+        "scripts/sql/cost-adaptive.sql",
+        "scripts/sql/cost-ai-functions.sql",
+        "scripts/sql/cost-budgets.sql",
+        "scripts/sql/cost-internal-transfer.sql",
+        "scripts/sql/cost-resource-monitors.sql",
+        "scripts/sql/cost-storage.sql",
+        "scripts/sql/cost-transfer.sql",
         "scripts/sql/cost.sql",
         "tests/fixtures/cost_evidence.json",
         "tests/fixtures/cost_evidence_partial.json",
-        "tests/test_analyze_cost_evidence.py"
+        "tests/fixtures/cost_evidence_v2.json",
+        "tests/test_analyze_cost_evidence.py",
+        "tests/test_cost_evidence_adversarial.py"
       ]
     },
     {
@@ -31507,7 +31527,7 @@
       "category": "saas-packs",
       "plugin": "snowflake-pack",
       "recorded_grade": "A",
-      "recorded_score": "96",
+      "recorded_score": "90",
       "fresh_grade": "A",
       "run_id": 30,
       "files": [
@@ -31517,9 +31537,10 @@
         "references/source-notes.md",
         "scripts/analyze_data_quality.py",
         "scripts/collect_snowflake_evidence.py",
+        "scripts/sql/data-quality-associations-current.sql",
+        "scripts/sql/data-quality-expectations-current.sql",
+        "scripts/sql/data-quality-notification-current.sql",
         "scripts/sql/data-quality.sql",
-        "tests/fixtures/pass.json",
-        "tests/fixtures/problems.json",
         "tests/test_analyze_data_quality.py"
       ]
     },
@@ -31529,22 +31550,21 @@
       "category": "saas-packs",
       "plugin": "snowflake-pack",
       "recorded_grade": "A",
-      "recorded_score": "94",
+      "recorded_score": "93",
       "fresh_grade": "A",
       "run_id": 30,
       "files": [
         "SKILL.md",
         "eval-spec.yaml",
+        "references/dbt-project-and-provider-migrations.md",
         "references/schemachange-integrity.md",
         "references/source-notes.md",
         "references/terraform-provider-2x.md",
         "references/toolchain-bcr.md",
         "references/zero-change-rollback.md",
         "scripts/analyze_deploy_evidence.py",
-        "scripts/collect_snowflake_evidence.py",
         "scripts/fixtures/clean-preview.json",
         "scripts/fixtures/unsafe-deploy.json",
-        "scripts/sql/query.sql",
         "scripts/test_analyze_deploy_evidence.py"
       ]
     },
@@ -31554,7 +31574,7 @@
       "category": "saas-packs",
       "plugin": "snowflake-pack",
       "recorded_grade": "A",
-      "recorded_score": "95",
+      "recorded_score": "91",
       "fresh_grade": "A",
       "run_id": 30,
       "files": [
@@ -31564,8 +31584,64 @@
         "references/source-notes.md",
         "scripts/analyze_failover_readiness.py",
         "scripts/collect_snowflake_evidence.py",
+        "scripts/sql/replication-current.sql",
+        "scripts/sql/replication-dangling.sql",
+        "scripts/sql/replication-progress.sql",
         "scripts/sql/replication.sql",
         "scripts/test_analyze_failover_readiness.py"
+      ]
+    },
+    {
+      "curated_name": "snowflake-governance-coverage-auditor",
+      "source_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-governance-coverage-auditor",
+      "category": "saas-packs",
+      "plugin": "snowflake-pack",
+      "recorded_grade": "A",
+      "recorded_score": "91",
+      "fresh_grade": "A",
+      "run_id": 30,
+      "files": [
+        "SKILL.md",
+        "eval-spec.yaml",
+        "references/current-state.md",
+        "references/input-contract.md",
+        "references/privilege-and-boundaries.md",
+        "references/source-notes.md",
+        "scripts/analyze_governance.py",
+        "scripts/collect_snowflake_evidence.py",
+        "scripts/sql/governance-classification-current.sql",
+        "scripts/sql/governance-policies-current.sql",
+        "scripts/sql/governance-tags-current.sql",
+        "tests/fixtures/clean-observations.json",
+        "tests/fixtures/unsafe-observations.json",
+        "tests/test_analyze_governance.py"
+      ]
+    },
+    {
+      "curated_name": "snowflake-native-app-release-sheriff",
+      "source_path": "plugins/saas-packs/snowflake-pack/skills/snowflake-native-app-release-sheriff",
+      "category": "saas-packs",
+      "plugin": "snowflake-pack",
+      "recorded_grade": "A",
+      "recorded_score": "96",
+      "fresh_grade": "A",
+      "run_id": 30,
+      "files": [
+        "SKILL.md",
+        "eval-spec.yaml",
+        "fixtures/incompatible-versions.json",
+        "fixtures/missing-scans.json",
+        "fixtures/partial-setup-failure.json",
+        "fixtures/removed-grants.json",
+        "fixtures/safe-cohorts.json",
+        "references/evidence-contract.md",
+        "references/source-notes.md",
+        "scripts/analyze_native_app_release.py",
+        "scripts/collect_snowflake_evidence.py",
+        "scripts/sql/native-app-release-directives-current.sql",
+        "scripts/sql/native-app-upgrade-cohorts-current.sql",
+        "scripts/sql/native-app-versions-current.sql",
+        "scripts/test_analyze_native_app_release.py"
       ]
     },
     {
@@ -31574,12 +31650,13 @@
       "category": "saas-packs",
       "plugin": "snowflake-pack",
       "recorded_grade": "A",
-      "recorded_score": "93",
+      "recorded_score": "94",
       "fresh_grade": "A",
       "run_id": 30,
       "files": [
         "SKILL.md",
         "eval-spec.yaml",
+        "references/current-state.md",
         "references/observability-queries.md",
         "references/privilege-and-boundaries.md",
         "references/recovery-matrix.md",
@@ -31589,6 +31666,11 @@
         "scripts/collect_snowflake_evidence.py",
         "scripts/fixtures/pipe-schema-duplicates.json",
         "scripts/fixtures/stale-chain.json",
+        "scripts/sql/pipeline-dynamic-table-current.sql",
+        "scripts/sql/pipeline-pipe-current.sql",
+        "scripts/sql/pipeline-pipe-status.sql",
+        "scripts/sql/pipeline-stream-current.sql",
+        "scripts/sql/pipeline-task-current.sql",
         "scripts/sql/pipeline.sql",
         "scripts/test_analyze_pipeline_state.py"
       ]
@@ -31625,21 +31707,26 @@
       "category": "saas-packs",
       "plugin": "snowflake-pack",
       "recorded_grade": "A",
-      "recorded_score": "95",
+      "recorded_score": "96",
       "fresh_grade": "A",
       "run_id": 30,
       "files": [
         "SKILL.md",
         "eval-spec.yaml",
+        "references/current-evidence-contract.md",
         "references/cutover-and-recovery.md",
         "references/identity-types-and-inventory.md",
         "references/mcp-oauth-role-scoping.md",
         "references/workload-auth-options.md",
         "scripts/analyze_auth.py",
+        "scripts/analyze_auth_evidence.py",
         "scripts/collect_snowflake_evidence.py",
+        "scripts/sql/auth-current.sql",
+        "scripts/sql/auth-login-history.sql",
         "scripts/sql/auth.sql",
         "tests/fixtures/auth.json",
-        "tests/test_auth_analyzer.py"
+        "tests/test_auth_analyzer.py",
+        "tests/test_auth_evidence.py"
       ]
     },
     {

@@ -24,18 +24,66 @@ CANONICAL_COLLECTOR = SHARED_EVIDENCE / "collect_snowflake_evidence.py"
 CANONICAL_SQL = SHARED_EVIDENCE / "sql"
 SKILLS_DIR = Path("skills")
 
-# This is the packaging and provenance contract for the eight skills that use
+# This is the packaging and provenance contract for the skills that use
 # the shared account-evidence collector. Skills with a different collector
 # contract are deliberately outside this registry.
 BUNDLES: dict[str, tuple[str, ...]] = {
-    "snowflake-access-guardian": ("access.sql",),
-    "snowflake-cost-leak-hunter": ("cost.sql",),
-    "snowflake-data-quality-sentinel": ("data-quality.sql",),
-    "snowflake-deploy-medic": ("query.sql",),
-    "snowflake-failover-readiness-drill": ("replication.sql",),
-    "snowflake-pipeline-guardian": ("pipeline.sql",),
+    "snowflake-access-guardian": (
+        "access.sql",
+        "access-database-role-current.sql",
+        "access-future-database.sql",
+        "access-future-schema.sql",
+        "access-role-current.sql",
+        "access-role-parents.sql",
+        "access-session.sql",
+        "access-user-current.sql",
+    ),
+    "snowflake-cost-leak-hunter": (
+        "cost.sql",
+        "cost-adaptive.sql",
+        "cost-ai-functions.sql",
+        "cost-budgets.sql",
+        "cost-internal-transfer.sql",
+        "cost-resource-monitors.sql",
+        "cost-storage.sql",
+        "cost-transfer.sql",
+    ),
+    "snowflake-data-quality-sentinel": (
+        "data-quality.sql",
+        "data-quality-associations-current.sql",
+        "data-quality-expectations-current.sql",
+        "data-quality-notification-current.sql",
+    ),
+    "snowflake-failover-readiness-drill": (
+        "replication.sql",
+        "replication-current.sql",
+        "replication-progress.sql",
+        "replication-dangling.sql",
+    ),
+    "snowflake-governance-coverage-auditor": (
+        "governance-classification-current.sql",
+        "governance-policies-current.sql",
+        "governance-tags-current.sql",
+    ),
+    "snowflake-pipeline-guardian": (
+        "pipeline.sql",
+        "pipeline-dynamic-table-current.sql",
+        "pipeline-pipe-current.sql",
+        "pipeline-pipe-status.sql",
+        "pipeline-stream-current.sql",
+        "pipeline-task-current.sql",
+    ),
     "snowflake-query-forensics": ("query.sql",),
-    "snowflake-strong-auth-migration-pilot": ("auth.sql",),
+    "snowflake-strong-auth-migration-pilot": (
+        "auth.sql",
+        "auth-current.sql",
+        "auth-login-history.sql",
+    ),
+    "snowflake-native-app-release-sheriff": (
+        "native-app-versions-current.sql",
+        "native-app-release-directives-current.sql",
+        "native-app-upgrade-cohorts-current.sql",
+    ),
 }
 SKILL_TOKEN = re.compile(r"^snowflake-[a-z0-9]+(?:-[a-z0-9]+)*$")
 SQL_TOKEN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\.sql$")
@@ -278,6 +326,10 @@ def _validate_read_only_sql(sql: str, safe_start: set[str], forbidden_sql: set[s
     forbidden = sorted(set(tokens).intersection(forbidden_sql))
     if forbidden:
         raise ValueError(f"reviewed SQL contains forbidden statement tokens: {forbidden}")
+    system_functions = {match.upper() for match in re.findall(r"\bSYSTEM\s*\$\s*([A-Z][A-Z0-9_]*)", cleaned.upper())}
+    unsupported = sorted(system_functions - {"PIPE_STATUS"})
+    if unsupported:
+        raise ValueError(f"reviewed SQL contains unreviewed SYSTEM$ functions: {unsupported}")
 
 
 def _source_issues(root: Path) -> list[str]:
