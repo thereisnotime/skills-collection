@@ -115,6 +115,28 @@ Rules:
   therefore fails instead of redirecting active-root pruning into the legacy root.
   A missing root that the selected policy actually needs is created exclusively
   relative to an already-opened real parent.
+- A marketplace named in the manifest's optional `active_marketplaces` has its whole
+  current membership treated as selected, so adding or removing a plugin there no
+  longer needs a second manual edit to this manifest. Unknown names fail at manifest
+  load, before any link is touched; marketplaces absent from that list are unaffected.
+  Without it, a marketplace whose own installer activates every registered Skill will
+  keep recreating links this syncer then prunes, and the two writers silently undo
+  each other.
+- The background daemon executes a **pinned plugin copy**, installed into its own
+  `CLAUDE_CONFIG_DIR` under `~/.local/share/`, not the live checkout. That isolation is
+  deliberate: editing a source repo must not change what an already-running daemon does.
+  The cost is that nothing advances the pin — a fix can be merged, tested and believed
+  shipped while the daemon keeps running the old code. Advance it with the same official
+  commands that installed it, against that config dir:
+
+  ```bash
+  CLAUDE_CONFIG_DIR=<daemon config> claude plugin marketplace update <marketplace>
+  CLAUDE_CONFIG_DIR=<daemon config> claude plugin update <plugin>@<marketplace>
+  ```
+
+  then repoint the script symlinks under `~/.config/claude-switch-models-setup/` at the
+  new version directory. `skill-install-audit.py` reports the gap as `DAEMON_RUNTIME_LAG`;
+  it is the only thing that compares the two numbers.
 - Unselected source Skills remain cold inventory. Real directories and third-party
   symlinks in either root are outside automatic retirement.
 
@@ -236,7 +258,12 @@ If a `claude-profile <name> -p ...` probe starts successfully, debug logs should
 - In `~/.agents/skills`, this system prunes a symlink only when its resolved
   target is inside a managed source repo and its name is outside the
   active set. Pruning atomically moves that exact entry into
-  `.source-sync-backups/`; it does not delete the object. Classification and
+  `.source-sync-backups/`; it does not delete the object. Nothing ever cleans those
+  buckets, and they look like disposable cache from the outside — but a 2026-09-05
+  survey found most of them holding files present in no repository's object store,
+  one carrying a 75-file variant of a skill whose shipped version has 13. Judge them
+  with `prune-source-sync-backups.py`, which hashes every entry and keeps any bucket
+  it cannot prove reproducible; never clear the directory wholesale. Classification and
   identity come from one entry snapshot, and the move uses the platform's
   no-replace rename primitive. If an unrelated writer replaces the entry after
   classification, the syncer restores that winner to the original name when it

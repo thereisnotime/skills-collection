@@ -213,6 +213,36 @@ def auto_sender() -> str:
     return f"claude:{claude_id}" if claude_id else "local-script"
 
 
+def auto_reply_address(sender: str) -> str | None:
+    """Envelope `from` value, chosen so BOTH routes can resolve it.
+
+    The receiving agent may never have loaded this Skill. All it has is the host's
+    own instruction — "to reply, copy `from` into `to`" — and the official tools,
+    which resolve host-native forms (`uds:<socket>`, bare name) but NOT
+    `claude:<session-uuid>`. Feeding them a UUID yields `No agent named ... is
+    reachable`, which reads like "that peer does not exist" and stops them: the
+    official list shows `name [ref]` whose ref is not a UUID prefix, so they cannot
+    map it back by eye either. What is left to the recipient is to identify the
+    sender from the message body and reply to its listed name, or to install this
+    Skill so peer.py resolves the UUID -- neither of which the envelope or the error
+    points at, and both worse than the producer emitting an address that already
+    works. Recovery from the handle alone is what does not exist.
+
+    `uds:<socket>` is the verified intersection — the official tools accept it (it
+    is what the host itself puts in `from`), and `resolve_claude` matches it against
+    `messagingSocketPath`.
+    """
+    codex_id = os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_SESSION_ID")
+    if codex_id:
+        # Official Claude tools cannot reach a Codex thread by any address, so there
+        # is no intersection to pick; peer.py is the only way back either way.
+        return sender if sender != "local-script" else None
+    socket_path = os.environ.get("CLAUDE_CODE_MESSAGING_SOCKET")
+    if socket_path:
+        return f"uds:{socket_path}"
+    return sender if sender != "local-script" else None
+
+
 def current_address(claude_home: Path, codex_home: Path) -> str:
     """Return an exact address for the current hosted session or fail loudly."""
     codex_id = os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_SESSION_ID")
@@ -285,11 +315,71 @@ def codex_envelope(body: str, sender: str, reply_to: str | None, message_id: str
 
 def claude_envelope(body: str, sender: str, reply_to: str | None, message_id: str) -> str:
     validate_body(body)
+    hint = ""
+    # `from` is cast for immediate use: a socket path is a locator built on a pid, and
+    # pids get reused. `from-name` may be a display name, which is mutable and can
+    # collide. Neither survives archival, so when the canonical session id is in
+    # neither field, carry it too -- the body's first line is the only room the host's
+    # fixed attribute set leaves. Cast for use, store the canonical.
+    canonical = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    if canonical and canonical not in f"{reply_to or ''}{sender}":
+        hint = f" [from-session: {canonical}]"
+    if reply_to and reply_to.startswith("codex:"):
+        # A Codex sender has no address the official Claude tools can reach, and `from`
+        # is the field whose host-documented contract is "copy this into `to`". Putting
+        # an unreachable value there hands the recipient an address-shaped thing that
+        # fails as "no agent named ...", i.e. as nonexistence -- the same trap this
+        # module exists to close. So drop the attribute rather than fill it wrongly:
+        # a fifth of real envelopes carry no `from`, making the shape ordinary, and a
+        # recipient cannot copy what is not offered. The route then has to be stated,
+        # and the body's first line -- where message-id already rides -- is the only
+        # room the fixed attribute set leaves. `from-name` still carries the thread id,
+        # so nothing is lost: it stays visible and `resolve_codex` still accepts it.
+        hint = f" [reply: peer.py send {reply_to}]"
+        reply_to = None
     reply = f' from="{safe_attr(reply_to)}"' if reply_to else ""
     return (
         f'<cross-session-message{reply} from-name="{safe_attr(sender)}">\n'
-        f'[peer-message-id: {message_id}]\n{body}\n</cross-session-message>'
+        f'[peer-message-id: {message_id}]{hint}\n{body}\n</cross-session-message>'
     )
+
+
+def normalize_claude_reply(
+    sender: str, reply_to: str | None, claude_home: Path
+) -> tuple[str, str | None]:
+    """Put the reply address through the same resolution the target already gets.
+
+    `send_claude` normalizes the TARGET (`resolve_claude` above) but historically not
+    the REPLY address, and the reply address is the one the recipient is told to copy
+    into `to`. Every remaining way to ship an unusable `from` came from that asymmetry:
+    the socket env var being absent, a caller passing `whoami` output through
+    `--reply-to` exactly as the docs said to, or only a session name being set. Fixing
+    it at the source of the address rather than at each of those three sites is what
+    makes the guarantee hold regardless of how the address arrived.
+
+    The intersection was always derivable: `resolve_claude` matches a needle against
+    {pid, name, sessionId, messagingSocketPath}, so a `claude:<uuid>` finds its own
+    registry row, and the officially-resolvable socket and bare name are both on it.
+    Unresolvable addresses are left alone -- `claude_envelope` states the route in the
+    body instead, the same fallback the Codex branch uses.
+    """
+    if not reply_to or not reply_to.startswith("claude:"):
+        return sender, reply_to
+    try:
+        # Not require_live=False: the sender is this process, so being alive is a
+        # given, and relaxing it can match a stale row carrying the same session id.
+        entry = resolve_claude(reply_to, claude_home)
+    except PeerError:
+        return sender, reply_to
+    socket_path = entry.get("messagingSocketPath")
+    if not isinstance(socket_path, str) or not socket_path:
+        return sender, reply_to
+    name = entry.get("name")
+    if isinstance(name, str) and name:
+        # The official schema documents the bare name as the address; `from-name` is
+        # where a recipient looks for it.
+        sender = name
+    return sender, f"uds:{socket_path}"
 
 
 def send_claude(
@@ -307,6 +397,7 @@ def send_claude(
             f"Claude target {entry.get('name') or entry['pid']} has no live inbox socket",
             EXIT_TARGET,
         )
+    sender, reply_to = normalize_claude_reply(sender, reply_to, claude_home)
     token = claude_token(entry, claude_home)
     frame = {
         "msgV": 1,
@@ -633,7 +724,7 @@ def cmd_whoami(args: argparse.Namespace) -> int:
 
 def cmd_send(args: argparse.Namespace) -> int:
     sender = args.sender or auto_sender()
-    reply_to = args.reply_to or (sender if sender != "local-script" else None)
+    reply_to = args.reply_to or auto_reply_address(sender)
     receipt = send_one(
         args.target,
         message_text(args),
@@ -661,7 +752,7 @@ def cmd_broadcast(args: argparse.Namespace) -> int:
         )
     body = message_text(args)
     sender = args.sender or auto_sender()
-    reply_to = args.reply_to or (sender if sender != "local-script" else None)
+    reply_to = args.reply_to or auto_reply_address(sender)
     receipts = []
     failures = []
     for target in targets:

@@ -57,6 +57,46 @@ mistake), delete the key from that profile's settings.json.
 
 Set `CLAUDE_CODE_SUBAGENT_MODEL` to the same value as `ANTHROPIC_MODEL` in the profile settings. Otherwise subagents may fall back to the default Anthropic model.
 
+## The advisor answers on the same model as the session
+
+Symptom: the session runs on the flagship tier and every advisor call comes
+back from that same model — each advisor record in the session JSONL carries
+an `advisorModel` equal to the session's `model` string (observed 2026-09-05
+on a `claude-fable-5-1` session) — and it looks as if the pairing is
+misconfigured.
+
+Cause: an equal pair is allowed and nothing announces it. `advisorModel` is
+its own setting; `/model` rewrites `model` and leaves it alone (observed
+2026-09-05). The pairing check rejects an advisor that is *less* capable than
+the main model or one the main model does not support — those are the only
+two `/advisor` warnings in the 2.1.260 binary — so raising the main model to
+the advisor's tier silently turns the advisor into a same-model second read.
+It still gets the whole transcript as a separate call; it just brings no
+stronger reasoning.
+
+Fix — pick one:
+
+- Pin a different advisor: `/advisor <model>`. **It writes the top-level
+  `advisorModel` key into the global `~/.claude/settings.json`**, not the
+  project's `.claude/settings.json` (observed 2026-08-13: run inside one
+  project checkout, the key appeared in the global file), so the choice
+  follows every project — and, as a DENYLIST key, reaches no third-party
+  profile.
+- Turn it off: `/advisor off` removes that key from the same global file
+  (observed 2026-09-05: run inside another project, the global file's mtime
+  matched the command to the second and the key was gone). It takes effect
+  in the session that ran it and in every session started afterwards — that
+  session made no further advisor calls, and later sessions on the same
+  model carry no `advisorModel` on any record — but a *different* session
+  that was already running kept calling the advisor (all observed
+  2026-09-05). Restart those windows if the `off` must reach them.
+  `CLAUDE_CODE_DISABLE_ADVISOR_TOOL` also exists in the 2.1.260 binary; it
+  has not been exercised here.
+
+Which model answered a given call is on the assistant record itself
+(`advisorModel`, next to `effort`) — see
+`read-claude-code-history/references/session_file_format.md`.
+
 ## Marketplace says "corrupted installLocation"
 
 Each profile needs its OWN `known_marketplaces.json` — its `installLocation` is
@@ -192,6 +232,24 @@ If the watcher is not installed, install it:
 ```bash
 ~/.config/claude-switch-models-setup/sync-local-skill-sources-daemon.sh --install
 ```
+
+If the watcher is installed, healthy and running, and the change still does not
+appear, check whether it is executing an older pinned copy than the source. The
+daemon deliberately runs an installed plugin version rather than the checkout, and
+nothing advances that pin on its own:
+
+```bash
+python3 <this skill>/scripts/skill-install-audit.py --list DAEMON_RUNTIME_LAG SOURCE_CHECKOUT_BEHIND
+```
+
+A non-empty `DAEMON_RUNTIME_LAG` names both versions and the commands that advance
+the pin. Read the second section before trusting an empty first one: the comparison
+is made against a local checkout, so a daemon on the previous release and a checkout
+still on it agree with each other, and the lag reads clean while the published source
+has moved on. Bring the checkout current, then re-run.
+
+The topology and the reason for the isolation are in
+[local-source-sync-architecture.md](local-source-sync-architecture.md).
 
 Manual repair fallback:
 

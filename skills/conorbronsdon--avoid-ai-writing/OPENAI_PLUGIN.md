@@ -2,13 +2,15 @@
 
 This repository contains a native ChatGPT and Codex plugin package while keeping the existing Claude plugin and the canonical root `SKILL.md`.
 
+The package is published as [Avoid AI Writing](https://chatgpt.com/plugins/plugins_6a9b77b18b8881918efa9c1255868164) in the OpenAI Plugins Directory (version 3.29.0, approved and published 2026-09-04).
+
 ## Architecture
 
 The public package is skills-only. The separate `avoid-ai-writing-mcp` project remains optional and is not bundled or required.
 
 The canonical root `SKILL.md` remains the editorial authority. The OpenAI package adds focused workflow Skills around it:
 
-- `avoid-ai-writing`: exact copy of the original Skill
+- `avoid-ai-writing`: generated copy of the original Skill, identical except that the frontmatter `metadata` block (agentskills.io/OpenClaw fields) is omitted because the OpenAI portal rejects it
 - `avoid-ai-writing-router`: orchestration for mixed and multi-stage requests
 - `ai-writing-detector`: detect-only workflow with the bundled deterministic detector
 - `voice-preserving-rewriter`: returned-text rewrite owner
