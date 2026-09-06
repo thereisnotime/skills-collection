@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # Regenerate plugin copies from canonical repository sources.
-# Root SKILL.md, detector resources, scripts/check-style.js, and examples/ are
+# Root SKILL.md, references/patterns.md, detector resources, scripts/, and examples/ are
 # sources of truth.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 src="$repo_root/SKILL.md"
+node "$repo_root/scripts/flatten-skill.js"
 claude_dest="$repo_root/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md"
 openai_dest="$repo_root/skills/avoid-ai-writing/SKILL.md"
 patterns_src="$repo_root/detector/patterns.js"
 validate_src="$repo_root/detector/validate.js"
 categories_src="$repo_root/detector/CATEGORIES.md"
 check_style_src="$repo_root/scripts/check-style.js"
+markdown_prose_src="$repo_root/scripts/markdown-prose.js"
+normalize_quotes_src="$repo_root/scripts/normalize-quotes.js"
 examples_src="$repo_root/examples"
 canonical_skill_root="$repo_root/skills/avoid-ai-writing"
 canonical_detector_dest="$canonical_skill_root/detector"
@@ -21,7 +24,7 @@ detector_patterns_dest="$repo_root/skills/ai-writing-detector/scripts/patterns.j
 verifier_patterns_dest="$repo_root/skills/preservation-verifier/scripts/patterns.js"
 verifier_validate_dest="$repo_root/skills/preservation-verifier/scripts/validate.js"
 
-for required in "$src" "$patterns_src" "$validate_src" "$categories_src" "$check_style_src"; do
+for required in "$src" "$patterns_src" "$validate_src" "$categories_src" "$check_style_src" "$markdown_prose_src" "$normalize_quotes_src"; do
   if [ ! -f "$required" ]; then
     echo "missing canonical source: $required" >&2
     exit 1
@@ -42,6 +45,15 @@ mkdir -p \
   "$(dirname "$verifier_validate_dest")"
 
 cp "$src" "$claude_dest"
+for skill_root in "$(dirname "$claude_dest")" "$canonical_skill_root"; do
+  mkdir -p "$skill_root/references" "$skill_root/detector" "$skill_root/scripts"
+  cp "$repo_root/references/patterns.md" "$skill_root/references/patterns.md"
+  cp "$patterns_src" "$validate_src" "$categories_src" "$skill_root/detector/"
+  cp "$check_style_src" "$markdown_prose_src" "$normalize_quotes_src" "$skill_root/scripts/"
+  # Fixed destination is inside the selected bundled skill directory.
+  rm -rf "$skill_root/examples"
+  cp -R "$examples_src" "$skill_root/examples"
+done
 # The OpenAI plugin portal rejects a `metadata` key in SKILL.md frontmatter
 # ("Skill interface settings must use agents/openai.yaml"); that block carries
 # agentskills.io/OpenClaw fields, so the OpenAI copy omits it and every other
@@ -49,12 +61,6 @@ cp "$src" "$claude_dest"
 # sync and the drift check cannot diverge.
 python_bin="$(command -v python3 || command -v python)"
 "$python_bin" "$repo_root/scripts/validate-openai-plugin.py" --strip-frontmatter-metadata "$src" > "$openai_dest"
-cp "$patterns_src" "$canonical_detector_dest/patterns.js"
-cp "$validate_src" "$canonical_detector_dest/validate.js"
-cp "$categories_src" "$canonical_detector_dest/CATEGORIES.md"
-cp "$check_style_src" "$canonical_scripts_dest/check-style.js"
-rm -rf "$canonical_examples_dest"
-cp -R "$examples_src" "$canonical_examples_dest"
 cp "$patterns_src" "$detector_patterns_dest"
 cp "$patterns_src" "$verifier_patterns_dest"
 cp "$validate_src" "$verifier_validate_dest"

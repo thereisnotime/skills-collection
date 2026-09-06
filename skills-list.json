@@ -10917,8 +10917,8 @@
       "description": "Build a throwaway prototype to answer how something should work, feel, or read. Use when committing the wrong answer would be expensive to unravel and a cheap sketch cannot settle it. Not a rough visu",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-prototype/SKILL.md",
       "remote_path": "skills/ce-prototype/SKILL.md",
-      "lines": 58,
-      "words": 1229,
+      "lines": 60,
+      "words": 1285,
       "code_blocks": 0,
       "languages": []
     },
@@ -11783,8 +11783,8 @@
       "description": "\"Transforms research findings into polished APA 7.0 academic reports; activated in Phase 4 and Phase 6\"",
       "path": "Imbad0202--academic-research-skills/agents/report_compiler_agent.md",
       "remote_path": "agents/report_compiler_agent.md",
-      "lines": 342,
-      "words": 3505,
+      "lines": 340,
+      "words": 3549,
       "code_blocks": 8,
       "languages": [
         "json"
@@ -11962,7 +11962,7 @@
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
       "lines": 601,
-      "words": 4592,
+      "words": 4608,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -11974,7 +11974,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
       "lines": 543,
-      "words": 6152,
+      "words": 6199,
       "code_blocks": 4,
       "languages": []
     },
@@ -11994,8 +11994,8 @@
       "description": "\"Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/pipeline_orchestrator_agent.md",
       "remote_path": "academic-pipeline/agents/pipeline_orchestrator_agent.md",
-      "lines": 1380,
-      "words": 19825,
+      "lines": 1393,
+      "words": 20193,
       "code_blocks": 19,
       "languages": [
         "text"
@@ -12006,8 +12006,8 @@
       "description": "\"L3 claim-faithfulness audit \u2014 judges every cited claim against the retrieved reference text, surfaces uncited assertions and constraint violations, and feeds the Stage 4\u21925 formatter hard gate\"",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/agents/claim_ref_alignment_audit_agent.md",
       "remote_path": "academic-pipeline/agents/claim_ref_alignment_audit_agent.md",
-      "lines": 383,
-      "words": 5583,
+      "lines": 390,
+      "words": 5685,
       "code_blocks": 3,
       "languages": []
     },
@@ -12295,8 +12295,8 @@
       "description": "\"Transforms research findings into polished APA 7.0 academic reports; activated in Phase 4 and Phase 6\"",
       "path": "Imbad0202--academic-research-skills/deep-research/agents/report_compiler_agent.md",
       "remote_path": "deep-research/agents/report_compiler_agent.md",
-      "lines": 342,
-      "words": 3505,
+      "lines": 340,
+      "words": 3549,
       "code_blocks": 8,
       "languages": [
         "json"
@@ -12331,8 +12331,8 @@
       "description": "\"Writes the full paper draft section by section from the structured outline and Paper Configuration Record\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
-      "lines": 657,
-      "words": 7212,
+      "lines": 652,
+      "words": 7324,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -22316,40 +22316,36 @@
   "cloudflare--skills": [
     {
       "name": "cloudflare-email-service",
-      "description": "Send and receive transactional emails with Cloudflare Email Service (Email Sending + Email Routing). Use when building email sending (Workers binding or REST API), email routing, Agents SDK email hand",
+      "description": "Implement or troubleshoot Cloudflare Email Sending and Email Routing integrations and their delivery configuration.",
       "path": "cloudflare--skills/skills/cloudflare-email-service/SKILL.md",
       "remote_path": "skills/cloudflare-email-service/SKILL.md",
-      "lines": 104,
-      "words": 1100,
-      "code_blocks": 2,
-      "languages": [
-        "jsonc",
-        "typescript"
-      ]
+      "lines": 74,
+      "words": 903,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "agents-sdk",
-      "description": "Build AI agents on Cloudflare Workers using the Agents SDK. Load when creating stateful agents, durable workflows, real-time WebSocket apps, scheduled tasks, MCP servers, chat applications, voice agen",
+      "description": "Build, debug, or review Cloudflare Agents SDK applications using the agents package.",
       "path": "cloudflare--skills/skills/agents-sdk/SKILL.md",
       "remote_path": "skills/agents-sdk/SKILL.md",
-      "lines": 222,
-      "words": 1235,
-      "code_blocks": 6,
+      "lines": 203,
+      "words": 1155,
+      "code_blocks": 5,
       "languages": [
         "bash",
         "jsonc",
-        "tsx",
         "typescript"
       ]
     },
     {
       "name": "durable-objects",
-      "description": "Create and review Cloudflare Durable Objects. Use when building stateful coordination (chat rooms, multiplayer games, booking systems), implementing RPC methods, SQLite storage, alarms, WebSockets, or",
+      "description": "Build, debug, or review Cloudflare Durable Objects code for persistent state and coordination.",
       "path": "cloudflare--skills/skills/durable-objects/SKILL.md",
       "remote_path": "skills/durable-objects/SKILL.md",
-      "lines": 187,
-      "words": 720,
-      "code_blocks": 6,
+      "lines": 176,
+      "words": 676,
+      "code_blocks": 5,
       "languages": [
         "jsonc",
         "typescript"
@@ -22357,11 +22353,11 @@
     },
     {
       "name": "sandbox-next",
-      "description": "Use when building or changing Cloudflare Sandbox apps on @cloudflare/sandbox@next (Sandbox SDK 1.0 preview)\u2014code execution, AI runners, interpreters, CI-like jobs, terminals, files, mounts, tunnels, p",
+      "description": "Build or maintain Cloudflare Sandbox apps on @cloudflare/sandbox@next (SDK 1.0 preview). Use sandbox-migrate-to-next when porting a stable app.",
       "path": "cloudflare--skills/skills/sandbox-next/SKILL.md",
       "remote_path": "skills/sandbox-next/SKILL.md",
-      "lines": 92,
-      "words": 767,
+      "lines": 93,
+      "words": 738,
       "code_blocks": 1,
       "languages": [
         "ts"
@@ -22369,11 +22365,11 @@
     },
     {
       "name": "sandbox-migrate-to-next",
-      "description": "Use when porting a Cloudflare Sandbox app from stable @cloudflare/sandbox to @cloudflare/sandbox@next (Sandbox SDK 1.0 preview), or when the user asks to migrate or upgrade to Sandbox 1.0 / @next. Not",
+      "description": "Migrate Cloudflare Sandbox apps from stable @cloudflare/sandbox to @cloudflare/sandbox@next (SDK 1.0 preview). Use sandbox-next for apps already on the preview.",
       "path": "cloudflare--skills/skills/sandbox-migrate-to-next/SKILL.md",
       "remote_path": "skills/sandbox-migrate-to-next/SKILL.md",
       "lines": 186,
-      "words": 979,
+      "words": 958,
       "code_blocks": 9,
       "languages": [
         "dockerfile",
@@ -22383,11 +22379,11 @@
     },
     {
       "name": "web-perf",
-      "description": "Analyzes web performance using Chrome DevTools MCP. Measures Core Web Vitals (LCP, INP, CLS) and supplementary metrics (FCP, TBT, Speed Index), identifies render-blocking resources, network dependency",
+      "description": "Audit, diagnose, or optimize website loading and interaction performance, Core Web Vitals, and Lighthouse performance scores.",
       "path": "cloudflare--skills/skills/web-perf/SKILL.md",
       "remote_path": "skills/web-perf/SKILL.md",
       "lines": 202,
-      "words": 1131,
+      "words": 1139,
       "code_blocks": 8,
       "languages": [
         "json"
@@ -22395,11 +22391,11 @@
     },
     {
       "name": "turnstile-spin",
-      "description": "Set up Cloudflare Turnstile end-to-end in a project. Scan the codebase, create the widget via the Cloudflare API, embed it where user requests need bot verification (form submissions, SPA actions, API",
+      "description": "Set up, repair, or migrate to Cloudflare Turnstile bot verification in an existing frontend and backend, including server-side Siteverify.",
       "path": "cloudflare--skills/skills/turnstile-spin/SKILL.md",
       "remote_path": "skills/turnstile-spin/SKILL.md",
-      "lines": 331,
-      "words": 3540,
+      "lines": 337,
+      "words": 3522,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -22410,33 +22406,31 @@
     },
     {
       "name": "workers-best-practices",
-      "description": "Reviews and authors Cloudflare Workers code against production best practices. Load when writing new Workers, reviewing Worker code, configuring wrangler.jsonc, or checking for common Workers anti-pat",
+      "description": "Cloudflare Workers best practices for production applications. Use when writing, reviewing, or configuring Workers.",
       "path": "cloudflare--skills/skills/workers-best-practices/SKILL.md",
       "remote_path": "skills/workers-best-practices/SKILL.md",
-      "lines": 128,
-      "words": 975,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
+      "lines": 61,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "cloudflare-one",
-      "description": "\"Guides Cloudflare One Zero Trust and SASE work across Access, Gateway, WARP, Tunnel, Cloudflare WAN, DLP, CASB, device posture, and identity. Use when designing, configuring, troubleshooting, or revi",
+      "description": "Design, configure, troubleshoot, or review Cloudflare One Zero Trust and SASE deployments. Use cloudflare-one-migrations for migration planning from other vendors.",
       "path": "cloudflare--skills/skills/cloudflare-one/SKILL.md",
       "remote_path": "skills/cloudflare-one/SKILL.md",
-      "lines": 177,
-      "words": 2627,
+      "lines": 179,
+      "words": 2704,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "sandbox-stable",
-      "description": "Use when building or changing Cloudflare Sandbox apps on the current stable @cloudflare/sandbox package (default npm tag)\u2014commands, sessions, files, ports, tunnels, terminals, bridge, production, or d",
+      "description": "Build or maintain Cloudflare Sandbox apps on the stable @cloudflare/sandbox package. Use sandbox-next for preview apps and sandbox-migrate-to-next for stable-to-preview migrations.",
       "path": "cloudflare--skills/skills/sandbox-stable/SKILL.md",
       "remote_path": "skills/sandbox-stable/SKILL.md",
       "lines": 111,
-      "words": 891,
+      "words": 869,
       "code_blocks": 2,
       "languages": [
         "sh",
@@ -22445,21 +22439,33 @@
     },
     {
       "name": "cloudflare",
-      "description": "Comprehensive Cloudflare platform skill covering Workers, Pages, storage (KV, D1, R2), AI (Workers AI, Vectorize, Agents SDK), feature flags (Flagship), networking (Tunnel, Spectrum), security (WAF, D",
+      "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. Use for architecture and product selection, including when the user describes a need without namin",
       "path": "cloudflare--skills/skills/cloudflare/SKILL.md",
       "remote_path": "skills/cloudflare/SKILL.md",
-      "lines": 249,
-      "words": 1188,
-      "code_blocks": 9,
+      "lines": 138,
+      "words": 2970,
+      "code_blocks": 0,
       "languages": []
     },
     {
+      "name": "nextjs-on-cloudflare",
+      "description": "Build, migrate, and deploy Next.js apps on Cloudflare Workers with vinext. Use when starting a Next.js project on Cloudflare, moving an existing app to Workers, choosing between vinext and OpenNext, o",
+      "path": "cloudflare--skills/skills/nextjs-on-cloudflare/SKILL.md",
+      "remote_path": "skills/nextjs-on-cloudflare/SKILL.md",
+      "lines": 34,
+      "words": 315,
+      "code_blocks": 1,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
       "name": "cloudflare-one-migrations",
-      "description": "Plans migrations from Zscaler ZIA/ZPA, Palo Alto, legacy VPN, SWG, or SASE stacks to Cloudflare One. Use for migration assessments, policy mapping, rollout plans, and parity/gap analysis.",
+      "description": "Assess and plan migrations from existing VPN, SWG, or SASE platforms to Cloudflare One, including policy mapping, parity gaps, and rollout.",
       "path": "cloudflare--skills/skills/cloudflare-one-migrations/SKILL.md",
       "remote_path": "skills/cloudflare-one-migrations/SKILL.md",
       "lines": 111,
-      "words": 1516,
+      "words": 1510,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -22467,17 +22473,13 @@
     },
     {
       "name": "wrangler",
-      "description": "Cloudflare Workers CLI for deploying, developing, and managing Workers, KV, R2, D1, Vectorize, Hyperdrive, Workers AI, Containers, Queues, Workflows, Pipelines, and Secrets Store. Load before running ",
+      "description": "Run or troubleshoot Wrangler CLI commands and configure Worker projects for local development, deployment, and Cloudflare resource management.",
       "path": "cloudflare--skills/skills/wrangler/SKILL.md",
       "remote_path": "skills/wrangler/SKILL.md",
-      "lines": 923,
-      "words": 2468,
-      "code_blocks": 51,
-      "languages": [
-        "bash",
-        "jsonc",
-        "typescript"
-      ]
+      "lines": 51,
+      "words": 759,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "coffeefuelbump--csv-data-summarizer-claude-skill": [
@@ -22498,13 +22500,39 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 873,
-      "words": 16952,
+      "lines": 225,
+      "words": 3232,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.29.0",
+      "version": "3.33.0",
+      "license": "MIT"
+    },
+    {
+      "name": "avoid-ai-writing",
+      "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
+      "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
+      "remote_path": "SKILL.full.md",
+      "lines": 905,
+      "words": 18052,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "3.33.0",
+      "license": "MIT"
+    },
+    {
+      "name": "avoid-ai-writing",
+      "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
+      "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
+      "remote_path": "dist/avoid-ai-writing.md",
+      "lines": 902,
+      "words": 18008,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "3.33.0",
       "license": "MIT"
     },
     {
@@ -22512,13 +22540,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 873,
-      "words": 16952,
+      "lines": 225,
+      "words": 3232,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.29.0",
+      "version": "3.33.0",
       "license": "MIT"
     },
     {
@@ -22538,13 +22566,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "skills/avoid-ai-writing/SKILL.md",
-      "lines": 866,
-      "words": 16936,
+      "lines": 218,
+      "words": 3216,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.29.0",
+      "version": "3.33.0",
       "license": "MIT"
     },
     {
@@ -26487,7 +26515,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-interactivity",
@@ -26500,7 +26528,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "transcribe-captions",
@@ -26552,7 +26580,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-studio",
@@ -26565,7 +26593,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "rendering",
@@ -26608,7 +26636,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "calculate-metadata",
@@ -26840,7 +26868,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "voiceover",
@@ -26903,7 +26931,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-best-practices",
@@ -26914,7 +26942,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "get-video-dimensions",
@@ -26949,7 +26977,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "get-video-duration",
@@ -26984,7 +27012,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-maps",
@@ -26995,7 +27023,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-upgrade",
@@ -27008,7 +27036,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-maps",
@@ -27019,7 +27047,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-maps-static",
@@ -27084,7 +27112,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-interactivity",
@@ -27097,7 +27125,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-captions",
@@ -27110,7 +27138,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "transcribe-captions",
@@ -27162,7 +27190,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-saas",
@@ -27173,7 +27201,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "rendering",
@@ -27333,7 +27361,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "audio-visualization",
@@ -27500,7 +27528,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "get-video-dimensions",
@@ -27535,7 +27563,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "get-video-duration",
@@ -27560,7 +27588,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "tailwind",
@@ -27581,7 +27609,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-upgrade",
@@ -27594,7 +27622,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-maps",
@@ -27605,7 +27633,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.520"
+      "version": "4.0.521"
     },
     {
       "name": "remotion-maps-static",
@@ -59231,295 +59259,253 @@
   "levnikolaevich--claude-code-skills": [
     {
       "name": "ln-72-current-architecture-documenter",
-      "description": "\"Documents implemented current-state architecture from repository evidence. Use for onboarding or migration baselines; not for target design, audit verdicts, or code changes.\"",
+      "description": "\"Documents implemented architecture from repository evidence for onboarding or migration baselines. Not for target design or audit verdicts.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-72-current-architecture-documenter/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-72-current-architecture-documenter/SKILL.md",
-      "lines": 104,
-      "words": 974,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 94,
+      "words": 1118,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-75-architecture-diagram-builder",
-      "description": "\"Creates evidence-backed current or target architecture diagrams when the diagram is the primary deliverable. Not for UI design, architecture audit, or invented structure.\"",
+      "description": "\"Creates current or target architecture diagrams as the primary deliverable. Not for UI design, architecture audits, or invented structure.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-75-architecture-diagram-builder/SKILL.md",
-      "lines": 104,
-      "words": 983,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 94,
+      "words": 1096,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-73-system-design-proposal-builder",
-      "description": "\"Creates a decision-complete target system design from requirements and constraints. Use before implementation planning; not for requirements baselines, reviews, audits, or code changes.\"",
+      "description": "\"Creates a target system design from requirements before implementation planning. Not for requirements baselines, audits, or code changes.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-73-system-design-proposal-builder/SKILL.md",
-      "lines": 106,
-      "words": 1066,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 98,
+      "words": 1205,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-74-architecture-decision-recorder",
-      "description": "\"Records one architecture decision with context, alternatives, tradeoffs, and consequences. Use for a significant choice; not for broad design, audit, or implementation.\"",
+      "description": "\"Records one significant architecture decision, alternatives, and consequences. Not for broad system design, audit, or implementation.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-74-architecture-decision-recorder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-74-architecture-decision-recorder/SKILL.md",
-      "lines": 104,
-      "words": 946,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 95,
+      "words": 1105,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-71-system-design-baseline-builder",
-      "description": "\"Creates a project baseline of architecture drivers and constraints. Use before design or planning; not for target design, plan review, implementation, or architecture audit.\"",
+      "description": "\"Creates architecture-driving requirements and constraints before design. Not for target design, plan review, or implementation audits.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-71-system-design-baseline-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-71-system-design-baseline-builder/SKILL.md",
-      "lines": 107,
-      "words": 1102,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 97,
+      "words": 1223,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-76-architecture-migration-planner",
-      "description": "\"Plans a reversible architecture migration with compatibility, data movement, rollout, and rollback. Use for current-to-target transitions; not execution, generic planning, or delivery review.\"",
+      "description": "\"Plans an architecture transition with compatibility, data movement, rollout, and rollback. Not for migration execution or generic task planning.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-76-architecture-migration-planner/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-76-architecture-migration-planner/SKILL.md",
-      "lines": 106,
-      "words": 1047,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 98,
+      "words": 1209,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-12-delivery-reviewer",
-      "description": "\"Reviews a completed scoped change and its affected runtime and contract paths. Use to find change-caused defects and verify readiness; not for codebase audit, implementation, or repair.\"",
+      "description": "\"Reviews a completed change for regressions, unmet acceptance, and release risks. Not for whole-codebase audits or repairs.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-12-delivery-reviewer/SKILL.md",
-      "lines": 200,
-      "words": 4333,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 127,
+      "words": 2972,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-11-plan-reviewer",
-      "description": "\"Reviews implementation plans against repository evidence and current authoritative guidance. Use before execution to expose gaps and risks; not for completed delivery review.\"",
+      "description": "\"Reviews an implementation plan against repository evidence before execution; identifies missing decisions and risks. Not for completed-code review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
       "remote_path": "plugins/review-suite/skills/ln-11-plan-reviewer/SKILL.md",
-      "lines": 161,
-      "words": 3530,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 131,
+      "words": 3127,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-41-test-strategy-planner",
-      "description": "\"Designs risk-based test portfolio decisions and prioritized scenarios without changing code. Use when requirements need a test strategy; not for auditing or implementing tests.\"",
+      "description": "\"Plans a risk-based test portfolio and prioritized scenarios without editing tests. Not for test execution or implementation.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-41-test-strategy-planner/SKILL.md",
-      "lines": 117,
-      "words": 1761,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 101,
+      "words": 1791,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-42-acceptance-test-builder",
-      "description": "\"Creates, updates, consolidates, retires, and runs scoped acceptance tests using project-native tooling. Use when executable acceptance evidence must change; not for audits or product fixes.\"",
+      "description": "\"Builds, updates, consolidates, or retires scoped acceptance tests and records execution evidence. Not for product-code fixes or audits.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
       "remote_path": "plugins/testing-suite/skills/ln-42-acceptance-test-builder/SKILL.md",
-      "lines": 117,
-      "words": 1729,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 106,
+      "words": 1812,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-63-release-publisher",
-      "description": "\"Prepares and publishes a tagged GitHub release from repository evidence. Use for an explicit release request; not for ordinary commits, packages, or community news.\"",
+      "description": "\"Prepares and publishes an explicitly requested tagged GitHub release. Not for ordinary commits, package publication, or announcements.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-63-release-publisher/SKILL.md",
-      "lines": 107,
-      "words": 1305,
+      "lines": 118,
+      "words": 1568,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "ln-62-repository-publisher",
-      "description": "\"Validates, commits, pushes, and remotely verifies approved repository changes. Use when publication is requested; not for releases, package publishing, or announcements.\"",
+      "description": "\"Commits, pushes, and remotely verifies authorized repository changes. Not for releases, package publication, or announcements.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-62-repository-publisher/SKILL.md",
       "lines": 105,
-      "words": 1181,
+      "words": 1357,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "ln-61-skill-reviewer",
-      "description": "\"Reviews standalone skills and their configured distribution surfaces before publication. Use for skill release readiness; not for product code or implementation-plan review.\"",
+      "description": "\"Reviews skill quality, trigger boundaries, and distribution readiness. Use for skill audits or release review; not product-code or implementation-plan review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-61-skill-reviewer/SKILL.md",
-      "lines": 109,
-      "words": 1440,
+      "lines": 111,
+      "words": 1782,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "ln-64-community-announcer",
-      "description": "\"Drafts and publishes fact-checked GitHub Discussions announcements. Use for releases, updates, or project news; not for release creation or issue responses.\"",
+      "description": "\"Drafts or publishes fact-checked GitHub Discussions announcements for project updates. Not for release creation or issue responses.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/maintainer-suite/skills/ln-64-community-announcer/SKILL.md",
       "remote_path": "plugins/maintainer-suite/skills/ln-64-community-announcer/SKILL.md",
-      "lines": 105,
-      "words": 1227,
+      "lines": 107,
+      "words": 1439,
       "code_blocks": 0,
       "languages": []
     },
     {
       "name": "ln-51-opportunity-evaluator",
-      "description": "\"Evaluates new product directions using current demand, acquisition, competition, economics, and validation evidence. Use before commitment; not for backlog or implementation planning.\"",
+      "description": "\"Evaluates new product opportunities using demand, channels, competition, and economics. Not for committed-backlog or implementation planning.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-51-opportunity-evaluator/SKILL.md",
-      "lines": 111,
-      "words": 1383,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 99,
+      "words": 1485,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-34-benchmark-comparator",
-      "description": "\"Compares tools or implementations through reproducible A/B workloads, correctness oracles, and controlled measurements. Use to choose alternatives; not to optimize a known bottleneck.\"",
+      "description": "\"Compares tools or implementations through controlled workloads and independent correctness evidence. Not for speculative rankings.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-34-benchmark-comparator/SKILL.md",
-      "lines": 129,
-      "words": 1760,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 115,
+      "words": 1888,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-31-performance-optimizer",
-      "description": "\"Optimizes a measured latency, throughput, memory, CPU, or I/O problem through profiling and keep-or-discard experiments. Use for a known bottleneck; not unbiased A/B comparison.\"",
+      "description": "\"Profiles and improves a measured latency, throughput, CPU, memory, or I/O problem. Not for speculative tuning or cosmetic refactoring.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-31-performance-optimizer/SKILL.md",
-      "lines": 129,
-      "words": 1720,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 106,
+      "words": 1742,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-32-dependency-upgrader",
-      "description": "\"Upgrades dependencies across package managers with breaking-change research and rollback-safe verification. Use for dependency maintenance; not general code modernization.\"",
+      "description": "\"Upgrades dependencies with version-specific compatibility research and reversible verification. Not for general modernization.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-32-dependency-upgrader/SKILL.md",
-      "lines": 122,
-      "words": 1604,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 109,
+      "words": 1733,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-33-code-modernizer",
-      "description": "\"Modernizes a bounded capability by removing obsolete custom mechanisms or reducing bundle and maintenance cost. Use for proven modernization value; not routine upgrades or tuning.\"",
+      "description": "\"Modernizes a bounded capability to reduce proven maintenance, workflow, or artifact cost. Not for routine upgrades or performance tuning.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-33-code-modernizer/SKILL.md",
-      "lines": 128,
-      "words": 1851,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 111,
+      "words": 1916,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-35-surgical-change-implementer",
-      "description": "\"Implements a bounded product-code change through the smallest complete root-cause solution. Use for scoped delivery; not for planning, review, audit, upgrades, modernization, or tuning.\"",
+      "description": "\"Implements a scoped product-code change with a minimal complete solution. Not for planning, review, audits, dependency upgrades, or tuning.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/optimization-suite/skills/ln-35-surgical-change-implementer/SKILL.md",
       "remote_path": "plugins/optimization-suite/skills/ln-35-surgical-change-implementer/SKILL.md",
-      "lines": 121,
-      "words": 1793,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 108,
+      "words": 1929,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-24-architecture-auditor",
-      "description": "\"Audits implemented architecture fitness, boundaries, contracts, dependencies, and configuration ownership. Use for system structure; not for current-state documentation, diagrams, or plan review.\"",
+      "description": "\"Audits implemented architecture, boundaries, dependencies, and configuration ownership. Not for documenting current state or reviewing plans.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-24-architecture-auditor/SKILL.md",
-      "lines": 128,
-      "words": 1952,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 111,
+      "words": 1858,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-23-test-suite-auditor",
-      "description": "\"Audits whether an existing test suite proves important behavior as a sustainable portfolio. Use when test confidence or lifecycle control is uncertain; not to implement tests or review one delivery.\"",
+      "description": "\"Audits existing tests for meaningful coverage, trustworthy oracles, and maintenance value. Not for test implementation or a single delivery review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-23-test-suite-auditor/SKILL.md",
-      "lines": 143,
-      "words": 2350,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 117,
+      "words": 2176,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-22-codebase-auditor",
-      "description": "\"Audits cross-cutting code health across security, delivery, maintainability, dependencies, diagnosability, concurrency, and lifecycle. Use when no specialist audit is primary.\"",
+      "description": "\"Audits cross-cutting code health, security, delivery, and maintainability when no specialist audit is primary. Not for a single delivery review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-22-codebase-auditor/SKILL.md",
-      "lines": 131,
-      "words": 2005,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 113,
+      "words": 1921,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-21-documentation-auditor",
-      "description": "\"Audits documentation and code comments for structure, coverage, factual accuracy, and maintainability. Use for documentation trust reviews; not code, test, or architecture audits.\"",
+      "description": "\"Audits documentation and comments for trustworthy claims, coverage, and discoverability. Not for code, test, or architecture audits.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-21-documentation-auditor/SKILL.md",
-      "lines": 139,
-      "words": 2006,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 116,
+      "words": 1897,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ln-25-persistence-auditor",
-      "description": "\"Audits queries, transactions, data-path performance, and persistence resource lifecycle. Use when data correctness or scalability is at risk; not for general performance tuning.\"",
+      "description": "\"Audits queries, transactions, data-path costs, and persistence resource lifetimes. Not for general performance tuning.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
       "remote_path": "plugins/codebase-audit-suite/skills/ln-25-persistence-auditor/SKILL.md",
-      "lines": 123,
-      "words": 1801,
-      "code_blocks": 1,
-      "languages": [
-        "markdown"
-      ]
+      "lines": 106,
+      "words": 1716,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
@@ -61314,6 +61300,101 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.1.0",
+      "license": "MIT"
+    },
+    {
+      "name": "upgrade-researcher",
+      "description": "Use this agent when a production upgrade needs read-only primary-source research, an existing-capability inventory, a pain catalog, or explicit research-gap analysis before architecture begins.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-researcher.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-researcher.md",
+      "lines": 27,
+      "words": 137,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0"
+    },
+    {
+      "name": "upgrade-security-adversary",
+      "description": "Use this agent when a production-upgrade candidate needs a read-only adversarial challenge of data, credential, path, network, dependency, permission, evidence, reviewer, and release safety claims.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-security-adversary.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-security-adversary.md",
+      "lines": 27,
+      "words": 130,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0"
+    },
+    {
+      "name": "upgrade-verification-engineer",
+      "description": "Use this agent when a production-upgrade candidate needs read-only reproduction of tests, security gates, packaging, migration, rollback, hashes, and evidence at an exact revision.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-verification-engineer.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-verification-engineer.md",
+      "lines": 48,
+      "words": 206,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0"
+    },
+    {
+      "name": "upgrade-implementation-engineer",
+      "description": "Use this agent when an accepted production-upgrade architecture is ready for a minimal local implementation and focused regression tests, with no publication or merge authority.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-implementation-engineer.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-implementation-engineer.md",
+      "lines": 29,
+      "words": 145,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0"
+    },
+    {
+      "name": "upgrade-architect",
+      "description": "Use this agent when verified production-upgrade research must become a bounded architecture decision, threat model, compatibility and migration plan, rollback, and measurable acceptance gates.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-architect.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/agents/upgrade-architect.md",
+      "lines": 27,
+      "words": 131,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0"
+    },
+    {
+      "name": "artifact-creator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/skills/artifact-creator/SKILL.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/skills/artifact-creator/SKILL.md",
+      "lines": 107,
+      "words": 664,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "artifact-validator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/skills/artifact-validator/SKILL.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/skills/artifact-validator/SKILL.md",
+      "lines": 105,
+      "words": 604,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "production-upgrade",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/agent-systems-toolkit/skills/production-upgrade/SKILL.md",
+      "remote_path": "plugins/skill-enhancers/agent-systems-toolkit/skills/production-upgrade/SKILL.md",
+      "lines": 188,
+      "words": 1172,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -96545,348 +96626,73 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-incident-runbook",
-      "description": "'Follow Grammarly incident response runbook for API outages.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-incident-runbook/SKILL.md",
-      "lines": 144,
-      "words": 880,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-ci-integration",
-      "description": "'Configure Grammarly CI/CD integration with GitHub Actions and testing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-ci-integration/SKILL.md",
-      "lines": 163,
-      "words": 667,
-      "code_blocks": 3,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-cost-tuning",
-      "description": "'Optimize Grammarly costs through tier selection, sampling, and usage",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-cost-tuning/SKILL.md",
-      "lines": 148,
-      "words": 834,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-webhooks-events",
-      "description": "'Implement Grammarly webhook signature validation and event handling.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-webhooks-events/SKILL.md",
-      "lines": 99,
-      "words": 356,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-core-workflow-b",
-      "description": "'Execute Grammarly secondary workflow: Core Workflow B.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-core-workflow-b/SKILL.md",
-      "lines": 135,
-      "words": 521,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-reference-architecture",
-      "description": "'Implement Grammarly reference architecture with best-practice project",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-reference-architecture/SKILL.md",
-      "lines": 106,
-      "words": 463,
-      "code_blocks": 2,
-      "languages": [],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-observability",
-      "description": "'Implement Grammarly observability with metrics and logging.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-observability/SKILL.md",
-      "lines": 136,
-      "words": 694,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-core-workflow-a",
-      "description": "'Execute Grammarly primary workflow: Core Workflow A.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-core-workflow-a/SKILL.md",
-      "lines": 140,
-      "words": 515,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-migration-deep-dive",
-      "description": "'Deep dive into Grammarly API migration patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-migration-deep-dive/SKILL.md",
-      "lines": 95,
-      "words": 449,
-      "code_blocks": 2,
-      "languages": [
-        "html",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-deploy-integration",
-      "description": "'Deploy Grammarly integrations to Vercel, Fly.io, and Cloud Run platforms.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-deploy-integration/SKILL.md",
-      "lines": 164,
-      "words": 666,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-multi-env-setup",
-      "description": "'Configure Grammarly across multiple environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-multi-env-setup/SKILL.md",
-      "lines": 135,
-      "words": 700,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "text",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-install-auth",
-      "description": "'Install and configure Grammarly SDK/CLI authentication.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-install-auth/SKILL.md",
-      "lines": 108,
-      "words": 373,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-data-handling",
-      "description": "'Implement Grammarly data handling patterns for document processing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-data-handling/SKILL.md",
-      "lines": 108,
-      "words": 420,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-enterprise-rbac",
-      "description": "'Configure Grammarly enterprise role-based access control.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-enterprise-rbac/SKILL.md",
-      "lines": 137,
-      "words": 759,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-common-errors",
-      "description": "'Diagnose and fix Grammarly common errors and exceptions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-common-errors/SKILL.md",
-      "lines": 108,
-      "words": 477,
+      "name": "grammarly-api-reliability",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-api-reliability/SKILL.md",
+      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-api-reliability/SKILL.md",
+      "lines": 124,
+      "words": 688,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.8.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "grammarly-security-basics",
-      "description": "'Security fundamentals for Grammarly API credential management. Use when",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-security-basics/SKILL.md",
-      "lines": 145,
-      "words": 711,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-debug-bundle",
-      "description": "'Collect Grammarly debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-debug-bundle/SKILL.md",
-      "lines": 140,
-      "words": 722,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-hello-world",
-      "description": "'Create a minimal working Grammarly example.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-hello-world/SKILL.md",
-      "lines": 150,
-      "words": 504,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-performance-tuning",
-      "description": "'Optimize Grammarly API performance with caching, batching, and connection",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-performance-tuning/SKILL.md",
-      "lines": 96,
-      "words": 361,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-prod-checklist",
-      "description": "'Production readiness checklist for Grammarly API integrations. Use when",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-prod-checklist/SKILL.md",
-      "lines": 127,
-      "words": 770,
+      "name": "grammarly-data-safety-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-data-safety-guardian/SKILL.md",
+      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-data-safety-guardian/SKILL.md",
+      "lines": 111,
+      "words": 693,
       "code_blocks": 1,
       "languages": [
-        "typescript"
+        "bash"
       ],
-      "version": "1.8.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "grammarly-sdk-patterns",
-      "description": "'Apply production-ready Grammarly SDK patterns for TypeScript and Python.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-sdk-patterns/SKILL.md",
-      "lines": 151,
-      "words": 505,
+      "name": "grammarly-document-evaluator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-document-evaluator/SKILL.md",
+      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-document-evaluator/SKILL.md",
+      "lines": 127,
+      "words": 824,
       "code_blocks": 3,
       "languages": [
-        "python",
-        "typescript"
+        "bash"
       ],
-      "version": "1.8.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "grammarly-local-dev-loop",
-      "description": "'Configure Grammarly local development with hot reload and testing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-local-dev-loop/SKILL.md",
-      "lines": 96,
-      "words": 364,
-      "code_blocks": 2,
+      "name": "grammarly-license-governor",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-license-governor/SKILL.md",
+      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-license-governor/SKILL.md",
+      "lines": 129,
+      "words": 755,
+      "code_blocks": 1,
       "languages": [
-        "typescript"
+        "bash"
       ],
-      "version": "1.8.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
-      "name": "grammarly-upgrade-migration",
-      "description": "'Upgrade and migration guidance for Grammarly API version changes. Use",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-upgrade-migration/SKILL.md",
-      "lines": 181,
-      "words": 932,
-      "code_blocks": 3,
+      "name": "grammarly-access-readiness",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-access-readiness/SKILL.md",
+      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-access-readiness/SKILL.md",
+      "lines": 106,
+      "words": 604,
+      "code_blocks": 1,
       "languages": [
-        "typescript"
+        "bash"
       ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-rate-limits",
-      "description": "'Implement Grammarly rate limiting, backoff, and idempotency patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/grammarly-pack/skills/grammarly-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/grammarly-pack/skills/grammarly-rate-limits/SKILL.md",
-      "lines": 165,
-      "words": 820,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -122279,21 +122085,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-incident-runbook",
-      "description": "'Follow Grammarly incident response runbook for API outages.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-incident-runbook/SKILL.md",
-      "lines": 144,
-      "words": 880,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "hex-rate-limits",
       "description": "'Implement Hex rate limiting, backoff, and idempotency patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/hex-rate-limits/SKILL.md",
@@ -123733,6 +123524,20 @@
       "license": "MIT"
     },
     {
+      "name": "grammarly-api-reliability",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-api-reliability/SKILL.md",
+      "remote_path": "skills/.curated/grammarly-api-reliability/SKILL.md",
+      "lines": 124,
+      "words": 688,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "sentry-advanced-troubleshooting",
       "description": "'Advanced Sentry troubleshooting for complex SDK issues, silent event",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/sentry-advanced-troubleshooting/SKILL.md",
@@ -125020,21 +124825,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-ci-integration",
-      "description": "'Configure Grammarly CI/CD integration with GitHub Actions and testing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-ci-integration/SKILL.md",
-      "lines": 163,
-      "words": 667,
-      "code_blocks": 3,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "supabase-debug-bundle",
       "description": "'Collect Supabase diagnostic info for troubleshooting and support tickets.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/supabase-debug-bundle/SKILL.md",
@@ -125647,20 +125437,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-cost-tuning",
-      "description": "'Optimize Grammarly costs through tier selection, sampling, and usage",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-cost-tuning/SKILL.md",
-      "lines": 148,
-      "words": 834,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "shopify-reliability-patterns",
       "description": "'Implement reliability patterns for Shopify apps including circuit breakers",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/shopify-reliability-patterns/SKILL.md",
@@ -125948,20 +125724,6 @@
         "typescript"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-webhooks-events",
-      "description": "'Implement Grammarly webhook signature validation and event handling.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-webhooks-events/SKILL.md",
-      "lines": 99,
-      "words": 356,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -126458,20 +126220,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-core-workflow-b",
-      "description": "'Execute Grammarly secondary workflow: Core Workflow B.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-core-workflow-b/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-core-workflow-b/SKILL.md",
-      "lines": 135,
-      "words": 521,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "deepgram-core-workflow-a",
       "description": "'Implement production pre-recorded speech-to-text with Deepgram.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/deepgram-core-workflow-a/SKILL.md",
@@ -126687,6 +126435,20 @@
         "typescript"
       ],
       "version": "1.11.0",
+      "license": "MIT"
+    },
+    {
+      "name": "grammarly-data-safety-guardian",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-data-safety-guardian/SKILL.md",
+      "remote_path": "skills/.curated/grammarly-data-safety-guardian/SKILL.md",
+      "lines": 111,
+      "words": 693,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -127560,18 +127322,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-reference-architecture",
-      "description": "'Implement Grammarly reference architecture with best-practice project",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-reference-architecture/SKILL.md",
-      "lines": 106,
-      "words": 463,
-      "code_blocks": 2,
-      "languages": [],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "performing-security-testing",
       "description": "'Test automate security vulnerability testing covering OWASP Top 10,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/performing-security-testing/SKILL.md",
@@ -127984,20 +127734,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-observability",
-      "description": "'Implement Grammarly observability with metrics and logging.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-observability/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-observability/SKILL.md",
-      "lines": 136,
-      "words": 694,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "juicebox-performance-tuning",
       "description": "'Optimize Juicebox performance.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/juicebox-performance-tuning/SKILL.md",
@@ -128338,20 +128074,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.25.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-core-workflow-a",
-      "description": "'Execute Grammarly primary workflow: Core Workflow A.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-core-workflow-a/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-core-workflow-a/SKILL.md",
-      "lines": 140,
-      "words": 515,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -130529,21 +130251,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-migration-deep-dive",
-      "description": "'Deep dive into Grammarly API migration patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-migration-deep-dive/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-migration-deep-dive/SKILL.md",
-      "lines": 95,
-      "words": 449,
-      "code_blocks": 2,
-      "languages": [
-        "html",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "oraclecloud-upgrade-migration",
       "description": "\"Safely upgrade OCI Python SDK and Terraform provider \\u2014 version\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/oraclecloud-upgrade-migration/SKILL.md",
@@ -130693,6 +130400,20 @@
         "typescript"
       ],
       "version": "1.4.0",
+      "license": "MIT"
+    },
+    {
+      "name": "grammarly-document-evaluator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-document-evaluator/SKILL.md",
+      "remote_path": "skills/.curated/grammarly-document-evaluator/SKILL.md",
+      "lines": 127,
+      "words": 824,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -130917,22 +130638,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-deploy-integration",
-      "description": "'Deploy Grammarly integrations to Vercel, Fly.io, and Cloud Run platforms.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-deploy-integration/SKILL.md",
-      "lines": 164,
-      "words": 666,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "clickhouse-common-errors",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clickhouse-common-errors/SKILL.md",
@@ -131020,22 +130725,6 @@
         "typescript"
       ],
       "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-multi-env-setup",
-      "description": "'Configure Grammarly across multiple environments.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-multi-env-setup/SKILL.md",
-      "lines": 135,
-      "words": 700,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "text",
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -132216,21 +131905,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-install-auth",
-      "description": "'Install and configure Grammarly SDK/CLI authentication.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-install-auth/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-install-auth/SKILL.md",
-      "lines": 108,
-      "words": 373,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "tracking-token-launches",
       "description": "'Track new token launches across DEXes with risk analysis and contract",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/tracking-token-launches/SKILL.md",
@@ -132790,20 +132464,6 @@
         "python"
       ],
       "version": "2.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-data-handling",
-      "description": "'Implement Grammarly data handling patterns for document processing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-data-handling/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-data-handling/SKILL.md",
-      "lines": 108,
-      "words": 420,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -135539,20 +135199,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-enterprise-rbac",
-      "description": "'Configure Grammarly enterprise role-based access control.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-enterprise-rbac/SKILL.md",
-      "lines": 137,
-      "words": 759,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "adobe-local-dev-loop",
       "description": "'Configure Adobe local development with App Builder CLI, Runtime actions,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/adobe-local-dev-loop/SKILL.md",
@@ -137032,20 +136678,6 @@
         "typescript"
       ],
       "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-common-errors",
-      "description": "'Diagnose and fix Grammarly common errors and exceptions.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-common-errors/SKILL.md",
-      "lines": 108,
-      "words": 477,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -138848,20 +138480,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-security-basics",
-      "description": "'Security fundamentals for Grammarly API credential management. Use when",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-security-basics/SKILL.md",
-      "lines": 145,
-      "words": 711,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "klingai-text-to-video",
       "description": "'Generate videos from text prompts with Kling AI. Use when creating videos",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/klingai-text-to-video/SKILL.md",
@@ -139883,6 +139501,20 @@
       "license": "MIT"
     },
     {
+      "name": "grammarly-license-governor",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-license-governor/SKILL.md",
+      "remote_path": "skills/.curated/grammarly-license-governor/SKILL.md",
+      "lines": 129,
+      "words": 755,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "anth-install-auth",
       "description": "'Install and configure Anthropic Claude SDK authentication for Python",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anth-install-auth/SKILL.md",
@@ -140575,6 +140207,18 @@
       "license": "MIT"
     },
     {
+      "name": "artifact-creator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/artifact-creator/SKILL.md",
+      "remote_path": "skills/.curated/artifact-creator/SKILL.md",
+      "lines": 107,
+      "words": 664,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "databricks-uc-migration-pilot",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/databricks-uc-migration-pilot/SKILL.md",
@@ -140738,21 +140382,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-debug-bundle",
-      "description": "'Collect Grammarly debug evidence for support tickets and troubleshooting.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-debug-bundle/SKILL.md",
-      "lines": 140,
-      "words": 722,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "flyio-hello-world",
       "description": "'Deploy your first app to Fly.io with flyctl launch and the Machines",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-hello-world/SKILL.md",
@@ -140809,21 +140438,6 @@
       "languages": [
         "bash",
         "python"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-hello-world",
-      "description": "'Create a minimal working Grammarly example.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-hello-world/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-hello-world/SKILL.md",
-      "lines": 150,
-      "words": 504,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
       ],
       "version": "1.8.0",
       "license": "MIT"
@@ -142338,20 +141952,6 @@
         "typescript"
       ],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-performance-tuning",
-      "description": "'Optimize Grammarly API performance with caching, batching, and connection",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-performance-tuning/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-performance-tuning/SKILL.md",
-      "lines": 96,
-      "words": 361,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -145721,20 +145321,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-prod-checklist",
-      "description": "'Production readiness checklist for Grammarly API integrations. Use when",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-prod-checklist/SKILL.md",
-      "lines": 127,
-      "words": 770,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "alchemy-deploy-integration",
       "description": "'Deploy Alchemy-powered Web3 applications to Vercel, Cloud Run, and AWS.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/alchemy-deploy-integration/SKILL.md",
@@ -146163,21 +145749,6 @@
         "bash"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-sdk-patterns",
-      "description": "'Apply production-ready Grammarly SDK patterns for TypeScript and Python.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-sdk-patterns/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-sdk-patterns/SKILL.md",
-      "lines": 151,
-      "words": 505,
-      "code_blocks": 3,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -148091,20 +147662,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.21.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-local-dev-loop",
-      "description": "'Configure Grammarly local development with hot reload and testing.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-local-dev-loop/SKILL.md",
-      "lines": 96,
-      "words": 364,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -150842,6 +150399,20 @@
       "license": "MIT"
     },
     {
+      "name": "grammarly-access-readiness",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-access-readiness/SKILL.md",
+      "remote_path": "skills/.curated/grammarly-access-readiness/SKILL.md",
+      "lines": 106,
+      "words": 604,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "flexport-local-dev-loop",
       "description": "'Configure Flexport local development with mock API responses and testing.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flexport-local-dev-loop/SKILL.md",
@@ -151145,6 +150716,20 @@
       "license": "MIT"
     },
     {
+      "name": "artifact-validator",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/artifact-validator/SKILL.md",
+      "remote_path": "skills/.curated/artifact-validator/SKILL.md",
+      "lines": 105,
+      "words": 604,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
       "name": "windsurf-prod-checklist",
       "description": "'Execute Windsurf production readiness checklist for team and enterprise",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-prod-checklist/SKILL.md",
@@ -151421,20 +151006,6 @@
         "javascript"
       ],
       "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "grammarly-upgrade-migration",
-      "description": "'Upgrade and migration guidance for Grammarly API version changes. Use",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-upgrade-migration/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-upgrade-migration/SKILL.md",
-      "lines": 181,
-      "words": 932,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -152401,20 +151972,6 @@
       "license": "MIT"
     },
     {
-      "name": "grammarly-rate-limits",
-      "description": "'Implement Grammarly rate limiting, backoff, and idempotency patterns.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/grammarly-rate-limits/SKILL.md",
-      "remote_path": "skills/.curated/grammarly-rate-limits/SKILL.md",
-      "lines": 165,
-      "words": 820,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "coreweave-common-errors",
       "description": "'Diagnose and fix CoreWeave GPU scheduling, pod, and networking errors.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coreweave-common-errors/SKILL.md",
@@ -152615,6 +152172,20 @@
         "typescript"
       ],
       "version": "1.4.0",
+      "license": "MIT"
+    },
+    {
+      "name": "production-upgrade",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/production-upgrade/SKILL.md",
+      "remote_path": "skills/.curated/production-upgrade/SKILL.md",
+      "lines": 188,
+      "words": 1172,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
       "license": "MIT"
     },
     {
@@ -158949,7 +158520,7 @@
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
       "lines": 340,
-      "words": 3557,
+      "words": 3922,
       "code_blocks": 0,
       "languages": []
     },
@@ -159152,8 +158723,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 468,
-      "words": 5247,
+      "lines": 469,
+      "words": 5446,
       "code_blocks": 11,
       "languages": [
         "bash",

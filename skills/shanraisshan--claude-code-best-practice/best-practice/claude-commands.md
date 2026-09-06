@@ -1,6 +1,6 @@
 # Commands Best Practice
 
-![Last Updated](https://img.shields.io/badge/Last_Updated-Sep%2005%2C%202026%2011%3A11%20AM%20PKT-white?style=flat&labelColor=555) ![Version](https://img.shields.io/badge/Claude_Code-v2.1.261-blue?style=flat&labelColor=555)<br>
+![Last Updated](https://img.shields.io/badge/Last_Updated-Sep%2006%2C%202026%2011%3A10%20AM%20PKT-white?style=flat&labelColor=555) ![Version](https://img.shields.io/badge/Claude_Code-v2.1.263-blue?style=flat&labelColor=555)<br>
 [![Implemented](https://img.shields.io/badge/Implemented-2ea44f?style=flat)](../implementation/claude-commands-implementation.md)
 
 Claude Code commands — frontmatter fields and official built-in slash commands.
@@ -94,7 +94,7 @@ Claude Code commands — frontmatter fields and official built-in slash commands
 | 47 | `/plugin [subcommand]` | ![Extensions](https://img.shields.io/badge/Extensions-16A085?style=flat) | Manage Claude Code plugins. Run with no argument to open the plugin menu, or pass a subcommand such as `list`, `install`, `enable`, or `disable` to act directly |
 | 48 | `/reload-plugins [--force]` | ![Extensions](https://img.shields.io/badge/Extensions-16A085?style=flat) | Reload all active plugins to apply pending changes without restarting. Reports counts for each reloaded component and flags any load errors. When the reload would change which MCP tools are loaded and invalidate the prompt cache, the command warns and skips unless you pass `--force` |
 | 49 | `/reload-skills` | ![Extensions](https://img.shields.io/badge/Extensions-16A085?style=flat) | Re-scan skill and command directories so skills added or changed on disk during the session become available without restarting. Reports how many skills are available and how many were added or removed |
-| 50 | `/skill-doctor` | ![Extensions](https://img.shields.io/badge/Extensions-16A085?style=flat) | Show which loaded skills go unused and what each costs in context, so you can prune them. Requires Claude Code v2.1.261 or later |
+| 50 | `/skill-doctor` | ![Extensions](https://img.shields.io/badge/Extensions-16A085?style=flat) | Show which loaded skills go unused and what each costs in context, so you can prune them. Requires Claude Code v2.1.252 or later and feature-flag fetching |
 | 51 | `/skills` | ![Extensions](https://img.shields.io/badge/Extensions-16A085?style=flat) | List available skills. Type to filter by name, description, or source. Press `t` to sort by token count. Press `Space` or `Enter` to cycle a skill's visibility; `Esc` saves and closes. Plugin skills, skills with `disable-model-invocation: true`, and skills with a managed `skillOverrides` entry cannot be cycled |
 | 52 | `/memory` | ![Memory](https://img.shields.io/badge/Memory-3498DB?style=flat) | Edit `CLAUDE.md` memory files, enable or disable auto-memory, and view auto-memory entries |
 | 53 | `/advisor [model\|off]` | ![Model](https://img.shields.io/badge/Model-E67E22?style=flat) | Enable or disable the advisor tool, which consults a second model for guidance at key moments during a task. Accepts a model name (`fable`, `opus`, `sonnet`) or a full model ID (`fable` requires Fable 5 access); without an argument opens a picker. Use `off` to disable |

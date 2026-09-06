@@ -1,10 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- 2026-09-05: Add a GitHub follow invitation to the README's maintainer section.
+
 All notable changes to this project are documented here.
 
 ---
 
-## [Unreleased] — 2026-09-04
+## [Unreleased]
 
 ### Changed
 
@@ -19,6 +23,46 @@ All notable changes to this project are documented here.
   provides a pre-LLM `conversational` source. The corpus README records that
   both registers remain under-sampled and that `social` and `email` still have
   no entries; the additions do not authorize publishing a rate.
+
+---
+
+## [3.33.0] — 2026-09-05
+
+### Changed
+
+- Restrict `load-bearing` detection to an explicit abstract-noun allowlist. Literal construction language, predicative uses, and unlisted nouns now pass (#56).
+- Publish with an OIDC-capable npm runtime and fail early when npm is too old for trusted publishing.
+
+- Split the entry skill from its pattern and profile reference for directory-aware agents (#52). Generate a complete source artifact and portable paste instructions from both files, with drift checks.
+- Claude bundles include the style checker, quote normalizer, shared Markdown protection, preservation validator, and examples they invoke (#102).
+
+## [3.32.0] — 2026-09-05
+
+### Added
+
+- **Automatic quote normalization after rewrites (#104).** The bundled normalizer defaults to automatic convention inference and accepts the original document with `--reference`. Rewrite and edit workflows normalize editable prose before delivery; explicit straight/curly targets remain available.
+
+### Fixed
+
+- Preserve inline HTML attributes and raw HTML code during quote normalization. Stop code masks at heading and list boundaries; keep escaped reference text and URL-adjacent prose visible to checks.
+
+- Validate inline link destinations and titles so malformed links cannot hide following prose. Precomputed boundaries prevent repeated unmatched link openers from scanning the same suffix quadratically. Regression tests cover normalization, style checks, CLI behavior and the bundled command.
+
+---
+
+## [3.31.0] — 2026-09-05
+
+### Added
+
+- **Judgment-only clarity rules from [odinfree's contribution (#129)](https://github.com/conorbronsdon/avoid-ai-writing/pull/129).** Flag obscured accountable decision-makers and repeated unexplained relabeling while preserving conventional personification, collective actors, and changes explained elsewhere in a passage. Add an audience-fit note for ambiguous proof terminology in cryptography, outside the vocabulary tiers. Narrow consequence-free restatements and repeated empty concession pairs; preserve concrete consequences and meaningful limitations. Rewrites use source facts or ask for missing details. The deterministic detector is unchanged.
+
+---
+
+## [3.30.0] — 2026-09-05
+
+### Added
+
+- **Repeated setup/reversal punchlines as a judgment-only subtype of manufactured punchlines.** Complete [cland4449's contribution (#130)](https://github.com/conorbronsdon/avoid-ai-writing/pull/130) with a P2 test for repeated reversals that replace concrete claims. Supported contrasts, isolated intentional lines, comedy, fiction, speeches, and quotations pass. Rewrites preserve source facts and ask for missing details instead of inventing failure modes. The deterministic detector is unchanged.
 
 ---
 

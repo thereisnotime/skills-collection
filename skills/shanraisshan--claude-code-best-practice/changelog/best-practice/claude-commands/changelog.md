@@ -1036,3 +1036,13 @@ No priority action items — report is fully in sync with official documentation
 | 4 | LOW | Changed Description | `/cost` — v2.1.260 changelog adds likely-cause display for prompt-cache misses; official docs table not yet updated | ✋ ON HOLD (recurring from 2026-09-04 — official docs still do not include this detail) |
 | 5 | LOW | Changed Description | `/reload-plugins` — v2.1.260 changelog notes headless session availability; official docs table not yet updated | ✋ ON HOLD (recurring from 2026-09-04 — official docs still do not include this detail) |
 | 6 | LOW | Changed Description | `/effort` — v2.1.252 saving-as-default detail and v2.1.257 `s` key for session-only effort not yet in official docs table | ✋ ON HOLD (recurring from 2026-09-01/02/04 — official docs still do not include either detail) |
+
+---
+
+## [2026-09-06 11:10 AM PKT] Claude Code v2.1.263
+
+| # | Priority | Type | Action | Status |
+|---|----------|------|--------|--------|
+| 1 | LOW | Changed Description | Update `/skill-doctor` — official docs now state "Requires Claude Code v2.1.252 or later and feature-flag fetching" rather than v2.1.261; corrects the version requirement and adds the feature-flag caveat | ✅ COMPLETE (requirement updated at #50 in Extensions tag) |
+
+_No frontmatter or command drift (20 frontmatter fields, 93 built-in commands still in sync). Version badge bumped v2.1.261 → v2.1.263._

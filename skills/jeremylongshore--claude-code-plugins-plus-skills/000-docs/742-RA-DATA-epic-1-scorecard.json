@@ -22,13 +22,13 @@
       "error_files": 719,
       "error_total": 3702,
       "grade_distribution": {
-        "A": 1889,
-        "B": 1087,
+        "A": 1884,
+        "B": 1076,
         "C": 409,
         "D": 157,
         "F": 5
       },
-      "rows": 3547
+      "rows": 3531
     }
   },
   "rows": {
@@ -40,9 +40,9 @@
       "status": "measured",
       "target_status": "informational",
       "values": {
-        "plugin_agent_files": 347,
-        "raw_tracked_plugin_skill_files": 3047,
-        "tracked_files": 23892
+        "plugin_agent_files": 352,
+        "raw_tracked_plugin_skill_files": 3031,
+        "tracked_files": 23948
       }
     },
     "2": {
@@ -53,9 +53,9 @@
       "status": "measured",
       "target_status": "pass",
       "values": {
-        "distinct_names": 442,
+        "distinct_names": 443,
         "duplicate_names": [],
-        "entries": 442
+        "entries": 443
       }
     },
     "3": {
@@ -80,28 +80,28 @@
       "values": {
         "agent_lane": {
           "error_total_all_validated_surfaces": 236,
-          "fully_compliant_surfaces": 769,
+          "fully_compliant_surfaces": 775,
           "terminal_denominator": {
-            "agents": 358,
-            "files": 951,
+            "agents": 363,
+            "files": 957,
             "label": "agents_plus_plugin_manifests",
-            "plugin_manifests": 593
+            "plugin_manifests": 594
           },
-          "validator_reported_mixed_denominator_percent": 80.9
+          "validator_reported_mixed_denominator_percent": 81
         },
         "marketplace_terminal": {
           "error_total_all_validated_surfaces": 3939,
-          "fully_compliant_surfaces": 1147,
+          "fully_compliant_surfaces": 1153,
           "terminal_denominator": {
-            "agents": 358,
+            "agents": 363,
             "commands": 373,
-            "files": 4871,
+            "files": 4861,
             "label": "skills_plus_commands_plus_agents_plus_plugin_manifests",
-            "plugin_manifests": 593,
-            "skills": 3547
+            "plugin_manifests": 594,
+            "skills": 3531
           },
-          "validated_plugin_manifests": 601,
-          "validator_reported_mixed_denominator_percent": 23.5
+          "validated_plugin_manifests": 602,
+          "validator_reported_mixed_denominator_percent": 23.7
         },
         "skill_rows": {
           "a_error_total": 35,
@@ -112,13 +112,13 @@
           "error_files": 719,
           "error_total": 3702,
           "grade_distribution": {
-            "A": 1889,
-            "B": 1087,
+            "A": 1884,
+            "B": 1076,
             "C": 409,
             "D": 157,
             "F": 5
           },
-          "rows": 3547
+          "rows": 3531
         }
       }
     },
@@ -131,20 +131,20 @@
       "values": {
         "average_score": 87.5,
         "grade_distribution": {
-          "A": 1889,
-          "B": 1087,
+          "A": 1884,
+          "B": 1076,
           "C": 409,
           "D": 157,
           "F": 5
         },
         "grade_percentages": {
-          "A": 53.3,
-          "B": 30.6,
-          "C": 11.5,
+          "A": 53.4,
+          "B": 30.5,
+          "C": 11.6,
           "D": 4.4,
           "F": 0.1
         },
-        "rows": 3547
+        "rows": 3531
       }
     },
     "6": {
@@ -161,7 +161,7 @@
         "b_error_total": 568,
         "b_failing": 276,
         "certified_target": 0,
-        "skill_summary_rows": 3547
+        "skill_summary_rows": 3531
       }
     },
     "7": {
@@ -211,8 +211,8 @@
       "status": "partial",
       "values": {
         "agent_errors": 236,
-        "agent_files": 358,
-        "reported_compliance_percent": 80.9,
+        "agent_files": 363,
+        "reported_compliance_percent": 81,
         "target_errors": 0,
         "target_percent_max": 100
       }
@@ -270,12 +270,12 @@
       ],
       "status": "partial",
       "values": {
-        "declared": 3536,
+        "declared": 3520,
         "folded_scalar": 5,
         "malformed_frontmatter": 0,
         "malformed_shape": 0,
         "missing": 11,
-        "rows": 3547,
+        "rows": 3531,
         "target_malformed": 0
       }
     },
@@ -286,10 +286,26 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 56,
+        "distinct_values": 60,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
+          {
+            "count": 1,
+            "value": "Agent Skills-compatible hosts; host-specific artifacts require their native specification"
+          },
+          {
+            "count": 5,
+            "value": "Agent Skills-compatible hosts; requires Python 3.10+"
+          },
+          {
+            "count": 1,
+            "value": "Agent Skills-compatible hosts; subagents and Beads are capability-detected with fail-closed fallback"
+          },
+          {
+            "count": 1,
+            "value": "Agent Skills-compatible hosts; validation depth depends on available authoritative tooling"
+          },
           {
             "count": 1,
             "value": "Any OS, but requires a persistent local filesystem and ~/.kobiton/.credentials (written by /automate:setup) — so it cannot run where the host offers only an MCP connection. A host affordance that streams a background command's output is strongly preferred; without one the skill falls back to a foreground loop. The watch loop runs the bundled scripts/poll-test-run.js (Node 18+), which reads those credentials, polls run state over REST, and emits only on change. Uses the Kobiton MCP tools getOrgSettings (up front) and terminateTestRun (on request); requires an authenticated Kobiton MCP connection, and getOrgSettings requires the automate plugin release that ships it. The optional live-remediation window (Step 4a) reuses run-automation-suite's chromeless-launcher scripts (Chrome; resize on macOS/Windows, launch-only on Linux) — if Chrome is absent the skill falls back to printing the URL."
@@ -351,7 +367,7 @@
             "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
-            "count": 3221,
+            "count": 3197,
             "value": "Designed for Claude Code"
           },
           {
@@ -1196,7 +1212,7 @@
         "answers": [
           {
             "cohort": "curated-mirror",
-            "value": 2408
+            "value": 2392
           },
           {
             "cohort": "curriculum",
@@ -1204,15 +1220,15 @@
           },
           {
             "cohort": "first-party",
-            "value": 2703
+            "value": 2687
           },
           {
             "cohort": "graded",
-            "value": 3547
+            "value": 3531
           },
           {
             "cohort": "marketplace-visible",
-            "value": 2956
+            "value": 2940
           }
         ],
         "distinct_numeric_answers": 5,
@@ -1660,6 +1676,9 @@
     "38": {
       "cohort": "exact root pins, retained npm registry observation, and coupling workflow",
       "dimension": "Kernel, eval CLI, and harness pins",
+      "limitations": [
+        "retained package-registry observation in 000-docs/810-RA-DATA-epic-9-boundary-evidence.json does not match the exact root pins (@intentsolutions/audit-harness: observed 1.3.1, pinned 1.4.0); capture a new versioned boundary observation without rewriting retained evidence"
+      ],
       "reproduce": "pnpm run measure:e1 --row=38 --stdout",
       "source": [
         ".github/workflows/kernel-vendor-hash.yml",
@@ -1667,14 +1686,14 @@
         "package.json",
         "pnpm-lock.yaml"
       ],
-      "status": "target_met",
+      "status": "partial",
       "values": {
         "one_resolved_core_version": true,
         "ordering_test_blocking": true,
         "pins": {
           "@intentsolutions/audit-harness": {
             "exact": true,
-            "version": "1.3.1"
+            "version": "1.4.0"
           },
           "@intentsolutions/core": {
             "exact": true,
@@ -1690,9 +1709,9 @@
           "@intentsolutions/core": "0.10.0",
           "@intentsolutions/jrig-cli": "0.2.0"
         },
-        "registry_matches_pins": true,
+        "registry_matches_pins": false,
         "staleness_alert_routed": true,
-        "target_met": true
+        "target_met": false
       }
     },
     "39": {
@@ -1927,7 +1946,7 @@
         "invalid_patterns": 0,
         "invisible_files": 23,
         "target_invisible_files": 0,
-        "tracked_files": 23892
+        "tracked_files": 23948
       }
     },
     "47": {
@@ -2012,17 +2031,17 @@
       "dimension": "Inventory header versus rows",
       "reproduce": "pnpm run measure:e1 --row=52 --stdout",
       "source": [
-        "freshie/reports/run-delta-30.json",
+        "freshie/reports/run-delta-37.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
       "status": "target_met",
       "values": {
-        "dolt_commit": "0g093prj22qajinvqqf28cf5mcvtvhn2",
-        "header_total_skills": 2967,
-        "run_id": 30,
+        "dolt_commit": "5rm2klp5v6ve26iosb3gh7p8vd1s1b4n",
+        "header_total_skills": 2953,
+        "run_id": 37,
         "skill_row_delta": 0,
-        "skill_rows": 2967,
+        "skill_rows": 2953,
         "target_skill_row_delta": 0
       }
     },
@@ -2033,32 +2052,32 @@
       "source": [
         "freshie/grade-histogram.json",
         "freshie/grades.csv",
-        "freshie/reports/run-delta-30.json"
+        "freshie/reports/run-delta-37.json"
       ],
       "status": "target_met",
       "values": {
-        "compliance_rows": 3547,
-        "export_dolt_commit": "0g093prj22qajinvqqf28cf5mcvtvhn2",
-        "export_run_id": 30,
-        "grades_csv_rows": 3547,
-        "grades_csv_sha256": "47d8e4adf2b4a827166e9cc5887ff58ff7fd3840c786e7e98c4d4eec3052ba75",
+        "compliance_rows": 3531,
+        "export_dolt_commit": "5rm2klp5v6ve26iosb3gh7p8vd1s1b4n",
+        "export_run_id": 37,
+        "grades_csv_rows": 3531,
+        "grades_csv_sha256": "25405a1c192609d289986f78c8b493fd4f05d6383001b365875625a8ef0f97ae",
         "histogram_grades": {
-          "A": 1889,
-          "B": 1087,
+          "A": 1884,
+          "B": 1076,
           "C": 409,
           "D": 157,
           "F": 5
         },
-        "histogram_total": 3547,
+        "histogram_total": 3531,
         "immutable_grade_counts": {
-          "A": 1889,
-          "B": 1087,
+          "A": 1884,
+          "B": 1076,
           "C": 409,
           "D": 157,
           "F": 5
         },
-        "inventory_dolt_commit": "0g093prj22qajinvqqf28cf5mcvtvhn2",
-        "inventory_run_id": 30,
+        "inventory_dolt_commit": "5rm2klp5v6ve26iosb3gh7p8vd1s1b4n",
+        "inventory_run_id": 37,
         "target_lag_runs": 0
       }
     },
@@ -2069,7 +2088,7 @@
       "source": [
         "freshie/reports/legacy-forge-proofs-demotion.json",
         "freshie/reports/run-delta-19.json",
-        "freshie/reports/run-delta-30.json",
+        "freshie/reports/run-delta-37.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py",
         "scripts/record-jrig-proofs.mjs"
@@ -2082,7 +2101,7 @@
           "E2": 0,
           "E3": 0
         },
-        "current_run_id": 30,
+        "current_run_id": 37,
         "invalid_identities": 0,
         "legacy_e0_records": 3,
         "retained_e2_e3": 0,
@@ -2107,7 +2126,7 @@
         "000-docs/807-DR-STND-evaluation-evidence.md",
         "freshie/reports/legacy-forge-proofs-demotion.json",
         "freshie/reports/run-delta-19.json",
-        "freshie/reports/run-delta-30.json",
+        "freshie/reports/run-delta-37.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
@@ -2153,6 +2172,11 @@
         "plugins/saas-packs/databricks-pack/skills/databricks-cost-leak-hunter/eval-spec.yaml",
         "plugins/saas-packs/databricks-pack/skills/databricks-streaming-guardian/eval-spec.yaml",
         "plugins/saas-packs/databricks-pack/skills/databricks-uc-migration-pilot/eval-spec.yaml",
+        "plugins/saas-packs/grammarly-pack/skills/grammarly-access-readiness/eval-spec.yaml",
+        "plugins/saas-packs/grammarly-pack/skills/grammarly-api-reliability/eval-spec.yaml",
+        "plugins/saas-packs/grammarly-pack/skills/grammarly-data-safety-guardian/eval-spec.yaml",
+        "plugins/saas-packs/grammarly-pack/skills/grammarly-document-evaluator/eval-spec.yaml",
+        "plugins/saas-packs/grammarly-pack/skills/grammarly-license-governor/eval-spec.yaml",
         "plugins/saas-packs/hubspot-pack/skills/hubspot-warehouse-sync/eval-spec.yaml",
         "plugins/saas-packs/sentry-pack/skills/sentry-data-handling/eval-spec.yaml",
         "plugins/saas-packs/snowflake-pack/skills/snowflake-access-guardian/eval-spec.yaml",
@@ -2166,7 +2190,12 @@
         "plugins/saas-packs/snowflake-pack/skills/snowflake-query-forensics/eval-spec.yaml",
         "plugins/saas-packs/snowflake-pack/skills/snowflake-strong-auth-migration-pilot/eval-spec.yaml",
         "plugins/saas-packs/supabase-pack/skills/supabase-known-pitfalls/eval-spec.yaml",
+        "plugins/skill-enhancers/agent-systems-toolkit/skills/artifact-creator/eval-spec.yaml",
+        "plugins/skill-enhancers/agent-systems-toolkit/skills/artifact-validator/eval-spec.yaml",
+        "plugins/skill-enhancers/agent-systems-toolkit/skills/production-upgrade/eval-spec.yaml",
         "plugins/skill-enhancers/skill-creator/skills/skill-creator/eval-spec.yaml",
+        "skills/.curated/artifact-creator/eval-spec.yaml",
+        "skills/.curated/artifact-validator/eval-spec.yaml",
         "skills/.curated/audit-tests/eval-spec.yaml",
         "skills/.curated/coreweave-fabric-diagnostics/eval-spec.yaml",
         "skills/.curated/coreweave-gpu-cost-leak-hunter/eval-spec.yaml",
@@ -2176,7 +2205,13 @@
         "skills/.curated/databricks-cost-leak-hunter/eval-spec.yaml",
         "skills/.curated/databricks-streaming-guardian/eval-spec.yaml",
         "skills/.curated/databricks-uc-migration-pilot/eval-spec.yaml",
+        "skills/.curated/grammarly-access-readiness/eval-spec.yaml",
+        "skills/.curated/grammarly-api-reliability/eval-spec.yaml",
+        "skills/.curated/grammarly-data-safety-guardian/eval-spec.yaml",
+        "skills/.curated/grammarly-document-evaluator/eval-spec.yaml",
+        "skills/.curated/grammarly-license-governor/eval-spec.yaml",
         "skills/.curated/hubspot-warehouse-sync/eval-spec.yaml",
+        "skills/.curated/production-upgrade/eval-spec.yaml",
         "skills/.curated/sentry-data-handling/eval-spec.yaml",
         "skills/.curated/skill-creator/eval-spec.yaml",
         "skills/.curated/snowflake-access-guardian/eval-spec.yaml",
@@ -2194,11 +2229,11 @@
       ],
       "status": "measured",
       "values": {
-        "adoption_percent": 0.79,
-        "curated_copies": 24,
-        "plugin_skill_rows": 3047,
-        "source_eval_specs": 24,
-        "tracked_eval_specs": 48
+        "adoption_percent": 1.06,
+        "curated_copies": 32,
+        "plugin_skill_rows": 3031,
+        "source_eval_specs": 32,
+        "tracked_eval_specs": 64
       }
     },
     "58": {

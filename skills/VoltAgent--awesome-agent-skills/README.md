@@ -1870,7 +1870,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[drogers0/github-image-upload](https://github.com/drogers0/gh-image/tree/main/skills/github-image-upload)** - Attach screenshots, PDFs, logs, zips, and videos to GitHub PRs, issues, and comments, returning canonical user-attachments URLs. GitHub has no public attachment-upload API. Works with Claude Code, Codex, Cursor, and Gemini CLI
 - **[browser-act/browser-act](https://github.com/browser-act/skills/tree/main/browser-act)** - Automate authenticated browsers with extraction and human handoff
 - **[agiwhitelist/auteur](https://github.com/agiwhitelist/auteur)** - Builds websites gated by an anti-slop linter and motion QA
-- **[JasonColapietro/suede-creator-skills](https://github.com/JasonColapietro/suede-creator-skills)** - Agent orchestration, code review grading, AI eval, creator tooling skills.
+- **[JasonColapietro/suede-creator-skills](https://github.com/JasonColapietro/suede-creator-skills)** - Design, UI polish, code review grading, AI evals, SEO audits.
 - **[superdesigndev/superdesign-skill](https://github.com/superdesigndev/superdesign-skill)** - Creates design systems from existing codebases and iterates UI drafts
 - **[Ryan-yang125/motion-lexicon](https://github.com/Ryan-yang125/motion-lexicon/tree/main/skills/motion-lexicon)** - Build and review product motion with installable React components
 - **[Maksim-Burtsev/simple-man](https://github.com/Maksim-Burtsev/simple-man)** - Strips praise, recaps and filler from agent answers while keeping every fact you act on: findings carry location and fix, refusals carry the safe procedure, tutorials stay long-form. Benchmarked on 1,793 preregistered live calls with raw records committed. Works with Claude Code, Codex, Gemini CLI, Cursor
@@ -1880,6 +1880,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[rainmanjam/poka-yoke](https://github.com/rainmanjam/poka-yoke)** - Make misuse unrepresentable: audit, design, and enforce mistake-proofing devices
 - **[scarletkc/agents](https://github.com/scarletkc/agents)** - Reusable standards and workflow skills for AI coding agents
 - **[dannwaneri/spec-writer](https://github.com/dannwaneri/spec-writer)** - Turns vague requests into spec, plan, and tasks
+- **[tt-a1i/archify](https://github.com/tt-a1i/archify/tree/main/archify)** - Generate validated interactive architecture diagrams from codebases or system descriptions
 - **[d1vai/d1v](https://github.com/d1vai/d1v-cli/blob/main/skills/d1v/SKILL.md)** - Deploy web projects with verified previews and confirmed production releases
 - **[Kayforkind/reimagine-it](https://github.com/Kayforkind/reimagine-it)** - Redesigns existing HTML pages from their own content
 - **[scarletkc/agents](https://github.com/scarletkc/agents)** - Reusable standards and workflow skills for AI coding agents

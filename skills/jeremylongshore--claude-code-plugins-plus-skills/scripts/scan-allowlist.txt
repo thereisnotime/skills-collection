@@ -73,6 +73,9 @@ plugins/mcp/a2a-client/dist/index.js:secret-exfil-cooccur  A2A reads only its ex
 plugins/mcp/a2a-client/dist/index.js:dynamic-exec  generated AJV schema compiler code from fixed MCP SDK schemas; no untrusted source text reaches the constructor; reviewed bundle and 126-test lane 2026-09-01
 plugins/mcp/a2a-client/dist/index.js:long-base64-blob  bundled dependency WASM payload from the pinned A2A and MCP dependency graph; npm provenance, audit, deterministic bundle, and package smoke reviewed 2026-09-01
 
+# ── agent-systems-toolkit — offline evidence-manifest validation. ──
+plugins/skill-enhancers/agent-systems-toolkit/skills/production-upgrade/scripts/audit_evidence.py:outbound-network  imports urllib.parse.urlsplit solely for offline HTTPS URL validation; contains no request client, socket use, or command execution — reviewed 2026-09-05
+
 # ── sources-change-unscanned is a ONE-SHOT waiver (enforced in code by
 # honoredWaivers, blocker 62ye.3 / #985 defect 3): a line is honored ONLY in the
 # PR whose diff adds it, so it can never persistently waive future source-list
@@ -115,6 +118,18 @@ plugins/productivity/j-rig/**:hook-definition  the sinker/line/hook 3-layer arch
 plugins/security/agent-safety-preflight/scripts/agent_preflight_lite.py:outbound-network  defensive scanner regex detects curl/wget install chains; it does not perform network calls
 plugins/saas-packs/snowflake-pack/skills/snowflake-cost-leak-hunter/scripts/analyze_cost_evidence.py:outbound-network  Reviewer Jeremy Longshore; expires 2027-08-31; Python stdlib urlsplit validates local strings only and performs no network I/O
 plugins/saas-packs/snowflake-pack/skills/snowflake-failover-readiness-drill/scripts/test_analyze_failover_readiness.py:outbound-network  negative AST isolation test names urllib only to assert the analyzer cannot import network/process modules; reviewed exact implementation SHA b6ffdad68d5c
+
+# ── Grammarly v2 operator client — reviewed 2026-09-05 on PR #1449. ──
+# OAuth credentials go only to the exact Grammarly token endpoint. Bearer tokens
+# go only to exact, fixed api.grammarly.com document contracts and are never sent
+# to the presigned upload destination. Uploads accept only HTTPS S3-shaped hosts,
+# globally routable DNS results, an exact approved origin, and a pinned address
+# while TLS still verifies the approved hostname. The manifest auditor parses an
+# origin string offline and performs no network I/O.
+plugins/saas-packs/grammarly-pack/skills/grammarly-document-evaluator/scripts/grammarly_api.py:secret-exfil-cooccur  bundled standalone evaluator runtime: OAuth client credentials are form-posted only to auth.grammarly.com; bearer tokens are sent only to fixed api.grammarly.com contracts and never to upload URLs
+plugins/saas-packs/grammarly-pack/skills/grammarly-document-evaluator/scripts/grammarly_api.py:outbound-network  bundled standalone evaluator runtime: documented Grammarly control-plane calls plus origin-approved S3 upload with public-address validation, address pinning, and hostname-verified TLS
+plugins/saas-packs/grammarly-pack/skills/grammarly-data-safety-guardian/scripts/audit_submission_manifest.py:outbound-network  false positive: urllib.parse.urlsplit validates an origin string offline; the script contains no socket or request operation
+plugins/saas-packs/grammarly-pack/skills/grammarly-document-evaluator/scripts/audit_submission_manifest.py:outbound-network  bundled standalone evaluator runtime; false positive: urllib.parse.urlsplit validates an origin string offline and performs no network I/O
 
 # ── databricks-streaming-guardian: the PreToolUse guard IS the skill's purpose. ──
 # The pack's only blocking hook. It intercepts Bash and BLOCKS a DROP/CREATE-OR-

@@ -926,3 +926,14 @@ No new frontmatter drift detected — frontmatter fields (20) are fully synchron
 |---|----------|------|--------|--------|
 | 1 | HIGH | Removed Skill | Remove `review` (row 15) — confirmed alias of `/code-review` since v2.1.223; commands reference carries no separate [Skill] marker for `/review`; docs state "Alias of `/code-review`… Before v2.1.223, `/review` was a separate command that ran a single-pass, read-only review of a GitHub pull request"; row 15 description still describes pre-v2.1.223 standalone fast-single-pass PR review behavior. Official docs list 15 bundled skills. Count should update 17→16 | ✋ ON HOLD (recurring from 2026-07-30; autonomous run cannot remove without human review) |
 | 2 | MED | Potential Removed Skill | `security-review` (row 16) — not tagged [Skill] in commands reference; official docs classify it as a "built-in command reachable through the Skill tool" (same category as `/init`), not a distinct bundled skill; official docs list 15 bundled skills (excludes both `review` and `security-review`); no changelog corroboration of removal in last 10 versions (v2.1.247–v2.1.261) | ✋ ON HOLD (recurring from 2026-07-30; awaiting human review before removing or reclassifying) |
+
+---
+
+## [2026-09-06 10:05 AM PKT] Claude Code v2.1.263
+
+No new frontmatter drift detected — frontmatter fields (20) are fully synchronized with official docs. Bundled skills: local report lists 17 vs 15 in official docs — difference accounted for by two recurring ON HOLD removals below. No new bundled skills or frontmatter fields in v2.1.262–v2.1.263.
+
+| # | Priority | Type | Action | Status |
+|---|----------|------|--------|--------|
+| 1 | HIGH | Removed Skill | Remove `review` (row 15) — confirmed alias of `/code-review` since v2.1.223; commands reference carries no separate [Skill] marker for `/review`; commands reference row explicitly reads "Alias of `/code-review`… takes the same effort levels and flags"; row 15 description still describes pre-v2.1.223 standalone fast-single-pass PR review behavior. Official docs list 15 bundled skills. Count should update 17→16 | ✋ ON HOLD (recurring from 2026-07-30; autonomous run cannot remove without human review) |
+| 2 | MED | Potential Removed Skill | `security-review` (row 16) — not marked [Skill] in commands reference; official docs classify it as a built-in command reachable via the Skill tool, not a distinct bundled skill; official docs list 15 bundled skills (excludes both `review` and `security-review`); no changelog corroboration of removal in last 10 versions (v2.1.254–v2.1.263); still appears in live session skill listings | ✋ ON HOLD (recurring from 2026-07-30; awaiting human review before removing or reclassifying) |
