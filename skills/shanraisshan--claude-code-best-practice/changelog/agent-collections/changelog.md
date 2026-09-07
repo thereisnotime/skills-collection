@@ -10,6 +10,18 @@ Tracks updates to the AGENT COLLECTIONS table in `README.md`.
 
 ---
 
+## [2026-09-07 08:45 AM PKT] Agent Collections Update
+
+| # | Priority | Type | Action | Status |
+|---|----------|------|--------|--------|
+| 1 | LOW | Star | msitarzewski/agency-agents ★ 150k → 151k (HTML-only; conf 0.76; GitHub API blocked; 3× HTML confirmations; Sep 5 baseline 150,096 exact; estimated ~181 stars/day → Sep 7 est. 150,458 → rounds to 150k not 151k) | INVALID (conf 0.76 below 0.88 threshold; HTML-only extraction; rate estimate contradicts 151k; RECURRING) |
+| 2 | LOW | Count | msitarzewski/agency-agents agents 273 → 257 (per-dir 18 dirs: academic/6 + design/10 + engineering/59 + finance/5 + game-development/6 + gis/13 + healthcare/3 + marketing/36 + paid-media/7 + product/5 + project-management/7 + research/1 + sales/9 + security/12 + spatial-computing/6 + specialized/58 + support/6 + testing/8 = 257; conf 0.76) | INVALID (RECURRING oscillation; 257 within band 254-315+; same dir breakdown as Sep 5 run; conf 0.76 below 0.88 threshold; no change) |
+| 3 | LOW | Star | VoltAgent/awesome-claude-code-subagents ★ unchanged (24.9k rounds to 25k; no k-boundary crossed) | INVALID (no k-boundary crossed; RECURRING) |
+| 4 | LOW | Count | VoltAgent/awesome-claude-code-subagents agents 158 → 159 (+1; all 10 dirs: core-dev/12 + lang-specialists/30 + infra/16 + quality-security/17 + data-ai/13 + devex/16 + specialized/16 + biz-product/17 + meta-orchestration/11 + research-analysis/11 = 159; conf 0.83; README badge still "158+") | INVALID (RECURRING ±1 oscillation; conf 0.83 below 0.88 threshold; within documented oscillation band; no change) |
+| 5 | LOW | Sort | Verify sort order (150k > 25k — stars descending) | COMPLETE (order preserved; RECURRING) |
+
+---
+
 ## [2026-09-05 08:42 AM PKT] Agent Collections Update
 
 | # | Priority | Type | Action | Status |

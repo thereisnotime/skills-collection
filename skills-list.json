@@ -10904,11 +10904,11 @@
     },
     {
       "name": "ce-optimize",
-      "description": "\"Run metric-driven optimization loops. Use when improving a measurable outcome through experiments.\"",
+      "description": "\"Optimize a named target with a measured loop: attribute a workload's cost, or score variants and keep winners. Use when a working system's metric should move and the winning change is not already kno",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
-      "lines": 54,
-      "words": 1052,
+      "lines": 63,
+      "words": 1243,
       "code_blocks": 0,
       "languages": []
     },
@@ -11324,7 +11324,7 @@
       "path": "EveryInc--compound-engineering-plugin/.agents/skills/ce-skill-work/SKILL.md",
       "remote_path": ".agents/skills/ce-skill-work/SKILL.md",
       "lines": 55,
-      "words": 1619,
+      "words": 1684,
       "code_blocks": 0,
       "languages": []
     }
@@ -22501,12 +22501,12 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 225,
-      "words": 3232,
+      "words": 3260,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.33.0",
+      "version": "3.33.2",
       "license": "MIT"
     },
     {
@@ -22515,12 +22515,12 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
       "lines": 905,
-      "words": 18052,
+      "words": 18080,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.33.0",
+      "version": "3.33.2",
       "license": "MIT"
     },
     {
@@ -22529,10 +22529,10 @@
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
       "lines": 902,
-      "words": 18008,
+      "words": 18036,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.33.0",
+      "version": "3.33.2",
       "license": "MIT"
     },
     {
@@ -22541,12 +22541,12 @@
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "lines": 225,
-      "words": 3232,
+      "words": 3260,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.33.0",
+      "version": "3.33.2",
       "license": "MIT"
     },
     {
@@ -22567,12 +22567,12 @@
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "skills/avoid-ai-writing/SKILL.md",
       "lines": 218,
-      "words": 3216,
+      "words": 3244,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.33.0",
+      "version": "3.33.2",
       "license": "MIT"
     },
     {
@@ -26515,7 +26515,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-interactivity",
@@ -26528,7 +26528,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "transcribe-captions",
@@ -26580,7 +26580,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-studio",
@@ -26593,7 +26593,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "rendering",
@@ -26636,7 +26636,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "calculate-metadata",
@@ -26868,7 +26868,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "voiceover",
@@ -26931,7 +26931,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-best-practices",
@@ -26942,7 +26942,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "get-video-dimensions",
@@ -26977,7 +26977,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "get-video-duration",
@@ -27012,7 +27012,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-maps",
@@ -27023,7 +27023,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-upgrade",
@@ -27036,7 +27036,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-maps",
@@ -27047,7 +27047,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-maps-static",
@@ -27112,7 +27112,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-interactivity",
@@ -27125,7 +27125,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-captions",
@@ -27138,7 +27138,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "transcribe-captions",
@@ -27190,7 +27190,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-saas",
@@ -27201,7 +27201,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "rendering",
@@ -27361,7 +27361,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "audio-visualization",
@@ -27528,7 +27528,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "get-video-dimensions",
@@ -27563,7 +27563,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "get-video-duration",
@@ -27588,7 +27588,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "tailwind",
@@ -27609,7 +27609,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-upgrade",
@@ -27622,7 +27622,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-maps",
@@ -27633,7 +27633,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.521"
+      "version": "4.0.522"
     },
     {
       "name": "remotion-maps-static",
@@ -28775,7 +28775,7 @@
       "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
       "remote_path": "skills/squirrelscan/SKILL.md",
       "lines": 205,
-      "words": 1319,
+      "words": 1318,
       "code_blocks": 12,
       "languages": [
         "bash"
@@ -28787,8 +28787,8 @@
       "description": "Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, security, technical, content, accessibility, and 15 other rule categories (260+ rules), returns an LLM-op",
       "path": "squirrelscan--skills/skills/audit-website/SKILL.md",
       "remote_path": "skills/audit-website/SKILL.md",
-      "lines": 108,
-      "words": 897,
+      "lines": 90,
+      "words": 751,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -158287,8 +158287,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
-      "lines": 63,
-      "words": 426,
+      "lines": 72,
+      "words": 488,
       "code_blocks": 0,
       "languages": []
     },
@@ -158410,8 +158410,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 574,
-      "words": 2081,
+      "lines": 602,
+      "words": 2219,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -158519,8 +158519,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 340,
-      "words": 3922,
+      "lines": 353,
+      "words": 4588,
       "code_blocks": 0,
       "languages": []
     },
@@ -158555,8 +158555,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/asr-transcribe-to-text/SKILL.md",
       "remote_path": "daymade-audio/asr-transcribe-to-text/SKILL.md",
-      "lines": 1010,
-      "words": 7241,
+      "lines": 1029,
+      "words": 7450,
       "code_blocks": 43,
       "languages": [
         "bash",
@@ -158701,8 +158701,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 169,
-      "words": 1134,
+      "lines": 172,
+      "words": 1166,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -158723,8 +158723,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 469,
-      "words": 5446,
+      "lines": 479,
+      "words": 5524,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -158900,7 +158900,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
       "lines": 1832,
-      "words": 30106,
+      "words": 30170,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -159072,8 +159072,8 @@
       "description": "Parent/worker reply addressing, payload design, delivery-language discipline, evidence that stays valid while its subject is still changing, verifying inbound peer assertions before acting or replying",
       "path": "daymade--claude-code-skills/peer-message/references/coordination-and-learning-loop.md",
       "remote_path": "peer-message/references/coordination-and-learning-loop.md",
-      "lines": 159,
-      "words": 800,
+      "lines": 208,
+      "words": 1200,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -159084,8 +159084,8 @@
       "description": "Transport-neutral addressing, Claude UDS and Codex queue contracts, message envelopes, and receiver-side verification.",
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
-      "lines": 181,
-      "words": 740,
+      "lines": 183,
+      "words": 753,
       "code_blocks": 5,
       "languages": [
         "json",
