@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""skill-install-audit.py — read-only reconciliation of every skill install surface.
+"""skill-install-audit.py — read-only reconciliation of plugin and Codex source installation state.
 
-One command that answers "which of my skills are actually usable where?" by joining
-five layers that otherwise drift silently:
+Inspect installation state across the following sources. This is an inventory,
+not a fresh-host discovery or successful-execution check:
 
   1. REGISTRY   each local marketplace's .claude-plugin/marketplace.json
   2. INSTALLED  ~/.claude/plugins/installed_plugins.json  (shared via symlink)
@@ -15,13 +15,13 @@ five layers that otherwise drift silently:
   6. FRESHNESS  whether the local checkouts every layer above is read from are themselves
                 behind their already-fetched remote-tracking refs
 
-Findings (each list is empty-friendly; a clean run prints only the summary):
+Result sections (the human report prints each section, including empty sections):
 
-  ENABLED                  installed + enabledPlugins true (visible in Claude Code)
+  ENABLED                  installed + enabledPlugins true for the same NAME@marketplace
   INSTALLED_DISABLED       installed, explicitly false in enabledPlugins
   INSTALLED_NO_KEY         installed, no enabledPlugins entry (NOT visible by default)
   REGISTERED_NOT_INSTALLED in a marketplace.json but never installed
-  ORPHAN_INSTALLED         installed but no longer in any marketplace.json (loads nothing)
+  ORPHAN_INSTALLED         installed plugin absent from its loaded owning marketplace registry
   DAEMON_RUNTIME_LAG       the sync daemon runs a pinned copy older than the source, so every
                            fix shipped to this repo stays invisible to it until the pin moves
   SOURCE_CHECKOUT_BEHIND   a registry checkout is behind its remote-tracking ref, so every
@@ -29,22 +29,40 @@ Findings (each list is empty-friendly; a clean run prints only the summary):
   PROFILE_ONLY_RISK        enabledPlugins keys present in a profile but absent from main —
                            pre-fix these were wiped by the next mirror; now they are adopted
                            or preserved, but conflicts still deserve eyeballs
-  MANUAL_LINK_RISK         ~/.agents/skills symlink pointing into a managed repo but its
-                           name is absent from codex-active-skills.json -> the source-sync
-                           daemon will prune it
-  CODEX_UNLISTED_ENABLED   enabled in Claude yet absent from both the Codex manifest and
-                           ~/.agents/skills (fine if unwanted in Codex; informational)
+  MANUAL_LINK_RISK         absolute symlink owned by a successfully loaded source, but not
+                           selected by activation policy -> the source-sync daemon will prune it;
+                           ownership follows the source-sync classifier; relative links are preserved
+  CODEX_UNLISTED_ENABLED   Skill members of enabled owned plugins absent from both expanded
+                           activation policy and verified links (informational if unwanted)
+  CODEX_SELECTED_MISSING   selected Skill names without a verified link to their registered
+                           source, including missing, dangling, wrong-source or unregistered names
+
+Plugin sections use NAME@marketplace identities; Codex sections use Skill names,
+including suite members and selections expanded from active_marketplaces.
+Claude personal links and claude_active_marketplaces are not audited here; use the
+source sync dry-run and a fresh Claude catalog probe for that route.
+Exit 0 means the inventory completed, even when findings are present. Without
+--json, an unknown --list section exits 2; --json takes precedence over --list.
+Missing configured registries are warned and skipped, but selected marketplaces
+require available sources. Invalid or unreadable required configuration fails.
+Use references/troubleshooting.md for repair and fresh-host acceptance steps.
 
 Usage:
     python3 skill-install-audit.py            # human-readable report
     python3 skill-install-audit.py --json     # machine-readable
     python3 skill-install-audit.py --list ENABLED INSTALLED_DISABLED
 
-Env overrides (match the sibling sync scripts):
-    CLAUDE_BASE_DIR / CLAUDE_PROFILES_DIR / AGENTS_SKILLS_DIR
+Env overrides for this audit:
+    CLAUDE_BASE_DIR          default Claude configuration directory to inspect
+    CLAUDE_PROFILES_DIR      profile directories whose enabled state is inspected
+    AGENTS_SKILLS_DIR        Codex user Skill root to inspect
+    CODEX_ACTIVE_SKILLS      activation manifest path (audit-only; the source syncer
+                            uses --active-skills-manifest)
+    SKILL_SYNC_DAEMON_ENTRY  deployed daemon entry path (audit-only)
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -70,7 +88,6 @@ REGISTRY_REPOS = [
     ("daymade-skills-pro", HOME / "workspace" / "md" / "claude-code-skills-pro"),
     ("cemakanshan-skills", HOME / "workspace" / "md" / "cemakanshan-skills"),
 ]
-MANAGED_REPO_PREFIXES = tuple(str(repo.resolve()) for _l, repo in REGISTRY_REPOS)
 # The background syncer deliberately executes a pinned plugin copy rather than a live
 # checkout, so editing the source cannot change what a running daemon does. Nothing
 # advances that pin automatically and nothing else compares the two numbers, so a fix
@@ -84,9 +101,35 @@ DAEMON_ENTRY = Path(
 DAEMON_PLUGIN = "daymade-claude-code"
 
 
+def source_sync():
+    """Use the bundled activation owner's parser, including suite membership."""
+    name = "skill_install_audit_source_sync"
+    if name not in sys.modules:
+        path = Path(__file__).with_name("sync-local-skill-sources.py")
+        spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"cannot load source resolver: {path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def registered_sources():
+    resolver = source_sync()
+    return [resolver.load_marketplace(repo) for _, repo in REGISTRY_REPOS
+            if (repo / ".claude-plugin" / "marketplace.json").is_file()]
+
+
 def read_json(path: Path):
     with open(path, encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def validate_plugin_identity(identity):
+    if (not isinstance(identity, str) or identity.count("@") != 1
+            or any(not part or part != part.strip() for part in identity.split("@"))):
+        raise ValueError(f"invalid qualified plugin identity: {identity!r}")
 
 
 def load_registry():
@@ -97,17 +140,27 @@ def load_registry():
         if not mp.exists():
             print(f"WARNING: {mp} missing; registry '{label}' skipped", file=sys.stderr)
             continue
-        registry[label] = {p["name"] for p in read_json(mp)["plugins"]}
+        data = read_json(mp)
+        name = data.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"{mp}: missing marketplace name")
+        if name in registry:
+            raise ValueError(f"duplicate marketplace identity: {name}")
+        registry[name] = {p["name"] for p in data["plugins"]}
     return registry
 
 
 def load_installed():
-    """{plugin_name: marketplace_name} from installed_plugins.json (latest entry wins)."""
+    """Keep qualified identities; two marketplaces may install the same name."""
     installed = {}
     data = read_json(BASE / "plugins" / "installed_plugins.json")
-    for key in data.get("plugins", {}):
+    plugins = data.get("plugins", {})
+    if not isinstance(plugins, dict):
+        raise ValueError("installed_plugins.json: plugins must be an object")
+    for key in plugins:
+        validate_plugin_identity(key)
         name, _, mkt = key.rpartition("@")
-        installed[name] = mkt
+        installed[key] = mkt
     return installed
 
 
@@ -115,14 +168,41 @@ def load_enabled():
     enabled = read_json(BASE / "settings.json").get("enabledPlugins", {})
     if not isinstance(enabled, dict):
         raise ValueError(f"{BASE / 'settings.json'}: enabledPlugins must be an object")
+    for identity, value in enabled.items():
+        validate_plugin_identity(identity)
+        if not isinstance(value, bool):
+            raise ValueError(f"enabledPlugins[{identity!r}] must be a boolean")
     return enabled
 
 
 def load_codex():
-    manifest = set(read_json(CODEX_MANIFEST).get("active_skills", []))
+    resolver = source_sync()
+    policy = resolver.load_skill_activation_policy(CODEX_MANIFEST)
+    manifest = set(policy.active_names)
+    sources = registered_sources()
+    found = {source.name for source in sources}
+    unknown = set(policy.active_marketplaces) - found
+    if unknown:
+        raise ValueError(f"active marketplaces have no source: {', '.join(sorted(unknown))}")
+    for source in sources:
+        if source.name in policy.active_marketplaces:
+            manifest.update(source.skills)
+    registered = resolver.merge_source_skills(sources)
     pool = set()
     if AGENTS_SKILLS.is_dir():
-        pool = {e.name for e in AGENTS_SKILLS.iterdir()}
+        for entry in AGENTS_SKILLS.iterdir():
+            if not (entry / "SKILL.md").is_file():
+                continue
+            if entry.name in manifest and entry.name not in registered:
+                continue
+            if entry.name in registered:
+                try:
+                    resolver.verify_selected_skill_links(
+                        AGENTS_SKILLS, {entry.name: registered[entry.name]}
+                    )
+                except (OSError, RuntimeError):
+                    continue
+            pool.add(entry.name)
     return manifest, pool
 
 
@@ -239,19 +319,18 @@ def load_profile_only_keys():
 
 def audit():
     registry = load_registry()
+    sources = registered_sources()
     installed = load_installed()
     enabled = load_enabled()
     manifest, pool = load_codex()
     profile_only = load_profile_only_keys()
 
-    enabled_names = {n for n, v in ((k.rpartition("@")[0], v) for k, v in enabled.items()) if v}
-    disabled_names = {k.rpartition("@")[0] for k, v in enabled.items() if not v}
-
     rows = []  # (name, marketplace, state, orphan)
-    for name, mkt in sorted(installed.items()):
-        if name in enabled_names:
+    for identity, mkt in sorted(installed.items()):
+        name = identity.rpartition("@")[0]
+        if enabled.get(identity) is True:
             state = "ENABLED"
-        elif name in disabled_names:
+        elif enabled.get(identity) is False:
             state = "INSTALLED_DISABLED"
         else:
             state = "INSTALLED_NO_KEY"
@@ -259,26 +338,35 @@ def audit():
         # registry. Third-party marketplaces (official, baoyu, ...) are simply not
         # audited here — flagging them would be noise, not finding.
         orphan = mkt in registry and name not in registry[mkt]
-        rows.append((name, mkt, state, orphan))
+        rows.append((identity, mkt, state, orphan))
 
-    all_registered = set().union(*registry.values()) if registry else set()
+    all_registered = {f"{name}@{market}" for market, names in registry.items() for name in names}
     registered_not_installed = sorted(all_registered - set(installed))
     orphans = sorted(r[0] for r in rows if r[3])
     manual_risk = []
     if AGENTS_SKILLS.is_dir():
-        for e in AGENTS_SKILLS.iterdir():
-            if not e.is_symlink():
-                continue
-            try:
-                target = Path(os.readlink(e))
-            except OSError:
-                continue
-            resolved = target if target.is_absolute() else (AGENTS_SKILLS / target)
-            if str(resolved).startswith(MANAGED_REPO_PREFIXES) and e.name not in manifest:
-                manual_risk.append(e.name)
-    codex_unlisted = sorted(
-        n for n in enabled_names if n not in manifest and n not in pool
-    )
+        resolver = source_sync()
+        with resolver.pin_skill_root(
+            resolver.absolute_without_symlink_resolution(AGENTS_SKILLS),
+            label="audit skill root", apply=False, create_missing=False,
+        ) as root:
+            if root is not None:
+                for entry in os.scandir(root.fd):
+                    snapshot = resolver.capture_entry_snapshot(root, entry.name)
+                    target = snapshot.absolute_link_target if snapshot else None
+                    # Use the same snapshot and ownership classifier as apply.
+                    if (target is not None and entry.name not in manifest
+                            and resolver.path_is_under(target, [source.repo for source in sources])):
+                        manual_risk.append(entry.name)
+    # Plugin names are not Skill names: a suite has multiple independently
+    # discoverable members. Audit only registered owned members, not vendor
+    # plugins whose inventory this tool never loaded.
+    enabled_skill_names = {
+        name for source in sources for name, skill in source.skills.items()
+        if enabled.get(skill.plugin_id) is True
+    }
+    codex_unlisted = sorted(enabled_skill_names - manifest - pool)
+    codex_missing = sorted(manifest - pool)
 
     return {
         "ENABLED": sorted(r[0] for r in rows if r[2] == "ENABLED"),
@@ -289,6 +377,7 @@ def audit():
         "PROFILE_ONLY_RISK": profile_only,
         "MANUAL_LINK_RISK": sorted(manual_risk),
         "CODEX_UNLISTED_ENABLED": codex_unlisted,
+        "CODEX_SELECTED_MISSING": codex_missing,
         "DAEMON_RUNTIME_LAG": load_daemon_runtime_lag(),
         "SOURCE_CHECKOUT_BEHIND": load_source_checkout_freshness(),
     }
@@ -332,11 +421,9 @@ def main():
             for name in names:
                 print(f"  {name}")
     print(
-        "\nLegend: DISABLED/NO_KEY -> enable via `claude plugin enable NAME@mkt`; "
-        "REGISTERED_NOT_INSTALLED -> `claude plugin install NAME@mkt`; "
-        "MANUAL_LINK_RISK -> add the name to codex-active-skills.json or drop the link; "
-        "DAEMON_RUNTIME_LAG -> the daemon is executing code older than this repo; "
-        "SOURCE_CHECKOUT_BEHIND -> this report's own reference is stale."
+        "\nExit 0 means the inventory completed, not that every Skill is usable. "
+        "Repair workflow: references/troubleshooting.md "
+        "(Installation audit reports missing or unselected Skills)."
     )
     return 0
 

@@ -211,62 +211,116 @@ but re-verification is cheap if a future Claude Code release changes write
 semantics: write a marker into an active profile's `.claude.json`, keep
 using the session, check the marker an hour later.
 
+## Installation audit reports missing or unselected Skills
+
+Run the inventory from the marketplace checkout root:
+
+```bash
+python3 daymade-claude-code/claude-switch-models-setup/scripts/skill-install-audit.py --json
+```
+
+Use the result definitions and environment overrides in
+[`skill-install-audit.py`](../scripts/skill-install-audit.py) as the contract.
+Read the reported items rather than treating exit 0 as a delivery verdict.
+Inspect `SOURCE_CHECKOUT_BEHIND` and `DAEMON_RUNTIME_LAG` before deciding that
+an empty finding is current; compare against fresh hosted state when that matters.
+The checkout comparison alone uses cached remote-tracking refs.
+
+The `CODEX_*` sections inspect Codex's expanded selection and source links.
+This audit does not inspect `claude_active_marketplaces` or Claude personal Skill
+links. For that route, use the source syncer's dry-run and registered source
+inventory, then the requested Claude target's fresh-host gate. Plugin inventory
+alone cannot determine whether a personal Skill is available.
+
+For `CODEX_SELECTED_MISSING`, resolve the selected name against the source
+inventory and inspect its actual link. Check the expanded activation policy,
+including marketplace selections, before editing a name. Repair the source or
+link when the selection is intentional; remove a selection only when it is no
+longer wanted. For `CODEX_UNLISTED_ENABLED` or `MANUAL_LINK_RISK`, decide whether
+that Skill should be active before changing policy. Do not add every reported
+name or remove links merely to make the report empty.
+
+Follow the local-source workflow in [SKILL.md](../SKILL.md) and the
+[source topology](local-source-sync-architecture.md). Preview synchronization
+without `--apply`, inspect the exact affected paths, then apply an authorized
+repair through the installed sync entry. Do not hand-create Skill links or replace
+a pinned runtime with the checkout. For `NAME@marketplace` installation or
+enablement findings, use that exact qualified identity with the official plugin CLI.
+
+Re-run the inventory after repair. Then use the installed `skill-governance`
+fresh-host acceptance workflow for the requested Claude Code or Codex target.
+Existing sessions retain their startup catalog; a file/link check is not a fresh
+host discovery check.
+
 ## Local skill source changes do not appear in Claude Code or Codex
 
-Normal edits should be live because installed locations are symlinks to the source repos.
-If they are not live, first check whether the path is still a symlink:
+Resolve the affected Skill's source and host policy using
+[local-source-sync-architecture.md](local-source-sync-architecture.md). Use the
+installation audit above for its plugin and Codex coverage; for Claude personal
+links, inspect the source sync dry-run. `--print-watch-paths` lists inputs to the
+watcher and does not verify links.
+
+For structural changes, inspect registration, the generated plist, and the
+[watcher logs](local-source-sync-architecture.md#macos-watcher). Require a successful
+pass after the change; registration and exit status alone cannot prove it ran.
+If no watcher is installed, run the installed daemon entry with `--install`.
+
+### Advance the pin
+
+Use this procedure only when the deployed helper links resolve into an installed
+plugin cache. Checkout-linked deployments already read their source; do not switch
+layouts as a version repair.
+
+1. Read the deployed symlink targets, the corresponding installation record, and
+   the source revision. Identify the daemon's separate configuration directory,
+   qualified plugin identity, and the intended published revision before updating.
+   Run the audit from the marketplace checkout root:
+
+   ```bash
+   python3 daymade-claude-code/claude-switch-models-setup/scripts/skill-install-audit.py --list DAEMON_RUNTIME_LAG SOURCE_CHECKOUT_BEHIND
+   ```
+
+   A non-empty `DAEMON_RUNTIME_LAG` proves the detected semantic version is older
+   than the inspected source version. An empty section does not prove parity:
+   an unrecognized/non-symlink entry, unavailable source, or unparseable version
+   can also produce no lag finding. The checkout check uses cached remote refs;
+   use a fresh hosted revision when verifying a published update.
+2. Update the existing installation in that daemon configuration, not the normal
+   Claude profile. Replace the placeholders with the identities read above:
+
+   ```bash
+   CLAUDE_CONFIG_DIR="<daemon-config-dir>" claude plugin marketplace update <marketplace>
+   CLAUDE_CONFIG_DIR="<daemon-config-dir>" claude plugin update <plugin>@<marketplace>
+   ```
+
+3. Read back that profile's installed plugin record and its new cache directory.
+   Use the deployment set defined by `scripts/setup.sh` to identify the helper
+   links. Verify each candidate file against the intended source revision, retain
+   the current link targets for rollback, then repoint those links to the new
+   version. Use absolute targets and replace the link itself; do not run the
+   checkout installer over a pinned layout or overwrite a real local file.
+4. Reinstall the LaunchAgent from the updated deployed entry:
+
+   ```bash
+   ~/.config/claude-switch-models-setup/sync-local-skill-sources-daemon.sh --install
+   ```
+
+   This provisions the installer-owned interpreter and runs a synchronization
+   pass. Independently read back the helper targets, installation record, plist
+   interpreter and scheduling fields, and a new success timestamp in the watcher
+   log. Compare scheduling with the daemon implementation, not a copied interval
+   in prose. Repeat the target-specific fresh-host gate from `skill-governance`.
+
+For an authorized one-shot source-link repair, preview before applying:
 
 ```bash
-python3 ~/.config/claude-switch-models-setup/sync-local-skill-sources.py --print-watch-paths
-```
-
-For structural changes such as new skill entries, removed skill entries, renamed skills,
-or version bumps, the macOS watcher should run automatically:
-
-```bash
-launchctl print gui/$(id -u)/ai.daymade.claude-skill-source-sync
-```
-
-If the watcher is not installed, install it:
-
-```bash
-~/.config/claude-switch-models-setup/sync-local-skill-sources-daemon.sh --install
-```
-
-If the watcher is installed, healthy and running, and the change still does not
-appear, check whether it is executing an older pinned copy than the source. The
-daemon deliberately runs an installed plugin version rather than the checkout, and
-nothing advances that pin on its own:
-
-```bash
-python3 <this skill>/scripts/skill-install-audit.py --list DAEMON_RUNTIME_LAG SOURCE_CHECKOUT_BEHIND
-```
-
-A non-empty `DAEMON_RUNTIME_LAG` names both versions and the commands that advance
-the pin. Read the second section before trusting an empty first one: the comparison
-is made against a local checkout, so a daemon on the previous release and a checkout
-still on it agree with each other, and the lag reads clean while the published source
-has moved on. Bring the checkout current, then re-run.
-
-The topology and the reason for the isolation are in
-[local-source-sync-architecture.md](local-source-sync-architecture.md).
-
-Manual repair fallback:
-
-```bash
+python3 ~/.config/claude-switch-models-setup/sync-local-skill-sources.py
 python3 ~/.config/claude-switch-models-setup/sync-local-skill-sources.py --apply
 ```
 
-At a selected `~/.agents/skills` name, the script replaces only an empty path,
-the correct link, or a wrong link that still belongs to a managed source repo;
-the last case moves to recoverable backup storage first. A real object,
-relative/broken link, or third-party link fails visibly and stays in place. The
-script moves stale unselected source-owned links out of the active root, but
-never removes entries from legacy `~/.codex/skills`: non-compatible managed
-links are reported for reviewed `skill-governance` cleanup, while real
-directories, third-party links, malformed foreign links, and `.system` stay
-untouched. Restart any already-running Claude Code/Codex sessions after
-repairing because Skill metadata is loaded at session start.
+Inspect the dry-run between those commands. Follow the source architecture's
+collision and recovery rules; legacy entries are not automatically retired.
+Restart affected existing sessions after repairing metadata discovery.
 
 ## Source sync warns that an active skill name is registered by no checkout
 
@@ -286,7 +340,7 @@ what that branch had when it forked. The pass already converged for every other
 name, so nothing else is waiting on this. Confirm where each checkout is:
 
 ```bash
-python3 <this skill>/scripts/skill-install-audit.py --list SOURCE_CHECKOUT_BEHIND
+python3 daymade-claude-code/claude-switch-models-setup/scripts/skill-install-audit.py --list SOURCE_CHECKOUT_BEHIND
 git -C <checkout> status --short --branch
 ```
 

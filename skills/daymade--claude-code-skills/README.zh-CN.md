@@ -522,6 +522,7 @@ CC-Switch 支持以下中国 AI 服务提供商：
 **使用场景：**
 - 让一个终端里的 Claude 或 Codex 与另一个 Agent 协调
 - 跨 session 发送依赖、暂停、交接或完成通知
+- 按原消息查询对应回复，无需手工检查本地消息存储
 - 从第三方 profile 或 Codex 进程访问 Claude inbox
 - 共享 checkout 上别人的未提交改动、锁或分支挡住了你——先核实它是否真在飞，再问属主，别自己停手或绕开
 - 向经过确认的目标清单广播同一条协调消息
@@ -3554,22 +3555,14 @@ A 股行业投研工作流：全板块成分股 Top N 涨幅计算、公告窗�
 
 > **安装**：`claude plugin install tibo-reset-codex@daymade-skills`
 
-查询 ChatGPT/Codex 额度重置时间，解读 OpenAI Codex 负责人 Tibo 的重置公告。
-不要凭记忆回答“什么时候恢复额度”，应通过权威追踪通道现查并换算北京时间。
+查询重置公告，核实多个 Pro 账号的剩余额度与备用重置。
 
-**核心能力：**
-- Tibo Radar JSON API 现查公告；Radar 与 codexlimitwatch 属同一来源家族，只能互查解析一致，不作独立双源
-- 另查官方故障线（@ChatGPT / status.openai.com）：重置有里程碑与故障补偿两个触发，Radar 只索引前者
-- 本机 `~/.codex` rollout 快照取证：重建周额度曲线、把重置定位到分钟级区间
-- 识别公告中的混合时间写法和 PST/PDT 夏令时差异
-- 太平洋时间到北京时间的当场实测换算
-- 区分 tracker 标签、官方公告与用户账户实际到账状态
+[操作说明](tibo-reset-codex/SKILL.md)
 
-**使用示例：**
 ```text
 ChatGPT 什么时候重置额度
+几个 Pro 账号都用完了吗，哪个还有额度
 banked reset 到了吗
-Tibo 最新的重置公告换算成北京时间是几点
 ```
 
 ### **prior-work-retrieval** - 产出前检索并核实已有成功工作

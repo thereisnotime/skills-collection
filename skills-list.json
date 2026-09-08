@@ -22476,8 +22476,8 @@
       "description": "Run or troubleshoot Wrangler CLI commands and configure Worker projects for local development, deployment, and Cloudflare resource management.",
       "path": "cloudflare--skills/skills/wrangler/SKILL.md",
       "remote_path": "skills/wrangler/SKILL.md",
-      "lines": 51,
-      "words": 759,
+      "lines": 53,
+      "words": 794,
       "code_blocks": 0,
       "languages": []
     }
@@ -23403,7 +23403,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
       "lines": 112,
-      "words": 1335,
+      "words": 1336,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -23470,11 +23470,11 @@
     },
     {
       "name": "expo-native-ui",
-      "description": "Framework (OSS). Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, animations, visual effects, gradients, storage, and respon",
+      "description": "Framework (OSS). Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, visual effects, gradients, storage, and responsive layout.",
       "path": "expo--skills/plugins/expo/skills/expo-native-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-native-ui/SKILL.md",
-      "lines": 193,
-      "words": 1342,
+      "lines": 195,
+      "words": 1441,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -23600,8 +23600,8 @@
       "description": "Framework (OSS). Navigation and routing for Expo Router. Covers file-based routes, groups and dynamic routes, folder organization, Link with previews and context menus, native Stack, page titles, moda",
       "path": "expo--skills/plugins/expo/skills/expo-router/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-router/SKILL.md",
-      "lines": 239,
-      "words": 806,
+      "lines": 241,
+      "words": 826,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -28774,9 +28774,9 @@
       "description": "squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured data issues (260+ rules) and scores site health, via the squirrel CLI. Use when the user wants to ch",
       "path": "squirrelscan--skills/skills/squirrelscan/SKILL.md",
       "remote_path": "skills/squirrelscan/SKILL.md",
-      "lines": 205,
-      "words": 1318,
-      "code_blocks": 12,
+      "lines": 220,
+      "words": 1518,
+      "code_blocks": 13,
       "languages": [
         "bash"
       ],
@@ -45046,7 +45046,7 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Malware Analysis & Sandboxing",
@@ -45061,7 +45061,7 @@
         "markdown",
         "yara"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Vulnerability Scanning & Assessment",
@@ -45075,7 +45075,7 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Supply Chain Security",
@@ -45089,7 +45089,7 @@
         "bash",
         "markdown"
       ],
-      "version": "1.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Web Application Security Testing",
@@ -45106,7 +45106,7 @@
         "python",
         "sql"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Log Analysis & SIEM Integration",
@@ -45125,7 +45125,7 @@
         "spl",
         "yaml"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Incident Response & Digital Forensics",
@@ -45139,7 +45139,7 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Cloud Security & Container Hardening",
@@ -45156,7 +45156,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Exploit Development & Payload Engineering",
@@ -45172,7 +45172,7 @@
         "python",
         "sql"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Blue Team Defense & Hardening",
@@ -45190,7 +45190,7 @@
         "yaml",
         "yara"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Mobile Application Security",
@@ -45204,7 +45204,7 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Red Team Operations & Engagement Planning",
@@ -45219,7 +45219,7 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Cryptographic Analysis & Assessment",
@@ -45234,7 +45234,7 @@
         "nginx",
         "python"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Threat Hunting & IOC Analysis",
@@ -45253,7 +45253,21 @@
         "spl",
         "yaml"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
+    },
+    {
+      "name": "Purple Team & Adversary Emulation",
+      "description": "Collaborative purple-team operations \u2014 threat-informed adversary emulation planning (ATT&CK, CTID, Atomic Red Team, CALDERA), the detect-tune-validate loop, detection coverage measurement (DeTT&CT/Nav",
+      "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/22-purple-team/SKILL.md",
+      "remote_path": "skills/22-purple-team/SKILL.md",
+      "lines": 221,
+      "words": 1752,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "version": "3.1.0"
     },
     {
       "name": "Reconnaissance & OSINT Automation",
@@ -45267,7 +45281,7 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "GRC & Compliance",
@@ -45281,7 +45295,7 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "CSOC Operations & Playbook Automation",
@@ -45296,7 +45310,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "OT / ICS / SCADA Security",
@@ -45310,7 +45324,21 @@
         "bash",
         "markdown"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
+    },
+    {
+      "name": "Threat Intelligence & CTI",
+      "description": "Cyber threat intelligence production \u2014 the intelligence cycle, IOC extraction/normalization/enrichment, STIX/TAXII and MISP, structured analytic models (Diamond, Kill Chain, ATT&CK), source scoring, a",
+      "path": "Masriyan--Claude-Code-CyberSecurity-Skill/skills/21-threat-intelligence/SKILL.md",
+      "remote_path": "skills/21-threat-intelligence/SKILL.md",
+      "lines": 205,
+      "words": 1814,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "version": "3.1.0"
     },
     {
       "name": "Reverse Engineering & Binary Analysis",
@@ -45325,7 +45353,7 @@
         "java",
         "python"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     },
     {
       "name": "Network Security & Traffic Analysis",
@@ -45342,7 +45370,7 @@
         "suricata",
         "zeek"
       ],
-      "version": "3.0.0"
+      "version": "3.1.0"
     }
   ],
   "pitimon--claude-cybersecurity-skill": [
@@ -158062,8 +158090,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 736,
-      "words": 8429,
+      "lines": 751,
+      "words": 8587,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -158287,8 +158315,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
-      "lines": 72,
-      "words": 488,
+      "lines": 81,
+      "words": 516,
       "code_blocks": 0,
       "languages": []
     },
@@ -158306,11 +158334,11 @@
     },
     {
       "name": "deep-research",
-      "description": "|",
+      "description": ">-",
       "path": "daymade--claude-code-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 545,
-      "words": 3123,
+      "lines": 537,
+      "words": 3592,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -158410,8 +158438,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 602,
-      "words": 2219,
+      "lines": 612,
+      "words": 2223,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -158629,9 +158657,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
       "remote_path": "daymade-claude-code/claude-md-progressive-disclosurer/SKILL.md",
-      "lines": 803,
-      "words": 3421,
-      "code_blocks": 10,
+      "lines": 560,
+      "words": 1822,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "javascript",
@@ -158701,8 +158729,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 172,
-      "words": 1166,
+      "lines": 180,
+      "words": 1237,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -158723,9 +158751,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 479,
-      "words": 5524,
-      "code_blocks": 11,
+      "lines": 440,
+      "words": 4476,
+      "code_blocks": 8,
       "languages": [
         "bash",
         "json"
@@ -158899,8 +158927,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1832,
-      "words": 30170,
+      "lines": 1843,
+      "words": 30279,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -158915,8 +158943,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-governance/SKILL.md",
       "remote_path": "daymade-skill/skill-governance/SKILL.md",
-      "lines": 163,
-      "words": 981,
+      "lines": 172,
+      "words": 1062,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -158986,8 +159014,8 @@
       "description": "Gangtise (\u5c97\u5e95\u65af\u6295\u7814) OpenAPI skill suite installer and diagnostic tool. One-click install 19 official skills (data, research, utility), configure accessKey/secretAccessKey, run health diagnostics. Trigger",
       "path": "daymade--claude-code-skills/daymade-financial/gangtise-copilot/SKILL.md",
       "remote_path": "daymade-financial/gangtise-copilot/SKILL.md",
-      "lines": 370,
-      "words": 2838,
+      "lines": 371,
+      "words": 2903,
       "code_blocks": 16,
       "languages": [
         "bash",
@@ -159072,8 +159100,8 @@
       "description": "Parent/worker reply addressing, payload design, delivery-language discipline, evidence that stays valid while its subject is still changing, verifying inbound peer assertions before acting or replying",
       "path": "daymade--claude-code-skills/peer-message/references/coordination-and-learning-loop.md",
       "remote_path": "peer-message/references/coordination-and-learning-loop.md",
-      "lines": 208,
-      "words": 1200,
+      "lines": 230,
+      "words": 1295,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -159084,10 +159112,11 @@
       "description": "Transport-neutral addressing, Claude UDS and Codex queue contracts, message envelopes, and receiver-side verification.",
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
-      "lines": 183,
-      "words": 753,
-      "code_blocks": 5,
+      "lines": 217,
+      "words": 943,
+      "code_blocks": 6,
       "languages": [
+        "bash",
         "json",
         "text",
         "xml"
@@ -159147,8 +159176,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docs-cleaner/SKILL.md",
       "remote_path": "daymade-docs/docs-cleaner/SKILL.md",
-      "lines": 805,
-      "words": 8124,
+      "lines": 813,
+      "words": 8187,
       "code_blocks": 10,
       "languages": [
         "bash"
@@ -163328,8 +163357,8 @@
       "description": "Fact-forcing gate that blocks Edit/Write/Bash (including MultiEdit) and demands concrete investigation (importers, data schemas, user instruction) before allowing the action. Measurably improves outpu",
       "path": "affaan-m--everything-claude-code/skills/gateguard/SKILL.md",
       "remote_path": "skills/gateguard/SKILL.md",
-      "lines": 183,
-      "words": 1177,
+      "lines": 187,
+      "words": 1204,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -163613,12 +163642,13 @@
       "description": "Transform Claude Code into a fully autonomous agent system with persistent memory, scheduled operations, computer use, and task queuing. Replaces standalone agent frameworks (Hermes, AutoGPT) by lever",
       "path": "affaan-m--everything-claude-code/skills/autonomous-agent-harness/SKILL.md",
       "remote_path": "skills/autonomous-agent-harness/SKILL.md",
-      "lines": 275,
-      "words": 1365,
-      "code_blocks": 11,
+      "lines": 272,
+      "words": 1631,
+      "code_blocks": 12,
       "languages": [
         "bash",
-        "json"
+        "json",
+        "text"
       ]
     },
     {
