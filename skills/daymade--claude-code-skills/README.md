@@ -729,6 +729,7 @@ Correct speech-to-text (ASR/STT) errors with a Stage 1 dictionary pre-filter, a 
 
 **Key features:**
 - Stage 1 + Native AI correction pipeline; Stage 1 alone is never completion
+- Frozen review packets and checked file/segment coverage for split or resumed Native reviews; malformed results stay unready and valid work can be reused
 - Exact-file review queue, deep-linked dashboard, timestamped audio playback, and machine-readable zero-pending readback
 - Conservative pattern learning: file-only, dictionary, roster, and context have separate admission rules
 - Domain-specific dictionaries (general, embodied_ai, finance, medical)
@@ -2551,6 +2552,7 @@ Extract Feishu (Lark) Docs, Wiki pages/collections, spreadsheets (including cell
 - Converting an owner-exported `.docx` into faithful Markdown with heading/highlight restoration
 
 **Key features:**
+- Document comments and complete reply threads accompany the body, with quoted passages, source positions, author IDs, timestamps, solved scope, and explicit coverage gaps
 - lark-cli API extraction writes the body to disk via `jq` (never retyped by the model — the single most important fidelity rule)
 - Recursive reference-graph traversal (BFS) with `feishu_extract_refs.py`, plus a residual rich-media-tag acceptance gate so no referenced doc is silently missed
 - Native Minutes transcript export (never re-runs ASR on downloaded media)
@@ -3244,6 +3246,7 @@ never silently substituted for one another.
 **Key features:**
 - Lists Codex sessions with internal time ranges and active/archive provenance
 - Extracts exact prompt-ledger inputs newest-first and groups them only by Session
+- Reconciles whole-conversation input counts and literal quotations across exact inherited snapshots; reports unresolved membership and accepts only record-bound reviewed injection exclusions
 - Reconstructs one rollout as a chronological user/assistant timeline with exact fork byte boundaries and compacted context
 - Searches Codex rollouts only; it cannot silently mix Claude matches into a Codex request
 - Selects a compatible Codex state database through schema introspection
@@ -3570,7 +3573,7 @@ they become load-bearing data.
 
 > **Install**: `claude plugin install tibo-reset-codex@daymade-skills`
 
-查询重置公告，核实多个 Pro 账号的剩余额度与备用重置。
+查询重置公告，核实多个 Pro 账号的剩余额度与备用重置；预测下一轮时间，并在本地保存预测、核对结果，供后续判断调整。
 
 [操作说明](tibo-reset-codex/SKILL.md)
 

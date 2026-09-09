@@ -10775,7 +10775,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-commit-push-pr/SKILL.md",
       "remote_path": "skills/ce-commit-push-pr/SKILL.md",
       "lines": 70,
-      "words": 1222,
+      "words": 1203,
       "code_blocks": 0,
       "languages": []
     },
@@ -10797,7 +10797,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 61,
-      "words": 1133,
+      "words": 1135,
       "code_blocks": 0,
       "languages": []
     },
@@ -10832,6 +10832,16 @@
       "languages": []
     },
     {
+      "name": "ce-noslop",
+      "description": "\"Rewrite, check, or draft prose so it reads plainly on the first read and carries no AI writing patterns, keeping every fact the source states. Use when the user asks to make text plainer, humanize it",
+      "path": "EveryInc--compound-engineering-plugin/skills/ce-noslop/SKILL.md",
+      "remote_path": "skills/ce-noslop/SKILL.md",
+      "lines": 46,
+      "words": 672,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "ce-dogfood",
       "description": "\"Hands-off, diff-scoped browser QA of the active branch: maps user flows, drives a real browser, autonomously fixes small breakages with regression tests and commits, judges experience against product",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-dogfood/SKILL.md",
@@ -10861,7 +10871,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
       "lines": 99,
-      "words": 1040,
+      "words": 1045,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -10984,15 +10994,25 @@
     },
     {
       "name": "ce-explain",
-      "description": "\"Create a durable visual teaching artifact for something worth learning. Use when the user wants to be taught, wants a deep explainer, wants to understand a substantial change, or wants a work recap b",
+      "description": "\"Explain how something works and why it has its current shape, grounding behavior in evidence and separating documented rationale from inference. Use when understanding a system, change, idea, or rece",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-explain/SKILL.md",
       "remote_path": "skills/ce-explain/SKILL.md",
-      "lines": 77,
-      "words": 1457,
+      "lines": 80,
+      "words": 1203,
       "code_blocks": 1,
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "ce-bakeoff",
+      "description": "\"Develop independent competing solutions to a defined brief, compare them, and synthesize a winning approach. Use when choosing well requires developing alternatives beyond their current form. Use ce-",
+      "path": "EveryInc--compound-engineering-plugin/skills/ce-bakeoff/SKILL.md",
+      "remote_path": "skills/ce-bakeoff/SKILL.md",
+      "lines": 49,
+      "words": 1018,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "ce-strategy",
@@ -11036,11 +11056,11 @@
     },
     {
       "name": "ce-pov",
-      "description": "\"Give a decisive, project-grounded point of view: a graded verdict on an external-adoption question, a holistic take on a document, or a position on a supplied approach set. Use for a solo POV. Use wh",
+      "description": "\"Judge a supplied subject against the project's evidence and constraints, returning a supported position, tradeoffs, and conditions. Use when assessing an external-adoption question, a holistic take o",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
-      "lines": 63,
-      "words": 1089,
+      "lines": 65,
+      "words": 1159,
       "code_blocks": 0,
       "languages": []
     },
@@ -11091,8 +11111,8 @@
       "description": "\"Draft launch or promotion copy for a shipped feature.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-promote/SKILL.md",
       "remote_path": "skills/ce-promote/SKILL.md",
-      "lines": 93,
-      "words": 1116,
+      "lines": 91,
+      "words": 1079,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -28802,8 +28822,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-docs/SKILL.md",
       "remote_path": "skills/stripe-docs/SKILL.md",
-      "lines": 43,
-      "words": 132,
+      "lines": 48,
+      "words": 191,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -28815,7 +28835,7 @@
       "path": "stripe--ai/skills/stripe-best-practices/SKILL.md",
       "remote_path": "skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 717,
+      "words": 718,
       "code_blocks": 0,
       "languages": []
     },
@@ -28910,8 +28930,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-docs/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-docs/SKILL.md",
-      "lines": 43,
-      "words": 132,
+      "lines": 48,
+      "words": 191,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -28923,7 +28943,7 @@
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 717,
+      "words": 718,
       "code_blocks": 0,
       "languages": []
     },
@@ -29008,8 +29028,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-docs/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-docs/SKILL.md",
-      "lines": 43,
-      "words": 132,
+      "lines": 48,
+      "words": 191,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -29021,7 +29041,7 @@
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 717,
+      "words": 718,
       "code_blocks": 0,
       "languages": []
     },
@@ -29106,8 +29126,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-docs/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-docs/SKILL.md",
-      "lines": 43,
-      "words": 132,
+      "lines": 48,
+      "words": 191,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -29119,7 +29139,7 @@
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 717,
+      "words": 718,
       "code_blocks": 0,
       "languages": []
     },
@@ -29214,8 +29234,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-docs/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-docs/SKILL.md",
-      "lines": 43,
-      "words": 132,
+      "lines": 48,
+      "words": 191,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -29227,7 +29247,7 @@
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 717,
+      "words": 718,
       "code_blocks": 0,
       "languages": []
     },
@@ -29312,8 +29332,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-docs/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-docs/SKILL.md",
-      "lines": 43,
-      "words": 132,
+      "lines": 48,
+      "words": 191,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -29325,7 +29345,7 @@
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
       "lines": 74,
-      "words": 717,
+      "words": 718,
       "code_blocks": 0,
       "languages": []
     },
@@ -61195,8 +61215,8 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/skill-creator/templates/skill-template.md",
       "remote_path": "plugins/skill-enhancers/skill-creator/templates/skill-template.md",
-      "lines": 127,
-      "words": 280,
+      "lines": 129,
+      "words": 285,
       "code_blocks": 4,
       "languages": [],
       "version": "1.0.0",
@@ -61207,28 +61227,28 @@
       "description": "'Create production-grade agent skills aligned with the 2026 AgentSkills.io",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/skill-creator/skills/skill-creator/SKILL.md",
       "remote_path": "plugins/skill-enhancers/skill-creator/skills/skill-creator/SKILL.md",
-      "lines": 306,
-      "words": 1672,
+      "lines": 308,
+      "words": 1678,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "5.20.0",
+      "version": "5.22.0",
       "license": "MIT"
     },
     {
       "name": "agent-creator",
-      "description": "'Create production-grade agent .md files aligned with the Anthropic 2026",
+      "description": "'Create production-grade agent .md files aligned with the current Anthropic",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/skill-creator/skills/agent-creator/SKILL.md",
       "remote_path": "plugins/skill-enhancers/skill-creator/skills/agent-creator/SKILL.md",
-      "lines": 342,
-      "words": 2031,
+      "lines": 359,
+      "words": 2184,
       "code_blocks": 5,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "5.20.0",
+      "version": "5.22.0",
       "license": "MIT"
     },
     {
@@ -61272,23 +61292,24 @@
     },
     {
       "name": "{{AGENT_NAME}}",
-      "description": "\"{{AGENT_SPECIALTY_20_200_CHARS}}\"",
+      "description": "\"{{CONCISE_AGENT_SPECIALTY_20_1536_CHARS}}\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/skill-creator/skills/skill-creator/templates/agent-template.md",
       "remote_path": "plugins/skill-enhancers/skill-creator/skills/skill-creator/templates/agent-template.md",
-      "lines": 103,
-      "words": 218,
+      "lines": 117,
+      "words": 305,
       "code_blocks": 1,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "{{SKILL_NAME}}",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/skill-enhancers/skill-creator/skills/skill-creator/templates/skill-template.md",
       "remote_path": "plugins/skill-enhancers/skill-creator/skills/skill-creator/templates/skill-template.md",
-      "lines": 129,
-      "words": 294,
+      "lines": 131,
+      "words": 299,
       "code_blocks": 4,
       "languages": [],
       "version": "1.0.0",
@@ -62587,44 +62608,28 @@
     },
     {
       "name": "create-agent",
-      "description": "Create a production-ready Google Cloud agent using ADK and Agent Starter...",
+      "description": "Scaffold a Google ADK app with Google's maintained agents-cli",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/004-jeremy-google-cloud-agent-sdk/commands/create-agent.md",
       "remote_path": "plugins/productivity/004-jeremy-google-cloud-agent-sdk/commands/create-agent.md",
-      "lines": 415,
-      "words": 1014,
-      "code_blocks": 19,
+      "lines": 129,
+      "words": 717,
+      "code_blocks": 4,
       "languages": [
-        "bash",
-        "env",
-        "python"
+        "bash"
       ]
     },
     {
       "name": "google-cloud-agent-sdk-master",
-      "description": "'Execute automatic activation for all google cloud agent development",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/004-jeremy-google-cloud-agent-sdk/skills/google-cloud-agent-sdk-master/SKILL.md",
       "remote_path": "plugins/productivity/004-jeremy-google-cloud-agent-sdk/skills/google-cloud-agent-sdk-master/SKILL.md",
-      "lines": 62,
-      "words": 303,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "2.24.0",
-      "license": "MIT"
-    },
-    {
-      "name": "google-cloud-agent-sdk-master",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/004-jeremy-google-cloud-agent-sdk/skills/google-cloud-agent-sdk-master/references/SKILL.full.md",
-      "remote_path": "plugins/productivity/004-jeremy-google-cloud-agent-sdk/skills/google-cloud-agent-sdk-master/references/SKILL.full.md",
-      "lines": 610,
-      "words": 1637,
-      "code_blocks": 22,
+      "lines": 120,
+      "words": 765,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "python",
-        "yaml"
+        "bash"
       ],
-      "version": "1.0.0",
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -69743,6 +69748,20 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.23.0",
+      "license": "MIT"
+    },
+    {
+      "name": "audit-skill",
+      "description": "'Audit and improve a Claude Code skill using Skill Crossroads. Use when the user",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/skillcrossroads/skills/audit-skill/SKILL.md",
+      "remote_path": "plugins/community/skillcrossroads/skills/audit-skill/SKILL.md",
+      "lines": 163,
+      "words": 1353,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ],
+      "version": "0.11.4",
       "license": "MIT"
     },
     {
@@ -104053,103 +104072,100 @@
     },
     {
       "name": "windsurf-upgrade-migration",
-      "description": "'Upgrade Windsurf IDE, migrate settings from VS Code or Cursor, and handle",
+      "description": "'Upgrade Devin Desktop (formerly Windsurf) IDE, migrate settings from VS Code or Cursor, and handle",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-upgrade-migration/SKILL.md",
-      "lines": 210,
-      "words": 800,
+      "lines": 224,
+      "words": 929,
       "code_blocks": 8,
       "languages": [
         "bash",
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-local-dev-loop",
-      "description": "'Configure Windsurf local development workflow with Cascade, Previews,",
+      "description": "'Configure Devin Desktop (formerly Windsurf) local development workflow with Cascade, Previews,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-local-dev-loop/SKILL.md",
-      "lines": 186,
-      "words": 737,
+      "lines": 200,
+      "words": 872,
       "code_blocks": 8,
       "languages": [
         "gitignore",
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-reliability-patterns",
-      "description": "'Implement reliable Cascade workflows with checkpoints, rollback, and",
+      "description": "'Implement reliable Devin Desktop (formerly Windsurf) Cascade workflows with checkpoints, rollback, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-reliability-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-reliability-patterns/SKILL.md",
-      "lines": 243,
-      "words": 1054,
+      "lines": 256,
+      "words": 1175,
       "code_blocks": 9,
       "languages": [
         "bash",
         "markdown",
         "text"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-rate-limits",
-      "description": "'Understand and manage Windsurf credit system, usage limits, and model",
+      "description": "'Analyze Devin Desktop (formerly Windsurf) quota limits, extra usage,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-rate-limits/SKILL.md",
-      "lines": 172,
-      "words": 766,
-      "code_blocks": 5,
-      "languages": [
-        "markdown",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 107,
+      "words": 715,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-advanced-troubleshooting",
-      "description": "'Advanced Windsurf debugging for hard-to-diagnose IDE, Cascade, and indexing",
+      "description": "'Advanced Devin Desktop (formerly Windsurf) debugging for hard-to-diagnose IDE, Cascade, and indexing",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-advanced-troubleshooting/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-advanced-troubleshooting/SKILL.md",
-      "lines": 266,
-      "words": 1061,
+      "lines": 275,
+      "words": 1237,
       "code_blocks": 8,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-known-pitfalls",
-      "description": "'Identify and avoid Windsurf anti-patterns and common mistakes.",
+      "description": "'Identify and avoid Devin Desktop (formerly Windsurf) anti-patterns and common mistakes.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-known-pitfalls/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-known-pitfalls/SKILL.md",
-      "lines": 257,
-      "words": 1232,
-      "code_blocks": 12,
+      "lines": 266,
+      "words": 1328,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-reference-architecture",
-      "description": "'Implement Windsurf reference architecture with optimal project structure",
+      "description": "'Implement Devin Desktop (formerly Windsurf) reference architecture with optimal project structure",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-reference-architecture/SKILL.md",
-      "lines": 235,
-      "words": 945,
+      "lines": 249,
+      "words": 1073,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -104157,78 +104173,71 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-webhooks-events",
-      "description": "'Build Windsurf extensions and integrate with VS Code extension API events.",
+      "description": "'Build Devin Desktop (formerly Windsurf) extensions and integrate with VS Code extension API events.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-webhooks-events/SKILL.md",
-      "lines": 260,
-      "words": 767,
+      "lines": 273,
+      "words": 886,
       "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-incident-runbook",
-      "description": "'Execute Windsurf incident response when AI features fail or cause production",
+      "description": "'Execute Devin Desktop (formerly Windsurf) incident response when AI features fail or cause production",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-incident-runbook/SKILL.md",
-      "lines": 238,
-      "words": 1000,
+      "lines": 257,
+      "words": 1169,
       "code_blocks": 12,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-cost-tuning",
-      "description": "'Optimize Windsurf licensing costs through seat management, tier selection,",
+      "description": "'Optimize Devin Desktop (formerly Windsurf) licensing through current",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-cost-tuning/SKILL.md",
-      "lines": 219,
-      "words": 906,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 102,
+      "words": 630,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-enterprise-rbac",
-      "description": "'Configure Windsurf enterprise SSO, RBAC, and organization-level controls.",
+      "description": "'Analyze and design Devin Desktop (formerly Windsurf) enterprise SSO, SCIM, RBAC, and team controls. Use when defining least-privilege roles, identity lifecycle, model or terminal policy, MCP access, ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-enterprise-rbac/SKILL.md",
-      "lines": 257,
-      "words": 916,
-      "code_blocks": 8,
-      "languages": [
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 140,
+      "words": 1143,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-policy-guardrails",
-      "description": "'Implement team-wide Windsurf usage policies, code quality gates, and",
+      "description": "'Implement team-wide Devin Desktop (formerly Windsurf) usage policies, code quality gates, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-policy-guardrails/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-policy-guardrails/SKILL.md",
-      "lines": 255,
-      "words": 1009,
+      "lines": 268,
+      "words": 1127,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -104237,65 +104246,58 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-security-basics",
-      "description": "'Apply Windsurf security best practices for workspace isolation, data",
+      "description": "'Secure Devin Desktop (formerly Windsurf) with context boundaries,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-security-basics/SKILL.md",
-      "lines": 230,
-      "words": 796,
-      "code_blocks": 8,
+      "lines": 111,
+      "words": 654,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "gitignore",
-        "json",
-        "markdown",
-        "yaml"
+        "gitignore"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-install-auth",
-      "description": "'Install Windsurf IDE and configure Codeium authentication.",
+      "description": "'Install and authenticate Devin Desktop, the current name for Windsurf.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-install-auth/SKILL.md",
-      "lines": 154,
-      "words": 626,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.11.0",
+      "lines": 100,
+      "words": 611,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-observability",
-      "description": "'Monitor Windsurf AI adoption, feature usage, and team productivity metrics.",
+      "description": "'Monitor Devin Desktop (formerly Windsurf) AI adoption, feature usage, and team productivity metrics.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-observability/SKILL.md",
-      "lines": 243,
-      "words": 849,
+      "lines": 259,
+      "words": 1016,
       "code_blocks": 7,
       "languages": [
         "markdown",
         "typescript",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-performance-tuning",
-      "description": "'Optimize Windsurf IDE performance: indexing speed, Cascade responsiveness,",
+      "description": "'Optimize Devin Desktop (formerly Windsurf) IDE performance: indexing speed, Cascade responsiveness,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-performance-tuning/SKILL.md",
-      "lines": 272,
-      "words": 823,
+      "lines": 287,
+      "words": 973,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -104303,224 +104305,219 @@
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-core-workflow-b",
-      "description": "'Execute Windsurf''s secondary workflow: Workflows, Memories, and reusable",
+      "description": "'Choose and create Devin Desktop customizations: Rules, AGENTS.md,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-core-workflow-b/SKILL.md",
-      "lines": 218,
-      "words": 861,
-      "code_blocks": 8,
+      "lines": 126,
+      "words": 696,
+      "code_blocks": 2,
       "languages": [
-        "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-deploy-integration",
-      "description": "'Deploy applications using Windsurf''s built-in deployment features and",
+      "description": "'Deploy applications using Devin Desktop (formerly Windsurf)''s built-in deployment features and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-deploy-integration/SKILL.md",
-      "lines": 207,
-      "words": 801,
+      "lines": 219,
+      "words": 953,
       "code_blocks": 11,
       "languages": [
         "bash",
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-architecture-variants",
-      "description": "'Choose workspace architectures for different project scales in Windsurf.",
+      "description": "'Choose workspace architectures for different project scales in Devin Desktop (formerly Windsurf).",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-architecture-variants/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-architecture-variants/SKILL.md",
-      "lines": 245,
-      "words": 963,
+      "lines": 262,
+      "words": 1102,
       "code_blocks": 11,
       "languages": [
         "bash",
         "gitignore",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-sdk-patterns",
-      "description": "'Apply production-ready Windsurf workspace configuration and Cascade",
+      "description": "'Analyze and apply production-ready Devin Desktop (formerly Windsurf) workspace configuration and Cascade",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-sdk-patterns/SKILL.md",
-      "lines": 227,
-      "words": 882,
+      "lines": 240,
+      "words": 1004,
       "code_blocks": 9,
       "languages": [
         "bash",
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-common-errors",
-      "description": "'Diagnose and fix common Windsurf IDE and Cascade errors.",
+      "description": "'Diagnose and fix common Devin Desktop (formerly Windsurf) IDE and Cascade errors.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-common-errors/SKILL.md",
-      "lines": 201,
-      "words": 759,
+      "lines": 219,
+      "words": 941,
       "code_blocks": 6,
       "languages": [
         "bash",
         "gitignore",
         "json"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-core-workflow-a",
-      "description": "'Execute Windsurf''s primary workflow: Cascade Write mode for multi-file",
+      "description": "'Execute Devin Desktop''s primary workflow: Cascade Code mode for multi-file",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-core-workflow-a/SKILL.md",
-      "lines": 161,
-      "words": 770,
+      "lines": 171,
+      "words": 870,
       "code_blocks": 7,
       "languages": [
         "bash"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-migration-deep-dive",
-      "description": "'Migrate to Windsurf from VS Code, Cursor, or other AI IDEs with full",
+      "description": "'Migrate to Devin Desktop (formerly Windsurf) from VS Code, Cursor, or other AI IDEs with full",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-migration-deep-dive/SKILL.md",
-      "lines": 245,
-      "words": 1072,
+      "lines": 257,
+      "words": 1193,
       "code_blocks": 6,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-data-handling",
-      "description": "'Control what code and data Windsurf AI can access and process in your",
+      "description": "'Govern data processed through Devin Desktop (formerly Windsurf).",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-data-handling/SKILL.md",
-      "lines": 241,
-      "words": 900,
-      "code_blocks": 7,
+      "lines": 102,
+      "words": 620,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "gitignore",
-        "json",
-        "markdown",
-        "yaml"
+        "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-multi-env-setup",
-      "description": "'Configure Windsurf IDE and Cascade AI across team members and project",
+      "description": "'Configure Devin Desktop (formerly Windsurf) IDE and Cascade AI across team members and project",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-multi-env-setup/SKILL.md",
-      "lines": 219,
-      "words": 767,
+      "lines": 231,
+      "words": 869,
       "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-debug-bundle",
-      "description": "'Collect Windsurf diagnostic information for troubleshooting and support",
+      "description": "'Collect Devin Desktop (formerly Windsurf) diagnostic information for troubleshooting and support",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-debug-bundle/SKILL.md",
-      "lines": 198,
-      "words": 755,
+      "lines": 210,
+      "words": 891,
       "code_blocks": 6,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-hello-world",
-      "description": "'Create your first Windsurf Cascade interaction and Supercomplete experience.",
+      "description": "'Create a first Devin Desktop (formerly Windsurf) Cascade and Supercomplete experience.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-hello-world/SKILL.md",
-      "lines": 166,
-      "words": 694,
+      "lines": 174,
+      "words": 773,
       "code_blocks": 8,
       "languages": [
         "typescript"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-prod-checklist",
-      "description": "'Execute Windsurf production readiness checklist for team and enterprise",
+      "description": "'Execute Devin Desktop (formerly Windsurf) production readiness checklist for team and enterprise",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-prod-checklist/SKILL.md",
-      "lines": 188,
-      "words": 753,
+      "lines": 199,
+      "words": 872,
       "code_blocks": 5,
       "languages": [
         "bash",
         "json",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-ci-integration",
-      "description": "'Integrate Windsurf Cascade workflows into CI/CD pipelines and team automation.",
+      "description": "'Analyze and integrate Devin Desktop (formerly Windsurf) Cascade workflows into CI/CD pipelines and team automation.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-ci-integration/SKILL.md",
-      "lines": 242,
-      "words": 829,
+      "lines": 256,
+      "words": 980,
       "code_blocks": 7,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-load-scale",
-      "description": "'Scale Windsurf adoption across large organizations with workspace strategies",
+      "description": "'Scale Devin Desktop (formerly Windsurf) adoption across large organizations with workspace strategies",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/windsurf-pack/skills/windsurf-load-scale/SKILL.md",
       "remote_path": "plugins/saas-packs/windsurf-pack/skills/windsurf-load-scale/SKILL.md",
-      "lines": 272,
-      "words": 1031,
+      "lines": 278,
+      "words": 1119,
       "code_blocks": 8,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -119050,18 +119047,18 @@
     },
     {
       "name": "windsurf-upgrade-migration",
-      "description": "'Upgrade Windsurf IDE, migrate settings from VS Code or Cursor, and handle",
+      "description": "'Upgrade Devin Desktop (formerly Windsurf) IDE, migrate settings from VS Code or Cursor, and handle",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/windsurf-upgrade-migration/SKILL.md",
-      "lines": 210,
-      "words": 800,
+      "lines": 224,
+      "words": 929,
       "code_blocks": 8,
       "languages": [
         "bash",
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -120029,18 +120026,18 @@
     },
     {
       "name": "windsurf-local-dev-loop",
-      "description": "'Configure Windsurf local development workflow with Cascade, Previews,",
+      "description": "'Configure Devin Desktop (formerly Windsurf) local development workflow with Cascade, Previews,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/windsurf-local-dev-loop/SKILL.md",
-      "lines": 186,
-      "words": 737,
+      "lines": 200,
+      "words": 872,
       "code_blocks": 8,
       "languages": [
         "gitignore",
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -120611,18 +120608,18 @@
     },
     {
       "name": "windsurf-reliability-patterns",
-      "description": "'Implement reliable Cascade workflows with checkpoints, rollback, and",
+      "description": "'Implement reliable Devin Desktop (formerly Windsurf) Cascade workflows with checkpoints, rollback, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-reliability-patterns/SKILL.md",
       "remote_path": "skills/.curated/windsurf-reliability-patterns/SKILL.md",
-      "lines": 243,
-      "words": 1054,
+      "lines": 256,
+      "words": 1175,
       "code_blocks": 9,
       "languages": [
         "bash",
         "markdown",
         "text"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -120862,17 +120859,14 @@
     },
     {
       "name": "windsurf-rate-limits",
-      "description": "'Understand and manage Windsurf credit system, usage limits, and model",
+      "description": "'Analyze Devin Desktop (formerly Windsurf) quota limits, extra usage,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/windsurf-rate-limits/SKILL.md",
-      "lines": 172,
-      "words": 766,
-      "code_blocks": 5,
-      "languages": [
-        "markdown",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 107,
+      "words": 715,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -123079,17 +123073,17 @@
     },
     {
       "name": "windsurf-advanced-troubleshooting",
-      "description": "'Advanced Windsurf debugging for hard-to-diagnose IDE, Cascade, and indexing",
+      "description": "'Advanced Devin Desktop (formerly Windsurf) debugging for hard-to-diagnose IDE, Cascade, and indexing",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-advanced-troubleshooting/SKILL.md",
       "remote_path": "skills/.curated/windsurf-advanced-troubleshooting/SKILL.md",
-      "lines": 266,
-      "words": 1061,
+      "lines": 275,
+      "words": 1237,
       "code_blocks": 8,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -127382,16 +127376,16 @@
     },
     {
       "name": "windsurf-known-pitfalls",
-      "description": "'Identify and avoid Windsurf anti-patterns and common mistakes.",
+      "description": "'Identify and avoid Devin Desktop (formerly Windsurf) anti-patterns and common mistakes.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-known-pitfalls/SKILL.md",
       "remote_path": "skills/.curated/windsurf-known-pitfalls/SKILL.md",
-      "lines": 257,
-      "words": 1232,
-      "code_blocks": 12,
+      "lines": 266,
+      "words": 1328,
+      "code_blocks": 11,
       "languages": [
         "bash"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -127469,11 +127463,11 @@
     },
     {
       "name": "windsurf-reference-architecture",
-      "description": "'Implement Windsurf reference architecture with optimal project structure",
+      "description": "'Implement Devin Desktop (formerly Windsurf) reference architecture with optimal project structure",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/windsurf-reference-architecture/SKILL.md",
-      "lines": 235,
-      "words": 945,
+      "lines": 249,
+      "words": 1073,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -127481,7 +127475,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -127645,18 +127639,18 @@
     },
     {
       "name": "windsurf-webhooks-events",
-      "description": "'Build Windsurf extensions and integrate with VS Code extension API events.",
+      "description": "'Build Devin Desktop (formerly Windsurf) extensions and integrate with VS Code extension API events.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/windsurf-webhooks-events/SKILL.md",
-      "lines": 260,
-      "words": 767,
+      "lines": 273,
+      "words": 886,
       "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "typescript"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -131745,17 +131739,17 @@
     },
     {
       "name": "windsurf-incident-runbook",
-      "description": "'Execute Windsurf incident response when AI features fail or cause production",
+      "description": "'Execute Devin Desktop (formerly Windsurf) incident response when AI features fail or cause production",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-incident-runbook/SKILL.md",
       "remote_path": "skills/.curated/windsurf-incident-runbook/SKILL.md",
-      "lines": 238,
-      "words": 1000,
+      "lines": 257,
+      "words": 1169,
       "code_blocks": 12,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -134156,33 +134150,26 @@
     },
     {
       "name": "windsurf-cost-tuning",
-      "description": "'Optimize Windsurf licensing costs through seat management, tier selection,",
+      "description": "'Optimize Devin Desktop (formerly Windsurf) licensing through current",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/windsurf-cost-tuning/SKILL.md",
-      "lines": 219,
-      "words": 906,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 102,
+      "words": 630,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-enterprise-rbac",
-      "description": "'Configure Windsurf enterprise SSO, RBAC, and organization-level controls.",
+      "description": "'Analyze and design Devin Desktop (formerly Windsurf) enterprise SSO, SCIM, RBAC, and team controls. Use when defining least-privilege roles, identity lifecycle, model or terminal policy, MCP access, ",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-enterprise-rbac/SKILL.md",
       "remote_path": "skills/.curated/windsurf-enterprise-rbac/SKILL.md",
-      "lines": 257,
-      "words": 916,
-      "code_blocks": 8,
-      "languages": [
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 140,
+      "words": 1143,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -137450,11 +137437,11 @@
     },
     {
       "name": "windsurf-policy-guardrails",
-      "description": "'Implement team-wide Windsurf usage policies, code quality gates, and",
+      "description": "'Implement team-wide Devin Desktop (formerly Windsurf) usage policies, code quality gates, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-policy-guardrails/SKILL.md",
       "remote_path": "skills/.curated/windsurf-policy-guardrails/SKILL.md",
-      "lines": 255,
-      "words": 1009,
+      "lines": 268,
+      "words": 1127,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -137463,7 +137450,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -138272,6 +138259,20 @@
       "license": "MIT"
     },
     {
+      "name": "windsurf-security-basics",
+      "description": "'Secure Devin Desktop (formerly Windsurf) with context boundaries,",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-security-basics/SKILL.md",
+      "remote_path": "skills/.curated/windsurf-security-basics/SKILL.md",
+      "lines": 111,
+      "words": 654,
+      "code_blocks": 1,
+      "languages": [
+        "gitignore"
+      ],
+      "version": "1.12.0",
+      "license": "MIT"
+    },
+    {
       "name": "vercel-known-pitfalls",
       "description": "'Identify and avoid Vercel anti-patterns and common integration mistakes.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vercel-known-pitfalls/SKILL.md",
@@ -138553,17 +138554,14 @@
     },
     {
       "name": "windsurf-install-auth",
-      "description": "'Install Windsurf IDE and configure Codeium authentication.",
+      "description": "'Install and authenticate Devin Desktop, the current name for Windsurf.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-install-auth/SKILL.md",
       "remote_path": "skills/.curated/windsurf-install-auth/SKILL.md",
-      "lines": 154,
-      "words": 626,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "json"
-      ],
-      "version": "1.11.0",
+      "lines": 100,
+      "words": 611,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -138710,6 +138708,22 @@
       "license": "MIT"
     },
     {
+      "name": "windsurf-observability",
+      "description": "'Monitor Devin Desktop (formerly Windsurf) AI adoption, feature usage, and team productivity metrics.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-observability/SKILL.md",
+      "remote_path": "skills/.curated/windsurf-observability/SKILL.md",
+      "lines": 259,
+      "words": 1016,
+      "code_blocks": 7,
+      "languages": [
+        "markdown",
+        "typescript",
+        "yaml"
+      ],
+      "version": "1.12.0",
+      "license": "MIT"
+    },
+    {
       "name": "supabase-multi-env-setup",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/supabase-multi-env-setup/SKILL.md",
@@ -138760,13 +138774,13 @@
       "description": "'Create production-grade agent skills aligned with the 2026 AgentSkills.io",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/skill-creator/SKILL.md",
       "remote_path": "skills/.curated/skill-creator/SKILL.md",
-      "lines": 306,
-      "words": 1672,
+      "lines": 308,
+      "words": 1678,
       "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "5.20.0",
+      "version": "5.22.0",
       "license": "MIT"
     },
     {
@@ -138986,17 +139000,17 @@
     },
     {
       "name": "agent-creator",
-      "description": "'Create production-grade agent .md files aligned with the Anthropic 2026",
+      "description": "'Create production-grade agent .md files aligned with the current Anthropic",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/agent-creator/SKILL.md",
       "remote_path": "skills/.curated/agent-creator/SKILL.md",
-      "lines": 342,
-      "words": 2031,
+      "lines": 359,
+      "words": 2184,
       "code_blocks": 5,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "5.20.0",
+      "version": "5.22.0",
       "license": "MIT"
     },
     {
@@ -140679,11 +140693,11 @@
     },
     {
       "name": "windsurf-performance-tuning",
-      "description": "'Optimize Windsurf IDE performance: indexing speed, Cascade responsiveness,",
+      "description": "'Optimize Devin Desktop (formerly Windsurf) IDE performance: indexing speed, Cascade responsiveness,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/windsurf-performance-tuning/SKILL.md",
-      "lines": 272,
-      "words": 823,
+      "lines": 287,
+      "words": 973,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -140691,22 +140705,21 @@
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
       "name": "windsurf-core-workflow-b",
-      "description": "'Execute Windsurf''s secondary workflow: Workflows, Memories, and reusable",
+      "description": "'Choose and create Devin Desktop customizations: Rules, AGENTS.md,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/windsurf-core-workflow-b/SKILL.md",
-      "lines": 218,
-      "words": 861,
-      "code_blocks": 8,
+      "lines": 126,
+      "words": 696,
+      "code_blocks": 2,
       "languages": [
-        "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -141491,18 +141504,18 @@
     },
     {
       "name": "windsurf-deploy-integration",
-      "description": "'Deploy applications using Windsurf''s built-in deployment features and",
+      "description": "'Deploy applications using Devin Desktop (formerly Windsurf)''s built-in deployment features and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-deploy-integration/SKILL.md",
       "remote_path": "skills/.curated/windsurf-deploy-integration/SKILL.md",
-      "lines": 207,
-      "words": 801,
+      "lines": 219,
+      "words": 953,
       "code_blocks": 11,
       "languages": [
         "bash",
         "markdown",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -142851,18 +142864,18 @@
     },
     {
       "name": "windsurf-architecture-variants",
-      "description": "'Choose workspace architectures for different project scales in Windsurf.",
+      "description": "'Choose workspace architectures for different project scales in Devin Desktop (formerly Windsurf).",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-architecture-variants/SKILL.md",
       "remote_path": "skills/.curated/windsurf-architecture-variants/SKILL.md",
-      "lines": 245,
-      "words": 963,
+      "lines": 262,
+      "words": 1102,
       "code_blocks": 11,
       "languages": [
         "bash",
         "gitignore",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -144002,18 +144015,18 @@
     },
     {
       "name": "windsurf-sdk-patterns",
-      "description": "'Apply production-ready Windsurf workspace configuration and Cascade",
+      "description": "'Analyze and apply production-ready Devin Desktop (formerly Windsurf) workspace configuration and Cascade",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-sdk-patterns/SKILL.md",
       "remote_path": "skills/.curated/windsurf-sdk-patterns/SKILL.md",
-      "lines": 227,
-      "words": 882,
+      "lines": 240,
+      "words": 1004,
       "code_blocks": 9,
       "languages": [
         "bash",
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -144032,18 +144045,18 @@
     },
     {
       "name": "windsurf-common-errors",
-      "description": "'Diagnose and fix common Windsurf IDE and Cascade errors.",
+      "description": "'Diagnose and fix common Devin Desktop (formerly Windsurf) IDE and Cascade errors.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-common-errors/SKILL.md",
       "remote_path": "skills/.curated/windsurf-common-errors/SKILL.md",
-      "lines": 201,
-      "words": 759,
+      "lines": 219,
+      "words": 941,
       "code_blocks": 6,
       "languages": [
         "bash",
         "gitignore",
         "json"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -144091,16 +144104,16 @@
     },
     {
       "name": "windsurf-core-workflow-a",
-      "description": "'Execute Windsurf''s primary workflow: Cascade Write mode for multi-file",
+      "description": "'Execute Devin Desktop''s primary workflow: Cascade Code mode for multi-file",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/windsurf-core-workflow-a/SKILL.md",
-      "lines": 161,
-      "words": 770,
+      "lines": 171,
+      "words": 870,
       "code_blocks": 7,
       "languages": [
         "bash"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -144329,17 +144342,17 @@
     },
     {
       "name": "windsurf-migration-deep-dive",
-      "description": "'Migrate to Windsurf from VS Code, Cursor, or other AI IDEs with full",
+      "description": "'Migrate to Devin Desktop (formerly Windsurf) from VS Code, Cursor, or other AI IDEs with full",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-migration-deep-dive/SKILL.md",
       "remote_path": "skills/.curated/windsurf-migration-deep-dive/SKILL.md",
-      "lines": 245,
-      "words": 1072,
+      "lines": 257,
+      "words": 1193,
       "code_blocks": 6,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -145795,20 +145808,16 @@
     },
     {
       "name": "windsurf-data-handling",
-      "description": "'Control what code and data Windsurf AI can access and process in your",
+      "description": "'Govern data processed through Devin Desktop (formerly Windsurf).",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-data-handling/SKILL.md",
       "remote_path": "skills/.curated/windsurf-data-handling/SKILL.md",
-      "lines": 241,
-      "words": 900,
-      "code_blocks": 7,
+      "lines": 102,
+      "words": 620,
+      "code_blocks": 1,
       "languages": [
-        "bash",
-        "gitignore",
-        "json",
-        "markdown",
-        "yaml"
+        "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -146940,18 +146949,18 @@
     },
     {
       "name": "windsurf-multi-env-setup",
-      "description": "'Configure Windsurf IDE and Cascade AI across team members and project",
+      "description": "'Configure Devin Desktop (formerly Windsurf) IDE and Cascade AI across team members and project",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-multi-env-setup/SKILL.md",
       "remote_path": "skills/.curated/windsurf-multi-env-setup/SKILL.md",
-      "lines": 219,
-      "words": 767,
+      "lines": 231,
+      "words": 869,
       "code_blocks": 8,
       "languages": [
         "bash",
         "json",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -147583,17 +147592,17 @@
     },
     {
       "name": "windsurf-debug-bundle",
-      "description": "'Collect Windsurf diagnostic information for troubleshooting and support",
+      "description": "'Collect Devin Desktop (formerly Windsurf) diagnostic information for troubleshooting and support",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/windsurf-debug-bundle/SKILL.md",
-      "lines": 198,
-      "words": 755,
+      "lines": 210,
+      "words": 891,
       "code_blocks": 6,
       "languages": [
         "bash",
         "markdown"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -148257,16 +148266,16 @@
     },
     {
       "name": "windsurf-hello-world",
-      "description": "'Create your first Windsurf Cascade interaction and Supercomplete experience.",
+      "description": "'Create a first Devin Desktop (formerly Windsurf) Cascade and Supercomplete experience.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-hello-world/SKILL.md",
       "remote_path": "skills/.curated/windsurf-hello-world/SKILL.md",
-      "lines": 166,
-      "words": 694,
+      "lines": 174,
+      "words": 773,
       "code_blocks": 8,
       "languages": [
         "typescript"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -148566,14 +148575,16 @@
     },
     {
       "name": "google-cloud-agent-sdk-master",
-      "description": "'Execute automatic activation for all google cloud agent development",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/google-cloud-agent-sdk-master/SKILL.md",
       "remote_path": "skills/.curated/google-cloud-agent-sdk-master/SKILL.md",
-      "lines": 62,
-      "words": 303,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "2.24.0",
+      "lines": 120,
+      "words": 765,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "2.26.0",
       "license": "MIT"
     },
     {
@@ -150759,18 +150770,18 @@
     },
     {
       "name": "windsurf-prod-checklist",
-      "description": "'Execute Windsurf production readiness checklist for team and enterprise",
+      "description": "'Execute Devin Desktop (formerly Windsurf) production readiness checklist for team and enterprise",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/windsurf-prod-checklist/SKILL.md",
-      "lines": 188,
-      "words": 753,
+      "lines": 199,
+      "words": 872,
       "code_blocks": 5,
       "languages": [
         "bash",
         "json",
         "yaml"
       ],
-      "version": "1.11.0",
+      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -151678,6 +151689,21 @@
       "license": "MIT"
     },
     {
+      "name": "windsurf-ci-integration",
+      "description": "'Analyze and integrate Devin Desktop (formerly Windsurf) Cascade workflows into CI/CD pipelines and team automation.",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-ci-integration/SKILL.md",
+      "remote_path": "skills/.curated/windsurf-ci-integration/SKILL.md",
+      "lines": 256,
+      "words": 980,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "yaml"
+      ],
+      "version": "1.12.0",
+      "license": "MIT"
+    },
+    {
       "name": "cohere-enterprise-rbac",
       "description": "'Configure Cohere enterprise API key management, role-based access, and",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/cohere-enterprise-rbac/SKILL.md",
@@ -151936,6 +151962,21 @@
       "code_blocks": 7,
       "languages": [
         "typescript"
+      ],
+      "version": "1.12.0",
+      "license": "MIT"
+    },
+    {
+      "name": "windsurf-load-scale",
+      "description": "'Scale Devin Desktop (formerly Windsurf) adoption across large organizations with workspace strategies",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/windsurf-load-scale/SKILL.md",
+      "remote_path": "skills/.curated/windsurf-load-scale/SKILL.md",
+      "lines": 278,
+      "words": 1119,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "yaml"
       ],
       "version": "1.12.0",
       "license": "MIT"
@@ -152576,23 +152617,24 @@
     },
     {
       "name": "{{AGENT_NAME}}",
-      "description": "\"{{AGENT_SPECIALTY_20_200_CHARS}}\"",
+      "description": "\"{{CONCISE_AGENT_SPECIALTY_20_1536_CHARS}}\"",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/skill-creator/templates/agent-template.md",
       "remote_path": "skills/.curated/skill-creator/templates/agent-template.md",
-      "lines": 103,
-      "words": 218,
+      "lines": 117,
+      "words": 305,
       "code_blocks": 1,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "{{SKILL_NAME}}",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/skill-creator/templates/skill-template.md",
       "remote_path": "skills/.curated/skill-creator/templates/skill-template.md",
-      "lines": 129,
-      "words": 294,
+      "lines": 131,
+      "words": 299,
       "code_blocks": 4,
       "languages": [],
       "version": "1.0.0",
@@ -152660,22 +152702,6 @@
       "code_blocks": 21,
       "languages": [
         "json",
-        "yaml"
-      ],
-      "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "google-cloud-agent-sdk-master",
-      "description": "|",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/google-cloud-agent-sdk-master/references/SKILL.full.md",
-      "remote_path": "skills/.curated/google-cloud-agent-sdk-master/references/SKILL.full.md",
-      "lines": 610,
-      "words": 1637,
-      "code_blocks": 22,
-      "languages": [
-        "bash",
-        "python",
         "yaml"
       ],
       "version": "1.0.0",
@@ -158065,8 +158091,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/frontend-visual-qa/SKILL.md",
       "remote_path": "frontend-visual-qa/SKILL.md",
-      "lines": 533,
-      "words": 3899,
+      "lines": 547,
+      "words": 4036,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -158201,9 +158227,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1261,
-      "words": 11273,
-      "code_blocks": 71,
+      "lines": 1291,
+      "words": 11607,
+      "code_blocks": 70,
       "languages": [
         "bash",
         "json",
@@ -158438,8 +158464,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 612,
-      "words": 2223,
+      "lines": 621,
+      "words": 2248,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -158511,9 +158537,9 @@
       "description": "Extract Feishu (Lark) Docs, Wiki pages/collections, spreadsheets, and Minutes (\u5999\u8bb0) transcripts into faithful local Markdown via the lark-cli API (no LLM rewriting of the body; browser-DOM fallback whe",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 198,
-      "words": 3859,
-      "code_blocks": 8,
+      "lines": 225,
+      "words": 4110,
+      "code_blocks": 9,
       "languages": [
         "bash"
       ]
@@ -158547,8 +158573,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 353,
-      "words": 4588,
+      "lines": 365,
+      "words": 4699,
       "code_blocks": 0,
       "languages": []
     },
@@ -158729,9 +158755,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 180,
-      "words": 1237,
-      "code_blocks": 4,
+      "lines": 196,
+      "words": 1346,
+      "code_blocks": 5,
       "languages": [
         "text"
       ]
@@ -158927,8 +158953,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1843,
-      "words": 30279,
+      "lines": 1848,
+      "words": 30325,
       "code_blocks": 55,
       "languages": [
         "bash",

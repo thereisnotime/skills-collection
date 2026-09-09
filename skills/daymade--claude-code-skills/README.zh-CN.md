@@ -775,6 +775,7 @@ python3 scripts/safe_mix.py /path/to/codebase
 
 **主要功能：**
 - Stage 1 + Native AI 完整纠错；Stage 1 单独运行不算完成
+- 分段或续跑时冻结复核文件清单，校验结果与覆盖范围，只补缺失或失败的复核段
 - 精确文件审核队列、deep link、时间戳音频播放和机器可读的 zero-pending 读回
 - file-only / dictionary / roster / context 四种沉淀边界，避免一次性错误污染长期规则
 - SQLite 审计、批处理和团队知识协作
@@ -3249,6 +3250,7 @@ main 在上次 review 后变了，重新告诉我现在真正会合进去什么
 **主要能力：**
 - 列出 Codex Session、内部时间范围和 active/archive 来源
 - 从 prompt ledger 精确读取用户输入，从新到旧且只按 Session 分组
+- 自动核对整段会话及精确继承范围内的原话与条数；明确报告未决归属，注入消息的排除须绑定已核实记录及其指纹
 - 把一个 rollout 重建为按时间交替的用户／Assistant 时间线，并保留 fork 精确字节边界与 compaction
 - Codex-only 搜索不会再把 Claude 命中混进来
 - 通过 schema 检查选择兼容的 Codex 状态数据库
@@ -3555,7 +3557,7 @@ A 股行业投研工作流：全板块成分股 Top N 涨幅计算、公告窗�
 
 > **安装**：`claude plugin install tibo-reset-codex@daymade-skills`
 
-查询重置公告，核实多个 Pro 账号的剩余额度与备用重置。
+查询重置公告，核实多个 Pro 账号的剩余额度与备用重置；预测下一轮时间，并在本地保存预测、核对结果，供后续判断调整。
 
 [操作说明](tibo-reset-codex/SKILL.md)
 
