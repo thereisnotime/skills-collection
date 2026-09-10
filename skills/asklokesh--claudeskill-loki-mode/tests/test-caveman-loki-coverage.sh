@@ -112,7 +112,14 @@ done
 # 3a. The docs helper captures claude stdout and writes it verbatim to a markdown
 #     file (loki:23869, loki:24239) -- it MUST hard-suppress so the generated docs
 #     are not emitted in caveman-speak. (#594 finding 2, advisor correction.)
-grep -qE 'result=\$\([^)]*CAVEMAN_DEFAULT_MODE=off claude -p "\$prompt"' "$LOKI_CLI" \
+# Assert the BEHAVIOR (the env prefix is on the captured claude invocation), not a
+# fixed argv layout. The previous form required `claude -p "$prompt"` to be
+# ADJACENT, so it failed the moment a legitimate flag was added between them --
+# a v9.25.0 `--model` pin broke this test while the suppression it guards was
+# fully intact, and the red was pure false positive. What actually matters is
+# that the same command substitution carries CAVEMAN_DEFAULT_MODE=off, `claude
+# -p`, and "$prompt"; the order of flags in between is not the invariant.
+grep -qE 'result=\$\([^)]*CAVEMAN_DEFAULT_MODE=off claude -p [^)]*"\$prompt"' "$LOKI_CLI" \
   && ok "_docs_invoke_provider captured deliverable HARD-SUPPRESSES caveman (off)" \
   || bad "docs-helper suppress" "_docs_invoke_provider captured subcall not suppressed with CAVEMAN_DEFAULT_MODE=off"
 

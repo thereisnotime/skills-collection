@@ -1346,7 +1346,10 @@ cmd_quickstart() {
     printf '\n'
     printf 'Starting your build. Progress streams here in the terminal.\n'
     printf '  PRD saved to: %s\n' "$target"
-    printf "  Tip: run 'loki dashboard' in another terminal to watch in a browser.\n"
+    # `loki dashboard` with no subcommand prints help and exits -- it does not
+    # start. Naming the bare command here sent every first-run user to a help
+    # screen at the exact moment they wanted to watch their build.
+    printf "  Tip: run 'loki dashboard start' in another terminal to watch in a browser.\n"
     printf '\n'
 
     # ----- Compose with cmd_start -------------------------------------------

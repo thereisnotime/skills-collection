@@ -10797,7 +10797,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 61,
-      "words": 1135,
+      "words": 1125,
       "code_blocks": 0,
       "languages": []
     },
@@ -10837,7 +10837,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-noslop/SKILL.md",
       "remote_path": "skills/ce-noslop/SKILL.md",
       "lines": 46,
-      "words": 672,
+      "words": 671,
       "code_blocks": 0,
       "languages": []
     },
@@ -10846,8 +10846,8 @@
       "description": "\"Hands-off, diff-scoped browser QA of the active branch: maps user flows, drives a real browser, autonomously fixes small breakages with regression tests and commits, judges experience against product",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-dogfood/SKILL.md",
       "remote_path": "skills/ce-dogfood/SKILL.md",
-      "lines": 63,
-      "words": 1064,
+      "lines": 67,
+      "words": 1170,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -10867,11 +10867,11 @@
     },
     {
       "name": "ce-setup",
-      "description": "\"Check Compound Engineering health and repo-local config.\"",
+      "description": "\"Check Compound Engineering health and repo-local config, or scaffold a Compound Pack with `pack:<id>`.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
-      "lines": 99,
-      "words": 1045,
+      "lines": 104,
+      "words": 1115,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -10895,8 +10895,8 @@
       "description": "\"Simplify settled, recently changed code for clarity, reuse, quality, and efficiency while preserving behavior. Use after implementation and before review; use ce-debug for bugs.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-simplify-code/SKILL.md",
       "remote_path": "skills/ce-simplify-code/SKILL.md",
-      "lines": 65,
-      "words": 950,
+      "lines": 67,
+      "words": 993,
       "code_blocks": 0,
       "languages": []
     },
@@ -10918,7 +10918,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-optimize/SKILL.md",
       "remote_path": "skills/ce-optimize/SKILL.md",
       "lines": 63,
-      "words": 1243,
+      "words": 1232,
       "code_blocks": 0,
       "languages": []
     },
@@ -11039,8 +11039,8 @@
       "description": "\"Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked to review code. Use when the user asks to apply this review's findings locally. Not for resolving feed",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 42,
-      "words": 1060,
+      "lines": 47,
+      "words": 1165,
       "code_blocks": 0,
       "languages": []
     },
@@ -11060,7 +11060,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-pov/SKILL.md",
       "remote_path": "skills/ce-pov/SKILL.md",
       "lines": 65,
-      "words": 1159,
+      "words": 1153,
       "code_blocks": 0,
       "languages": []
     },
@@ -11069,8 +11069,8 @@
       "description": "Review requirements, plans, or specs with role-specific lenses. Use when the user wants to improve an existing planning document.",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-doc-review/SKILL.md",
       "remote_path": "skills/ce-doc-review/SKILL.md",
-      "lines": 73,
-      "words": 922,
+      "lines": 76,
+      "words": 1069,
       "code_blocks": 0,
       "languages": []
     },
@@ -11090,7 +11090,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
       "lines": 80,
-      "words": 1091,
+      "words": 1126,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -11344,7 +11344,7 @@
       "path": "EveryInc--compound-engineering-plugin/.agents/skills/ce-skill-work/SKILL.md",
       "remote_path": ".agents/skills/ce-skill-work/SKILL.md",
       "lines": 55,
-      "words": 1684,
+      "words": 1726,
       "code_blocks": 0,
       "languages": []
     }
@@ -23316,17 +23316,17 @@
     },
     {
       "name": "eas-app-stores",
-      "description": "EAS service (paid). Deploy Expo apps to the app stores with EAS - build and submit to the iOS App Store, Google Play Store, and TestFlight, configure eas.json build and submit profiles, manage app ver",
+      "description": "EAS service (paid). Build and submit iOS and Android apps with EAS to TestFlight, the App Store, or Google Play. Supports Expo and other React Native projects, plus existing native apps. Use for eas.j",
       "path": "expo--skills/plugins/expo/skills/eas-app-stores/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-app-stores/SKILL.md",
-      "lines": 161,
-      "words": 700,
+      "lines": 177,
+      "words": 1030,
       "code_blocks": 8,
       "languages": [
         "bash",
         "json"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -23404,11 +23404,11 @@
     },
     {
       "name": "expo-data-fetching",
-      "description": "Framework (OSS). Use when implementing or debugging ANY network request, API call, or data fetching. Covers fetch API, React Query, SWR, error handling, caching, offline support, and Expo Router data ",
+      "description": "Framework (OSS). Use when implementing or debugging ANY network request, API call, or data fetching. Covers fetch API, React Query, SWR, error handling, caching, offline support, loading/empty/error s",
       "path": "expo--skills/plugins/expo/skills/expo-data-fetching/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-data-fetching/SKILL.md",
-      "lines": 458,
-      "words": 1443,
+      "lines": 479,
+      "words": 1779,
       "code_blocks": 20,
       "languages": [
         "bash",
@@ -23422,13 +23422,13 @@
       "description": "\"Framework (OSS). Entry point and router for every Expo or EAS task. Load this skill first \u2014 before writing code and before choosing another expo-* / eas-* skill \u2014 when the request, PRD, or spec menti",
       "path": "expo--skills/plugins/expo/skills/expo-overview/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-overview/SKILL.md",
-      "lines": 112,
-      "words": 1336,
+      "lines": 116,
+      "words": 1400,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -23478,8 +23478,8 @@
       "description": "Framework (OSS). Build and maintain a design system inside an Expo app - a reusable theme of design tokens (color, spacing, typography, radius, shadow, motion), reusable component structure with varia",
       "path": "expo--skills/plugins/expo/skills/expo-design-system/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-design-system/SKILL.md",
-      "lines": 358,
-      "words": 2409,
+      "lines": 377,
+      "words": 2767,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -23493,8 +23493,8 @@
       "description": "Framework (OSS). Build beautiful, native-feeling Expo screens. Covers Apple HIG styling, semantic colors, native controls, SF Symbols, media, visual effects, gradients, storage, and responsive layout.",
       "path": "expo--skills/plugins/expo/skills/expo-native-ui/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-native-ui/SKILL.md",
-      "lines": 195,
-      "words": 1441,
+      "lines": 202,
+      "words": 1703,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -23509,7 +23509,7 @@
       "path": "expo--skills/plugins/expo/skills/expo-animation/SKILL.md",
       "remote_path": "plugins/expo/skills/expo-animation/SKILL.md",
       "lines": 268,
-      "words": 2896,
+      "words": 2918,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -26535,7 +26535,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-interactivity",
@@ -26548,7 +26548,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "transcribe-captions",
@@ -26600,7 +26600,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-studio",
@@ -26613,7 +26613,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "rendering",
@@ -26656,7 +26656,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "calculate-metadata",
@@ -26882,13 +26882,13 @@
       "path": "remotion-dev--skills/skills/remotion-markup/SKILL.md",
       "remote_path": "skills/remotion-markup/SKILL.md",
       "lines": 366,
-      "words": 1354,
+      "words": 1355,
       "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "voiceover",
@@ -26951,7 +26951,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-best-practices",
@@ -26962,7 +26962,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "get-video-dimensions",
@@ -26997,7 +26997,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "get-video-duration",
@@ -27026,13 +27026,13 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-create/SKILL.md",
       "remote_path": "skills/remotion-create/SKILL.md",
-      "lines": 69,
-      "words": 277,
-      "code_blocks": 3,
+      "lines": 86,
+      "words": 376,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-maps",
@@ -27043,7 +27043,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-upgrade",
@@ -27051,12 +27051,12 @@
       "path": "remotion-dev--skills/skills/remotion-upgrade/SKILL.md",
       "remote_path": "skills/remotion-upgrade/SKILL.md",
       "lines": 32,
-      "words": 231,
+      "words": 239,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-maps",
@@ -27067,7 +27067,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-maps-static",
@@ -27086,8 +27086,8 @@
       "description": "Make deterministic Remotion 2D map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, map markers, labels, and camera movement.",
       "path": "remotion-dev--skills/skills/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
-      "lines": 466,
-      "words": 1515,
+      "lines": 485,
+      "words": 1544,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27132,7 +27132,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-interactivity",
@@ -27145,7 +27145,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-captions",
@@ -27158,7 +27158,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "transcribe-captions",
@@ -27210,7 +27210,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-saas",
@@ -27221,7 +27221,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "rendering",
@@ -27375,13 +27375,13 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/REFERENCE.md",
       "lines": 366,
-      "words": 1354,
+      "words": 1355,
       "code_blocks": 10,
       "languages": [
         "bash",
         "tsx"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "audio-visualization",
@@ -27548,7 +27548,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "get-video-dimensions",
@@ -27583,7 +27583,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "get-video-duration",
@@ -27602,13 +27602,13 @@
       "description": "Create a new Remotion video",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-create/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-create/REFERENCE.md",
-      "lines": 69,
-      "words": 277,
-      "code_blocks": 3,
+      "lines": 86,
+      "words": 376,
+      "code_blocks": 4,
       "languages": [
         "bash"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "tailwind",
@@ -27629,7 +27629,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-upgrade",
@@ -27637,12 +27637,12 @@
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-upgrade/REFERENCE.md",
       "lines": 32,
-      "words": 231,
+      "words": 239,
       "code_blocks": 2,
       "languages": [
         "bash"
       ],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-maps",
@@ -27653,7 +27653,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.522"
+      "version": "4.0.523"
     },
     {
       "name": "remotion-maps-static",
@@ -27672,8 +27672,8 @@
       "description": "Make deterministic Remotion 2D map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, map markers, labels, and camera movement.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-markup/remotion-maps/techniques/maplibre/TECHNIQUE.md",
-      "lines": 466,
-      "words": 1515,
+      "lines": 485,
+      "words": 1544,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27712,8 +27712,8 @@
       "description": "Make deterministic Remotion 2D map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, map markers, labels, and camera movement.",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-best-practices/remotion-maps/techniques/maplibre/TECHNIQUE.md",
-      "lines": 466,
-      "words": 1515,
+      "lines": 485,
+      "words": 1544,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -27752,8 +27752,8 @@
       "description": "Make deterministic Remotion 2D map animations with MapLibre GL JS and Turf. Use when the user chooses MapLibre for animated routes, map markers, labels, and camera movement.",
       "path": "remotion-dev--skills/skills/remotion-maps/techniques/maplibre/TECHNIQUE.md",
       "remote_path": "skills/remotion-maps/techniques/maplibre/TECHNIQUE.md",
-      "lines": 466,
-      "words": 1515,
+      "lines": 485,
+      "words": 1544,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -28448,6 +28448,16 @@
       "words": 241,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "sanity-studio-upgrade",
+      "description": "Produces a tailored Sanity Studio upgrade plan by inspecting the repository's installed versions, config, and source, then reporting only the breaking changes that actually apply. Covers Studio v3 and",
+      "path": "sanity-io--agent-toolkit/skills/sanity-studio-upgrade/SKILL.md",
+      "remote_path": "skills/sanity-studio-upgrade/SKILL.md",
+      "lines": 184,
+      "words": 3244,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "sanjay3290--ai-skills": [
@@ -28834,8 +28844,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-best-practices/SKILL.md",
       "remote_path": "skills/stripe-best-practices/SKILL.md",
-      "lines": 74,
-      "words": 718,
+      "lines": 78,
+      "words": 811,
       "code_blocks": 0,
       "languages": []
     },
@@ -28942,8 +28952,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 74,
-      "words": 718,
+      "lines": 78,
+      "words": 811,
       "code_blocks": 0,
       "languages": []
     },
@@ -29040,8 +29050,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 74,
-      "words": 718,
+      "lines": 78,
+      "words": 811,
       "code_blocks": 0,
       "languages": []
     },
@@ -29138,8 +29148,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 74,
-      "words": 718,
+      "lines": 78,
+      "words": 811,
       "code_blocks": 0,
       "languages": []
     },
@@ -29246,8 +29256,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 74,
-      "words": 718,
+      "lines": 78,
+      "words": 811,
       "code_blocks": 0,
       "languages": []
     },
@@ -29344,8 +29354,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-best-practices/SKILL.md",
-      "lines": 74,
-      "words": 718,
+      "lines": 78,
+      "words": 811,
       "code_blocks": 0,
       "languages": []
     },
@@ -61921,14 +61931,14 @@
       "description": "Technical analysis translator for Product Managers. Use when the user",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/technical-analyst/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/technical-analyst/SKILL.md",
-      "lines": 206,
-      "words": 1284,
+      "lines": 212,
+      "words": 1302,
       "code_blocks": 3,
       "languages": [
         "kotlin",
         "swift"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -61936,11 +61946,11 @@
       "description": "Structured hypothesis formulation, experiment design, and results interpretation",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/hypothesis-tester/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/hypothesis-tester/SKILL.md",
-      "lines": 204,
-      "words": 1590,
+      "lines": 210,
+      "words": 1598,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -61948,39 +61958,39 @@
       "description": "Collaborative thinking partner for exploring ideas, challenges, and decisions.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/thought-partner/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/thought-partner/SKILL.md",
-      "lines": 128,
-      "words": 928,
+      "lines": 136,
+      "words": 952,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
       "name": "stakeholder-update",
-      "description": "Stakeholder communication assistant for status updates, progress reports,",
+      "description": "Create and review stakeholder status updates, progress reports, and executive",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/stakeholder-update/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/stakeholder-update/SKILL.md",
-      "lines": 268,
-      "words": 1540,
+      "lines": 279,
+      "words": 1592,
       "code_blocks": 1,
       "languages": [
         "markdown"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
       "name": "strategic-clarity",
-      "description": "Guided workflow for establishing team identity, boundaries, and strategic",
+      "description": "Analyze and audit team context to establish identity, boundaries, and strategic",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/strategic-clarity/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/strategic-clarity/SKILL.md",
-      "lines": 331,
-      "words": 1604,
+      "lines": 340,
+      "words": 1635,
       "code_blocks": 3,
       "languages": [
         "markdown"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -61988,11 +61998,11 @@
       "description": "Competitive analysis and market positioning partner for Product Managers.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/competitor-analyst/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/competitor-analyst/SKILL.md",
-      "lines": 187,
-      "words": 1672,
+      "lines": 193,
+      "words": 1689,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -62000,11 +62010,11 @@
       "description": "Professional writing assistant for PM documents. Use when the user needs",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/writer/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/writer/SKILL.md",
-      "lines": 215,
-      "words": 1294,
+      "lines": 222,
+      "words": 1312,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -62012,13 +62022,13 @@
       "description": "Data exploration and analysis partner for Product Managers. Use when",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/data-analyst/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/data-analyst/SKILL.md",
-      "lines": 281,
-      "words": 1480,
+      "lines": 287,
+      "words": 1501,
       "code_blocks": 3,
       "languages": [
         "sql"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -62026,11 +62036,11 @@
       "description": "Constructive critic and stress-tester for ideas and proposals. Use when",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/devil-advocate/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/devil-advocate/SKILL.md",
-      "lines": 167,
-      "words": 1198,
+      "lines": 173,
+      "words": 1227,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -62038,13 +62048,13 @@
       "description": "Structured product brief and PRD creation assistant. Use when the user",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/product-brief/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/product-brief/SKILL.md",
-      "lines": 268,
-      "words": 1409,
+      "lines": 277,
+      "words": 1455,
       "code_blocks": 1,
       "languages": [
         "markdown"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -62052,15 +62062,15 @@
       "description": "\"Hands-on implementation partner for creating tools, scripts, dashboards,\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/builder/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/builder/SKILL.md",
-      "lines": 369,
-      "words": 1993,
+      "lines": 376,
+      "words": 2030,
       "code_blocks": 5,
       "languages": [
         "bash",
         "html",
         "python"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -62068,13 +62078,13 @@
       "description": "Meeting preparation assistant for Product Managers. Use when the user",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/pm-ai-partner/skills/meeting-prep/SKILL.md",
       "remote_path": "plugins/productivity/pm-ai-partner/skills/meeting-prep/SKILL.md",
-      "lines": 264,
-      "words": 1588,
+      "lines": 272,
+      "words": 1628,
       "code_blocks": 1,
       "languages": [
         "markdown"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -63142,18 +63152,6 @@
         "yaml"
       ],
       "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "hyperfocus",
-      "description": "'ADHD-friendly output formatting for Claude Code. Restructures responses",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/hyperfocus/skills/hyperfocus/SKILL.md",
-      "remote_path": "plugins/productivity/hyperfocus/skills/hyperfocus/SKILL.md",
-      "lines": 100,
-      "words": 596,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "0.2.0",
       "license": "MIT"
     },
     {
@@ -64657,34 +64655,6 @@
       "license": "MIT"
     },
     {
-      "name": "doctor",
-      "description": "\"Diagnose Promptbook setup \\u2014 check config, hooks, API key, and session\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/promptbook/skills/doctor/SKILL.md",
-      "remote_path": "plugins/business-tools/promptbook/skills/doctor/SKILL.md",
-      "lines": 116,
-      "words": 479,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.4.0",
-      "license": "MIT"
-    },
-    {
-      "name": "setup",
-      "description": "\"Set up Promptbook \\u2014 connect your account to start tracking builds.\\n\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/promptbook/skills/setup/SKILL.md",
-      "remote_path": "plugins/business-tools/promptbook/skills/setup/SKILL.md",
-      "lines": 177,
-      "words": 824,
-      "code_blocks": 10,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.4.0",
-      "license": "MIT"
-    },
-    {
       "name": "legal-compliance",
       "description": "\"Checks every contract clause against applicable regulatory frameworks (GDPR, CCPA, employment law, UCC, sector-specific regulations) by jurisdiction and outputs a structured compliance checklist with",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/general-legal-assistant/agents/legal-compliance.md",
@@ -64903,77 +64873,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "todoist-due-drafts",
-      "description": "Check Todoist for tasks due today (and overdue) that involve pinging,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/executive-assistant-skills/skills/todoist-due-drafts/SKILL.md",
-      "remote_path": "plugins/business-tools/executive-assistant-skills/skills/todoist-due-drafts/SKILL.md",
-      "lines": 181,
-      "words": 1167,
-      "code_blocks": 8,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "email-drafting",
-      "description": "\"Draft email replies for Gonto's Gmail accounts (m@gon.to, gonto@hypergrowthpartners.com).\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/executive-assistant-skills/skills/email-drafting/SKILL.md",
-      "remote_path": "plugins/business-tools/executive-assistant-skills/skills/email-drafting/SKILL.md",
-      "lines": 273,
-      "words": 1744,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "executive-digest",
-      "description": "\"Generate the daily executive digest \\u2014 a single WhatsApp summary\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/executive-assistant-skills/skills/executive-digest/SKILL.md",
-      "remote_path": "plugins/business-tools/executive-assistant-skills/skills/executive-digest/SKILL.md",
-      "lines": 217,
-      "words": 1734,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "action-items-todoist",
-      "description": "Extract action items from today's Granola/Grain meetings, create Todoist",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/executive-assistant-skills/skills/action-items-todoist/SKILL.md",
-      "remote_path": "plugins/business-tools/executive-assistant-skills/skills/action-items-todoist/SKILL.md",
-      "lines": 279,
-      "words": 2400,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
-      "name": "meeting-prep",
-      "description": "\"Prepare briefings for today's meetings \\u2014 attendee research, email\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/business-tools/executive-assistant-skills/skills/meeting-prep/SKILL.md",
-      "remote_path": "plugins/business-tools/executive-assistant-skills/skills/meeting-prep/SKILL.md",
-      "lines": 359,
-      "words": 2832,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -66877,20 +66776,6 @@
       "license": "MIT"
     },
     {
-      "name": "local-tts",
-      "description": "'Generate speech locally from text using VoxCPM2 (2B params, Apache-2.0).",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-ml/local-tts/skills/local-tts/SKILL.md",
-      "remote_path": "plugins/ai-ml/local-tts/skills/local-tts/SKILL.md",
-      "lines": 216,
-      "words": 970,
-      "code_blocks": 12,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.3.0",
-      "license": "Apache-2.0"
-    },
-    {
       "name": "validate-ethics",
       "description": "Execute AI/ML task with intelligent automation",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/ai-ml/ai-ethics-validator/commands/validate-ethics.md",
@@ -67423,16 +67308,16 @@
     },
     {
       "name": "web-analytics",
-      "description": "'Push-based web analytics intelligence for your entire site portfolio.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/analytics/web-analytics/skills/web-analytics/SKILL.md",
       "remote_path": "plugins/analytics/web-analytics/skills/web-analytics/SKILL.md",
-      "lines": 253,
-      "words": 1249,
-      "code_blocks": 2,
+      "lines": 159,
+      "words": 929,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "1.4.0",
+      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -67456,18 +67341,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.0.0",
-      "license": "MIT"
-    },
-    {
-      "name": "claude-reflect",
-      "description": "'Execute self-learning system that captures corrections during sessions",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/claude-reflect/SKILL.md",
-      "remote_path": "plugins/community/claude-reflect/SKILL.md",
-      "lines": 124,
-      "words": 556,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -67752,44 +67625,6 @@
       ],
       "version": "0.1.6",
       "license": "MIT"
-    },
-    {
-      "name": "reflect",
-      "description": "Reflect on session corrections and update CLAUDE.md (with human review)",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/claude-reflect/commands/reflect.md",
-      "remote_path": "plugins/community/claude-reflect/commands/reflect.md",
-      "lines": 877,
-      "words": 3902,
-      "code_blocks": 36,
-      "languages": [
-        "bash",
-        "json",
-        "markdown"
-      ]
-    },
-    {
-      "name": "skip-reflect",
-      "description": "Discard queued learnings without processing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/claude-reflect/commands/skip-reflect.md",
-      "remote_path": "plugins/community/claude-reflect/commands/skip-reflect.md",
-      "lines": 38,
-      "words": 136,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "view-queue",
-      "description": "View the learnings queue without processing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/claude-reflect/commands/view-queue.md",
-      "remote_path": "plugins/community/claude-reflect/commands/view-queue.md",
-      "lines": 61,
-      "words": 158,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ]
     },
     {
       "name": "firebase-operations-agent",
@@ -69722,20 +69557,6 @@
         "json"
       ],
       "version": "0.9.0",
-      "license": "MIT"
-    },
-    {
-      "name": "boycott-filter",
-      "description": "\"Personal boycott list \\u2014 users can conversationally tell the agent\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/community/boycott-filter/skills/boycott-filter/SKILL.md",
-      "remote_path": "plugins/community/boycott-filter/skills/boycott-filter/SKILL.md",
-      "lines": 224,
-      "words": 1123,
-      "code_blocks": 9,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.2.0",
       "license": "MIT"
     },
     {
@@ -80768,489 +80589,6 @@
         "python"
       ],
       "version": "1.18.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-core-workflow-b",
-      "description": "'Manage Replit Teams, member permissions, deployment promotion, and bulk",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-core-workflow-b/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-core-workflow-b/SKILL.md",
-      "lines": 214,
-      "words": 744,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-load-scale",
-      "description": "'Load test and scale Replit deployments with Autoscale tuning, Reserved",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-load-scale/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-load-scale/SKILL.md",
-      "lines": 272,
-      "words": 1125,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "javascript",
-        "markdown",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-architecture-variants",
-      "description": "'Choose and implement Replit architecture blueprints: single-file script,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-architecture-variants/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-architecture-variants/SKILL.md",
-      "lines": 265,
-      "words": 987,
-      "code_blocks": 10,
-      "languages": [
-        "markdown",
-        "python",
-        "toml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-hello-world",
-      "description": "'Create a minimal working Replit app with database, object storage, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-hello-world/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-hello-world/SKILL.md",
-      "lines": 282,
-      "words": 856,
-      "code_blocks": 7,
-      "languages": [
-        "json",
-        "python",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-debug-bundle",
-      "description": "'Collect Replit diagnostic info for debugging deployments, workspace",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-debug-bundle/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-debug-bundle/SKILL.md",
-      "lines": 194,
-      "words": 817,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-advanced-troubleshooting",
-      "description": "'Debug hard Replit issues: container lifecycle, Nix build failures, deployment",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-advanced-troubleshooting/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-advanced-troubleshooting/SKILL.md",
-      "lines": 329,
-      "words": 1292,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-enterprise-rbac",
-      "description": "'Configure Replit Teams roles, SSO/SAML, custom groups, and organization-level",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-enterprise-rbac/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-enterprise-rbac/SKILL.md",
-      "lines": 234,
-      "words": 942,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-prod-checklist",
-      "description": "'Prepare, publish, and verify a production Replit App with explicit access, Secrets, auth, storage, health, monitoring, cost, and recovery checks. Use when going live or republishing an Autoscale, Res",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-prod-checklist/SKILL.md",
-      "lines": 165,
-      "words": 1160,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-data-handling",
-      "description": "'Implement secure data handling on Replit: PostgreSQL, KV Database, Object",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-data-handling/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-data-handling/SKILL.md",
-      "lines": 339,
-      "words": 1151,
-      "code_blocks": 8,
-      "languages": [
-        "markdown",
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-reference-architecture",
-      "description": "'Design a production Replit App with explicit Preview/published boundaries, supported authentication, durable storage, safe configuration, health checks, and a workload-appropriate deployment type. Us",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-reference-architecture/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-reference-architecture/SKILL.md",
-      "lines": 184,
-      "words": 1159,
-      "code_blocks": 5,
-      "languages": [
-        "text",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-core-workflow-a",
-      "description": "'Build a full-stack web app on Replit with Express/Flask, PostgreSQL,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-core-workflow-a/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-core-workflow-a/SKILL.md",
-      "lines": 281,
-      "words": 974,
-      "code_blocks": 7,
-      "languages": [
-        "nix",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-multi-env-setup",
-      "description": "'Configure Replit dev/staging/production environments with separate databases,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-multi-env-setup/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-multi-env-setup/SKILL.md",
-      "lines": 283,
-      "words": 978,
-      "code_blocks": 9,
-      "languages": [
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-observability",
-      "description": "'Monitor Replit deployments with health checks, uptime tracking, resource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-observability/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-observability/SKILL.md",
-      "lines": 289,
-      "words": 1009,
-      "code_blocks": 6,
-      "languages": [
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-ci-integration",
-      "description": "'Configure CI/CD for Replit with GitHub Actions, automated testing, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-ci-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-ci-integration/SKILL.md",
-      "lines": 229,
-      "words": 765,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-deploy-integration",
-      "description": "'Deploy Replit apps with Autoscale, Reserved VM, and Static deployment",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-deploy-integration/SKILL.md",
-      "lines": 245,
-      "words": 892,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "markdown",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-common-errors",
-      "description": "'Diagnose Replit Preview and publishing failures involving commands, dependencies, ports, production Secrets, storage, authentication, or deployment type. Use when an app works in one Replit environme",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-common-errors/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-common-errors/SKILL.md",
-      "lines": 131,
-      "words": 1020,
-      "code_blocks": 2,
-      "languages": [
-        "text"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-security-basics",
-      "description": "'Apply Replit security best practices: Secrets management, REPL_IDENTITY",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-security-basics/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-security-basics/SKILL.md",
-      "lines": 206,
-      "words": 921,
-      "code_blocks": 8,
-      "languages": [
-        "gitignore",
-        "markdown",
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-migration-deep-dive",
-      "description": "'Migrate to Replit from Heroku, Railway, Vercel, or local development",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-migration-deep-dive/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-migration-deep-dive/SKILL.md",
-      "lines": 306,
-      "words": 1138,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "json",
-        "markdown",
-        "nix",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-upgrade-migration",
-      "description": "'Upgrade Replit Nix channels, migrate between database types, and update",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-upgrade-migration/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-upgrade-migration/SKILL.md",
-      "lines": 242,
-      "words": 870,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "markdown",
-        "nix",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-policy-guardrails",
-      "description": "'Enforce security and resource policies for Replit-hosted apps: secrets",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-policy-guardrails/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-policy-guardrails/SKILL.md",
-      "lines": 291,
-      "words": 1045,
-      "code_blocks": 7,
-      "languages": [
-        "markdown",
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-performance-tuning",
-      "description": "'Optimize Replit app performance: cold start, memory, Nix caching, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-performance-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-performance-tuning/SKILL.md",
-      "lines": 270,
-      "words": 962,
-      "code_blocks": 9,
-      "languages": [
-        "json",
-        "nix",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-known-pitfalls",
-      "description": "'Audit a Replit App for persistence, Secrets, publishing, port, authentication, and deployment mistakes. Use when reviewing Replit code or diagnosing a Preview-to-production mismatch. Trigger with phr",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-known-pitfalls/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-known-pitfalls/SKILL.md",
-      "lines": 137,
-      "words": 971,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-sdk-patterns",
-      "description": "'Apply production-ready patterns for Replit Database, Object Storage,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-sdk-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-sdk-patterns/SKILL.md",
-      "lines": 316,
-      "words": 1034,
-      "code_blocks": 6,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-install-auth",
-      "description": "'Set up a Replit project with .replit + replit.nix configuration, Secrets,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-install-auth/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-install-auth/SKILL.md",
-      "lines": 251,
-      "words": 874,
-      "code_blocks": 7,
-      "languages": [
-        "markdown",
-        "nix",
-        "python",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-incident-runbook",
-      "description": "'Triage a Replit published-app incident, separate platform from application failures, contain safely, and preserve redacted evidence. Use when handling outages, crash loops, failed releases, database ",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-incident-runbook/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-incident-runbook/SKILL.md",
-      "lines": 147,
-      "words": 1002,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-local-dev-loop",
-      "description": "'Configure Replit development workflow with hot reload, Webview, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-local-dev-loop/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-local-dev-loop/SKILL.md",
-      "lines": 226,
-      "words": 792,
-      "code_blocks": 14,
-      "languages": [
-        "json",
-        "markdown",
-        "python",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-reliability-patterns",
-      "description": "'Implement reliability patterns for Replit: cold start handling, graceful",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-reliability-patterns/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-reliability-patterns/SKILL.md",
-      "lines": 334,
-      "words": 1061,
-      "code_blocks": 10,
-      "languages": [
-        "markdown",
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-cost-tuning",
-      "description": "'Optimize Replit costs: deployment sizing, seat audit, egress control,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-cost-tuning/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-cost-tuning/SKILL.md",
-      "lines": 241,
-      "words": 978,
-      "code_blocks": 8,
-      "languages": [
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-rate-limits",
-      "description": "'Handle Replit resource limits: KV database caps, deployment quotas,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-rate-limits/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-rate-limits/SKILL.md",
-      "lines": 243,
-      "words": 956,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-webhooks-events",
-      "description": "'Handle Replit deployment events, build Replit Extensions, and set up",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/replit-pack/skills/replit-webhooks-events/SKILL.md",
-      "remote_path": "plugins/saas-packs/replit-pack/skills/replit-webhooks-events/SKILL.md",
-      "lines": 291,
-      "words": 978,
-      "code_blocks": 6,
-      "languages": [
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -95378,253 +94716,254 @@
     },
     {
       "name": "posthog-security-basics",
-      "description": "'Secure PostHog integration: API key management, project key vs personal",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-security-basics/SKILL.md",
-      "lines": 190,
-      "words": 775,
+      "lines": 193,
+      "words": 882,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-performance-tuning",
-      "description": "'Optimize PostHog performance: local flag evaluation, client batching",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-performance-tuning/SKILL.md",
-      "lines": 231,
-      "words": 919,
+      "lines": 234,
+      "words": 1061,
       "code_blocks": 5,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-multi-env-setup",
-      "description": "'Configure PostHog across development, staging, and production environments.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-multi-env-setup/SKILL.md",
-      "lines": 243,
-      "words": 889,
+      "lines": 245,
+      "words": 993,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-install-auth",
-      "description": "'Install and configure PostHog SDKs with authentication.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-install-auth/SKILL.md",
-      "lines": 193,
-      "words": 710,
+      "lines": 198,
+      "words": 853,
       "code_blocks": 6,
       "languages": [
         "bash",
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-sdk-patterns",
-      "description": "'Production-ready PostHog SDK patterns: singleton client, typed events,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-sdk-patterns/SKILL.md",
-      "lines": 278,
-      "words": 887,
+      "lines": 282,
+      "words": 981,
       "code_blocks": 6,
       "languages": [
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-upgrade-migration",
-      "description": "'Upgrade posthog-js and posthog-node SDKs with breaking change detection.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-upgrade-migration/SKILL.md",
-      "lines": 253,
-      "words": 898,
+      "lines": 193,
+      "words": 947,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-prod-checklist",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-prod-checklist/SKILL.md",
+      "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-prod-checklist/SKILL.md",
+      "lines": 228,
+      "words": 1033,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-deploy-integration",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-deploy-integration/SKILL.md",
+      "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-deploy-integration/SKILL.md",
+      "lines": 198,
+      "words": 962,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "posthog-prod-checklist",
-      "description": "'Production readiness checklist for PostHog integrations: SDK configuration,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-prod-checklist/SKILL.md",
-      "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-prod-checklist/SKILL.md",
-      "lines": 242,
-      "words": 934,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "posthog-deploy-integration",
-      "description": "'Deploy PostHog to Vercel, Docker (self-hosted), and Cloud Run.",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-deploy-integration/SKILL.md",
-      "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-deploy-integration/SKILL.md",
-      "lines": 208,
-      "words": 754,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-core-workflow-a",
-      "description": "'Implement PostHog product analytics: event capture, user identification,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-core-workflow-a/SKILL.md",
-      "lines": 240,
-      "words": 752,
+      "lines": 244,
+      "words": 857,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-incident-runbook",
-      "description": "'PostHog incident response: triage decision tree, immediate actions for",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-incident-runbook/SKILL.md",
-      "lines": 231,
-      "words": 1018,
+      "lines": 225,
+      "words": 1181,
       "code_blocks": 8,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-cost-tuning",
-      "description": "'Optimize PostHog costs: autocapture tuning, event sampling with before_send,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-cost-tuning/SKILL.md",
-      "lines": 228,
-      "words": 952,
+      "lines": 223,
+      "words": 1059,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-core-workflow-b",
-      "description": "'Implement PostHog feature flags, A/B experiments, and cohort management.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-core-workflow-b/SKILL.md",
-      "lines": 272,
-      "words": 931,
+      "lines": 274,
+      "words": 1043,
       "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-enterprise-rbac",
-      "description": "'PostHog enterprise access control: organization/project hierarchy, member",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-enterprise-rbac/SKILL.md",
-      "lines": 221,
-      "words": 857,
+      "lines": 224,
+      "words": 970,
       "code_blocks": 5,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-observability",
-      "description": "'Monitor PostHog integration health: event ingestion rates, feature flag",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-observability/SKILL.md",
-      "lines": 266,
-      "words": 939,
+      "lines": 272,
+      "words": 1088,
       "code_blocks": 5,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-migration-deep-dive",
-      "description": "'Migrate to PostHog from Google Analytics, Mixpanel, Amplitude, or Segment.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-migration-deep-dive/SKILL.md",
-      "lines": 324,
-      "words": 1149,
-      "code_blocks": 6,
+      "lines": 140,
+      "words": 997,
+      "code_blocks": 3,
       "languages": [
         "bash",
+        "json",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-common-errors",
-      "description": "'Diagnose and fix common PostHog errors: events not appearing, flags",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-common-errors/SKILL.md",
-      "lines": 241,
-      "words": 1023,
+      "lines": 244,
+      "words": 1103,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-ci-integration",
-      "description": "'Configure PostHog CI/CD with GitHub Actions: unit tests with mocked",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-ci-integration/SKILL.md",
-      "lines": 255,
-      "words": 796,
+      "lines": 258,
+      "words": 900,
       "code_blocks": 5,
       "languages": [
         "bash",
@@ -95632,109 +94971,109 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-hello-world",
-      "description": "'Create a minimal working PostHog example with event capture, identify,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-hello-world/SKILL.md",
-      "lines": 201,
-      "words": 612,
+      "lines": 202,
+      "words": 714,
       "code_blocks": 4,
       "languages": [
         "bash",
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-local-dev-loop",
-      "description": "'Configure PostHog local development with mocking, debug mode, and testing.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-local-dev-loop/SKILL.md",
-      "lines": 241,
-      "words": 772,
+      "lines": 243,
+      "words": 866,
       "code_blocks": 6,
       "languages": [
         "json",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-rate-limits",
-      "description": "'Handle PostHog API rate limits with exponential backoff, request queuing,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-rate-limits/SKILL.md",
-      "lines": 229,
-      "words": 889,
+      "lines": 240,
+      "words": 1140,
       "code_blocks": 4,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-reference-architecture",
-      "description": "'Production PostHog architecture: event taxonomy, SDK layering, feature",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-reference-architecture/SKILL.md",
-      "lines": 272,
-      "words": 961,
+      "lines": 282,
+      "words": 1137,
       "code_blocks": 6,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-data-handling",
-      "description": "'PostHog PII handling, GDPR compliance, consent management, data deletion,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-data-handling/SKILL.md",
-      "lines": 304,
-      "words": 1027,
+      "lines": 315,
+      "words": 1216,
       "code_blocks": 5,
       "languages": [
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-webhooks-events",
-      "description": "'Implement PostHog webhook destinations, Action-triggered notifications,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-webhooks-events/SKILL.md",
-      "lines": 268,
-      "words": 888,
+      "lines": 272,
+      "words": 995,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
       "name": "posthog-debug-bundle",
-      "description": "'Collect PostHog debug evidence for support tickets and troubleshooting.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/posthog-pack/skills/posthog-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/posthog-pack/skills/posthog-debug-bundle/SKILL.md",
       "lines": 205,
-      "words": 913,
+      "words": 1000,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -101047,147 +100386,122 @@
     },
     {
       "name": "stackblitz-common-errors",
-      "description": "'Fix WebContainer and StackBlitz errors: COOP/COEP, SharedArrayBuffer,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-common-errors/SKILL.md",
-      "lines": 128,
-      "words": 395,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 603,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-hello-world",
-      "description": "'Boot a WebContainer, mount files, install npm packages, and run a dev",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-hello-world/SKILL.md",
-      "lines": 139,
-      "words": 456,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 82,
+      "words": 617,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-debug-bundle",
-      "description": "'Collect WebContainer diagnostic info: boot state, file system, process",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-debug-bundle/SKILL.md",
-      "lines": 98,
-      "words": 307,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 600,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-security-basics",
-      "description": "'Secure WebContainer deployments: CSP headers, sandbox isolation, input",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-security-basics/SKILL.md",
-      "lines": 80,
-      "words": 278,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 84,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-rate-limits",
-      "description": "'WebContainer resource limits: memory, CPU, file system size, process",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-rate-limits/SKILL.md",
-      "lines": 80,
-      "words": 303,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 626,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-core-workflow-a",
-      "description": "'Build a browser-based code editor with WebContainers: file tree, editor,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-core-workflow-a/SKILL.md",
-      "lines": 142,
-      "words": 467,
-      "code_blocks": 5,
-      "languages": [
-        "html",
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 627,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-core-workflow-b",
-      "description": "'Embed StackBlitz projects and manage WebContainer snapshots for sharing.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-core-workflow-b/SKILL.md",
-      "lines": 115,
-      "words": 343,
-      "code_blocks": 4,
-      "languages": [
-        "html",
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-sdk-patterns",
-      "description": "'Production patterns for WebContainer API: file system operations, process",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-sdk-patterns/SKILL.md",
-      "lines": 184,
-      "words": 521,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 616,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-install-auth",
-      "description": "'Install the WebContainer API and configure StackBlitz SDK for browser-based",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-install-auth/SKILL.md",
-      "lines": 112,
-      "words": 344,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "javascript",
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 82,
+      "words": 666,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "stackblitz-local-dev-loop",
-      "description": "'Configure local development for WebContainer applications with hot reload",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/stackblitz-pack/skills/stackblitz-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/stackblitz-pack/skills/stackblitz-local-dev-loop/SKILL.md",
-      "lines": 106,
-      "words": 341,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 82,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -106108,361 +105422,290 @@
     },
     {
       "name": "webflow-hello-world",
-      "description": "\"Create a minimal working Webflow Data API v2 example.\\nUse when starting\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-hello-world/SKILL.md",
-      "lines": 221,
-      "words": 819,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 683,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-security-basics",
-      "description": "\"Apply Webflow API security best practices \\u2014 token management, scope\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-security-basics/SKILL.md",
-      "lines": 271,
-      "words": 960,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 674,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-performance-tuning",
-      "description": "'Optimize Webflow API performance with response caching, bulk endpoint",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-performance-tuning/SKILL.md",
-      "lines": 297,
-      "words": 1112,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 676,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-cost-tuning",
-      "description": "'Optimize Webflow costs through plan selection, CDN read optimization,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-cost-tuning/SKILL.md",
-      "lines": 265,
-      "words": 1095,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 664,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-ci-integration",
-      "description": "\"Configure Webflow CI/CD with GitHub Actions \\u2014 automated CMS validation,\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-ci-integration/SKILL.md",
-      "lines": 285,
-      "words": 932,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 683,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-debug-bundle",
-      "description": "'Collect Webflow debug evidence for support tickets and troubleshooting.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-debug-bundle/SKILL.md",
-      "lines": 270,
-      "words": 1053,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 638,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-install-auth",
-      "description": "'Install the Webflow JS SDK (webflow-api) and configure OAuth 2.0 or",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-install-auth/SKILL.md",
-      "lines": 211,
-      "words": 796,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 711,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-core-workflow-b",
-      "description": "\"Execute Webflow secondary workflows \\u2014 Sites management, Pages API,\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-core-workflow-b/SKILL.md",
-      "lines": 324,
-      "words": 1053,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 657,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-data-handling",
-      "description": "\"Implement Webflow data handling \\u2014 CMS content delivery patterns,\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-data-handling/SKILL.md",
-      "lines": 308,
-      "words": 1215,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 657,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-enterprise-rbac",
-      "description": "\"Configure Webflow enterprise access control \\u2014 OAuth 2.0 app authorization,\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-enterprise-rbac/SKILL.md",
-      "lines": 340,
-      "words": 1130,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 666,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-rate-limits",
-      "description": "\"Handle Webflow Data API v2 rate limits \\u2014 per-key limits, Retry-After\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-rate-limits/SKILL.md",
-      "lines": 297,
-      "words": 1153,
-      "code_blocks": 7,
-      "languages": [
-        "json",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-reference-architecture",
-      "description": "\"Implement Webflow reference architecture \\u2014 layered project structure,\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-reference-architecture/SKILL.md",
-      "lines": 402,
-      "words": 1241,
-      "code_blocks": 11,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-common-errors",
-      "description": "\"Diagnose and fix Webflow Data API v2 errors \\u2014 400, 401, 403, 404,\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-common-errors/SKILL.md",
-      "lines": 315,
-      "words": 995,
-      "code_blocks": 16,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 654,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-multi-env-setup",
-      "description": "'Configure Webflow across development, staging, and production environments",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-multi-env-setup/SKILL.md",
-      "lines": 323,
-      "words": 992,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 640,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-sdk-patterns",
-      "description": "\"Apply production-ready Webflow SDK patterns \\u2014 singleton client,\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-sdk-patterns/SKILL.md",
-      "lines": 322,
-      "words": 1027,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 667,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-incident-runbook",
-      "description": "\"Execute Webflow incident response \\u2014 triage by HTTP status (401/403/429/500),\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-incident-runbook/SKILL.md",
-      "lines": 292,
-      "words": 1184,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 655,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-migration-deep-dive",
-      "description": "\"Execute major Webflow migrations \\u2014 from other CMS platforms to\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-migration-deep-dive/SKILL.md",
-      "lines": 454,
-      "words": 1563,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-observability",
-      "description": "\"Set up observability for Webflow integrations \\u2014 Prometheus metrics\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-observability/SKILL.md",
-      "lines": 372,
-      "words": 1103,
-      "code_blocks": 7,
-      "languages": [
-        "json",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 649,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-upgrade-migration",
-      "description": "'Analyze, plan, and execute Webflow SDK upgrades (webflow-api v1 to v3)",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-upgrade-migration/SKILL.md",
-      "lines": 244,
-      "words": 993,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 689,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-core-workflow-a",
-      "description": "\"Execute the primary Webflow workflow \\u2014 CMS content management:\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-core-workflow-a/SKILL.md",
-      "lines": 327,
-      "words": 1197,
-      "code_blocks": 8,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 661,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-local-dev-loop",
-      "description": "'Configure a Webflow local development workflow with TypeScript, hot",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-local-dev-loop/SKILL.md",
-      "lines": 314,
-      "words": 978,
-      "code_blocks": 11,
-      "languages": [
-        "bash",
-        "json",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 667,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-prod-checklist",
-      "description": "\"Execute Webflow production deployment checklist \\u2014 token security,\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-prod-checklist/SKILL.md",
-      "lines": 256,
-      "words": 1027,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-deploy-integration",
-      "description": "'Deploy Webflow-powered applications to Vercel, Fly.io, and Google Cloud",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-deploy-integration/SKILL.md",
-      "lines": 289,
-      "words": 828,
-      "code_blocks": 9,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "json",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 670,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
       "name": "webflow-webhooks-events",
-      "description": "'Implement Webflow webhook registration, signature verification, and",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/webflow-pack/skills/webflow-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/webflow-pack/skills/webflow-webhooks-events/SKILL.md",
-      "lines": 365,
-      "words": 1198,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 681,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -117781,6 +117024,18 @@
       "license": "MIT"
     },
     {
+      "name": "stackblitz-common-errors",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-common-errors/SKILL.md",
+      "remote_path": "skills/.curated/stackblitz-common-errors/SKILL.md",
+      "lines": 83,
+      "words": 603,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
+      "license": "MIT"
+    },
+    {
       "name": "clerk-ci-integration",
       "description": "'Configure Clerk CI/CD integration with GitHub Actions and testing.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clerk-ci-integration/SKILL.md",
@@ -118299,6 +117554,18 @@
       "languages": [
         "typescript"
       ],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-hello-world",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-hello-world/SKILL.md",
+      "remote_path": "skills/.curated/webflow-hello-world/SKILL.md",
+      "lines": 80,
+      "words": 683,
+      "code_blocks": 0,
+      "languages": [],
       "version": "1.6.0",
       "license": "MIT"
     },
@@ -119392,18 +118659,18 @@
     },
     {
       "name": "posthog-security-basics",
-      "description": "'Secure PostHog integration: API key management, project key vs personal",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-security-basics/SKILL.md",
       "remote_path": "skills/.curated/posthog-security-basics/SKILL.md",
-      "lines": 190,
-      "words": 775,
+      "lines": 193,
+      "words": 882,
       "code_blocks": 7,
       "languages": [
         "bash",
         "typescript",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -119891,17 +119158,15 @@
       "license": "MIT"
     },
     {
-      "name": "todoist-due-drafts",
-      "description": "Check Todoist for tasks due today (and overdue) that involve pinging,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/todoist-due-drafts/SKILL.md",
-      "remote_path": "skills/.curated/todoist-due-drafts/SKILL.md",
-      "lines": 181,
-      "words": 1167,
-      "code_blocks": 8,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
+      "name": "webflow-security-basics",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-security-basics/SKILL.md",
+      "remote_path": "skills/.curated/webflow-security-basics/SKILL.md",
+      "lines": 80,
+      "words": 674,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -120071,16 +119336,14 @@
     },
     {
       "name": "webflow-performance-tuning",
-      "description": "'Optimize Webflow API performance with response caching, bulk endpoint",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/webflow-performance-tuning/SKILL.md",
-      "lines": 297,
-      "words": 1112,
-      "code_blocks": 7,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 676,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -120533,16 +119796,14 @@
     },
     {
       "name": "webflow-cost-tuning",
-      "description": "'Optimize Webflow costs through plan selection, CDN read optimization,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/webflow-cost-tuning/SKILL.md",
-      "lines": 265,
-      "words": 1095,
-      "code_blocks": 6,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 664,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -120620,6 +119881,20 @@
         "text"
       ],
       "version": "1.12.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-performance-tuning",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-performance-tuning/SKILL.md",
+      "remote_path": "skills/.curated/posthog-performance-tuning/SKILL.md",
+      "lines": 234,
+      "words": 1061,
+      "code_blocks": 5,
+      "languages": [
+        "typescript"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -120783,6 +120058,18 @@
         "bash"
       ],
       "version": "1.7.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-ci-integration",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-ci-integration/SKILL.md",
+      "remote_path": "skills/.curated/webflow-ci-integration/SKILL.md",
+      "lines": 80,
+      "words": 683,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -121050,14 +120337,14 @@
       "description": "Technical analysis translator for Product Managers. Use when the user",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/technical-analyst/SKILL.md",
       "remote_path": "skills/.curated/technical-analyst/SKILL.md",
-      "lines": 206,
-      "words": 1284,
+      "lines": 212,
+      "words": 1302,
       "code_blocks": 3,
       "languages": [
         "kotlin",
         "swift"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -121145,22 +120432,6 @@
         "typescript"
       ],
       "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-core-workflow-b",
-      "description": "'Manage Replit Teams, member permissions, deployment promotion, and bulk",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-core-workflow-b/SKILL.md",
-      "remote_path": "skills/.curated/replit-core-workflow-b/SKILL.md",
-      "lines": 214,
-      "words": 744,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -121393,16 +120664,14 @@
     },
     {
       "name": "stackblitz-hello-world",
-      "description": "'Boot a WebContainer, mount files, install npm packages, and run a dev",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-hello-world/SKILL.md",
       "remote_path": "skills/.curated/stackblitz-hello-world/SKILL.md",
-      "lines": 139,
-      "words": 456,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 82,
+      "words": 617,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -121644,16 +120913,14 @@
     },
     {
       "name": "stackblitz-debug-bundle",
-      "description": "'Collect WebContainer diagnostic info: boot state, file system, process",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/stackblitz-debug-bundle/SKILL.md",
-      "lines": 98,
-      "words": 307,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 600,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -121932,6 +121199,18 @@
         "typescript"
       ],
       "version": "1.10.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-debug-bundle",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-debug-bundle/SKILL.md",
+      "remote_path": "skills/.curated/webflow-debug-bundle/SKILL.md",
+      "lines": 80,
+      "words": 638,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -122467,17 +121746,14 @@
     },
     {
       "name": "webflow-install-auth",
-      "description": "'Install the Webflow JS SDK (webflow-api) and configure OAuth 2.0 or",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-install-auth/SKILL.md",
       "remote_path": "skills/.curated/webflow-install-auth/SKILL.md",
-      "lines": 211,
-      "words": 796,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 711,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -122630,24 +121906,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.29.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-load-scale",
-      "description": "'Load test and scale Replit deployments with Autoscale tuning, Reserved",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-load-scale/SKILL.md",
-      "remote_path": "skills/.curated/replit-load-scale/SKILL.md",
-      "lines": 272,
-      "words": 1125,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "javascript",
-        "markdown",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -123129,20 +122387,6 @@
       "license": "MIT"
     },
     {
-      "name": "email-drafting",
-      "description": "\"Draft email replies for Gonto's Gmail accounts (m@gon.to, gonto@hypergrowthpartners.com).\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/email-drafting/SKILL.md",
-      "remote_path": "skills/.curated/email-drafting/SKILL.md",
-      "lines": 273,
-      "words": 1744,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "miro-hello-world",
       "description": "'Create a minimal working Miro example with real board and item operations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/miro-hello-world/SKILL.md",
@@ -123531,6 +122775,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-core-workflow-b",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-core-workflow-b/SKILL.md",
+      "remote_path": "skills/.curated/webflow-core-workflow-b/SKILL.md",
+      "lines": 80,
+      "words": 657,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "groq-install-auth",
       "description": "'Install and configure Groq SDK authentication for TypeScript or Python.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/groq-install-auth/SKILL.md",
@@ -123804,6 +123060,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-data-handling",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-data-handling/SKILL.md",
+      "remote_path": "skills/.curated/webflow-data-handling/SKILL.md",
+      "lines": 80,
+      "words": 657,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "navan-common-errors",
       "description": "'Diagnose and fix common Navan API errors with targeted fix procedures.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/navan-common-errors/SKILL.md",
@@ -123826,6 +123094,21 @@
       "lines": 331,
       "words": 1412,
       "code_blocks": 5,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-multi-env-setup",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-multi-env-setup/SKILL.md",
+      "remote_path": "skills/.curated/posthog-multi-env-setup/SKILL.md",
+      "lines": 245,
+      "words": 993,
+      "code_blocks": 6,
       "languages": [
         "bash",
         "typescript"
@@ -123881,6 +123164,18 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.22.0",
+      "license": "MIT"
+    },
+    {
+      "name": "stackblitz-security-basics",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-security-basics/SKILL.md",
+      "remote_path": "skills/.curated/stackblitz-security-basics/SKILL.md",
+      "lines": 84,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -124482,20 +123777,6 @@
       "license": "MIT"
     },
     {
-      "name": "doctor",
-      "description": "\"Diagnose Promptbook setup \\u2014 check config, hooks, API key, and session\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/doctor/SKILL.md",
-      "remote_path": "skills/.curated/doctor/SKILL.md",
-      "lines": 116,
-      "words": 479,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.4.0",
-      "license": "MIT"
-    },
-    {
       "name": "maintainx-local-dev-loop",
       "description": "'Set up a local development loop for MaintainX integration development.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/maintainx-local-dev-loop/SKILL.md",
@@ -124909,11 +124190,11 @@
       "description": "Structured hypothesis formulation, experiment design, and results interpretation",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/hypothesis-tester/SKILL.md",
       "remote_path": "skills/.curated/hypothesis-tester/SKILL.md",
-      "lines": 204,
-      "words": 1590,
+      "lines": 210,
+      "words": 1598,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -124997,21 +124278,6 @@
         "typescript"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "executive-digest",
-      "description": "\"Generate the daily executive digest \\u2014 a single WhatsApp summary\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/executive-digest/SKILL.md",
-      "remote_path": "skills/.curated/executive-digest/SKILL.md",
-      "lines": 217,
-      "words": 1734,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "version": "1.8.0",
       "license": "MIT"
     },
     {
@@ -125173,20 +124439,6 @@
       "license": "MIT"
     },
     {
-      "name": "replit-debug-bundle",
-      "description": "'Collect Replit diagnostic info for debugging deployments, workspace",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-debug-bundle/SKILL.md",
-      "remote_path": "skills/.curated/replit-debug-bundle/SKILL.md",
-      "lines": 194,
-      "words": 817,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "oraclecloud-webhooks-events",
       "description": "'Wire up event-driven workflows with OCI Events, Notifications, and Functions.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/oraclecloud-webhooks-events/SKILL.md",
@@ -125281,31 +124533,15 @@
     },
     {
       "name": "posthog-install-auth",
-      "description": "'Install and configure PostHog SDKs with authentication.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-install-auth/SKILL.md",
       "remote_path": "skills/.curated/posthog-install-auth/SKILL.md",
-      "lines": 193,
-      "words": 710,
+      "lines": 198,
+      "words": 853,
       "code_blocks": 6,
       "languages": [
         "bash",
         "python",
-        "typescript"
-      ],
-      "version": "1.12.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-advanced-troubleshooting",
-      "description": "'Debug hard Replit issues: container lifecycle, Nix build failures, deployment",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-advanced-troubleshooting/SKILL.md",
-      "remote_path": "skills/.curated/replit-advanced-troubleshooting/SKILL.md",
-      "lines": 329,
-      "words": 1292,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown",
         "typescript"
       ],
       "version": "1.14.0",
@@ -125459,6 +124695,21 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-sdk-patterns",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-sdk-patterns/SKILL.md",
+      "remote_path": "skills/.curated/posthog-sdk-patterns/SKILL.md",
+      "lines": 282,
+      "words": 981,
+      "code_blocks": 6,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "shopify-reliability-patterns",
       "description": "'Implement reliability patterns for Shopify apps including circuit breakers",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/shopify-reliability-patterns/SKILL.md",
@@ -125497,6 +124748,18 @@
       "languages": [
         "typescript"
       ],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-enterprise-rbac",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-enterprise-rbac/SKILL.md",
+      "remote_path": "skills/.curated/webflow-enterprise-rbac/SKILL.md",
+      "lines": 80,
+      "words": 666,
+      "code_blocks": 0,
+      "languages": [],
       "version": "1.6.0",
       "license": "MIT"
     },
@@ -125596,21 +124859,6 @@
         "xml"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-enterprise-rbac",
-      "description": "'Configure Replit Teams roles, SSO/SAML, custom groups, and organization-level",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-enterprise-rbac/SKILL.md",
-      "remote_path": "skills/.curated/replit-enterprise-rbac/SKILL.md",
-      "lines": 234,
-      "words": 942,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -125746,6 +124994,21 @@
         "typescript"
       ],
       "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-upgrade-migration",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-upgrade-migration/SKILL.md",
+      "remote_path": "skills/.curated/posthog-upgrade-migration/SKILL.md",
+      "lines": 193,
+      "words": 947,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -125957,21 +125220,6 @@
       "license": "MIT"
     },
     {
-      "name": "replit-prod-checklist",
-      "description": "'Prepare, publish, and verify a production Replit App with explicit access, Secrets, auth, storage, health, monitoring, cost, and recovery checks. Use when going live or republishing an Autoscale, Res",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-prod-checklist/SKILL.md",
-      "remote_path": "skills/.curated/replit-prod-checklist/SKILL.md",
-      "lines": 165,
-      "words": 1160,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "flexport-deploy-integration",
       "description": "'Deploy Flexport logistics integrations to Vercel, Fly.io, and Cloud",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flexport-deploy-integration/SKILL.md",
@@ -126165,6 +125413,20 @@
         "typescript"
       ],
       "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "web-analytics",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/web-analytics/SKILL.md",
+      "remote_path": "skills/.curated/web-analytics/SKILL.md",
+      "lines": 159,
+      "words": 929,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.5.0",
       "license": "MIT"
     },
     {
@@ -127103,6 +126365,18 @@
       "languages": [
         "typescript"
       ],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-rate-limits",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-rate-limits/SKILL.md",
+      "remote_path": "skills/.curated/webflow-rate-limits/SKILL.md",
+      "lines": 80,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": [],
       "version": "1.6.0",
       "license": "MIT"
     },
@@ -128065,11 +127339,11 @@
       "description": "Collaborative thinking partner for exploring ideas, challenges, and decisions.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/thought-partner/SKILL.md",
       "remote_path": "skills/.curated/thought-partner/SKILL.md",
-      "lines": 128,
-      "words": 928,
+      "lines": 136,
+      "words": 952,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -128537,22 +127811,6 @@
       "license": "MIT"
     },
     {
-      "name": "replit-reference-architecture",
-      "description": "'Design a production Replit App with explicit Preview/published boundaries, supported authentication, durable storage, safe configuration, health checks, and a workload-appropriate deployment type. Us",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-reference-architecture/SKILL.md",
-      "remote_path": "skills/.curated/replit-reference-architecture/SKILL.md",
-      "lines": 184,
-      "words": 1159,
-      "code_blocks": 5,
-      "languages": [
-        "text",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "mindtickle-local-dev-loop",
       "description": "'Local Dev Loop for MindTickle.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/mindtickle-local-dev-loop/SKILL.md",
@@ -128716,16 +127974,16 @@
     },
     {
       "name": "stakeholder-update",
-      "description": "Stakeholder communication assistant for status updates, progress reports,",
+      "description": "Create and review stakeholder status updates, progress reports, and executive",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stakeholder-update/SKILL.md",
       "remote_path": "skills/.curated/stakeholder-update/SKILL.md",
-      "lines": 268,
-      "words": 1540,
+      "lines": 279,
+      "words": 1592,
       "code_blocks": 1,
       "languages": [
         "markdown"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -129143,6 +128401,20 @@
       "license": "MIT"
     },
     {
+      "name": "strategic-clarity",
+      "description": "Analyze and audit team context to establish identity, boundaries, and strategic",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/strategic-clarity/SKILL.md",
+      "remote_path": "skills/.curated/strategic-clarity/SKILL.md",
+      "lines": 340,
+      "words": 1635,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ],
+      "version": "1.10.0",
+      "license": "MIT"
+    },
+    {
       "name": "configuring-auto-scaling-policies",
       "description": "'Configure use when you need to work with auto-scaling.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/configuring-auto-scaling-policies/SKILL.md",
@@ -129487,20 +128759,6 @@
       "license": "MIT"
     },
     {
-      "name": "local-tts",
-      "description": "'Generate speech locally from text using VoxCPM2 (2B params, Apache-2.0).",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/local-tts/SKILL.md",
-      "remote_path": "skills/.curated/local-tts/SKILL.md",
-      "lines": 216,
-      "words": 970,
-      "code_blocks": 12,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.3.0",
-      "license": "Apache-2.0"
-    },
-    {
       "name": "coderabbit-core-workflow-a",
       "description": "'Execute CodeRabbit primary workflow: automated PR code review with configuration.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/coderabbit-core-workflow-a/SKILL.md",
@@ -129605,11 +128863,11 @@
       "description": "Competitive analysis and market positioning partner for Product Managers.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/competitor-analyst/SKILL.md",
       "remote_path": "skills/.curated/competitor-analyst/SKILL.md",
-      "lines": 187,
-      "words": 1672,
+      "lines": 193,
+      "words": 1689,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -130318,6 +129576,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-reference-architecture",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-reference-architecture/SKILL.md",
+      "remote_path": "skills/.curated/webflow-reference-architecture/SKILL.md",
+      "lines": 80,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "oraclecloud-schema-migration",
       "description": "\"Migrate to OCI Autonomous Database \\u2014 wallet setup, mTLS, Data Pump,\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/oraclecloud-schema-migration/SKILL.md",
@@ -130352,17 +129622,14 @@
     },
     {
       "name": "webflow-common-errors",
-      "description": "\"Diagnose and fix Webflow Data API v2 errors \\u2014 400, 401, 403, 404,\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-common-errors/SKILL.md",
       "remote_path": "skills/.curated/webflow-common-errors/SKILL.md",
-      "lines": 315,
-      "words": 995,
-      "code_blocks": 16,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.5.0",
+      "lines": 80,
+      "words": 654,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -130598,18 +129865,6 @@
         "text"
       ],
       "version": "3.30.0",
-      "license": "MIT"
-    },
-    {
-      "name": "claude-reflect",
-      "description": "'Execute self-learning system that captures corrections during sessions",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/claude-reflect/SKILL.md",
-      "remote_path": "skills/.curated/claude-reflect/SKILL.md",
-      "lines": 124,
-      "words": 556,
-      "code_blocks": 1,
-      "languages": [],
-      "version": "1.12.0",
       "license": "MIT"
     },
     {
@@ -132036,6 +131291,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-multi-env-setup",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-multi-env-setup/SKILL.md",
+      "remote_path": "skills/.curated/webflow-multi-env-setup/SKILL.md",
+      "lines": 80,
+      "words": 640,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "excel-pivot-wizard",
       "description": "'Create advanced Excel pivot tables with calculated fields and slicers.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/excel-pivot-wizard/SKILL.md",
@@ -132253,22 +131520,6 @@
       "license": "MIT"
     },
     {
-      "name": "replit-multi-env-setup",
-      "description": "'Configure Replit dev/staging/production environments with separate databases,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-multi-env-setup/SKILL.md",
-      "remote_path": "skills/.curated/replit-multi-env-setup/SKILL.md",
-      "lines": 283,
-      "words": 978,
-      "code_blocks": 9,
-      "languages": [
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "apify-rate-limits",
       "description": "'Handle Apify API rate limits with proper backoff and request queuing.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/apify-rate-limits/SKILL.md",
@@ -132468,6 +131719,21 @@
       "languages": [
         "bash",
         "python",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-prod-checklist",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-prod-checklist/SKILL.md",
+      "remote_path": "skills/.curated/posthog-prod-checklist/SKILL.md",
+      "lines": 228,
+      "words": 1033,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
         "typescript"
       ],
       "version": "1.14.0",
@@ -132763,21 +132029,6 @@
         "python"
       ],
       "version": "1.20.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-observability",
-      "description": "'Monitor Replit deployments with health checks, uptime tracking, resource",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-observability/SKILL.md",
-      "remote_path": "skills/.curated/replit-observability/SKILL.md",
-      "lines": 289,
-      "words": 1009,
-      "code_blocks": 6,
-      "languages": [
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -133097,6 +132348,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-sdk-patterns",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-sdk-patterns/SKILL.md",
+      "remote_path": "skills/.curated/webflow-sdk-patterns/SKILL.md",
+      "lines": 80,
+      "words": 667,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "databricks-streaming-guardian",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/databricks-streaming-guardian/SKILL.md",
@@ -133397,6 +132660,18 @@
         "typescript"
       ],
       "version": "1.13.0",
+      "license": "MIT"
+    },
+    {
+      "name": "stackblitz-rate-limits",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-rate-limits/SKILL.md",
+      "remote_path": "skills/.curated/stackblitz-rate-limits/SKILL.md",
+      "lines": 83,
+      "words": 626,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -134654,15 +133929,27 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-incident-runbook",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-incident-runbook/SKILL.md",
+      "remote_path": "skills/.curated/webflow-incident-runbook/SKILL.md",
+      "lines": 80,
+      "words": 655,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "writer",
       "description": "Professional writing assistant for PM documents. Use when the user needs",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/writer/SKILL.md",
       "remote_path": "skills/.curated/writer/SKILL.md",
-      "lines": 215,
-      "words": 1294,
+      "lines": 222,
+      "words": 1312,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -134781,22 +134068,6 @@
         "typescript"
       ],
       "version": "1.18.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-ci-integration",
-      "description": "'Configure CI/CD for Replit with GitHub Actions, automated testing, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-ci-integration/SKILL.md",
-      "remote_path": "skills/.curated/replit-ci-integration/SKILL.md",
-      "lines": 229,
-      "words": 765,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "markdown",
-        "yaml"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -135139,23 +134410,6 @@
         "python"
       ],
       "version": "2.9.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-deploy-integration",
-      "description": "'Deploy Replit apps with Autoscale, Reserved VM, and Static deployment",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-deploy-integration/SKILL.md",
-      "remote_path": "skills/.curated/replit-deploy-integration/SKILL.md",
-      "lines": 245,
-      "words": 892,
-      "code_blocks": 10,
-      "languages": [
-        "bash",
-        "markdown",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -135824,6 +135078,21 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-deploy-integration",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-deploy-integration/SKILL.md",
+      "remote_path": "skills/.curated/posthog-deploy-integration/SKILL.md",
+      "lines": 198,
+      "words": 962,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "juicebox-sdk-patterns",
       "description": "'Apply production Juicebox SDK patterns.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/juicebox-sdk-patterns/SKILL.md",
@@ -136130,13 +135399,13 @@
       "description": "Data exploration and analysis partner for Product Managers. Use when",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/data-analyst/SKILL.md",
       "remote_path": "skills/.curated/data-analyst/SKILL.md",
-      "lines": 281,
-      "words": 1480,
+      "lines": 287,
+      "words": 1501,
       "code_blocks": 3,
       "languages": [
         "sql"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -136507,20 +135776,6 @@
         "typescript"
       ],
       "version": "1.7.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-common-errors",
-      "description": "'Diagnose Replit Preview and publishing failures involving commands, dependencies, ports, production Secrets, storage, authentication, or deployment type. Use when an app works in one Replit environme",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-common-errors/SKILL.md",
-      "remote_path": "skills/.curated/replit-common-errors/SKILL.md",
-      "lines": 131,
-      "words": 1020,
-      "code_blocks": 2,
-      "languages": [
-        "text"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -138230,6 +137485,18 @@
       "license": "MIT"
     },
     {
+      "name": "stackblitz-core-workflow-a",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-core-workflow-a/SKILL.md",
+      "remote_path": "skills/.curated/stackblitz-core-workflow-a/SKILL.md",
+      "lines": 83,
+      "words": 627,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
+      "license": "MIT"
+    },
+    {
       "name": "anima-security-basics",
       "description": "'Secure Anima and Figma tokens for design-to-code pipelines.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/anima-security-basics/SKILL.md",
@@ -138475,23 +137742,6 @@
         "typescript"
       ],
       "version": "1.5.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-security-basics",
-      "description": "'Apply Replit security best practices: Secrets management, REPL_IDENTITY",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-security-basics/SKILL.md",
-      "remote_path": "skills/.curated/replit-security-basics/SKILL.md",
-      "lines": 206,
-      "words": 921,
-      "code_blocks": 8,
-      "languages": [
-        "gitignore",
-        "markdown",
-        "python",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -138840,6 +138090,21 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-core-workflow-a",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-core-workflow-a/SKILL.md",
+      "remote_path": "skills/.curated/posthog-core-workflow-a/SKILL.md",
+      "lines": 244,
+      "words": 857,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "exa-observability",
       "description": "'Set up monitoring, metrics, and alerting for Exa search integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/exa-observability/SKILL.md",
@@ -138919,26 +138184,6 @@
         "python"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-migration-deep-dive",
-      "description": "'Migrate to Replit from Heroku, Railway, Vercel, or local development",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-migration-deep-dive/SKILL.md",
-      "remote_path": "skills/.curated/replit-migration-deep-dive/SKILL.md",
-      "lines": 306,
-      "words": 1138,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "json",
-        "markdown",
-        "nix",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -139945,6 +139190,21 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-incident-runbook",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-incident-runbook/SKILL.md",
+      "remote_path": "skills/.curated/posthog-incident-runbook/SKILL.md",
+      "lines": 225,
+      "words": 1181,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "vertex-infra-expert",
       "description": "'Execute use when provisioning Vertex AI infrastructure with Terraform.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vertex-infra-expert/SKILL.md",
@@ -140050,6 +139310,18 @@
       "code_blocks": 4,
       "languages": [],
       "version": "1.20.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-migration-deep-dive",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-migration-deep-dive/SKILL.md",
+      "remote_path": "skills/.curated/webflow-migration-deep-dive/SKILL.md",
+      "lines": 80,
+      "words": 665,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -140202,11 +139474,11 @@
       "description": "Constructive critic and stress-tester for ideas and proposals. Use when",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/devil-advocate/SKILL.md",
       "remote_path": "skills/.curated/devil-advocate/SKILL.md",
-      "lines": 167,
-      "words": 1198,
+      "lines": 173,
+      "words": 1227,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -141005,6 +140277,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-observability",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-observability/SKILL.md",
+      "remote_path": "skills/.curated/webflow-observability/SKILL.md",
+      "lines": 80,
+      "words": 649,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "klingai-style-transfer",
       "description": "'Apply artistic styles and visual effects to Kling AI video generation.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/klingai-style-transfer/SKILL.md",
@@ -141305,17 +140589,14 @@
     },
     {
       "name": "stackblitz-core-workflow-b",
-      "description": "'Embed StackBlitz projects and manage WebContainer snapshots for sharing.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/stackblitz-core-workflow-b/SKILL.md",
-      "lines": 115,
-      "words": 343,
-      "code_blocks": 4,
-      "languages": [
-        "html",
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 83,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -141786,6 +141067,18 @@
         "typescript"
       ],
       "version": "1.12.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-upgrade-migration",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-upgrade-migration/SKILL.md",
+      "remote_path": "skills/.curated/webflow-upgrade-migration/SKILL.md",
+      "lines": 80,
+      "words": 689,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -142494,6 +141787,21 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.25.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-cost-tuning",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-cost-tuning/SKILL.md",
+      "remote_path": "skills/.curated/posthog-cost-tuning/SKILL.md",
+      "lines": 223,
+      "words": 1059,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -143248,21 +142556,6 @@
       "license": "MIT"
     },
     {
-      "name": "replit-known-pitfalls",
-      "description": "'Audit a Replit App for persistence, Secrets, publishing, port, authentication, and deployment mistakes. Use when reviewing Replit code or diagnosing a Preview-to-production mismatch. Trigger with phr",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-known-pitfalls/SKILL.md",
-      "remote_path": "skills/.curated/replit-known-pitfalls/SKILL.md",
-      "lines": 137,
-      "words": 971,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
       "name": "canva-prod-checklist",
       "description": "'Execute Canva Connect API production deployment checklist and go-live",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/canva-prod-checklist/SKILL.md",
@@ -143315,6 +142608,21 @@
       "code_blocks": 0,
       "languages": [],
       "version": "2.19.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-core-workflow-b",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-core-workflow-b/SKILL.md",
+      "remote_path": "skills/.curated/posthog-core-workflow-b/SKILL.md",
+      "lines": 274,
+      "words": 1043,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -143540,17 +142848,17 @@
     },
     {
       "name": "posthog-enterprise-rbac",
-      "description": "'PostHog enterprise access control: organization/project hierarchy, member",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-enterprise-rbac/SKILL.md",
       "remote_path": "skills/.curated/posthog-enterprise-rbac/SKILL.md",
-      "lines": 221,
-      "words": 857,
+      "lines": 224,
+      "words": 970,
       "code_blocks": 5,
       "languages": [
         "bash",
         "yaml"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -143668,6 +142976,18 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.27.0",
+      "license": "MIT"
+    },
+    {
+      "name": "stackblitz-sdk-patterns",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-sdk-patterns/SKILL.md",
+      "remote_path": "skills/.curated/stackblitz-sdk-patterns/SKILL.md",
+      "lines": 83,
+      "words": 616,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -143872,6 +143192,22 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-observability",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-observability/SKILL.md",
+      "remote_path": "skills/.curated/posthog-observability/SKILL.md",
+      "lines": 272,
+      "words": 1088,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "typescript",
+        "yaml"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "quicknode-install-auth",
       "description": "\"QuickNode install auth \\u2014 blockchain RPC and Web3 infrastructure\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/quicknode-install-auth/SKILL.md",
@@ -143940,6 +143276,22 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.27.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-migration-deep-dive",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-migration-deep-dive/SKILL.md",
+      "remote_path": "skills/.curated/posthog-migration-deep-dive/SKILL.md",
+      "lines": 140,
+      "words": 997,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "json",
+        "typescript"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -144232,6 +143584,21 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-common-errors",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-common-errors/SKILL.md",
+      "remote_path": "skills/.curated/posthog-common-errors/SKILL.md",
+      "lines": 244,
+      "words": 1103,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "mistral-observability",
       "description": "'Set up comprehensive observability for Mistral AI with metrics, traces,",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/mistral-observability/SKILL.md",
@@ -144244,6 +143611,18 @@
         "yaml"
       ],
       "version": "1.13.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-core-workflow-a",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-core-workflow-a/SKILL.md",
+      "remote_path": "skills/.curated/webflow-core-workflow-a/SKILL.md",
+      "lines": 80,
+      "words": 661,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -144365,20 +143744,6 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.24.0",
-      "license": "MIT"
-    },
-    {
-      "name": "setup",
-      "description": "\"Set up Promptbook \\u2014 connect your account to start tracking builds.\\n\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/setup/SKILL.md",
-      "remote_path": "skills/.curated/setup/SKILL.md",
-      "lines": 177,
-      "words": 824,
-      "code_blocks": 10,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.4.0",
       "license": "MIT"
     },
     {
@@ -144671,18 +144036,6 @@
       "license": "MIT"
     },
     {
-      "name": "hyperfocus",
-      "description": "'ADHD-friendly output formatting for Claude Code. Restructures responses",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/hyperfocus/SKILL.md",
-      "remote_path": "skills/.curated/hyperfocus/SKILL.md",
-      "lines": 100,
-      "words": 596,
-      "code_blocks": 0,
-      "languages": [],
-      "version": "0.2.0",
-      "license": "MIT"
-    },
-    {
       "name": "cohere-webhooks-events",
       "description": "'Implement Cohere streaming event handling, SSE patterns, and connector",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/cohere-webhooks-events/SKILL.md",
@@ -144835,39 +144188,6 @@
         "typescript"
       ],
       "version": "1.11.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-incident-runbook",
-      "description": "'Triage a Replit published-app incident, separate platform from application failures, contain safely, and preserve redacted evidence. Use when handling outages, crash loops, failed releases, database ",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-incident-runbook/SKILL.md",
-      "remote_path": "skills/.curated/replit-incident-runbook/SKILL.md",
-      "lines": 147,
-      "words": 1002,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "text"
-      ],
-      "version": "1.14.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-local-dev-loop",
-      "description": "'Configure Replit development workflow with hot reload, Webview, and",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-local-dev-loop/SKILL.md",
-      "remote_path": "skills/.curated/replit-local-dev-loop/SKILL.md",
-      "lines": 226,
-      "words": 792,
-      "code_blocks": 14,
-      "languages": [
-        "json",
-        "markdown",
-        "python",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -145109,6 +144429,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-local-dev-loop",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-local-dev-loop/SKILL.md",
+      "remote_path": "skills/.curated/webflow-local-dev-loop/SKILL.md",
+      "lines": 80,
+      "words": 667,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "gamma-common-errors",
       "description": "'Debug and resolve common Gamma API errors.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/gamma-common-errors/SKILL.md",
@@ -145237,20 +144569,6 @@
         "typescript"
       ],
       "version": "1.13.0",
-      "license": "MIT"
-    },
-    {
-      "name": "boycott-filter",
-      "description": "\"Personal boycott list \\u2014 users can conversationally tell the agent\\",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/boycott-filter/SKILL.md",
-      "remote_path": "skills/.curated/boycott-filter/SKILL.md",
-      "lines": 224,
-      "words": 1123,
-      "code_blocks": 9,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.2.0",
       "license": "MIT"
     },
     {
@@ -145728,6 +145046,20 @@
       "license": "MIT"
     },
     {
+      "name": "product-brief",
+      "description": "Structured product brief and PRD creation assistant. Use when the user",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/product-brief/SKILL.md",
+      "remote_path": "skills/.curated/product-brief/SKILL.md",
+      "lines": 277,
+      "words": 1455,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ],
+      "version": "1.10.0",
+      "license": "MIT"
+    },
+    {
       "name": "workhuman-cost-tuning",
       "description": "'Workhuman cost tuning for employee recognition and rewards API.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/workhuman-cost-tuning/SKILL.md",
@@ -145790,6 +145122,23 @@
         "bash"
       ],
       "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-ci-integration",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-ci-integration/SKILL.md",
+      "remote_path": "skills/.curated/posthog-ci-integration/SKILL.md",
+      "lines": 258,
+      "words": 900,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "json",
+        "typescript",
+        "yaml"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -146203,15 +145552,15 @@
       "description": "\"Hands-on implementation partner for creating tools, scripts, dashboards,\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/builder/SKILL.md",
       "remote_path": "skills/.curated/builder/SKILL.md",
-      "lines": 369,
-      "words": 1993,
+      "lines": 376,
+      "words": 2030,
       "code_blocks": 5,
       "languages": [
         "bash",
         "html",
         "python"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -146610,18 +145959,18 @@
     },
     {
       "name": "posthog-hello-world",
-      "description": "'Create a minimal working PostHog example with event capture, identify,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-hello-world/SKILL.md",
       "remote_path": "skills/.curated/posthog-hello-world/SKILL.md",
-      "lines": 201,
-      "words": 612,
+      "lines": 202,
+      "words": 714,
       "code_blocks": 4,
       "languages": [
         "bash",
         "python",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -146830,34 +146179,14 @@
     },
     {
       "name": "stackblitz-install-auth",
-      "description": "'Install the WebContainer API and configure StackBlitz SDK for browser-based",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-install-auth/SKILL.md",
       "remote_path": "skills/.curated/stackblitz-install-auth/SKILL.md",
-      "lines": 112,
-      "words": 344,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "javascript",
-        "typescript"
-      ],
-      "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-cost-tuning",
-      "description": "'Optimize Replit costs: deployment sizing, seat audit, egress control,",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-cost-tuning/SKILL.md",
-      "remote_path": "skills/.curated/replit-cost-tuning/SKILL.md",
-      "lines": 241,
-      "words": 978,
-      "code_blocks": 8,
-      "languages": [
-        "markdown",
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.14.0",
+      "lines": 82,
+      "words": 666,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -147241,6 +146570,18 @@
         "python"
       ],
       "version": "1.5.0",
+      "license": "MIT"
+    },
+    {
+      "name": "webflow-prod-checklist",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-prod-checklist/SKILL.md",
+      "remote_path": "skills/.curated/webflow-prod-checklist/SKILL.md",
+      "lines": 80,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
       "license": "MIT"
     },
     {
@@ -147742,6 +147083,21 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-local-dev-loop",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-local-dev-loop/SKILL.md",
+      "remote_path": "skills/.curated/posthog-local-dev-loop/SKILL.md",
+      "lines": 243,
+      "words": 866,
+      "code_blocks": 6,
+      "languages": [
+        "json",
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "figma-reference-architecture",
       "description": "'Reference architecture for production Figma API integrations.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/figma-reference-architecture/SKILL.md",
@@ -147932,32 +147288,15 @@
       "license": "MIT"
     },
     {
-      "name": "action-items-todoist",
-      "description": "Extract action items from today's Granola/Grain meetings, create Todoist",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/action-items-todoist/SKILL.md",
-      "remote_path": "skills/.curated/action-items-todoist/SKILL.md",
-      "lines": 279,
-      "words": 2400,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.8.0",
-      "license": "MIT"
-    },
-    {
       "name": "stackblitz-local-dev-loop",
-      "description": "'Configure local development for WebContainer applications with hot reload",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/stackblitz-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/stackblitz-local-dev-loop/SKILL.md",
-      "lines": 106,
-      "words": 341,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 82,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -148544,6 +147883,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-deploy-integration",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-deploy-integration/SKILL.md",
+      "remote_path": "skills/.curated/webflow-deploy-integration/SKILL.md",
+      "lines": 80,
+      "words": 670,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "granola-common-errors",
       "description": "\"Troubleshoot common Granola errors \\u2014 audio capture failures, transcription\\",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/granola-common-errors/SKILL.md",
@@ -148668,6 +148019,20 @@
       "code_blocks": 0,
       "languages": [],
       "version": "1.0.0",
+      "license": "MIT"
+    },
+    {
+      "name": "posthog-rate-limits",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-rate-limits/SKILL.md",
+      "remote_path": "skills/.curated/posthog-rate-limits/SKILL.md",
+      "lines": 240,
+      "words": 1140,
+      "code_blocks": 4,
+      "languages": [
+        "typescript"
+      ],
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -149650,6 +149015,20 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-reference-architecture",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-reference-architecture/SKILL.md",
+      "remote_path": "skills/.curated/posthog-reference-architecture/SKILL.md",
+      "lines": 282,
+      "words": 1137,
+      "code_blocks": 6,
+      "languages": [
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "intercom-performance-tuning",
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/intercom-performance-tuning/SKILL.md",
@@ -149661,21 +149040,6 @@
         "typescript"
       ],
       "version": "1.6.0",
-      "license": "MIT"
-    },
-    {
-      "name": "replit-webhooks-events",
-      "description": "'Handle Replit deployment events, build Replit Extensions, and set up",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/replit-webhooks-events/SKILL.md",
-      "remote_path": "skills/.curated/replit-webhooks-events/SKILL.md",
-      "lines": 291,
-      "words": 978,
-      "code_blocks": 6,
-      "languages": [
-        "markdown",
-        "typescript"
-      ],
-      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -150134,6 +149498,20 @@
       "license": "MIT"
     },
     {
+      "name": "posthog-data-handling",
+      "description": "|",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-data-handling/SKILL.md",
+      "remote_path": "skills/.curated/posthog-data-handling/SKILL.md",
+      "lines": 315,
+      "words": 1216,
+      "code_blocks": 5,
+      "languages": [
+        "typescript"
+      ],
+      "version": "1.14.0",
+      "license": "MIT"
+    },
+    {
       "name": "persona-reference-architecture",
       "description": "'KYC service architecture with Persona as verification provider.",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-reference-architecture/SKILL.md",
@@ -150195,17 +149573,17 @@
     },
     {
       "name": "posthog-webhooks-events",
-      "description": "'Implement PostHog webhook destinations, Action-triggered notifications,",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/posthog-webhooks-events/SKILL.md",
-      "lines": 268,
-      "words": 888,
+      "lines": 272,
+      "words": 995,
       "code_blocks": 4,
       "languages": [
         "bash",
         "typescript"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -151364,16 +150742,16 @@
     },
     {
       "name": "meeting-prep",
-      "description": "\"Prepare briefings for today's meetings \\u2014 attendee research, email\\",
+      "description": "Meeting preparation assistant for Product Managers. Use when the user",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/meeting-prep/SKILL.md",
       "remote_path": "skills/.curated/meeting-prep/SKILL.md",
-      "lines": 359,
-      "words": 2832,
-      "code_blocks": 5,
+      "lines": 272,
+      "words": 1628,
+      "code_blocks": 1,
       "languages": [
-        "bash"
+        "markdown"
       ],
-      "version": "1.8.0",
+      "version": "1.10.0",
       "license": "MIT"
     },
     {
@@ -151809,6 +151187,18 @@
       "license": "MIT"
     },
     {
+      "name": "webflow-webhooks-events",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/webflow-webhooks-events/SKILL.md",
+      "remote_path": "skills/.curated/webflow-webhooks-events/SKILL.md",
+      "lines": 80,
+      "words": 681,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
       "name": "maintainx-sdk-patterns",
       "description": "'Learn MaintainX REST API patterns, pagination, filtering, and client",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/maintainx-sdk-patterns/SKILL.md",
@@ -151824,16 +151214,16 @@
     },
     {
       "name": "posthog-debug-bundle",
-      "description": "'Collect PostHog debug evidence for support tickets and troubleshooting.",
+      "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/posthog-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/posthog-debug-bundle/SKILL.md",
       "lines": 205,
-      "words": 913,
+      "words": 1000,
       "code_blocks": 5,
       "languages": [
         "bash"
       ],
-      "version": "1.12.0",
+      "version": "1.14.0",
       "license": "MIT"
     },
     {
@@ -152475,44 +151865,6 @@
       "words": 131,
       "code_blocks": 1,
       "languages": []
-    },
-    {
-      "name": "reflect",
-      "description": "Reflect on session corrections and update CLAUDE.md (with human review)",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/claude-reflect/commands/reflect.md",
-      "remote_path": "skills/.curated/claude-reflect/commands/reflect.md",
-      "lines": 877,
-      "words": 3902,
-      "code_blocks": 36,
-      "languages": [
-        "bash",
-        "json",
-        "markdown"
-      ]
-    },
-    {
-      "name": "skip-reflect",
-      "description": "Discard queued learnings without processing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/claude-reflect/commands/skip-reflect.md",
-      "remote_path": "skills/.curated/claude-reflect/commands/skip-reflect.md",
-      "lines": 38,
-      "words": 136,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "view-queue",
-      "description": "View the learnings queue without processing",
-      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/claude-reflect/commands/view-queue.md",
-      "remote_path": "skills/.curated/claude-reflect/commands/view-queue.md",
-      "lines": 61,
-      "words": 158,
-      "code_blocks": 3,
-      "languages": [
-        "bash"
-      ]
     },
     {
       "name": "merge-rewriter",
@@ -158001,8 +157353,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 184,
-      "words": 1312,
+      "lines": 191,
+      "words": 1390,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -158464,8 +157816,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 621,
-      "words": 2248,
+      "lines": 636,
+      "words": 2335,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -158537,9 +157889,9 @@
       "description": "Extract Feishu (Lark) Docs, Wiki pages/collections, spreadsheets, and Minutes (\u5999\u8bb0) transcripts into faithful local Markdown via the lark-cli API (no LLM rewriting of the body; browser-DOM fallback whe",
       "path": "daymade--claude-code-skills/feishu-doc-scraper/SKILL.md",
       "remote_path": "feishu-doc-scraper/SKILL.md",
-      "lines": 225,
-      "words": 4110,
-      "code_blocks": 9,
+      "lines": 204,
+      "words": 3891,
+      "code_blocks": 8,
       "languages": [
         "bash"
       ]
@@ -158573,8 +157925,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 365,
-      "words": 4699,
+      "lines": 366,
+      "words": 4807,
       "code_blocks": 0,
       "languages": []
     },
@@ -159187,11 +158539,11 @@
     },
     {
       "name": "pdf-creator",
-      "description": "Convert markdown files to professional PDF documents with proper Chinese font support, theme system, and visual self-check. Use whenever the user asks to create PDFs, convert markdown to PDF, generate",
+      "description": "Convert markdown files to professional PDF documents with proper Chinese font support, theme system, and visual self-check. Use for Markdown \u2192 PDF, printable Markdown documents, and Markdown formatted",
       "path": "daymade--claude-code-skills/daymade-docs/pdf-creator/SKILL.md",
       "remote_path": "daymade-docs/pdf-creator/SKILL.md",
-      "lines": 239,
-      "words": 3656,
+      "lines": 243,
+      "words": 3667,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -159226,8 +158578,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-docs/docx-creator/SKILL.md",
       "remote_path": "daymade-docs/docx-creator/SKILL.md",
-      "lines": 193,
-      "words": 1710,
+      "lines": 199,
+      "words": 1763,
       "code_blocks": 1,
       "languages": [
         "bash"

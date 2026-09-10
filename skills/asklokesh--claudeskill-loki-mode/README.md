@@ -15,8 +15,6 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 
 [Website](https://www.autonomi.dev/) | [Documentation](wiki/Home.md) | [Installation](docs/INSTALLATION.md) | [Changelog](CHANGELOG.md)
 
-**Current release: v9.16.0**
-
 </div>
 
 ---
@@ -38,6 +36,21 @@ bun install -g loki-mode          # recommended (npm, Homebrew, Docker below)
 | **Docker** | `docker pull asklokesh/loki-mode:latest` | Bun + Claude CLI pre-installed. See [DOCKER_README.md](DOCKER_README.md). |
 
 Upgrade with `loki self-update`. Long form: [Installation Guide](docs/INSTALLATION.md).
+
+</details>
+
+<details>
+<summary>Claude Code plugin (adds /loki-grill, /loki-spec-status, /loki-verify)</summary>
+
+```bash
+claude plugin marketplace add asklokesh/loki-mode
+claude plugin install loki-mode@loki-mode
+```
+
+Adds three slash commands and the Loki MCP server (memory, task queue, code
+search, build management) to Claude Code. It calls the CLI rather than bundling
+it, so install `loki-mode` above first. Verify with `claude plugin list`:
+a healthy install reports `Status: enabled`.
 
 </details>
 
@@ -466,6 +479,10 @@ OpenRouter serves **only** the OpenAI-shaped `/v1/chat/completions`; it has no
 Anthropic `/v1/messages` endpoint. Pointing `ANTHROPIC_BASE_URL` at it does not
 work, which earlier versions of this README incorrectly suggested.
 
+[OrcaRouter](https://www.orcarouter.ai) is an OpenAI-compatible gateway that
+also serves the Anthropic Messages API, so unlike OpenRouter the same key works
+through Route 2 below as well as Route 1 here.
+
 *Route 2 -- Anthropic-protocol gateways.* `ANTHROPIC_BASE_URL` routes Claude
 Code itself, so the endpoint must speak the Anthropic Messages API. LiteLLM,
 Bedrock proxies, and self-hosted gateways can:
@@ -480,6 +497,14 @@ loki start prd.md
 export ANTHROPIC_BASE_URL=https://your-gateway.internal/v1
 export ANTHROPIC_API_KEY=...
 export LOKI_MODEL_OVERRIDE=<whatever your gateway calls the model>
+loki start prd.md
+
+# OrcaRouter (one key for both routes; model ids are namespaced by provider).
+# The bare host is deliberate here: the Anthropic SDK appends /v1/messages
+# itself, so adding /v1 would double it.
+export ANTHROPIC_BASE_URL=https://api.orcarouter.ai
+export ANTHROPIC_API_KEY=sk-orca-...
+export LOKI_MODEL_OVERRIDE=<namespaced id, e.g. anthropic/claude-sonnet-5>
 loki start prd.md
 ```
 

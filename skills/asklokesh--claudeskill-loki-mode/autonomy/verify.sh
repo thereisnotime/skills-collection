@@ -69,6 +69,151 @@ VERIFY_EXIT_ERROR=3
 VERIFY_SCHEMA_VERSION="1.0"
 
 # Resolve tool version from the VERSION file shipped alongside the repo.
+# ---------------------------------------------------------------------------
+# LLM review stage (v9.26.0). Phase 2 of the spec; the deterministic MVP shipped
+# without it and the evidence document said so honestly.
+#
+# WHY IT LIVES HERE AND NOT IN THE COUNCIL. This module deliberately does not
+# source completion-council.sh (see the header): those functions are welded to
+# the iteration loop's globals and diff base. Instead this calls the same
+# raw-SDK bridge the council uses under the hood -- `loki internal sdk-judge`,
+# a pure-HTTPS judge that prints JSON on exit 0 and NOTHING on any failure.
+#
+# FAIL-CLOSED, NEVER FAIL-QUIET. Every failure path records an honest status
+# (unavailable, with the reason) rather than a pass. A verifier that reports
+# "reviewed, no issues" when the reviewer never ran is worse than one that
+# never had a reviewer.
+#
+# ADVISORY IN THIS RELEASE. The verdict and exit code are computed exactly as
+# before; this only adds a section to the evidence document. `loki verify`
+# exits 0/1/2 on the same conditions it always did, so a CI job gating on exit
+# 0 sees no behavior change. Verdict influence is a separate, later flag.
+_verify_llm_review() {
+    local out_dir="$1" merge_base="$2" head_sha="$3"
+
+    if [ "${VERIFY_NO_LLM:-0}" = "1" ]; then
+        printf '%s\t%s\t%s\t%s\t%s\n' "skipped" "--no-llm requested" "" "0" ""
+        return 0
+    fi
+
+    local loki_bin
+    loki_bin="$(command -v loki 2>/dev/null || true)"
+    if [ -z "$loki_bin" ]; then
+        printf '%s\t%s\t%s\t%s\t%s\n' "unavailable" "the loki CLI is not on PATH, so the SDK judge bridge cannot be reached" "" "0" ""
+        return 0
+    fi
+
+    # Bound the diff. A judge prompt is an input cost and an unbounded diff is
+    # both expensive and useless -- past some size the model cannot reason about
+    # it anyway. The cap is explicit in the reason string when it bites, so a
+    # truncated review is never silently presented as a whole-diff review.
+    local diff_cap="${LOKI_VERIFY_LLM_DIFF_BYTES:-200000}"
+    local diff_file; diff_file="$(mktemp "${TMPDIR:-/tmp}/loki-verify-llm-diff.XXXXXX")" || {
+        printf '%s\t%s\t%s\t%s\t%s\n' "unavailable" "could not create a temp file for the diff" "" "0" ""
+        return 0
+    }
+    git diff --function-context "${merge_base}..${head_sha}" > "$diff_file" 2>/dev/null || true
+    local diff_bytes; diff_bytes=$(wc -c < "$diff_file" 2>/dev/null | tr -d ' ')
+    diff_bytes="${diff_bytes:-0}"
+    local truncated=""
+    if [ "$diff_bytes" -gt "$diff_cap" ]; then
+        head -c "$diff_cap" "$diff_file" > "${diff_file}.cut" 2>/dev/null && mv -f "${diff_file}.cut" "$diff_file"
+        truncated=" (diff truncated to ${diff_cap} bytes of ${diff_bytes})"
+    fi
+    if [ "$diff_bytes" -eq 0 ]; then
+        rm -f "$diff_file" 2>/dev/null || true
+        printf '%s\t%s\t%s\t%s\t%s\n' "skipped" "no diff to review between the merge base and HEAD" "" "0" ""
+        return 0
+    fi
+
+    local pf sf
+    pf="$(mktemp "${TMPDIR:-/tmp}/loki-verify-llm-prompt.XXXXXX")" || { rm -f "$diff_file"; return 0; }
+    sf="$(mktemp "${TMPDIR:-/tmp}/loki-verify-llm-schema.XXXXXX")" || { rm -f "$diff_file" "$pf"; return 0; }
+
+    # Context first: the diff is the bulk of the prompt and identical across any
+    # retry, so leading with it keeps the cacheable prefix stable.
+    {
+        printf 'Review this diff for correctness defects only.\n\n'
+        cat "$diff_file"
+        printf '\n\nYou are a code reviewer on a verification service. Report ONLY defects you can point at in this diff:\n'
+        printf -- '- a bug that produces a wrong result or a crash, with the input that triggers it\n'
+        printf -- '- a security hole reachable from untrusted input\n'
+        printf -- '- data loss or corruption\n\n'
+        printf 'Do NOT report style, naming, formatting, test coverage, or speculative refactors.\n'
+        printf 'If the diff has no such defect, return an empty findings array. An empty result is a\n'
+        printf 'legitimate and common answer; do not invent a finding to appear useful.\n'
+    } > "$pf"
+
+    cat > "$sf" <<'SCHEMA'
+{
+  "type": "object",
+  "properties": {
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "file": { "type": "string" },
+          "message": { "type": "string" },
+          "why_it_breaks": { "type": "string" }
+        },
+        "required": ["severity", "message", "why_it_breaks"]
+      }
+    }
+  },
+  "required": ["summary", "findings"]
+}
+SCHEMA
+
+    model="${LOKI_VERIFY_LLM_MODEL:-claude-sonnet-5}"
+    local to_s="${LOKI_VERIFY_LLM_TIMEOUT_S:-120}"
+    local wrap=""
+    if command -v timeout >/dev/null 2>&1; then wrap="timeout $(( to_s + 15 ))"
+    elif command -v gtimeout >/dev/null 2>&1; then wrap="gtimeout $(( to_s + 15 ))"; fi
+
+    local out rc=0
+    out="$($wrap "$loki_bin" internal sdk-judge \
+        --prompt-file "$pf" --schema-file "$sf" \
+        --model "$model" --effort high \
+        --timeout-ms "$(( to_s * 1000 ))" 2>/dev/null)" || rc=$?
+    rm -f "$diff_file" "$pf" "$sf" 2>/dev/null || true
+
+    if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+        printf '%s\t%s\t%s\t%s\t%s\n' "unavailable" "the SDK judge returned no result (no API key, transport failure, or timeout)${truncated}" "" "0" "$model"
+        return 0
+    fi
+
+    # Parse defensively: a malformed payload is "unavailable", never a pass.
+    local parsed
+    parsed="$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    fs = d.get("findings") or []
+    if not isinstance(fs, list):
+        raise ValueError("findings is not a list")
+    print("%d\t%s" % (len(fs), (d.get("summary") or "").replace("\t", " ").replace("\n", " ")[:300]))
+except Exception as exc:
+    print("ERR\t%s" % type(exc).__name__)
+' 2>/dev/null)" || parsed="ERR\tparse"
+
+    case "$parsed" in
+        ERR*)
+            printf '%s\t%s\t%s\t%s\t%s\n' "unavailable" "the SDK judge returned a payload that did not parse${truncated}" "" "0" "$model" ;;
+        *)
+            findings_n="${parsed%%\t*}"
+            summary="${parsed#*\t}"
+            printf '%s\t%s\t%s\t%s\t%s\n' "reviewed" "" "$summary" "$findings_n" "$model"
+            # Keep the raw payload beside the evidence document so a reader can
+            # check the review rather than take the summary on faith.
+            printf '%s' "$out" > "${out_dir}/llm-review.json" 2>/dev/null || true
+            ;;
+    esac
+    return 0
+}
+
 _verify_tool_version() {
     local here
     here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -1917,6 +2062,23 @@ verify_emit_evidence() {
     repo_name="$(git config --get remote.origin.url 2>/dev/null | sed -E 's#.*[:/]([^/]+/[^/]+)(\.git)?$#\1#' || echo "local")"
     [ -z "$repo_name" ] && repo_name="local"
 
+    # LLM review (advisory this release: it does not change VERIFY_VERDICT or
+    # VERIFY_EXIT, both already computed above).
+    local _llm_line _llm_status _llm_reason _llm_summary _llm_n _llm_model
+    _llm_line="$(_verify_llm_review "$out_dir" "${VERIFY_MERGE_BASE:-}" "${VERIFY_HEAD_SHA:-HEAD}" 2>/dev/null || true)"
+    _llm_status="$(printf '%s' "$_llm_line" | cut -f1)"
+    _llm_reason="$(printf '%s' "$_llm_line" | cut -f2)"
+    _llm_summary="$(printf '%s' "$_llm_line" | cut -f3)"
+    _llm_n="$(printf '%s' "$_llm_line" | cut -f4)"
+    _llm_model="$(printf '%s' "$_llm_line" | cut -f5)"
+    [ -n "$_llm_status" ] || _llm_status="unavailable"
+    [ -n "$_llm_n" ] || _llm_n=0
+
+    _V_LLM_STATUS="$_llm_status" \
+    _V_LLM_REASON="$_llm_reason" \
+    _V_LLM_SUMMARY="$_llm_summary" \
+    _V_LLM_N="$_llm_n" \
+    _V_LLM_MODEL="$_llm_model" \
     _VERIFY_OUT_DIR="$out_dir" \
     _VERIFY_FINDINGS="$_VERIFY_FINDINGS_FILE" \
     _VERIFY_GATES="$_VERIFY_GATES_FILE" \
@@ -2019,9 +2181,21 @@ doc = {
     },
     "deterministic_gates": gates,
     "llm_review": {
-        "status": "skipped",
-        "reason": "deterministic-only MVP (30-day cut); single-reviewer LLM stage and blind council are deferred to Phase 2",
+        # status is one of: reviewed | skipped | unavailable.
+        # "unavailable" is deliberately NOT "skipped": a reviewer that could not
+        # run is a different fact from one that was not asked to, and collapsing
+        # them would let a broken key read as a clean pass.
+        "status": os.environ.get("_V_LLM_STATUS", "unavailable"),
+        "reason": os.environ.get("_V_LLM_REASON", "") or None,
+        "summary": os.environ.get("_V_LLM_SUMMARY", "") or None,
+        "finding_count": int(os.environ.get("_V_LLM_N", "0") or 0),
+        "model": os.environ.get("_V_LLM_MODEL", "") or None,
+        # An LLM review is not reproducible the way a runner exit code is, and
+        # the document says so rather than implying determinism it lacks.
         "reproducible": False,
+        # Advisory in this release: recorded, but never folded into the verdict
+        # or the exit code. Promoting it is a separate, flagged change.
+        "affects_verdict": False,
     },
     "findings": findings,
     "suppressed": [],
@@ -2102,7 +2276,15 @@ lines.append("# Autonomi Verify report")
 lines.append("")
 lines.append("Verdict: **%s** (exit %d)" % (doc["verdict"], doc["exit_code"]))
 lines.append("")
-lines.append("Tool: loki verify %s  |  deterministic-only MVP (no LLM review)" % doc["produced_by"]["tool_version"])
+_llm = doc.get("llm_review") or {}
+_llm_status = _llm.get("status", "unavailable")
+if _llm_status == "reviewed":
+    _llm_note = "LLM review: %d finding(s)" % _llm.get("finding_count", 0)
+elif _llm_status == "skipped":
+    _llm_note = "LLM review: skipped"
+else:
+    _llm_note = "LLM review: unavailable"
+lines.append("Tool: loki verify %s  |  %s" % (doc["produced_by"]["tool_version"], _llm_note))
 lines.append("")
 s = doc["subject"]
 lines.append("## Subject")
@@ -2140,7 +2322,10 @@ else:
 lines.append("")
 lines.append("## LLM review")
 lines.append("")
-lines.append("Skipped: %s" % doc["llm_review"]["reason"])
+if _llm.get("reason"):
+    lines.append("LLM review not run: %s" % _llm["reason"])
+elif _llm_status == "reviewed" and _llm.get("summary"):
+    lines.append("LLM review: %s" % _llm["summary"])
 lines.append("")
 lines.append("Evidence JSON: %s" % ev_path)
 lines.append("")
@@ -2183,7 +2368,9 @@ OPTIONS:
     --block-on <list>  Comma list of severities that BLOCK.
                        Default: critical,high  (one notch looser than the
                        Loki build loop, which also blocks on medium).
-    --no-llm           Accepted for forward-compat; LLM is already off in MVP.
+    --no-llm           Skip the LLM review stage. The deterministic gates and the
+                       verdict are unchanged either way -- the review is advisory
+                       in this release and never alters the exit code.
     --json             Emit the evidence document to stdout so it can be piped
                        (`loki verify --json | jq .verdict`). The same document
                        is still written to <out>/evidence.json. The human
@@ -2793,6 +2980,9 @@ verify_main() {
             --block-on)
                 block_on="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
             --no-llm)
+                # Was a no-op accepted "for forward-compat" while no LLM stage
+                # existed. Now it does what its name always implied.
+                VERIFY_NO_LLM=1
                 shift ;;
             --json)
                 # Emit the evidence document to STDOUT so a caller can pipe it.

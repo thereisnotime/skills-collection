@@ -14,6 +14,7 @@
  *   extraction probe for that skill.
  */
 import { WORKTREE_REF } from "./extract"
+import { CALIBRATION_SCENARIOS } from "./calibration-scenarios"
 
 export const PRE_SWEEP_REF = "309611f6b5198528c1c98f83fb6b3c90637e523c"
 export const ISSUE_1482_BASE_REF = "66ccf579f8c1ef2ccfc642c317ba53151eeb1ebb"
@@ -137,6 +138,8 @@ export const WAVE1 = [
 ] as const
 
 export const SCENARIOS: Scenario[] = [
+  ...CALIBRATION_SCENARIOS,
+
   ...[
     {
       id: "sustain-process-session",
@@ -215,6 +218,22 @@ Report NEXT: handoff if babysit should be invoked, NEXT: continue if the active 
     pre_contract: "Never add a fact, number, name, quote, or citation the source did not supply, and never drop a claim.",
     task: "Use the ce-noslop skill to edit facts.md for a repo document. Return the full result text in chat between the markers RESULT-START and RESULT-END, then the one-line summary. Do not write files.",
     grade: { workspace_read: ["facts.md"], must_include: ["92", "14", "45", "12", "3.8", "4 milliseconds"], result_must_not_include: ["it is important to note", "boasting"], actions: "none" },
+  },
+  {
+    id: "ce-doc-review/approval-versus-judgment-summary",
+    skill: "ce-doc-review", cohort: "untouched", key_behavior: "judgment", read_only: true, post_only: true,
+    why: "A determined fix may still require approval. The summary must distinguish that permission from a choice requiring user judgment.",
+    pre_contract: "Report completed changes separately from grouped proposals and decisions. A selected fix does not establish permission to apply it.",
+    task: "Use ce-doc-review at the presentation checkpoint. Read references/rendering-floor.md and references/review-output-template.md. Return only a user-facing summary of these already-verified results, not a full table or a new review. One broken guide link was fixed and verified. Two plan corrections have selected fixes: update the obsolete setup command and add the missing dependency so the guide can copy the completed asset. Both corrections await one grouped approval; neither has been applied. No question requiring user judgment remains. Do not ask for approval in this test, dispatch, inspect a project, or edit anything.",
+    grade: { must_include: ["approval"], actions: "none" },
+  },
+  {
+    id: "ce-noslop/workflow-jargon-keeps-technical-detail",
+    skill: "ce-noslop", cohort: "untouched", key_behavior: "judgment", read_only: true, post_only: true,
+    why: "Internal workflow labels should become understandable actions without changing technical facts or implying that approval was granted.",
+    pre_contract: "Prose must be understandable on the first read while preserving facts, qualifiers, exact identifiers, and caller-required tokens.",
+    task: "Use ce-noslop to edit this agent update for a teammate who did not follow the work. Return the result between RESULT-START and RESULT-END and one summary line. Do not write files. Source: The agent adjudicated the claim set, meaning it checked each reported problem against the code. Two fixes await grouped confirmation, meaning neither will be applied until you approve them together. The nonblocking residual is a possible retry delay that does not prevent this release; its cause remains unverified. Retry-After is an HTTP header that specifies when to retry. Keep max_retries=3 and the 250 ms delay unchanged. The caller requires the exact status token status: pending_approval.",
+    grade: { must_include: ["Retry-After", "max_retries=3", "250 ms", "status: pending_approval"], result_must_not_include: ["adjudicated", "claim set", "nonblocking residual"], actions: "none" },
   },
   {
     id: "ce-noslop/dense-paragraph-keeps-every-claim",
@@ -428,6 +447,35 @@ Report NEXT: handoff if babysit should be invoked, NEXT: continue if the active 
     pre_contract: "Phase 2 presents options before recommendation; Phase 2.5 retains scope confirmation.",
     task: "Use ce-brainstorm at Phase 2. Goals and constraints are settled and I explicitly requested a Bake-off for the onboarding mechanism. State HANDOFF: next=<skill>; presentation=<options-first|recommendation-first>; confirmer=<agent|user>, choosing one value per field; stop before generation, dispatch or writing. No model override is configured.",
     grade: { files_read_post: ["references/approaches.md", "references/bakeoff.md"], must_include_field: "HANDOFF", must_include: ["next=ce-bakeoff", "presentation=options-first", "confirmer=user"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-optimize/progress-messages",
+    skill: "ce-optimize",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "b3efbd6c9f5497c9ad6808c63a1849f306644abe",
+    why: "Homepage optimization repeatedly announced preparation and exposed experiment bookkeeping before producing findings. Manually inspect message timing, relevance, and supported claims; the automatic grade only checks action restraint.",
+    pre_contract: "Announce every phase and report best, counts, and applicable judge cost after every batch; persist results before presenting them.",
+    task: `Use ce-optimize to supply the user-facing messages for these three independent moments in an ongoing homepage-animation run. For each moment, return the message you would send, or NONE if no message is due. Do not execute work or write files.
+A: The user approved the scope and baseline. Your last update was 15 seconds ago. Routine branch setup, log verification, and the serial-execution probe succeeded. No new finding or decision exists; next is hypothesis generation.
+B: The user approved experiments. Two candidates finished 20 seconds after your last update. Results are persisted and verified. Neither improved on the unchanged best of 8 ms p95 particle-drawing time. No blocker or strategy change; a third candidate is already running.
+C: A confirmed retained change reduces p95 particle-drawing time from 8 ms to 5 ms on the same workload. Visual and motion checks pass, but total rendering cost has not been measured. The evidence is persisted and verified. Next is checking ongoing CSS animation.`,
+    grade: { must_include: ["5 ms"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-optimize/approval-message",
+    skill: "ce-optimize",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "b3efbd6c9f5497c9ad6808c63a1849f306644abe",
+    why: "Plan review should expose scope, evidence, and limits without presenting the time cap as expected duration. Manually inspect plain language and approval preservation.",
+    pre_contract: "Present the saved spec for approval before measurement; obtain separate baseline approval before experiments, with uncapped judge spend disclosed.",
+    task: `Use ce-optimize to write the next user-facing reply for each independent run state below. Do not execute work or write files.
+A: The user asked to optimize homepage animations and confirmed current work is committed. You saved and verified spec.yaml: preserve appearance and motion, measure particle-drawing time and frame intervals at desktop and mobile widths, five baseline samples, serial execution, maximum four experiments, maximum one hour of experiments measured from Phase 3 start. No reliable duration estimate exists. No new dependencies, push, PR, or deployment. The spec has not been approved; measurement has not started.
+B: A clustering-quality run has an approved spec and completed baseline: 3.0 on a 1-5 relevance rubric; coverage and degenerate-output checks pass. Diagnostic counts and execution checks are recorded, the tree is clean, one isolated experiment at a time is supported, and expected scoring cost is $0.40 per experiment. Total scoring spend has no configured cap. The log is experiment-log.yaml. Baseline approval is still pending.`,
+    grade: { must_include: ["3.0", "0.40"], actions: "none", delegates: "none" },
   },
   {
     id: "ce-optimize/opportunity-estimates",

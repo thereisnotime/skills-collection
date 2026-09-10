@@ -5,6 +5,279 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.26.3
+
+### Fixed
+
+- **Corrected an environment-conditional assertion in the unknown-key test.**
+  The test suppressed pyyaml and then asserted YAML must degrade quietly, but
+  `yq` -- the documented fallback -- is preinstalled on the GitHub
+  ubuntu-24.04 runner. The fallback worked exactly as designed and returned
+  `rc=1`; the test called that a failure and blocked v9.26.2 from publishing.
+  The assertion now names its condition (`command -v yq`) and checks the
+  correct outcome for each case: detection via yq when present, quiet
+  degradation only when no parser exists at all. No production code changed.
+
+### Added
+
+- **`scripts/guard-changed.sh`** -- runs the test suites that reference the
+  files in your diff, plus ShellCheck on the changed shell files, before a push.
+
+  The FAST tier is the release gate and it defers the 282-suite shell run, so
+  three releases in one cycle (v9.25.0, v9.25.1, v9.26.0) failed to publish on
+  checks that guard files we had just edited -- each discovered one 25-minute CI
+  cycle at a time. CLAUDE.md already stated the rule; nothing enforced it.
+
+  Measured: 8s for a one-file change, ~135s worst case, versus 26m50s for the
+  FULL tier. Selection matches on repo-relative paths only -- basename matching
+  pulled 486 suites for `autonomy/loki` (more than the FULL tier) while
+  path-only pulls 143 and still selects the suites that actually broke v9.25.0
+  and v9.25.1. Release-churn files (VERSION, package.json, Dockerfile, dist)
+  are excluded, since they are named in hundreds of suites and are already
+  checked by the FAST tier.
+
+  It is necessary, not sufficient: it cannot catch a failure that depends on the
+  CI environment differing from yours, which is exactly how v9.26.2 failed. That
+  limitation is documented in the script header.
+
+## v9.26.2
+
+### Fixed
+
+- **YAML unknown-key detection now falls back to `yq`.** The check added in
+  9.26.1 depended on pyyaml alone, so on a host with `yq` but no pyyaml -- and
+  CI installs neither -- YAML configs silently got no detection at all. It now
+  reaches for pyyaml first and `yq` second, the same order the rest of
+  `config-map.sh` uses. With neither parser present the walk still degrades
+  quietly rather than inventing a verdict, and the JSON path is unaffected
+  either way.
+
+### Changed
+
+- Folded the v9.26.0 changelog entry into v9.26.1. v9.26.0 was committed and
+  pushed but never released (a ShellCheck warning failed Tests and the release
+  gate correctly refused to publish), so no tag or npm version for it exists.
+
+## v9.26.1
+
+### Fixed
+
+- **`loki config validate` now detects unknown keys in JSON and YAML configs.**
+  Extraction walks `LOKI_CONFIG_MAP` and pulls each KNOWN path out of the file,
+  so a key the map does not contain was never emitted and could not reach the
+  validate loop. A misspelled key validated clean (`rc=0`) while the identical
+  typo in `.env` format was correctly rejected (`rc=1`) -- the check existed but
+  was blind to two of its three input formats.
+
+  Detection now walks the file's own key set and diffs it against the map.
+  Scoped to `validate` only: the load and emit paths are unchanged, so a config
+  that runs today still runs. Container parents of a mapped key are not reported
+  (in `{"dashboard":{"port":1}}`, `dashboard` is a container, not a typo), and
+  inert metadata written by `loki init` (`version`, `template`, `created`) is
+  allowlisted rather than rejected.
+
+  **YAML detection requires a YAML parser** (pyyaml, or `yq` as a fallback, the
+  same order the rest of the config code uses). With neither installed, YAML
+  configs get no unknown-key detection and validate exactly as before -- a
+  missing parser must degrade quietly, never invent a verdict. JSON and `.env`
+  detection need no extra dependency.
+
+- **Removed a dead local declaration in `_verify_llm_review`.** Five variables
+  were assigned and never read; every return path uses explicit `printf`
+  literals. ShellCheck SC2034 flagged two of them, which failed the repo-wide
+  lint gate and blocked the v9.26.0 release from publishing. No behavior change.
+
+### Note on v9.26.0
+
+v9.26.0 was committed and pushed but **never released**: a ShellCheck warning
+failed the Tests workflow, so the release gate correctly refused to publish. No
+`v9.26.0` git tag, GitHub release, or npm version was ever created -- verified
+against both `git ls-remote --tags` and the npm registry. Its changes ship here
+in 9.26.1. The entry is folded in below rather than left standing, because a
+changelog entry for a version nobody can install is the same class of defect as
+a receipt that reports a stage it never ran.
+
+
+### Added
+
+- **`loki verify` now runs an LLM review stage, on by default.** Until now the
+  receipt reported `llm_review.status = "skipped"` with the reason
+  "deterministic-only MVP (30-day cut)" for every user. Half the quality story
+  was unshipped, and anyone evaluating the receipt could see it. The stage runs
+  through the existing pure-HTTPS `loki internal sdk-judge` bridge, so
+  `verify.sh` stays free of the iteration-loop globals that
+  `completion-council.sh` depends on (a constraint documented at
+  `autonomy/verify.sh:6-13`).
+
+  Three states are recorded and never collapsed into each other:
+
+  - `reviewed` - the judge ran and returned findings
+  - `skipped` - the operator passed `--no-llm`
+  - `unavailable` - no API key, transport failure, or malformed response
+
+  Fail-closed throughout: an unavailable judge records the reason rather than
+  reporting a silent pass. The raw payload is written to `llm-review.json`
+  alongside the receipt.
+
+- **`--no-llm` is now a real opt-out.** It was previously parsed and discarded
+  (`shift` only). Scripts already passing it keep working and now get the
+  behavior the flag name has always implied.
+
+### Changed
+
+- **The verdict and exit codes are unchanged.** `llm_review` is recorded in the
+  evidence document but does not influence the verdict this release
+  (`affects_verdict` is `false` in the schema). Verdict influence lands behind
+  an explicit flag once it has been measured on real diffs; flipping it here
+  would silently break anyone gating CI on exit 0.
+- The review diff is capped at `LOKI_VERIFY_LLM_DIFF_BYTES` (default 200000).
+  When a diff is truncated, the truncation is disclosed in the recorded reason
+  rather than being applied silently.
+
+## v9.25.2
+
+### Fixed
+
+- **The doc-generation skip now requires the simple tier, not just a small file
+  count.** A standard or complex project can legitimately have few source files and
+  still need its full doc suite; the count-only form regressed that guarantee.
+
+## v9.25.1
+
+### Fixed
+
+- **`loki web --prd <file>` no longer discards the spec silently.** The dashboard
+  cannot accept a PRD, so dropping the flag is correct -- doing it without a word
+  left the user in front of an empty dashboard believing their spec had loaded.
+  It now says so and names `loki start`.
+- **`loki web stop` and `loki web status` now act on what `loki web start`
+  launched.** Start redirects to the dashboard (57374) while stop and status still
+  targeted the deprecated Purple Lab (57375), so a user could not stop what they
+  had just started.
+- **Quickstart's closing tip named a command that does not start anything.** It
+  said `loki dashboard`, which prints help and exits; it now says
+  `loki dashboard start`. This is the last line every first-run user reads.
+- **Terminal outcomes no longer render as raw enum strings.** Six outcomes fell
+  through to the internal identifier, so a run could end by telling the user
+  "inconclusive_spec_contradiction". Most importantly, a **force-approved** run and
+  a genuinely council-approved run both read "Completed"; force-approval is now
+  named as such, because that is exactly the distinction this product exists to
+  preserve.
+- **A release-blocking false positive.** A doc-gen model pin split one invocation
+  across two lines and a test that required `claude -p "$prompt"` to be adjacent
+  failed on it, blocking v9.25.0 from publishing while the behavior it guards was
+  intact. The assertion now tests the invariant rather than argv layout.
+
+### Changed
+
+- **A project with three or fewer source files skips doc generation** instead of
+  paying a 90s timeout that produces nothing. On the profiled build that was 9% of
+  wall clock for no document. `LOKI_DOCS_TIMEOUT` still forces it.
+
+## v9.25.0
+
+### Changed
+
+- **Doc generation stops re-billing its own context.** The eight doc-gen provider
+  calls all carry the same project context (measured at 4,269 tokens on this
+  repo), but it sat at the end of each prompt, so the calls shared no cacheable
+  prefix and every one re-sent it at full input price: about 29,883 redundant
+  input tokens per run. Leading with the identical context makes it one cache
+  write plus seven cache reads at 0.1x.
+- **Doc generation runs on a pinned model tier.** The claude branch had no
+  `--model`, so all eight calls inherited the account default -- Opus for many
+  users, at 5x Sonnet's input and output price, for a summarization task.
+  Pinned, with `LOKI_DOCS_MODEL` to override.
+- **Agent SDK 0.3.267.**
+- **CLAUDE.md no longer overstates prompt caching.** It said `sdk_invoker.ts`
+  "applies `cache_control` on that split" as a statement of fact. That path is
+  opt-in and default OFF (`LOKI_SDK_PROMPT_CACHE=1`), it covers the raw-SDK judge
+  rather than the main agent path, and on the bash route `[CACHE_BREAKPOINT]` is
+  a documentation anchor that sets no header. The prefix-ordering rule it teaches
+  is still correct on every route; only the claim about what enforces it was wrong.
+
+Neither doc-gen change is visible in a log: the documents generate either way,
+so no gate goes red and only a bill shows the difference. Both are guarded.
+
+## v9.24.0
+
+### Added
+
+- **The unattributed quarter of every build is now measured.** A profiled
+  16-minute build summed its stages to 723s against a 960s wall clock, leaving
+  237s (25%) attributed to nothing, and the profile's own guess for it named
+  "rsync of the engine copy". Measurement falsified that: there is no rsync in
+  the engine at all, interpreter startup is ~0.6s per iteration, and the hot-path
+  git operations cost tens of milliseconds. The real cause was structural -- all
+  nine timing call sites sat inside the iteration body, so pre-loop boot and
+  post-loop teardown were not slow to measure but impossible to measure. Both are
+  now bracketed with the existing additive seam, so the next profiled build
+  reports the split as data.
+
+### Changed
+
+- **A flat `sleep 2` is off the critical path of every build.** The dashboard is
+  polled on the same `/api/status` endpoint the reuse path already trusts and
+  proceeds the moment it serves. The liveness property is preserved rather than
+  traded for speed: the process must still be alive when the poll ends, which is
+  strictly stronger than a single check at t=2s, and the flat sleep remains as a
+  fallback where curl is unavailable.
+
+## v9.23.1
+
+### Fixed
+
+- **Four high-severity `fast-uri` advisories** (GHSA-5jgf-p345-68v8,
+  GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp): SSRF via
+  malformed IPv6 normalization and via repeated hostname percent-decoding, plus
+  two host-confusion paths. Fixed at the source with an override to the patched
+  release rather than waived, because the accepted-advisory list exists for
+  advisories that are genuinely unreachable in the shipped CLI, and a URL parser
+  reached through ajv is not one to argue about when a fix is one patch release
+  away. This predates v9.23.0: the same gate already failed on 2026-09-07.
+- **The lockfile's own root version had drifted to 9.12.0** while the package
+  shipped 9.23.0. Regenerating it corrected the drift.
+
+## v9.23.0
+
+### Fixed
+
+- **The marketplace plugin failed to load at all.** `plugin.json` declared
+  `hooks: "./hooks/hooks.json"`, but Claude Code loads that standard path
+  automatically, so the manifest registered it twice and the loader rejected the
+  whole plugin: all three skills, the commands and the MCP server died with it
+  while `claude plugin install` still reported success. `manifest.hooks` is only
+  for hook files beyond the standard one, so the key is dropped. Guarded for both
+  the string and array forms while still allowing a genuine extra hook file.
+  Reported with the correct diagnosis and fix in #195/#196 by robert-clayton.
+- **The subagent fleet had silently collapsed to a single tier.** Claude Code
+  2.1.217 lowered the spawn-depth default from 5 to 1, so an agent that itself
+  delegates could no longer do so. Nothing errored; runs reported success having
+  done less work than the fleet pattern claims. Depth is now set explicitly at
+  source time and inherited by the whole subprocess tree, and the invariant is
+  "explicit" rather than any particular number, so a future upstream default
+  cannot change Loki's behavior again. The 20-subagent concurrency cap is
+  deliberately NOT raised; `LOKI_SUBAGENT_CONCURRENCY` opts in. An operator's own
+  pre-set value always wins, and `LOKI_SUBAGENT_CAPACITY=0` opts out entirely.
+- **`plugin.json` had drifted three releases behind `VERSION`** (pinned at
+  9.22.10 while 9.22.11-13 shipped), so installed plugins were never offered the
+  update. The release checklist already required this file to track VERSION; a
+  checklist did not prevent three consecutive misses, so a test now enforces it.
+
+### Changed
+
+- **Agent SDK 0.3.208 -> 0.3.266, Anthropic SDK -> 0.124.0.** The agent SDK was
+  58 releases behind. The Anthropic SDK range was worse than it looked: for a 0.x
+  version with a nonzero minor, caret pins the minor, so `^0.111.0` could never
+  float to 0.124.0 and was a hard pin wearing a range's clothes. Gated on a real
+  test pass rather than a version check, because three intervening releases are
+  breaking (0.3.233 removed the todo/task tools from the default surface, and
+  Loki reads TodoWrite): typecheck clean, 1589 pass / 0 fail across 113 files.
+- **Top advisory tier now resolves to `claude-fable-5-1`** (released 2026-09-01;
+  1M context, 128K output, $10/$50 per MTok, cache reads 0.025x base rather than
+  the usual 0.1x). `claude-fable-5` is retained as a legacy catalog entry rather
+  than deleted.
+
 ## v9.22.13
 
 ### Added

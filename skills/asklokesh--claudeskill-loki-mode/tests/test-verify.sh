@@ -269,7 +269,15 @@ if [ -f "$S1/.loki/verify/evidence.json" ]; then
 import json, sys
 d = json.load(open('$S1/.loki/verify/evidence.json'))
 assert d['schema_version'] == '1.0', 'schema_version'
-assert d['llm_review']['status'] == 'skipped', 'llm must be skipped in MVP'
+# The LLM stage ships as of v9.26.0, so 'skipped' is no longer the only
+# legal value. What must hold is that the status is one of the three
+# honest states and that a review is never CLAIMED without a model --
+# collapsing 'unavailable' into a pass is the failure this guards.
+_llm = d['llm_review']
+assert _llm['status'] in ('reviewed', 'skipped', 'unavailable'), 'llm status'
+assert _llm.get('affects_verdict') is False, 'llm must stay advisory this release'
+if _llm['status'] == 'reviewed':
+    assert _llm.get('model'), 'a reviewed status must name the model that reviewed'
 assert 'subject' in d and 'diff_stats' in d['subject'], 'subject.diff_stats'
 assert 'deterministic_gates' in d, 'gates'
 assert 'findings' in d, 'findings'
@@ -291,11 +299,14 @@ fi
 # Scenario 6: --help works and states deterministic-only + exit-code note
 # -------------------------------------------------------------------------
 HELP_OUT="$(bash "$VERIFY_SH" --help 2>&1)"
-if printf '%s' "$HELP_OUT" | grep -qi "DETERMINISTIC-ONLY" && \
-   printf '%s' "$HELP_OUT" | grep -qi "NO LLM"; then
-    _ok "help states deterministic-only / no LLM"
+# The help used to have to say "deterministic-only / no LLM". That stopped
+# being true in v9.26.0 when the review stage shipped, so asserting it would
+# now pin a false claim. What the help must still do is document --no-llm,
+# so a user who does not want the stage can find the way to turn it off.
+if printf '%s' "$HELP_OUT" | grep -qi -- "--no-llm"; then
+    _ok "help documents --no-llm"
 else
-    _no "help missing deterministic-only / no-LLM statement"
+    _no "help does not document --no-llm"
 fi
 # The help must document the exit codes. This used to assert the literal
 # "1=CONCERNS" from a note explaining that the implementation DIVERGED from a

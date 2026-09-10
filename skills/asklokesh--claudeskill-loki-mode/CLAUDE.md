@@ -155,10 +155,19 @@ Conditional auditor (not numbered): Backward-compatibility / legacy-healing-audi
 
 Four measured-harness disciplines on the trust core. None can weaken a gate.
 
-- **Prompt-cache discipline**: prompt splits into a cache-stable `<loki_system>`
-  prefix and a volatile `<dynamic_context>` tail at `[CACHE_BREAKPOINT]`;
-  `sdk_invoker.ts` applies `cache_control` on that split. **Any new always-on
-  instruction MUST go in the prefix** or it busts the cache every iteration.
+- **Prompt-cache discipline**: the prompt splits into a cache-stable
+  `<loki_system>` prefix and a volatile `<dynamic_context>` tail at
+  `[CACHE_BREAKPOINT]`. **Any new always-on instruction MUST go in the prefix**
+  or it busts the cache every iteration.
+  Two accuracy notes, because an earlier version of this bullet overstated it:
+  explicit `cache_control` on that split lives in `sdk_invoker.ts` (the raw-SDK
+  judge path) and is **opt-in, default OFF** behind `LOKI_SDK_PROMPT_CACHE=1`.
+  On the main agent path the Agent SDK's `query()` takes a plain string, so the
+  split is not applied there and the SDK/CLI does its own caching internally.
+  On the bash route the `[CACHE_BREAKPOINT]` marker is a documentation anchor
+  that orders the prompt; it sets no `cache_control` header. The ordering rule
+  above still matters on every route -- a stable prefix is what any cache, ours
+  or the CLI's, can reuse.
 - **Confidence-spike re-check** (`loki-ts/src/runner/council.ts`): delays the
   done-signal force-stop by ONE iteration when self-reported confidence spikes.
   Strictly additive (never skips a gate), never delays the stagnation valve,
@@ -453,7 +462,7 @@ loki_run_tmp_cleanup() {
 
 ### Version Numbering
 Follows semantic versioning: MAJOR.MINOR.PATCH
-- Current: v9.22.13 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
+- Current: v9.26.3 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
 - MAJOR bump for architecture changes (v6.0.0 = dual-mode architecture, loki run)
 - MINOR bump for new features (v5.23.0 = Dashboard File-Based API)
 - PATCH bump for fixes (v5.22.1 = session.json phantom state)

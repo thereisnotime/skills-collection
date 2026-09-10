@@ -414,8 +414,9 @@ describe("ce-code-review contract", () => {
     expect(template).toMatch(/lint.ignore|lint disable|eslint-disable/i)
     expect(template).toMatch(/suppress unless the suppression itself violates/i)
 
-    // Advisory routing rule preserved
-    expect(template).toMatch(/Advisory observations.*route to advisory/i)
+    // Live review leaked rejected concerns through advisory output; all buckets need admission.
+    expect(template).toMatch(/Advisory observations need a demonstrated benefit/i)
+    expect(template).toMatch(/same admission rule.*residual_risks.*testing_gaps/i)
 
     // Personas never produce anchors 0 or 25 (suppress silently)
     expect(template).toMatch(/personas never produce/i)
@@ -563,6 +564,20 @@ describe("ce-code-review contract", () => {
     expect(content).toMatch(/terminal.*tool error.*malformed.*failed reviewer/i)
     expect(content).toMatch(/no reliable blocking collection/i)
     expect(content).toMatch(/["`]status["`]\s*:\s*["`]failed["`]/i)
+    // #1654: Codex delivers a subagent's final answer as a host message tagged with the
+    // launch's task name, while wait_agent reports status. The collector rule must state the
+    // condition (an attributable terminal result reached in-turn), accept that channel, and
+    // still refuse a progress update as a result; it must not demand one ID-addressed tool.
+    expect(content).toMatch(/host-delivered terminal message/i)
+    expect(content).toMatch(/progress or a state change is not a terminal result/i)
+    expect(content).toMatch(/within this turn/i)
+    expect(content).toMatch(/instead of ending the turn to wait/i)
+    expect(content).not.toMatch(/instead of waiting for notifications/i)
+    expect(content).not.toMatch(/accepts the launch identifier, blocks until terminal, and returns the terminal outcome/i)
+    expect(skill).toMatch(/host-delivered terminal message that names the launch and carries its payload/i)
+    expect(skill).toMatch(/never end the turn on progress/i)
+    expect(skill).not.toMatch(/wait for a notification/i)
+    expect(solution).toMatch(/host-delivered terminal message/i)
     expect(skill).toMatch(/persisted peer.*cleanup.*before.*failure result/i)
     expect(content).toMatch(/persisted peer.*owning cleanup.*before.*failure/i)
     expect(crossModel).toMatch(/every persisted job id.*terminal.*job directory.*deleted.*before.*returns/i)
@@ -629,6 +644,7 @@ describe("ce-code-review contract", () => {
     expect(content).toMatch(/launch receipt.*uncollected/i)
     expect(content).toMatch(/blocking collection/i)
     expect(content).toMatch(/terminal outcome/i)
+    expect(content).toMatch(/host-delivered terminal message/i)
     expect(content).toMatch(/malformed output.*validator infrastructure failure/i)
     expect(content).toMatch(/validator infrastructure failure/i)
     expect(content).not.toMatch(/A foreground Agent call is the wait/i)
@@ -721,8 +737,12 @@ describe("ce-code-review contract", () => {
     expect(content).toMatch(
       /Stage 3b standards discovery completed successfully \(with applicable paths or a confirmed empty result\)/i,
     )
+    // #1159 pinned "no conditional other than project-standards"; the gate now
+    // states the condition that clause was a case of: only diff-content
+    // conditionals disqualify lite, while personas the repo's criteria sources
+    // select (standards paths, declared packs) ride it. Both must still be named.
     expect(content).toMatch(
-      /No conditional persona other than `project-standards` was selected in Stage 3/i,
+      /No conditional persona was selected in Stage 3 from the diff's own content\.[^\n]*`project-standards` from Stage 3b paths/i,
     )
     expect(content).toMatch(
       /Lite roster:[\s\S]{0,200}`project-standards-reviewer` only when Stage 3b found applicable paths/i,
@@ -845,15 +865,14 @@ describe("ce-code-review contract", () => {
     expect(content).toMatch(/Suppressed candidates routed here remain absent from primary `findings`/)
     expect(content).toMatch(/discard all other `suppressed_findings`/)
 
-    // Settlement reconciliation owns suppressed preferences before the remainder is discarded.
+    // Settled preferences cannot bypass admission through the helper rerun.
     expect(stage5).toMatch(/Settled decisions[\s\S]*surviving `findings` and `suppressed_findings`/)
-    expect(stage5).toMatch(/include it in the synthetic rerun[\s\S]*helper preserves it in the primary report/)
+    expect(stage5).toMatch(/Discard findings that merely prefer an alternative/)
+    expect(stage5).toMatch(/Omit candidates discarded during settlement reconciliation/)
     expect(stage5.indexOf("**Settled decisions.**")).toBeLessThan(
       stage5.indexOf("**Soft-bucket demotion before validation.**"),
     )
-    expect(stage5).toMatch(
-      /Soft-bucket demotion[\s\S]*Keep every `settled_conflict`-stamped finding primary/,
-    )
+    expect(stage5).not.toMatch(/Keep every `settled_conflict`-stamped finding primary/)
   })
 
   test("personas use anchored rubric language and no float references remain", async () => {
@@ -1022,7 +1041,7 @@ describe("ce-code-review contract", () => {
     // cold-caller fallback only (it must not start a second review in the ce-work Tier 2 path).
     expect(followup).toMatch(/consume the completed review/i)
     expect(followup).toMatch(/invoke[^\n]*review[^\n]*cold caller/i)
-    expect(followup).toMatch(/does not investigate findings/i)
+    expect(followup).toContain("The calling agent decides which findings are valid and which fixes it has permission to apply")
     expect(followup).toMatch(/Group by `file`/i)
     expect(followup).toMatch(/batch/i)
     expect(followup).toContain("mode:agent")
@@ -1045,23 +1064,11 @@ describe("ce-code-review contract", () => {
         /no-sink/,
       )
 
-      // Gate step is explicitly labeled and required after Tier 2.
       expect(workflow).toContain("**Residual Work Gate**")
-      expect(workflow).toMatch(/do not proceed to Final Validation/i)
-
-      // Three forward options + one abort; labels are self-contained.
-      expect(workflow).toContain("Apply/fix now")
-      expect(workflow).toContain("File tickets via project tracker")
-      expect(workflow).toContain("Accept and proceed")
-      expect(workflow).toContain("Stop — do not ship")
-
-      // Accept-and-proceed path threads findings into the PR description under the
-      // heading ce-resolve-pr-feedback ticks; see the cross-skill heading test below.
+      expect(workflow).toContain("Close rejected claims; they are not unfinished work")
+      expect(workflow).toContain("Autonomous runs return the blocker")
+      expect(workflow).toContain("Remaining concerns that do not prevent completion do not need a menu asking what to do next")
       expect(workflow).toContain("## Unapplied review findings")
-      expect(workflow).toContain("If the user later chooses the no-PR `ce-commit` path")
-      // With no PR and no reachable tracker there is no durable sink, so the run says so
-      // outright. The committed record file that used to fill this slot was removed: it
-      // fired once in the repo's history, wrongly, and outlived the ticket it duplicated.
       expect(workflow).toContain("recorded nowhere else")
       expect(workflow).not.toContain("residual-review-findings")
     }

@@ -1,7 +1,7 @@
 {
   "name": "loki-mode",
   "mcpName": "io.github.asklokesh/loki-mode",
-  "version": "9.22.13",
+  "version": "9.26.3",
   "description": "Loki Mode by Autonomi. Autonomous spec-to-product system: takes a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief to a deployed app via the RARV-C closure loop with 8 quality gates. Provider-agnostic (Claude Code, OpenAI Codex, Cline, Aider, opencode).",
   "keywords": [
     "agent",
@@ -130,14 +130,15 @@
     "linux"
   ],
   "optionalDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.208",
+    "@anthropic-ai/claude-agent-sdk": "0.3.267",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
     "@opentelemetry/sdk-trace-base": "^2.10.0",
     "@opentelemetry/sdk-trace-node": "^2.10.0"
   },
   "overrides": {
-    "protobufjs": ">=8.4.2"
+    "protobufjs": ">=8.4.2",
+    "fast-uri": ">=3.1.6"
   },
   "devDependencies": {
     "@types/node": "^25.2.0",

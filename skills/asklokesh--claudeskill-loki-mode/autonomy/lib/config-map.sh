@@ -838,6 +838,106 @@ loki_config_generate_schema() {
 # refs, raw-secret literals (ERROR), and per-value validation failures. Returns
 # non-zero on ANY failure. Reads the file directly (format-aware) WITHOUT
 # exporting anything into the environment.
+# Walk a JSON/YAML config's OWN key set and echo any dotted key that is not a
+# member of LOKI_CONFIG_MAP, one per line. Used by validate only.
+#
+# Inert descriptive fields written by `loki init` (version/template/created) are
+# allowlisted: they carry no behavior, so erroring on them would fail a file the
+# product itself generated. Every other unmapped key is reported -- those are the
+# ones a user expects to change behavior and that are silently dropped instead.
+#
+# Container keys are not reported: in {"dashboard":{"port":1}} the key
+# "dashboard" is a parent of the mapped "dashboard.port", never a typo itself.
+# A leaf is what a user actually mistypes.
+loki_config_unknown_keys() {
+    local file="$1" fmt="$2"
+    command -v python3 >/dev/null 2>&1 || return 0
+
+    # YAML needs a parser. The rest of this file reaches for yq first, so do the
+    # same: convert to JSON via yq and let the JSON walk below handle it. That
+    # keeps detection working on a host with yq but no pyyaml (CI installs
+    # neither by default, and yq is the more common of the two here). Without
+    # either parser the walk no-ops and YAML validates as it did before -- a
+    # missing parser must not invent a verdict.
+    local scratch_json=""
+    if [ "$fmt" = "yaml" ] && ! python3 -c "import yaml" >/dev/null 2>&1; then
+        command -v yq >/dev/null 2>&1 || return 0
+        scratch_json="$(mktemp "${TMPDIR:-/tmp}/loki-cfg-uk.XXXXXX")" || return 0
+        if ! yq eval -o=json '.' "$file" > "$scratch_json" 2>/dev/null; then
+            rm -f "$scratch_json"; return 0
+        fi
+        file="$scratch_json"; fmt="json"
+    fi
+
+    local map_str="" mapping
+    for mapping in "${LOKI_CONFIG_MAP[@]}"; do map_str+="${mapping%%:*}"$'\n'; done
+
+    _LOKI_UK_FILE="$file" _LOKI_UK_FMT="$fmt" _LOKI_UK_MAP="$map_str" python3 -c '
+import json, os, sys
+
+path = os.environ["_LOKI_UK_FILE"]
+fmt = os.environ["_LOKI_UK_FMT"]
+
+known = set()
+for line in os.environ.get("_LOKI_UK_MAP", "").splitlines():
+    line = line.strip()
+    if line:
+        known.add(line)
+
+# Parents of a mapped key are containers, not typos.
+containers = set()
+for k in known:
+    parts = k.split(".")
+    for i in range(1, len(parts)):
+        containers.add(".".join(parts[:i]))
+
+# Inert metadata emitted by `loki init` -- descriptive, never behavioral.
+ALLOW = {"version", "template", "created", "name", "description"}
+
+try:
+    if fmt == "json":
+        with open(path) as f:
+            data = json.load(f)
+    else:
+        try:
+            import yaml
+        except ImportError:
+            sys.exit(0)
+        with open(path) as f:
+            data = yaml.safe_load(f)
+except Exception:
+    # A malformed file is out of scope here -- the parsers report it.
+    sys.exit(0)
+
+if not isinstance(data, dict):
+    sys.exit(0)
+
+unknown = []
+
+def walk(node, prefix):
+    for key, val in node.items():
+        dotted = prefix + key if not prefix else prefix + "." + key
+        if isinstance(val, dict) and val:
+            # Recurse into containers; report the leaves inside them.
+            walk(val, dotted)
+            continue
+        if dotted in known or dotted in containers or dotted in ALLOW:
+            continue
+        unknown.append(dotted)
+
+walk(data, "")
+for u in unknown:
+    print(u)
+' 2>/dev/null
+    # Always succeed: this helper reports keys on stdout, and a parser that
+    # cannot run must degrade to "nothing to report" rather than failing the
+    # caller. The `[ -n ... ] && rm` form would return non-zero on the common
+    # empty-scratch path and discard the captured output, so clean up with an
+    # unconditional rm on a possibly-empty path instead.
+    rm -f "${scratch_json:-/dev/null}" 2>/dev/null
+    return 0
+}
+
 loki_config_validate_file() {
     local path="$1"
     local rc=0
@@ -906,6 +1006,32 @@ loki_config_validate_file() {
         }
         _loki_cfg_collect_pairs "$path" "$fmt"
     )"
+
+    # Unknown-key detection for JSON/YAML.
+    #
+    # The extraction above walks LOKI_CONFIG_MAP and pulls each KNOWN path out of
+    # the file, so a key the map does not contain is never emitted and cannot
+    # reach the pair loop below -- a misspelled key validated clean while the
+    # same typo in .env format was correctly rejected. Detection therefore has to
+    # walk the FILE's own key set and diff it against the map, which is what this
+    # block does. Kept in validate only: the load/emit paths are unchanged, so a
+    # config that runs today still runs.
+    case "$fmt" in
+        (json|yaml)
+            local unknown_keys
+            unknown_keys="$(loki_config_unknown_keys "$path" "$fmt")" || unknown_keys=""
+            if [ -n "$unknown_keys" ]; then
+                local ukey
+                while IFS= read -r ukey; do
+                    [ -n "$ukey" ] || continue
+                    printf 'loki: config validate: ERROR unknown key %s (not a recognized config key -- typo?)\n' "$ukey" >&2
+                    rc=1
+                done <<UNKNOWN_KEYS
+$unknown_keys
+UNKNOWN_KEYS
+            fi
+            ;;
+    esac
 
     local env_var value expanded
     while IFS=$'\t' read -r env_var value; do

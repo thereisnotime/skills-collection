@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 2026-09-10: Add repository-local SSOT CI checks for the detector's Node requirement,
+  advisory discovery, and drift controls; pin the existing promo checker.
+
 - 2026-09-06: Point the bundled house-style examples at the canonical public README so the link still works when the skill package is installed without the repository root.
 - 2026-09-06: Keep em-dash overuse as a P2 writing-quality flag while excluding it from the authorship score, label, probabilities, confidence, and classification (#73). Existing rate thresholds and carve-outs are unchanged. Scores may be lower for text where em-dash overuse previously contributed weight.
 - 2026-09-06: Keep paired prose quotes around bare URLs visible to quote normalization even when the URL contains an unmatched opening parenthesis. Preserve internal URL apostrophes and explicit Markdown link destinations.

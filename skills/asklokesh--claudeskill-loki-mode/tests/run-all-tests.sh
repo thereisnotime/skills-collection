@@ -236,6 +236,14 @@ run_test "outcome ledger anchors before it measures" "$SCRIPT_DIR/test-outcome-l
 run_test "intent ledger detects spec-drifted-from-intent" "$SCRIPT_DIR/test-intent-ledger.sh"
 run_test "pre-edit snapshot separates agent from human rescue" "$SCRIPT_DIR/test-preedit-snapshot.sh"
 run_test "server.json tracks VERSION (MCP registry not stale)" "$SCRIPT_DIR/test-server-json-current.sh"
+run_test "plugin.json tracks VERSION (plugin updates not stale)" "$SCRIPT_DIR/test-plugin-json-current.sh"
+run_test "subagent fleet capacity is explicit (CC 2.1.217 defaults)" "$SCRIPT_DIR/test-subagent-fleet-capacity.sh"
+run_test "build wall-clock is attributable (boot/teardown timed)" "$SCRIPT_DIR/test-build-time-attribution.sh"
+run_test "README has no hand-maintained version (drifts by default)" "$SCRIPT_DIR/test-readme-no-stale-version.sh"
+run_test "doc-gen does not re-bill its shared context or run untiered" "$SCRIPT_DIR/test-docgen-cost-shape.sh"
+run_test "loki web alias does not silently do the wrong thing" "$SCRIPT_DIR/test-web-alias-consistency.sh"
+run_test "every terminal outcome has a human label (no raw enums)" "$SCRIPT_DIR/test-completion-outcome-labels.sh"
+run_test "verify never reports an LLM review it did not perform" "$SCRIPT_DIR/test-verify-llm-review.sh"
 run_test "brownfield assess changes nothing (enterprise trust claim)" "$SCRIPT_DIR/test-brownfield-assess-readonly.sh"
 run_test "EVALUATING.md claims stay runnable (no COMPARISON.md rot)" "$SCRIPT_DIR/test-evaluating-doc-runnable.sh"
 run_test "council never fabricates a reviewer verdict (INCONCLUSIVE != REJECT)" "$SCRIPT_DIR/test-council-no-fabricated-verdict.sh"
@@ -491,6 +499,7 @@ run_test "Deploy receipt gate (--execute authorization)" "$SCRIPT_DIR/test-deplo
 # example|schema|validate`. Drives the real binary under LOKI_CONFIG_DUMP=1 +
 # direct unit calls into the side-effect-free config-map.sh lib.
 run_test "Unified config-file (--config precedence + formats)" "$SCRIPT_DIR/test-config-file.sh"
+run_test "Config validate unknown-key detection (JSON/YAML parity)" "$SCRIPT_DIR/test-config-unknown-keys.sh"
 
 # Config-map no-yq YAML fallback: regression for same-last-segment key collision
 # and the BSD-sed \s stray-quote bug. Forces the fallback by hiding yq from PATH.

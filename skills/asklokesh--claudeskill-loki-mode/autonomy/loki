@@ -7657,9 +7657,17 @@ cmd_web() {
             cmd_web_redirect_to_dashboard "$@"
             ;;
         stop)
+            # `loki web start` redirects to the dashboard (above), so stopping
+            # Purple Lab here left the user unable to stop what they had just
+            # started: start hit 57374, stop hit 57375. Stop BOTH -- the
+            # dashboard because that is what start launched, and Purple Lab
+            # because a long-lived pre-deprecation process may still be up.
+            cmd_dashboard_stop
             cmd_web_stop
             ;;
         status)
+            # Same reasoning as stop: report on what start actually launched.
+            cmd_dashboard_status
             cmd_web_status
             ;;
         logs)
@@ -7704,6 +7712,7 @@ cmd_web_redirect_to_dashboard() {
     # --port is shared and passes straight through.
     local orig_args=("$@")
     local dash_args=()
+    local _web_dropped_prd=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --no-open)
@@ -7711,10 +7720,17 @@ cmd_web_redirect_to_dashboard() {
                 shift
                 ;;
             --prd)
-                # Purple-Lab-only prefill; not supported by the dashboard.
+                # Purple-Lab-only prefill; the dashboard cannot accept it.
+                # Dropping it is correct, doing so SILENTLY is not: the user
+                # named a spec file and nothing would tell them it was ignored,
+                # so they would sit in front of an empty dashboard believing
+                # their PRD had been loaded. Say so, and name the command that
+                # actually takes a PRD.
+                _web_dropped_prd="${2:-}"
                 shift 2 2>/dev/null || shift
                 ;;
             --prd=*)
+                _web_dropped_prd="${1#--prd=}"
                 shift
                 ;;
             *)
@@ -7727,6 +7743,11 @@ cmd_web_redirect_to_dashboard() {
     # Safe empty-array expansion (bash 3.2 + set -u): ${arr[@]+"${arr[@]}"}
     if ! _deprecated_alias_should_suppress ${orig_args[@]+"${orig_args[@]}"}; then
         echo "Launching the dashboard (http://localhost:${DASHBOARD_DEFAULT_PORT}) instead of the deprecated Purple Lab." >&2
+    fi
+    if [ -n "$_web_dropped_prd" ]; then
+        echo "Note: --prd '${_web_dropped_prd}' was NOT loaded. The dashboard does not take a PRD;" >&2
+        echo "      it watches runs that are already going. To build from that spec:" >&2
+        echo "        loki start '${_web_dropped_prd}'" >&2
     fi
     cmd_dashboard_start ${dash_args[@]+"${dash_args[@]}"}
 }
@@ -31217,7 +31238,15 @@ _docs_invoke_provider() {
             # structurally identical captured `claude -p` resolution subcall).
             # env-prefix form because of the optional $t_prefix timeout wrapper.
             # No-op when caveman is absent.
-            result=$($t_prefix env CAVEMAN_DEFAULT_MODE=off claude -p "$prompt" 2>/dev/null) || exit_code=$?
+            # Model pin (v9.25.0). This site makes EIGHT sequential provider
+            # calls per doc-gen run, and without --model every one of them runs
+            # on whatever the account default is -- Opus for many users, at 5x
+            # Sonnet's input price and 5x its output price. Documentation is
+            # summarization over a context this code already assembled; it is
+            # not the workload that needs the top tier. Pinned to the same
+            # default the review subcall uses (run.sh:13762), and overridable
+            # for anyone who wants a different trade.
+            result=$($t_prefix env CAVEMAN_DEFAULT_MODE=off claude -p --model "${LOKI_DOCS_MODEL:-claude-sonnet-5}" "$prompt" 2>/dev/null) || exit_code=$?
             ;;
         codex)
             result=$($t_prefix codex exec --sandbox workspace-write "$prompt" 2>/dev/null) || exit_code=$?
@@ -31347,47 +31376,56 @@ _docs_generate() {
         echo -e "  ${CYAN}Generating${NC} $doc_file ..."
 
         if [ "$provider_available" = true ]; then
-            # Build a focused prompt for each doc type
+            # Build a focused prompt for each doc type.
+            #
+            # CONTEXT FIRST, AND THE ORDER IS LOAD-BEARING. All eight doc types
+            # share the same $context (measured at 4,269 tokens on this repo).
+            # With the per-type instruction first, the eight prompts share no
+            # common prefix, so every call re-sends the whole context at full
+            # input price: ~29,883 redundant input tokens per doc-gen run.
+            # Leading with the identical context makes it one cache write plus
+            # seven cache reads at 0.1x. Do not "tidy" the instruction back to
+            # the top -- that silently restores the redundant billing.
             case "$doc_type" in
                 README)
-                    prompt="Based on the following project context, generate a comprehensive README.md file. Include: project title, description, features, installation instructions, usage examples, and contribution guidelines. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate a comprehensive README.md file. Include: project title, description, features, installation instructions, usage examples, and contribution guidelines. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
                 ARCHITECTURE)
-                    prompt="Based on the following project context, generate an ARCHITECTURE.md file. Include: system overview, high-level design, component diagram (as text), data flow, directory structure explanation, key design decisions, and technology choices. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate an ARCHITECTURE.md file. Include: system overview, high-level design, component diagram (as text), data flow, directory structure explanation, key design decisions, and technology choices. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
                 API)
-                    prompt="Based on the following project context, generate an API.md file. Document all public APIs: REST endpoints, exported functions, classes, and their signatures. Include parameter types, return types, and brief descriptions. If no API is detected, document the main public interfaces. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate an API.md file. Document all public APIs: REST endpoints, exported functions, classes, and their signatures. Include parameter types, return types, and brief descriptions. If no API is detected, document the main public interfaces. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
                 SETUP)
-                    prompt="Based on the following project context, generate a SETUP.md file. Include: prerequisites, installation steps, environment variables, database setup, running locally, running in Docker (if applicable), and common troubleshooting. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate a SETUP.md file. Include: prerequisites, installation steps, environment variables, database setup, running locally, running in Docker (if applicable), and common troubleshooting. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
                 COMPONENTS)
-                    prompt="Based on the following project context, generate a COMPONENTS.md file. Document each major component/module/directory: its purpose, key files, public interface, and dependencies on other components. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate a COMPONENTS.md file. Document each major component/module/directory: its purpose, key files, public interface, and dependencies on other components. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
                 TESTING)
-                    prompt="Based on the following project context, generate a TESTING.md file. Include: test strategy, test types (unit, integration, e2e), how to run tests, test configuration, coverage goals, and CI integration. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate a TESTING.md file. Include: test strategy, test types (unit, integration, e2e), how to run tests, test configuration, coverage goals, and CI integration. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
                 DECISIONS)
-                    prompt="Based on the following project context, generate a DECISIONS.md file with Architectural Decision Records (ADRs). Infer key decisions from the technology stack, directory structure, and configuration. Each ADR should have: title, status, context, decision, and consequences. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate a DECISIONS.md file with Architectural Decision Records (ADRs). Infer key decisions from the technology stack, directory structure, and configuration. Each ADR should have: title, status, context, decision, and consequences. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
                 CLAUDE)
-                    prompt="Based on the following project context, generate a CLAUDE.md file for AI agent context. Include: project overview, key commands (build, test, run, lint), project structure with brief descriptions of each directory, coding conventions, important files, and any gotchas. This file helps AI coding assistants understand the project quickly. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations.
+                    prompt="$context
 
-$context"
+Based on the project context above, generate a CLAUDE.md file for AI agent context. Include: project overview, key commands (build, test, run, lint), project structure with brief descriptions of each directory, coding conventions, important files, and any gotchas. This file helps AI coding assistants understand the project quickly. Use markdown formatting. Do NOT use emojis. Output ONLY the markdown content, no explanations."
                     ;;
             esac
 

@@ -12,7 +12,13 @@ It is not a verdict on a document (`ce-pov`), not findings on a planning doc (`c
 
 `ce-work` invokes it as the portable review path before shipping. `ce-optimize` and `ce-debug` also call it on the diffs they produce. You can invoke it directly any time.
 
+The agent leading the review checks each finding against the code. It keeps findings that identify a real problem or make maintenance easier enough to justify the change. Agreement between reviewers does not make a minor issue important. Rejected suggestions do not reappear as risks or requests for more tests. Advisory observations need a demonstrated benefit too; uncertainty by itself does not justify passing a concern to the user.
+
+Collected review agents and validators are released before the next batch or handoff when the harness provides caller-owned cleanup. When it does not, the review reports retained-capacity limitations without claiming that completion freed a slot.
+
 ---
+
+If the repo declares [Compound Packs](./packs.md) in its `packs` config, the institutional-learnings pass also searches the resolved pack roots, and a diff that violates a matching pack rule is flagged with a `(pack: <id>, <path within the pack>)` citation.
 
 ## TL;DR
 
@@ -81,7 +87,7 @@ A small low-risk change runs correctness (and project-standards if applicable fi
 
 - **Always-on:** `correctness-reviewer`
 - **Standards:** `project-standards-reviewer` only when at least one criteria file governs a changed file (see [Repo-owned review criteria](#repo-owned-review-criteria))
-- **Generic conditional:** testing for changed tests/harnesses or meaningful runtime behavior with no corresponding test work; maintainability for large or structural work; agent-native for agent-facing files; learnings only when an existing `docs/solutions/` corpus has plausible matches
+- **Generic conditional:** testing for changed tests/harnesses or meaningful runtime behavior with no corresponding test work; maintainability for large or structural work; agent-native for agent-facing files; learnings when an existing `docs/solutions/` corpus has plausible matches or the repo declares Compound Packs (local scope)
 - **Cross-cutting conditional:** security, performance, API contract, data migrations, reliability, adversarial, previous-comments. Each selected only when the diff touches its concern
 - **Stack-specific:** Julik frontend races, Swift/iOS. Only when the matching runtime domain is touched
 - **CE conditional:** `deployment-verification-agent` for risky migration diffs. Schema drift and migration safety live on the `data-migration` persona
@@ -94,7 +100,7 @@ When you pass a PR number or URL, trivial automated PRs (lockfile bumps, chore v
 
 ## Repo-owned review criteria
 
-Everything else the skill checks is what we ship. This is the part you own.
+Everything else the skill checks ships with the plugin. This is the part you own.
 
 Put a `CODING_STANDARDS.md` in your repository, write the rules your team actually cares about, and the review enforces them. A finding from that file cites the rule it broke, so it arrives as "this violates the rule you wrote" rather than someone's taste.
 
@@ -110,7 +116,7 @@ Four things worth knowing:
 - **Placement scopes it.** A file at the repo root governs the whole checkout. One at `skills/CODING_STANDARDS.md` governs only what is under `skills/`. Several can apply to the same file at once.
 - **Any format works.** Prose, bullets, tables, nested headings, with or without frontmatter. The content is the contract. A paragraph of plain English is a valid rules file.
 - **It replaces the instruction file as criteria, per changed file.** `CLAUDE.md` and `AGENTS.md` remain the criteria for any changed file that no `CODING_STANDARDS.md` governs, so a repo that has never written one keeps the review it already had. No file is ever graded against both kinds, and the report names the fallback in Coverage when it supplies the criteria.
-- **It can grow.** An instruction file is loaded into every agent's context on every turn, so it stays short and rules get cut for space. A criteria file is read once, by one reviewer, at review time. That is the reason to keep enforceable rules here rather than in `AGENTS.md`: this file has room, and adding to it costs nothing until review runs.
+- **It can grow.** An instruction file is loaded into every agent's context on every turn, so it stays short and rules get cut for space. A criteria file is read once, by one reviewer, at review time. That is the reason to keep enforceable rules here rather than in `AGENTS.md`. This file has room, and adding to it costs nothing until review runs.
 
 That last point is what makes review strictness compound. Notice a mistake worth preventing, write the rule down, and every review after that catches it.
 
@@ -160,9 +166,9 @@ When the diff has an associated plan (`docs/plans/*.md` or `.html`), the skill d
 
 Pipeline artifacts under `plans/`, `solutions/`, and legacy `brainstorms/` are protected. Findings to delete or gitignore them are discarded.
 
-When a discovered plan carries `session-settled:` decisions, a finding that merely prefers a different approach is routed report-only with a `settled_conflict` stamp. A real defect inside a settled approach keeps its full severity. Reviewers stay blind to the annotations. The orchestrator triages after the fact.
+When a discovered plan carries `session-settled:` decisions, a finding that merely prefers a different approach is discarded. A real defect inside a settled approach keeps its full severity. Applying its fix still requires authority to change that decision when the fix cannot preserve it. Reviewers stay blind to the annotations. The orchestrator triages after the fact.
 
-Callers such as `/ce-work` read the Actionable Findings summary (or the JSON `actionable_findings` field) and own residual handling: apply now, file tickets, accept with a durable sink, or stop. This skill does not run that gate.
+Callers such as `/ce-work` read the Actionable Findings summary (or the JSON `actionable_findings` field) and own follow-up. They resolve justified fixes within scope, stop when completing the requested work requires missing evidence, authority, or a user decision, and record other worthwhile concerns. This skill does not run that gate.
 
 ---
 

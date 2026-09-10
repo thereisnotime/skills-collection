@@ -896,3 +896,53 @@ except Exception:
     pass
 RESUME_UUID_PY
 }
+
+# ---------- v9.23.0 subagent fleet capacity (Claude Code 2.1.217 defaults) ----------
+# WHY THIS EXISTS. Claude Code 2.1.217 changed two subagent defaults, and both
+# silently degrade a fan-out harness rather than failing loudly:
+#
+#   "Changed subagents to no longer spawn nested subagents by default; set
+#    CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH to allow deeper nesting"
+#   "Added a cap on concurrently-running subagents (default 20, override with
+#    CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS) so one message can't fan out
+#    unbounded background agents"
+#   -- https://github.com/anthropics/claude-code/releases/tag/v2.1.217
+#
+# The spawn-depth default dropped from 5 to 1 (mirrored in Agent SDK 0.3.217).
+# Loki's documented SDLC fleet pattern dispatches an agent that itself delegates
+# (skills/model-selection.md), so at depth 1 the second level never spawns: the
+# fleet quietly collapses to a single tier and the run still reports success.
+# That is the dangerous shape -- no error, just less work done than claimed.
+#
+# We set the depth EXPLICITLY rather than relying on any default, in either
+# direction. 2 is the depth Loki actually uses (orchestrator -> dev/reviewer
+# agent -> its own helpers); we do not raise it further, because unbounded
+# nesting is the runaway the upstream default exists to prevent.
+#
+# Concurrency is left at the upstream default of 20 unless the operator raises
+# it: the council (3 reviewers) and dev fleet (3-5) both sit well under it, and
+# a harness that silently raises a safety cap on every user's machine is the
+# wrong trade. We export it only when the operator asked for more, so the value
+# shows up in a diff rather than being an invisible default.
+#
+# Both are opt-out via LOKI_SUBAGENT_CAPACITY=0 and honor a pre-set value from
+# the environment, so an operator's own export always wins.
+loki_export_subagent_capacity() {
+    [ "${LOKI_SUBAGENT_CAPACITY:-1}" = "0" ] && return 0
+
+    if [ -z "${CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH:-}" ]; then
+        export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH="${LOKI_SUBAGENT_SPAWN_DEPTH:-2}"
+    fi
+
+    # Only exported when explicitly requested; no silent raise of the cap.
+    if [ -n "${LOKI_SUBAGENT_CONCURRENCY:-}" ] && \
+       [ -z "${CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:-}" ]; then
+        export CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS="$LOKI_SUBAGENT_CONCURRENCY"
+    fi
+    return 0
+}
+
+# Applied at SOURCE time, like the caveman default-off export above: the whole
+# subprocess tree inherits it, so every subcall site gets the same capacity
+# without each one having to remember to call this.
+loki_export_subagent_capacity

@@ -4245,6 +4245,27 @@ build_completion_summary() {
         stopped)        outcome_label="Stopped";          notify_title="Run stopped" ;;
         failed)         outcome_label="Failed";           notify_title="Run failed" ;;
         intervention)   outcome_label="Needs input";      notify_title="Input needed" ;;
+        # Every outcome below reached this case and fell through to the `*` arm,
+        # so the user's headline label was the raw enum string --
+        # "council_force_approved", "max_duration" -- at the exact moment they
+        # were deciding whether to trust the build. The guidance block further
+        # down already handles several of these properly; only the label was
+        # missing.
+        force_stopped)  outcome_label="Stopped without approval"
+                        notify_title="Run stopped (not approved)" ;;
+        budget_exceeded) outcome_label="Stopped at spend cap"
+                        notify_title="Run stopped (budget cap)" ;;
+        max_duration)   outcome_label="Time limit reached"
+                        notify_title="Run stopped (time limit)" ;;
+        max_retries_exceeded) outcome_label="Retries exhausted"
+                        notify_title="Run stopped (retries exhausted)" ;;
+        inconclusive_spec_contradiction) outcome_label="Spec contradiction"
+                        notify_title="Run stopped (spec contradiction)" ;;
+        # Force-approval is NOT the same as council approval, and labelling both
+        # "Completed" hid the difference on a product whose whole claim is a
+        # checkable receipt. Name it.
+        council_force_approved) outcome_label="Completed (force-approved)"
+                        notify_title="Run complete (force-approved)" ;;
         *)              outcome_label="$outcome";          notify_title="Run finished" ;;
     esac
 
@@ -12547,8 +12568,31 @@ auto_generate_docs_if_needed() {
             -not -path '*/node_modules/*' -not -path '*/.loki/*' \
             -not -path '*/.git/*' -not -path '*/dist/*' 2>/dev/null | head -40 | wc -l | tr -d ' ')
         _doc_src="${_doc_src:-0}"
-        # <=3 source files cannot need an architecture suite. 90s still allows a
-        # README + USAGE pass, which is all the gate asks of a small project.
+        # <=3 source files cannot need an architecture suite. This used to cap
+        # the timeout at 90s and still run; measurement showed that on a small
+        # project the run reaches the cap and is KILLED (exit 124 below), so the
+        # 90s bought nothing -- the gate then scored on whatever files already
+        # existed, exactly as it does when generation is skipped. On the one
+        # profiled build doc_generation was 90s of a 960s wall clock, 9%,
+        # producing no document (benchmarks/results/gate-profile.json).
+        #
+        # So skip outright rather than pay for a timeout. This is not a quality
+        # trade: the outcome for the gate is identical, and the 90s is returned
+        # to the user. LOKI_DOCS_TIMEOUT is still honored -- the whole block is
+        # inside `if [ -z "${LOKI_DOCS_TIMEOUT:-}" ]`, so anyone who explicitly
+        # asks for doc generation on a tiny project still gets it.
+        # Gate the skip on the SIMPLE tier, not on the file count alone.
+        # A standard/complex project can legitimately have few source files and
+        # still need its full doc suite -- tests/test-doc-scope-generator.sh
+        # exists precisely to assert that "quality at any complexity is
+        # preserved", and a count-only skip broke it. The simple tier already
+        # returns early further up for the same reason, so this only shortens a
+        # doomed run for projects that were never getting the full suite.
+        if [ "$_doc_src" -le 3 ] && [ "${DETECTED_COMPLEXITY:-}" = "simple" ]; then
+            log_info "Auto-documentation: ${_doc_src} source file(s) on the simple tier -- skipping generation (it times out before producing a document; set LOKI_DOCS_TIMEOUT to force it)"
+            return 0
+        fi
+        # Everything else keeps the previous behavior: cap the timeout, still run.
         if [ "$_doc_src" -le 3 ] && [ "$_doc_to" -gt 90 ]; then
             log_info "Auto-documentation: ${_doc_src} source file(s) -- capping generation at 90s (was ${_doc_to}s)"
             _doc_to=90
@@ -16802,7 +16846,32 @@ start_dashboard() {
         return 1
     fi
 
-    sleep 2
+    # Wait for the dashboard to come up, but only as long as it actually takes.
+    # This was a flat `sleep 2` on the critical path of every build, before the
+    # first iteration, spent entirely on a process that is typically serving in
+    # a fraction of that. Poll the endpoint the reuse path above already trusts
+    # (/api/status), so this returns the moment the server really serves rather
+    # than on a fixed guess.
+    #
+    # The floor is deliberate and NOT an optimization target. A process that
+    # starts and then dies at t=1.5s would pass an early `kill -0` where the old
+    # flat sleep would have caught it, so polling alone would trade a real
+    # liveness check for a second of wall clock. We keep polling until the
+    # endpoint answers AND require the process to still be alive at the end,
+    # which is strictly stronger than the old single check at t=2s.
+    _dash_ready=0
+    for _ in $(seq 1 40); do
+        kill -0 "$DASHBOARD_PID" 2>/dev/null || break
+        if curl -fsS -m 1 "http://127.0.0.1:${DASHBOARD_PORT}/api/status" >/dev/null 2>&1; then
+            _dash_ready=1
+            break
+        fi
+        sleep 0.05
+    done
+    # A server that never answered still gets the original grace period: some
+    # environments have no curl, and the endpoint is not the only thing that
+    # makes a dashboard useful. Falling back keeps behavior identical there.
+    [ "$_dash_ready" = "1" ] || sleep 2
 
     if kill -0 "$DASHBOARD_PID" 2>/dev/null; then
         DASHBOARD_LAST_ALIVE=$(date +%s)
@@ -26073,6 +26142,18 @@ main() {
         exit 1
     fi
 
+    # BOOT WINDOW (v9.24.0). Everything from here to setup_agent_branch is
+    # pre-loop setup: prerequisites, provider detection, complexity detection,
+    # dashboard start, branch setup. None of it was timed, and none of the nine
+    # existing emit_stage_complete sites lies outside the iteration body -- so
+    # on the one profiled build, stage_total_s summed to 723s against a 960s
+    # wall clock and 237s (25%) was attributed by GUESS, not measurement
+    # (benchmarks/results/gate-profile.json). The guess named "rsync of the
+    # engine copy", which measurement later falsified: the only rsync in the
+    # repo is in the benchmark harness, costs 1.09s, and runs before the timer
+    # starts. Bracket the window instead of arguing about it.
+    _boot_t0=$(date +%s 2>/dev/null)
+
     # Check prerequisites (unless skipped)
     if [ "$SKIP_PREREQS" != "true" ]; then
         if ! check_prerequisites; then
@@ -26288,6 +26369,11 @@ main() {
     # Setup agent branch protection (isolates agent changes to a feature branch)
     setup_agent_branch
 
+    # Close the boot window. Purely additive: emit_stage_complete appends one
+    # event line and swallows every error, so it cannot alter a gate verdict or
+    # control flow (see its contract at run.sh:2523-2531).
+    emit_stage_complete "boot" "pass" "$_boot_t0"
+
     # Log session start for audit
     audit_log "SESSION_START" "prd=$PRD_PATH,dashboard=$ENABLE_DASHBOARD,staged_autonomy=$STAGED_AUTONOMY,parallel=$PARALLEL_MODE"
     audit_agent_action "session_start" "Session started" "prd=$PRD_PATH,provider=${PROVIDER_NAME:-claude}"
@@ -26384,6 +26470,11 @@ main() {
         # a stuck "Planning" state.
         _advance_current_phase "BUILDING"
         run_autonomous "$PRD_PATH" || result=$?
+        # TEARDOWN WINDOW (v9.24.0): the other half of the unmeasured 237s.
+        # Everything after the loop -- pre-edit snapshot, commit, handoff and
+        # learnings writers, proof generation, metrics aggregation -- runs here
+        # and was never timed. Opened immediately so nothing below is missed.
+        _teardown_t0=$(date +%s 2>/dev/null)
         # PRE-EDIT SNAPSHOT: freeze the agent's raw diff HERE, the first
         # instruction after the loop returns, because everything below this line
         # can change the tree -- commit_session_changes commits the work (after
@@ -26576,6 +26667,14 @@ except Exception:
     # so proof.tree_sha256 describes the exact tree the runner returns.
     if [ "${LOKI_PROOF:-1}" != "0" ]; then
         generate_proof_of_run "$result" || true
+    fi
+
+    # Close the teardown window here rather than after cleanup: everything below
+    # is process reaping and file removal, while everything above is the work a
+    # user waits on (commit, PR, summary, proof). Emitting before cleanup also
+    # guarantees the event is written even if a later reap kills this shell.
+    if [ -n "${_teardown_t0:-}" ]; then
+        emit_stage_complete "teardown" "pass" "$_teardown_t0"
     fi
 
     # Cleanup

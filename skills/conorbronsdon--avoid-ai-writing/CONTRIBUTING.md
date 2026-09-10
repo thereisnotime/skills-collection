@@ -66,6 +66,43 @@ detector `type` must be documented, every documented type must be real, and ever
 prose statement of the engine `type` total must match the code. All must pass. No
 dependencies to install; Node 18+ only.
 
+## Documentation drift
+
+The `SSOT / ssot` CI job checks repository-local Node requirements using
+`.ssot-local.yaml` on every PR. `package.json` owns the detector's Node minimum;
+README and contributor instructions carry checked copies. Existing generated
+skill, version, and pattern-count checks keep their own ownership.
+
+The separate `.ssot.yaml` and `promo-drift` workflow track cross-repo promotional
+counts on release and schedule. Both workflows pin the checker revision; the
+local PR check needs no sibling repositories or private credentials.
+
+Registered drift, missing copies, and malformed manifests fail CI. Fix the
+claim and its copies, and explain any change to canonical ownership or removed
+locators. Do not remove checks merely to make a failure disappear.
+
+Discovery is advisory and scans prose, not every source format or value. The
+Node minimum needs its explicit locators. Historical releases, example corpora,
+and generated bundles are excluded from discovery. The initial remaining
+warnings are fictional funding/percentage examples and repeated editing-budget
+guidance. Inspect a warning before registering a fact or excluding a path;
+explicitly registered copies remain checked even in excluded files.
+
+To reproduce CI, check out the checker revision pinned in
+`.github/workflows/ssot.yml` into a sibling `ssot-check` directory, then run:
+
+```bash
+python3 ../ssot-check/ssot_check.py check --manifest .ssot-local.yaml
+python3 ../ssot-check/ssot_check.py discover --manifest .ssot-local.yaml --untracked-only --github-annotations
+python3 scripts/check-ssot-controls.py ../ssot-check/ssot_check.py
+```
+
+The controls mutate disposable copies and verify drift, restoration, missing
+locations/manifests, and invalid manifests. They also prove that history can be
+excluded while a new unregistered current copy still warns without failing
+`check`. Record useful findings, repeated warnings, and maintenance effort in
+the pilot PR or a follow-up issue before expanding coverage.
+
 ## Write clean prose
 
 This repo polices writing quality, so the prose you add has to clear the same
