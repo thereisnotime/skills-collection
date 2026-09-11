@@ -161,8 +161,8 @@ Loki Mode provides several security controls for enterprise environments:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOKI_SANDBOX_MODE` | `false` | Run in Docker sandbox for isolation |
-| `LOKI_ALLOWED_PATHS` | (all) | Comma-separated paths agents can modify |
-| `LOKI_BLOCKED_COMMANDS` | `rm -rf /` | Comma-separated blocked shell commands |
+| `LOKI_ALLOWED_PATHS` | (all) | SANDBOX-SCOPED: host paths the sandbox may mount writable. Does NOT restrict agent writes. |
+| `LOKI_BLOCKED_COMMANDS` | `rm -rf /,dd if=,mkfs,...` | SANDBOX-SCOPED: blocked `loki sandbox run` argv. Does NOT filter agent-issued commands. |
 | `LOKI_MAX_PARALLEL_AGENTS` | `10` | Limit concurrent agent spawning |
 | `LOKI_STAGED_AUTONOMY` | `false` | Require approval before execution |
 | `LOKI_PROMPT_INJECTION` | `false` | Allow prompt injection via `HUMAN_INPUT.md` (disabled by default for security) |

@@ -849,9 +849,19 @@ loki_config_generate_schema() {
 # Container keys are not reported: in {"dashboard":{"port":1}} the key
 # "dashboard" is a parent of the mapped "dashboard.port", never a typo itself.
 # A leaf is what a user actually mistypes.
+# Exit status is the SIGNAL, not just the stdout:
+#   0  checked; any unknown keys are on stdout (empty stdout = genuinely clean)
+#   2  COULD NOT CHECK (no usable parser). Callers must NOT read this as clean.
+#
+# The earlier version returned 0 on both, so `config validate` printed "OK" and
+# exit 0 for a YAML file full of bogus keys on a host with no parser. That is an
+# affirmative false assertion of validity -- the exact false green this project
+# exists to prevent, shipped by me in v9.27.2 under the wrong belief that a
+# quiet no-op was "correct degradation". Silence is only honest if the caller
+# knows it means "unmeasured".
 loki_config_unknown_keys() {
     local file="$1" fmt="$2"
-    command -v python3 >/dev/null 2>&1 || return 0
+    command -v python3 >/dev/null 2>&1 || return 2
 
     # YAML needs a parser. The rest of this file reaches for yq first, so do the
     # same: convert to JSON via yq and let the JSON walk below handle it. That
@@ -861,10 +871,10 @@ loki_config_unknown_keys() {
     # missing parser must not invent a verdict.
     local scratch_json=""
     if [ "$fmt" = "yaml" ] && ! python3 -c "import yaml" >/dev/null 2>&1; then
-        command -v yq >/dev/null 2>&1 || return 0
-        scratch_json="$(mktemp "${TMPDIR:-/tmp}/loki-cfg-uk.XXXXXX")" || return 0
+        command -v yq >/dev/null 2>&1 || return 2
+        scratch_json="$(mktemp "${TMPDIR:-/tmp}/loki-cfg-uk.XXXXXX")" || return 2
         if ! yq eval -o=json '.' "$file" > "$scratch_json" 2>/dev/null; then
-            rm -f "$scratch_json"; return 0
+            rm -f "$scratch_json"; return 2
         fi
         file="$scratch_json"; fmt="json"
     fi
@@ -941,6 +951,10 @@ for u in unknown:
 loki_config_validate_file() {
     local path="$1"
     local rc=0
+    # Declared HERE, before the unknown-key case block that sets it. An earlier
+    # draft declared it after that block, so `local` reset it to 0 and the flag
+    # could never fire -- the INCOMPLETE verdict would have been dead code.
+    local _uk_unmeasured=0
 
     if [ -z "$path" ] || [ ! -e "$path" ]; then
         printf 'loki: config validate: file not found: %s\n' "$path" >&2
@@ -1019,7 +1033,19 @@ loki_config_validate_file() {
     case "$fmt" in
         (json|yaml)
             local unknown_keys
-            unknown_keys="$(loki_config_unknown_keys "$path" "$fmt")" || unknown_keys=""
+            local _uk_rc=0
+            unknown_keys="$(loki_config_unknown_keys "$path" "$fmt")" || _uk_rc=$?
+            if [ "$_uk_rc" -eq 2 ]; then
+                # Unmeasured, and said so. This is NOT a pass: the file may be
+                # full of typos nobody looked for. Reported on stderr and the
+                # final verdict is downgraded from OK to INCOMPLETE below, so a
+                # CI job gating on exit 0 does not read "we could not check" as
+                # "we checked and it was fine".
+                unknown_keys=""
+                _uk_unmeasured=1
+                printf 'loki: config validate: UNKNOWN-KEY CHECK SKIPPED for %s -- no usable %s parser (need python3 with pyyaml, or yq). Unrecognized keys were NOT looked for.\n' \
+                    "$path" "$fmt" >&2
+            fi
             if [ -n "$unknown_keys" ]; then
                 local ukey
                 while IFS= read -r ukey; do
@@ -1072,7 +1098,15 @@ UNKNOWN_KEYS
         fi
     done <<< "$pairs"
 
-    if [ "$rc" = 0 ]; then
+    if [ "$rc" = 0 ] && [ "${_uk_unmeasured:-0}" = "1" ]; then
+        # Everything that COULD be checked passed, but a check was skipped. Say
+        # exactly that. "OK" here would claim a completeness the run does not
+        # have. Exit 0 is kept deliberately: nothing was found wrong, and this
+        # command has no documented tiered contract to break (docs/exit-codes.md
+        # does not list `config validate`). The distinction lives in the words,
+        # which is where a human reads it, and in the stderr line above.
+        printf 'loki: config validate: INCOMPLETE -- %s (checks that ran passed; unknown-key check was skipped)\n' "$path"
+    elif [ "$rc" = 0 ]; then
         printf 'loki: config validate: OK -- %s\n' "$path"
     fi
     return "$rc"

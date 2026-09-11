@@ -65,8 +65,8 @@ Complete reference for all Loki Mode environment variables.
 | `LOKI_AUDIT_DISABLED` | `false` | Disable audit logging |
 | `LOKI_MAX_PARALLEL_AGENTS` | `10` | Max concurrent agents |
 | `LOKI_SANDBOX_MODE` | `false` | Run in Docker sandbox |
-| `LOKI_ALLOWED_PATHS` | - | Comma-separated allowed paths |
-| `LOKI_BLOCKED_COMMANDS` | see below | Blocked shell commands |
+| `LOKI_ALLOWED_PATHS` | - | SANDBOX-SCOPED: host paths the sandbox may mount writable. Does NOT restrict agent writes. |
+| `LOKI_BLOCKED_COMMANDS` | see below | SANDBOX-SCOPED: blocked `loki sandbox run` argv. Does NOT filter agent-issued commands. |
 | `LOKI_PROMPT_INJECTION` | `false` | Enable prompt injection (security risk) |
 
 **Default Blocked Commands:**

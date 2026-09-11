@@ -250,6 +250,7 @@ run_test "council never fabricates a reviewer verdict (INCONCLUSIVE != REJECT)" 
 run_test "model catalog: no Claude defaults on non-Claude providers" "$SCRIPT_DIR/test-catalog-no-claude-default.sh"
 run_test "Evidence Receipt names the blocking gate (facts, not assessment)" "$SCRIPT_DIR/test-receipt-names-blocking-gate.sh"
 run_test "Evidence Receipt splits exogenous vs advisory verification" "$SCRIPT_DIR/test-receipt-exogenous-split.sh"
+run_test "Evidence Receipt reports model provenance (decision trail)" "$SCRIPT_DIR/test-receipt-model-provenance.sh"
 run_test "project-graph bash/bun parity (members discovery default)" "$SCRIPT_DIR/test-parity-project-graph.sh"
 run_test "opencode provider (model-agnostic route, 75+ providers)" "$SCRIPT_DIR/test-opencode-provider.sh"
 run_test "opencode start routing and main-loop dispatch" "$SCRIPT_DIR/test-opencode-start.sh"
@@ -500,6 +501,25 @@ run_test "Deploy receipt gate (--execute authorization)" "$SCRIPT_DIR/test-deplo
 # direct unit calls into the side-effect-free config-map.sh lib.
 run_test "Unified config-file (--config precedence + formats)" "$SCRIPT_DIR/test-config-file.sh"
 run_test "Config validate unknown-key detection (JSON/YAML parity)" "$SCRIPT_DIR/test-config-unknown-keys.sh"
+run_test "Enforcement claims in buyer-facing docs are scoped" "$SCRIPT_DIR/test-enforcement-doc-honesty.sh"
+run_test "loki logs reads the log the runner writes" "$SCRIPT_DIR/test-logs-command.sh"
+run_test "report cost agrees with its own budget state file" "$SCRIPT_DIR/test-report-cost-budget.sh"
+run_test "loki stop is bounded regardless of provider timeout" "$SCRIPT_DIR/test-stop-latency.sh"
+run_test "audit chain claims match what the chain proves" "$SCRIPT_DIR/test-audit-chain-honesty.sh"
+run_test "audit subsystem Node suites (witness, manifest, crosslink)" "$SCRIPT_DIR/test-audit-js-suites.sh"
+run_test "shipped agent roles reach the review pool" "$SCRIPT_DIR/test-agent-types-loaded.sh"
+run_test "policy present but unevaluable refuses fail-closed" "$SCRIPT_DIR/test-policy-node-failclosed.sh"
+run_test "audit entries attribute an actor honestly" "$SCRIPT_DIR/test-audit-actor-attribution.sh"
+run_test "shipped modules have a recorded reachability verdict" "$SCRIPT_DIR/test-no-unreachable-shipped.sh"
+run_test "loki proof chain fronts the buyer verifier" "$SCRIPT_DIR/test-proof-chain-command.sh"
+run_test "workflow RC handlers are reachable under bash -e" "$SCRIPT_DIR/test-workflow-rc-capture.sh"
+run_test "model substitutions are visible and attributable" "$SCRIPT_DIR/test-model-substitution-visible.sh"
+# Registered here for the first time. All three existed on disk but were in no
+# runner, so CI had never executed them; test-cluster-workflow.sh had never even
+# printed a result (set -e killed it on its first pass()). Each passes now.
+run_test "Cluster workflow templates and swarm classes" "$SCRIPT_DIR/test-cluster-workflow.sh"
+run_test "Cross-project learning surface" "$SCRIPT_DIR/test-cross-project-learning.sh"
+run_test "Cross-provider auto-failover" "$SCRIPT_DIR/test-failover.sh"
 
 # Config-map no-yq YAML fallback: regression for same-last-segment key collision
 # and the BSD-sed \s stray-quote bug. Forces the fallback by hiding yq from PATH.
@@ -795,6 +815,7 @@ run_test "doctor is CI-gateable (nonzero on missing required dep)" "$SCRIPT_DIR/
 run_test "completion coverage (every real command in both shells)" "$SCRIPT_DIR/test-completion-coverage.sh"
 run_test "dry-run paths work and are discoverable from start --help" "$SCRIPT_DIR/test-dry-run-discoverable.sh"
 run_test "exit codes documented and matching the source" "$SCRIPT_DIR/test-exit-codes-documented.sh"
+run_test "Exit-code contract is discoverable from --help" "$SCRIPT_DIR/test-exit-codes-discoverable.sh"
 run_test "log verbosity (--quiet / LOKI_LOG_LEVEL, errors never hidden)" "$SCRIPT_DIR/test-log-verbosity.sh"
 run_test "verify --json emits pipeable evidence on stdout" "$SCRIPT_DIR/test-verify-json-stdout.sh"
 run_test "documented env vars exist in the source" "$SCRIPT_DIR/test-env-vars-documented.sh"

@@ -523,8 +523,10 @@ jobs:
           # error. Distinct from exit 2 (bad args) / exit 3 (read error) / 0 (ran).
           # The named --prompt-file/--schema-file flags the bridge requires are used.
           set +e
-          OUT="$(loki internal sdk-judge --prompt-file "$RUNNER_TEMP/fix/prompt.txt" --schema-file "$RUNNER_TEMP/fix/schema.json" 2>"$RUNNER_TEMP/err.txt")"
-          RC=$?
+          # GitHub runs steps with `bash -e {0}`: a bare non-zero exit aborts
+          # before RC=$? is read, so the handler below would never run.
+          RC=0
+          OUT="$(loki internal sdk-judge --prompt-file "$RUNNER_TEMP/fix/prompt.txt" --schema-file "$RUNNER_TEMP/fix/schema.json" 2>"$RUNNER_TEMP/err.txt")" || RC=$?
           set -e
           echo "exit=$RC stdout=[$OUT]"
           echo "--- stderr ---"; cat "$RUNNER_TEMP/err.txt" || true
@@ -582,8 +584,10 @@ jobs:
           cd "$WORK"
           # Bound wall-clock so a hang fails the job instead of running the full budget.
           set +e
-          timeout 600 loki start ./spec.md --max-iterations 2 > "$RUNNER_TEMP/loop.out" 2>&1
-          RC=$?
+          # GitHub runs steps with `bash -e {0}`: a bare non-zero exit aborts
+          # before RC=$? is read, so the handler below would never run.
+          RC=0
+          timeout 600 loki start ./spec.md --max-iterations 2 > "$RUNNER_TEMP/loop.out" 2>&1 || RC=$?
           set -e
           echo "loop exit=$RC"; echo "--- tail ---"; tail -30 "$RUNNER_TEMP/loop.out" || true
           # The loop must have written real .loki state from the SDK stream parser.

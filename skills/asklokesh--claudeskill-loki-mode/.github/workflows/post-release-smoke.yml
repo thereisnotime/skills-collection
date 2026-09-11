@@ -127,10 +127,19 @@ jobs:
       - name: Assert loki doctor --json
         run: |
           set -uo pipefail
-          loki doctor --json > /tmp/doctor.json
-          RC=$?
+          # `|| RC=$?` is REQUIRED, not stylistic. GitHub runs steps with
+          # `bash -e {0}`, so -e is on regardless of the set line above: a bare
+          # `loki doctor --json` that exits non-zero aborts the step BEFORE
+          # `RC=$?` is read, and the handler below never runs. The job then
+          # fails with no diagnostic at all, which is exactly what happened.
+          RC=0
+          loki doctor --json > /tmp/doctor.json || RC=$?
           if [ "$RC" -ne 0 ]; then
             echo "FATAL: loki doctor --json exited with $RC"
+            echo "--- doctor output (what actually failed) ---"
+            grep -B3 '"status": "fail"' /tmp/doctor.json 2>/dev/null | head -30 || true
+            grep -A5 '"summary"' /tmp/doctor.json 2>/dev/null | head -10 || true
+            head -5 /tmp/doctor.json 2>/dev/null || echo "(no output captured)"
             exit 1
           fi
           python3 -c "import json,sys; json.load(open('/tmp/doctor.json')); print('doctor --json is valid JSON')"
@@ -177,10 +186,16 @@ jobs:
         run: |
           set -uo pipefail
           IMG="asklokesh/loki-mode:${VERSION}"
-          docker run --rm "$IMG" doctor --json > /tmp/docker-doctor.json
-          RC=$?
+          # See the npm-smoke step: GitHub runs with `bash -e {0}`, so a bare
+          # non-zero exit aborts before RC is read and the handler never runs.
+          RC=0
+          docker run --rm "$IMG" doctor --json > /tmp/docker-doctor.json || RC=$?
           if [ "$RC" -ne 0 ]; then
             echo "FATAL: docker doctor --json exited with $RC"
+            echo "--- doctor output (what actually failed) ---"
+            grep -B3 '"status": "fail"' /tmp/docker-doctor.json 2>/dev/null | head -30 || true
+            grep -A5 '"summary"' /tmp/docker-doctor.json 2>/dev/null | head -10 || true
+            head -5 /tmp/docker-doctor.json 2>/dev/null || echo "(no output captured)"
             exit 1
           fi
           python3 -c "import json,sys; json.load(open('/tmp/docker-doctor.json')); print('docker doctor --json is valid JSON')"
@@ -191,8 +206,10 @@ jobs:
         run: |
           set -uo pipefail
           IMG="asklokesh/loki-mode:${VERSION}"
-          docker run --rm "$IMG" status --json > /tmp/docker-status.json
-          RC=$?
+          # GitHub runs steps with `bash -e {0}`: a bare non-zero exit aborts
+          # before RC=$? is read, so the handler below would never run.
+          RC=0
+          docker run --rm "$IMG" status --json > /tmp/docker-status.json || RC=$?
           if [ "$RC" -ne 0 ]; then
             echo "FATAL: docker status --json exited with $RC"
             exit 1

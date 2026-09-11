@@ -223,7 +223,9 @@ Audit entries include SHA-256 chain hashes for tamper detection:
 }
 ```
 
-Each entry's hash includes the previous entry's hash, creating a tamper-evident chain. Use `verify_log_integrity()` to validate the chain programmatically.
+Each entry's hash includes the previous entry's hash, so corruption or truncation anywhere in the file invalidates every later entry. Use `verify_log_integrity()` to validate the chain programmatically.
+
+The hash is unkeyed and the genesis is a constant, so this detects accidental damage rather than deliberate rewriting: an attacker with write access can recompute the whole chain. See `docs/AUDIT-CHAIN-THREAT-MODEL.md` for the reproduction and for what would close the gap (an external witness or an off-machine signature).
 
 ### Syslog Forwarding (v5.37.1)
 

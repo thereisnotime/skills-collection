@@ -11,8 +11,14 @@ LOKI="$PROJECT_ROOT/autonomy/loki"
 CLUSTERS="$PROJECT_ROOT/templates/clusters"
 
 PASS=0; FAIL=0; TOTAL=0
-pass() { ((PASS++)); ((TOTAL++)); echo "PASS: $1"; }
-fail() { ((FAIL++)); ((TOTAL++)); echo "FAIL: $1"; }
+# PRE-increment, not post. Under `set -e` (line 6) `((PASS++))` evaluates to
+# PASS's OLD value, so the very first pass() -- when PASS is still 0 -- returns
+# exit status 1 and kills the script. This suite therefore aborted silently on
+# its first passing assertion and had NEVER printed a result or a count. It is
+# also unregistered in run-all-tests.sh, so CI never ran it either.
+# `((++PASS))` evaluates to the new value, which is always >= 1 here.
+pass() { ((++PASS)); ((++TOTAL)); echo "PASS: $1"; }
+fail() { ((++FAIL)); ((++TOTAL)); echo "FAIL: $1"; }
 
 # --- Tests ---
 

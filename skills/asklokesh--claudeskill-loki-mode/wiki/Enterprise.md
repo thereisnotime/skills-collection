@@ -10,7 +10,7 @@ Loki Mode v5.51.0 includes a comprehensive enterprise layer for organizations th
 
 ### Security
 
-**[Enterprise Security](../docs/enterprise/security.md)** -- Authentication (token auth, OIDC/SSO), authorization (role-based scopes), API security (TLS, rate limiting, CORS), webhook security (HMAC-SHA256), hash-chained tamper-evident audit logging, syslog forwarding, data residency, and policy engine security.
+**[Enterprise Security](../docs/enterprise/security.md)** -- Authentication (token auth, OIDC/SSO), authorization (role-based scopes, enforced by `require_scope` on the dashboard API and active only when `LOKI_ENTERPRISE_AUTH` or OIDC is configured; with auth disabled every scope check returns allow, which is the default posture), API security (TLS, rate limiting, CORS), webhook security (HMAC-SHA256), hash-chained audit logging (detects corruption and truncation; NOT tamper-proof against an adversary with write access to the log -- see `docs/AUDIT-CHAIN-THREAT-MODEL.md`), syslog forwarding, data residency, and policy engine security.
 
 ### Performance
 
@@ -44,7 +44,11 @@ Governance-as-code through declarative YAML or JSON policy files. Four enforceme
 
 ### Audit Trail
 
-Tamper-evident logging with SHA-256 hash chains. Every agent action and API call is recorded in JSONL format. Supports log rotation, syslog forwarding, and chain integrity verification. Compliance report generation for SOC 2 Type II, ISO 27001, and GDPR.
+Hash-chained logging with SHA-256. Every API call is recorded in JSONL format. Supports log rotation, syslog forwarding, and chain integrity verification.
+
+The chain detects corruption and truncation. It is NOT tamper-proof: the hash is unkeyed and the genesis value is a constant (`dashboard/audit.py:58,194-200`), so anyone who can write the log can recompute a consistent chain over invented history. This is reproduced in `docs/AUDIT-CHAIN-THREAT-MODEL.md`. An intact chain is not evidence of integrity against a motivated writer; a broken one is good evidence of a problem.
+
+Compliance reports are generated in SOC 2 Type II, ISO 27001 and GDPR shapes. Loki Mode holds no certification against those standards; the reports are inputs to your own audit, not a substitute for one.
 
 **Activate:** Enabled by default. Configure syslog with `LOKI_AUDIT_SYSLOG_HOST`.
 

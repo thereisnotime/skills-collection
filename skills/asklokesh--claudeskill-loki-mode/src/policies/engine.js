@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { Decision, evaluateRule, scanContent, validatePreExecution,
   validatePreDeployment, validateResource, validateData,
   validateApprovalGate, RULE_EVALUATORS } = require('./types');
@@ -250,11 +251,29 @@ class PolicyEngine {
     const jsonPath = path.join(lokiDir, 'policies.json');
     const yamlPath = path.join(lokiDir, 'policies.yaml');
 
-    // Try JSON first, then YAML
+    // The dashboard writes policies to ~/.loki/policies.json
+    // (dashboard/api_v2.py:75,105 via LOKI_DATA_DIR, default ~/.loki) while this
+    // reader only ever looked project-local. The ONE existing writer therefore
+    // fed a file this reader never opened, and an operator who created a policy
+    // through the UI got no enforcement at all and no error saying why.
+    //
+    // Project-local still WINS: a repo that ships its own policy must not be
+    // silently overridden by a machine-global one. The global file is a
+    // fallback, consulted only when the project defines nothing.
+    const globalDir = path.join(
+      process.env.LOKI_DATA_DIR || path.join(os.homedir(), '.loki'));
+    const globalJson = path.join(globalDir, 'policies.json');
+    const globalYaml = path.join(globalDir, 'policies.yaml');
+
+    // Try JSON first, then YAML, project-local before global.
     if (fs.existsSync(jsonPath)) {
       this._policyPath = jsonPath;
     } else if (fs.existsSync(yamlPath)) {
       this._policyPath = yamlPath;
+    } else if (fs.existsSync(globalJson)) {
+      this._policyPath = globalJson;
+    } else if (fs.existsSync(globalYaml)) {
+      this._policyPath = globalYaml;
     } else {
       // No policy file -- zero overhead mode
       this._policies = null;

@@ -65,7 +65,7 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 - **RBAC Roles** - Admin, operator, viewer, auditor role model
 - **Prometheus Metrics** - OpenMetrics /metrics endpoint for monitoring
 - **Branch Protection** - Agent sessions auto-create feature branches with PRs
-- **Log Integrity** - SHA-256 chain-hashed tamper-evident audit entries (cross-file chain verification fixed v7.7.15: new `verify_all_logs()` walks rotated daily logs in mtime order; previously verify_log_integrity false-negatived on any file beyond the first-ever)
+- **Log Integrity** - SHA-256 chain-hashed audit entries, detecting corruption and truncation (not tamper-proof against a writer who can recompute the chain: `docs/AUDIT-CHAIN-THREAT-MODEL.md`) (cross-file chain verification fixed v7.7.15: new `verify_all_logs()` walks rotated daily logs in mtime order; previously verify_log_integrity false-negatived on any file beyond the first-ever)
 - **Context Window Tracking** - Real-time gauge, timeline, and per-agent breakdown of context usage
 - **Notification Triggers** - Configurable alerts for context thresholds, task failures, budget limits
 
@@ -105,7 +105,7 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 
 ## Version History
 
-Current Version: **9.26.3** ([CHANGELOG](https://github.com/asklokesh/loki-mode/blob/main/CHANGELOG.md))
+Current Version: **9.35.0** ([CHANGELOG](https://github.com/asklokesh/loki-mode/blob/main/CHANGELOG.md))
 
 See [[Changelog]] for detailed release notes.
 

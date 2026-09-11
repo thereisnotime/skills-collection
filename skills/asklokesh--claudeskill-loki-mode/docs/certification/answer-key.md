@@ -68,7 +68,7 @@ This file contains answers for all module quizzes and the final certification ex
 | 7 | B | The session auto-pauses when budget is exceeded |
 | 8 | B | `LOKI_TLS_CERT` and `LOKI_TLS_KEY` environment variables |
 | 9 | A | Stagnation limit flags when N iterations pass with no git changes |
-| 10 | A | `LOKI_ALLOWED_PATHS` restricts which directories agents can modify |
+| 10 | B | SANDBOX-SCOPED: `LOKI_ALLOWED_PATHS` restricts which host paths the Docker sandbox bind-mounts writable (`autonomy/sandbox.sh:1222`). It does NOT restrict agent writes inside the workspace. |
 
 ---
 

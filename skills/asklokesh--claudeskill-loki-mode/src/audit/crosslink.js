@@ -385,11 +385,17 @@ function verifyUnified(opts) {
     opts.witnessFile ||
     path.join((opts.projectDir || process.cwd()), '.loki', 'audit', WITNESS_FILE));
 
+  // Reconcile witnessed tips against the live chain. verifyWitnessFile above
+  // only checks the witness file's own monotonicity, so without this a
+  // re-forged chain passed with a witness sitting right next to it recording
+  // the honest tip. Reproduced before the fix; see the helper's comment.
+  var witnessedPrefix = reconcileWitnessedPrefix(opts);
+
   var dashboardOk = dash.available ? !!dash.valid : !requireDashboard;
   var crosslinkOk = requireCrosslink ? anchors.length > 0 : true;
 
   var valid = !!agentResult.valid && dashboardOk && anchorReconcile.valid &&
-    witness.valid && crosslinkOk;
+    witness.valid && witnessedPrefix.valid && crosslinkOk;
 
   return {
     valid: valid,
@@ -397,6 +403,7 @@ function verifyUnified(opts) {
     dashboard: dash,
     anchors: anchorReconcile,
     witness: witness,
+    witnessedPrefix: witnessedPrefix,
     requireDashboard: requireDashboard,
     requireCrosslink: requireCrosslink,
   };
@@ -523,6 +530,117 @@ function linkManifest(opts) {
  * @returns {object} { present, highWater } -- highWater:0 and
  *   present:false when no witness file / no usable counts exist.
  */
+/**
+ * Reconcile every witnessed agent tip against the CURRENT chain.
+ *
+ * Why this exists, measured: the agent chain hash is unkeyed over public
+ * fields from a constant genesis (log.js:16,127-134), so anyone who can write
+ * the log can recompute a fully consistent chain over invented history --
+ * verifyChain() returns valid:true for it. A witness pins what the tip really
+ * was at a point in time, which is the one thing the forger cannot retroactively
+ * change once it has left the machine. See docs/AUDIT-CHAIN-THREAT-MODEL.md.
+ *
+ * Before this, writeWitness recorded that tip and NOTHING ever compared it to
+ * the live chain: verifyWitnessFile only checks the witness file's own
+ * monotonicity. A witness nobody reconciles is not a control.
+ *
+ * The comparison must be PREFIX-based, not tip-equality: the chain legitimately
+ * grows after a witness is taken, so a differing live tip is normal. What is
+ * NOT normal is entry N of the current chain hashing differently than when a
+ * witness saw N entries. That is a rewrite of already-witnessed history.
+ *
+ * Honest states, never collapsed:
+ *   checked   - at least one witness was reconciled against the chain
+ *   no_records- no witness file, or none carrying a usable tip. NOT a pass.
+ *   unreadable- the chain or witness file could not be read. NOT a pass.
+ *
+ * @returns {{state:string, valid:boolean, witnessesChecked:number,
+ *            rewrittenAt:(number|null), reason:(string|undefined)}}
+ */
+function reconcileWitnessedPrefix(opts) {
+  opts = opts || {};
+  var witnessFile = opts.witnessFile ||
+    path.join((opts.projectDir || process.cwd()), '.loki', 'audit', WITNESS_FILE);
+
+  if (!fs.existsSync(witnessFile)) {
+    return { state: 'no_records', valid: true, witnessesChecked: 0,
+      rewrittenAt: null,
+      reason: 'no witness file; witnessed-prefix reconciliation did not run' };
+  }
+
+  var records = [];
+  try {
+    var content = fs.readFileSync(witnessFile, 'utf8').trim();
+    if (!content) {
+      return { state: 'no_records', valid: true, witnessesChecked: 0,
+        rewrittenAt: null, reason: 'witness file is empty' };
+    }
+    var lines = content.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var rec;
+      try { rec = JSON.parse(lines[i]); } catch (_) { continue; }
+      if (rec && typeof rec.agentEntries === 'number' &&
+          typeof rec.agentTipHash === 'string' && rec.agentTipHash) {
+        records.push(rec);
+      }
+    }
+  } catch (e) {
+    return { state: 'unreadable', valid: false, witnessesChecked: 0,
+      rewrittenAt: null,
+      reason: 'witness file unreadable: ' + String((e && e.message) || e) };
+  }
+
+  if (records.length === 0) {
+    return { state: 'no_records', valid: true, witnessesChecked: 0,
+      rewrittenAt: null,
+      reason: 'witness file carries no usable agent tip' };
+  }
+
+  var entries;
+  try {
+    var log = new AuditLog(opts);
+    entries = log.readEntries();
+    log.destroy();
+  } catch (e) {
+    return { state: 'unreadable', valid: false, witnessesChecked: 0,
+      rewrittenAt: null,
+      reason: 'agent chain unreadable: ' + String((e && e.message) || e) };
+  }
+
+  var checked = 0;
+  for (var j = 0; j < records.length; j++) {
+    var r = records[j];
+    var n = r.agentEntries;
+    if (n <= 0) continue;
+    // Fewer entries than were witnessed is truncation of witnessed history.
+    if (entries.length < n) {
+      return { state: 'checked', valid: false, witnessesChecked: checked,
+        rewrittenAt: entries.length,
+        reason: 'audit chain has ' + entries.length + ' entries but a witness ' +
+          'recorded ' + n + '; witnessed history was truncated' };
+    }
+    // Entry n-1 is the tip AS WITNESSED. Its stored hash must still match.
+    var atWitness = entries[n - 1];
+    var liveHash = atWitness && atWitness.hash;
+    if (liveHash !== r.agentTipHash) {
+      return { state: 'checked', valid: false, witnessesChecked: checked,
+        rewrittenAt: n,
+        reason: 'entry ' + n + ' hashes ' + String(liveHash).slice(0, 16) +
+          '... but a witness recorded ' + String(r.agentTipHash).slice(0, 16) +
+          '...; witnessed history was rewritten' };
+    }
+    checked++;
+  }
+
+  if (checked === 0) {
+    return { state: 'no_records', valid: true, witnessesChecked: 0,
+      rewrittenAt: null,
+      reason: 'no witness recorded a positive entry count' };
+  }
+  return { state: 'checked', valid: true, witnessesChecked: checked,
+    rewrittenAt: null };
+}
+
 function witnessAgentHighWater(opts) {
   opts = opts || {};
   var witnessFile = opts.witnessFile ||
@@ -674,6 +792,7 @@ module.exports = {
   linkManifest: linkManifest,
   verifyManifestLink: verifyManifestLink,
   witnessAgentHighWater: witnessAgentHighWater,
+  reconcileWitnessedPrefix: reconcileWitnessedPrefix,
   hashManifest: hashManifest,
   defaultManifestPath: defaultManifestPath,
   CROSSLINK_ACTION: CROSSLINK_ACTION,

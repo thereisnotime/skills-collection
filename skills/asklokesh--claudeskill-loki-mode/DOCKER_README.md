@@ -319,8 +319,8 @@ docker run -it \
 |----------|-------------|---------|
 | `LOKI_STAGED_AUTONOMY` | Require approval before each action | `false` |
 | `LOKI_AUDIT_LOG` | Enable audit logging | `true` |
-| `LOKI_ALLOWED_PATHS` | Comma-separated writable paths | all |
-| `LOKI_BLOCKED_COMMANDS` | Comma-separated blocked shell commands | `rm -rf /` |
+| `LOKI_ALLOWED_PATHS` | SANDBOX-SCOPED: host paths the sandbox may mount writable (does NOT restrict agent writes) | all |
+| `LOKI_BLOCKED_COMMANDS` | SANDBOX-SCOPED: blocked `loki sandbox run` argv (does NOT filter agent commands) | `rm -rf /,dd if=,mkfs,...` |
 | `LOKI_SANDBOX_MODE` | Run in Docker-in-Docker sandbox | `false` |
 
 ### SDLC Phases (all enabled by default, set to `false` to skip)

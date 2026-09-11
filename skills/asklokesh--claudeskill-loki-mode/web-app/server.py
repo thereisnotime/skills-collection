@@ -7776,15 +7776,74 @@ class CreateTeamRequest(BaseModel):
 
 class AddMemberRequest(BaseModel):
     email: str
+    # NOT AN AUTHORIZATION CONTROL. This value is stored on the member record
+    # and echoed back; nothing in this server reads it to permit or deny
+    # anything (measured: the only other `role` occurrences in this file are
+    # chat-message roles around line 4166). /api/teams, /api/teams/{id}/members
+    # and /api/audit-log carry no auth dependency at all, and web-app/auth.py:1-4
+    # states that without DATABASE_URL authentication is completely disabled and
+    # every endpoint is open.
+    #
+    # It is kept because the UI displays it and removing it would break that
+    # surface, but a field that LOOKS like a permission and enforces nothing is
+    # worse than no field: a buyer may rely on it. Wiring real enforcement means
+    # adding an auth dependency to these routes first; until then this label is
+    # descriptive only.
     role: str = "viewer"
 
 
-def _audit(action: str, user: str = "system", target: str = "", details: str = ""):
-    """Record an audit log entry."""
+def _audit_actor(request=None) -> tuple:
+    """Resolve WHO performed an action, honestly.
+
+    Returns (actor, actor_state). actor_state is one of:
+      "identified"     - an authenticated principal; actor is their id
+      "unauthenticated"- auth is not configured, so the actor is genuinely
+                         unknowable. web-app/auth.py:1-4 states that with no
+                         DATABASE_URL, authentication is completely disabled and
+                         all endpoints are open. That is the DEFAULT.
+      "unreadable"     - an actor should have been resolvable but the lookup
+                         failed; recorded so it is never mistaken for the above
+
+    Why this exists: _audit() previously hardcoded user="system" for every
+    entry. An audit trail that cannot say who did something is not an audit
+    trail, and "system" is worse than blank because it asserts an actor that was
+    never established. Never invent an actor; say which of the three states
+    applies and let the reader judge.
+    """
+    if request is None:
+        return ("unknown", "unauthenticated")
+    try:
+        principal = getattr(request.state, "user", None)
+        if isinstance(principal, dict):
+            ident = principal.get("sub") or principal.get("email") or principal.get("id")
+            if ident:
+                return (str(ident), "identified")
+        elif principal:
+            return (str(principal), "identified")
+        return ("unknown", "unauthenticated")
+    except Exception:  # noqa: BLE001 - never let attribution break the action
+        return ("unknown", "unreadable")
+
+
+def _audit(action: str, user: str = "", target: str = "", details: str = "",
+           request=None):
+    """Record an audit log entry.
+
+    NOTE ON WHAT THIS LOG IS: _append_audit_log rewrites a 500-entry JSON array
+    in place on every call. It is a recent-activity view, NOT tamper-evident and
+    NOT append-only, and it is a different thing from the hash-chained log in
+    dashboard/audit.py. Do not cite it as audit evidence. See
+    docs/AUDIT-CHAIN-THREAT-MODEL.md.
+    """
+    if user:
+        actor, actor_state = (user, "identified")
+    else:
+        actor, actor_state = _audit_actor(request)
     entry = {
         "id": str(uuid.uuid4()),
         "action": action,
-        "user": user,
+        "user": actor,
+        "actor_state": actor_state,
         "target": target,
         "timestamp": datetime.now().isoformat(),
         "details": details,
@@ -7800,7 +7859,7 @@ async def list_teams() -> JSONResponse:
 
 
 @app.post("/api/teams")
-async def create_team(req: CreateTeamRequest) -> JSONResponse:
+async def create_team(req: CreateTeamRequest, request: Request = None) -> JSONResponse:
     """Create a new team."""
     team_id = f"team-{uuid.uuid4().hex[:8]}"
     team = {
@@ -7812,7 +7871,7 @@ async def create_team(req: CreateTeamRequest) -> JSONResponse:
     store = _load_teams()
     store[team_id] = team
     _save_teams(store)
-    _audit("team.created", target=req.name)
+    _audit("team.created", target=req.name, request=request)
     return JSONResponse(content={"id": team_id, "name": req.name, "created": True})
 
 
@@ -7827,7 +7886,7 @@ async def list_team_members(team_id: str) -> JSONResponse:
 
 
 @app.post("/api/teams/{team_id}/members")
-async def add_team_member(team_id: str, req: AddMemberRequest) -> JSONResponse:
+async def add_team_member(team_id: str, req: AddMemberRequest, request: Request = None) -> JSONResponse:
     """Add a member to a team."""
     store = _load_teams()
     team = store.get(team_id)
@@ -7843,7 +7902,7 @@ async def add_team_member(team_id: str, req: AddMemberRequest) -> JSONResponse:
     }
     team.setdefault("members", []).append(member)
     _save_teams(store)
-    _audit("member.added", target=req.email, details=f"Role: {req.role}")
+    _audit("member.added", target=req.email, details=f"Role: {req.role}", request=request)
     return JSONResponse(content={"added": True, "member_id": member_id})
 
 

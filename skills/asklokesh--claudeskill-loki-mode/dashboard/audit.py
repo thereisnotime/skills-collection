@@ -194,8 +194,16 @@ def _ensure_audit_dir() -> None:
 def _compute_chain_hash(entry_json: str, prev_hash: str) -> str:
     """Compute a SHA-256 chain hash linking this entry to the previous one.
 
-    Each hash depends on the previous entry's hash, creating a tamper-evident
-    chain. If any entry is modified, all subsequent hashes will be invalid.
+    Each hash depends on the previous entry's hash, so modifying an entry
+    invalidates every hash after it. That detects corruption and truncation.
+
+    It is NOT tamper-proof. This hash is unkeyed and the genesis is a constant
+    ("0" * 64), so every input is available to anyone who can write the file:
+    an attacker can recompute a fully consistent chain over invented history.
+    Reproduced in docs/AUDIT-CHAIN-THREAT-MODEL.md. Closing it requires
+    something the writer cannot reproduce (an external witness, or a signature
+    over the tip with an off-machine key). Do not describe the output of this
+    function as tamper-proof.
     """
     return hashlib.sha256((prev_hash + entry_json).encode("utf-8")).hexdigest()
 

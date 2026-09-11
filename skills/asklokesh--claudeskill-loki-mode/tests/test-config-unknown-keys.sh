@@ -137,6 +137,52 @@ SHIMEOF
     rm -rf "$SHIM"
 fi
 
+# 5d. NO PARSER MUST NOT REPORT "OK". This is the v9.27.2 defect: the helper
+#     degraded quietly and the CALLER printed "OK" with exit 0 for a YAML file
+#     full of bogus keys, an affirmative false assertion of validity. The
+#     verdict must now read INCOMPLETE and stderr must name the skipped check.
+if [ -n "${REAL_PY:-}" ]; then
+    SHIM2="$(mktemp -d)"
+    cat > "$SHIM2/python3" <<SHIM2EOF
+#!/bin/sh
+if [ "\$1" = "-c" ] && [ "\$2" = "import yaml" ]; then exit 1; fi
+exec "$REAL_PY" "\$@"
+SHIM2EOF
+    chmod +x "$SHIM2/python3"
+    printf 'dashboard:\n  bogus_one: true\n  bogus_two: 1\n' > "$WORK/noparser.yaml"
+
+    if command -v yq >/dev/null 2>&1; then
+        # yq is the documented fallback: detection must actually run.
+        nprc=0
+        PATH="$SHIM2:$PATH" bash "$LOKI_BIN" config validate "$WORK/noparser.yaml" >/dev/null 2>&1 || nprc=$?
+        if [ "$nprc" -eq 1 ]; then
+            pass "no pyyaml but yq present: bogus YAML keys still detected"
+        else
+            fail "yq fallback failed to detect bogus keys (rc=$nprc)"
+        fi
+    else
+        NPOUT="$(PATH="$SHIM2:$PATH" bash "$LOKI_BIN" config validate "$WORK/noparser.yaml" 2>&1)"
+        if echo "$NPOUT" | grep -q 'INCOMPLETE'; then
+            pass "no YAML parser: verdict is INCOMPLETE, not OK"
+        else
+            fail "no YAML parser: verdict was not INCOMPLETE (got: $(echo "$NPOUT" | tail -1))"
+        fi
+        # The exact false green: never claim OK when nothing was checked.
+        if echo "$NPOUT" | grep -qE 'config validate: OK'; then
+            fail "no YAML parser: printed OK for a file with bogus keys (the false green)"
+        else
+            pass "no YAML parser: never prints OK for an unchecked file"
+        fi
+        # And say WHICH check was skipped, so the gap is actionable.
+        if echo "$NPOUT" | grep -q 'UNKNOWN-KEY CHECK SKIPPED'; then
+            pass "no YAML parser: names the skipped check on stderr"
+        else
+            fail "no YAML parser: skipped silently without naming the check"
+        fi
+    fi
+    rm -rf "$SHIM2"
+fi
+
 # 6. Parity with .env, the format that already worked. Both must reject.
 printf 'LOKI_DASHBOARD_ENABELD=true\n' > "$WORK/typo.env"
 if [ "$(vrc "$WORK/typo.env")" -eq 1 ] && [ "$(vrc "$WORK/typo.json")" -eq 1 ]; then

@@ -106,7 +106,7 @@ sleep 1
 echo -e "${BOLD}Intelligence:${NC}"
 echo -e "  ${CYAN}loki council${NC} status          Completion council verdicts"
 echo -e "  ${CYAN}loki memory${NC} index            Memory system browser"
-echo -e "  ${CYAN}loki audit${NC} log               Tamper-evident audit trail"
+echo -e "  ${CYAN}loki audit${NC} log               Hash-chained audit trail"
 echo -e "  ${CYAN}loki checkpoint${NC} list         Git SHA-based checkpoints"
 echo -e "  ${CYAN}loki github${NC} sync             Sync tasks to GitHub issues"
 echo ""
@@ -418,7 +418,7 @@ echo "  Dedup log: .loki/github/synced.log"
 echo ""
 sleep 1
 
-step "Audit Trail (tamper-evident):"
+step "Audit Trail (hash-chained):"
 echo "  .loki/logs/agent-audit.jsonl"
 echo "  SHA-256 chain hashing between entries"
 echo "  12 audit events logged"

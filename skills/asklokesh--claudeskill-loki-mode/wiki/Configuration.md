@@ -118,7 +118,8 @@ security:
   # Run in Docker sandbox
   sandbox_mode: false
 
-  # Comma-separated allowed paths (empty = all)
+  # SANDBOX-SCOPED: host paths the Docker sandbox may mount writable
+  # (empty = all). Does not restrict agent writes inside the workspace.
   allowed_paths: ""
 
   # Comma-separated blocked commands

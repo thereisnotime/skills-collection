@@ -1268,10 +1268,60 @@
     var signNote = signed
       ? '<p class="hash-note">This receipt carries a detached GPG signature over the same canonical bytes that were hashed. A verifier holding the signer public key can confirm its provenance offline with <code>loki proof verify</code>.</p>'
       : '<p class="hash-note">This receipt is UNSIGNED, so it trusts the generator that produced it (<code>loki proof verify</code> reports <code>generator_trusted: true</code>). To sign future receipts, set <code>LOKI_PROOF_GPG_KEY</code> to a GPG key id before the run.</p>';
+    // Model provenance from the append-only decision trail
+    // (.loki/decisions/decisions.jsonl, written once per dispatch).
+    //
+    // The "Model" row above is the run-level model. It cannot answer the
+    // question a regulated buyer actually asks: did the deciding component
+    // change while the run was in flight? Two model ids in one project is
+    // exactly that case, and the trail proves it either way.
+    //
+    // THREE STATES, NEVER COLLAPSED. A section that renders nothing when the
+    // trail is absent reads as "no swap happened" -- the false green this
+    // receipt exists to prevent. An older receipt predating this field has no
+    // "decisions" key at all and is left silent rather than described, since a
+    // receipt that never recorded the trail cannot honestly report on it.
+    var dec = g(p, "decisions", null);
+    var decNote = "";
+    if (dec && g(dec, "status", "")) {
+      var dstatus = g(dec, "status", "");
+      if (dstatus === "measured") {
+        var models = g(dec, "models", {}) || {};
+        var names = [];
+        for (var mk in models) {
+          if (Object.prototype.hasOwnProperty.call(models, mk)) {
+            names.push(esc(mk) + " (" + num(models[mk]) + ")");
+          }
+        }
+        var changed = !!g(dec, "model_changed", false);
+        var bad = num(g(dec, "unparseable_lines", 0));
+        decNote = '<p class="hash-note">Models dispatched, from the run\u2019s own ' +
+          "append-only decision trail: " + (names.length ? names.join(", ") : "none recorded") +
+          ". " +
+          (changed
+            ? "The model CHANGED during this run. That is disclosed, not a fault -- a tier clamp, an " +
+              "operator override or a mid-flight failover all cause it legitimately -- but it is the " +
+              "thing you would otherwise have to take on trust."
+            : "One model ran for the whole project; the trail shows no mid-flight change.") +
+          (bad > 0
+            ? " " + bad + " line" + (bad === 1 ? "" : "s") + " of the trail could not be parsed and " +
+              "are counted here rather than dropped, so this list may be incomplete."
+            : "") +
+          " This is provenance and never changes the verdict.</p>";
+      } else if (dstatus === "no_records") {
+        decNote = '<p class="hash-note">No decision trail was recorded for this run, so which ' +
+          "model served each iteration cannot be confirmed from this receipt. Absence of the trail " +
+          "is reported as absence of evidence, not as proof that nothing changed.</p>";
+      } else {
+        decNote = '<p class="hash-note">The decision trail for this run could not be read (' +
+          esc(g(dec, "reason", "unknown")) + "), so per-iteration model attribution is unavailable. " +
+          "Reported rather than omitted.</p>";
+      }
+    }
     card.innerHTML = '<div class="kv">' + kv + "</div>" +
       (hash ? '<p class="hash-note">The integrity hash is a ' + esc(algo) +
               " digest of this proof. It proves the artifact has not been altered after it was emitted. It does not, by itself, prove who or what produced the work.</p>" : "") +
-      signNote;
+      signNote + decNote;
   }
 
   function renderCta(p) {

@@ -106,7 +106,14 @@ Limit which directories agents can modify:
 export LOKI_ALLOWED_PATHS=/workspace/src,/workspace/tests
 ```
 
-Agents will only be able to write to the specified directories.
+SANDBOX-SCOPED. This restricts which host directories the Docker sandbox
+bind-mounts writable (`autonomy/sandbox.sh:1222`, and `:1315` for a custom
+`--mount`). It does NOT restrict writes the AI provider agent makes inside
+the workspace, because `autonomy/run.sh` never observes those commands.
+Requires `LOKI_SANDBOX_MODE=true` (default `false`); with sandbox mode off
+this variable enforces nothing. Real containment for agent activity is the
+Docker sandbox itself: cap-drop, seccomp, read-only mounts, and optional
+`LOKI_SANDBOX_NETWORK=none`.
 
 ### Command Blocking
 

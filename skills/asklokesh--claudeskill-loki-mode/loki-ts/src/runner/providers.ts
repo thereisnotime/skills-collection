@@ -401,7 +401,28 @@ export function claudeProvider(): ProviderInvoker {
         cavemanEnv = { CAVEMAN_DEFAULT_MODE: cavemanSuppressEnv() };
       }
 
-      const r = await shellRun(argv, { cwd: call.cwd, env: cavemanEnv });
+      // Bound the provider call, matching the bash route.
+      //
+      // This called shellRun with no timeoutMs, so the Bun route had NO upper
+      // bound on a provider call: a hung provider ran forever, and because
+      // .loki/STOP is only read at the top of an iteration, a STOP file was
+      // never observed either. The bash route has always honored
+      // LOKI_PROVIDER_CALL_TIMEOUT (autonomy/run.sh:880, default 7200s).
+      // shellRun already implements SIGTERM then SIGKILL after a 2s grace;
+      // it just was not being asked to. See docs/stop-latency.md.
+      //
+      // 0 or a non-numeric value means "no timeout", preserving the old
+      // behavior for anyone who set it deliberately.
+      const _callTimeoutSec = Number(process.env.LOKI_PROVIDER_CALL_TIMEOUT ?? "7200");
+      const _callTimeoutMs =
+        Number.isFinite(_callTimeoutSec) && _callTimeoutSec > 0
+          ? _callTimeoutSec * 1000
+          : undefined;
+      const r = await shellRun(argv, {
+        cwd: call.cwd,
+        env: cavemanEnv,
+        timeoutMs: _callTimeoutMs,
+      });
       await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
 
       return {

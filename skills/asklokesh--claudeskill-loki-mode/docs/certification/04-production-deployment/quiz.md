@@ -85,9 +85,14 @@ D) Maximum 5 council members can vote
 
 ---
 
-**Question 10:** How do you restrict which directories agents can modify?
+**Question 10:** Which variable restricts the host paths the Docker sandbox
+will bind-mount writable?
 
 A) `LOKI_READ_ONLY_PATHS=/etc,/usr`
 B) `LOKI_ALLOWED_PATHS=/workspace/src,/workspace/tests`
 C) `LOKI_SANDBOX_PATHS=/safe/dir`
 D) `LOKI_WRITE_DIRS=src,tests`
+
+_SANDBOX-SCOPED: `LOKI_ALLOWED_PATHS` governs which host paths the Docker
+sandbox bind-mounts writable. It does not restrict writes the agent makes
+inside the workspace, and it enforces nothing unless `LOKI_SANDBOX_MODE=true`._

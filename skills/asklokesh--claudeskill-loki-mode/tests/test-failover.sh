@@ -260,19 +260,34 @@ fi
 #-----------------------------------------------------------------------
 log_test "check_provider_health detects CLI availability"
 
-# Claude CLI should be installed on this machine
-if command -v claude &>/dev/null && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+# check_provider_health accepts an API key OR an OAuth session, because Claude
+# Code supports both (autonomy/run.sh, the claude arm). This test used to treat
+# an absent ANTHROPIC_API_KEY as "no auth" and demand UNHEALTHY -- so it failed
+# on every machine with a real Claude Code login, asserting host state it had
+# merely assumed rather than the contract the function documents.
+#
+# Enumerate the same auth sources the function does, then assert agreement.
+_claude_auth_present=0
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    _claude_auth_present=1
+elif [ -f "${HOME}/.claude/.credentials.json" ]; then
+    _claude_auth_present=1
+elif claude auth status &>/dev/null 2>&1; then
+    _claude_auth_present=1
+fi
+
+if command -v claude &>/dev/null && [ "$_claude_auth_present" = "1" ]; then
     if check_provider_health "claude"; then
-        log_pass "claude detected as healthy"
+        log_pass "claude detected as healthy (CLI installed + an accepted auth source present)"
     else
-        log_fail "claude should be healthy (CLI installed + key present)"
+        log_fail "claude should be healthy (CLI installed + an accepted auth source present)"
     fi
 elif command -v claude &>/dev/null; then
-    # CLI installed but no key - should fail
+    # CLI installed and NO auth source of any accepted kind -- must be unhealthy.
     if ! check_provider_health "claude"; then
-        log_pass "claude correctly unhealthy (no API key)"
+        log_pass "claude correctly unhealthy (no API key and no OAuth session)"
     else
-        log_fail "claude should be unhealthy without API key"
+        log_fail "claude should be unhealthy with no API key and no OAuth session"
     fi
 else
     log_pass "claude CLI not installed - skipping (expected in CI)"

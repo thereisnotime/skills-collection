@@ -493,21 +493,39 @@ loki stop
 
 ## Path & Command Restrictions
 
-### Allowed Paths
+### Allowed Paths (sandbox mount allowlist)
 
-Restrict which directories agents can modify:
+Restrict which host directories the Docker sandbox will bind-mount writable:
 
 ```bash
 export LOKI_ALLOWED_PATHS="/app/src,/app/tests"
 ```
 
-### Blocked Commands
+**SANDBOX-SCOPED.** Enforced by the Docker sandbox at mount time only:
+`autonomy/sandbox.sh:1222` refuses to bind-mount a workspace outside the
+allowlist, and `:1315` refuses a custom `--mount` whose host path is outside
+it. It does **not** restrict writes the AI provider agent makes inside the
+workspace, because `autonomy/run.sh` never observes those commands. Requires
+`LOKI_SANDBOX_MODE=true` (default `false`); with sandbox mode off this
+variable enforces nothing.
 
-Block dangerous shell commands:
+### Blocked Commands (operator CLI only)
+
+Block dangerous commands typed into `loki sandbox run`:
 
 ```bash
 export LOKI_BLOCKED_COMMANDS="rm -rf /,dd if=,mkfs,shutdown"
 ```
+
+**SANDBOX-SCOPED.** Checked only against the operator-supplied argv of
+`loki sandbox run <cmd>` (`autonomy/sandbox.sh:1517`). It does **not** filter
+commands the AI agent issues; those are governed by the provider CLI own
+permission model. Requires `LOKI_SANDBOX_MODE=true` (default `false`).
+
+Real containment for agent activity is the Docker sandbox itself
+(`autonomy/sandbox.sh`): cap-drop, seccomp, and read-only mounts, plus
+optional `LOKI_SANDBOX_NETWORK=none` for full network isolation. Network
+defaults to `bridge`.
 
 **Default Blocked:**
 - `rm -rf /`
@@ -600,8 +618,13 @@ spec:
 - [ ] Enable `LOKI_ENTERPRISE_AUTH` for API access
 - [ ] Enable `LOKI_ENTERPRISE_AUDIT` for compliance
 - [ ] Use `LOKI_SANDBOX_MODE` for untrusted code
-- [ ] Set `LOKI_ALLOWED_PATHS` to restrict access
-- [ ] Configure `LOKI_BLOCKED_COMMANDS` for safety
+- [ ] Enable `LOKI_SANDBOX_MODE` first: SANDBOX-SCOPED, so `LOKI_ALLOWED_PATHS`
+      and `LOKI_BLOCKED_COMMANDS` enforce nothing without it
+- [ ] Set `LOKI_ALLOWED_PATHS` to restrict which host paths the sandbox mounts
+      writable (does NOT restrict agent writes inside the workspace)
+- [ ] Configure `LOKI_BLOCKED_COMMANDS` for `loki sandbox run` argv (does NOT
+      filter agent-issued commands)
+- [ ] Set `LOKI_SANDBOX_NETWORK=none` if the run needs no network (default `bridge`)
 - [ ] Use `LOKI_STAGED_AUTONOMY` for sensitive ops
 - [ ] Rotate tokens regularly
 - [ ] Review audit logs periodically

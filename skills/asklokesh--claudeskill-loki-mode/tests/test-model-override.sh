@@ -390,9 +390,17 @@ python3 - "$CATALOG" <<'PYEOF'
 import sys, json
 c = json.load(open(sys.argv[1]))
 cl = c["providers"]["claude"]
-assert cl["cli_aliases"].get("fable") == "claude-fable-5", "fable alias missing"
+# The alias target tracks the current Fable REVISION and has moved once
+# already (c7994e02 refreshed it to claude-fable-5-1 while this assertion still
+# demanded claude-fable-5, leaving the suite red on shipped main). Assert the
+# invariant that actually matters -- the alias resolves to a Fable model that
+# the catalog really defines -- rather than pinning one revision string, which
+# goes stale on the next refresh and reports a missing entry that is present.
+alias = cl["cli_aliases"].get("fable")
+assert alias and alias.startswith("claude-fable-5"), "fable alias missing: %r" % (alias,)
 ids = [m["id"] for m in cl["models"]]
-assert "claude-fable-5" in ids, "claude-fable-5 model missing"
+assert alias in ids, "fable alias %r resolves to no catalog model (have: %r)" % (
+    alias, [i for i in ids if "fable" in i])
 print("CATALOG_OK")
 PYEOF
 [ $? -eq 0 ] && ok "catalog has claude-fable-5 model + fable alias" || bad "catalog fable entry missing"

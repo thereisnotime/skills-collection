@@ -5,9 +5,14 @@ fetched URL. Items that research proposed but that turned out to be **already
 shipped** are listed at the bottom under "Not items" with the evidence, because
 a plan that re-builds working code is worse than a shorter plan.
 
-There are **seven** real items, not ten. Three of the research's candidates were
+There are **eight** real items, not ten. Three of the research's candidates were
 already implemented, and two more are architecturally unavailable to Loki as
 designed. Padding to ten would mean inventing work.
+
+Items 1, 2 and 7 shipped in v9.27.0-v9.27.3. Items 3, 4 and 9 shipped in
+v9.28.0. Item 8 (a flaky trust suite) and item 10 (a hard command blocklist,
+designed but not built) are OPEN with their reasons stated, rather than quietly
+closed by loosening an assertion or shipping a claim we cannot keep.
 
 ---
 
@@ -24,32 +29,32 @@ one strengthens a claim a buyer can verify without trusting us.
 
 ---
 
-## 1. Surface the evidence the receipt already holds
+## 1. Model provenance on the receipt -- SHIPPED v9.27.0
 
-**Status: the computation exists; the presentation does not.**
+**Corrected.** An earlier draft of this item claimed the exogenous/advisory gate
+split, files-changed and cost "do not reach the top of the receipt". That was
+wrong, and reading the renderers disproved it: `proof-template.html:1165-1192`
+already renders the split with the strongest honesty framing in the repo
+("a model that is confidently wrong scores itself green here"), plus
+disabled-gate disclosure, cost, tokens, wall clock and files changed.
 
-`autonomy/lib/proof-generator.py` already computes, per run:
+Five of the six fields were already shipped. **One was genuinely missing:**
+per-iteration model attribution. `autonomy/lib/decision_record.py` writes an
+append-only trail to `.loki/decisions/decisions.jsonl` once per dispatch, and
+already computes the audit fact worth showing -- `model_changed`, meaning more
+than one model id served one project. The proof generator read that file
+**zero times**.
 
-- the exogenous-vs-advisory gate split (`:291-307`) -- which gates are
-  agent-independent and which are model-authored, fail-closed on unknown gates
-- files changed and a stat-level diff hash (`:910-917`)
-- per-run efficiency cost, shared with the benchmark adapters so both compute it
-  identically (`:39`, `:93-94`)
+That is the question a regulated buyer actually asks, and the one Factory users
+complain about: did the deciding component change mid-run without anyone saying
+so? The run-level "Model" row cannot answer it.
 
-None of it reaches the top of the receipt. A reader has to know it is in there.
-
-This is the highest-value item because the research validated it from the
-outside: Factory users complain about false-green runs and untrustworthy model
-attribution. Those complaints describe exactly the fields Loki already has and
-does not show.
-
-**Do:** promote to the receipt header -- gate counts split exogenous/advisory,
-files changed, tokens and turns, dispatched model per iteration, per-run cost.
-No new measurement, no new dependency.
-
-**Verify:** a receipt from a real run displays all six without opening the JSON.
-
----
+**Shipped in v9.27.0** in both renderers, with three states never collapsed --
+`measured`, `no_records`, `unreadable`. An absent trail is reported as absent
+rather than rendered as silence that reads like "no swap happened", corrupt
+trail lines are counted rather than dropped, and `affects_verdict` is `false`:
+a mid-flight change is a disclosed fact (tier clamp, operator override,
+failover all cause it legitimately), never a fault and never a verdict input.
 
 ## 2. Make the machine contract discoverable
 
@@ -66,8 +71,16 @@ A CI author reads `--help`, sees "0 on success, nonzero on failure", and builds
 the coarse gate. Factory's `droid exec` advertises its exit codes in its own help
 output; ours are a doc you have to already know exists.
 
-**Do:** surface the durable contract in `loki start --help` and `loki verify
---help`, with a one-line pointer to `docs/exit-codes.md`.
+**Shipped in v9.27.1** for `loki start --help`: the two-tier contract, code 20,
+its retry semantics, and a pointer to `docs/exit-codes.md`. A drift assertion
+fails if the code stated in the help stops matching the code in the doc, since
+two documents disagreeing about a value a Kubernetes Job is configured on is
+worse than one.
+
+`loki verify --help` needed no change -- it already carried an `EXIT CODES`
+section. Adding a second one (which I briefly did) would have created exactly
+the duplicated-and-drifting help this item exists to prevent; a test now asserts
+there is exactly one.
 
 **Note:** the research framed this as "Loki has no headless one-shot contract".
 That framing was wrong -- the contract exists. The defect is discoverability,
@@ -75,25 +88,28 @@ which is a much cheaper fix.
 
 ---
 
-## 3. Publish a measured kill-switch latency
+## 3. Stop latency -- SHIPPED v9.28.0, and the premise was inverted
 
-**Status: mechanism exists, number does not.**
+**Status: published in `docs/stop-latency.md`.**
 
-`check_human_intervention()` (`autonomy/run.sh`) implements PAUSE/STOP/INPUT.
-There is no stated termination window anywhere in `docs/` (measured: zero
-matches for "termination window" or "kill switch").
+The premise of this item was backwards. `loki stop` is NOT slow: it kills the
+whole process group with SIGTERM, a 1 second grace, then SIGKILL
+(`autonomy/loki`, `_stop_group_by_pgid_files`), and that bound does not depend
+on what the run was doing.
 
-An enterprise buyer asks "how fast can I stop it?" Factory answers with a number.
-"There is a stop signal" is not an answer.
+What was slow is the mechanism the product itself recommended.
+`autonomy/run.sh:161` told users `touch .loki/STOP - stops immediately`. That
+was false: the STOP file is read only at the top of an iteration
+(`check_human_intervention` at `:25149`, called from the single site `:22301`),
+so a STOP written mid-dispatch waits for the provider call to return, bounded by
+`LOKI_PROVIDER_CALL_TIMEOUT` (default 7200s). The docs pointed at the two-hour
+path and called it immediate.
 
-**Do:** measure worst-case latency from signal to process exit across the bash
-and Bun routes, publish the number, and add a test that fails if it regresses
-past the published bound.
-
-**Care:** publish the measured worst case, not the median. A number we beat 50%
-of the time is worse than no number.
-
----
+Shipped: the false "stops immediately" claim is corrected in place,
+`docs/stop-latency.md` publishes both numbers with their derivations, and the
+Bun route's provider call now honors `LOKI_PROVIDER_CALL_TIMEOUT` -- it
+previously passed no timeout at all, leaving that route's STOP path with **no
+upper bound**.
 
 ## 4. Close the config-diagnostic gap for the remaining format
 
@@ -105,14 +121,18 @@ GitHub ubuntu-24.04 runner, and the fallback was verified against a stand-in
 honouring both invocation shapes the real `yq` is called with, so CI and any
 Linux host with either parser get full detection.
 
-The residual gap is narrow: a host with **neither** pyyaml nor `yq` (a stock
-macOS dev machine) gets no YAML detection. It degrades quietly, which is correct
--- a missing parser must never invent a verdict -- but silently.
+**CORRECTED, and closed in v9.28.0.** An earlier revision of this item called
+the no-parser path "quiet degradation, which is correct". That was wrong, and
+reproducing it settled the matter: with no parser the command printed
+`config validate: OK` and exit 0 for a YAML file full of bogus keys. Silence in
+the helper is fine; the CALLER turning that silence into an affirmative `OK` was
+an assertion of validity nobody had checked, which is the exact false green this
+project exists to prevent.
 
-**Do:** state the dependency in `loki config validate --help` so the gap is
-visible rather than silent. Vendoring a YAML scanner is not worth it for one
-host shape that already has a documented fallback available via `brew install
-yq`.
+The verdict is now `INCOMPLETE` with a stderr line naming the skipped check, and
+the helper reports "could not check" as a distinct status rather than an empty
+result indistinguishable from "checked, nothing found". Guarded by
+`tests/test-config-unknown-keys.sh` case 5d.
 
 ---
 
@@ -178,6 +198,66 @@ than assume the author's host. That is a review habit, not a script.
 
 ---
 
+## 8. Fix the flaky assurance-tail suite (OPEN, not yet fixed)
+
+**Status: mechanism identified, not reproduced locally, deliberately not patched.**
+
+`tests/test-review-assurance-tail.sh` has failed CI twice on unrelated commits
+(v9.26.3 and v9.27.1), each costing a release cycle. Three different assertions
+failed across the two incidents:
+
+- `semantic shard FAIL: calls=3 (expected 4)`
+- `valid structured requirements coverage did not pass`
+- `requirements-forged-pass-error escaped parent-bound result publication`
+
+They share a mechanism: the suite drives **real background subshells** (`sleep 30`,
+`&`) and asserts **exact provider-call counts** (`= "1"`, `= "4"`) while also
+testing that a FAIL *cancels* sibling lineages. On a 4-way-sharded runner the
+cancellation can land before the last dispatch is logged, so the count races.
+
+The suite already anticipates contention: `REVIEW_TIMEOUT_SCALE` is 4x when
+`LOKI_TEST_SHARD` is set, and CI does set it (`.github/workflows/test.yml:149`).
+So the timeout budget is **not** the binding constraint -- the exact-equality
+call counts are.
+
+**Why it is not patched here.** Both incidents were settled by a rerun on the
+identical SHA (green both times), which proves flake and diff-innocence without
+touching a fail-closed trust suite. It did not reproduce locally across six runs
+including shard-scaled and CPU-loaded ones. Relaxing an exact count on a theory
+would weaken a gate that deliberately distinguishes a LOST shard from a
+CANCELLED one.
+
+**Do:** make the timing deterministic rather than the assertion looser -- have
+each dispatch log its intent *before* the call rather than after, so the count is
+stable regardless of when cancellation lands. That changes the contract the suite
+guards, so it needs its own cycle with the expected counts re-derived.
+
+---
+
+## 9. Enforcement claims in buyer-facing docs -- SHIPPED v9.28.0
+
+The source was scrupulously honest and the docs were not.
+`autonomy/run.sh:515` states `LOKI_ALLOWED_PATHS` "Does NOT restrict
+provider-driven agent writes"; `check_command_allowed` is "intentionally NOT
+called" with zero callers. Meanwhile `wiki/Enterprise-Features.md` listed both
+as production security controls and `docs/certification/answer-key.md` marked
+"restricts which directories agents can modify" as the **correct exam answer**.
+Nine buyer-facing files, zero caveats.
+
+All nine now carry a `SANDBOX-SCOPED` note saying what is enforced (2 mount-time
+call sites in `autonomy/sandbox.sh`, and one for operator-typed
+`loki sandbox run` argv), what is not, and that both enforce nothing unless
+`LOKI_SANDBOX_MODE=true`. `tests/test-enforcement-doc-honesty.sh` guards it with
+marker-presence rather than phrase-absence, because a grep for "restrict" near
+the variable name fires on the caveat itself.
+
+Two errors in my own brief were caught while planning: it is 2 path-enforcement
+call sites, not 4 (I had counted the definition and a comment), and a
+pre-existing answer-key letter mismatch (key said A, quiz option was B) was
+fixed at the same time.
+
+---
+
 ## Not items (research proposed these; they are already shipped)
 
 - **Signed receipts default-off is a moat gated behind an env var.** The receipt
@@ -193,12 +273,45 @@ than assume the author's host. That is a review habit, not a script.
 - **A headless exec contract with documented exit codes.** Already exists via
   `LOKI_DURABLE_STATE=1`; see item 2, which is the real (smaller) gap.
 
-## Architecturally unavailable, and worth saying so
+## 10. Hard command blocklist (OPEN, designed, not built)
 
-- **Per-command risk tiers** and a **hard command blocklist** ("cannot be
-  bypassed by approval", per Factory's docs). `autonomy/run.sh:515` documents
-  that `LOKI_ALLOWED_PATHS` "does NOT restrict provider-driven agent writes
-  (run.sh never sees them)". You cannot classify a command you never observe.
-  The only honest form is a sandbox-boundary blocklist, which is a different and
-  much larger piece of work. Attempting a partial version would ship a security
-  claim we cannot keep.
+**CORRECTION.** This section previously listed a hard blocklist as
+"architecturally unavailable". That was too pessimistic. It is unavailable in
+`run.sh`, which never observes agent commands -- but a design review found a
+boundary where it IS enforceable, and the honest scope is narrower than Factory
+states for their own.
+
+What the review established:
+
+- **Seccomp cannot do it.** `autonomy/seccomp-sandbox.json` allows `execve`
+  unconditionally, and seccomp-bpf filters on register values: `execve`'s
+  pathname is a userspace pointer a filter cannot dereference. Any proposal to
+  "add blocked commands to seccomp" is not implementable.
+- **A PATH shim cannot do it.** Defeated by an absolute path, by `env -i`, or by
+  resetting PATH. That is precisely the class Factory claims to defeat.
+- **A read-only bind-mount over the resolved binary inode CAN.** The mount is
+  decided on the host before the container exists, and cannot be undone from
+  inside: `--cap-drop=ALL` (no `CAP_SYS_ADMIN`), `no-new-privileges`, non-root
+  user, and the seccomp profile denies `umount`. Because it targets an inode, no
+  string is matched, so `bash -c`, absolute paths, quoting and command
+  substitution all converge on the same blocked inode. That is a stronger claim
+  than argv parsing, not a weaker one.
+
+**The scoping finding that makes this honest.** `loki sandbox` has three modes,
+and only `docker` supports it. `docker sandbox create` (Docker Desktop microVM
+mode) takes no mount flags, and worktree mode has no container at all -- and
+auto-detect prefers Docker Desktop first. So the guarantee must be paired with
+**fail-closed refusal to start** in every unsupported mode, or it becomes the
+same overstatement this release just spent its time removing.
+
+Also worth stating plainly, which Factory's docs elide: blocking a program does
+not remove the capability. With the default bridge network an agent can fetch a
+replacement binary. `LOKI_SANDBOX_NETWORK=none` removes the capability.
+
+**Do:** implement as `LOKI_BLOCKLIST_COMMANDS` (a new key -- the existing
+`LOKI_BLOCKED_COMMANDS` is an advisory substring filter with different
+semantics), with the adversarial test matrix and a SKIP-not-PASS rule when
+Docker is unavailable. Design is complete; the build is a separate cycle.
+
+- **Per-command risk tiers** remain out of reach for the same original reason:
+  you cannot classify a command you never observe.

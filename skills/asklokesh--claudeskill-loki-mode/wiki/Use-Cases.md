@@ -275,8 +275,15 @@ export LOKI_ENTERPRISE_AUDIT=true
 export LOKI_SANDBOX_MODE=true
 export LOKI_STAGED_AUTONOMY=true
 export LOKI_AUTONOMY_MODE=supervised
+# SANDBOX-SCOPED: restricts which host paths the sandbox mounts writable.
+# Does NOT restrict agent writes inside /app. Needs LOKI_SANDBOX_MODE=true
+# (set above); without it this line enforces nothing.
 export LOKI_ALLOWED_PATHS="/app/src,/app/tests"
+# SANDBOX-SCOPED: applies to `loki sandbox run` argv only. Does NOT filter
+# commands the agent issues.
 export LOKI_BLOCKED_COMMANDS="rm -rf,dd,mkfs,curl,wget"
+# Real containment for agent activity is the sandbox container itself.
+# Add LOKI_SANDBOX_NETWORK=none to remove network egress (default bridge).
 
 # Disable risky phases
 export LOKI_PHASE_WEB_RESEARCH=false

@@ -158,7 +158,13 @@
 # Human Intervention (Auto-Claude pattern):
 #   PAUSE file:          touch .loki/PAUSE - pauses after current session
 #   HUMAN_INPUT.md:      echo "instructions" > .loki/HUMAN_INPUT.md
-#   STOP file:           touch .loki/STOP - stops immediately
+#   STOP file:           touch .loki/STOP - graceful; read at the TOP of each
+#                        iteration, so a STOP written mid-dispatch waits for that
+#                        provider call to return (bounded by
+#                        LOKI_PROVIDER_CALL_TIMEOUT, default 7200s). It said
+#                        "stops immediately", which was false. For an immediate
+#                        stop use `loki stop` (process-group SIGTERM, 1s grace,
+#                        then SIGKILL). See docs/stop-latency.md.
 #   Ctrl+C (once):       Pauses execution, shows options
 #   Ctrl+C (twice):      Exits immediately
 #
@@ -2478,6 +2484,39 @@ print(json.dumps(event))
 }
 
 # Emit structured event with key-value pairs
+# Record that the operator's explicitly-pinned model was NOT the model dispatched.
+#
+# WHY THIS EXISTS: a tier resolution that quietly returns something other than the
+# pin is indistinguishable, in the receipt, from a run that got what it asked for.
+# The substitution itself is often legitimate; the SILENCE is the defect. This
+# emits both an event (machine-readable) and an audit line (the tamper-evident
+# chain), so the swap and its stated reason can be audited and, if wrong,
+# refuted by whoever has the evidence to refute it.
+#
+# Never changes the dispatched model and never fails the caller: an observability
+# record that can break a run would be worse than the silence it replaces.
+emit_model_substituted() {
+    local pinned="$1" dispatched="$2" reason="$3" site="$4"
+
+    # Nothing to report when the pin was honored.
+    [ "$pinned" = "$dispatched" ] && return 0
+
+    emit_event_json "model_substituted" \
+        "pinned=$pinned" \
+        "dispatched=$dispatched" \
+        "reason=$reason" \
+        "site=$site" 2>/dev/null || true
+
+    if type audit_agent_action >/dev/null 2>&1; then
+        audit_agent_action "model_substituted" \
+            "Pinned model '$pinned' dispatched as '$dispatched' ($reason)" \
+            "site=$site" 2>/dev/null || true
+    fi
+
+    log_warn "Model pin '$pinned' dispatched as '$dispatched' ($reason)" 2>/dev/null || true
+    return 0
+}
+
 emit_event_json() {
     local event_type="$1"
     shift
@@ -2806,14 +2845,43 @@ check_policy() {
     local context_json="${2:-}"
     [ -z "$context_json" ] && context_json='{}'
 
-    # Only check if policy files exist
-    if [ ! -f ".loki/policies.json" ] && [ ! -f ".loki/policies.yaml" ]; then
+    # Only check if a policy file exists. This gate MUST agree with what
+    # src/policies/engine.js:_init actually loads, or the two disagree silently:
+    # engine.js falls back to the global ~/.loki policy (which is the only place
+    # the dashboard writes, api_v2.py:75,105), and a project-local-only test
+    # here would short-circuit before that fallback was ever consulted.
+    local _pol_global_dir="${LOKI_DATA_DIR:-$HOME/.loki}"
+    if [ ! -f ".loki/policies.json" ] && [ ! -f ".loki/policies.yaml" ] \
+       && [ ! -f "$_pol_global_dir/policies.json" ] \
+       && [ ! -f "$_pol_global_dir/policies.yaml" ]; then
         return 0
     fi
 
-    # Requires Node.js
+    # Requires Node.js. Reaching here means a policy file EXISTS, so the
+    # operator has expressed intent to enforce. Returning 0 for a missing
+    # runtime silently disables that enforcement and reports nothing: the run
+    # proceeds exactly as if every action were permitted. That is the worst
+    # shape a security control can take, because the operator believes it is on.
+    #
+    # Fail CLOSED instead, matching what check.js already does for a corrupt
+    # policy file (tests/test-policy-failclosed.sh). LOKI_POLICY_REQUIRE_NODE=0
+    # restores the old fail-open for a host that genuinely cannot install node
+    # and accepts running unenforced.
     if ! command -v node >/dev/null 2>&1; then
-        return 0
+        if [ "${LOKI_POLICY_REQUIRE_NODE:-1}" = "0" ]; then
+            log_warn "Policy file present but node is unavailable; enforcement SKIPPED (LOKI_POLICY_REQUIRE_NODE=0)"
+            return 0
+        fi
+        log_error "Policy file present but node is unavailable: cannot evaluate policy, refusing the action (fail-closed). Set LOKI_POLICY_REQUIRE_NODE=0 to run unenforced."
+        # Recorded like any other block. A refusal that leaves no trace is
+        # indistinguishable from a run that was never gated, and the receipt
+        # must be able to say WHY the action did not happen. The reason is
+        # distinct from a DENY: the policy was never evaluated.
+        audit_agent_action "policy_unevaluable" "Policy present but node unavailable" "enforcement=$enforcement_point"
+        emit_event_json "policy_unevaluable" \
+            "enforcement=$enforcement_point" \
+            "reason=node_unavailable"
+        return 1
     fi
 
     local result
@@ -22633,6 +22701,14 @@ except Exception as exc:
         # effort/model strings and have no fable equivalent (v7.39.1).
         if [ "${PROVIDER_NAME:-claude}" = "claude" ] && [ "$tier_param" = "fable" ]; then
             tier_param="opus"
+            # The operator asked for one model and is getting another. A
+            # substitution may well be CORRECT (a model genuinely unavailable on
+            # this transport), but a SILENT one never is: without this record the
+            # receipt shows an opus run and nothing says the pin was fable, so
+            # nobody can audit the swap or refute the reason behind it.
+            # Behaviour is unchanged -- this only makes the existing collapse
+            # visible and attributable.
+            emit_model_substituted "fable" "opus" "fable_unavailable_at_api" "run.sh:dispatch_backstop"
         fi
         echo "=== RARV Phase: $rarv_phase, Tier: $CURRENT_TIER ($tier_param) ===" | tee -a "$log_file" "$agent_log"
         log_info "RARV Phase: $rarv_phase -> Tier: $CURRENT_TIER ($tier_param)"

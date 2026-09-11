@@ -2148,6 +2148,26 @@ cmd_start() {
                 echo "  loki start --yes                        # Skip confirmation prompt"
                 echo "  LOKI_PRD_FILE=./prd.md loki start       # PRD via env var"
                 echo ""
+                # Exit codes, stated where a CI author actually looks. The full
+                # contract lived only in docs/exit-codes.md, so a script author
+                # read this help, saw nothing, and built the coarse gate -- the
+                # tiered contract might as well not have shipped.
+                echo "Exit codes:"
+                echo "  0                      The run completed, or a human stopped it"
+                echo "  nonzero                Something went wrong (no finer signal by default)"
+                echo ""
+                echo "  With LOKI_DURABLE_STATE=1 the platform contract applies, which"
+                echo "  distinguishes 'retrying cannot help' from 'the process died':"
+                echo "    0                    Completed, or a human stopped it -> do not retry"
+                echo "    20                   Deterministic terminal failure (gate failed, max"
+                echo "                         iterations or retries, budget or wall-clock cap,"
+                echo "                         policy block, contradictory spec) -> do not retry;"
+                echo "                         the same inputs fail the same way"
+                echo "    other nonzero        Crash (SIGKILL, eviction, node loss) -> retry;"
+                echo "                         the run resumes from the durable volume"
+                echo "  Both the bash and Bun runners implement this identically."
+                echo "  Full table, including loki verify and loki ci: docs/exit-codes.md"
+                echo ""
                 echo "Note: 'loki run' is a deprecated alias for 'loki start' with an issue ref."
                 exit 0
                 ;;
@@ -14508,12 +14528,38 @@ cmd_logs() {
         esac
     done
 
-    local log_file="$LOKI_DIR/logs/session.log"
+    # Resolve the log the runner ACTUALLY writes.
+    #
+    # This read a logs/session.log path that nothing in the tree writes (other
+    # readers of it exist in web-app/ and api-examples/, all equally dead). So
+    # `loki logs`, the
+    # most natural "what is it doing?" command, reported "No log file found"
+    # while the real logs sat in that same directory. run.sh:22409 writes
+    # .loki/logs/autonomy-YYYYMMDD.log per day, plus agent.log for the dashboard.
+    #
+    # Newest dated log first; agent.log as the fallback. Both are listed in the
+    # not-found message so the user can see where we looked rather than being
+    # told a single wrong path.
+    local log_dir="$LOKI_DIR/logs"
+    local log_file=""
+    if [ -d "$log_dir" ]; then
+        # `|| log_file=""` is load-bearing: under `set -euo pipefail`, ls exits 2
+        # when the glob matches nothing and pipefail propagates it, aborting the
+        # function before the agent.log fallback and before the not-found message.
+        # Without it, a host with agent.log but no dated log exits 1 in SILENCE --
+        # a worse failure than the wrong-path bug this replaced.
+        log_file="$(ls -1t "$log_dir"/autonomy-*.log 2>/dev/null | head -1)" || log_file=""
+        [ -n "$log_file" ] || { [ -f "$log_dir/agent.log" ] && log_file="$log_dir/agent.log"; }
+    fi
 
-    if [ ! -f "$log_file" ]; then
-        echo -e "${YELLOW}No log file found at $log_file${NC}"
+    if [ -z "$log_file" ] || [ ! -f "$log_file" ]; then
+        echo -e "${YELLOW}No log file found in $log_dir${NC}"
+        echo -e "${DIM}Looked for: autonomy-YYYYMMDD.log (newest), then agent.log${NC}"
+        echo -e "${DIM}Logs are written once a run starts: loki start <spec>${NC}"
         exit 0
     fi
+
+    echo -e "${DIM}Log: $log_file${NC}"
 
     if [ "$follow" = true ]; then
         echo -e "${BOLD}Following logs (Ctrl+C to stop)${NC}"
@@ -27712,13 +27758,26 @@ if last_n > 0:
 
 # --- budget status (read-time; warn at 80%, exceeded at 100%) ------------
 budget_limit = None
+budget_used_recorded = None
 budget_file = os.path.join(loki_dir, "metrics", "budget.json")
 if os.path.isfile(budget_file):
     try:
         bd = json.load(open(budget_file))
         budget_limit = bd.get("limit") or bd.get("budget_limit")
+        # Read the RECORDED spend too. This block took only the cap and then
+        # overwrote spend with the current run's figure, which is None when no
+        # iteration has a measured cost -- so it fell back to 0.0 and printed
+        # "Used: $0.00 ... Status: OK" over a file that said
+        # "budget_used": 0.7992, "exceeded": true, while `loki status` showed
+        # 160%. The --json surface asserted "exceeded": false, which is what
+        # automation gates on. Three other readers (loki:5791, :6284, :28458)
+        # already read budget_used; this was the one divergent reader.
+        _bu = bd.get("budget_used")
+        if _bu is not None:
+            budget_used_recorded = float(_bu)
     except Exception:
         budget_limit = None
+        budget_used_recorded = None
 if budget_limit is None and budget_limit_env:
     try:
         budget_limit = float(budget_limit_env)
@@ -27730,7 +27789,14 @@ if budget_limit is not None:
     except (TypeError, ValueError):
         budget_limit = None
 
-budget_used = current_cost if isinstance(current_cost, (int, float)) else 0.0
+# Prefer the recorded cumulative spend; fall back to the current run only when
+# the state file carries no figure. Never silently substitute 0.0 for "unknown".
+if isinstance(budget_used_recorded, (int, float)):
+    budget_used = budget_used_recorded
+elif isinstance(current_cost, (int, float)):
+    budget_used = current_cost
+else:
+    budget_used = 0.0
 status = "none"
 percent_used = None
 remaining = None
@@ -36053,6 +36119,32 @@ PYEOF
             fi
             python3 "$passport_tool" "$contract" "$receipt_path" "$output" "$@"
             exit $?
+            ;;
+        chain)
+            # The whole verification chain, one verdict. tools/verify-chain.py
+            # shipped in files[] and NO loki command surfaced it, so the command
+            # a buyer runs to check our output without trusting us was
+            # undiscoverable. That is the wedge, so it gets a front door.
+            #
+            # The tool's exit contract is preserved EXACTLY:
+            #   0 PASSED  1 FAILED  2 UNAVAILABLE  3 NOTHING
+            # Collapsing 2 or 3 into 1 would destroy the measured / unreadable /
+            # no-records distinction that makes the verdict worth anything: a
+            # chain that could not be checked is not a chain that failed.
+            local chain_tool="${SKILL_DIR}/tools/verify-chain.py"
+            if [ ! -f "$chain_tool" ]; then
+                echo -e "${RED}Chain verifier not found: ${chain_tool}${NC}" >&2
+                exit 2
+            fi
+            if ! command -v python3 >/dev/null 2>&1; then
+                echo -e "${RED}python3 unavailable: the chain could not be verified (UNAVAILABLE, not a pass)${NC}" >&2
+                exit 2
+            fi
+            # `set -e` is active (loki:22) and a FAILED verdict is a NORMAL
+            # result here, so a bare call would abort before the status is read.
+            local _chain_rc=0
+            python3 "$chain_tool" "$@" || _chain_rc=$?
+            exit $_chain_rc
             ;;
         md)
             # Paste-able Markdown for a PR comment, a Slack message, or a

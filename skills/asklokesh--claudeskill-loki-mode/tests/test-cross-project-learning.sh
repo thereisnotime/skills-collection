@@ -155,24 +155,44 @@ else
     skip "No mistakes.jsonl file to test"
 fi
 
-# Test 13: Dashboard file contains learnings elements
-echo "Test 13: Dashboard learnings UI elements"
-DASHBOARD_FILE="${PROJECT_ROOT}/autonomy/.loki/dashboard/index.html"
-if grep -q 'learnings-patterns' "$DASHBOARD_FILE" && \
-   grep -q 'learnings-mistakes' "$DASHBOARD_FILE" && \
-   grep -q 'learnings-successes' "$DASHBOARD_FILE" && \
-   grep -q 'fetchLearnings' "$DASHBOARD_FILE"; then
-    pass "Dashboard contains learnings UI elements"
+# Tests 13-14: the cross-project learnings SURFACE.
+#
+# These two used to grep autonomy/.loki/dashboard/index.html for the markers
+# 'learnings-patterns', 'learnings-mistakes', 'learnings-successes',
+# 'fetchLearnings' and an API_URL literal. That file was deleted in a451fb02
+# and is not tracked in git; those four markers now appear NOWHERE in the repo
+# except in this test. So both assertions failed against a UI that no longer
+# exists, and `grep` on a missing file reports the failure without ever saying
+# the file was gone.
+#
+# The feature itself did not disappear -- it moved to the dashboard API. These
+# assert the surface that exists rather than resurrecting markers for a removed
+# page, and they name the file they read so a future move fails loudly.
+echo "Test 13: cross-project learnings API endpoint"
+SERVER_PY="${PROJECT_ROOT}/dashboard/server.py"
+if [ ! -f "$SERVER_PY" ]; then
+    fail "dashboard/server.py not found at $SERVER_PY"
+elif grep -q '"/api/registry/learnings"' "$SERVER_PY" \
+     && grep -q 'get_cross_project_learnings' "$SERVER_PY"; then
+    pass "dashboard exposes /api/registry/learnings backed by get_cross_project_learnings"
 else
-    fail "Dashboard missing learnings UI elements"
+    fail "dashboard/server.py no longer exposes the cross-project learnings endpoint"
 fi
 
-# Test 14: Dashboard API URL config
-echo "Test 14: Dashboard API URL configuration"
-if grep -q 'API_URL.*localhost:57374' "$DASHBOARD_FILE"; then
-    pass "Dashboard has API URL configured"
+# Test 14: the endpoint must be read-scoped, not public. A learnings store is
+# cross-PROJECT, so an unauthenticated read leaks one project's history to
+# another; that is the property worth pinning, not a hardcoded port literal.
+#
+# Matched as ONE exact decorator line, not as "path near scope". A windowed
+# match (grep -A1) can pick up a NEIGHBOURING endpoint's guard and report this
+# endpoint as protected while it is bare -- the same slack the repo's packaging
+# rule warns about: assert the required thing individually, never a proximity
+# or a count.
+echo "Test 14: learnings endpoint requires the read scope"
+if grep -q '@app.get("/api/registry/learnings", dependencies=\[Depends(auth.require_scope("read"))\])' "$SERVER_PY"; then
+    pass "learnings endpoint is guarded by require_scope(\"read\")"
 else
-    fail "Dashboard missing API URL configuration"
+    fail "learnings endpoint is not scope-guarded"
 fi
 
 echo ""

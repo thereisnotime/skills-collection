@@ -644,6 +644,66 @@ def _collect_model(loki_dir, observed):
     return "unavailable"
 
 
+def _collect_decisions(loki_dir):
+    """Which models actually ran, and did the configuration change mid-flight?
+
+    Reads the append-only trail at .loki/decisions/decisions.jsonl that
+    autonomy/lib/decision_record.py writes once per dispatch. That module
+    already computes the audit fact worth showing -- more than one model_id in
+    one project means the deciding component changed while the run was in
+    flight -- so this reuses summarize() rather than recomputing it.
+
+    THREE STATES, NEVER COLLAPSED, for the same reason _collect_model returns
+    the literal "unavailable" instead of guessing:
+
+      measured   -- records exist; counts and model_changed are real
+      no_records -- the trail is absent for this run
+      unreadable -- the trail exists but could not be read
+
+    A section that renders nothing when the trail is absent reads as "no swap
+    happened", which is exactly the false green this receipt exists to prevent.
+    Absence of evidence is reported as absence of evidence.
+
+    model_changed is a DISCLOSED FACT, not a failure. run.sh documents four
+    legitimate reasons a model changes mid-run (opus-pin force, LOKI_MAX_TIER
+    clamp, mid-flight override, fable collapse). It never touches the verdict.
+
+    Corrupt lines are surfaced via unparseable_lines rather than dropped: an
+    audit trail that quietly discards what it cannot parse is worse than one
+    that admits the gap.
+    """
+    try:
+        from decision_record import summarize as _summarize
+    except ImportError:
+        return {"status": "unreadable", "reason": "decision_record module unavailable"}
+
+    try:
+        raw = _summarize(loki_dir)
+    except Exception as exc:  # never let provenance reporting break the receipt
+        return {"status": "unreadable", "reason": str(exc)}
+
+    if not isinstance(raw, dict):
+        return {"status": "unreadable", "reason": "invalid summary"}
+
+    if raw.get("status") == "measured":
+        return {
+            "status": "measured",
+            "records": _to_int(raw.get("records"), 0),
+            "unparseable_lines": _to_int(raw.get("unparseable_lines"), 0),
+            "models": raw.get("models") or {},
+            "stages": raw.get("stages") or {},
+            "model_changed": bool(raw.get("model_changed")),
+            "temperature_changed": bool(raw.get("temperature_changed")),
+            # Never influences the verdict: this is provenance, not a gate.
+            "affects_verdict": False,
+        }
+
+    reason = str(raw.get("reason") or "unknown")
+    status = "no_records" if reason == "no_records" else "unreadable"
+    return {"status": status, "reason": reason,
+            "detail": str(raw.get("detail") or ""), "affects_verdict": False}
+
+
 def _collect_security(loki_dir):
     """Read .loki/quality/security-findings.json (the secure-by-default gate).
 
@@ -1237,6 +1297,9 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
     termination = _collect_termination(loki_dir, args.session_exit_code)
     tests = _collect_tests(loki_dir)
     security = _collect_security(loki_dir)
+    # Model provenance: which models actually ran, and did that change
+    # mid-flight. Provenance only -- affects_verdict is False.
+    decisions = _collect_decisions(loki_dir)
     functional = _collect_functional(loki_dir)  # FV-2 record-half: descriptive only
     healthcheck = _collect_healthcheck(loki_dir)  # Evidence Receipt record-half
     evidence_gate = _collect_evidence_gate(loki_dir)
@@ -1429,6 +1492,7 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
         "diffs": diffs,
         "council": council,
         "quality_gates": quality_gates,
+        "decisions": decisions,
         "cost": cost,
         "deployment": deployment,
         # Typed compatibility mirror for consumers that do not traverse facts.
@@ -1815,6 +1879,41 @@ def _render_fallback_html(proof):
                     "who produced them, so this receipt trusts its generator. "
                     "To sign future receipts, set LOKI_PROOF_GPG_KEY to a gpg "
                     "key id (see docs/SIGNED-RECEIPTS.md).</p>")
+
+    # Model provenance, mirrored here for the same reason the signature row is:
+    # this fallback "must not be quieter about provenance than the page it
+    # stands in for". Three states, never collapsed -- an absent trail is
+    # reported as absent, not rendered as silence that reads like "no change".
+    dec = proof.get("decisions") or {}
+    dstatus = dec.get("status")
+    if dstatus == "measured":
+        models = dec.get("models") or {}
+        listing = ", ".join(
+            "%s (%s)" % (esc(k2), esc(v2)) for k2, v2 in sorted(models.items())
+        ) or "none recorded"
+        if dec.get("model_changed"):
+            change = ("The model CHANGED during this run. That is disclosed, not a "
+                      "fault -- a tier clamp, an operator override or a mid-flight "
+                      "failover all cause it legitimately.")
+        else:
+            change = "One model ran for the whole project; no mid-flight change."
+        bad = _to_int(dec.get("unparseable_lines"), 0)
+        badnote = ""
+        if bad > 0:
+            badnote = (" %d trail line(s) could not be parsed and are counted "
+                       "rather than dropped, so the list may be incomplete." % bad)
+        rows.append("<p>Models dispatched (append-only decision trail): %s. %s%s "
+                    "Provenance only; never changes the verdict.</p>"
+                    % (listing, change, badnote))
+    elif dstatus == "no_records":
+        rows.append("<p>Models dispatched: no decision trail was recorded for this "
+                    "run, so per-iteration model attribution cannot be confirmed. "
+                    "Absence of the trail is reported as absence of evidence, not "
+                    "as proof that nothing changed.</p>")
+    elif dstatus:
+        rows.append("<p>Models dispatched: the decision trail could not be read "
+                    "(%s), so per-iteration model attribution is unavailable. "
+                    "Reported rather than omitted.</p>" % esc(dec.get("reason", "unknown")))
     red = proof.get("redaction", {})
     rows.append("<p>Redaction applied: %s (%s redactions, rules v%s)</p>" % (
         esc(red.get("applied")), esc(red.get("redactions_count")),

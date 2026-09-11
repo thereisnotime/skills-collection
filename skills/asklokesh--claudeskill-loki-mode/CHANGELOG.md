@@ -5,6 +5,942 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.35.0
+
+When the model you pinned is not the model that ran, the receipt now says so.
+
+### Added
+
+- **`model_substituted` records.** An operator can pin a model and get a
+  different one. The substitution is often legitimate -- a `fable` pin collapses
+  to `opus` because Claude Fable 5 was reported unavailable at the Claude API --
+  but until now it was **silent**: the receipt showed an opus run and nothing
+  recorded that a pin existed, what it was, or why it was not honored.
+
+  A silent correct substitution is indistinguishable from a silent wrong one.
+  Neither can be audited, and neither can be refuted by someone holding evidence
+  against it. Our wedge is a receipt you can check yourself; a receipt that
+  omits which model actually ran does not deliver that.
+
+  `emit_model_substituted` now records `pinned`, `dispatched`, `reason` and
+  `site` at the dispatch chokepoint (`autonomy/run.sh`), and
+  `src/audit/subscriber.js` maps the event into the tamper-evident chain so it
+  reaches the receipt rather than sitting unread in `events.jsonl`.
+
+  **Behaviour is unchanged.** The same model is dispatched as before. This makes
+  the existing collapse visible and attributable, nothing more.
+
+  Guarded by `tests/test-model-substitution-visible.sh` (7 assertions). Five
+  mutations verified, including the three that matter: removing the call at the
+  dispatch site, dropping `reason` from the record, and deleting the audit
+  mapping so the event reaches no reader.
+
+### What this release deliberately does NOT do
+
+- **It does not change the `fable` -> `opus` mapping.** I set out to, on the
+  grounds that the comment ("Fable 5 is not available at the Claude API") looked
+  stale: the CLI accepts both `--model fable` and `--model claude-fable-5-1`,
+  exit 0.
+
+  That test does not prove what I wanted it to prove. `ANTHROPIC_API_KEY` was
+  unset -- the CLI authenticates by subscription, while the comment cites an
+  error from the **raw API**. Different transports, different model
+  availability, and `loki-ts/src/runner/sdk_invoker.ts` uses the SDK rather than
+  the CLI. The premise can be false on one route and true on the other at the
+  same time.
+
+  The collapse is also not a forgotten line: it is a deliberately maintained
+  four-site invariant (`providers/claude.sh`, the static fallback and dispatch
+  backstop in `run.sh`, and the cost estimator in `autonomy/loki`, which quotes
+  opus pricing *on purpose* so the quote matches dispatch), defended by ~8
+  assertions in `tests/test-model-override.sh`.
+
+  Flipping it would have meant rewriting those assertions to match a belief I
+  could not verify, and would have made the estimator quote $10/$50 for runs
+  that may still dispatch opus on the SDK route -- a new cost-honesty defect
+  introduced while claiming to fix one. `test-model-override.sh` passes
+  **unmodified** in this release, which is the check that the contract was not
+  quietly redefined.
+
+  Settling it needs a direct `/v1/messages` call with a real API key. Until
+  then the comment's claim is the better-evidenced one: it cites an observed
+  error, and my test probed a different transport. The new record makes the
+  question self-answering -- a user with a key now sees
+  `reason=fable_unavailable_at_api` and has the receipt to refute it.
+
+- **It does not de-vendor `capability_router.ts`'s tier defaults.** Planned, then
+  dropped after reading the code: `routeTaskClass` is default-OFF, has exactly
+  one caller (`autonomous.ts:753`), and an operator pin already wins at `:171`
+  through provider-neutral env vars. A non-Anthropic user has a working override
+  path today, so changing the defaults would be a refactor with no user-visible
+  defect behind it.
+
+### Honest limits
+
+- The record is emitted on the bash dispatch route. A substitution performed
+  elsewhere (the estimator's quote path, or the SDK route) is not yet covered;
+  those sites agree with dispatch today, so the receipt is consistent, but the
+  guarantee is currently one site deep.
+- This does not make the audit chain stronger. What the receipt is worth is
+  still bounded by `docs/AUDIT-CHAIN-THREAT-MODEL.md`.
+
+## v9.34.1
+
+v9.34.0 did not publish: its own new test failed CI, so Release refused. The
+gate worked. This ships the same content plus the fix.
+
+### Fixed
+
+- **My `tests/test-workflow-rc-capture.sh` failed CI on good files.** Its YAML
+  assertion ran `import yaml` and treated ANY exception as "invalid YAML".
+  `pyyaml` is installed on a developer laptop and **not** on the GitHub runner,
+  so an ImportError was reported as a broken workflow file. Every file was fine.
+
+  That is the unmeasured-versus-failed confusion this release series exists to
+  correct, committed by the guard written to prevent it. Now delegated to
+  `tests/lib/check-workflow-yaml.py`, which reports three states that never
+  collapse: `OK`, `NO_PARSER` (skipped, explicitly not counted as a pass), and
+  `INVALID` (named, with the reason).
+
+  Verified under a simulated runner with `pyyaml` hidden: the suite reports SKIP
+  and exits 0. Both arms mutation-tested -- genuinely invalid YAML still FAILS
+  rather than skipping, and reintroducing an unreachable `RC=$?` handler still
+  fails.
+
+  The workflow RC scan moved to `tests/lib/scan-workflow-rc.py` for the same
+  reason the YAML check did: an inline heredoc inside a shell heredoc broke the
+  file twice while editing it.
+
+- **Post-release smoke diagnostics now print the FAILING checks**, not the first
+  40 lines of a long JSON document. The v9.34.0 fix made CI print doctor output
+  for the first time, and the output was truncated before reaching the entry
+  that failed -- better than silence, still not diagnostic.
+
+## v9.34.0
+
+The buyer's verification command gets a front door, and post-release smoke stops
+failing with no diagnostic.
+
+### Added
+
+- **`loki proof chain`.** `tools/verify-chain.py` runs the whole verification
+  chain and reports one verdict. It shipped in `package.json` `files[]` and **no
+  loki command surfaced it**, so the command a buyer runs to check our output
+  without trusting us was undiscoverable. Our wedge is "a receipt you verify
+  yourself"; a verifier nobody can invoke does not deliver it.
+
+  The tool's exit contract is preserved exactly: `0 PASSED`, `1 FAILED`,
+  `2 UNAVAILABLE`, `3 NOTHING`. Collapsing 2 or 3 into 1 would destroy the
+  distinction that makes the verdict worth anything: a chain that could not be
+  checked is not a chain that failed, and zero receipts is not a passing audit.
+  Both are asserted individually, and the human output says so in words rather
+  than only in an exit code.
+
+  Guarded by `tests/test-proof-chain-command.sh` (7 assertions). Three mutations
+  verified, including the two dangerous ones: turning UNAVAILABLE into a pass,
+  and swallowing the verdict so an empty workspace reports success.
+
+### Fixed
+
+- **Post-release smoke failed on npm and docker with no diagnostic, and the
+  handler that was supposed to explain why could never run.** The steps looked
+  correct:
+
+  ```
+  set -uo pipefail
+  loki doctor --json > /tmp/doctor.json
+  RC=$?
+  if [ "$RC" -ne 0 ]; then echo "FATAL: ..."; exit 1; fi
+  ```
+
+  GitHub runs steps with `bash -e {0}`, so `-e` is on regardless of that `set`
+  line. A non-zero exit aborts the step **before** `RC=$?` is read, so the
+  handler never runs and the job dies silently. Demonstrated rather than
+  asserted:
+
+  ```
+  bash    probe.sh -> "REACHED:1"   exit 0
+  bash -e probe.sh -> (no output)   exit 1
+  ```
+
+  Fixed with `|| RC=$?` at **five** sites across `post-release-smoke.yml` and
+  `test.yml` -- the same bug in every one -- and the handlers now print the
+  captured output, so the next failure says what broke instead of nothing.
+
+  Worth stating plainly: this was CI reporting a real problem badly, not a false
+  alarm. The npm and docker artifacts were fine.
+
+- **A misleading claim of my own, from v9.33.0.** That entry repeated an audit
+  finding that "~46 of 54 `tools/*.py` have no production callers". Measured:
+  **42 of them are operator-run CLI utilities with `__main__` entrypoints**,
+  which is a legitimate design, not dead code. Zero tools are dead. A CLI tool's
+  caller is the operator. The v9.33.0 entry is annotated in place with the
+  correction.
+
+### Added
+
+- **`tests/test-workflow-rc-capture.sh`** (4 assertions). The `bash -e` failure
+  mode is silent -- the workflow does not report "your handler is unreachable",
+  it just dies -- so it needs a guard rather than vigilance. The suite first
+  DEMONSTRATES the mechanism with a probe rather than asserting it from memory,
+  then scans all 21 workflow files, and guards against vacuity: a scan that
+  found no workflows would otherwise report nothing wrong.
+
+### Honest limits
+
+- `loki proof chain` fronts the existing verifier; it does not make the chain
+  stronger. What it verifies is still bounded by
+  `docs/AUDIT-CHAIN-THREAT-MODEL.md`.
+- On a developer host with broken skill symlinks, `loki doctor` exits 1 for a
+  real local reason. That is correct behaviour and is not changed here.
+
+## v9.33.0
+
+Code that ships to every user and that nothing can reach. This release does not
+delete it; it makes the repo unable to acquire more of it silently.
+
+### Fixed
+
+- **"Jira bidirectional sync" and "Linear bidirectional sync" were never
+  reachable.** Both were built, tested, and listed in `package.json` `files[]`,
+  so they ship to every npm user and CI stays green because their own tests
+  import them. Nothing runs them.
+
+  Verified, not inferred: the only dispatcher is
+  `src/integrations/sync-subscriber.js`, and **nothing spawns it** (the only
+  matches for its name in the repo are its own log strings). Even if something
+  did, its Jira branch would throw on construction: it passes `{baseUrl, token}`
+  while `jira/api-client.js:32` requires `{baseUrl, email, apiToken}`.
+  Reproduced by execution:
+
+  ```
+  THROWS with the caller shape: JiraApiClient requires baseUrl, email, and apiToken
+  constructed OK with the documented shape
+  ```
+
+  The 2026 CHANGELOG entry advertising both is annotated in place with the
+  correction rather than rewritten, because it shipped and the record should
+  show what was claimed and what was true.
+
+  **What IS real:** the Jira READ path. `loki start PROJ-456`
+  (`autonomy/issue-providers.sh:321`) works and `README.md:634` documents the
+  right env vars. Write-back does not exist. Linear has no read path either, so
+  Linear support is not user-reachable at all -- recorded here rather than
+  advertised.
+
+### Added
+
+- **`tests/lib/scan-unreachable-shipped.py` and
+  `tests/test-no-unreachable-shipped.sh`** (4 assertions). The durable
+  deliverable: the repo can no longer acquire shipped-but-unreachable modules
+  without someone recording a decision.
+
+  The distinction it enforces is the one that took this defect years to surface.
+  Not "does anything reference this file" -- tests and CI smoke-imports
+  reference everything -- but "does any RUNTIME path reach it". Four of the
+  seven flagged modules are required only by
+  `.github/workflows/integrity-audit.yml` running `node -e "require(...)"`,
+  which proves they LOAD, never that they RUN.
+
+  Allowlisting requires a REASON, and an entry whose reason is blank fails the
+  suite. That is deliberate: a mute button would recreate the defect one level
+  up, and this guard exists precisely because plausible-looking evidence
+  (passing tests, green CI, a files[] entry) hid unreachable code.
+
+  Two corrections found while building it, both by the guard failing on itself:
+
+  - It first reported **zero** unreachable modules, because
+    `graphify-out/cache/stat-index.json` indexes every path in the repo and
+    matched everything. A generated cache is not a caller. Excluding generated
+    trees took the count from 0 to 17.
+  - Those 17 included false positives: a bare substring matched
+    `api-client.js` against a dashboard-ui component and `package-lock.json`.
+    Proximity is not a caller. Matching require/import/spawn SYNTAX took 17 down
+    to the 7 real ones.
+
+  The suite also asserts the scan is **non-vacuous** (22 modules against 810
+  files). A scanner that examines nothing reports nothing missing, and an empty
+  result is an absent measurement rather than a pass.
+
+  All mutations verified: a new unreachable module, an allowlist entry with an
+  empty reason, and removing the CHANGELOG correction each turn the suite red.
+
+### Honest limits
+
+- Scope is `src/integrations/`. An earlier framing of "~46 of 54 `tools/*.py`
+  have no production callers" is CORRECTED in v9.34.0: measured, 42 of them are
+  operator-run CLI utilities with `__main__` entrypoints, which is a legitimate
+  design rather than dead code. Zero tools are dead. `dashboard/api_evidence.py`
+  is not covered by this scanner and is not claimed to be.
+- Nothing was deleted. Every flagged module still ships; what changed is that
+  each now carries a recorded verdict, and a new one cannot appear unnoticed.
+
+## v9.32.0
+
+Who did it. An audit trail that cannot name an actor is not an audit trail, and
+a role label that enforces nothing is worse than no label.
+
+### Fixed
+
+- **Every audit entry claimed an actor nobody established.** `_audit()` in
+  `web-app/server.py` hardcoded `user="system"`, and neither of its two call
+  sites passed anything else. "system" is worse than blank: it asserts an actor
+  that was never verified.
+
+  This is the DEFAULT posture, not an edge case. `web-app/auth.py:1-4` states
+  that with no `DATABASE_URL` authentication is completely disabled and every
+  endpoint is open, and `/api/audit-log` carries no auth dependency. So in the
+  default configuration the actor is genuinely **unknowable**.
+
+  Entries now carry an `actor_state` of `identified`, `unauthenticated`, or
+  `unreadable`, and the three never collapse. An authenticated principal is
+  attributed by id; an unconfigured deployment says so rather than inventing a
+  name; and a lookup that throws is recorded as its own state so it cannot be
+  mistaken for "nobody was logged in". Attribution can never break the action it
+  describes.
+
+- **The team `role` field looked like a permission and enforced nothing.**
+  Measured: it is written (`:7887`) and echoed back and **never read for any
+  authorization decision** anywhere in the file. `/api/teams`,
+  `/api/teams/{id}/members` and `/api/audit-log` have no auth dependency at all.
+
+  Kept, because the UI displays it and removing it would break that surface, but
+  now labelled `NOT AN AUTHORIZATION CONTROL` at the point a reader would
+  otherwise trust it. A decorative control is worse than none: a buyer may rely
+  on it. Wiring real enforcement means putting an auth dependency on those
+  routes first, which is a larger change than a label and is not pretended here.
+
+- **`wiki/Enterprise.md` claimed "authorization (role-based scopes)" without its
+  precondition.** `require_scope` IS real enforcement on the dashboard API, but
+  `dashboard/auth.py:787-788` returns allow when neither `LOKI_ENTERPRISE_AUTH`
+  nor OIDC is configured, and that is the default. The claim now names the
+  mechanism and the condition under which it applies.
+
+- **The web-app audit log is not the tamper-evident one.** It rewrites a
+  500-entry JSON array in place on every append, so it is a recent-activity
+  view. Said so at the function, pointing at
+  `docs/AUDIT-CHAIN-THREAT-MODEL.md`, so it is not cited as audit evidence.
+
+### Added
+
+- **`tests/test-audit-actor-attribution.sh`** (8 assertions). It extracts and
+  drives the REAL `_audit` functions out of `server.py` rather than
+  reimplementing them, and asserts each of the three actor states individually
+  rather than checking that "an actor was recorded" -- a count or a presence
+  check would pass on the fabricated "system" it exists to prevent.
+
+  All mutations verified: restoring the hardcoded actor, collapsing `unreadable`
+  into `unauthenticated`, and ignoring an authenticated principal each turn the
+  suite red. The second matters most: folding the error state into the honest
+  one is the subtle version of this defect, and a test that only checked for
+  "not system" would have missed it.
+
+### Honest limits
+
+- This attributes actors; it does not authenticate them. With auth disabled the
+  honest answer stays `unauthenticated` for every entry, which is accurate and
+  not useful. Turning that into `identified` requires enabling auth, which is a
+  deployment decision.
+- The `role` field still enforces nothing. It is now labelled, not wired.
+
+## v9.31.0
+
+Two defects that together meant the policy engine, which is real and correct,
+almost never ran. This is the enforcement-before-execution capability Factory
+sells to regulated buyers; ours was built and unreachable.
+
+### Fixed
+
+- **The only policy writer fed a file the reader never opened.** The dashboard
+  writes policies to `~/.loki/policies.json` (`dashboard/api_v2.py:75,105`, via
+  `LOKI_DATA_DIR`), while `src/policies/engine.js:_init` read only
+  `<projectDir>/.loki/policies.json`. An operator who created a policy through
+  the UI got no enforcement and no error explaining why.
+
+  The engine now falls back to the global file when the project defines none.
+  **Project-local still wins**: a repo shipping its own policy must not be
+  silently overridden by a machine-global one.
+
+  `autonomy/run.sh:check_policy` had to change with it. It short-circuits on
+  "no policy file" before invoking the engine, so a project-local-only test
+  there would have skipped before the new fallback was ever consulted. The two
+  gates now agree, which is the point: when they disagree, enforcement
+  disappears between them with nothing logged.
+
+- **A missing Node runtime silently disabled enforcement.** `check_policy`
+  returned 0 (allow) when `node` was unavailable, even though reaching that line
+  means a policy file EXISTS and the operator has expressed intent to enforce.
+  The run proceeded as if every action were permitted, and nothing was logged.
+  That is the worst shape a security control can take: the operator believes it
+  is on.
+
+  It now fails CLOSED, matching what `check.js` already does for a corrupt
+  policy file (`tests/test-policy-failclosed.sh`). `LOKI_POLICY_REQUIRE_NODE=0`
+  restores the old behaviour for a host that genuinely cannot install node and
+  accepts running unenforced -- and it says so, rather than staying silent.
+
+  **The refusal is recorded**, as a new `policy_unevaluable` event distinct from
+  `policy_denied`. A block that leaves no trace is indistinguishable from a run
+  that was never gated, and the receipt must be able to tell "denied by a rule"
+  from "could not be checked". The audit subscriber maps the new type, so it
+  reaches the chain rather than stopping at the log.
+
+  Absence of a policy still ALLOWS. That is not a bypass, it is the absence of
+  anything to apply, and turning it into a refusal would break every user who
+  has never written one.
+
+### Added
+
+- **`tests/test-policy-node-failclosed.sh`** (10 assertions). It extracts and
+  drives the REAL `check_policy` out of `run.sh` rather than reimplementing it,
+  because a second copy is how the two drift apart silently.
+
+  Two assertions exist to avoid vacuity. The engine-side check asserts on the
+  engine's REASON ("All policies passed" when the global file loaded, versus
+  "No policies configured" when nothing was found) rather than its exit code:
+  an empty global policy and no policy at all both exit 0, so an exit-code
+  assertion there would prove nothing. And the nodeless cases prove the run.sh
+  gate consults the global path, which the engine-side cases cannot, so both
+  halves are needed.
+
+  Every mutation verified: restoring the fail-open, refusing without recording,
+  unmapping the subscriber event, reverting the run.sh gate to project-local
+  only, and removing the engine's fallback branches each turn the suite red.
+
+### Honest limits
+
+- Still exactly one enforcement point (`pre_execution`). Writes, network, and
+  spend are not gated by this engine.
+- The Bun route has no policy engine at all, so none of this applies there.
+- A default install still has no policy file, so the gate remains inert until
+  someone writes one. Shipping a default baseline is a separate decision with
+  its own blast radius.
+
+## v9.30.1
+
+A doc correction and a guard on behaviour that already works. **No product code
+changed** -- and the reason it did not is worth recording, because I nearly
+shipped a fix for a defect that did not exist.
+
+### The investigation that produced no code change
+
+Specialized agent roles are the axis Factory.ai competes on, so the claim was
+worth checking. `agents/types.json` ships 41 role definitions and the specialist
+loader in `autonomy/run.sh` reads `LOKI_AGENTS_TYPES_FILE`. A grep showed that
+variable being set only by tests, and a probe that ran the selector standalone
+showed the reviewer pool going from **4 to 14** when the file was supplied.
+
+That looked conclusive: 41 shipped roles never loading for any user. It was
+wrong. `autonomy/run.sh:14764` already exports
+`LOKI_AGENTS_TYPES_FILE="${PROJECT_DIR}/agents/types.json"` unconditionally, ten
+lines above the selector in the same function. The roles load today. My probe
+omitted the export the real code performs, so it measured the absence of
+something I had removed myself.
+
+It was caught by mutation testing before anything shipped: a mutation that
+repointed the default at a nonexistent file stayed **green**, which meant the
+assertion was not attributing. Chasing that produced the real export. A mutation
+that fails to go red is information, not a nuisance.
+
+The redundant change was reverted. What remains is the guard.
+
+### Fixed
+
+- **`README.md` overstated the mechanism.** It said Loki "assembles an agent
+  team from 41 specialized agent roles across 8 domains". Measured: the review
+  selector keyword-scores **10** of the 41 (`run.sh` `FOCUS_KEYWORDS`), and the
+  other 31 exist as role descriptions in `references/agents.md` that the
+  orchestrator adopts per phase -- nothing injects them into the prompt.
+
+  `references/agent-types.md:9` already described this correctly ("prompt-defined
+  specifications the orchestrator adopts per phase, not separate processes"); the
+  README summary had drifted from it. Now says what actually happens, and cites
+  where each half lives.
+
+### Added
+
+- **`tests/test-agent-types-loaded.sh`** (10 assertions). Pins a three-link chain
+  that can break silently at any point: `agents/types.json` exists, `agents/` is
+  in `package.json` `files[]` so npm users receive it, and `run.sh` exports the
+  path to an existing file **before** the selector runs. Break any link and the
+  specialized roles quietly stop reaching reviews with no error anywhere.
+
+  Two assertions exist because a weaker version let a mutation through:
+  matching the export as a literal string passed when the path was repointed at
+  a nonexistent file, so the suite now resolves what `run.sh` actually names and
+  checks that file exists. It also checks the export precedes the selector,
+  since the quoted heredoc reads only what was exported before it ran -- an
+  export that drifts below it is dead code that still greps fine.
+
+  All mutations verified: deleting the export, repointing it at a missing file,
+  and dropping `agents/` from `files[]` each turn the suite red.
+
+## v9.30.0
+
+v9.29.0 said the audit chain is not tamper-proof and named the fix: a witness.
+This release wires it, and closes the larger half of the gap that wiring alone
+would have left open.
+
+### Fixed
+
+- **A witness nobody reconciles is not a control.** `writeWitness`
+  (`src/audit/crosslink.js:234`) had zero production callers, which was the
+  known half. The unknown half was worse: `verifyUnified` already called
+  `verifyWitnessFile`, and that function only checks the witness file's own
+  monotonicity. Nothing ever compared a witnessed tip against the live chain.
+
+  Measured before the fix, with a valid witness file sitting right beside the
+  forged chain:
+
+  ```
+  witnessed tip : 337d47ce70...      live tip now : d376cdd97d...
+  verifyUnified : {"valid":true, "witness":{"present":true,"valid":true}}
+  ```
+
+  Simply calling `writeWitness` from the engine would have shipped a control
+  that controls nothing, while making the receipt look stronger. That is
+  security theatre, and it is worse than the honest gap v9.29.0 published.
+
+  `reconcileWitnessedPrefix` now compares each witnessed tip against the chain
+  entry at that position, and `verifyUnified` folds the result into its verdict.
+  The same forgery now returns `valid:false` and names the entry: "entry 2
+  hashes 0d2f5b17... but a witness recorded 91852f2b...; witnessed history was
+  rewritten".
+
+  The comparison is prefix-based, not tip-equality. A chain legitimately grows
+  after a witness is taken, so requiring the tips to match would fire on normal
+  operation, and a guard that fires on normal operation gets turned off. Both
+  failure directions are mutation-tested: removing the reconciliation misses
+  three forgeries, and switching to tip-equality breaks honest growth.
+
+### Added
+
+- **The audit subscriber now writes witnesses.** At session end, after the
+  flush (witnessing before it would pin a tip missing every buffered entry and
+  then read as truncation), and every `LOKI_AUDIT_WITNESS_INTERVAL_SEC`
+  (default 300). Periodic witnessing matters because a witness taken only at
+  shutdown is lost to SIGKILL, which is exactly when the trail matters most.
+
+  `LOKI_AUDIT_WITNESS=0` opts out. `LOKI_AUDIT_WITNESS_COMMAND` ships each
+  witness line to an external party (a WORM mount, a timestamping authority).
+  A witness that cannot be written is reported on stderr and never takes down
+  the run; a missing witness reads as `no_records`, never as a pass.
+
+- **`tests/test-witness-reconciliation.js`** (11 assertions) and
+  **`tests/test-audit-js-suites.sh`**. The wrapper exists because
+  `tests/test-manifest-truncation.js` and `tests/audit/crosslink.test.js` both
+  passed and neither was registered in `run-all-tests.sh`, `local-ci.sh`, or any
+  workflow: **CI had never run either.** The audit chain is the trust core of
+  the receipt wedge and its tests were the least-run code in the repo. All three
+  now run, asserted individually rather than summed, and a missing `node` is a
+  failure to measure rather than a skip.
+
+  One assertion is deliberately inverted: the suite asserts that a re-forged
+  chain **still self-reports valid**. Asserting on `agent.valid` would miss the
+  whole defect, because the chain cannot detect this and is not expected to.
+  The trail verdict is what must go false.
+
+### Honest limits
+
+- A local witness file is rewritable by the same adversary. Reconciliation
+  raises the bar (forging now requires rewriting the chain AND every witness
+  consistently) rather than closing the door. `LOKI_AUDIT_WITNESS_COMMAND` is
+  what actually closes it, and it is off by default because it needs
+  infrastructure we cannot assume.
+- The subscriber is still gated on `LOKI_AUDIT_ENABLED` (default false), so a
+  default install writes no agent chain and no witness. That default flip is a
+  separate change with its own migration note.
+- Nothing witnesses on the Bun route (verified: zero audit references in
+  `loki-ts/src/runner/`).
+
+## v9.29.0
+
+The audit chain is not tamper-proof, and we were saying it was. This release
+corrects the claim, publishes the threat model with a reproduction, and adds a
+guard so the overclaim cannot come back.
+
+This is the first release of a competitive program aimed at Factory.ai and 8090.
+Both sell governance: Factory through certification (SOC 2 Type II, ISO 27001,
+ISO 42001), 8090 through a governed workspace with an end-to-end audit trail.
+Both ask the buyer to trust the vendor. Our wedge is the opposite -- evidence the
+buyer verifies without trusting us -- and that wedge is worth nothing if our own
+integrity claim does not hold. So it gets checked first.
+
+### Fixed
+
+- **"Tamper-evident" overstated what the hash chains prove.** Both
+  implementations compute an unkeyed SHA-256 over public fields from a constant
+  genesis: `src/audit/log.js:16,127-134` (genesis is the literal `GENESIS`) and
+  `dashboard/audit.py:58,194-200` (genesis is `"0" * 64`). Every input to the
+  hash is present in the file being edited, so anyone who can write the log can
+  recompute a complete, internally consistent chain over invented history.
+
+  Reproduced on v9.28.1 against both, not argued:
+
+  ```
+  honest verify   : {"valid":true,"entries":2,"brokenAt":null,"error":null}
+  forged verify   : {"valid":true,"entries":2,"brokenAt":null,"error":null}
+  forged contents : NEVER HAPPENED | ALSO FORGED
+  ```
+
+  What the chain does prove is real and worth keeping: it detects corruption and
+  truncation. What it does not survive is the threat an audit log exists for --
+  a writer who rewrites history. Note the direction of the failure: a broken
+  chain is strong evidence of a problem, but an intact chain is not evidence of
+  integrity, because it is what both an honest run and a competent forgery
+  produce.
+
+  Corrected at every buyer-facing surface: `wiki/Enterprise.md` (which paired
+  the claim with SOC 2 / ISO 27001 / GDPR report generation),
+  `wiki/Security.md`, `wiki/Home.md`, the demo narration in
+  `demo/run-demo-auto.sh`, and the `_compute_chain_hash` docstring itself, which
+  asserted tamper-evidence at the point a future reader would trust it most.
+
+  `wiki/Enterprise.md` additionally now states that compliance reports are
+  generated in SOC 2 / ISO 27001 / GDPR shapes but that Loki Mode holds no
+  certification against those standards: the reports are inputs to your audit,
+  not a substitute for one.
+
+### Added
+
+- **`docs/AUDIT-CHAIN-THREAT-MODEL.md`.** States what the chain proves, carries
+  both reproductions, and names what would actually close the gap: a keyed MAC
+  (which moves the problem to key custody, and on a developer laptop the agent
+  usually runs as the user), an external witness, or a signature over the tip
+  with an off-machine key. Only the last two survive an adversary who controls
+  the machine, which is the case that matters for third-party evidence.
+
+  `writeWitness` already exists at `src/audit/crosslink.js:234` with zero
+  production callers. Wiring it is the natural next step and is deliberately not
+  bundled here: this release is about not overclaiming, and shipping the fix in
+  the same breath would blur whether the claim or the code changed.
+
+- **`tests/test-audit-chain-honesty.sh` (6 assertions) and
+  `tests/lib/scan-tamper-claims.py`.** The suite pins the measured property
+  itself: if someone later adds a keyed MAC or a witness, assertion 1 turns red
+  and the suite must be rewritten to match the new truth. The test tracks
+  reality rather than a wish.
+
+  Three details that are load-bearing, each found by the guard failing on
+  itself:
+
+  - The forgery assertion checks `entries_checked`, not just the verdict. A
+    first reproduction guessed the entry schema and got `valid=False,
+    entries_checked=0` -- the verifier had rejected the probe, not detected
+    tampering. Asserting the verdict alone would have recorded a false all-clear
+    and concluded the chain was sound.
+  - Claim matching is per OCCURRENCE, not per line. A line-level filter is
+    exploitable and was: inserting `tamper-proof` into a line that already read
+    "not tamper-proof against ..." exempted the whole line, and the mutation
+    stayed green. An honest caveat can no longer launder a false claim beside
+    it.
+  - The scan excludes `.loki/`. It is runtime state, and
+    `.loki/logs/bash-audit.jsonl` recorded the very mutation commands used to
+    test this guard and reported them as claims. A guard over user runtime state
+    fires on whatever the user typed.
+
+  A missing scanner reports UNMEASURED and fails, never clean. `tamper-proof
+  against X` stays permitted: `src/audit/crosslink.js:462-465` uses it to draw
+  the correct distinction, and banning an accurate statement would push authors
+  toward vaguer language, which is the opposite of the point.
+
+  Every assertion is mutation-verified, including the property guard (simulating
+  a keyed MAC turns it red) and the unmeasured path.
+
+## v9.28.1
+
+Four test suites that had been failing or silently not running, plus the test
+behind v9.28.0's one unbacked MEASURED label. **No product code changed** --
+every fix was a test asserting something about its environment that was not
+true, which is the same defect class v9.28.0 shipped to correct, found this
+time in our own suites.
+
+### Added
+
+- **`tests/test-stop-latency.sh`.** `docs/stop-latency.md` published "about 1
+  second to SIGKILL" and labelled it **MEASURED**, while the file it named as
+  the enforcing test did not exist. The number was derived from reading a
+  `sleep 1` in the source, never from timing a stop. A MEASURED label with no
+  measurement behind it is exactly what the previous release was about.
+
+  The suite now makes the label true. The victim installs a **SIGTERM trap** and
+  would otherwise sleep 7200 seconds, so it tests timeout-independence rather
+  than cooperative shutdown -- a victim that dies on SIGTERM would pass whether
+  or not the SIGKILL escalation existed.
+
+  Writing it surfaced a measurement error worth recording: the first version
+  drove `loki stop` end to end, and deleting the group SIGKILL entirely **left
+  it green**. `loki stop` reaps by two independent routes (`_kill_pid` on the
+  recorded pid, which carries its own `kill -9`, and the process-group path), so
+  an end-to-end test cannot attribute the bound to either. The suite now drives
+  `_stop_group_by_pgid_files` directly for the attributing assertion and times
+  the whole command separately. Both assertions are mutation-verified; the
+  end-to-end one alone was not sufficient.
+
+### Fixed
+
+- **`tests/test-dashboard-multiproject.sh` failed 4 of 29 assertions on macOS
+  and passed on Linux CI.** `_cleanup_registry_entry_state` refuses a PID
+  registry entry whose parent directory fails `realpath == abspath` -- a
+  deliberate symlink guard. On macOS `$TMPDIR` is `/var/folders/...` and `/var`
+  is a symlink to `/private/var`, so **every** entry the fixture built was
+  refused and the suite could never exercise the code it targeted. The product
+  check is correct; the fixture was the thing lying about its path. Resolved the
+  fixture root with `pwd -P`: 29/29.
+
+- **`tests/test-cluster-workflow.sh` had never printed a single result.** Under
+  `set -euo pipefail`, `((PASS++))` evaluates to PASS's *old* value, so with
+  PASS at 0 the first passing assertion returned exit status 1 and killed the
+  script -- no output, no counts, exit 1. Switched to `((++PASS))`, which
+  evaluates to the new value: 12/12. The suite was also in no runner, so nothing
+  had ever noticed.
+
+- **`tests/test-failover.sh` asserted host state it had assumed.** It treated an
+  absent `ANTHROPIC_API_KEY` as "no authentication" and demanded the provider
+  report UNHEALTHY. But `check_provider_health` deliberately accepts an API key
+  **or** an OAuth session, because Claude Code supports both -- so the suite
+  failed on every machine with a real Claude Code login while passing on a bare
+  CI runner. It now enumerates the same auth sources the function does and
+  asserts agreement with the documented contract: 14/14.
+
+- **`tests/test-cross-project-learning.sh` asserted a UI that no longer
+  exists.** Two assertions grepped `autonomy/.loki/dashboard/index.html` for
+  markers (`learnings-patterns`, `fetchLearnings`, and an `API_URL` literal).
+  That file was deleted in `a451fb02` and is untracked; those markers now appear
+  nowhere in the repo except in the test itself. `grep` on a missing file
+  reports failure without ever saying the file is gone.
+
+  The feature moved to the dashboard API rather than disappearing, so the
+  assertions were retargeted to the surface that exists: the
+  `/api/registry/learnings` endpoint and its `require_scope("read")` guard. The
+  scope guard is the property worth pinning -- a cross-project learnings store
+  read without authentication leaks one project's history to another. Both are
+  mutation-verified. 9/9.
+
+### Changed
+
+- **Three suites registered in `tests/run-all-tests.sh` for the first time**
+  (`test-cluster-workflow`, `test-cross-project-learning`, `test-failover`).
+  All three existed on disk and were in no runner, so CI had never executed
+  them; one of them had never produced output at all. They pass now, and a
+  future regression in any of them will be seen.
+
+- `docs/stop-latency.md` states precisely what MEASURED covers: which victim,
+  which call, and the two-reaping-routes caveat that keeps the end-to-end number
+  from attributing the bound. The STOP-file worst case stays **DERIVED**, and a
+  guard now fails if either label drifts from what the suite actually checks.
+
+## v9.28.0
+
+Four defects, all the same species: the product asserting something it had not
+checked, or documenting a control it does not enforce. Found by an evidence-first
+research pass against Factory.ai and 8090, then verified against source before
+any code moved.
+
+### Fixed
+
+- **Buyer-facing docs claimed security enforcement the source disclaims.**
+  `autonomy/run.sh:515` states `LOKI_ALLOWED_PATHS` "Does NOT restrict
+  provider-driven agent writes (run.sh never sees them)", and
+  `check_command_allowed` carries "intentionally NOT called by run.sh" with zero
+  callers. That honesty never reached the documentation: `wiki/Enterprise-Features.md`
+  listed both variables in a production security checklist, and
+  `docs/certification/answer-key.md` marked "`LOKI_ALLOWED_PATHS` restricts which
+  directories agents can modify" as the **correct exam answer**. Measured: zero
+  caveat mentions across nine buyer-facing files.
+
+  All nine now carry a `SANDBOX-SCOPED` note stating what is enforced (two
+  mount-time call sites in `autonomy/sandbox.sh`, plus one for operator-typed
+  `loki sandbox run` argv), what is not, and that neither enforces anything
+  unless `LOKI_SANDBOX_MODE=true`. Guarded by
+  `tests/test-enforcement-doc-honesty.sh`, which asserts marker PRESENCE rather
+  than phrase absence: a grep for "restrict" near the variable name would fire
+  on the caveat text itself.
+
+  Fixed at the same time: a pre-existing certification answer-key mismatch (the
+  key said A, the quiz option was B).
+
+- **`loki config validate` printed OK for a file it never checked.** With no
+  usable parser the unknown-key walk returned nothing, and the caller turned
+  that silence into an affirmative `config validate: OK` with exit 0 for a YAML
+  file full of bogus keys. Reproduced before the fix. This shipped in v9.27.2
+  under my own mistaken description of it as "correct degradation" -- silence in
+  the helper was fine, the caller asserting validity from it was not.
+
+  The helper now reports "could not check" as a distinct status, and the verdict
+  reads `INCOMPLETE` with a stderr line naming the skipped check. A host with no
+  python3 at all was affected for every format, not just YAML.
+
+- **`loki logs` was dead.** It read `logs/session.log`, a path nothing in the
+  tree writes, and reported "No log file found" while the runner's real logs sat
+  in that same directory (`autonomy/run.sh:22409`). It now resolves the newest
+  `autonomy-YYYYMMDD.log` and falls back to `agent.log`.
+
+  The first version of this fix was worse than the bug: under `set -euo pipefail`,
+  `ls` exits 2 on a non-matching glob and pipefail propagates it, aborting before
+  the fallback -- exit 1 with zero output. Caught by review before release. The
+  test asserts log CONTENT via sentinels, because asserting "the error string is
+  absent" passes on a silent abort.
+
+- **`report cost` contradicted its own state file.** It read only the cap from
+  `.loki/metrics/budget.json` and then substituted the current run's cost, which
+  is unmeasured when no iteration has a recorded figure, falling back to `0.0`.
+  Result: `Used: $0.00 (0.0%) ... Status: OK` over a file reading
+  `"budget_used": 0.7992, "exceeded": true`, while `loki status` showed 160%.
+  The `--json` surface asserted `"exceeded": false`, which is what automation
+  gates on.
+
+  It now reads the recorded spend, falling back to the current run only when the
+  file carries no figure. Three other readers already did this; it was one
+  divergent reader. The "Cost not recorded for this run" contract for unmeasured
+  costs is preserved, and the exit code is unchanged.
+
+### Added
+
+- **`docs/stop-latency.md`.** Enterprises ask how fast a run can be stopped, and
+  the answer was undocumented. Investigating it inverted the premise: `loki stop`
+  is already bounded at about 1 second (process-group SIGTERM, 1s grace, then
+  SIGKILL), while `autonomy/run.sh:161` told users `touch .loki/STOP - stops
+  immediately`, which was false. The STOP file is read only at the top of an
+  iteration, so a STOP written mid-dispatch waits for the provider call to
+  return, bounded by `LOKI_PROVIDER_CALL_TIMEOUT` (default 7200s). The product
+  was recommending the two-hour path and calling it immediate.
+
+  Both numbers are published with their derivations, and the false claim is
+  corrected in place.
+
+- **The Bun runner now bounds its provider call.** It passed no timeout at all,
+  so on that route a provider call had no upper bound and a STOP file could
+  never be observed. It now honors `LOKI_PROVIDER_CALL_TIMEOUT` like the bash
+  route, using the SIGTERM-then-SIGKILL escalation `shellRun` already
+  implemented (`loki-ts/src/runner/providers.ts`).
+
+### Changed
+
+- `docs/COMPETITIVE-NEXT-10.md`: item 4's claim that quiet degradation was
+  "correct" is retracted with the reproduction that refuted it, and the hard
+  command blocklist is moved out of "architecturally unavailable". A design
+  review found it IS enforceable via read-only bind-mounts over resolved binary
+  inodes (seccomp cannot do it: `execve`'s pathname is a userspace pointer a BPF
+  filter cannot dereference; a PATH shim cannot either). It stays OPEN and
+  unbuilt, with the scoping constraint recorded: only Docker container mode has
+  a mount surface, so it must fail closed in the other two modes.
+
+## v9.27.3
+
+### Fixed
+
+- **`guard-changed.sh` cried wolf on every `autonomy/loki` edit.** Its
+  ShellCheck arm ran bare `shellcheck -S warning`, while the repo gate
+  (`tests/run-shellcheck.sh`) scans `find . -name "*.sh"` with exclusions
+  (`SC1090,SC1091` globally, plus `SC2034` under `tests/`, `providers/` and
+  `benchmarks/`). Two consequences:
+
+  - `autonomy/loki` has **no `.sh` extension**, so the repo gate never lints it
+    -- but this tool did, hard-failing on 90+ long-standing SC2155/SC2034
+    warnings for any edit to the most-edited file in the repo.
+  - The exclusions were missing, so tests and provider scripts could fail here
+    while passing the real gate.
+
+  A pre-push check that always fails gets ignored, which is the same defect as
+  one that is too slow. The arm now mirrors the repo gate exactly. Verified it
+  still catches the real thing: the SC2034 in `autonomy/verify.sh` that blocked
+  v9.26.0 is caught under the corrected configuration.
+
+## v9.27.2
+
+### Fixed
+
+- **`scripts/guard-changed.sh` was slower than the gate it replaces.** A change
+  to `autonomy/loki` selects 144 suites, and **six of them never finish**
+  without a live model (`test-magic-injection`, `test-magic-rarv`,
+  `test-mirofish-integration`, `test-model-override`,
+  `test-trust-core-tests-detect`, `test-watch-command`). Measured end to end:
+  **1320s** -- worse than the 26m50s FULL tier this exists to avoid. A gate
+  nobody will run protects nothing.
+
+  Each suite now runs under a 60s budget (`GUARD_SUITE_TIMEOUT`), and a suite
+  that hits it is reported as **`SLOW ... NOT measured`** with its name in the
+  summary -- never counted as a pass. A timeout is an absent measurement, not
+  evidence of health.
+
+  Selection is also capped at 60 suites (`GUARD_MAX_SUITES`), and the count
+  that was **not** run is printed. Silent truncation would read as "everything
+  was covered" when it was not.
+
+  Same case measured after the change: **4m52s**, 3 suites named as unmeasured.
+
+- **Corrected the "~135s worst case" claim** in the v9.26.3 entry. It was
+  extrapolated from an unrepresentative 8-suite sample; the real figure was
+  1320s. The entry now states both the wrong number and the measured one rather
+  than quietly editing history.
+
+## v9.27.1
+
+### Added
+
+- **`loki start --help` now states the exit-code contract.** `docs/exit-codes.md`
+  documents a strong two-tier contract: with `LOKI_DURABLE_STATE=1`, code 20
+  means "deterministic terminal failure, retrying cannot help", which Helm wires
+  into a Kubernetes `podFailurePolicy` so a Job fails immediately instead of
+  burning `backoffLimit`. The help mentioned it **zero times** across 110 lines,
+  so a CI author read the help, saw only "0 on success, nonzero on failure", and
+  built the coarse gate. A contract nobody can discover might as well not have
+  shipped.
+
+  The help now names `LOKI_DURABLE_STATE`, code 20, what a platform should do
+  with each code, and points at the full table rather than duplicating it.
+
+  A drift assertion fails if the code stated in the help stops matching the code
+  in the doc: two documents disagreeing about a value a Job is configured on is
+  worse than one document.
+
+- `loki verify --help` needed **no change** -- it already carried an
+  `EXIT CODES` section. A test now asserts there is exactly one, because adding
+  a second is an easy mistake and duplicated help that drifts apart is worse
+  than a single statement.
+
+## v9.27.0
+
+### Added
+
+- **The evidence receipt now reports model provenance.**
+  `autonomy/lib/decision_record.py` has written an append-only trail to
+  `.loki/decisions/decisions.jsonl` once per dispatch for some time, and
+  already computed the audit fact worth showing: `model_changed`, meaning more
+  than one model id served a single project. The proof generator read that file
+  **zero times**, so the receipt could not answer the question a regulated
+  buyer actually asks -- did the deciding component change mid-run without
+  anyone saying so? The run-level "Model" row cannot answer it.
+
+  Both renderers now carry it, with **three states never collapsed**:
+
+  - `measured` -- per-model dispatch counts and whether the model changed
+  - `no_records` -- no trail for this run, stated explicitly
+  - `unreadable` -- the trail exists but could not be read, with the reason
+
+  A section that renders nothing when the trail is absent reads as "no swap
+  happened", which is the false green this receipt exists to prevent. Absence
+  of evidence is reported as absence of evidence. Corrupt trail lines are
+  counted in `unparseable_lines` rather than dropped, because an audit trail
+  that quietly discards what it cannot parse is worse than one admitting a gap.
+
+  **`model_changed` is a disclosed fact, not a fault.** A tier clamp, an
+  operator override and a mid-flight failover all cause it legitimately.
+  `affects_verdict` is `false`: this is provenance and never moves the verdict.
+
+  A receipt generated before this release has no `decisions` key and stays
+  silent rather than being described -- a run that never recorded the trail
+  cannot honestly report on it.
+
+### Fixed
+
+- **`scripts/guard-changed.sh` now sees uncommitted work.** It compared only
+  committed history against the base, so running it before a commit -- the one
+  moment a pre-push guard is for -- reported "nothing to guard" and guarded
+  nothing. It now covers committed, staged, unstaged and untracked paths.
+  Measured on this release's own diff: 12 receipt-guarding suites in 37s.
+
 ## v9.26.3
 
 ### Fixed
@@ -28,8 +964,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks that guard files we had just edited -- each discovered one 25-minute CI
   cycle at a time. CLAUDE.md already stated the rule; nothing enforced it.
 
-  Measured: 8s for a one-file change, ~135s worst case, versus 26m50s for the
-  FULL tier. Selection matches on repo-relative paths only -- basename matching
+  Measured: 8s for a one-file change. The "~135s worst case" figure in this
+  entry was extrapolated from an unrepresentative 8-suite sample and is wrong:
+  the real worst case (a change to `autonomy/loki`, 144 suites) is **1320s**,
+  because six provider-backed or long-polling suites never finish without a
+  live model. v9.27.2 bounds each suite and reports the unmeasured ones by
+  name, bringing that case to ~5 minutes. Selection matches on repo-relative
+  paths only -- basename matching
   pulled 486 suites for `autonomy/loki` (more than the FULL tier) while
   path-only pulls 143 and still selects the suites that actually broke v9.25.0
   and v9.25.1. Release-churn files (VERSION, package.json, Dockerfile, dist)
@@ -23693,7 +24634,14 @@ multi-persona debate (MoMoA) into a native Loki subsystem.
 
 ### Added - Enterprise Integrations (P0-6, P0-7, P0-8)
 - Jira bidirectional sync: epic-to-PRD conversion, webhook handler, sub-task creation
+  (CORRECTION, v9.33.0: the modules were built and tested but never wired. No
+  runtime path reaches them: the only dispatcher, src/integrations/sync-subscriber.js,
+  is never spawned, and its Jira branch would throw on construction. The Jira
+  READ path users actually use is autonomy/issue-providers.sh:321 and is real;
+  write-back is not. See v9.33.0.)
 - Linear bidirectional sync: reusable adapter pattern, webhook support
+  (CORRECTION, v9.33.0: same as above, and Linear has no shell read path either,
+  so Linear support is not user-reachable at all.)
 - GitHub Actions: enterprise trigger patterns, fork trust controls, expression injection prevention
 
 ### Security

@@ -12,6 +12,10 @@ A curated list of awesome tools, skills, plugins, integrations, extensions, fram
 
 ## Changelog
 
+September 10, 2026
+
+- Added 9 Agent Skills and related Claude Code resources.
+
 August 30, 2026
 
 - Added 7 Agent Skills and related Claude Code resources.
@@ -100,6 +104,7 @@ June 14, 2026
 
 - [**gstack**](https://github.com/garrytan/gstack) - (116.2k ⭐) - Garry Tan's Claude Code setup with opinionated agent roles for product, design, engineering, release, documentation, and QA work.
 - [**Claude-Flow**](https://github.com/ruvnet/claude-flow) - (59.4k ⭐) - An enterprise-grade AI orchestration platform that revolutionizes how developers build with AI.
+- [**oh-my-claudecode**](https://github.com/Yeachan-Heo/oh-my-claudecode) - (39.1k ⭐) - Teams-first multi-agent orchestration for Claude Code.
 - [**agents**](https://github.com/wshobson/agents) - (36.7k ⭐) - A collection of production-ready subagents for Claude Code.
 - [**agents**](https://github.com/contains-studio/agents) - (12.4k ⭐) - A comprehensive collection of specialized AI agents designed to accelerate and enhance every aspect of rapid development.
 - [**claude-squad**](https://github.com/smtg-ai/claude-squad) - (7.8k ⭐) - Manage multiple AI terminal agents, including Claude Code, Aider, Codex, OpenCode, and Amp.
@@ -207,6 +212,7 @@ June 14, 2026
 - [**SkillSpector**](https://github.com/NVIDIA/SkillSpector) - (8.4k ⭐) - Security scanner for AI agent skills that detects vulnerabilities and risky instructions.
 - [**geo-seo-claude**](https://github.com/zubair-trabzada/geo-seo-claude) - (8.1k ⭐) - GEO-first SEO skill for Claude Code. Comprehensive AI search optimization for any website — citability scoring, AI crawler analysis, brand authority, schema markup, platform-specific optimization, and PDF reports.
 - [**garden-skills**](https://github.com/ConardLi/garden-skills) - (8.0k ⭐) - ConardLi's open-source Skills collection, featuring web design, knowledge retrieval, image generation, and more.
+- [**no-ai-slop**](https://github.com/petergyang/no-ai-slop) - (7.8k ⭐) - Editing skill that removes 20+ AI-writing patterns while preserving the writer's voice.
 - [**fireworks-tech-graph**](https://github.com/yizhiyanhua-ai/fireworks-tech-graph) - (7.7k ⭐) - Claude Code skill for generating production-quality SVG+PNG technical diagrams.
 - [**notebooklm-skill**](https://github.com/PleasePrompto/notebooklm-skill) - (7.0k ⭐) - Use this skill to enable Claude Code to communicate directly with your Google NotebookLM notebooks.
 - [**text-to-cad**](https://github.com/earthtojake/text-to-cad) - (6.3k ⭐) - An open source harness for generating CAD models.
@@ -395,6 +401,7 @@ June 14, 2026
 - [**Day1Global-Skills**](https://github.com/star23/Day1Global-Skills) - (928 ⭐) - Agent skills for U.S. stocks, macro markets, and crypto research.
 - [**social-media-research-skills**](https://github.com/ScrapeCreators/social-media-research-skills) - (927 ⭐) - Social-media research skills for AI agents powered by ScrapeCreators.
 - [**ai-copywriter**](https://github.com/mikiarlo3/ai-copywriter) - (919 ⭐) - Copywriting skill with marketing knowledge and a human tone.
+- [**ffmpeg-skill**](https://github.com/kajisho5/ffmpeg-skill) - (919 ⭐) - Local FFmpeg Agent Skill for Claude Code, Cursor, and Codex with structured video and audio editing tools.
 - [**manim_skill**](https://github.com/adithya-s-k/manim_skill) - (918 ⭐) - Agent skills for Manim to create 3Blue1Brown style animations.
 - [**kotlin-agent-skills**](https://github.com/Kotlin/kotlin-agent-skills) - (886 ⭐) - AI agent skills for projects that use the Kotlin language.
 - [**guard-skills**](https://github.com/amElnagdy/guard-skills) - (881 ⭐) - Quality-gate skills that catch AI-generated failure modes in code, tests, and documentation.
@@ -592,6 +599,7 @@ June 14, 2026
 - [**recall**](https://github.com/raiyanyahya/recall) - (448 ⭐) - Offline durable memory for Claude Code that reduces repeated project explanation across sessions.
 - [**looper**](https://github.com/ksimback/looper) - (440 ⭐) - Visual planning tool for review-gated Claude Code agent loops before they run.
 - [**Claude Code Tamagotchi**](https://github.com/Ido-Levi/claude-code-tamagotchi) - (425 ⭐) - A digital friend that lives in your Claude Code statusline and keeps you company while you build cool stuff.
+- [**agent-manager**](https://github.com/YoanWai/agent-manager) - (421 ⭐) - Terminal UI for managing AI coding agents with live status, quick prompts, worktrees, and diff review.
 - [**claude-code-hooks**](https://github.com/karanb192/claude-code-hooks) - (421 ⭐) - A growing collection of useful Claude Code hooks. Copy, paste, customize..
 - [**greplica**](https://github.com/Autoloops/greplica) - (418 ⭐) - Persistent engineering memory that indexes repository structure, code, and session transcripts for Claude Code and Codex.
 - [**engram**](https://github.com/nagisanzenin/engram) - (400 ⭐) - Learning engine for Claude Code and Codex that records patterns from previous sessions and turns them into reusable guidance.
@@ -659,6 +667,7 @@ June 14, 2026
 
 ## 🖥️ Clients & GUIs
 
+- [**cc-switch**](https://github.com/farion1231/cc-switch) - (132.1k ⭐) - Cross-platform desktop assistant for Claude Code, Codex, OpenCode, OpenClaw, Grok Build, and Hermes Agent.
 - [**vibe-kanban**](https://github.com/BloopAI/vibe-kanban) - (27.0k ⭐) - Get 10X more out of Claude Code, Gemini CLI, Codex, Amp and other coding agents.
 - [**claudia**](https://github.com/getAsterisk/claudia) - (22.1k ⭐) - A powerful GUI app and Toolkit for Claude Code - Create custom agents, manage interactive Claude Code sessions, run secure background agents, and more.
 - [**happy**](https://github.com/slopus/happy) - (21.9k ⭐) - Mobile and Web client for Claude Code, with realtime voice, encryption and fully featured.
@@ -688,6 +697,7 @@ June 14, 2026
 
 ## 🏗️ Infrastructure & Proxies
 
+- [**CLIProxyAPI**](https://github.com/router-for-me/CLIProxyAPI) - (51.2k ⭐) - API service that wraps Antigravity, Codex, Claude Code, and Grok Build behind OpenAI-, Gemini-, Claude-, and Codex-compatible endpoints.
 - [**claude-code-router**](https://github.com/musistudio/claude-code-router) - (35.0k ⭐) - Uses Claude Code as the foundation for coding infrastructure, allowing interaction with the model while enjoying updates.
 - [**9router**](https://github.com/decolua/9router) - (23.7k ⭐) - Routes Claude Code, Codex, Cursor, Cline, and other coding agents to dozens of model providers with automatic fallback.
 - [**zen-mcp-server**](https://github.com/BeehiveInnovations/zen-mcp-server) - (11.6k ⭐) - The power of Claude Code + Gemini / OpenAI / Grok / OpenRouter / Ollama / Custom Model working as one.
@@ -776,6 +786,9 @@ June 14, 2026
 
 ## 📚 Guides & Learning
 
+- [**learn-claude-code**](https://github.com/shareAI-lab/learn-claude-code) - (76.5k ⭐) - A hands-on course for building a Claude Code-like agent harness from scratch.
+- [**claude-code-best-practice**](https://github.com/shanraisshan/claude-code-best-practice) - (65.8k ⭐) - A practical collection of Claude Code best practices for skills, subagents, hooks, commands, and agentic workflows.
+- [**claude-howto**](https://github.com/luongnv89/claude-howto) - (41.4k ⭐) - Visual Claude Code guide with copy-ready templates and a learning path from basics to advanced agents.
 - [**claude-code-tips**](https://github.com/ykdojo/claude-code-tips) - (8.7k ⭐) - 45 tips for getting the most out of Claude Code, from basics to advanced - includes a custom status line script, cutting the system prompt in half, using Gemini CLI as Claude Code's minion, and Claude Code running itself in a container.
 - [**claude-code-showcase**](https://github.com/ChrisWiles/claude-code-showcase) - (6.0k ⭐) - Comprehensive Claude Code project configuration example with hooks, skills, agents, commands, and GitHub Actions workflows.
 - [**agent-rules**](https://github.com/steipete/agent-rules) - (5.7k ⭐) - Rules and knowledge to work better with agents such as Claude Code or Cursor.

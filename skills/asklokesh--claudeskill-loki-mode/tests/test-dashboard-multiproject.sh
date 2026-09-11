@@ -113,7 +113,13 @@ PYEOF
 [ "$RESULT" = "MP_OK" ] && ok "/api/running-projects live status + /api/focus switch (realpath-safe)" || bad "multi-project endpoint: $RESULT"
 
 # --- functional: cleanup is exact-registry and launch-token scoped ----------
-CLEAN_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/loki-cleanup-owner-XXXXXX")
+# Resolve the fixture root through any symlink. _cleanup_registry_entry_state
+# refuses an entry whose parent dir fails `realpath == abspath` -- a deliberate
+# symlink guard in the product. On macOS $TMPDIR is /var/folders/... and /var is
+# a symlink to /private/var, so EVERY entry built here was refused and four
+# assertions failed on macOS while passing on Linux CI, where /tmp is real.
+# The product check is correct; the fixture was the thing lying about its path.
+CLEAN_ROOT=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/loki-cleanup-owner-XXXXXX")" && pwd -P)
 OWNED_PID=""; REUSED_PID=""; RACE_PID=""; UNRELATED_PID=""
 FORGED_PID=""; FORGED_WRAPPER_PID=""; FORGED_MATCHED_PID=""; FRESH_WRAPPER_PID=""; LATE_SPAWN_PID=""
 LIVE_PARENT_FORGED_PID=""; WRONG_LIVE_PARENT_PID=""

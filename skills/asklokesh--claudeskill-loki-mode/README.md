@@ -176,7 +176,7 @@ check it matches -- you are not asked to trust the agent's self-report.
 
 ---
 
-> **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), assembles an agent team from 41 specialized agent roles across 8 domains - prompt-defined specifications the orchestrator adopts per phase, with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers - and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 8 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
+> **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), selects reviewers from a specialist pool (`agents/types.json` ships 41 role definitions; 10 are keyword-scored by the review selector at `run.sh:FOCUS_KEYWORDS`, alongside the mandatory reviewers, and the rest are role descriptions in `references/agents.md` that the orchestrator adopts per phase rather than separate processes), with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers - and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 8 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
 
 ---
 
