@@ -16,17 +16,17 @@
     "values": {
       "a_error_total": 31,
       "a_failing": 14,
-      "ab_error_total": 396,
-      "ab_failing": 191,
-      "b_failing": 177,
-      "error_files": 472,
-      "error_total": 3119,
+      "ab_error_total": 303,
+      "ab_failing": 153,
+      "b_failing": 139,
+      "error_files": 410,
+      "error_total": 2931,
       "grade_distribution": {
-        "A": 2226,
-        "B": 902,
-        "C": 201,
-        "D": 157,
-        "F": 5
+        "A": 2497,
+        "B": 688,
+        "C": 148,
+        "D": 154,
+        "F": 4
       },
       "rows": 3491
     }
@@ -42,7 +42,7 @@
       "values": {
         "plugin_agent_files": 352,
         "raw_tracked_plugin_skill_files": 2991,
-        "tracked_files": 24650
+        "tracked_files": 25155
       }
     },
     "2": {
@@ -90,8 +90,8 @@
           "validator_reported_mixed_denominator_percent": 80.9
         },
         "marketplace_terminal": {
-          "error_total_all_validated_surfaces": 3356,
-          "fully_compliant_surfaces": 1367,
+          "error_total_all_validated_surfaces": 3168,
+          "fully_compliant_surfaces": 1586,
           "terminal_denominator": {
             "agents": 363,
             "commands": 370,
@@ -101,22 +101,22 @@
             "skills": 3491
           },
           "validated_plugin_manifests": 595,
-          "validator_reported_mixed_denominator_percent": 28.4
+          "validator_reported_mixed_denominator_percent": 33
         },
         "skill_rows": {
           "a_error_total": 31,
           "a_failing": 14,
-          "ab_error_total": 396,
-          "ab_failing": 191,
-          "b_failing": 177,
-          "error_files": 472,
-          "error_total": 3119,
+          "ab_error_total": 303,
+          "ab_failing": 153,
+          "b_failing": 139,
+          "error_files": 410,
+          "error_total": 2931,
           "grade_distribution": {
-            "A": 2226,
-            "B": 902,
-            "C": 201,
-            "D": 157,
-            "F": 5
+            "A": 2497,
+            "B": 688,
+            "C": 148,
+            "D": 154,
+            "F": 4
           },
           "rows": 3491
         }
@@ -129,19 +129,19 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "average_score": 89.3,
+        "average_score": 90.5,
         "grade_distribution": {
-          "A": 2226,
-          "B": 902,
-          "C": 201,
-          "D": 157,
-          "F": 5
+          "A": 2497,
+          "B": 688,
+          "C": 148,
+          "D": 154,
+          "F": 4
         },
         "grade_percentages": {
-          "A": 63.8,
-          "B": 25.8,
-          "C": 5.8,
-          "D": 4.5,
+          "A": 71.5,
+          "B": 19.7,
+          "C": 4.2,
+          "D": 4.4,
           "F": 0.1
         },
         "rows": 3491
@@ -156,10 +156,10 @@
       "values": {
         "a_error_total": 31,
         "a_failing": 14,
-        "ab_error_total": 396,
-        "ab_failing": 191,
-        "b_error_total": 365,
-        "b_failing": 177,
+        "ab_error_total": 303,
+        "ab_failing": 153,
+        "b_error_total": 272,
+        "b_failing": 139,
         "certified_target": 0,
         "skill_summary_rows": 3491
       }
@@ -286,7 +286,7 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 178,
+        "distinct_values": 244,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
@@ -367,7 +367,7 @@
             "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
-            "count": 2965,
+            "count": 2709,
             "value": "Designed for Claude Code"
           },
           {
@@ -420,6 +420,10 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; API version, dependency, metadata, and production changes require code and Salesforce platform owner approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; CI must keep customer contracts and credentials out of untrusted or fork-triggered jobs"
           },
           {
@@ -429,6 +433,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; CI secrets, protected environments, and tenant smoke tests require repository and tenant-owner approval"
+          },
+          {
+            "count": 30,
+            "value": "Designed for Claude Code; Firecrawl Cloud work requires network access"
           },
           {
             "count": 1,
@@ -448,7 +456,15 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; access, SSO, sharing, app policy, and privileged-role changes require identity, security, admin, and data-owner approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; account/archive reads and reproduction searches require authorization and privacy review"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; application deployment and production Salesforce traffic require platform, release, and org owner approval"
           },
           {
             "count": 1,
@@ -461,6 +477,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; approval requires service, Workspace, security, and data owners"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; architecture and production trust-boundary decisions require enterprise, security, data, and Salesforce platform approval"
           },
           {
             "count": 1,
@@ -480,7 +500,15 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; architecture work is evidence-led and deployment-neutral"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; benchmarks require authorized synthetic or non-sensitive data"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; blocking policy and exceptions require code, security, Salesforce platform, and business-owner governance"
           },
           {
             "count": 1,
@@ -488,7 +516,15 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; bundle creation operates on explicitly scoped local evidence"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; bundle sharing requires data-owner approval and a secure approved support channel"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; capacity changes, workload deferral, and production concurrency require platform and business owner approval"
           },
           {
             "count": 1,
@@ -496,7 +532,15 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; claims require current sources, and CMS writes, schedules, publication, destructive edits, and credential use require content-owner approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; collection and disclosure must follow customer privacy, retention, legal, security, and Workhuman support rules"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; commercial, license, retention, architecture, and workload changes require procurement, finance, platform, and business approval"
           },
           {
             "count": 1,
@@ -516,11 +560,39 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; credential, permission, workload, event, data, and production changes require incident commander and customer approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; credential, scope, data-retention, publication, and production-remediation decisions require security and resource-owner approval"
           },
           {
             "count": 1,
             "value": "Designed for Claude Code; current estimates require Together AI pricing and usage data"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; current prices must be checked at decision time"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; customer-derived media requires explicit authority"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; data extraction, transformation, loading, deletion, and cutover require source, target, privacy, and business-owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; debug logs, event records, and org metadata require explicit support and data-owner authorization"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; deep logs, trace flags, query feedback, job access, and production reproduction require support and data-owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; dependency changes and live API probes require application owner and Salesforce admin approval"
           },
           {
             "count": 1,
@@ -533,6 +605,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; dependency mutation, API-version changes, data migration, installation, and production rollout require owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; deployment and live generation require explicit approval"
           },
           {
             "count": 1,
@@ -552,11 +628,27 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; deterministic local tests require no vendor credentials"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; developer-mode installation and any live source connection require approval from the project and data owners"
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; diagnosis defaults to sanitized offline evidence"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; diagnostic reads and log access require the affected org owner and data-handling policy"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; document creation requires an authorized Lucid token and approval from the source-data and destination-folder owners"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; dual-run generation requires an approved cost and data plan"
           },
           {
             "count": 1,
@@ -565,6 +657,14 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; enterprise endpoints require the relevant plan, owner authority, and approved identities"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; environment changes require the corresponding owners"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; event enablement, publication, subscription, relay, and replay changes require Salesforce admin and data owner approval"
           },
           {
             "count": 1,
@@ -584,7 +684,23 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; examples are transport patterns, not claims of an official SDK"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; file creation is local by default, while brand changes, data claims, uploads, overwrites, and publication require owner approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; generated clients and production calls require customer-authorized contracts and credentials"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; high-volume writes require capacity, data-owner, automation-owner, and production change approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; identity and client-app changes require Salesforce org owner and security approval"
           },
           {
             "count": 1,
@@ -607,8 +723,24 @@
             "value": "Designed for Claude Code; legal retention and data-subject decisions require authorized owners"
           },
           {
+            "count": 18,
+            "value": "Designed for Claude Code; live AssemblyAI work requires network access"
+          },
+          {
             "count": 1,
             "value": "Designed for Claude Code; live CI requires a protected Together AI development project key"
+          },
+          {
+            "count": 30,
+            "value": "Designed for Claude Code; live Exa work requires network access"
+          },
+          {
+            "count": 24,
+            "value": "Designed for Claude Code; live Fireflies work requires network access"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; live Ideogram work requires network access and prepaid API credit"
           },
           {
             "count": 1,
@@ -628,6 +760,10 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; live capacity tests require explicit spend and load approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; live client verification requires a scoped ClickUp credential"
           },
           {
@@ -637,6 +773,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; live collection requires authorized ClickUp access and local retention controls"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; live cutover requires change approval and paid canaries"
           },
           {
             "count": 1,
@@ -656,11 +796,27 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; live generation requires network access, a key, and prepaid credit"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; live image generation consumes prepaid credit"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; live image operations require approved rights, network access, and credit"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; live inference requires network access, an API key, and funded Together AI usage"
           },
           {
             "count": 1,
             "value": "Designed for Claude Code; live migration verification requires authorized Together AI access"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; live org authentication and deployment require protected runners, environments, and customer authorization"
           },
           {
             "count": 1,
@@ -695,6 +851,18 @@
             "value": "Designed for Claude Code; live verification requires network access and a Together AI project key"
           },
           {
+            "count": 24,
+            "value": "Designed for Claude Code; live verification requires network access and an approved Cohere API key"
+          },
+          {
+            "count": 24,
+            "value": "Designed for Claude Code; live verification requires network access and an approved Instantly workspace and API v2 key"
+          },
+          {
+            "count": 24,
+            "value": "Designed for Claude Code; live verification requires network access and an approved Linear workspace credential"
+          },
+          {
             "count": 18,
             "value": "Designed for Claude Code; live work requires an authorized Abridge tenant, approved test data, and health-system change authority"
           },
@@ -708,6 +876,10 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; load generation, org capacity consumption, and automation effects require platform and environment-owner approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; load tests and production concurrency, schedule, cache, or batch changes require accountable-owner approval"
           },
           {
@@ -716,11 +888,27 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; log, Event Monitoring, alert, and data access require entitlement and security approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; measurement requires authorized Together AI serverless responses"
           },
           {
             "count": 1,
             "value": "Designed for Claude Code; mutation requires hierarchy administration in the target Workspace"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; new vendors, data movement, trust boundaries, and production architecture require enterprise approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; normal CI runs entirely offline"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; operational mutations require the incident commander's approval"
           },
           {
             "count": 1,
@@ -736,7 +924,23 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; org creation, metadata deployment, and test-data loading require Dev Hub and administrator authorization"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; org creation, refresh, feature enablement, data seeding, and promotion require Dev Hub and Salesforce administrator approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; package installation, secret creation, account access, and live searches require operator approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; paid benchmarks require a bounded test plan"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; personal-data access, export, retention, correction, and deletion require privacy, legal, security, and data-owner approval"
           },
           {
             "count": 1,
@@ -784,6 +988,10 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; production deployments and record changes require formal customer change approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; production design requires current ClickUp plan, data, and authorization facts"
           },
           {
@@ -793,6 +1001,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; production load, concurrency, caching, and schedule changes require service and tenant-owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; production mutation requires explicit release approval"
           },
           {
             "count": 1,
@@ -808,7 +1020,23 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; query, index, automation, concurrency, and production workload changes require platform and object owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; receiver tests should use local signed fixtures"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; recognition submissions, approvals, award values, communications, and spend changes require program-owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; record creation or update requires object owner approval and a non-production test target"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; record mutations require business object owner approval and a tested rollback or compensating action"
           },
           {
             "count": 1,
@@ -820,11 +1048,19 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; remediation that changes access, queries, workloads, events, or records requires the corresponding owner approval"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; remediation that changes identity, worker, recognition, award, spend, or connector state requires owner approval"
           },
           {
             "count": 1,
             "value": "Designed for Claude Code; requires Python 3, optionally JRig CLI for Tier 3"
+          },
+          {
+            "count": 24,
+            "value": "Designed for Claude Code; requires authorized OpenEvidence access and qualified clinical review for patient-care use"
           },
           {
             "count": 1,
@@ -833,6 +1069,26 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; requires the Notion MCP server (@notionhq/notion-mcp-server) and a Notion workspace with a Tasks database"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; retry, replay, queue, failover, and data repair changes require system and data-owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; scheduling, publication, CMS reconciliation, and backlog mutation require the content owner's approval and current platform access"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; search evidence changes over time, and backlog writes require editorial approval plus revalidation of source currency"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; security review defaults to repository and fixture evidence"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; security, identity, permission, sharing, and encryption changes require customer security and Salesforce administrator approval"
           },
           {
             "count": 1,
@@ -849,6 +1105,14 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; submission requires network access, a project key, training data, and funded Together AI usage"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; team and key mutations require authorized administrators"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; telemetry must remain content-free"
           },
           {
             "count": 1,
@@ -1684,7 +1948,7 @@
         "answers": [
           {
             "cohort": "curated-mirror",
-            "value": 2559
+            "value": 2612
           },
           {
             "cohort": "curriculum",
@@ -2424,7 +2688,7 @@
         "invalid_patterns": 0,
         "invisible_files": 5,
         "target_invisible_files": 0,
-        "tracked_files": 24650
+        "tracked_files": 25155
       }
     },
     "47": {
@@ -2509,15 +2773,15 @@
       "dimension": "Inventory header versus rows",
       "reproduce": "pnpm run measure:e1 --row=52 --stdout",
       "source": [
-        "freshie/reports/run-delta-82.json",
+        "freshie/reports/run-delta-109.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
       "status": "target_met",
       "values": {
-        "dolt_commit": "d2ukor82vks0hrnno3rbabrmrorm8jms",
+        "dolt_commit": "f7ba1glnnpcrllvk1u8cpdodv15am6pi",
         "header_total_skills": 2914,
-        "run_id": 82,
+        "run_id": 109,
         "skill_row_delta": 0,
         "skill_rows": 2914,
         "target_skill_row_delta": 0
@@ -2530,32 +2794,32 @@
       "source": [
         "freshie/grade-histogram.json",
         "freshie/grades.csv",
-        "freshie/reports/run-delta-82.json"
+        "freshie/reports/run-delta-109.json"
       ],
       "status": "target_met",
       "values": {
         "compliance_rows": 3491,
-        "export_dolt_commit": "d2ukor82vks0hrnno3rbabrmrorm8jms",
-        "export_run_id": 82,
+        "export_dolt_commit": "f7ba1glnnpcrllvk1u8cpdodv15am6pi",
+        "export_run_id": 109,
         "grades_csv_rows": 3491,
-        "grades_csv_sha256": "997ff2a45933cd93e414711ccee32b31bfc25dfbc8c85ee9773108e764116145",
+        "grades_csv_sha256": "f25fd4b1e4b01ca0a1d0af4a53703dd3122acdc9881981757e65a89091b3fb79",
         "histogram_grades": {
-          "A": 2226,
-          "B": 902,
-          "C": 201,
-          "D": 157,
-          "F": 5
+          "A": 2497,
+          "B": 688,
+          "C": 148,
+          "D": 154,
+          "F": 4
         },
         "histogram_total": 3491,
         "immutable_grade_counts": {
-          "A": 2226,
-          "B": 902,
-          "C": 201,
-          "D": 157,
-          "F": 5
+          "A": 2497,
+          "B": 688,
+          "C": 148,
+          "D": 154,
+          "F": 4
         },
-        "inventory_dolt_commit": "d2ukor82vks0hrnno3rbabrmrorm8jms",
-        "inventory_run_id": 82,
+        "inventory_dolt_commit": "f7ba1glnnpcrllvk1u8cpdodv15am6pi",
+        "inventory_run_id": 109,
         "target_lag_runs": 0
       }
     },
@@ -2565,8 +2829,8 @@
       "reproduce": "pnpm run measure:e1 --row=54 --stdout",
       "source": [
         "freshie/reports/legacy-forge-proofs-demotion.json",
+        "freshie/reports/run-delta-109.json",
         "freshie/reports/run-delta-19.json",
-        "freshie/reports/run-delta-82.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py",
         "scripts/record-jrig-proofs.mjs"
@@ -2579,7 +2843,7 @@
           "E2": 0,
           "E3": 0
         },
-        "current_run_id": 82,
+        "current_run_id": 109,
         "invalid_identities": 0,
         "legacy_e0_records": 3,
         "retained_e2_e3": 0,
@@ -2603,8 +2867,8 @@
       "source": [
         "000-docs/807-DR-STND-evaluation-evidence.md",
         "freshie/reports/legacy-forge-proofs-demotion.json",
+        "freshie/reports/run-delta-109.json",
         "freshie/reports/run-delta-19.json",
-        "freshie/reports/run-delta-82.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],

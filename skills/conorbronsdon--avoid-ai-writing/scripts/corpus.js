@@ -298,17 +298,25 @@ function cmdVerify() {
   return 0;
 }
 
-function cmdList() {
-  const m = readManifest();
+function cmdList(manifest = readManifest()) {
+  const m = manifest;
   const byRegister = new Map();
   for (const doc of m.documents) {
     if (!byRegister.has(doc.register)) byRegister.set(doc.register, []);
     byRegister.get(doc.register).push(doc);
   }
+
+  const extraRegisters = [...byRegister.keys()]
+    .filter((register) => !REGISTERS.includes(register))
+    .sort();
+  const displayRegisters = [
+    ...REGISTERS.filter((register) => byRegister.has(register)),
+    ...extraRegisters,
+  ];
+
   console.log(`\n${m.documents.length} document(s) across ${byRegister.size} register(s)\n`);
-  for (const reg of REGISTERS) {
+  for (const reg of displayRegisters) {
     const docs = byRegister.get(reg);
-    if (!docs) continue;
     const words = docs.reduce((s, d) => s + (d.words || 0), 0);
     console.log(`  ${reg}  (${docs.length} docs, ${words.toLocaleString()} words)`);
     for (const d of docs) {
@@ -384,4 +392,4 @@ async function main() {
 
 if (require.main === module) main();
 
-module.exports = { readManifest, loadText, loadRows, sha256, REGISTERS, AUTHORSHIP, stripGutenberg, htmlToText, applySlice };
+module.exports = { readManifest, loadText, loadRows, sha256, REGISTERS, AUTHORSHIP, stripGutenberg, htmlToText, applySlice, cmdList };

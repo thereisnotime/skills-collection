@@ -3,7 +3,7 @@
   "authority": "Blueprint 727 §8; Freshie graded export",
   "source": {
     "path": "freshie/grades.csv",
-    "sha256": "997ff2a45933cd93e414711ccee32b31bfc25dfbc8c85ee9773108e764116145",
+    "sha256": "f25fd4b1e4b01ca0a1d0af4a53703dd3122acdc9881981757e65a89091b3fb79",
     "artifact_count": 3491
   },
   "rule_order": [
@@ -19,9 +19,9 @@
     "G9"
   ],
   "counts": {
-    "AUTO-MIGRATE": 191,
+    "AUTO-MIGRATE": 133,
     "CERTIFY": 0,
-    "CERTIFY-PENDING-EVIDENCE": 2954,
+    "CERTIFY-PENDING-EVIDENCE": 3012,
     "CERTIFY-UPSTREAM": 0,
     "DEEP-REMEDIATE": 1,
     "QUARANTINE": 345
@@ -9329,20 +9329,9 @@
     },
     {
       "path": "plugins/productivity/publishing-skills/skills/blog-editorial-calendar/SKILL.md",
-      "grade": "D",
-      "score": 62,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)",
-        "[body] Required section missing: '## Resources' (or an equivalent heading: ## References, ## See also, ## Links, ## Further reading, ## Related, ## Additional resources) (marketplace tier)",
-        "[frontmatter] 'description' exceeds 1024 characters",
-        "[frontmatter] allowed-tools: unscoped 'Bash' is not allowed - use scoped Bash(git:*), Bash(npm:*), etc.",
-        "[tier2:tool-safety] Unscoped Bash + Write/WebFetch declared without a Safety Justification section — high-risk combo. Add `## Safety Justification` explaining why."
-      ],
+      "grade": "A",
+      "score": 95,
+      "diagnostics": [],
       "disposition": "QUARANTINE",
       "gate": "G1",
       "reason_codes": [
@@ -9351,17 +9340,9 @@
     },
     {
       "path": "plugins/productivity/publishing-skills/skills/blog-figure-svg/SKILL.md",
-      "grade": "F",
-      "score": 53,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)",
-        "[body] Required section missing: '## Resources' (or an equivalent heading: ## References, ## See also, ## Links, ## Further reading, ## Related, ## Additional resources) (marketplace tier)",
-        "[body] SKILL.md body has 520 lines — exceeds Anthropic 500-line limit. Extract to references/"
-      ],
+      "grade": "A",
+      "score": 92,
+      "diagnostics": [],
       "disposition": "QUARANTINE",
       "gate": "G1",
       "reason_codes": [
@@ -9370,18 +9351,9 @@
     },
     {
       "path": "plugins/productivity/publishing-skills/skills/blog-topic-research/SKILL.md",
-      "grade": "D",
-      "score": 61,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)",
-        "[body] Required section missing: '## Resources' (or an equivalent heading: ## References, ## See also, ## Links, ## Further reading, ## Related, ## Additional resources) (marketplace tier)",
-        "[frontmatter] 'description' exceeds 1024 characters"
-      ],
+      "grade": "A",
+      "score": 94,
+      "diagnostics": [],
       "disposition": "QUARANTINE",
       "gate": "G1",
       "reason_codes": [
@@ -9390,17 +9362,9 @@
     },
     {
       "path": "plugins/productivity/publishing-skills/skills/seo-blog-writer/SKILL.md",
-      "grade": "D",
-      "score": 67,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)",
-        "[body] Required section missing: '## Resources' (or an equivalent heading: ## References, ## See also, ## Links, ## Further reading, ## Related, ## Additional resources) (marketplace tier)",
-        "[body] SKILL.md body has 765 lines — exceeds Anthropic 500-line limit. Extract to references/"
-      ],
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
       "disposition": "QUARANTINE",
       "gate": "G1",
       "reason_codes": [
@@ -11942,8 +11906,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -11953,8 +11917,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 91,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -11964,8 +11928,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 92,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -11975,8 +11939,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-core-workflow-b/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -11986,8 +11950,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -11997,8 +11961,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 92,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12008,8 +11972,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12019,8 +11983,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12030,8 +11994,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12041,8 +12005,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12052,8 +12016,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12063,8 +12027,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-prod-checklist/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12074,8 +12038,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 92,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12085,8 +12049,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-reference-architecture/SKILL.md",
-      "grade": "C",
-      "score": 77,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12096,8 +12060,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 92,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12107,8 +12071,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12118,8 +12082,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12129,8 +12093,8 @@
     },
     {
       "path": "plugins/saas-packs/assemblyai-pack/skills/assemblyai-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12338,8 +12302,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12349,8 +12313,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12360,8 +12324,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-core-workflow-a/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12371,8 +12335,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-core-workflow-b/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12382,8 +12346,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12393,8 +12357,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12404,8 +12368,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12415,8 +12379,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12426,8 +12390,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12437,8 +12401,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12448,8 +12412,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12459,8 +12423,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-prod-checklist/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12470,8 +12434,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12481,8 +12445,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-reference-architecture/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12492,8 +12456,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12503,8 +12467,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-security-basics/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12514,8 +12478,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -12525,8 +12489,8 @@
     },
     {
       "path": "plugins/saas-packs/bamboohr-pack/skills/bamboohr-webhooks-events/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15198,8 +15162,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-ci-integration/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15209,8 +15173,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15220,8 +15184,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15231,8 +15195,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-core-workflow-b/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15242,8 +15206,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15253,8 +15217,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-data-handling/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15264,8 +15228,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15275,8 +15239,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15286,8 +15250,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-enterprise-rbac/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15297,8 +15261,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15308,8 +15272,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-incident-runbook/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15319,8 +15283,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15330,8 +15294,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15341,8 +15305,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-migration-deep-dive/SKILL.md",
-      "grade": "C",
-      "score": 75,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15352,8 +15316,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-multi-env-setup/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15363,8 +15327,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-observability/SKILL.md",
-      "grade": "C",
-      "score": 77,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15374,8 +15338,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15385,8 +15349,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-prod-checklist/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15396,8 +15360,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15407,8 +15371,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-reference-architecture/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15418,8 +15382,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-sdk-patterns/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15429,8 +15393,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15440,8 +15404,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-upgrade-migration/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -15451,8 +15415,8 @@
     },
     {
       "path": "plugins/saas-packs/cohere-pack/skills/cohere-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17354,8 +17318,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-advanced-troubleshooting/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17365,8 +17329,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-architecture-variants/SKILL.md",
-      "grade": "C",
-      "score": 77,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17376,8 +17340,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17388,7 +17352,7 @@
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-common-errors/SKILL.md",
       "grade": "A",
-      "score": 92,
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17398,8 +17362,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17409,8 +17373,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-core-workflow-b/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17420,8 +17384,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17431,8 +17395,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-data-handling/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17442,8 +17406,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17453,8 +17417,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17464,8 +17428,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-enterprise-rbac/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17475,8 +17439,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17486,8 +17450,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-incident-runbook/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17497,8 +17461,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17508,8 +17472,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-known-pitfalls/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17519,8 +17483,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-load-scale/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17530,8 +17494,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17541,8 +17505,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-migration-deep-dive/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17552,8 +17516,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17563,8 +17527,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-observability/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17574,8 +17538,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17585,8 +17549,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-policy-guardrails/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17596,8 +17560,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-prod-checklist/SKILL.md",
-      "grade": "B",
-      "score": 89,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17607,8 +17571,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17618,8 +17582,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-reference-architecture/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17629,8 +17593,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-reliability-patterns/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17640,8 +17604,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17651,8 +17615,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17662,8 +17626,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -17673,8 +17637,8 @@
     },
     {
       "path": "plugins/saas-packs/exa-pack/skills/exa-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18410,8 +18374,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-advanced-troubleshooting/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18421,8 +18385,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-architecture-variants/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18432,8 +18396,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18443,8 +18407,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18454,8 +18418,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18465,8 +18429,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-core-workflow-b/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18476,8 +18440,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18487,8 +18451,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-data-handling/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18498,8 +18462,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18509,8 +18473,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18520,8 +18484,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-enterprise-rbac/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18531,8 +18495,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18542,8 +18506,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-incident-runbook/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18553,8 +18517,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18564,8 +18528,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-known-pitfalls/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18575,8 +18539,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-load-scale/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18586,8 +18550,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18597,8 +18561,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-migration-deep-dive/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18608,8 +18572,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18619,8 +18583,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-observability/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18630,8 +18594,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18641,8 +18605,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-policy-guardrails/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18652,8 +18616,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-prod-checklist/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18663,8 +18627,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18674,8 +18638,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-reference-architecture/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18685,8 +18649,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-reliability-patterns/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18696,8 +18660,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18707,8 +18671,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18718,8 +18682,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18729,8 +18693,8 @@
     },
     {
       "path": "plugins/saas-packs/firecrawl-pack/skills/firecrawl-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18740,8 +18704,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18751,8 +18715,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18762,8 +18726,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-core-workflow-a/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18773,8 +18737,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-core-workflow-b/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18784,8 +18748,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18795,8 +18759,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-data-handling/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18806,8 +18770,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18817,8 +18781,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18828,8 +18792,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-enterprise-rbac/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18839,8 +18803,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18850,8 +18814,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-incident-runbook/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18861,8 +18825,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 88,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18872,8 +18836,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-local-dev-loop/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18883,8 +18847,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-migration-deep-dive/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18894,8 +18858,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18905,8 +18869,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-observability/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18916,8 +18880,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18928,7 +18892,7 @@
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-prod-checklist/SKILL.md",
       "grade": "A",
-      "score": 90,
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18938,8 +18902,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18949,8 +18913,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-reference-architecture/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18960,8 +18924,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18971,8 +18935,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18982,8 +18946,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -18993,8 +18957,8 @@
     },
     {
       "path": "plugins/saas-packs/fireflies-pack/skills/fireflies-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21644,8 +21608,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21655,8 +21619,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21666,8 +21630,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21677,8 +21641,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-core-workflow-b/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21688,8 +21652,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21699,8 +21663,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-data-handling/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21710,8 +21674,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21721,8 +21685,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21732,8 +21696,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-enterprise-rbac/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21743,8 +21707,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21754,8 +21718,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-incident-runbook/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21765,8 +21729,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 88,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21776,8 +21740,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21787,8 +21751,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-migration-deep-dive/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21798,8 +21762,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21809,8 +21773,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-observability/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21820,8 +21784,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21832,7 +21796,7 @@
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-prod-checklist/SKILL.md",
       "grade": "A",
-      "score": 91,
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21842,8 +21806,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21853,8 +21817,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-reference-architecture/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21864,8 +21828,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21875,8 +21839,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21886,8 +21850,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21897,8 +21861,8 @@
     },
     {
       "path": "plugins/saas-packs/ideogram-pack/skills/ideogram-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21908,8 +21872,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21919,8 +21883,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 88,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21930,8 +21894,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21941,8 +21905,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-core-workflow-b/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21952,8 +21916,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21963,8 +21927,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-data-handling/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21974,8 +21938,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21985,8 +21949,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -21996,8 +21960,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-enterprise-rbac/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22007,8 +21971,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22018,8 +21982,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-incident-runbook/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22029,8 +21993,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22040,8 +22004,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22051,8 +22015,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-migration-deep-dive/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22062,8 +22026,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22073,8 +22037,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-observability/SKILL.md",
-      "grade": "C",
-      "score": 77,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22084,8 +22048,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22095,8 +22059,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-prod-checklist/SKILL.md",
-      "grade": "B",
-      "score": 88,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22106,8 +22070,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-rate-limits/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22117,8 +22081,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-reference-architecture/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 97,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22128,8 +22092,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-sdk-patterns/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22139,8 +22103,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-security-basics/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 100,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22150,8 +22114,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 82,
+      "grade": "A",
+      "score": 98,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -22161,8 +22125,8 @@
     },
     {
       "path": "plugins/saas-packs/instantly-pack/skills/instantly-webhooks-events/SKILL.md",
-      "grade": "C",
-      "score": 77,
+      "grade": "A",
+      "score": 99,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -24185,340 +24149,266 @@
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-ci-integration/SKILL.md",
-      "grade": "C",
-      "score": 77,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 85,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 85,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-core-workflow-b/SKILL.md",
-      "grade": "C",
-      "score": 73,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-cost-tuning/SKILL.md",
-      "grade": "C",
-      "score": 79,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-data-handling/SKILL.md",
-      "grade": "B",
-      "score": 80,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 82,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 88,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-enterprise-rbac/SKILL.md",
-      "grade": "B",
-      "score": 87,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 80,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-incident-runbook/SKILL.md",
-      "grade": "C",
-      "score": 78,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-install-auth/SKILL.md",
-      "grade": "C",
-      "score": 77,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-local-dev-loop/SKILL.md",
-      "grade": "C",
-      "score": 75,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-migration-deep-dive/SKILL.md",
-      "grade": "B",
-      "score": 81,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 82,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-observability/SKILL.md",
-      "grade": "B",
-      "score": 83,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 86,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-prod-checklist/SKILL.md",
-      "grade": "C",
-      "score": 75,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 82,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-reference-architecture/SKILL.md",
-      "grade": "B",
-      "score": 80,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 86,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-security-basics/SKILL.md",
-      "grade": "C",
-      "score": 74,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 87,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/linear-pack/skills/linear-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 83,
-      "diagnostics": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
@@ -27275,456 +27165,266 @@
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 84,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 84,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 82,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-core-workflow-b/SKILL.md",
-      "grade": "B",
-      "score": 84,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-cost-tuning/SKILL.md",
-      "grade": "C",
-      "score": 75,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-data-handling/SKILL.md",
-      "grade": "B",
-      "score": 86,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-debug-bundle/SKILL.md",
-      "grade": "C",
-      "score": 76,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 84,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-enterprise-rbac/SKILL.md",
-      "grade": "B",
-      "score": 84,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-hello-world/SKILL.md",
-      "grade": "C",
-      "score": 78,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-incident-runbook/SKILL.md",
-      "grade": "C",
-      "score": 77,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 81,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 80,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-migration-deep-dive/SKILL.md",
-      "grade": "C",
-      "score": 74,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Overview' (or an equivalent heading: ## Summary, ## About, ## Description, ## What it does, ## Introduction, ## Capabilities, ## Purpose) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 84,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-observability/SKILL.md",
-      "grade": "B",
-      "score": 81,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 97,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 83,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-prod-checklist/SKILL.md",
-      "grade": "C",
-      "score": 77,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-rate-limits/SKILL.md",
-      "grade": "C",
-      "score": 74,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-reference-architecture/SKILL.md",
-      "grade": "B",
-      "score": 85,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 99,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 84,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 85,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 98,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-upgrade-migration/SKILL.md",
-      "grade": "C",
-      "score": 78,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 100,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/openevidence-pack/skills/openevidence-webhooks-events/SKILL.md",
-      "grade": "B",
-      "score": 83,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 97,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
@@ -30833,8 +30533,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-advanced-troubleshooting/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30844,23 +30544,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-architecture-variants/SKILL.md",
-      "grade": "C",
-      "score": 78,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 93,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-ci-integration/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30870,23 +30566,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-common-errors/SKILL.md",
-      "grade": "B",
-      "score": 81,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 92,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-core-workflow-a/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30896,23 +30588,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-core-workflow-b/SKILL.md",
-      "grade": "C",
-      "score": 76,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 94,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-cost-tuning/SKILL.md",
-      "grade": "B",
-      "score": 85,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30922,8 +30610,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-data-handling/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30933,8 +30621,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-debug-bundle/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30944,8 +30632,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-deploy-integration/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30955,8 +30643,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-enterprise-rbac/SKILL.md",
-      "grade": "C",
-      "score": 78,
+      "grade": "A",
+      "score": 91,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30966,8 +30654,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-hello-world/SKILL.md",
-      "grade": "B",
-      "score": 87,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -30977,25 +30665,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-incident-runbook/SKILL.md",
-      "grade": "B",
-      "score": 80,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 94,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-install-auth/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 92,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31005,29 +30687,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-known-pitfalls/SKILL.md",
-      "grade": "C",
-      "score": 71,
-      "diagnostics": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 95,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Error Handling' (or an equivalent heading: ## Errors, ## Troubleshooting, ## Failure modes, ## Edge cases, ## Limitations) (marketplace tier)",
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)",
-        "[body] Required section missing: '## Prerequisites' (or an equivalent heading: ## Requirements, ## Setup, ## Dependencies, ## Before you begin, ## Installation) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-load-scale/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31037,8 +30709,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-local-dev-loop/SKILL.md",
-      "grade": "B",
-      "score": 83,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31048,8 +30720,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-migration-deep-dive/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31059,8 +30731,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-multi-env-setup/SKILL.md",
-      "grade": "B",
-      "score": 86,
+      "grade": "A",
+      "score": 94,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31070,38 +30742,30 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-observability/SKILL.md",
-      "grade": "C",
-      "score": 76,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 94,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-performance-tuning/SKILL.md",
-      "grade": "B",
-      "score": 81,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 96,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-policy-guardrails/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31111,23 +30775,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-prod-checklist/SKILL.md",
-      "grade": "B",
-      "score": 82,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 95,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-rate-limits/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 91,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31137,23 +30797,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-reference-architecture/SKILL.md",
-      "grade": "B",
-      "score": 81,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 91,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Instructions' (or an equivalent heading: ## Usage, ## How to use, ## How it works, ## Steps, ## Workflow, ## Guide, ## Getting started) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-reliability-patterns/SKILL.md",
-      "grade": "B",
-      "score": 80,
+      "grade": "A",
+      "score": 95,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31163,8 +30819,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-sdk-patterns/SKILL.md",
-      "grade": "B",
-      "score": 81,
+      "grade": "A",
+      "score": 96,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31174,23 +30830,19 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-security-basics/SKILL.md",
-      "grade": "B",
-      "score": 82,
-      "diagnostics": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
-      ],
-      "disposition": "AUTO-MIGRATE",
-      "gate": "G5",
+      "grade": "A",
+      "score": 94,
+      "diagnostics": [],
+      "disposition": "CERTIFY-PENDING-EVIDENCE",
+      "gate": "G7",
       "reason_codes": [
-        "[body] Required section missing: '## Examples' (or an equivalent heading: ## Example, ## Sample, ## Samples, ## Usage examples, ## Example usage) (marketplace tier)",
-        "[body] Required section missing: '## Output' (or an equivalent heading: ## Outputs, ## Returns, ## Results, ## Output format, ## Response) (marketplace tier)"
+        "REPRODUCIBLE_EVIDENCE_NOT_RETAINED"
       ]
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-upgrade-migration/SKILL.md",
-      "grade": "B",
-      "score": 84,
+      "grade": "A",
+      "score": 91,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",
@@ -31200,8 +30852,8 @@
     },
     {
       "path": "plugins/saas-packs/salesforce-pack/skills/salesforce-webhooks-events/SKILL.md",
-      "grade": "C",
-      "score": 79,
+      "grade": "A",
+      "score": 93,
       "diagnostics": [],
       "disposition": "CERTIFY-PENDING-EVIDENCE",
       "gate": "G7",

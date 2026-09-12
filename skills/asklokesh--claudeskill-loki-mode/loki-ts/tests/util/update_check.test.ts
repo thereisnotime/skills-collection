@@ -3,25 +3,35 @@ import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import {
+  findShadowedNewerInstall,
   isNewer,
   maybePrintUpdateHint,
   resolveLatest,
   shouldSkipUpdateCheck,
 } from "../../src/util/update_check.ts";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 
 // Each test injects its own throwaway cache file so nothing touches the real
 // ~/.loki (note: os.homedir() ignores a mutated $HOME on macOS, so stubbing
 // env is not enough; the cache path is injectable instead).
 let prevNoCheck: string | undefined;
 let prevCI: string | undefined;
+let prevPath: string | undefined;
 let tmpDir: string;
 let cacheFile: string;
 
 beforeEach(() => {
   prevNoCheck = process.env["LOKI_NO_UPDATE_CHECK"];
   prevCI = process.env["CI"];
+  prevPath = process.env["PATH"];
   delete process.env["LOKI_NO_UPDATE_CHECK"];
   delete process.env["CI"];
+  // ISOLATE FROM THE HOST PATH. The shadowed-install check walks PATH looking
+  // for other loki installs, and this developer machine genuinely has one -- so
+  // without this, an unrelated test that never mentions PATH started failing
+  // because it found the real shadow. A test must not read host state it did
+  // not ask for; tests that exercise the check inject their own PATH.
+  process.env["PATH"] = "";
   tmpDir = mkdtempSync(resolve(tmpdir(), "loki-update-test-"));
   cacheFile = resolve(tmpDir, "update-check.json");
 });
@@ -29,6 +39,8 @@ beforeEach(() => {
 afterEach(() => {
   if (prevNoCheck === undefined) delete process.env["LOKI_NO_UPDATE_CHECK"];
   else process.env["LOKI_NO_UPDATE_CHECK"] = prevNoCheck;
+  if (prevPath === undefined) delete process.env["PATH"];
+  else process.env["PATH"] = prevPath;
   if (prevCI === undefined) delete process.env["CI"];
   else process.env["CI"] = prevCI;
   rmSync(tmpDir, { recursive: true, force: true });
@@ -188,5 +200,94 @@ describe("maybePrintUpdateHint", () => {
       });
     });
     expect(lines.length).toBe(0);
+  });
+});
+
+// --- Shadowed install (reported by a user) ------------------------------------
+//
+// THE BUG: `bun install -g loki-mode` reported "installed loki-mode@9.35.0",
+// then `loki --version` printed 9.22.3, and the nudge told the user to run the
+// install they had just run. A leftover ~/.local/bin/loki symlink into an old
+// npm-global tree was shadowing ~/.bun/bin/loki on PATH. Reinstalling updates a
+// copy PATH never reaches, so the advice sent them round a loop with no exit.
+describe("shadowed install detection", () => {
+  // Build a fake PATH with two package layouts: <dir>/loki -> <pkg>/bin/loki,
+  // with <pkg>/package.json carrying the version.
+  function makeInstall(root: string, name: string, version: string): string {
+    const pkg = resolve(root, name);
+    mkdirSync(resolve(pkg, "bin"), { recursive: true });
+    writeFileSync(resolve(pkg, "bin", "loki"), "#!/bin/sh\n");
+    writeFileSync(resolve(pkg, "package.json"), JSON.stringify({ version }));
+    const bindir = resolve(root, name + "-bin");
+    mkdirSync(bindir, { recursive: true });
+    symlinkSync(resolve(pkg, "bin", "loki"), resolve(bindir, "loki"));
+    return bindir;
+  }
+
+  it("finds a newer copy that sits later on PATH", () => {
+    const oldBin = makeInstall(tmpDir, "old", "9.22.3");
+    const newBin = makeInstall(tmpDir, "new", "9.35.0");
+    const found = findShadowedNewerInstall("9.22.3", {
+      PATH: [oldBin, newBin].join(":"),
+    } as NodeJS.ProcessEnv);
+    expect(found).not.toBeNull();
+    expect(found!.version).toBe("9.35.0");
+    expect(found!.path).toBe(resolve(newBin, "loki"));
+  });
+
+  it("reports nothing when the running copy is already the newest", () => {
+    const oldBin = makeInstall(tmpDir, "o2", "9.22.3");
+    const newBin = makeInstall(tmpDir, "n2", "9.35.0");
+    expect(
+      findShadowedNewerInstall("9.35.0", {
+        PATH: [oldBin, newBin].join(":"),
+      } as NodeJS.ProcessEnv),
+    ).toBeNull();
+  });
+
+  it("is fail-silent on an unreadable or non-package entry", () => {
+    const junk = resolve(tmpDir, "junk");
+    mkdirSync(junk, { recursive: true });
+    writeFileSync(resolve(junk, "loki"), "#!/bin/sh\n"); // no package.json above
+    expect(
+      findShadowedNewerInstall("9.22.3", { PATH: junk } as NodeJS.ProcessEnv),
+    ).toBeNull();
+  });
+
+  it("names the shadowing problem instead of telling the user to reinstall", async () => {
+    const oldBin = makeInstall(tmpDir, "o3", "9.22.3");
+    const newBin = makeInstall(tmpDir, "n3", "9.35.0");
+    const lines: string[] = [];
+    await withTTY(true, async () => {
+      await maybePrintUpdateHint("9.22.3", {
+        now: 20_000_000,
+        fetcher: async () => "9.35.0",
+        write: (m) => lines.push(m),
+        cacheFile,
+        env: { PATH: [oldBin, newBin].join(":") } as NodeJS.ProcessEnv,
+      });
+    });
+    const msg = lines.join("");
+    // The load-bearing assertion: it must NOT repeat the install command, which
+    // is the advice that cannot work here.
+    expect(msg).not.toContain("bun install -g loki-mode");
+    expect(msg).toContain("installed but not the one running");
+    expect(msg).toContain("which -a loki");
+    expect(msg).toContain(resolve(newBin, "loki"));
+  });
+
+  it("still gives the ordinary update hint when nothing is shadowed", async () => {
+    const onlyBin = makeInstall(tmpDir, "solo", "9.22.3");
+    const lines: string[] = [];
+    await withTTY(true, async () => {
+      await maybePrintUpdateHint("9.22.3", {
+        now: 21_000_000,
+        fetcher: async () => "9.35.0",
+        write: (m) => lines.push(m),
+        cacheFile,
+        env: { PATH: onlyBin } as NodeJS.ProcessEnv,
+      });
+    });
+    expect(lines.join("")).toContain("bun install -g loki-mode");
   });
 });

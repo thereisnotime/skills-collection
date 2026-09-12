@@ -127,6 +127,7 @@ def collect_efficiency(loki_dir):
     }
     model = ""
     collected = False
+    _records = []
     eff_dir = os.path.join(loki_dir, "metrics", "efficiency")
     try:
         names = sorted(os.listdir(eff_dir))
@@ -139,6 +140,7 @@ def collect_efficiency(loki_dir):
         if not isinstance(rec, dict):
             continue
         collected = True
+        _records.append(rec)
         cost["usd"] += _to_float(rec.get("cost_usd"))
         cost["input_tokens"] += _to_int(rec.get("input_tokens"))
         cost["output_tokens"] += _to_int(rec.get("output_tokens"))
@@ -171,11 +173,41 @@ def collect_efficiency(loki_dir):
         "cache_read_tokens": cost["cache_read_tokens"],
         "cache_creation_tokens": cost["cache_creation_tokens"],
     })
+    # COST AND TOKENS ARE MEASURED SEPARATELY, so they must be reported
+    # separately. `_observed` is true when EITHER a cost or a token count was
+    # seen, which is right for "did we measure anything" -- but it let a run with
+    # real token counts and NO priced record report usd=0.0 available=True. The
+    # receipt then asserts the run cost nothing while its own token counts prove
+    # work happened, which is a fabricated fact of exactly the kind this module
+    # exists to prevent. Measured, before this fix:
+    #   [{"input_tokens":100,"output_tokens":200}]  -> usd=0.0  available=True
+    # A partially-priced run has the same shape: an iteration missing cost_usd
+    # contributes 0.0 to the sum and silently understates total spend.
+    #
+    # So usd is now null unless at least one record actually carried a cost, and
+    # cost_partial marks the case where some did and some did not. Tokens are
+    # unaffected: they keep reporting whatever was observed.
+    # PRESENCE of the key, not its value. An explicit {"cost_usd": 0} is a
+    # GENUINE measured zero and must stay 0.0 -- a free cache-hit iteration is a
+    # real observation, and nulling it would be its own dishonesty (existing
+    # contract: test_genuine_zero_cost_stays_zero_not_null). What is unknown is a
+    # record that never carried the field at all.
+    _any_cost = any("cost_usd" in r for r in _records)
+    _missing_cost = sum(1 for r in _records if "cost_usd" not in r)
     if collected and _observed:
         # Round usd to a sane precision but keep it precise (anti-pattern:
         # round suspiciously-clean numbers). 4 decimals preserves odd values.
         cost["usd"] = round(cost["usd"], 4)
         cost["available"] = True
+        if not _any_cost:
+            # Tokens were observed but nothing was priced: unknown, not zero.
+            cost["usd"] = None
+            cost["cost_available"] = False
+        else:
+            cost["cost_available"] = True
+            # Some records priced, others not: the total is a LOWER BOUND.
+            cost["cost_partial"] = _missing_cost > 0
+            cost["cost_unpriced_records"] = _missing_cost
     else:
         # No record means unavailable, never an observed zero.
         for key in (

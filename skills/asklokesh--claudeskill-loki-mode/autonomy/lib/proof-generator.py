@@ -173,9 +173,21 @@ def _collect_council(loki_dir):
                     ) + (" [round %s]" % round_tag if round_tag else ""),
                 })
             continue
+        # Skip non-reviewer records. The nested path above already refuses a row
+        # with a blank role AND blank vote ("noise, not a reviewer"); this flat
+        # path did not, so any council/*.json that is not a verdict file was
+        # rendered as a phantom reviewer. Observed on a real run: the glob picked
+        # up `evidence-gate-details.json` and `state.json`, inflating a genuine
+        # 3-voter council to a larger roster of mostly-empty rows. The receipt's
+        # council block is the central trust signal, so a padded roster
+        # overstates how much independent review actually happened.
+        _flat_role = str(rec.get("role") or rec.get("reviewer") or "")
+        _flat_vote = str(rec.get("vote") or rec.get("decision") or "")
+        if not _flat_role and not _flat_vote:
+            continue
         reviewers.append({
-            "role": str(rec.get("role") or rec.get("reviewer") or ""),
-            "vote": str(rec.get("vote") or rec.get("decision") or ""),
+            "role": _flat_role,
+            "vote": _flat_vote,
             # Full text here; truncation to <=300 happens AFTER redaction so a
             # secret straddling the cap cannot be sliced into a sub-pattern
             # fragment that escapes the redactor.
@@ -1025,7 +1037,25 @@ def _empty_tree_sha(repo_dir):
 
     Diffing against this yields "everything that currently exists", which is the
     truthful baseline for a run that started from a repo with no commits.
+
+    REQUIRES AN ACTUAL REPOSITORY. `git hash-object -t tree /dev/null` is a pure
+    hash computation: it succeeds OUTSIDE a repo too, returning the same
+    constant 4b825dc6... So without this guard a run in a non-git directory got
+    a well-formed, plausible-looking base_sha implying a real baseline had been
+    captured, when no repository existed at all -- and every other git fact in
+    the receipt (head_sha, tree_sha256, diff) was simultaneously empty. A
+    fabricated-looking identifier beside empty siblings is worse than an honest
+    empty string, because a reader checks the SHA and finds it valid.
     """
+    try:
+        inside = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=repo_dir, capture_output=True, text=True, timeout=10,
+        )
+        if inside.returncode != 0:
+            return ""
+    except Exception:
+        return ""
     try:
         out = subprocess.run(
             ["git", "hash-object", "-t", "tree", os.devnull],

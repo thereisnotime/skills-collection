@@ -78,7 +78,7 @@ jobs:
           python3 -m json.tool submission/discovery-evals.json > /dev/null
           python3 -m json.tool submission/submission-pack.json > /dev/null
 
-      - name: Check README pattern count matches SKILL.md
+      - name: Check README pattern count matches references/patterns.md
         run: bash scripts/check-pattern-count.sh
 
       - name: Regenerate bundled canonical resources

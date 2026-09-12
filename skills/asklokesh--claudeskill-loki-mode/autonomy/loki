@@ -24582,6 +24582,20 @@ except Exception as e:
             fi
             local _settings="$HOME/.claude/settings.json"
             local _hook_script="${SKILL_DIR:-$(pwd)}/claude/hooks/loki-session-end.sh"
+            # FAIL CLOSED on a missing script. This path was built unguarded and
+            # written into the user's REAL ~/.claude/settings.json, then reported
+            # green "installed" -- while claude/ was absent from package.json
+            # files[], so for every npm user the hook pointed at a file that did
+            # not exist. The install claimed success and transcripts were never
+            # ingested; the SessionEnd failure surfaces nowhere the user reads.
+            # Writing a settings entry we cannot honor is worse than not writing
+            # one, so refuse and say why instead of mutating their config.
+            if [ ! -f "$_hook_script" ]; then
+                echo -e "${RED}Cannot install the SessionEnd hook: script not found${NC}" >&2
+                echo -e "${YELLOW}  expected: $_hook_script${NC}" >&2
+                echo -e "${YELLOW}  ~/.claude/settings.json was NOT modified.${NC}" >&2
+                return 1
+            fi
             mkdir -p "$(dirname "$_settings")" 2>/dev/null || true
             [ ! -f "$_settings" ] && echo '{}' > "$_settings"
             _LOKI_HOOK_SCRIPT="$_hook_script" _LOKI_SETTINGS="$_settings" python3 -c "
@@ -29440,6 +29454,14 @@ USER TASK: ${prompt}"
                 aider)
                     aider --message "$full_prompt" --yes-always --no-auto-commits < /dev/null 2>&1 || agent_exit=$?
                     ;;
+                opencode)
+                    # Mirrors the working arm in the phase dispatcher (see the
+                    # opencode case alongside aider there). opencode was listed
+                    # as an active provider and accepted by `loki provider set`,
+                    # but this case had no arm, so `loki agent run` printed the
+                    # persona banner and then died with "Unknown provider".
+                    (source "$_LOKI_SCRIPT_DIR/../providers/opencode.sh" && provider_invoke "$full_prompt" 2>&1) || agent_exit=$?
+                    ;;
                 *)
                     echo -e "${RED}Unknown provider: $provider${NC}"
                     return 1
@@ -29565,6 +29587,8 @@ $diff"
                 claude)  claude -p "$review_prompt" 2>&1 ;;
                 codex)   codex exec --sandbox workspace-write "$review_prompt" 2>&1 ;;
                 cline)   cline -y "$review_prompt" 2>&1 ;;
+                aider)   aider --message "$review_prompt" --yes-always --no-auto-commits < /dev/null 2>&1 ;;
+                opencode) (source "$_LOKI_SCRIPT_DIR/../providers/opencode.sh" && provider_invoke "$review_prompt" 2>&1) ;;
                 *)       echo -e "${RED}Unknown provider: $provider${NC}"; return 1 ;;
             esac
             ;;

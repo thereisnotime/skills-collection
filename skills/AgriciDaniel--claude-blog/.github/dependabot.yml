@@ -5,25 +5,85 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    groups:
+      runtime-production-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      runtime-development-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 3
 
   # Nested skill venvs - audit VULN-504 (Dependabot was blind to these)
   - package-ecosystem: "pip"
     directory: "/skills/blog-google/scripts"
     schedule:
       interval: "weekly"
+    groups:
+      runtime-production-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      runtime-development-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
     open-pull-requests-limit: 3
 
   - package-ecosystem: "pip"
     directory: "/skills/blog-notebooklm/scripts"
     schedule:
       interval: "weekly"
+    groups:
+      runtime-production-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      runtime-development-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
     open-pull-requests-limit: 3
 
   - package-ecosystem: "pip"
     directory: "/skills/blog-audio/scripts"
     schedule:
       interval: "weekly"
+    groups:
+      runtime-production-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      runtime-development-minor-patch:
+        patterns:
+          - '*'
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
     open-pull-requests-limit: 3
 
   # GitHub Actions versions
@@ -31,4 +91,11 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-    open-pull-requests-limit: 3
+    groups:
+      actions-minor-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 2

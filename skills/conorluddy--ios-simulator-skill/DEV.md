@@ -1,10 +1,10 @@
 # iOS Simulator Skill - Development Repository
 
-This is the **development repository** for the iOS Simulator Skill. Users should download the packaged skill from [GitHub Releases](https://github.com/YOUR_USERNAME/ios-simulator-skill/releases).
+This is the **development repository** for the iOS Simulator Skill. Users should download the packaged skill from [GitHub Releases](https://github.com/conorluddy/ios-simulator-skill/releases).
 
 ## What is This?
 
-A production-ready Claude Code skill providing 21+ scripts for iOS simulator testing and automation with:
+A production-ready Claude Code skill providing 29 scripts for iOS simulator testing and automation with:
 - 🏗️ **Ultra token-efficient build automation** with progressive disclosure
 - 🔍 **Real-time log monitoring** with intelligent filtering
 - 🎯 **Accessibility-driven navigation** (semantic, not pixel-based)
@@ -19,22 +19,22 @@ A production-ready Claude Code skill providing 21+ scripts for iOS simulator tes
 Download the latest release and extract to your Claude skills directory:
 
 ```bash
-# Download from releases
-curl -L https://github.com/YOUR_USERNAME/ios-simulator-skill/releases/latest/download/ios-simulator-skill-v1.0.0.zip -o skill.zip
+# Download the latest release
+curl -L https://github.com/conorluddy/ios-simulator-skill/releases/latest/download/ios-simulator-skill.zip -o skill.zip
 
-# Extract to Claude Code skills directory
+# Extract to Claude Code skills directory (SKILL.md must end up at its root)
 unzip skill.zip -d ~/.claude/skills/ios-simulator-skill
 
 # Restart Claude Code
 ```
 
-See [`ios-simulator-skill/SKILL.md`](ios-simulator-skill/SKILL.md) for usage documentation.
+See [`SKILL.md`](ios-simulator-skill/skills/ios-simulator-skill/SKILL.md) for usage documentation.
 
 ## For Contributors: Development Setup
 
 ### Prerequisites
 
-- macOS 11+ (required for iOS simulator)
+- macOS 15 (Sequoia)+ (required for iOS simulator)
 - Xcode Command Line Tools: `xcode-select --install`
 - Python 3.12+
 - Git
@@ -43,7 +43,7 @@ See [`ios-simulator-skill/SKILL.md`](ios-simulator-skill/SKILL.md) for usage doc
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/ios-simulator-skill.git
+git clone https://github.com/conorluddy/ios-simulator-skill.git
 cd ios-simulator-skill
 
 # Install development dependencies
@@ -103,7 +103,7 @@ pre-commit run --all-files
 ios-simulator-skill/                   # Repository root
 ├── ios-simulator-skill/               # Distributable package (packaged in releases)
 │   ├── SKILL.md                      # Entry point with YAML frontmatter
-│   └── scripts/                      # 21+ production scripts (~10,000 lines)
+│   └── scripts/                      # 29 production scripts (~10,000 lines)
 │
 ├── .github/workflows/                 # CI/CD automation
 │   ├── release.yml                   # Auto-package on release
@@ -131,7 +131,7 @@ git tag v1.1.0
 git push origin v1.1.0
 
 # 4. Create GitHub release
-# Go to: https://github.com/YOUR_USERNAME/ios-simulator-skill/releases/new
+# Go to: https://github.com/conorluddy/ios-simulator-skill/releases/new
 # - Tag: v1.1.0
 # - Title: "Release v1.1.0"
 # - Description: (auto-generated or write your own)
@@ -204,5 +204,5 @@ MIT License - see [LICENSE.md](LICENSE.md)
 ## Questions?
 
 - **Usage questions**: See [ios-simulator-skill/SKILL.md](ios-simulator-skill/SKILL.md)
-- **Bug reports**: [Open an issue](https://github.com/YOUR_USERNAME/ios-simulator-skill/issues)
-- **Development questions**: [Open a discussion](https://github.com/YOUR_USERNAME/ios-simulator-skill/discussions)
+- **Bug reports**: [Open an issue](https://github.com/conorluddy/ios-simulator-skill/issues)
+- **Development questions**: [Open a discussion](https://github.com/conorluddy/ios-simulator-skill/discussions)

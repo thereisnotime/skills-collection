@@ -6,6 +6,7 @@ Audit & rewrite content to remove AI writing patterns. A practical skill for any
 
 [![GitHub stars](https://img.shields.io/github/stars/conorbronsdon/avoid-ai-writing?style=social)](https://github.com/conorbronsdon/avoid-ai-writing/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Podcast](https://img.shields.io/badge/Podcast-Chain_of_Thought-purple?style=flat-square)](https://chainofthought.show/?utm_source=github&utm_medium=referral&utm_campaign=repo-readme&utm_content=avoid-ai-writing)
 [![X](https://img.shields.io/badge/X-@ConorBronsdon-black?style=flat-square&logo=x)](https://x.com/ConorBronsdon)
 
 <img src="docs/demo.gif" alt="The bundled detector engine flagging 13 AI-writing patterns by category in a sample paragraph, then scoring the clean rewrite 0/100" width="800">
@@ -86,7 +87,7 @@ Then use `/clean-ai-writing <your text>` in Claude Code.
 
 ### Claude Cowork — install as a plugin
 
-[Cowork](https://www.anthropic.com/cowork) loads skills only from **installed plugins** — it doesn't scan `~/.claude/skills/`, so a bare clone (the Claude Code steps above) won't be discovered there. This repo doubles as a single-plugin [marketplace](https://code.claude.com/docs/en/plugin-marketplaces), so install it as a plugin instead:
+[Cowork](https://claude.com/product/cowork) loads skills only from **installed plugins** — it doesn't scan `~/.claude/skills/`, so a bare clone (the Claude Code steps above) won't be discovered there. This repo doubles as a single-plugin [marketplace](https://code.claude.com/docs/en/plugin-marketplaces), so install it as a plugin instead:
 
 ```bash
 /plugin marketplace add conorbronsdon/avoid-ai-writing
@@ -200,7 +201,7 @@ Trigger detect mode with: "detect," "flag only," "audit only," "just flag," "sca
 
 ## Pattern reference
 
-> Representative examples from the catalog — not the exhaustive list (that's [`SKILL.md`](./SKILL.md)). The skill's human-facing prose catalog and the [detector engine](./detector/) use **different counts on purpose**: the engine implements 54 `type` categories because it splits the vocabulary tiers and adds stylometric/fingerprint signals (punctuation distribution, function-word entropy, bypass-trick detection) that work as math over a document rather than as a rule you'd look up. The two are mapped in [`detector/CATEGORIES.md`](./detector/CATEGORIES.md); don't "fix" one count to match the other.
+> Representative examples from the catalog — not the exhaustive list (that's [`references/patterns.md`](./references/patterns.md)). The skill's human-facing prose catalog and the [detector engine](./detector/) use **different counts on purpose**: the engine implements 54 `type` categories because it splits the vocabulary tiers and adds stylometric/fingerprint signals (punctuation distribution, function-word entropy, bypass-trick detection) that work as math over a document rather than as a rule you'd look up. The two are mapped in [`detector/CATEGORIES.md`](./detector/CATEGORIES.md); don't "fix" one count to match the other.
 
 ### Content Patterns
 
@@ -359,6 +360,90 @@ build step.
 It's also the single source of the numeric score: the skill itself (and `detect` mode) report *which* patterns are present and how severe (P0/P1/P2), and the engine is what turns those into one computed 0–100 `score`. There's deliberately no second, prose-estimated score in `SKILL.md` — one scorer, not two.
 
 ```bash
+npm install avoid-ai-writing-detector
+```
+
+```js
+const AIDetector = require("avoid-ai-writing-detector");
+const { score, label, issues } = AIDetector.analyzeText("Your text here…");
+console.log(score, label, issues.length);
+```
+
+### Score a file or piped text from the command line
+
+The package also ships a zero-dependency CLI:
+
+```bash
+npx --package avoid-ai-writing-detector avoid-ai-writing draft.md
+cat draft.md | npx --package avoid-ai-writing-detector avoid-ai-writing --context technical
+```
+
+After a global install (`npm install -g avoid-ai-writing-detector`) the command
+is available as `avoid-ai-writing` directly.
+
+It prints the complete `analyzeText()` result as JSON and exits 0; usage and I/O
+errors go to stderr with exit code 2. Run `avoid-ai-writing --help` for the
+`--context` and `--source-mode` options.
+
+### Gate prose in GitHub Actions or pre-commit
+
+The repository also ships a deterministic gate that fails on **finding count per
+file**, not the composite 0–100 score. That keeps CI policy independent of score
+recalibration work such as #70.
+
+```yaml
+# .github/workflows/prose.yml
+steps:
+  - uses: actions/checkout@v4
+  - uses: conorbronsdon/avoid-ai-writing@main
+    with:
+      glob: "**/*.md"
+      threshold: "6"
+      context: technical
+```
+
+For long-lived production workflows, pin `uses:` to a release tag or commit SHA
+that contains `action.yml`.
+
+`threshold` is the maximum number of deterministic findings allowed in **each**
+file. The shipped default is **6**, chosen from the current human-control corpus
+using the same `technical` + `rendered-markdown` settings as the Action. Across
+376 human corpus documents, threshold 0 rejected 118/376 (31.4%); threshold 6
+rejected 7/376 (1.9%). Six is also at or above the observed 95th-percentile
+finding count in every represented register (the `technical-blog` register has
+only one corpus document, so that slice remains under-sampled). Set
+`threshold: "0"` explicitly when a project intentionally wants a strict
+zero-findings policy. This is a writing-quality baseline, not an authorship
+classifier calibration.
+
+The default context is `technical`, and Markdown is analyzed with
+`rendered-markdown` source masking.
+
+Pre-commit users can install the repository hook:
+
+```yaml
+repos:
+  - repo: https://github.com/conorbronsdon/avoid-ai-writing
+    rev: main
+    hooks:
+      - id: avoid-ai-writing
+```
+
+Pin `rev` to a release tag or commit SHA in shared repositories. The hook scans
+staged `.md` / `.mdx` files with the same **6-findings** corpus-backed default.
+Override the entry in your pre-commit config when you need a stricter or more
+permissive finding threshold.
+
+The gate only **detects**. Preservation validation still requires an original and
+a rewritten file and remains a separate command:
+
+```bash
+node detector/validate.js before.md after.md
+```
+
+When working from a cloned checkout instead of the published npm package:
+
+```bash
 npm test          # run the detector's fixtures (no deps to install)
 ```
 
@@ -418,7 +503,7 @@ the model applies, and a `mechanics` object whose checkable rules
 abbreviations gate the exit code; heading case, em-dash rate, and number spelling
 are advisory). [`examples/`](./examples/) has the schema. You can skip the input
 entirely and put your guide in your agent's context alongside a
-[voice profile](#triggering-the-skill), as instructions rather than as a checked
+[voice profile](./references/patterns.md#voice-profiles), as instructions rather than as a checked
 rule set.
 
 After a rewrite, `node scripts/normalize-quotes.js draft.md --reference original.md`

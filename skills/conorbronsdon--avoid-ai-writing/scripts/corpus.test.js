@@ -9,7 +9,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { stripGutenberg, htmlToText, applySlice, sha256 } = require('./corpus.js');
+const { stripGutenberg, htmlToText, applySlice, sha256, cmdList } = require('./corpus.js');
 const { parseCsv } = require('./csv-lite.js');
 const { DOMAIN_REGISTER } = require('./dataset-raid.js');
 
@@ -192,6 +192,95 @@ test('raid: only defensible registers are mapped', () => {
   assert.equal(DOMAIN_REGISTER.reddit, 'conversational');
   assert.equal(DOMAIN_REGISTER.code, undefined, 'code is not a prose register');
   assert.equal(DOMAIN_REGISTER.german, undefined, 'non-English domains are out of scope');
+});
+
+
+// ── Corpus listing ─────────────────────────────────────────────────────
+
+test('list preserves preferred register order and sorts observed extras', () => {
+  const manifest = {
+    version: 1,
+    documents: [
+      {
+        id: 'academic-one',
+        year: 2021,
+        register: 'academic',
+        words: 80,
+        source: { type: 'local', path: '/missing/academic-one.txt', license: 'test' },
+      },
+      {
+        id: 'blog-one',
+        year: 2020,
+        register: 'blog',
+        words: 100,
+        source: { type: 'local', path: '/missing/blog-one.txt', license: 'test' },
+      },
+      {
+        id: 'zeta-extra',
+        year: 2026,
+        register: 'zeta',
+        words: 0,
+        source: { type: 'local', path: '/missing/zeta.txt', license: 'test' },
+      },
+      {
+        id: 'raid-en',
+        year: 2026,
+        register: 'mixed',
+        words: 0,
+        source: { type: 'local', path: '/missing/raid-en.txt', license: 'test' },
+      },
+      {
+        id: 'hc3-en',
+        year: 2026,
+        register: 'mixed',
+        words: 0,
+        source: { type: 'local', path: '/missing/hc3-en.txt', license: 'test' },
+      },
+      {
+        id: 'alpha-extra',
+        year: 2026,
+        register: 'alpha-extra',
+        words: 0,
+        source: { type: 'local', path: '/missing/alpha.txt', license: 'test' },
+      },
+    ],
+  };
+
+  const lines = [];
+  const originalLog = console.log;
+  console.log = (...args) => lines.push(args.join(' '));
+  try {
+    assert.equal(cmdList(manifest), 0);
+  } finally {
+    console.log = originalLog;
+  }
+
+  const output = lines.join('\n');
+  assert.ok(output.includes('6 document(s) across 5 register(s)'));
+
+  const blogPos = output.indexOf('  blog  ');
+  const academicPos = output.indexOf('  academic  ');
+  const alphaPos = output.indexOf('  alpha-extra  ');
+  const mixedPos = output.indexOf('  mixed  ');
+  const zetaPos = output.indexOf('  zeta  ');
+
+  assert.ok(blogPos !== -1 && academicPos !== -1);
+  assert.ok(blogPos < academicPos, 'accepted registers keep REGISTERS order');
+  assert.ok(academicPos < alphaPos, 'extra registers come after accepted registers');
+  assert.ok(alphaPos < mixedPos && mixedPos < zetaPos, 'extra registers sort alphabetically');
+
+  for (const id of [
+    'academic-one',
+    'blog-one',
+    'zeta-extra',
+    'raid-en',
+    'hc3-en',
+    'alpha-extra',
+  ]) {
+    assert.ok(output.includes(id), `missing printed row for ${id}`);
+  }
+
+  assert.ok(output.includes('registers with no coverage yet: technical-blog'));
 });
 
 // ── Hashing ────────────────────────────────────────────────────────────

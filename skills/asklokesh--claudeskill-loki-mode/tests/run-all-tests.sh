@@ -514,6 +514,8 @@ run_test "shipped modules have a recorded reachability verdict" "$SCRIPT_DIR/tes
 run_test "loki proof chain fronts the buyer verifier" "$SCRIPT_DIR/test-proof-chain-command.sh"
 run_test "workflow RC handlers are reachable under bash -e" "$SCRIPT_DIR/test-workflow-rc-capture.sh"
 run_test "model substitutions are visible and attributable" "$SCRIPT_DIR/test-model-substitution-visible.sh"
+run_test "the completion council reports its duration" "$SCRIPT_DIR/test-council-stage-timing.sh"
+run_test "a gate that scanned nothing is not a pass" "$SCRIPT_DIR/test-static-analysis-noop-not-pass.sh"
 # Registered here for the first time. All three existed on disk but were in no
 # runner, so CI had never executed them; test-cluster-workflow.sh had never even
 # printed a result (set -e killed it on its first pass()). Each passes now.

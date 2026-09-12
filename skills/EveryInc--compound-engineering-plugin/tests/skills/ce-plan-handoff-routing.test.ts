@@ -238,9 +238,11 @@ describe("ce-plan post-generation menu routing", () => {
     const pipelineStart = HANDOFF_BODY.indexOf("**Pipeline mode:**")
     const pipelineEnd = HANDOFF_BODY.indexOf("## 5.3.9 Final Checks and Cleanup")
     const reviewPipeline = HANDOFF_BODY.slice(pipelineStart, pipelineEnd)
+    // Pins the condition (ce-plan is the party that recorded the stand-in
+    // result), not the noun the prose uses for that result.
     expect(
-      /ce-plan recorded the `skill_unreachable` envelope/i.test(reviewPipeline),
-      "ce-plan must own the synthetic pre-entry envelope instead of attributing it to an invocation that never began.",
+      /ce-plan recorded the `skill_unreachable`/i.test(reviewPipeline),
+      "ce-plan must own the synthetic pre-entry result instead of attributing it to an invocation that never began.",
     ).toBe(true)
     expect(
       reviewPipeline.includes("invocation instead produced `skill_unreachable`"),
@@ -259,7 +261,7 @@ describe("ce-plan post-generation menu routing", () => {
       menuPipeline!.includes("ce-doc-review has already run"),
       "the pipeline handoff must not claim the review ran after a skill_unreachable pre-entry state.",
     ).toBe(false)
-    expect(/`?ce-plan`? (?:has )?recorded the (?:documented )?`skill_unreachable` envelope/.test(HANDOFF_BODY)).toBe(true)
+    expect(/`?ce-plan`? (?:has )?recorded the (?:documented )?`skill_unreachable`/.test(HANDOFF_BODY)).toBe(true)
     expect(
       /ce-doc-review` has run in (?:headless|non-interactive) mode or returned the documented `skill_unreachable` envelope/.test(
         SKILL_BODY,
@@ -311,10 +313,11 @@ describe("ce-plan post-generation menu routing", () => {
     ).toBeLessThan(interactionStart)
 
     const topContract = SKILL_BODY.slice(contractStart, interactionStart)
-    expect(/Every normal interactive branch[\s\S]{0,160}incomplete until its owning handoff question is presented/i.test(topContract)).toBe(true)
+    // Wording restated in plain language (2026-09); the pin guards the condition, not the old phrasing.
+    expect(/Every normal interactive branch[\s\S]{0,160}incomplete until the user has been asked what to do next/i.test(topContract)).toBe(true)
     expect(/software implementation-plan run[\s\S]{0,160}Phase 5\.4 menu[\s\S]{0,100}selected action has actually fired/i.test(topContract)).toBe(true)
-    expect(/Non-software and approach-altitude routes use their reference workflow's terminal handoff/i.test(topContract)).toBe(true)
-    expect(/Answer-seeking may end after the answer unless its owner requires save\/share/i.test(topContract)).toBe(true)
+    expect(/Non-software plans and approach-level plans end with the handoff their reference workflow defines/i.test(topContract)).toBe(true)
+    expect(/only answers a question may end after the answer unless its reference requires a save or share step/i.test(topContract)).toBe(true)
     expect(/intermediate milestones/i.test(topContract)).toBe(true)
     expect(SKILL_BODY).toMatch(/Read `references\/plan-handoff\.md` immediately before Phase 5\.3\.8 and 5\.4/i)
     expect(SKILL_BODY).toMatch(/reload `references\/plan-handoff\.md` before acting/i)
@@ -486,7 +489,7 @@ describe("ce-plan output-contract gate", () => {
   })
 
   test("intake resolves the gate before the scoping synthesis and does not restate it", () => {
-    expect(INTAKE_BODY).toMatch(/First resolve the kernel's Output Contract gate/)
+    expect(INTAKE_BODY).toMatch(/First resolve the Output Contract gate that SKILL\.md states/)
     expect(INTAKE_BODY).toMatch(/Output Contract gate selected Durable/)
     expect(INTAKE_BODY).not.toMatch(/\*\*Direct\*\* —/)
   })

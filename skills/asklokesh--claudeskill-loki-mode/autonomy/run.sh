@@ -831,6 +831,17 @@ print(catalog["providers"]["claude"]["cli_aliases"].get(os.environ["_LOKI_SELECT
 
     export LOKI_PHASE_UNIT_TESTS LOKI_PHASE_E2E_TESTS
     export LOKI_PHASE_CODE_REVIEW LOKI_PHASE_SECURITY LOKI_PHASE_ACCESSIBILITY
+    # EXPORT THE PHASES THIS PROFILE TURNS OFF, not only the ones it leaves on.
+    # The receipt derives quality_gates.disabled_phases by scanning the
+    # environment for LOKI_PHASE_* set to false (proof-generator.py:470-478), so
+    # a phase that is disabled but never exported is INVISIBLE to it: the receipt
+    # reported disabled_phases [] and all_phases_enabled true while six phases
+    # were switched off. That defeats the field's stated purpose -- "a receipt
+    # must be able to say what was NOT checked" -- and makes a narrowed run look
+    # identical to a full one. The sibling loki_apply_scoped_change_profile
+    # already exports the phases it changes; this one exported only its enables.
+    export LOKI_PHASE_API_TESTS LOKI_PHASE_INTEGRATION LOKI_PHASE_PERFORMANCE
+    export LOKI_PHASE_REGRESSION LOKI_PHASE_UAT LOKI_PHASE_WEB_RESEARCH
     export LOKI_COUNCIL_ENABLED LOKI_EVIDENCE_GATE LOKI_PROOF_GATE LOKI_PROOF
     export LOKI_DASHBOARD LOKI_PARALLEL_MODE LOKI_MAX_PARALLEL_AGENTS
     export LOKI_MAX_ITERATIONS LOKI_MAX_RETRIES LOKI_BASE_WAIT LOKI_MAX_WAIT
@@ -10224,8 +10235,38 @@ enforce_static_analysis() {
         fi
     fi
     if [ -z "$changed_files" ]; then
-        log_info "Static analysis: no changed files to check"
-        touch "$quality_dir/static-analysis.pass"
+        # SCANNED NOTHING IS NOT A PASS.
+        #
+        # This used to `touch static-analysis.pass` and return 0. The receipt
+        # reader promotes a bare .pass marker straight to status "passed"
+        # (proof-generator.py:352-353), so a gate that examined ZERO files was
+        # rendered identically to one that examined everything and found it
+        # clean.
+        #
+        # That is not cosmetic. static_analysis is usually the only EXOGENOUS
+        # (agent-independent) gate in a receipt, and `any_verified`
+        # (proof-generator.py:1694-1707) is satisfied by it alone -- so this
+        # no-op pass was the single term standing between the honest headline
+        # "NOT VERIFIED" and "VERIFIED WITH GAPS". Observed on a real run in a
+        # non-git directory: file discovery is git-based, so changed_files was
+        # empty, the gate examined none of the three files the run had just
+        # created, and the receipt still reported a passing exogenous gate.
+        #
+        # Write the result JSON with files_checked:0 and status "inconclusive"
+        # INSTEAD of the marker. INCONCLUSIVE, not failed: having nothing to scan
+        # is not a defect in the code, and reporting it as a failure would trade
+        # one dishonesty for another. _norm_gate_status already understands the
+        # state, and the honesty ledger records it as a degraded gate rather than
+        # a green one. Deliberately NOT touching the marker: the reader checks it
+        # FIRST (proof-generator.py:352), so leaving it would keep the lie.
+        #
+        # The gate still returns 0 -- having nothing to scan is not a build
+        # failure and must not block a run. Only the CLAIM changes.
+        log_info "Static analysis: no changed files to check (recording as not run, not as a pass)"
+        rm -f "$quality_dir/static-analysis.pass" 2>/dev/null || true
+        cat > "$quality_dir/static-analysis.json" << SAEMPTYEOF
+{"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","files_checked":0,"findings":0,"summary":"no changed files to check; nothing was scanned","status":"inconclusive","reason":"no_changed_files"}
+SAEMPTYEOF
         return 0
     fi
 
@@ -11974,9 +12015,18 @@ NT_DIR_EOF
         # "no tests" never reads as "tests passed". A DETECTED runner that fails
         # still writes pass:false below and BLOCKS.
         #
-        # unit-tests.pass is only read for the status-line display (run.sh ~2183,
-        # PASS vs PENDING); keeping the touch preserves the historical
-        # non-blocking behavior for legitimate no-test projects.
+        # CORRECTION (v9.37.0): "only read for the status-line display" was
+        # FALSE, and that false premise is why the touch survived. The receipt
+        # collector reads this exact marker (proof-generator.py:346) and promotes
+        # its mere existence to status "passed" (:352) BEFORE it ever looks at
+        # the honest JSON written below. Measured, driving the real collector:
+        #   marker present + {"status":"not_run"} json -> "passed"
+        #   json only, no marker                       -> "inconclusive"
+        # So a project with NO test runner shipped a receipt claiming a passing
+        # unit_tests gate, contradicting honesty.degraded in the same document.
+        # The touch is therefore removed; the honest JSON below is now what the
+        # receipt reads. The status line falls back to PENDING, which is also the
+        # truthful rendering for a project whose tests never ran.
         #
         # F56/F53 (verification-gap honesty): a generated project that shipped
         # source but no runnable tests previously recorded a bare "not_run" and
@@ -12025,7 +12075,10 @@ NT_DIR_EOF
             _vgap_summary="Source present but no runnable tests detected (unverified logic)"
             log_warn "Verification gap: generated source present but no runnable tests -- logic is unverified by execution"
         fi
-        touch "$quality_dir/unit-tests.pass"
+        # Deliberately NOT touching unit-tests.pass here -- see the correction
+        # above. Non-blocking behaviour is preserved by the `return 0` below,
+        # not by claiming a pass.
+        rm -f "$quality_dir/unit-tests.pass" 2>/dev/null || true
         cat > "$quality_dir/test-results.json" << TREOF
 {"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","runner":"none","pass":"inconclusive","summary":"$_vgap_summary","command":null,"exit_code":null,"status":"not_run","passed_count":null,"failed_count":null,"verification_gap":"$_vgap"}
 TREOF
@@ -24514,12 +24567,31 @@ EOF
                 _loki_check_claim_grounding || true
             fi
             local _loki_completion_ready=1
+            # TIME THE COUNCIL. Measured on a one-function build: the agent did
+            # the work in 71s and the council window was 142s -- the largest
+            # single cost in the run -- yet it was the one major step with no
+            # stage_complete record, so its cost could only be INFERRED from
+            # artifact mtimes. Inferring duration from mtimes is invalid (an
+            # mtime says when a file was written, not how long a step took), and
+            # doing so produced a wrong attribution that had to be retracted.
+            # Emitting the real number makes the profile measured rather than
+            # guessed. Purely additive: emit_stage_complete never changes a
+            # verdict, an exit code, or control flow.
+            local _council_t0
+            _council_t0=$(date +%s 2>/dev/null || echo "")
             if loki_is_supervised_simple_web; then
                 _loki_supervised_completion_gates_pass "${gate_failures:-}" && _loki_completion_ready=0
             elif type council_should_stop &>/dev/null \
                  && LOKI_COMPLETION_CLAIMED="$_loki_completion_claimed" council_should_stop; then
                 _loki_completion_ready=0
             fi
+            # Status reports what the council DECIDED, not whether it errored:
+            # "pass" = it approved a stop, "not_run" = it ran and declined to
+            # stop (the build continues). Both are normal outcomes; neither is a
+            # failure, so neither is reported as one.
+            emit_stage_complete "completion_council" \
+                "$([ "$_loki_completion_ready" -eq 0 ] 2>/dev/null && echo pass || echo not_run)" \
+                "$_council_t0" 2>/dev/null || true
             if [ "$_loki_completion_ready" -eq 0 ]; then
                 # bash-F1: council_should_stop returns 0 from a genuine approval
                 # AND from two force-stop safety valves (stagnation flood /

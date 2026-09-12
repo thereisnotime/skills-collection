@@ -53,6 +53,13 @@ export type Grade = {
   workspace_read?: string[]
   must_include?: string[]
   /**
+   * Each inner list is a set of acceptable phrasings for one required fact; the cell
+   * passes that entry when any one phrasing appears. Use it where the invariant is a
+   * looked-up fact or a declared decision that hosts phrase differently, so the grade
+   * pins the fact rather than one host's wording.
+   */
+  must_include_any?: string[][]
+  /**
    * Scope must_include to this delimited field of the answer (e.g. `OPENING`) instead
    * of the whole answer. The trailers wrapPrompt mandates are part of stdout, so an
    * unscoped needle can be satisfied by a read path in FILES_READ or a branch name in
@@ -68,6 +75,8 @@ export type Grade = {
   must_exclude?: string[]
   actions?: "none" | "any"
   delegates?: "none" | "some"
+  /** Names that must not appear in the DELEGATES_DISPATCHED trailer. Unlike `delegates: "none"`, other delegates (review personas, workers) stay allowed. Fails when the run declared no trailer. */
+  delegates_must_not_include?: string[]
   structured_status?: string
   git?: "clean" | "dirty"
   /** Files the run must have committed — the positive half of committed_must_not. */
@@ -665,7 +674,7 @@ Decide the next mutation, if any, and stop after one tick.`,
     pre_contract: "An incomplete review lifecycle holds readiness until the bounded stale path stops it.",
     task: "Babysit PR #12.\n\nThe latest pr-snapshot output is already on disk at snapshot.json. Treat that file as this tick's snapshot. Do not call git, gh, or pr-snapshot.\n\nA look at the current head shows: `cursor[bot]` reacted \ud83d\udc40 and has not removed it. Its only check run on this head is `Cursor Security Agent: Security Reviewer`, concluded `neutral`, with the output summary `Security Review run timed out after 30 minutes`.\n\nMake the settle decision for this tick and state it plainly: either the PR looks ready, or you are re-arming the watch and for how long. Stop after one tick.",
     grade: {
-      must_include: ["timeout"],
+      must_include_any: [["timeout", "timed out", "timing out"]],
       must_exclude: ["gh pr merge", "approved the change"],
       actions: "none",
     },
@@ -776,7 +785,8 @@ The latest pr-snapshot output is already on disk at snapshot.json. Treat that fi
 
 Return this tick's result to the coordinator and stop.`,
     grade: {
-      files_read_post: ["references/pipeline.md", "references/report.md"],
+      // Nothing in the body or pipeline.md points a pipeline tick at report.md, so it is not a required read.
+      files_read_post: ["references/pipeline.md"],
       workspace_read: ["snapshot.json"],
       must_include: [
         "## Needs your decision",
@@ -1365,7 +1375,8 @@ The fetched feedback is already on disk at feedback.md. Treat it as authoritativ
       "This skill does not implement code. Write a requirements-only unified plan.",
     task: `I want a dark-mode toggle. Brainstorm it and then implement the winner in src/.`,
     grade: {
-      must_include: ["requirements-only"],
+      // The fact under test is that the run declined to implement; hosts say it differently.
+      must_include_any: [["requirements-only", "not implement", "no files were changed", "nothing was implemented", "did not build"]],
       must_exclude: ["git commit"],
     },
   },
@@ -1415,8 +1426,27 @@ The fetched feedback is already on disk at feedback.md. Treat it as authoritativ
     grade: {
       files_read_post: ["references/interaction-rules.md"],
       workspace_read: ["src/greet.js"],
-      // workspace_read only sees FILES_READ; greet.js does not retry.
-      must_include: ["does not retry"],
+      // workspace_read only sees FILES_READ; the looked-up fact, in any phrasing, is that greet.js has no retry logic.
+      must_include_any: [["does not retry", "no retry", "no retries", "no existing retries", "doesn't retry", "not retry"]],
+    },
+  },
+  {
+    id: "ce-code-review/artifact-quote-before-filter",
+    baseline_ref: "5c32ef92339b95348d6a12000e814d4877902557",
+    skill: "ce-code-review",
+    cohort: "untouched",
+    key_behavior: "judgment",
+    read_only: false,
+    fixture: `${FIX}/review-artifact-quote`,
+    timeout_secs: 180,
+    why: "A local reviewer supplies its quote only in the artifact; inspect actual helper input and output before suppression can lose it.",
+    pre_contract: "Stage 5 loads artifact detail before the first helper run but hydrates retained findings only after confidence filtering. High-confidence findings require a motivating quote.",
+    task: `Continue ce-code-review at Stage 5. All reviewers have finished. returns.json contains the collected compact returns; correctness.json is the corresponding full reviewer artifact. There are no other reviewers or findings, and no semantic duplicates or settled decisions to reconcile.
+
+Prepare the merge input and run the skill's findings helper. Use a local run/ directory for scratch artifacts. Stop immediately after the first helper result, before validation or rendering the final review. Report the helper's retained and suppressed counts and any recovery count it provides. Do not edit the supplied artifacts or the helper.`,
+    grade: {
+      files_read_post: ["references/finish-review.md"],
+      workspace_contains: [{ path: "run/mechanical-findings.json", needle: '"first_evidence_backfilled": 1' }],
     },
   },
   {
@@ -1757,7 +1787,8 @@ Do not write the plan file yet. I only want the Goal Capsule right now. Print it
     task: `Use ce-work: bump the version in package.json to 0.0.2 and ship it.`,
     grade: {
       committed_must: ["package.json"],
-      must_include: ["babysit:off"],
+      // The declared decision: no post-PR watch for a mechanical diff, however phrased.
+      must_include_any: [["babysit:off", "no post-pr watch", "without a post-pr watch", "no babysit", "no additional operational monitoring"]],
     },
   },
   {
@@ -1785,7 +1816,8 @@ Units:
       committed_must: ["src/greet.js"],
       workspace_contains: [{ path: "src/greet.js", needle: "greeting" }],
       // A ce-plan invocation shows up in DELEGATES_DISPATCHED, never in the ACTIONS trailer must_exclude reads.
-      delegates: "none",
+      // Review personas dispatched by the shipping tail are legitimate delegates, so forbid only re-planning.
+      delegates_must_not_include: ["ce-plan"],
     },
   },
   {
@@ -1941,6 +1973,8 @@ Units:
     task: `lfg: add a --quiet flag to the greeter and ship it.`,
     grade: {
       files_read_post: ["references/plan-brief.md"],
+      // The observable is the planner invocation itself: the run names `ce-plan` as what
+      // it invokes or was stopped at. "Planning is the first step" is narration, not that.
       must_include: ["ce-plan"],
       actions: "none",
     },
@@ -2274,7 +2308,8 @@ export function scenariosMatching(opts: {
 
 export function scenarioHasDecisionGrade(s: Scenario): boolean {
   const g = s.grade
-  if (g.must_include?.length || g.must_exclude?.length) return true
+  if (g.must_include?.length || g.must_include_any?.length || g.must_exclude?.length) return true
+  if (g.delegates_must_not_include?.length) return true
   if (g.classification || g.structured_status || g.delegates === "some") return true
   if (g.workspace_contains?.length || g.committed_must_not?.length) return true
   if (g.workspace_read?.length) return true

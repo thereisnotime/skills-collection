@@ -1,0 +1,39 @@
+name: Avoid AI Writing Gate
+description: Fail CI when a prose file exceeds a deterministic finding-count threshold.
+author: avoid-ai-writing contributors
+inputs:
+  glob:
+    description: Git glob of files to scan.
+    required: false
+    default: "**/*.md"
+  threshold:
+    description: Maximum deterministic findings allowed per file. Default 6 is the corpus-backed reusable-gate baseline; set 0 for a strict zero-findings policy.
+    required: false
+    default: "6"
+  context:
+    description: Detector context profile (general, technical, marketing, or personal).
+    required: false
+    default: technical
+  source-mode:
+    description: Detector source mode (plain or rendered-markdown).
+    required: false
+    default: rendered-markdown
+runs:
+  using: composite
+  steps:
+    - name: Gate prose with avoid-ai-writing detector
+      shell: bash
+      env:
+        AAW_GLOB: ${{ inputs.glob }}
+        AAW_THRESHOLD: ${{ inputs.threshold }}
+        AAW_CONTEXT: ${{ inputs.context }}
+        AAW_SOURCE_MODE: ${{ inputs.source-mode }}
+      run: >-
+        node "$GITHUB_ACTION_PATH/bin/avoid-ai-writing-gate.js"
+        --glob "$AAW_GLOB"
+        --threshold "$AAW_THRESHOLD"
+        --context "$AAW_CONTEXT"
+        --source-mode "$AAW_SOURCE_MODE"
+branding:
+  icon: edit-3
+  color: purple

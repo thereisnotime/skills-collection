@@ -11,8 +11,8 @@
 //
 // We never fabricate a version: the hint prints only when a successful network
 // check (or a fresh cache from one) reports a strictly newer semver.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { homeLokiDir } from "./paths.ts";
 
 const REGISTRY_URL = "https://registry.npmjs.org/loki-mode/latest";
@@ -132,6 +132,54 @@ export async function resolveLatest(
   return latest;
 }
 
+// A SHADOWED INSTALL is a newer loki-mode that is already installed but sits
+// later on PATH than an older one, so the old binary keeps winning.
+//
+// Reported by a user: `bun install -g loki-mode` said "installed
+// loki-mode@9.35.0", then `loki --version` printed 9.22.3 and the update nudge
+// told them to run the install they had just run. Reinstalling cannot fix this
+// -- it updates a copy that PATH never reaches -- so the nudge sent them round a
+// loop with no exit. The cause was a leftover ~/.local/bin/loki symlink into an
+// old npm-global tree, shadowing ~/.bun/bin/loki.
+//
+// Returns the first install on PATH that is strictly newer than the running one,
+// or null. Best-effort and fully fail-silent: an unreadable entry is skipped, so
+// the worst case is the ordinary nudge, never a crash or a false report.
+export function findShadowedNewerInstall(
+  current: string,
+  env: NodeJS.ProcessEnv = process.env,
+): { path: string; version: string } | null {
+  const cur = parseSemver(current);
+  if (cur === null) return null;
+  const pathVar = env["PATH"];
+  if (!pathVar) return null;
+
+  const seen = new Set<string>();
+  for (const dir of pathVar.split(":")) {
+    if (!dir) continue;
+    const bin = join(dir, "loki");
+    let real: string;
+    try {
+      statSync(bin);
+      real = realpathSync(bin);
+    } catch {
+      continue; // no loki here, or unreadable
+    }
+    if (seen.has(real)) continue;
+    seen.add(real);
+    // bin/loki lives at <pkg>/bin/loki, so package.json is two levels up.
+    try {
+      const pkg = join(dirname(dirname(real)), "package.json");
+      const version = JSON.parse(readFileSync(pkg, "utf8")).version;
+      if (typeof version !== "string") continue;
+      if (isNewer(version, current)) return { path: bin, version };
+    } catch {
+      continue; // not a package layout we recognise; skip it
+    }
+  }
+  return null;
+}
+
 // Top-level entry: print the nudge to stderr if (and only if) a successful,
 // non-fabricated check reports a strictly newer release. Never throws.
 //
@@ -144,6 +192,7 @@ export async function maybePrintUpdateHint(
     fetcher?: () => Promise<string | null>;
     write?: (msg: string) => void;
     cacheFile?: string;
+    env?: NodeJS.ProcessEnv;
   } = {},
 ): Promise<void> {
   try {
@@ -153,6 +202,22 @@ export async function maybePrintUpdateHint(
     if (latest === null) return;
     if (!isNewer(latest, current)) return;
     const write = opts.write ?? ((m: string) => process.stderr.write(m));
+
+    // If a newer copy is ALREADY installed and merely shadowed on PATH, telling
+    // the user to install again is advice that cannot work. Name the real
+    // problem and the file to remove instead.
+    const shadowed = findShadowedNewerInstall(current, opts.env ?? process.env);
+    if (shadowed !== null) {
+      write(
+        `Loki Mode ${shadowed.version} is installed but not the one running ` +
+          `(you are running ${current}).\n` +
+          `  Another loki earlier on PATH is winning. Newer copy: ${shadowed.path}\n` +
+          `  Run \`which -a loki\` to see the order, then remove or re-point the ` +
+          `earlier entry.\n`,
+      );
+      return;
+    }
+
     write(
       `A newer Loki Mode is available: ${latest} (you have ${current}). ` +
         `Update: bun install -g loki-mode  (or npm i -g loki-mode)\n`,

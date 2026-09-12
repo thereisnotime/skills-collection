@@ -5,6 +5,382 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.39.0
+
+Three capabilities the product advertised and could not actually perform.
+
+### Fixed
+
+- **`loki memory enable-hook` wrote a dead path into the user's real Claude
+  settings and reported success.** `claude/hooks/loki-session-end.sh` exists in
+  the git checkout but `claude/` was absent from `package.json` files[], so it
+  shipped in NO npm tarball. Verified against the published 9.38.0 package:
+  `package/claude/` does not exist (positive control: `package/autonomy/run.sh`
+  is present). The command built the path with no existence check
+  (`autonomy/loki:24584`), mutated `~/.claude/settings.json`, and printed a
+  green "SessionEnd hook ready".
+
+  Every npm user who ran it believed session capture was on while it captured
+  nothing: the hook fired on each `/clear`, failed with "No such file or
+  directory", and that failure surfaced nowhere a user reads.
+
+  Two changes, because either alone leaves a hole: `claude/hooks/` now ships,
+  AND the command fails closed when the script is missing rather than writing a
+  settings entry it cannot honor. Shipping the file fixes today's users; the
+  guard means a future packaging slip reports itself instead of lying.
+
+- **`loki agent run` was dead for every opencode user.** opencode is listed as
+  one of five active providers, `loki provider set opencode` accepts it with no
+  warning and writes `.loki/state/provider`, and then the provider case in
+  `cmd_agent` (`autonomy/loki:29430-29447`) had arms for claude, codex, cline
+  and aider only. The `*)` arm printed "Unknown provider: opencode" and returned
+  1 -- after already printing the persona banner, so it looked like it started
+  working and then died.
+
+  This was an omission, not an unsupported provider: the phase dispatcher in the
+  SAME file already had a working `opencode)` arm calling `provider_invoke`
+  (`providers/opencode.sh:121`). The error message even listed opencode as
+  supported.
+
+  Reproduced through the real entrypoint before the fix and after: the banner
+  now reaches the actual opencode CLI instead of dying in a case statement.
+
+- **`loki agent review` was missing BOTH opencode and aider.** Same shape, wider
+  blast radius, found while fixing the above.
+
+### Guard
+
+`tests/test-provider-arm-coverage.sh` (12 assertions) asserts each provider arm
+INDIVIDUALLY at each dispatch site, never a count -- a count cannot say WHICH
+provider vanished. It also guards against vacuity: if opencode ever stops being
+selectable, the suite says so rather than passing over a provider nobody can
+choose. Mutation-verified in both directions: removing the opencode arm or the
+aider arm each goes red, restoring goes green.
+
+This is the cross-cutting-registration defect that broke main for three releases
+when the fifth provider shipped. Nothing enforced that a new provider reached
+every dispatch site; now something does.
+
+### Provenance
+
+Found by a 64-agent reachability audit (1,081 tool uses, 0 errors) asking one
+question per capability: can a real user actually reach this? Every claim was
+adversarially refuted by three independent skeptics with distinct lenses before
+it counted. **19 claims -> 9 confirmed, 10 refuted (53%).**
+
+The refutations are the point. Three separate prior "findings" died on
+inspection this round and the record has been corrected: the policy engine is
+reachable (the writer is a REST endpoint, `dashboard/api_v2.py:791`, not a CLI
+command); `mergeability_score.py` is an operator-run benchmark tool working as
+documented, not a dead gate; and "41 agent types documented vs 5 that run"
+compared a prompt-role catalogue against the review council, two unrelated
+subsystems -- `references/agent-types.md:9` already says the 41 are
+"prompt-defined specifications ... not separate processes".
+
+## v9.38.0
+
+Four receipt fields that degraded to values indistinguishable from success.
+
+### Fixed
+
+- **A phantom reviewer inflated the council roster.** A real proof artifact
+  carried FOUR `council.reviewers[]` entries where three agents voted; the
+  fourth was `role:"" vote:"" summary:""`, materialized from a
+  devil's-advocate file that is not a reviewer. A buyer counting reviewers on
+  the receipt counted one that never voted. The flat reviewer path now skips a
+  record carrying neither a role nor a vote. Measured on the real artifact:
+  4 rows -> 3, roles `convergence-voter`, `requirements-verifier`,
+  `test-auditor`.
+
+- **`disabled_phases` always reported `[]`.** The audit finding as written said
+  `loki_apply_build_profile` "never exports"; that was wrong, it has 24 export
+  lines. The real defect is sharper: it exported exactly the five phases it
+  ENABLES and none of the six it DISABLES, so the receipt structurally could
+  not report what a build profile had switched off. An absent export reads as
+  "nothing was disabled", which is the same shape of lie as a zero that means
+  "unmeasured". Six phases now export: `api_tests`, `integration`,
+  `performance`, `regression`, `uat`, `web_research`.
+
+- **`cost.usd` summed a `0.0` default for unpriced records.** `available` was a
+  single flag covering cost AND tokens, so a run with real token counts and no
+  priced record reported `usd: 0.0, available: true` -- the receipt asserting
+  the run cost nothing while its own token counts proved work happened. Cost
+  now reports separately:
+
+  | records | usd | cost_available | cost_partial |
+  |---|---|---|---|
+  | priced | 0.5 | true | false |
+  | explicit `cost_usd: 0` | 0.0 | true | false |
+  | priced + key absent on some | 0.5 | true | true (lower bound) |
+  | tokens, no cost key anywhere | null | false | -- |
+
+  An explicit measured `{"cost_usd": 0}` is a GENUINE zero (a free cache-hit
+  iteration) and stays `0.0`. The first version of this fix keyed on
+  `cost_usd > 0` and nulled that case, which is its own dishonesty; it keys on
+  PRESENCE of the field instead. `test_genuine_zero_cost_stays_zero_not_null`
+  passes unmodified, which is the check that no contract was redefined to fit
+  the change.
+
+- **`base_sha` was a fabricated empty-tree constant on a non-git run.**
+  `_empty_tree_sha` returned the well-known `4b825dc6...` hash without first
+  establishing that a repository exists, so a receipt from a non-git workspace
+  carried a real-looking base SHA for a tree it never read. It now runs
+  `git rev-parse --is-inside-work-tree` first and returns `""` outside a repo,
+  matching the `head_sha -> ""` discipline already applied next to it. In a
+  real repo the constant is preserved unchanged.
+
+### Not fixed, and why
+
+`wall_clock_sec` returns `0` on unparseable timestamps and on a negative delta,
+so "could not measure" would be indistinguishable from "no time elapsed". It is
+left OPEN-UNREPRODUCED rather than fixed: the real artifact reports `396`
+correctly against its own timestamps, and neither collapse path has been
+observed. Changing a JSON contract and the HTML renderer that reads it, on a
+defect that cannot be demonstrated, is the speculative work this program exists
+to avoid.
+
+### Provenance
+
+These are 4 of 9 confirmed findings from a 34-agent receipt-integrity audit
+(606 tool uses, six evidence surfaces in parallel). Every candidate was
+adversarially refuted by an independent agent before counting: **28 candidates
+-> 9 confirmed, 19 refuted.** That 68% refutation rate is the point -- nineteen
+plausible-looking findings would have become false claims about our own
+product. With v9.37.0's HIGH chain, 7 of 9 are now fixed.
+
+Guarded by `tests/test-static-analysis-noop-not-pass.sh`, which now carries 10
+assertions across all four fixes plus the v9.37.0 pair. Each fix was
+mutation-verified in both directions: reverting it goes red, and over-correcting
+goes red too.
+
+## v9.37.0
+
+A gate that scanned nothing no longer reports a pass, and the receipt says NOT
+VERIFIED when nothing was verified.
+
+### Fixed
+
+- **`static_analysis` reported `passed` after examining ZERO files.** When there
+  were no changed files to check, `enforce_static_analysis` touched
+  `static-analysis.pass` and returned. The receipt reader promotes a bare `.pass`
+  marker straight to `status: "passed"` (`proof-generator.py:352-353`), so a gate
+  that examined nothing rendered identically to one that examined everything and
+  found it clean.
+
+  **This was not cosmetic.** `static_analysis` is typically the only EXOGENOUS
+  (agent-independent) gate in a receipt, and `any_verified`
+  (`proof-generator.py:1694-1707`) is satisfied by a single passed exogenous
+  gate. That no-op pass was the one term standing between the honest headline and
+  a green-ish one. Measured through the real reader and the real headline
+  function:
+
+  | static_analysis | exogenous passed | headline |
+  |---|---|---|
+  | `passed` (before) | 1/1 | VERIFIED WITH GAPS |
+  | `inconclusive` (after) | 0/1 | **NOT VERIFIED** |
+
+  Observed on a real run in a NON-GIT directory: file discovery is git-based, so
+  `changed_files` was empty, the gate examined none of the three files the run
+  had just created, and the receipt still reported a passing exogenous gate. That
+  run left `static-analysis.pass` at 0 bytes with `static-analysis.json` absent --
+  a combination only the no-changed-files early return produces.
+
+  The path now writes `{"files_checked":0,"status":"inconclusive",
+  "reason":"no_changed_files"}` and does not touch the marker.
+
+  **INCONCLUSIVE, not failed**, deliberately: having nothing to scan is not a
+  defect in the delivered code, and reporting a failure would trade one
+  dishonesty for another while blocking runs that legitimately changed nothing.
+  The gate still returns 0 -- only the CLAIM changed, not the control flow.
+
+  Guarded by `tests/test-static-analysis-noop-not-pass.sh` (5 assertions). Two
+  mutations verified: restoring the `touch` goes red, and over-correcting to
+  `failed` also goes red. The guard catches dishonesty in both directions.
+
+- **`unit_tests` reported `passed` for a project with no test runner.** The same
+  defect, one gate over. The no-test-runner branch wrote an honest record
+  (`{"runner":"none","status":"not_run","pass":"inconclusive"}`) and ALSO touched
+  `unit-tests.pass`. The reader checks the marker FIRST, so the honest record was
+  never read, and the receipt claimed a passing gate while `honesty.degraded` in
+  the same document said tests did not run.
+
+  What kept the bug alive was a comment asserting *"unit-tests.pass is only read
+  for the status-line display"*. That premise was false --
+  `proof-generator.py:346` reads the same marker into the receipt. Measured by
+  driving the real collector:
+
+  ```
+  marker present + {"status":"not_run"} json  -> "passed"
+  json only, no marker                        -> "not_run"
+  ```
+
+  The touch is removed. All three outcomes now stay distinct and were each
+  verified: real tests pass -> `passed`; no runner -> `not_run`; real tests fail
+  -> `failed`. Non-blocking behaviour is preserved by the existing `return 0`,
+  not by claiming a pass. The status line falls back to PENDING, which is the
+  truthful rendering for a project whose tests never ran.
+
+### How this was found
+
+A receipt-integrity audit ran 34 agents across six evidence surfaces of
+`proof.json`, asking one question per field: is this populated by an independent
+measurement, or can it silently degrade to a value a reader would interpret as
+success? Every candidate finding was then adversarially refuted by a separate
+agent.
+
+**28 candidate findings -> 9 confirmed, 19 refuted.** The refutations were
+substantive ("the explicit unmeasured marker EXISTS", "cosmetic, no reader could
+be misled"), and that 68% refutation rate is the point: nineteen plausible claims
+about our own receipt did not survive contact with the source.
+
+The three HIGH findings were all the same defect and are all closed by one
+change. One MEDIUM finding (`unit_tests`) turned out to be the same defect again
+and is fixed here too. Five MEDIUM findings remain and are being worked in
+order.
+
+### Honest limits
+
+- This fixes the CLAIM, not the coverage. A non-git workspace still yields no
+  changed files, so static analysis genuinely has nothing to scan there; the
+  receipt now says so instead of implying a clean scan.
+- The six MEDIUM findings are not addressed here: `unit_tests` passing via the
+  no-test-runner branch, `base_sha` as a fabricated empty-tree constant, a
+  phantom reviewer row, `disabled_phases` reporting `[]`, `cost.usd` summing a
+  `0.0` default, and `wall_clock_sec` collapsing.
+
+## v9.36.0
+
+The most expensive step in a build now reports how long it took.
+
+### Added
+
+- **`completion_council` stage timing.** Sixteen build stages emit a
+  `stage_complete` record carrying `duration_s`. The completion council did not
+  -- and on a measured one-function build the council window was **142s against
+  71s of actual agent work**, making it the largest single cost in the run and
+  the only major step whose cost could not be read from an emitted event.
+
+  It now emits one record like every other stage. `status` reports what the
+  council DECIDED: `pass` when it approved a stop, `not_run` when it ran and
+  declined to stop. Both are normal outcomes, so neither is reported as a
+  failure.
+
+  **Purely additive.** The dispatched decision is unchanged; the emit only reads
+  `_loki_completion_ready`, never assigns to it, and a failing emitter cannot
+  fail the caller.
+
+  Guarded by `tests/test-council-stage-timing.sh` (6 assertions).
+
+### Fixed
+
+- **"Installed 9.35.0" then `loki --version` says 9.22.3, and the nudge tells you
+  to install again.** Reported by a user, reproduced exactly:
+
+  ```
+  $ bun install -g loki-mode
+  installed loki-mode@9.35.0
+  $ loki --version
+  Loki Mode v9.22.3
+  A newer Loki Mode is available: 9.35.0 (you have 9.22.3). Update: bun install -g loki-mode
+  ```
+
+  The install worked. A **different, older loki sat earlier on PATH** and kept
+  winning -- here a leftover `~/.local/bin/loki` symlink into an old npm-global
+  tree under Homebrew's node. Reinstalling updates a copy PATH never reaches, so
+  the advice sent the user round a loop with no exit.
+
+  The nudge now detects a newer copy that is already installed but shadowed, and
+  says so:
+
+  ```
+  Loki Mode 9.35.0 is installed but not the one running (you are running 9.22.3).
+    Another loki earlier on PATH is winning. Newer copy: /Users/you/.bun/bin/loki
+    Run `which -a loki` to see the order, then remove or re-point the earlier entry.
+  ```
+
+  Best-effort and fail-silent: an unreadable or non-package PATH entry is
+  skipped, so the worst case is the ordinary update hint, never a crash or a
+  false report. Guarded by 5 tests in
+  `loki-ts/tests/util/update_check.test.ts`; verified against the unfixed code,
+  where the reported behaviour returns and the test fails.
+
+  Found while fixing this: the existing update-check tests read the host's real
+  PATH, so a developer machine that genuinely had a shadowed install broke an
+  unrelated assertion. The shared setup now pins PATH and restores it, and the
+  pre-existing test passes **unmodified**.
+
+- **A timed-out benchmark run leaked its whole process tree.**
+  `subprocess.run(timeout=...)` kills only the process it spawned.
+  `loki start` re-execs as `/tmp/loki-run-*.sh` and spawns its own descendants,
+  so a timed-out cell left that tree ALIVE and still holding provider capacity.
+
+  Measured, not theorised: stopping a benchmark matrix leaked **seven** live
+  `loki-bench-loki-*` runs that survived more than an hour. They starved later
+  trials into their own 600s timeouts and made clean verification runs look
+  like they had "died immediately". **A timeout that does not reap manufactures
+  the very failure it reports** -- the next trial times out because the last one
+  is still running.
+
+  `run_cli` now spawns with `start_new_session` and, on timeout, signals the
+  whole process group: TERM first so the engine can flush state, then KILL for
+  whatever remains. The injected-`runner` seam that tests mock through is
+  untouched and is asserted to stay that way.
+
+  Guarded by `benchmarks/bench/tests/test_timeout_reaps_tree.py` (3 tests). The
+  grandchild is asserted BY PID after the timeout returns, because a test that
+  only checked the direct child would have passed against the buggy code --
+  `subprocess.run` always killed that one. Verified against the original code:
+  the grandchild survives, and the test fails.
+
+### Why this was worth a release
+
+Because the alternative is what I did first: I inferred the cost profile from
+artifact mtimes and got it wrong.
+
+Reading a 58s gap between two file timestamps, I attributed it to a specific
+step. That inference is invalid: an mtime records WHEN a file was written, not
+how long the step that wrote it took.
+
+Then I compounded it. Re-measuring the suspected step directly gave 0.09s, so I
+retracted the claim -- but that measurement was taken against a project whose
+artifacts already existed, so a cache short-circuited the work. I had measured
+the cache-hit path and reported it as the cost of the step.
+
+What finally settled it was watching a live run with `ps`: **eight concurrent
+`claude` processes**, with several steps in flight at once. The run is not a
+sequence of additive phases, so per-phase attribution that assumes serial
+execution is measuring overlapping work no matter how carefully the timestamps
+are read.
+
+That is the case for emitting the number. A `stage_complete` record brackets a
+real start and end; a profile assembled from file timestamps is archaeology, and
+one assembled from a cache hit is worse.
+
+### Honest limits
+
+- This measures the council; it does not make it cheaper. What the 142s buys is
+  the completion verdict behind the receipt.
+- **The new record is unit-verified, not yet observed in a live run.** The
+  assertions drive `emit_stage_complete` directly and are mutation-verified, but
+  every end-to-end run attempted for this release completed through a path that
+  did not reach the council dispatch, so no live `completion_council` record has
+  been captured yet. Stated plainly rather than implied: the code is guarded, the
+  field measurement is still outstanding.
+- Of a measured 508s build, `agent` (71s), `code_review` (128s) and now
+  `completion_council` are attributable from emitted events. The remainder is
+  still unattributed, and it will stay that way until it is instrumented too --
+  it is deliberately NOT estimated here.
+- **Stage durations do not sum to wall clock, and must not be presented as if
+  they do.** Steps run concurrently: a live run shows the council, the wiki
+  generator and the reviewers all dispatching provider calls at the same time
+  (eight `claude` processes observed at once). Each record is a real bracket
+  around one stage; the set of them is not a partition of the run.
+- On that build all six council evidence gates reported `Pass-through`
+  (`no_test_runner`, `no_app_runner`, `no_ui_files`, `not_serveable`), so the
+  voters ran where there was structurally nothing to verify. That is a real
+  efficiency signal, but acting on it needs the measurement this release adds,
+  not an inference.
+
 ## v9.35.0
 
 When the model you pinned is not the model that ran, the receipt now says so.

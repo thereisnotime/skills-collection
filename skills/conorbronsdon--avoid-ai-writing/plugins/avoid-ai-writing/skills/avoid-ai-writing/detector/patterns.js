@@ -1209,8 +1209,8 @@ const AIDetector = (() => {
   // ─── Title Case Section Headers in non-technical prose ─────────────
   // "Strategic Negotiations And Key Partnerships" — every content word
   // capitalized. Acceptable in API docs, ML papers, news headlines. Tell
-  // in marketing/personal/blog prose. Gated to "personal" / "marketing"
-  // context modes (technical mode skips this check).
+  // in marketing/personal/blog prose. Skipped when contextMode is
+  // 'technical'; runs for general, marketing, and personal.
   //
   // The optional `#{1,6}` prefix is load-bearing (#62): without it the `^[A-Z]`
   // anchor required the line to START with a capital, so `## Benefits And
@@ -1388,14 +1388,14 @@ const AIDetector = (() => {
       return { ...buildV2Defaults('UNSCORED', 'low'), score: 0, label: 'Empty', issues: [], stats: {}, tooShort: true };
     }
 
-    // Context mode gates rules that are noisy in technical writing. Modes:
+    // Context mode selects context-appropriate flagging. Accepted values:
     //   'general' (default) — full ruleset
     //   'technical' — skip title-case headers; individual prose-only rules
-    //                 apply their own technical-context gates
-    //   'marketing' — full ruleset + boost on formulaic-opener / future-narrative
-    //   'personal'  — full ruleset, normal weights
-    // Mode is purely a soft gate; nothing is silently suppressed without
-    // being reflected in stats.contextMode for transparency.
+    //                 apply their own technical-context gates (only mode
+    //                 that currently changes scoring)
+    //   'marketing' — accepted; recorded in stats; scores same as general
+    //   'personal'  — accepted; recorded in stats; scores same as general
+    // Invalid values fall back to 'general' with stats.contextModeFallback set.
     // Mode validation: an unknown string (e.g. typo "tecnical") would
     // otherwise silently downgrade to general-mode behavior. Coerce to
     // 'general' and surface the original value in stats for traceability.
