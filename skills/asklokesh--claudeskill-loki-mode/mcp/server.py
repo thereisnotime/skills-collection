@@ -2574,6 +2574,7 @@ async def loki_graph_query(question: str, budget: int = 1500, path: str = ".") -
                          'network).' % (graph, path or '.')),
             }, indent=2)
 
+        import subprocess
         proc = subprocess.run(
             ['graphify', 'query', question, '--budget', str(budget)],
             cwd=path or '.', capture_output=True, text=True, timeout=120)

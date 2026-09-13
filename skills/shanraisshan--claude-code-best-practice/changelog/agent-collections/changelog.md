@@ -10,6 +10,18 @@ Tracks updates to the AGENT COLLECTIONS table in `README.md`.
 
 ---
 
+## [2026-09-13 08:42 AM PKT] Agent Collections Update
+
+| # | Priority | Type | Action | Status |
+|---|----------|------|--------|--------|
+| 1 | LOW | Star | msitarzewski/agency-agents ★ unchanged (152k = 151,953 exact) | INVALID (no k-boundary crossed; RECURRING) |
+| 2 | LOW | Count | msitarzewski/agency-agents agents 273 → 279 (+6; per-dir: engineering/64 + specialized/59 + marketing/36 + game-development/21 + gis/13 + security/12 + design/10 + testing/9 + sales/9 + paid-media/7 + project-management/7 + support/6 + spatial-computing/6 + academic/6 + product/5 + finance/5 + healthcare/3 + research/1 = 279; conf 0.87) | INVALID (RECURRING oscillation; conf 0.87 below 0.88 threshold; within oscillation band; same count as Sep 12 INVALID ruling; no change) |
+| 3 | LOW | Star | VoltAgent/awesome-claude-code-subagents ★ unchanged (25k = 25,033 exact) | INVALID (no k-boundary crossed; RECURRING) |
+| 4 | LOW | Count | VoltAgent/awesome-claude-code-subagents agents 158 → 171 (+13; per-category README table: Language Specialists/31 + Business-Product/17 + Quality-Security/17 + Infrastructure/16 + Specialized/16 + Developer-Experience/15 + Meta-Orchestration/14 + Data-AI/13 + Core-Development/11 + Research-Analysis/11 = 171; README badge still "158+"; conf 0.80) | INVALID (conf 0.80 below 0.88 threshold; discrepancy between README badge "158+" and per-category table sum 171 unresolved; no confirmed net additions in last 30 days; RECURRING) |
+| 5 | LOW | Sort | Verify sort order (152k > 25k — stars descending) | COMPLETE (order preserved; RECURRING) |
+
+---
+
 ## [2026-09-12 08:44 AM PKT] Agent Collections Update
 
 | # | Priority | Type | Action | Status |

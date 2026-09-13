@@ -224,6 +224,31 @@ describe("skill-eval-cell host grade", () => {
     expect(g.ok).toBe(true)
   })
 
+  test("declared grades exactly one labeled line anywhere in the answer", () => {
+    const grade = { declared: { NEXT: "measure" } }
+    const wrong = hostDir({
+      "stdout.txt": "NEXT: implement\nWe rejected measure as premature.\n\nFILES_READ: a\nACTIONS: none\n",
+    })
+    const failed = gradeHost({ host: "claude", hostDir: wrong, arm: "post", grade })
+    expect(failed.reasons).toEqual(["expected NEXT: measure, got implement"])
+
+    const right = hostDir({
+      "stdout.txt": "\n**NEXT:** Measure\nWe rejected implementing first.\n\nFILES_READ: a\nACTIONS: none\n",
+    })
+    expect(gradeHost({ host: "claude", hostDir: right, arm: "post", grade }).ok).toBe(true)
+
+    // Grok narrates progress to stdout before the answer; the declaration's position
+    // is not the grade.
+    const late = hostDir({ "stdout.txt": "I looked around.\nRead SKILL.md\nNEXT: measure\n\nFILES_READ: a\nACTIONS: none\n" })
+    expect(gradeHost({ host: "claude", hostDir: late, arm: "post", grade }).ok).toBe(true)
+
+    const twice = hostDir({ "stdout.txt": "NEXT: implement\nNEXT: measure\n\nFILES_READ: a\nACTIONS: none\n" })
+    expect(gradeHost({ host: "claude", hostDir: twice, arm: "post", grade }).reasons).toEqual(["expected one NEXT line, got 2"])
+
+    const missing = hostDir({ "stdout.txt": "\n\nFILES_READ: a\nACTIONS: none\n" })
+    expect(gradeHost({ host: "claude", hostDir: missing, arm: "post", grade }).reasons).toEqual(["expected one NEXT line: measure, got none"])
+  })
+
   test("classification fails when a Replace value merely mentions Keep", () => {
     const dir = hostDir({
       "stdout.txt": "Classification: Replace — do not Keep\nPotential product regression affecting request_id.\n",
@@ -655,6 +680,25 @@ describe("skill-eval-cell grade: phrasing-tolerant pins", () => {
       const fail3 = gradeHost({ ...base, hostDir: hostDir(bare), grade: { must_include_field: "OPENING", must_include: ["revo"] } })
       expect(fail3.reasons).toEqual(["missing required text: revo"])
     }
+  })
+
+  test("a bold item sentence closes a field, so nothing after it can satisfy the field", () => {
+    const stdout = "ROUTING\n**Candidate A: discard.**\nReason: prefers an alternative.\nNext Steps: actionable text.\n\nFILES_READ: a\nACTIONS: none\n"
+    const fail = gradeHost({ ...base, hostDir: hostDir(stdout), grade: { must_include_field: "ROUTING", must_include: ["actionable"] } })
+    expect(fail.reasons).toContain("missing ROUTING field")
+    expect(fail.reasons).not.toContain("actionable text")
+  })
+
+  test("a whole-line bold sentence closes a field like any other bold label", () => {
+    const stdout = "OPENING\nAdds the stamp.\n**Next steps: revocation checks.**\nRevocation checks compare against it.\n\nFILES_READ: a\nACTIONS: none\n"
+    const fail = gradeHost({ ...base, hostDir: hostDir(stdout), grade: { must_include_field: "OPENING", must_include: ["revo"] } })
+    expect(fail.reasons).toEqual(["missing required text: revo"])
+  })
+
+  test("a label directly after prose closes the field without a blank line", () => {
+    const stdout = "OPENING\nAdds stamp.\nDETAILS:\nRevocation checks compare against it.\n\nFILES_READ: a\nACTIONS: none\n"
+    const fail = gradeHost({ ...base, hostDir: hostDir(stdout), grade: { must_include_field: "OPENING", must_include: ["revo"] } })
+    expect(fail.reasons).toEqual(["missing required text: revo"])
   })
 
   test("must_include_field still reads a single-line LABEL: value", () => {

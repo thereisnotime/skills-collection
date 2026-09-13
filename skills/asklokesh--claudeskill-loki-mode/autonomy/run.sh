@@ -507,8 +507,27 @@ RESOURCE_CHECK_INTERVAL=${LOKI_RESOURCE_CHECK_INTERVAL:-300}  # Check every 5 mi
 RESOURCE_CPU_THRESHOLD=${LOKI_RESOURCE_CPU_THRESHOLD:-80}     # CPU % threshold
 RESOURCE_MEM_THRESHOLD=${LOKI_RESOURCE_MEM_THRESHOLD:-80}     # Memory % threshold
 
-# Budget / Cost Limit (opt-in, empty = unlimited)
-BUDGET_LIMIT=${LOKI_BUDGET_LIMIT:-""}  # USD amount, e.g., "50.00"
+# Budget / Cost Limit.
+#
+# DEFAULT-ON as of v9.42.0. This shipped as `""` (unlimited), and run.sh's own
+# F4 analysis names it as one of three runaway valves that all shipped
+# DISABLED: LOKI_BUDGET_LIMIT="" returns immediately, LOKI_MAX_DURATION=0 never
+# stops, leaving LOKI_MAX_ITERATIONS=1000 (a measured 8.3-DAY ceiling) as the
+# only backstop. A user who mistypes a spec, or hits a loop, had no cost
+# backstop at all.
+#
+# 100 USD, not a tight number. Measured envelope from 79 recorded benchmark
+# trials: median 0.48 USD/trial, max 3.06. A real build is far under this, so
+# the cap catches runaways, not ordinary work.
+#
+# SAFE BY CONSTRUCTION: breaching PAUSES (writes .loki/PAUSE and saves state);
+# it never kills work or discards a deliverable. The user removes .loki/PAUSE
+# to resume, or raises LOKI_BUDGET_LIMIT. Set LOKI_BUDGET_LIMIT="" to restore
+# the old unlimited behavior explicitly.
+BUDGET_LIMIT=${LOKI_BUDGET_LIMIT-"100.00"}  # USD. Note `-` not `:-`: an
+                                            # explicit empty value means the
+                                            # operator chose unlimited, and is
+                                            # honored.
 
 # Background Mode
 BACKGROUND_MODE=${LOKI_BACKGROUND:-false}                # Run in background
@@ -1162,10 +1181,12 @@ PERPETUAL_MODE=${LOKI_PERPETUAL_MODE:-false}
 #
 # MEASURED, not chosen. Real per-iteration wall clock across every recorded run
 # on this machine: median 718s, max 1746s. So the 1000 default is an 8.3-DAY
-# ceiling -- and it is the ONLY backstop, because the other two valves ship
-# disabled: LOKI_BUDGET_LIMIT defaults to "" (check_budget_limit returns
-# immediately) and LOKI_MAX_DURATION defaults to 0 (check_max_duration returns
-# "never stop").
+# ceiling. When this analysis was written it was also the ONLY backstop,
+# because the other two valves shipped disabled. That is no longer true of the
+# budget: since v9.42.0 LOKI_BUDGET_LIMIT defaults to "100.00" (see :527 --
+# note `-` not `:-`, so only an EXPLICIT "" means unlimited), and breaching it
+# pauses the run. LOKI_MAX_DURATION does still default to 0 (check_max_duration
+# returns "never stop" at :18278).
 #
 # It also contradicts our own documentation. SETUP.md tells users to RAISE the
 # budget for large work with LOKI_MAX_ITERATIONS=40, and the demo uses 10 -- so
@@ -4705,7 +4726,7 @@ except Exception:
         if [ -n "$pr_url" ]; then
             printf '%-14s %s\n' "Pull request:" "$pr_url"
         elif [ "$outcome" = "complete" ]; then
-            printf '%-14s %s\n' "Pull request:" "not opened (set LOKI_DELEGATE_PR=1 to open one)"
+            printf '%-14s %s\n' "Pull request:" "not opened (no GitHub remote, gh not authed, or on a default branch)"
         fi
         printf '%-14s %s\n' "Tasks:" "pending=$pending in_progress=$in_progress completed=$completed failed=$failed"
         echo ""
@@ -5204,9 +5225,38 @@ except Exception:
 # is already true we DEFER to that path and do nothing here, so a user who set
 # both knobs never gets a double PR.
 #===============================================================================
+# Write the PR url where an OUT-OF-PROCESS caller can read it.
+#
+# _LOKI_DELEGATE_PR_URL is exported, which reaches children but NOT a sibling
+# step. A GitHub composite action runs `loki start` in one step and reports the
+# result in the next, so an exported variable is invisible to it and the action
+# would have to re-derive the url and could get it wrong. Persisting it means a
+# caller reports what ACTUALLY happened.
+#
+# Best-effort by construction: a failure here must never affect a run whose PR
+# was already opened successfully.
+_loki_persist_pr_url() {
+    local _u="${1:-}"
+    [ -n "$_u" ] || return 0
+    mkdir -p ".loki/state" 2>/dev/null || return 0
+    printf '%s\n' "$_u" > ".loki/state/pr-url.txt" 2>/dev/null || true
+    return 0
+}
+
 on_run_complete() {
-    # Default OFF.
-    if [ "${LOKI_DELEGATE_PR:-0}" != "1" ]; then
+    # DEFAULT ON as of v9.43.0.
+    #
+    # This shipped OFF, and the product literally printed "Pull request: not
+    # opened (set LOKI_DELEGATE_PR=1 to open one)" -- it knew what the user
+    # wanted and asked them to go read documentation instead of doing it. For
+    # the core use case ("I give it a GitHub issue and it resolves"), the PR IS
+    # the deliverable, so shipping it off meant shipping the product off.
+    #
+    # Safe to default on because every guard below was already built and is
+    # unchanged: requires a GitHub repo AND `gh auth status` AND a non-default
+    # branch; it opens a PR and NEVER merges; every call is best-effort so a
+    # failure cannot block completion. Opt out with LOKI_DELEGATE_PR=0.
+    if [ "${LOKI_DELEGATE_PR:-1}" != "1" ]; then
         return 0
     fi
     # Defer to the existing dedicated PR path to avoid a double PR.
@@ -5260,6 +5310,7 @@ on_run_complete() {
     if [ -n "$existing_pr" ]; then
         _LOKI_DELEGATE_PR_URL="$existing_pr"
         export _LOKI_DELEGATE_PR_URL
+        _loki_persist_pr_url "$existing_pr"
         log_info "LOKI_DELEGATE_PR=1: PR already exists for branch '$branch': $existing_pr (skipping create)."
         return 0
     fi
@@ -5291,6 +5342,7 @@ ${_del_receipt}"
         # Export so build_completion_summary folds the url into the summary.
         _LOKI_DELEGATE_PR_URL="$pr_url"
         export _LOKI_DELEGATE_PR_URL
+        _loki_persist_pr_url "$pr_url"
         log_info "Pull request opened: $pr_url"
     else
         log_warn "LOKI_DELEGATE_PR=1: gh pr create did not return a URL (a PR may already exist for this branch)."
@@ -6677,19 +6729,48 @@ copy_skill_files() {
     # Also copy SKILL.md to .loki/ and rewrite paths for workspace access
     if [ -f "$PROJECT_DIR/SKILL.md" ]; then
         # Rewrite skill paths from skills/ to .loki/skills/
-        sed -e 's|skills/00-index\.md|.loki/skills/00-index.md|g' \
-            -e 's|skills/model-selection\.md|.loki/skills/model-selection.md|g' \
-            -e 's|skills/quality-gates\.md|.loki/skills/quality-gates.md|g' \
-            -e 's|skills/testing\.md|.loki/skills/testing.md|g' \
-            -e 's|skills/troubleshooting\.md|.loki/skills/troubleshooting.md|g' \
-            -e 's|skills/production\.md|.loki/skills/production.md|g' \
-            -e 's|skills/parallel-workflows\.md|.loki/skills/parallel-workflows.md|g' \
-            -e 's|skills/providers\.md|.loki/skills/providers.md|g' \
-            -e 's|Read skills/|Read .loki/skills/|g' \
+        # ONE regex, not a hardcoded filename list. The old form named 8 skills
+        # explicitly plus a `Read skills/` catchall, so any NEW skill silently
+        # kept an unrewritten path, and three bare paths in SKILL.md survived
+        # because they say "See", not "Read". The negated class avoids rewriting
+        # an already-correct `.loki/skills/`.
+        # Sentinel-protect, rewrite, restore. This is PORTABLE and idempotent.
+        #
+        # The old form named 8 skills explicitly plus a `Read skills/` catchall,
+        # so any NEW skill silently kept an unrewritten path, and bare paths
+        # introduced by "See skills/..." survived because they are not "Read".
+        # A `sed -E 's|(^|[^.])skills/|...'` one-liner looks tidier but BSD sed
+        # rejects it ("RE error: parentheses not balanced"), which would fail
+        # SILENTLY on macOS and leave every path unrewritten -- verified by
+        # running it. Protecting the already-correct prefixes first is what lets
+        # the bare rewrite be unconditional.
+        sed -e 's|\.loki/skills/|@@LOKI_S@@|g' \
+            -e 's|\.loki/references/|@@LOKI_R@@|g' \
+            -e 's|skills/|.loki/skills/|g' \
+            -e 's|references/|.loki/references/|g' \
+            -e 's|@@LOKI_S@@|.loki/skills/|g' \
+            -e 's|@@LOKI_R@@|.loki/references/|g' \
             "$PROJECT_DIR/SKILL.md" > ".loki/SKILL.md"
     fi
 
-    log_info "Copied $copied skill files to .loki/skills/"
+    # ALSO copy references/. The copied skills cite references/*.md 21 times
+    # across 8 files, every one of which existed in the repo and was NEVER
+    # copied, so the agent followed 21 dead paths and silently lost the guidance
+    # this function believes it shipped. Copying skills without their references
+    # is shipping half a manual.
+    local refs_src="$PROJECT_DIR/references"
+    local refs_dst=".loki/references"
+    local refs_copied=0
+    if [ -d "$refs_src" ]; then
+        mkdir -p "$refs_dst"
+        for ref_file in "$refs_src"/*.md; do
+            if [ -f "$ref_file" ]; then
+                cp "$ref_file" "$refs_dst/" && refs_copied=$((refs_copied + 1))
+            fi
+        done
+    fi
+
+    log_info "Copied $copied skill files to .loki/skills/ and $refs_copied references to .loki/references/"
 }
 
 #===============================================================================
@@ -15113,14 +15194,20 @@ reviewers = mandatory + [
         {
             "name": name,
             "focus": SPECIALISTS[name]["focus"],
-            "checks": SPECIALISTS[name]["checks"]
+            "checks": SPECIALISTS[name]["checks"],
+            # persona is hand-written prose from agents/types.json (all 41 types
+            # carry one). It was set on the specialist dict and then dropped
+            # here, so it never reached a prompt. Carried through with .get so a
+            # specialist without one is unaffected.
+            "persona": SPECIALISTS[name].get("persona", "")
         }
         for name in selected
     ] + [
         {
             "name": name,
             "focus": INSTALLED_SPECIALISTS[name]["focus"],
-            "checks": INSTALLED_SPECIALISTS[name]["checks"]
+            "checks": INSTALLED_SPECIALISTS[name]["checks"],
+            "persona": INSTALLED_SPECIALISTS[name].get("persona", "")
         }
         for name in installed_selected
     ]
@@ -15301,6 +15388,7 @@ REVIEW_SELECTION_RECORD
         reviewer_shard_index=$(echo "$dispatch_specialists" | python3 -c "import sys,json; print(json.load(sys.stdin)['reviewers'][$i]['shard_index'])")
         reviewer_focus=$(echo "$dispatch_specialists" | python3 -c "import sys,json; print(json.load(sys.stdin)['reviewers'][$i]['focus'])")
         reviewer_checks=$(echo "$dispatch_specialists" | python3 -c "import sys,json; print(json.load(sys.stdin)['reviewers'][$i]['checks'])")
+        reviewer_persona=$(echo "$dispatch_specialists" | python3 -c "import sys,json; print(json.load(sys.stdin)['reviewers'][$i].get('persona',''))")
         dispatch_names+=("$reviewer_name")
         dispatch_logical_indices+=("$reviewer_logical_index")
         dispatch_shard_indices+=("$reviewer_shard_index")
@@ -15310,6 +15398,7 @@ REVIEW_SELECTION_RECORD
         export LOKI_REVIEW_PROMPT_NAME="$reviewer_logical_name"
         export LOKI_REVIEW_PROMPT_FOCUS="$reviewer_focus"
         export LOKI_REVIEW_PROMPT_CHECKS="$reviewer_checks"
+        export LOKI_REVIEW_PROMPT_PERSONA="$reviewer_persona"
         export LOKI_REVIEW_PROMPT_DIFF_FILE="$diff_file"
         export LOKI_REVIEW_PROMPT_FILES_FILE="$files_file"
         export LOKI_REVIEW_PROMPT_TESTS_FILE="$loki_dir/quality/test-results.json"
@@ -15350,6 +15439,7 @@ from pathlib import Path
 name = os.environ["LOKI_REVIEW_PROMPT_NAME"]
 focus = os.environ["LOKI_REVIEW_PROMPT_FOCUS"]
 checks = os.environ["LOKI_REVIEW_PROMPT_CHECKS"]
+persona = os.environ.get("LOKI_REVIEW_PROMPT_PERSONA", "")
 
 with open(os.environ["LOKI_REVIEW_PROMPT_FILES_FILE"], "r") as f:
     files = f.read().strip()
@@ -15466,7 +15556,9 @@ metadata. This saves tokens without treating dependency changes as unreviewed.""
 - An ordinary missing test is Medium or Low unless it is tied to a cited changed high-impact trust boundary or explicit acceptance criterion.
 - Do not invent findings to satisfy the requested focus."""
 
-prompt = f"""You are {name}. Your SOLE focus is: {focus}.
+_persona_line = (persona.strip() + "\n\n") if persona.strip() else ""
+
+prompt = f"""{_persona_line}You are {name}. Your SOLE focus is: {focus}.
 
 Review ONLY for: {checks}.
 
@@ -15513,7 +15605,7 @@ BUILD_PROMPT
             return 1
         fi
         prompt_bindings+=("$built_prompt_sha")
-        unset LOKI_REVIEW_PROMPT_NAME LOKI_REVIEW_PROMPT_FOCUS LOKI_REVIEW_PROMPT_CHECKS
+        unset LOKI_REVIEW_PROMPT_NAME LOKI_REVIEW_PROMPT_FOCUS LOKI_REVIEW_PROMPT_CHECKS LOKI_REVIEW_PROMPT_PERSONA
         unset LOKI_REVIEW_PROMPT_DIFF_FILE LOKI_REVIEW_PROMPT_FILES_FILE
         unset LOKI_REVIEW_PROMPT_TESTS_FILE LOKI_REVIEW_PROMPT_BUILD_FILE
         unset LOKI_REVIEW_PROMPT_REQUIREMENTS_BUNDLE LOKI_REVIEW_PROMPT_HELPER
@@ -17770,6 +17862,43 @@ BUDGETUPD_EOF
         return 0
     fi
 
+    # LIVE COST VISIBILITY. The loop has always computed cumulative spend here,
+    # every iteration, and printed NOTHING until 80% of the cap. That silence is
+    # the "predatory / un-capped" feeling users report about agentic tools: the
+    # enforcement was never missing (the cap pauses at 100.00 by default), only
+    # the visibility was, so spend was discoverable solely after the fact.
+    #
+    # Reuses the $current_cost computed above; deliberately NOT a second reader.
+    # Two readers of one number disagreeing is the exact defect class fixed in
+    # 405da630, and a per-iteration cost line is not worth reintroducing it.
+    #
+    # Safe on stdout: this function has exactly two non-comment references in
+    # the file -- its own definition, and the single loop call site, which
+    # tests the exit code and never captures output. Verified with a
+    # comment-excluding grep plus a positive control.
+    #
+    # This comment deliberately does NOT spell out the call-site expression.
+    # tests/test-max-duration.sh:151 counts that exact string across this file
+    # and asserts there is exactly ONE, so quoting it here made the count 2 and
+    # turned a green suite red -- a text guard firing on prose written to
+    # explain it. Describe the call site; never reproduce it.
+    #
+    # log_info is additionally gated by _loki_log_enabled, so quiet modes stay
+    # quiet.
+    # The zero test must be NUMERIC. `[ "$current_cost" != "0" ]` is a string
+    # compare and the python above emits "0.0", so a run with nothing recorded
+    # would announce "Cost so far: $0.0" -- claiming a measurement we do not
+    # have, which is the exact fabrication this codebase deletes on sight.
+    #
+    # No else-branch: BUDGET_LIMIT empty means unlimited, and check_budget_limit
+    # returns at its first line in that case, so any "no cap set" arm here would
+    # be unreachable code advertising a message that can never print. The
+    # no-cap disclosure already lives at run-start (show_run_start_estimate).
+    if [ -n "$current_cost" ] \
+       && awk -v c="$current_cost" 'BEGIN{exit !(c+0 > 0)}' 2>/dev/null; then
+        log_info "Cost so far: \$${current_cost} of \$${BUDGET_LIMIT} cap (iteration ${ITERATION_COUNT:-0})."
+    fi
+
     # Update budget.json with current usage (not exceeded)
     if [ -n "$current_cost" ] && [ "$current_cost" != "0" ]; then
         cat > ".loki/metrics/budget.json" << BUDGETUPD_EOF
@@ -19370,6 +19499,7 @@ load_queue_tasks() {
     # Handles both formats, includes description, acceptance criteria, and user stories
     local extract_script='
 import json
+import os
 import sys
 
 def extract_tasks(filepath, prefix):
@@ -19381,7 +19511,23 @@ def extract_tasks(filepath, prefix):
             return ""
 
         results = []
-        for i, task in enumerate(tasks[:3]):  # Limit to first 3 tasks
+        # BOUND BY CHARACTERS, NOT BY AN ARBITRARY TASK COUNT.
+        #
+        # This was `tasks[:3]`, applied SEPARATELY to in-progress.json and
+        # pending.json. A release doc decomposed into 5 tasks silently lost 2
+        # from each file: the agent received a plan it was never told was
+        # truncated, and the founder-facing case ("hand it a release doc") was
+        # quietly capped at 3.
+        #
+        # A count is the wrong bound anyway: one rich PRD task with a 300-char
+        # description plus acceptance criteria can outweigh ten legacy one-liners.
+        # The real constraint is prompt budget, so bound on that and say so when
+        # the budget is hit, rather than truncating in silence.
+        _budget = int(os.environ.get("LOKI_QUEUE_TASK_CHARS", "6000") or "6000")
+        _max_tasks = int(os.environ.get("LOKI_QUEUE_MAX_TASKS", "25") or "25")
+        _used = 0
+        _shown = 0
+        for i, task in enumerate(tasks[:_max_tasks]):
             if not isinstance(task, dict):
                 continue
             task_id = task.get("id") or "unknown"
@@ -19405,7 +19551,11 @@ def extract_tasks(filepath, prefix):
                 story = task.get("user_story", "")
                 if story:
                     lines.append(f"  User Story: {story}")
-                results.append("\n".join(lines))
+                _entry = "\n".join(lines)
+                if _used + len(_entry) > _budget and _shown > 0:
+                    break
+                results.append(_entry)
+                _used += len(_entry); _shown += 1
             else:
                 # Legacy format: extract action from payload
                 task_type = task.get("type") or "unknown"
@@ -19421,8 +19571,21 @@ def extract_tasks(filepath, prefix):
                 action = str(action).replace("\n", " ").replace("\r", "")[:500]
                 if len(str(action)) > 500:
                     action += "..."
-                results.append(f"{prefix}[{i+1}] id={task_id} type={task_type}: {action}")
+                _entry = f"{prefix}[{i+1}] id={task_id} type={task_type}: {action}"
+                if _used + len(_entry) > _budget and _shown > 0:
+                    break
+                results.append(_entry)
+                _used += len(_entry); _shown += 1
 
+        # Disclose truncation instead of hiding it. An agent told it has the
+        # whole plan when it does not will confidently build the wrong subset.
+        _remaining = len(tasks) - _shown
+        if _remaining > 0:
+            results.append(
+                "[... %d more task(s) not shown: prompt budget %d chars reached. "
+                "Raise LOKI_QUEUE_TASK_CHARS or LOKI_QUEUE_MAX_TASKS to include them.]"
+                % (_remaining, _budget)
+            )
         return "\n".join(results)
     except:
         return ""

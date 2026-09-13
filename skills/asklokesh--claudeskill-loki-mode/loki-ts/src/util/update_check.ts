@@ -198,14 +198,21 @@ export async function maybePrintUpdateHint(
   try {
     if (shouldSkipUpdateCheck()) return;
     if (parseSemver(current) === null) return; // e.g. "unknown" -> never nudge
-    const latest = await resolveLatest(opts.now, opts.fetcher, opts.cacheFile);
-    if (latest === null) return;
-    if (!isNewer(latest, current)) return;
     const write = opts.write ?? ((m: string) => process.stderr.write(m));
 
-    // If a newer copy is ALREADY installed and merely shadowed on PATH, telling
-    // the user to install again is advice that cannot work. Name the real
-    // problem and the file to remove instead.
+    // SHADOW CHECK RUNS FIRST, BEFORE any registry lookup.
+    //
+    // It used to sit INSIDE the "a newer release exists" branch, which made the
+    // most damaging case unreachable: a user whose PATH is shadowed by a stale
+    // copy got the generic "install it again" nudge, quoting whatever version
+    // the <=24h cache happened to hold. Reported from the field twice: bun
+    // reported `installed loki-mode@9.39.0`, `loki --version` printed 9.22.3,
+    // and the nudge advised installing 9.35.0 -- three different numbers, and
+    // the advice could not work because the newer copy was ALREADY on disk.
+    //
+    // Shadowing is a local, on-disk condition. It does not depend on what the
+    // registry says, on the cache being fresh, or on the network being up, so
+    // nothing about a registry result should gate reporting it.
     const shadowed = findShadowedNewerInstall(current, opts.env ?? process.env);
     if (shadowed !== null) {
       write(
@@ -217,6 +224,12 @@ export async function maybePrintUpdateHint(
       );
       return;
     }
+
+    // No shadow: fall through to the ordinary "a newer release exists" nudge,
+    // which DOES need the registry.
+    const latest = await resolveLatest(opts.now, opts.fetcher, opts.cacheFile);
+    if (latest === null) return;
+    if (!isNewer(latest, current)) return;
 
     write(
       `A newer Loki Mode is available: ${latest} (you have ${current}). ` +

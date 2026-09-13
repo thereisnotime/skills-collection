@@ -19,6 +19,7 @@ on:
       - ".agents/plugins/**"
       - "skills/**"
       - "assets/**"
+      - "evals/**"
       - "submission/**"
       - "OPENAI_PLUGIN.md"
       - "PRIVACY.md"
@@ -28,6 +29,7 @@ on:
       - "LICENSE"
       - "cursor-rules/**"
       - "scripts/**"
+      - ".github/workflows/plugin-skill-sync.yml"
   push:
     branches: [main]
     paths:
@@ -47,6 +49,7 @@ on:
       - ".agents/plugins/**"
       - "skills/**"
       - "assets/**"
+      - "evals/**"
       - "submission/**"
       - "OPENAI_PLUGIN.md"
       - "PRIVACY.md"
@@ -56,6 +59,10 @@ on:
       - "LICENSE"
       - "cursor-rules/**"
       - "scripts/**"
+      - ".github/workflows/plugin-skill-sync.yml"
+
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -65,6 +72,7 @@ jobs:
         with:
           # merge-base --is-ancestor in validate-openai-plugin.py needs history
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate manifest JSON
         run: |

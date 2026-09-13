@@ -1,7 +1,7 @@
 {
   "name": "Loki R2 pinned SWE-bench subset",
   "schema_version": "1",
-  "dataset": "SWE-bench Verified",
+  "dataset": "SWE-bench (split membership UNCONFIRMED; see VERIFICATION_STATUS)",
   "dataset_url": "https://www.swebench.com/",
   "split": "test",
   "pinned_at": "2026-06-03",
@@ -39,5 +39,6 @@
       "verified": false,
       "note": "Real SWE-bench instance id; membership in the Verified split not confirmed offline."
     }
-  ]
+  ],
+  "dataset_claimed_intent": "SWE-bench Verified"
 }

@@ -97,7 +97,18 @@ Step-by-step guidance for agents:
 
 ## Skill Discovery
 
-Agents automatically discover skills in this directory at runtime:
+**STATUS: PROPOSED PATTERN, NOT IMPLEMENTED.** There is no runtime loader.
+`discover_agent_skills()` / `scan_skills()` do not exist anywhere in this
+repository (verified by grep), and `agent-skills/` is deliberately NOT in
+`package.json` files[], so it ships in no npm, Docker, or Homebrew artifact.
+Nothing reads these SKILL.md files on any route.
+
+The snippet below is the DESIGN SKETCH for how such a loader would work, not
+a description of current behavior. Treat the skills here as design notes.
+The live, loaded skill system is `skills/` at the repository root, routed by
+`skills/00-index.md`.
+
+A loader would discover skills like this:
 
 ```python
 def discover_agent_skills():

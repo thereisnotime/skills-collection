@@ -104,7 +104,10 @@ function lastFieldBlock(text: string, name: string): string {
       return onLabelLine
     }
     const rest = lines.slice(i + 1)
-    const end = rest.findIndex((line) => isFieldBoundary(line))
+    // The block ends at the next label line, as isFieldBoundary decides, and nowhere
+    // else. A field whose value must survive intervening labels is graded with
+    // `declared` (one line per value), not with a block.
+    const end = rest.findIndex(isFieldBoundary)
     const following = (end === -1 ? rest : rest.slice(0, end))
       .filter((line) => !/^(FILES_READ|ACTIONS|DELEGATES_DISPATCHED|TEAM):/i.test(line.trim()))
       .join("\n")
@@ -133,6 +136,21 @@ function resultBlock(text: string): string | null {
     return lines.slice(i + 1, end).join("\n")
   }
   return null
+}
+
+/**
+ * Every line of the answer that is `LABEL: value`, decoration ignored, wherever it sits.
+ * Position is not the signal: Grok narrates to stdout before the answer, so line one
+ * is often not the answer at all. The task asks for exactly one such line, so the
+ * caller fails on zero or several and grades the value of the single one.
+ */
+function declaredLines(text: string, name: string): string[] {
+  const prefix = `${name.toUpperCase()}:`
+  return text
+    .split("\n")
+    .map((line) => line.trim().replace(/^#{1,6}\s+/, "").replaceAll("**", "").trim())
+    .filter((plain) => plain.toUpperCase().startsWith(prefix))
+    .map((plain) => plain.slice(prefix.length).trim())
 }
 
 function lastField(text: string, name: string): string {
@@ -291,6 +309,14 @@ export function gradeHost(opts: {
   if (opts.grade.must_not_include?.length && !team) reasons.push("missing TEAM trailer")
   for (const needle of team ? opts.grade.must_not_include ?? [] : []) {
     if (team.includes(needle.toLowerCase())) reasons.push(`forbidden text in TEAM trailer: ${needle}`)
+  }
+  for (const [label, want] of Object.entries(opts.grade.declared ?? {})) {
+    const values = declaredLines(stdout, label)
+    if (values.length === 0) reasons.push(`expected one ${label} line: ${want}, got none`)
+    else if (values.length > 1) reasons.push(`expected one ${label} line, got ${values.length}`)
+    else if (values[0].toLowerCase() !== want.toLowerCase()) {
+      reasons.push(`expected ${label}: ${want}, got ${values[0]}`)
+    }
   }
   if (opts.grade.classification) {
     const actual = lastField(stdout, "CLASSIFICATION")

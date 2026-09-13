@@ -1497,11 +1497,27 @@ def qa_agent(patch):
 
     checks = []
 
-    # Check for basic patch structure
-    has_diff_header = "---" in patch and "+++" in patch
+    # STRUCTURAL checks, not substring checks.
+    #
+    # MEASURED DEFECT (fixed here): every check below used to be a substring
+    # test over the WHOLE blob (`"---" in patch`, `"@@" in patch`, `"a/" in
+    # patch`). Prose that merely QUOTES a diff satisfies all of them, so the
+    # harness certified prose as a valid patch instead of retrying. Measured on
+    # a stored 300-instance run: 178 of 179 prose entries passed every check.
+    # That is a false green inside our own benchmark -- the exact defect class
+    # this product exists to detect.
+    #
+    # A real unified diff has its markers at the START of a line. Anchoring to
+    # line starts is what prose cannot satisfy by accident.
+    _plines = patch.splitlines()
+
+    has_diff_header = (
+        any(l.startswith("--- ") for l in _plines)
+        and any(l.startswith("+++ ") for l in _plines)
+    ) or any(l.startswith("diff --git ") for l in _plines)
     checks.append({"check": "diff_headers", "passed": has_diff_header})
 
-    has_hunk_header = "@@" in patch
+    has_hunk_header = any(l.startswith("@@") and l.count("@@") >= 2 for l in _plines)
     checks.append({"check": "hunk_headers", "passed": has_hunk_header})
 
     has_changes = any(l.startswith(('+', '-')) and not l.startswith(('+++', '---')) for l in patch.splitlines())
@@ -1510,10 +1526,21 @@ def qa_agent(patch):
     # Check for markdown wrapping (common error)
     is_wrapped = patch.startswith("```")
     checks.append({"check": "no_markdown_wrap", "passed": not is_wrapped})
+    # Treat a fence anywhere as wrapping, so the reject path below fires.
+    is_wrapped = is_wrapped or any(l.lstrip().startswith("```") for l in _plines)
 
-    # Check for proper file paths
-    has_path_prefixes = "a/" in patch and "b/" in patch
+    # Path prefixes must appear on a header line, not anywhere in prose.
+    has_path_prefixes = any(
+        l.startswith(("--- a/", "+++ b/", "--- /dev/null", "+++ /dev/null"))
+        or l.startswith("diff --git a/")
+        for l in _plines
+    )
     checks.append({"check": "path_prefixes", "passed": has_path_prefixes})
+
+    # A fence ANYWHERE means the extractor did not get a clean diff out. The old
+    # check only looked at position 0, which is what let a preamble through.
+    has_fence = any(l.lstrip().startswith("```") for l in _plines)
+    checks.append({"check": "no_markdown_fence", "passed": not has_fence})
 
     elapsed = time.time() - start_time
 
@@ -1593,15 +1620,42 @@ def clean_patch(patch):
     if not patch:
         return patch
 
-    if patch.startswith("```"):
-        lines = patch.split("\n")
-        # Remove first and last lines if they're markdown
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        patch = "\n".join(lines)
+    # MEASURED DEFECT (fixed here): this used to strip a fence ONLY at position
+    # 0 (`if patch.startswith("```")`). A model that writes a preamble first --
+    # "Based on the architect's analysis, I need to generate a patch..." -- then
+    # fences the diff defeated it entirely. On a real 300-instance SWE-bench run
+    # stored under benchmarks/results/, 179 of 300 model_patch values were prose
+    # and 128 carried a mid-string fence. None were cleaned.
+    #
+    # Strategy, in order of preference:
+    #   1. a fenced block anywhere, if it looks like a diff
+    #   2. the first real diff line onward, fence or not
+    #   3. the original text (let the validator reject it)
+    # Never invent a patch: if nothing diff-shaped is present, return the text
+    # unchanged so qa_agent fails it honestly rather than silently "repairing".
+    import re as _re
 
+    def _looks_like_diff(text):
+        return ("@@" in text) and ("---" in text or "diff --git" in text)
+
+    # 1. any fenced block (```diff, ```patch, or bare) that contains a diff
+    for _m in _re.finditer(r"```[A-Za-z0-9_-]*\n(.*?)(?:\n```|\Z)", patch, _re.DOTALL):
+        _body = _m.group(1)
+        if _looks_like_diff(_body):
+            return _body.strip()
+
+    # 2. no usable fence: start at the first real diff line
+    _lines = patch.split("\n")
+    for _i, _l in enumerate(_lines):
+        if _l.startswith("diff --git ") or _l.startswith("--- a/") or _l.startswith("Index: "):
+            _tail = "\n".join(_lines[_i:])
+            # drop a trailing fence and any prose after it
+            _tail = _re.split(r"\n```", _tail)[0]
+            if _looks_like_diff(_tail):
+                return _tail.strip()
+            break
+
+    # 3. nothing diff-shaped. Return as-is; qa_agent is the judge, not this.
     return patch.strip()
 
 def save_trajectory(instance_id, trajectory_steps):
@@ -1827,7 +1881,23 @@ for i, problem in enumerate(problems):
         if result["model_patch"]:
             f.write(result["model_patch"])
 
-    if result["model_patch"] and not (result.get("error") or "").startswith("Format"):
+    # Count a VALIDATED DIFF, not a non-empty string.
+    #
+    # MEASURED DEFECT: this used to increment on any non-empty model_patch. On
+    # the stored 300-instance run, 179 of 300 were prose (a preamble plus a
+    # fenced diff that clean_patch never extracted), and qa_agent's substring
+    # checks certified 178 of them. So generated_count counted strings, and the
+    # figure published as "99.67% patch generation" (299/300) was a count of
+    # non-empty strings that were 59.3% prose.
+    #
+    # A receipt that counts the wrong thing is the defect class this product
+    # exists to detect, so the counter now requires a real diff header at a line
+    # start -- the same structural test qa_agent uses.
+    _is_real_diff = bool(result["model_patch"]) and any(
+        _l.startswith(("--- ", "diff --git "))
+        for _l in (result["model_patch"] or "").splitlines()
+    )
+    if _is_real_diff and not (result.get("error") or "").startswith("Format"):
         generated_count += 1
         if result["attempts"] > 1:
             fixed_by_rarv += 1

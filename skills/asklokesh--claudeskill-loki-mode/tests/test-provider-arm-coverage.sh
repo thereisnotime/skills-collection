@@ -43,18 +43,28 @@ for site in 'agent_exit=$?' 'review_prompt'; do
         'agent_exit=$?') label="agent run";    anchor='full_prompt' ;;
         *)               label="agent review"; anchor='review_prompt' ;;
     esac
-    blk="$(_block "$anchor" | sed 's/#.*//')"
+    # Written to a FILE, never piped from a variable. `printf ... | grep -q`
+    # exits at the first match and closes the pipe, so printf dies of SIGPIPE
+    # and `set -o pipefail` reports the PIPELINE as failed though grep MATCHED.
+    # Demonstrated: with input past the pipe buffer this returns 141 on a match.
+    # It is size-dependent, so it passes on a small case block and silently
+    # inverts as the file grows -- the worst kind of latent test bug.
+    BLK_FILE="$(mktemp)"
+    _block "$anchor" | sed 's/#.*//' > "$BLK_FILE"
+    blk="$(cat "$BLK_FILE")"
     if [ -z "$blk" ]; then
+        rm -f "$BLK_FILE"
         fail "$label: could not locate the provider case block (unmeasured, not clean)"
         continue
     fi
     for p in $PROVIDERS; do
-        if printf '%s' "$blk" | grep -qE "^[[:space:]]*${p}\)"; then
+        if grep -qE "^[[:space:]]*${p}\)" "$BLK_FILE"; then
             pass "$label dispatches $p"
         else
             fail "$label has no '$p)' arm; that provider dies with Unknown provider"
         fi
     done
+    rm -f "$BLK_FILE"
 done
 
 # 3. GUARD AGAINST VACUITY: opencode must really be an accepted provider, or

@@ -204,6 +204,35 @@ _loki_build_claude_auto_flags() {
         _LOKI_CLAUDE_AUTO_FLAGS+=("--exclude-dynamic-system-prompt-sections")
     fi
 
+    # --add-dir: grant the agent READ access to sibling repositories.
+    #
+    # THE DEFECT THIS CLOSES: an agent asked to change a shared type in
+    # ../service-b could not read it, did not error, and GUESSED. The user got a
+    # change that does not compile with no signal why. Silent wrong output is
+    # the worst failure mode this product has.
+    #
+    # LOKI_ADD_DIRS is a colon-separated list, matching PATH convention so an
+    # operator does not have to learn a new separator. Each entry is passed as
+    # its own `--add-dir <path>` pair.
+    #
+    # Only EXISTING directories are passed. A typo would otherwise abort the CLI
+    # and take the whole run with it, turning a convenience into an outage.
+    # Skipped entries are announced, because silently dropping a directory the
+    # operator asked for is the same silent-wrong-output defect in a new place.
+    if [ -n "${LOKI_ADD_DIRS:-}" ] && loki_claude_flag_supported "--add-dir"; then
+        local _ad_old_ifs="$IFS"
+        IFS=':'
+        for _ad in ${LOKI_ADD_DIRS}; do
+            [ -n "$_ad" ] || continue
+            if [ -d "$_ad" ]; then
+                _LOKI_CLAUDE_AUTO_FLAGS+=("--add-dir" "$_ad")
+            else
+                printf 'loki: LOKI_ADD_DIRS entry is not a directory, skipping: %s\n' "$_ad" >&2
+            fi
+        done
+        IFS="$_ad_old_ifs"
+    fi
+
     # --mcp-config (Phase D, v7.5.22). Variadic flag (Commander `<configs...>`):
     # Claude expects SEPARATE argv elements per path, not one space-joined
     # value. Per Dev-C parity concern -- spread each path as its own argv

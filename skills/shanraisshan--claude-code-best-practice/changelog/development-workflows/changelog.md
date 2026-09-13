@@ -2978,3 +2978,33 @@
 | 21 | LOW | Workflow | omc — Agent 2 proposes: deep-interview(top) → plan(top) → team(top) → execute(top) → verify(sub) → release(top); drops ralplan/team-plan/team-prd/team-exec/team-verify/team-fix; condensed different variant; different from Sep 09/10/11 variants | ON HOLD (RECURRING — workflow fluctuating; keeping current) |
 | 22 | LOW | Note | Spec Kit v1.0.6 shipped (artifact introspection capability added Sep 11); very high-velocity repo with multiple PRs merged Sep 11–12; no count/workflow changes needed | COMPLETE (informational) |
 | 23 | LOW | Note | shields.io Bash curl blocked (proxy, recurring — 403 CONNECT rejection); WebFetch github.com HTML used for all star verifications (authoritative independent check) | COMPLETE (RECURRING — WebFetch verification method authoritative) |
+
+---
+
+## [2026-09-13 09:16 AM PKT] Development Workflows Update
+
+| # | Priority | Type | Action | Status |
+|---|----------|------|--------|--------|
+| 1 | HIGH | Star | Update Superpowers ★ from 285k to 286k (Agent 1: 285,857; WebFetch: 285.9k — crosses 285,500 midpoint) | COMPLETE (RECURRING — daily incremental growth) |
+| 2 | HIGH | Star | Update Matt Pocock Skills ★ from 260k to 261k (Agent 1: 260,575; WebFetch: 260.6k — crosses 260,500 midpoint) | COMPLETE (RECURRING — daily incremental growth) |
+| 3 | HIGH | Star | Update BMAD-METHOD ★ from 52.9k to 53k (Agent 2: 52,950 — exactly at 52,950 midpoint boundary; WebFetch: 53.0k confirms ≥ 52,950; WebFetch resolves boundary) | COMPLETE (NEW — boundary case resolved by WebFetch confirmation; first update to 53k) |
+| 4 | HIGH | Count | Update oh-my-claudecode skills from 37 to 39 (Agent 2: 39 folders in skills/; Sep 12 was 1st consecutive, Sep 13 is 2nd consecutive → APPLY) | COMPLETE (NEW — 2nd consecutive confirmation; update applied) |
+| 5 | LOW | Star | Spec Kit 136k (Agent 1: 136,087; WebFetch: 136.1k — below 136,500 midpoint; no change) | COMPLETE (RECURRING — no change) |
+| 6 | LOW | Star | ECC 257k (Agent 1: API blocked for this user; WebFetch: 257k — no midpoint crossing) | COMPLETE (RECURRING — no change) |
+| 7 | LOW | Star | gstack 133k (Agent 2: 132,781 via API — below 133,500 midpoint; WebFetch shows 133.8k but flagged possible README badge contamination; trust API value) | COMPLETE (RECURRING — API 132,781 < 133,500 midpoint; keeping 133k) |
+| 8 | LOW | Star | OpenSpec 68k (Agent 2: 68,094; WebFetch: 68.1k — below 68,500 midpoint) | COMPLETE (RECURRING — no change) |
+| 9 | LOW | Star | GSD 64.6k (Agent 2: 64,543; WebFetch: 64.5k — archived; star counts don't fall; keeping 64.6k) | COMPLETE (RECURRING — no change; archived) |
+| 10 | LOW | Star | omc 39.1k (Agent 2: 39,122; WebFetch: 39.1k — no midpoint crossing) | COMPLETE (RECURRING — no change) |
+| 11 | LOW | Star | CE 25k (Agent 2: 25,050; WebFetch: 25.1k — below 25,500 midpoint) | COMPLETE (RECURRING — no change) |
+| 12 | LOW | Star | HumanLayer 11.5k (Agent 2: 11,511; WebFetch: 11.5k — no midpoint crossing) | COMPLETE (RECURRING — no change) |
+| 13 | LOW | Count Verify | Superpowers 0a/0c/14s confirmed (Agent 1: all verified; 14 skill folders listed individually) | COMPLETE (RECURRING — no change) |
+| 14 | LOW | Count Verify | Spec Kit 0a/10c/0s confirmed (Agent 1: 10 commands in templates/commands/; no agents/skills dirs) | COMPLETE (RECURRING — no change) |
+| 15 | LOW | Count Verify | Matt Pocock 0a/0c/37s confirmed (Agent 1: 37 folders across all category dirs; deprecated/ confirmed empty) | COMPLETE (RECURRING — no change) |
+| 16 | LOW | Count Verify | ECC agents 68 (README); commands 94 confirmed (Agent 1: all 94 filenames verified); skills 286→292 (Agent 1: 292 per README 2nd consecutive; directory listing incomplete/paginated; low confidence) | ON HOLD (RECURRING — 2nd consecutive README-only for skills; directory unconfirmable; keeping 68a/94c/286s) |
+| 17 | LOW | Count Verify | gstack skills 58→32 (Agent 2: 32 root-level SKILL.md dirs listed explicitly; continuing downward trend from 53→45+→32; no stable 2-consecutive count to apply) | ON HOLD (RECURRING — unstable declining; keeping 58 baseline) |
+| 18 | LOW | Count Verify | BMAD skills 29→34 (Agent 2: 34; Sep 12 confirmed 29; 1st consecutive of 34; src/bmm-skills/ and src/core-skills/ no longer exist — repo restructured, all skills in skills/) | ON HOLD (NEW — 1st consecutive of 34; keeping 29) |
+| 19 | LOW | Count Verify | GSD commands 85→67 (Agent 2: 67 .md files in commands/gsd/; archived repo; recurring) | ON HOLD (RECURRING — archived repo; keeping 85) |
+| 20 | LOW | Count Verify | omc commands 0→21 (Agent 2: 21 .md files in commands/ directory confirmed; methodology keeps 0 per task brief) | ON HOLD (RECURRING — methodology keeps 0; real commands/ dir exists but convention maintained) |
+| 21 | LOW | Sort | Star order after updates: Superpowers 286k > Matt Pocock 261k > ECC 257k > Spec Kit 136k > gstack 133k > agent-skills 89k (OOS) > OpenSpec 68k > GSD 64.6k > BMAD 53k > omc 39.1k > CE 25k > HumanLayer 11.5k — same relative order | COMPLETE (no re-sort needed) |
+| 22 | LOW | Workflow | All workflow proposals (Superpowers 8-step adds dispatching-parallel-agents/renames finishing step; Spec Kit 8-step adds clarify+analyze; ECC ecc:plan-based variant; Matt Pocock drops improve-codebase-architecture; OpenSpec adds verify+update; HumanLayer drops research_codebase; gstack autoplan-based; GSD drops /gsd- prefix; BMAD bmad-forge-idea variant; CE adds lfg; omc condensed) — all 1st consecutive or RECURRING ON HOLD | ON HOLD (RECURRING — no 2nd consecutive confirmation for any workflow change; all kept as current) |
+| 23 | LOW | Note | shields.io Bash curl blocked (proxy, recurring — empty response); WebFetch github.com HTML used for all 11 star verifications (authoritative independent check) | COMPLETE (RECURRING — WebFetch verification method authoritative) |

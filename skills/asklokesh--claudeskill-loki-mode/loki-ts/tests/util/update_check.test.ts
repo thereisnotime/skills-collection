@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import {
   findShadowedNewerInstall,
   isNewer,
@@ -289,5 +289,80 @@ describe("shadowed install detection", () => {
       });
     });
     expect(lines.join("")).toContain("bun install -g loki-mode");
+  });
+});
+
+// The shadow check must NOT depend on the registry.
+//
+// THE FIELD REPORT, twice: `bun install -g loki-mode` says "installed
+// loki-mode@9.39.0", `loki --version` prints 9.22.3, and the nudge advises
+// installing 9.35.0. Three different numbers, and the advice cannot work
+// because the newer copy is ALREADY on disk -- every reinstall updates the copy
+// that is not winning on PATH.
+//
+// Cause: the shadow check sat INSIDE the "a newer release exists" branch, so it
+// was gated on a registry lookup and on a <=24h cache. Shadowing is a local,
+// on-disk condition; nothing about the registry should gate reporting it.
+describe("shadow check is independent of the registry", () => {
+  const origTTY = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+  beforeEach(() => {
+    Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+  });
+  afterEach(() => {
+    if (origTTY) Object.defineProperty(process.stdout, "isTTY", origTTY);
+  });
+
+  function mkInstalls(root: string, specs: Array<[string, string]>): string {
+    for (const [dir, ver] of specs) {
+      mkdirSync(`${root}/${dir}/loki-mode/bin`, { recursive: true });
+      writeFileSync(`${root}/${dir}/loki-mode/package.json`, JSON.stringify({ version: ver }));
+      writeFileSync(`${root}/${dir}/loki-mode/bin/loki`, "#!/bin/sh\n");
+      mkdirSync(`${root}/${dir}/bin`, { recursive: true });
+      try { symlinkSync(`${root}/${dir}/loki-mode/bin/loki`, `${root}/${dir}/bin/loki`); } catch {}
+    }
+    return specs.map(([d]) => `${root}/${d}/bin`).join(":");
+  }
+
+  it("a shadowed install is reported even when the registry is unreachable", async () => {
+    const root = mkdtempSync(join(tmpdir(), "loki-shadow-reg-"));
+    const PATH = mkInstalls(root, [["stale", "9.22.3"], ["fresh", "9.39.0"]]);
+    let out = "";
+    await maybePrintUpdateHint("9.22.3", {
+      env: { PATH } as NodeJS.ProcessEnv,
+      fetcher: async () => null, // registry down
+      cacheFile: join(root, "cache.json"),
+      write: (m) => { out += m; },
+    });
+    // Before the fix this printed NOTHING: no registry result meant no branch.
+    expect(out).toContain("is installed but not the one running");
+    expect(out).toContain("9.39.0");
+  });
+
+  it("a stale cache does not produce advice that cannot work", async () => {
+    const root = mkdtempSync(join(tmpdir(), "loki-shadow-stale-"));
+    const PATH = mkInstalls(root, [["stale", "9.22.3"], ["fresh", "9.39.0"]]);
+    let out = "";
+    await maybePrintUpdateHint("9.22.3", {
+      env: { PATH } as NodeJS.ProcessEnv,
+      fetcher: async () => "9.35.0", // the exact stale value from the field report
+      cacheFile: join(root, "cache.json"),
+      write: (m) => { out += m; },
+    });
+    expect(out).toContain("is installed but not the one running");
+    // must NOT tell them to reinstall; that is the advice that loops forever
+    expect(out).not.toContain("Update: bun install -g loki-mode");
+  });
+
+  it("with no shadow the ordinary nudge is unchanged", async () => {
+    const root = mkdtempSync(join(tmpdir(), "loki-shadow-none-"));
+    const PATH = mkInstalls(root, [["only", "9.22.3"]]);
+    let out = "";
+    await maybePrintUpdateHint("9.22.3", {
+      env: { PATH } as NodeJS.ProcessEnv,
+      fetcher: async () => "9.41.0",
+      cacheFile: join(root, "cache.json"),
+      write: (m) => { out += m; },
+    });
+    expect(out).toContain("A newer Loki Mode is available: 9.41.0");
   });
 });

@@ -7318,8 +7318,8 @@
     {
       "name": "coderabbit-pack",
       "source": "./plugins/saas-packs/coderabbit-pack",
-      "description": "Complete CodeRabbit integration skill pack with 24 skills covering AI code review, PR automation, and code quality analysis. Flagship tier vendor pack.",
-      "version": "1.11.0",
+      "description": "Evidence-backed CodeRabbit operator workflows for reviews, CLI, configuration, security, governance, APIs, and incident response (24 skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "coderabbit",
@@ -7338,10 +7338,10 @@
         "skills": 24
       },
       "verification": {
-        "score": 85,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 98,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
@@ -7891,15 +7891,15 @@
     {
       "name": "mistral-pack",
       "source": "./plugins/saas-packs/mistral-pack",
-      "description": "Complete Mistral AI integration skill pack with 24 skills covering model inference, embeddings, fine-tuning, and production deployments. Flagship tier vendor pack.",
-      "version": "1.13.0",
+      "description": "Operator-grade Mistral skill pack with 24 current API, security, reliability, governance, and migration workflows",
+      "version": "1.14.0",
       "category": "saas-packs",
       "keywords": [
         "mistral",
         "llm",
         "inference",
         "embeddings",
-        "fine-tuning",
+        "workflows",
         "ai",
         "machine-learning"
       ],
@@ -7912,10 +7912,10 @@
         "skills": 24
       },
       "verification": {
-        "score": 84,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 97,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
@@ -8438,14 +8438,18 @@
     {
       "name": "adobe-pack",
       "source": "./plugins/saas-packs/adobe-pack",
-      "description": "Claude Code skill pack for Adobe (30 skills)",
-      "version": "1.7.0",
+      "description": "Operate Adobe Firefly, Photoshop v2, PDF Services, I/O Events, App Builder, and enterprise access through 30 evidence-backed skills with safe auth, data, spend, deployment, and recovery boundaries.",
+      "version": "1.8.0",
       "category": "saas-packs",
       "keywords": [
         "adobe",
-        "saas",
-        "sdk",
-        "integration"
+        "firefly",
+        "photoshop-api",
+        "pdf-services",
+        "adobe-io-events",
+        "app-builder",
+        "oauth",
+        "enterprise-integration"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -8456,22 +8460,24 @@
         "skills": 30
       },
       "verification": {
-        "score": 82,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 98,
+        "grade": "A",
+        "badge": "verified",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
       "name": "alchemy-pack",
       "source": "./plugins/saas-packs/alchemy-pack",
-      "description": "Claude Code skill pack for Alchemy (18 skills)",
-      "version": "1.5.0",
+      "description": "Evidence-backed Alchemy operator workflows for current Node, Data, Portfolio, NFT, Wallet, Notify, Admin, reliability, security, and migration contracts (18 skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "alchemy",
+        "web3",
         "saas",
-        "sdk",
+        "viem",
+        "wallet-apis",
         "integration"
       ],
       "author": {
@@ -8483,10 +8489,10 @@
         "skills": 18
       },
       "verification": {
-        "score": 84,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 98,
+        "grade": "A",
+        "badge": "verified",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
@@ -8519,8 +8525,8 @@
     {
       "name": "anima-pack",
       "source": "./plugins/saas-packs/anima-pack",
-      "description": "Claude Code skill pack for Anima (18 skills)",
-      "version": "1.4.0",
+      "description": "Anima design-to-code operator pack with 18 Grade-A skills",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "anima",
@@ -8537,10 +8543,10 @@
         "skills": 18
       },
       "verification": {
-        "score": 85,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 95,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
@@ -8738,15 +8744,17 @@
     {
       "name": "brightdata-pack",
       "source": "./plugins/saas-packs/brightdata-pack",
-      "description": "Claude Code skill pack for Bright Data (18 skills)",
-      "version": "1.6.0",
+      "description": "18 Grade-A skills for governed Bright Data proxy, Browser API, and snapshot operations",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
-        "brightdata",
-        "bright data",
+        "bright-data",
+        "web-data",
+        "proxy-network",
+        "browser-api",
+        "snapshots",
         "saas",
-        "sdk",
-        "integration"
+        "sdk"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -8757,17 +8765,17 @@
         "skills": 18
       },
       "verification": {
-        "score": 85,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 93,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
       "name": "canva-pack",
       "source": "./plugins/saas-packs/canva-pack",
-      "description": "Claude Code skill pack for Canva (30 skills)",
-      "version": "1.5.0",
+      "description": "30 governed Canva Connect operator workflows for OAuth, designs, asynchronous jobs, and secure integrations",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "canva",
@@ -8784,24 +8792,24 @@
         "skills": 30
       },
       "verification": {
-        "score": 86,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 94,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
       "name": "castai-pack",
       "source": "./plugins/saas-packs/castai-pack",
-      "description": "Claude Code skill pack for Cast AI (18 skills)",
-      "version": "1.4.0",
+      "description": "18 governed CAST AI operator workflows for Kubernetes cost monitoring and autoscaling",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "castai",
         "cast ai",
         "saas",
-        "sdk",
-        "integration"
+        "autoscaling",
+        "operations"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -8812,10 +8820,10 @@
         "skills": 18
       },
       "verification": {
-        "score": 85,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 92,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
@@ -9066,14 +9074,15 @@
     {
       "name": "flexport-pack",
       "source": "./plugins/saas-packs/flexport-pack",
-      "description": "Claude Code skill pack for Flexport (24 skills)",
-      "version": "1.6.0",
+      "description": "24 governed Flexport v3 and MCP operator workflows for freight, trade data, webhooks, and secure integrations",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "flexport",
-        "saas",
-        "sdk",
-        "integration"
+        "freight",
+        "supply-chain",
+        "mcp",
+        "operations"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9084,10 +9093,10 @@
         "skills": 24
       },
       "verification": {
-        "score": 86,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 93,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
@@ -9475,14 +9484,17 @@
     {
       "name": "navan-pack",
       "source": "./plugins/saas-packs/navan-pack",
-      "description": "Claude Code skill pack for Navan (26 skills)",
-      "version": "1.8.0",
+      "description": "Operator-grade Navan pack with 26 current travel, expense, identity, security, reliability, and migration workflows",
+      "version": "1.9.0",
       "category": "saas-packs",
       "keywords": [
         "navan",
         "saas",
-        "sdk",
-        "integration"
+        "travel",
+        "expense",
+        "identity",
+        "integration",
+        "governance"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9493,23 +9505,27 @@
         "skills": 26
       },
       "verification": {
-        "score": 94,
+        "score": 97,
         "grade": "A",
         "badge": "gold",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
       "name": "notion-pack",
       "source": "./plugins/saas-packs/notion-pack",
-      "description": "Claude Code skill pack for Notion (32 skills)",
-      "version": "1.39.0",
+      "description": "Operator-grade Notion pack with 32 current access, data-source, content, webhook, security, reliability, and migration workflows",
+      "version": "1.40.0",
       "category": "saas-packs",
       "keywords": [
         "notion",
         "saas",
-        "sdk",
-        "integration"
+        "data-source",
+        "content",
+        "webhooks",
+        "security",
+        "integration",
+        "governance"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9520,22 +9536,26 @@
         "skills": 32
       },
       "verification": {
-        "score": 95,
+        "score": 98,
         "grade": "A",
         "badge": "gold",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
       "name": "onenote-pack",
       "source": "./plugins/saas-packs/onenote-pack",
-      "description": "Claude Code skill pack for OneNote (18 skills)",
-      "version": "1.6.0",
+      "description": "Operator-grade OneNote pack for delegated access, hierarchy inventory, controlled HTML content, polling reconciliation, security, reliability, and migration",
+      "version": "1.7.0",
       "category": "saas-packs",
       "keywords": [
         "onenote",
-        "saas",
-        "sdk",
+        "microsoft-graph",
+        "delegated-auth",
+        "notebooks",
+        "html-content",
+        "reconciliation",
+        "security",
         "integration"
       ],
       "author": {
@@ -9547,10 +9567,10 @@
         "skills": 18
       },
       "verification": {
-        "score": 91,
+        "score": 98,
         "grade": "A",
         "badge": "gold",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
@@ -9584,14 +9604,16 @@
     {
       "name": "palantir-pack",
       "source": "./plugins/saas-packs/palantir-pack",
-      "description": "Claude Code skill pack for Palantir (24 skills)",
-      "version": "1.5.0",
+      "description": "Evidence-backed Palantir Foundry operator workflows for data pipelines, Ontology applications, DevOps, governance, security, and operations (24 skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "palantir",
-        "saas",
-        "sdk",
-        "integration"
+        "foundry",
+        "ontology",
+        "devops",
+        "data-governance",
+        "security"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9602,10 +9624,10 @@
         "skills": 24
       },
       "verification": {
-        "score": 85,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 98,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
@@ -9670,14 +9692,15 @@
     {
       "name": "procore-pack",
       "source": "./plugins/saas-packs/procore-pack",
-      "description": "Claude Code skill pack for Procore (24 skills)",
-      "version": "1.5.0",
+      "description": "24 governed Procore operator workflows for OAuth, REST, webhooks, files, permissions, health, and synchronization",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "procore",
-        "saas",
-        "sdk",
-        "integration"
+        "construction",
+        "dmsa",
+        "webhooks",
+        "operations"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9688,23 +9711,24 @@
         "skills": 24
       },
       "verification": {
-        "score": 86,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 94,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
       "name": "quicknode-pack",
       "source": "./plugins/saas-packs/quicknode-pack",
-      "description": "Claude Code skill pack for QuickNode (18 skills)",
-      "version": "1.5.0",
+      "description": "18 governed QuickNode operator workflows for blockchain RPC and data infrastructure",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "quicknode",
-        "saas",
-        "sdk",
-        "integration"
+        "blockchain",
+        "rpc",
+        "operations",
+        "streams"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9715,23 +9739,25 @@
         "skills": 18
       },
       "verification": {
-        "score": 85,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 92,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
       "name": "ramp-pack",
       "source": "./plugins/saas-packs/ramp-pack",
-      "description": "Claude Code skill pack for Ramp (24 skills)",
-      "version": "1.4.0",
+      "description": "Evidence-backed Ramp operator workflows for OAuth, cards, accounting, webhooks, security, reliability, and migration (24 skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "ramp",
-        "saas",
-        "sdk",
-        "integration"
+        "fintech",
+        "accounting",
+        "webhooks",
+        "security",
+        "reliability"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9742,23 +9768,25 @@
         "skills": 24
       },
       "verification": {
-        "score": 85,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 98,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {
       "name": "remofirst-pack",
       "source": "./plugins/saas-packs/remofirst-pack",
-      "description": "Claude Code skill pack for RemoFirst (12 skills)",
-      "version": "1.4.0",
+      "description": "Evidence-backed RemoFirst operator workflows for EOR, contractors, payroll, security, and supported HRIS connectors (12 skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "remofirst",
         "saas",
-        "sdk",
-        "integration"
+        "eor",
+        "payroll",
+        "workday",
+        "adp"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9769,10 +9797,10 @@
         "skills": 12
       },
       "verification": {
-        "score": 84,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 97,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-12T00:00:00.000Z"
       }
     },
     {

@@ -14,17 +14,17 @@
     "source": "scripts/validate-skills-schema.py --marketplace --skills-only --json",
     "status": "measured",
     "values": {
-      "a_error_total": 31,
-      "a_failing": 14,
-      "ab_error_total": 303,
-      "ab_failing": 153,
-      "b_failing": 139,
-      "error_files": 410,
-      "error_total": 2931,
+      "a_error_total": 25,
+      "a_failing": 8,
+      "ab_error_total": 208,
+      "ab_failing": 58,
+      "b_failing": 50,
+      "error_files": 315,
+      "error_total": 2836,
       "grade_distribution": {
-        "A": 2497,
-        "B": 688,
-        "C": 148,
+        "A": 2785,
+        "B": 415,
+        "C": 133,
         "D": 154,
         "F": 4
       },
@@ -42,7 +42,7 @@
       "values": {
         "plugin_agent_files": 352,
         "raw_tracked_plugin_skill_files": 2991,
-        "tracked_files": 25155
+        "tracked_files": 25712
       }
     },
     "2": {
@@ -90,8 +90,8 @@
           "validator_reported_mixed_denominator_percent": 80.9
         },
         "marketplace_terminal": {
-          "error_total_all_validated_surfaces": 3168,
-          "fully_compliant_surfaces": 1586,
+          "error_total_all_validated_surfaces": 3073,
+          "fully_compliant_surfaces": 1968,
           "terminal_denominator": {
             "agents": 363,
             "commands": 370,
@@ -101,20 +101,20 @@
             "skills": 3491
           },
           "validated_plugin_manifests": 595,
-          "validator_reported_mixed_denominator_percent": 33
+          "validator_reported_mixed_denominator_percent": 40.9
         },
         "skill_rows": {
-          "a_error_total": 31,
-          "a_failing": 14,
-          "ab_error_total": 303,
-          "ab_failing": 153,
-          "b_failing": 139,
-          "error_files": 410,
-          "error_total": 2931,
+          "a_error_total": 25,
+          "a_failing": 8,
+          "ab_error_total": 208,
+          "ab_failing": 58,
+          "b_failing": 50,
+          "error_files": 315,
+          "error_total": 2836,
           "grade_distribution": {
-            "A": 2497,
-            "B": 688,
-            "C": 148,
+            "A": 2785,
+            "B": 415,
+            "C": 133,
             "D": 154,
             "F": 4
           },
@@ -129,18 +129,18 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "average_score": 90.5,
+        "average_score": 91.5,
         "grade_distribution": {
-          "A": 2497,
-          "B": 688,
-          "C": 148,
+          "A": 2785,
+          "B": 415,
+          "C": 133,
           "D": 154,
           "F": 4
         },
         "grade_percentages": {
-          "A": 71.5,
-          "B": 19.7,
-          "C": 4.2,
+          "A": 79.8,
+          "B": 11.9,
+          "C": 3.8,
           "D": 4.4,
           "F": 0.1
         },
@@ -154,12 +154,12 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "a_error_total": 31,
-        "a_failing": 14,
-        "ab_error_total": 303,
-        "ab_failing": 153,
-        "b_error_total": 272,
-        "b_failing": 139,
+        "a_error_total": 25,
+        "a_failing": 8,
+        "ab_error_total": 208,
+        "ab_failing": 58,
+        "b_error_total": 183,
+        "b_failing": 50,
         "certified_target": 0,
         "skill_summary_rows": 3491
       }
@@ -286,7 +286,7 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 244,
+        "distinct_values": 379,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
@@ -316,6 +316,14 @@
           },
           {
             "count": 1,
+            "value": "Architecture choices require a backend web application because Canva Connect secrets cannot be secured in browser-only clients."
+          },
+          {
+            "count": 1,
+            "value": "Canva webhooks and keys are preview; Canva states public integrations using preview features cannot pass review."
+          },
+          {
+            "count": 1,
             "value": "Claude Code native workflows; Codex/OpenCode/Grok portable adapter"
           },
           {
@@ -337,6 +345,10 @@
           {
             "count": 1,
             "value": "Claude Code, Codex, OpenCode, Antigravity (needs gh CLI + git remote); Desktop/web via pasted issue text (lossy)"
+          },
+          {
+            "count": 1,
+            "value": "Collection requires an incident ID, approved evidence destination, retention period, and reviewer."
           },
           {
             "count": 1,
@@ -364,10 +376,22 @@
           },
           {
             "count": 1,
+            "value": "Control-plane reads require authenticated qn access; product and endpoint changes remain approval-gated"
+          },
+          {
+            "count": 1,
+            "value": "Covers documented CAST AI connection and umbrella-chart modes; exact components and permissions depend on selected features and provider"
+          },
+          {
+            "count": 1,
+            "value": "Credit formulas, product inclusion, and prices are plan-specific and must be read from current account data"
+          },
+          {
+            "count": 1,
             "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
-            "count": 2709,
+            "count": 2327,
             "value": "Designed for Claude Code"
           },
           {
@@ -460,6 +484,10 @@
           },
           {
             "count": 1,
+            "value": "Designed for Claude Code; account and group changes require an authorized RemoFirst administrator"
+          },
+          {
+            "count": 1,
             "value": "Designed for Claude Code; account/archive reads and reproduction searches require authorization and privacy review"
           },
           {
@@ -545,6 +573,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; competency models, employee assessments, coaching actions, and CRM correlation require HR, legal, and business-owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; connector setup requires approved accounts in the participating systems"
           },
           {
             "count": 1,
@@ -723,6 +755,14 @@
             "value": "Designed for Claude Code; legal retention and data-subject decisions require authorized owners"
           },
           {
+            "count": 30,
+            "value": "Designed for Claude Code; live Adobe actions require network access, appropriate entitlement and authentication, and explicit approval"
+          },
+          {
+            "count": 18,
+            "value": "Designed for Claude Code; live Alchemy access requires network access, an appropriate credential, account capacity, and explicit approval"
+          },
+          {
             "count": 18,
             "value": "Designed for Claude Code; live AssemblyAI work requires network access"
           },
@@ -741,6 +781,18 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; live Ideogram work requires network access and prepaid API credit"
+          },
+          {
+            "count": 32,
+            "value": "Designed for Claude Code; live Notion actions require network access and explicit approval"
+          },
+          {
+            "count": 18,
+            "value": "Designed for Claude Code; live OneNote actions require network access, delegated authentication, and explicit approval"
+          },
+          {
+            "count": 9,
+            "value": "Designed for Claude Code; live RemoFirst access requires an approved client account and explicit operator action"
           },
           {
             "count": 1,
@@ -813,6 +865,14 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; live migration verification requires authorized Together AI access"
+          },
+          {
+            "count": 24,
+            "value": "Designed for Claude Code; live or external Mistral actions require network access and explicit approval"
+          },
+          {
+            "count": 26,
+            "value": "Designed for Claude Code; live or external Navan actions require network access and explicit approval"
           },
           {
             "count": 1,
@@ -977,6 +1037,10 @@
           {
             "count": 1,
             "value": "Designed for Claude Code; production concurrency, replay, and load-test changes require service and resource-owner approval"
+          },
+          {
+            "count": 1,
+            "value": "Designed for Claude Code; production cutover requires authorized administrators and business owners"
           },
           {
             "count": 1,
@@ -1183,6 +1247,46 @@
             "value": "Designed for Claude Code; worker, award, compensation, payroll, and integration changes require HCM, payroll, security, and program-owner approval"
           },
           {
+            "count": 1,
+            "value": "Detailed endpoint logs are Enterprise-only; collect equivalent application evidence when unavailable"
+          },
+          {
+            "count": 1,
+            "value": "Diagnosis may use redacted production evidence; any live reproduction requires an approved test user and operation."
+          },
+          {
+            "count": 1,
+            "value": "EVM method availability, fee fields, and finality rules vary by chain and network"
+          },
+          {
+            "count": 1,
+            "value": "Error meanings can be chain-specific; use the selected chain reference plus QuickNode infrastructure codes"
+          },
+          {
+            "count": 1,
+            "value": "JWT, referrer allowlists, domain masking, and advanced rate controls can be plan-specific"
+          },
+          {
+            "count": 1,
+            "value": "Live checks require a protected CI environment and a read-only QuickNode credential"
+          },
+          {
+            "count": 1,
+            "value": "Live local OAuth requires a dedicated development integration, controlled redirect URI, test user, and encrypted or ephemeral backend token store."
+          },
+          {
+            "count": 1,
+            "value": "Live probes require an approved test user, least-privilege token, and incident-scoped authorization."
+          },
+          {
+            "count": 1,
+            "value": "Method and advanced endpoint limits depend on plan and chain; qn access requires an authenticated account"
+          },
+          {
+            "count": 1,
+            "value": "Metrics availability depends on plan; method behavior and safe batching vary by chain"
+          },
+          {
             "count": 7,
             "value": "Model-agnostic workflow; requires Python 3.10+; optional Snowflake CLI for live read-only evidence collection"
           },
@@ -1220,6 +1324,30 @@
           },
           {
             "count": 1,
+            "value": "Product availability, destination counts, and endpoint capabilities depend on chain and plan"
+          },
+          {
+            "count": 1,
+            "value": "Provider load testing requires explicit authorization, dedicated non-production users, synthetic data, and an abort owner."
+          },
+          {
+            "count": 1,
+            "value": "Readiness evidence varies by chain, product, plan, and application write authority"
+          },
+          {
+            "count": 1,
+            "value": "Requires CAST AI Cost Monitoring data and access to the organization pricing and workload context needed to interpret it"
+          },
+          {
+            "count": 1,
+            "value": "Requires CAST AI console access to create scoped keys; regional endpoints are US, EU, or India as documented"
+          },
+          {
+            "count": 1,
+            "value": "Requires CAST AI organization notification access and an HTTPS receiver governed by the target incident-management system"
+          },
+          {
+            "count": 1,
             "value": "Requires Claude Code >= v2.1.80 with a claude.ai login (Channels research preview rejects API-key-only auth), Bun >= 1.0 (Node.js fallback supported), and a Slack workspace where you can create apps. Doctor mode additionally shells out to curl and jq."
           },
           {
@@ -1235,12 +1363,384 @@
             "value": "Requires Claude Code with the slack-channel plugin installed and paired (state under ~/.claude/channels/slack/), plus Bun to run the in-repo policy validator script."
           },
           {
+            "count": 1,
+            "value": "Requires Flexport administrator involvement, an enterprise identity inventory, and owners for each integration workload."
+          },
+          {
             "count": 2,
             "value": "Requires Hermes Agent plugin support and Xquik API access."
           },
           {
+            "count": 18,
+            "value": "Requires Node.js 20+, approved Anima API access, current Anima SDK documentation, and authorized Figma or website source access"
+          },
+          {
+            "count": 1,
+            "value": "Requires Procore Developer Portal app ownership, an installable app version, and authorized sandbox and production administrators."
+          },
+          {
+            "count": 1,
+            "value": "Requires Procore company administrator access, the application manifest, and an approved endpoint inventory."
+          },
+          {
+            "count": 1,
+            "value": "Requires a CI runner, sanitized fixtures, and optional isolated Procore Developer Sandbox credentials for protected provider tests."
+          },
+          {
+            "count": 1,
+            "value": "Requires a CI system with fork-secret isolation, sanitized fixtures, and optional protected environment credentials."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Canva Developer Portal integration, controlled redirect URI, backend secret store, and consent design."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Flexport administrator, an approved secret store, and network access to api.flexport.com."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Procore Developer account, an approved secret store, and network access to the selected Procore environment."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Procore app and the administrator access applicable to the selected sandbox or production company."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Procore project with Submittals enabled and an OAuth principal authorized for the chosen endpoint and workflow action."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Procore project with the RFI tool enabled and an OAuth principal holding the endpoint-specific permissions."
+          },
+          {
+            "count": 1,
+            "value": "Requires a QuickNode HTTP endpoint and a documented read method for the selected chain"
+          },
+          {
+            "count": 1,
+            "value": "Requires a QuickNode account; Admin API and advanced endpoint-security features depend on the account plan"
+          },
+          {
+            "count": 1,
+            "value": "Requires a backend web application, approved secret store, threat owner, and current Canva security documentation."
+          },
+          {
+            "count": 1,
+            "value": "Requires a backend web application, durable token/job storage, approved data policy, and service ownership."
+          },
+          {
+            "count": 1,
+            "value": "Requires a backend-held access token for a dedicated authorized test user."
+          },
+          {
+            "count": 1,
+            "value": "Requires a connected cluster, representative baseline, and approved ownership of node and workload scaling controls"
+          },
+          {
+            "count": 1,
+            "value": "Requires a data owner, approved purpose, destination controls, and organization-specific legal/security policy."
+          },
+          {
+            "count": 1,
+            "value": "Requires a documented application role model plus current Canva scope and capability evidence."
+          },
+          {
+            "count": 1,
+            "value": "Requires a durable operation ledger, current error contract, scoped queues, and explicit failure budgets."
+          },
+          {
+            "count": 1,
+            "value": "Requires a legacy contract inventory, current Flexport account version context, and an authorized cutover owner."
+          },
+          {
+            "count": 1,
+            "value": "Requires a local test runner and sanitized fixtures; live credentials are optional and must use an approved account."
+          },
+          {
+            "count": 1,
+            "value": "Requires a managed HTTPS destination, an approved Bright Data snapshot, and durable streaming storage"
+          },
+          {
+            "count": 1,
+            "value": "Requires a pinned Canva OpenAPI snapshot and a backend credential/policy service; generated code is application-owned."
+          },
+          {
+            "count": 1,
+            "value": "Requires a protected benchmark workload, current endpoint contract, and approved latency, freshness, data, and rollback budgets."
+          },
+          {
+            "count": 1,
+            "value": "Requires a public HTTPS receiver, Flexport account Settings access, raw-body access, and a secret store."
+          },
+          {
+            "count": 1,
+            "value": "Requires a public HTTPS receiver, durable queue, reconciliation store, and Webhooks API permissions for the intended Procore scope."
+          },
+          {
+            "count": 1,
+            "value": "Requires a redacted response receipt with surface, operation, HTTP or JSON-RPC status, and correlation metadata."
+          },
+          {
+            "count": 1,
+            "value": "Requires a release candidate, Procore app version, sandbox evidence, operational owners, and production approval authority."
+          },
+          {
+            "count": 1,
+            "value": "Requires a repository with CAST AI infrastructure definitions; any live probe requires a protected environment and a dedicated read-only identity"
+          },
+          {
+            "count": 1,
+            "value": "Requires a supported Kubernetes cluster, castctl, reviewed cloud permissions, and an approved CAST AI organization"
+          },
+          {
+            "count": 1,
+            "value": "Requires a valid Procore OAuth Bearer token and read access to at least one permitted company or project."
+          },
+          {
+            "count": 1,
+            "value": "Requires access to Procore Developer Portal health data plus application metrics, logs, queue state, and deployment identifiers."
+          },
+          {
+            "count": 1,
+            "value": "Requires access to Procore response headers and a queue or scheduler capable of pausing and bounding concurrency."
+          },
+          {
+            "count": 1,
+            "value": "Requires access to application telemetry, Procore status and health evidence, deployment controls, and approved incident communications."
+          },
+          {
+            "count": 1,
+            "value": "Requires access to current Flexport version documentation, account version context, contract tests, and a rollback owner."
+          },
+          {
+            "count": 1,
+            "value": "Requires access to sanitized integration logs and an approved encrypted destination for the final diagnostic manifest."
+          },
+          {
+            "count": 1,
+            "value": "Requires access to the target cluster, declared infrastructure source, application SLOs, and change-management evidence"
+          },
+          {
+            "count": 1,
+            "value": "Requires accountable engineering, security, data, and business owners plus a tested rollback."
+          },
+          {
+            "count": 1,
+            "value": "Requires an HTTP client with access to documented Procore REST endpoints and a caller-supplied OAuth token provider."
+          },
+          {
+            "count": 12,
+            "value": "Requires an approved Bright Data account or offline fixtures, current Bright Data documentation, and an authorized public-data collection purpose"
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved Bright Data workload, managed secrets, queueing, and a deployment platform"
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved delivery platform, secret injection, health checks, and rollback capability."
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved organizational privacy/security policy and resource-owner authorization; this skill is not legal advice."
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved policy owner, repository scope, exception process, and current Canva contracts."
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved public-data use case, named system owners, and current Bright Data product documentation"
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved secret store, TLS egress/ingress, access review, and incident response."
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved telemetry platform, redaction policy, and business service objectives."
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved telemetry schema, retention policy, and SLO derived from the application rather than guessed provider guarantees."
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved workload, phase-level telemetry, representative fixtures, and a bounded canary environment"
+          },
+          {
+            "count": 1,
+            "value": "Requires an authenticated Flexport MCP connection, account permission for selected tools, and an authorized freight approver."
+          },
+          {
+            "count": 1,
+            "value": "Requires an authorized test or production user, explicit design scopes, and approved content/retention policy."
+          },
+          {
+            "count": 1,
+            "value": "Requires an exact release artifact, controlled production integration, current feature-status evidence, and rollback authority."
+          },
+          {
+            "count": 1,
+            "value": "Requires an existing infrastructure delivery system and cloud-specific CAST AI permissions reviewed for each target cluster"
+          },
+          {
+            "count": 1,
+            "value": "Requires an incident commander, read access to redacted telemetry, and an approved reconciliation credential."
+          },
+          {
+            "count": 1,
+            "value": "Requires an incident workspace, approved redaction policy, and a named recipient for the diagnostic manifest."
+          },
+          {
+            "count": 1,
+            "value": "Requires application architecture, data classification, permission inventory, and access to the Procore app configuration."
+          },
+          {
+            "count": 1,
+            "value": "Requires approved Flexport capabilities, account context, and organizational security/data constraints."
+          },
+          {
+            "count": 1,
+            "value": "Requires approved Flexport credentials and access to a tenant with a non-sensitive testable shipment or empty-list response."
+          },
+          {
+            "count": 1,
+            "value": "Requires approved source and target access, a documented resource dependency graph, durable checkpoint storage, and a tested rollback plan."
+          },
+          {
+            "count": 1,
+            "value": "Requires approved source files, Procore resource permissions, encrypted temporary storage, and checksum-capable transfer tooling."
+          },
+          {
+            "count": 1,
+            "value": "Requires approved system boundaries, Procore app ownership, data classification, and durable queue and state storage."
+          },
+          {
+            "count": 1,
+            "value": "Requires control of the HTTPS callback domain, approved environment credentials, and a tested rollback artifact."
+          },
+          {
+            "count": 1,
+            "value": "Requires controlled domains and an approved secret backend for every named environment."
+          },
+          {
+            "count": 24,
+            "value": "Requires current CodeRabbit documentation and approved access for any live organization, repository, billing, or API change"
+          },
+          {
+            "count": 1,
+            "value": "Requires current Flexport v3 and MCP schemas plus a typed application language or runtime validation library."
+          },
+          {
+            "count": 24,
+            "value": "Requires current Palantir Foundry documentation and approved access for any live resource, permission, data, build, application, or deployment change"
+          },
+          {
+            "count": 1,
+            "value": "Requires current Procore API reference and changelog access plus route-level production traffic evidence."
+          },
+          {
+            "count": 24,
+            "value": "Requires current Ramp Developer API documentation and approved access for any live financial, card, identity, accounting, application, or configuration change"
+          },
+          {
+            "count": 1,
+            "value": "Requires current account usage data, approved workload ownership, and finance-defined budget thresholds"
+          },
+          {
+            "count": 1,
+            "value": "Requires current and target contract artifacts, compatibility tests, feature flags, and rollback authority."
+          },
+          {
+            "count": 1,
+            "value": "Requires current endpoint rate metadata, observed response evidence, and an application operation ledger."
+          },
+          {
+            "count": 1,
+            "value": "Requires current tenant entitlement evidence and an approved measurement window; public pricing must not be inferred."
+          },
+          {
+            "count": 1,
+            "value": "Requires declared CAST AI feature mode and read access to rendered Kubernetes and cloud permission definitions"
+          },
+          {
+            "count": 1,
+            "value": "Requires endpoint-scoped Flexport credentials, approved trade data, and any account enablement required for commercial invoices."
+          },
+          {
+            "count": 1,
+            "value": "Requires environment owners, separate secret stores, and Flexport/account-executive coordination for any test credential."
+          },
+          {
+            "count": 1,
+            "value": "Requires incident authority, approved read-only diagnostics, service ownership, and rollback access."
+          },
+          {
             "count": 1,
             "value": "Requires internet access to call the first-party Xquik REST API."
+          },
+          {
+            "count": 1,
+            "value": "Requires local test tooling and, for provider tests, a Procore Developer Sandbox with sandbox OAuth credentials."
+          },
+          {
+            "count": 1,
+            "value": "Requires locally pinned infrastructure tools; optional sandbox checks require an explicitly selected non-production kube context"
+          },
+          {
+            "count": 1,
+            "value": "Requires offline Bright Data fixtures; an optional live lane requires protected CI secrets and an explicitly approved target"
+          },
+          {
+            "count": 1,
+            "value": "Requires operation-specific scopes, resource rights, current feature availability, and an approved asset/data classification."
+          },
+          {
+            "count": 1,
+            "value": "Requires per-operation metrics, bounded queues, and current endpoint documentation or observed provider responses."
+          },
+          {
+            "count": 1,
+            "value": "Requires read access to the target kube context; console or API evidence may require an appropriately scoped CAST AI identity"
+          },
+          {
+            "count": 1,
+            "value": "Requires read-only access to the selected cluster; collection must follow local data-handling and support-sharing policy"
+          },
+          {
+            "count": 1,
+            "value": "Requires representative sanitized workloads, per-operation metrics, and rollback controls."
+          },
+          {
+            "count": 1,
+            "value": "Requires request metrics, business freshness objectives, and current endpoint pagination/expansion documentation."
+          },
+          {
+            "count": 1,
+            "value": "Requires route-level timing, call-count, pagination, rate-header, and backlog measurements for the target Procore workload."
+          },
+          {
+            "count": 1,
+            "value": "Requires sanitized request metadata, provider response details, and access to the relevant Procore app and endpoint documentation."
+          },
+          {
+            "count": 1,
+            "value": "Requires source/target contracts, content rights, user-consent analysis, rollback authority, and a bounded migration cohort."
+          },
+          {
+            "count": 1,
+            "value": "Requires the Procore API Call Activity Report or equivalent route-level request counts plus infrastructure cost telemetry."
+          },
+          {
+            "count": 1,
+            "value": "Requires the current CAST AI API specification and observability for the client; limits vary by endpoint and upstream edge controls"
+          },
+          {
+            "count": 1,
+            "value": "Requires the current CAST AI API specification; declarative infrastructure should use the supported Terraform provider where appropriate"
           },
           {
             "count": 4,
@@ -1252,11 +1752,51 @@
           },
           {
             "count": 1,
+            "value": "Requires workload telemetry, SLOs, and read access to effective CAST AI and Kubernetes scaling configuration"
+          },
+          {
+            "count": 1,
+            "value": "Review uses repository and redacted runtime evidence; live mutation is outside this skill."
+          },
+          {
+            "count": 1,
             "value": "Runs on any MCP-aware host, including hosts with no local filesystem — this is the plugin's only pure-MCP skill, needing no local file, binary, or shell. Uses the Kobiton MCP tools createTestRun, getTestCase/getTestSuite, listDevices, and getOrgSettings; requires an authenticated Kobiton MCP connection. Delegates monitoring to the monitor-test-run skill (same plugin), which does need a local poller — so on a filesystem-less host, create the run and report its id rather than offering to watch it."
           },
           {
             "count": 1,
+            "value": "SDK base URL overrides are for local, staging, and approved sandbox boundaries"
+          },
+          {
+            "count": 1,
+            "value": "SDK native targets and chain API deprecations must be checked against current QuickNode documentation"
+          },
+          {
+            "count": 1,
+            "value": "Supported APIs, archive availability, pruning, and add-ons vary by chain and network"
+          },
+          {
+            "count": 1,
+            "value": "Supports CAST AI documented connection paths; cloud permissions and available features vary by provider and subscription"
+          },
+          {
+            "count": 1,
+            "value": "The live lane requires a protected environment and dedicated low-privilege test user; forked code must never receive secrets."
+          },
+          {
+            "count": 1,
+            "value": "Umbrella-chart upgrades using reset-then-reuse-values require Helm 3.14 or newer; standalone migration requires current castctl support"
+          },
+          {
+            "count": 1,
+            "value": "Unified SDK supports documented native targets; Node.js package supports TypeScript, CommonJS, ES modules, and Bun"
+          },
+          {
+            "count": 1,
             "value": "Verified against @aomi-labs/client v0.1.42 and the current aomi-widget/packages/client TypeScript CLI. Install globally via npm install -g @aomi-labs/client@latest, or run on demand via npx @aomi-labs/client@latest. The CLI defaults to https://api.aomi.dev; pass --backend-url https://api-staging.aomi.dev when explicitly targeting staging. viem and Solana signing dependencies are bundled by the package. Designed for claude-code; also works with Cursor, Codex CLI, Gemini, and any agent runtime that supports the Anthropic skill spec."
+          },
+          {
+            "count": 1,
+            "value": "Webhooks and Streams have distinct APIs and delivery controls; destination options depend on plan"
           },
           {
             "count": 1,
@@ -1948,7 +2488,7 @@
         "answers": [
           {
             "cohort": "curated-mirror",
-            "value": 2612
+            "value": 2627
           },
           {
             "cohort": "curriculum",
@@ -2688,7 +3228,7 @@
         "invalid_patterns": 0,
         "invisible_files": 5,
         "target_invisible_files": 0,
-        "tracked_files": 25155
+        "tracked_files": 25712
       }
     },
     "47": {
@@ -2773,15 +3313,15 @@
       "dimension": "Inventory header versus rows",
       "reproduce": "pnpm run measure:e1 --row=52 --stdout",
       "source": [
-        "freshie/reports/run-delta-109.json",
+        "freshie/reports/run-delta-127.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
       "status": "target_met",
       "values": {
-        "dolt_commit": "f7ba1glnnpcrllvk1u8cpdodv15am6pi",
+        "dolt_commit": "ccifml2jpnk66o7qda1qn4jkgkkkrspk",
         "header_total_skills": 2914,
-        "run_id": 109,
+        "run_id": 127,
         "skill_row_delta": 0,
         "skill_rows": 2914,
         "target_skill_row_delta": 0
@@ -2794,32 +3334,32 @@
       "source": [
         "freshie/grade-histogram.json",
         "freshie/grades.csv",
-        "freshie/reports/run-delta-109.json"
+        "freshie/reports/run-delta-127.json"
       ],
       "status": "target_met",
       "values": {
         "compliance_rows": 3491,
-        "export_dolt_commit": "f7ba1glnnpcrllvk1u8cpdodv15am6pi",
-        "export_run_id": 109,
+        "export_dolt_commit": "ccifml2jpnk66o7qda1qn4jkgkkkrspk",
+        "export_run_id": 127,
         "grades_csv_rows": 3491,
-        "grades_csv_sha256": "f25fd4b1e4b01ca0a1d0af4a53703dd3122acdc9881981757e65a89091b3fb79",
+        "grades_csv_sha256": "dfc2caf3c9817fc0026a048cc354bab7f57f0d9e19989c3922d59e993d201cef",
         "histogram_grades": {
-          "A": 2497,
-          "B": 688,
-          "C": 148,
+          "A": 2785,
+          "B": 415,
+          "C": 133,
           "D": 154,
           "F": 4
         },
         "histogram_total": 3491,
         "immutable_grade_counts": {
-          "A": 2497,
-          "B": 688,
-          "C": 148,
+          "A": 2785,
+          "B": 415,
+          "C": 133,
           "D": 154,
           "F": 4
         },
-        "inventory_dolt_commit": "f7ba1glnnpcrllvk1u8cpdodv15am6pi",
-        "inventory_run_id": 109,
+        "inventory_dolt_commit": "ccifml2jpnk66o7qda1qn4jkgkkkrspk",
+        "inventory_run_id": 127,
         "target_lag_runs": 0
       }
     },
@@ -2829,7 +3369,7 @@
       "reproduce": "pnpm run measure:e1 --row=54 --stdout",
       "source": [
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-109.json",
+        "freshie/reports/run-delta-127.json",
         "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py",
@@ -2843,7 +3383,7 @@
           "E2": 0,
           "E3": 0
         },
-        "current_run_id": 109,
+        "current_run_id": 127,
         "invalid_identities": 0,
         "legacy_e0_records": 3,
         "retained_e2_e3": 0,
@@ -2867,7 +3407,7 @@
       "source": [
         "000-docs/807-DR-STND-evaluation-evidence.md",
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-109.json",
+        "freshie/reports/run-delta-127.json",
         "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"

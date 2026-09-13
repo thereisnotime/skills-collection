@@ -1004,3 +1004,14 @@ No drift detected — frontmatter fields (20) and bundled skills (18) are fully 
 |---|----------|------|--------|--------|
 | 1 | HIGH | Removed Skill | Remove `review` (row 15) — confirmed alias of `/code-review` since v2.1.223; official docs now explicitly state "the bundled alias `/review` never runs your skill" and list a single bundled row: `/code-review — Code review skill (has /review alias)`; row 15 description still describes pre-v2.1.223 standalone fast-single-pass PR review behavior. Count should update 18→17 after removal | ✋ ON HOLD (recurring from 2026-07-30; autonomous run cannot remove without human review) |
 | 2 | MED | Potential Removed Skill | `security-review` (row 16) — official docs explicitly state "A few built-in commands are also available through the Skill tool, including `/init` and `/security-review`", classifying it as a built-in command reachable via Skill tool, not a bundled skill; commands reference carries no [Skill] marker; no changelog corroboration of removal in last 10 versions (v2.1.260–v2.1.269) | ✋ ON HOLD (recurring from 2026-07-30; awaiting human review before removing or reclassifying) |
+
+---
+
+## [2026-09-13 10:04 AM PKT] Claude Code v2.1.270
+
+No drift detected — frontmatter fields (20) and bundled skills (18) are fully synchronized with official docs. No new frontmatter fields or bundled skills in v2.1.259–v2.1.270; `skill-doctor` (v2.1.261) is already in row 18.
+
+| # | Priority | Type | Action | Status |
+|---|----------|------|--------|--------|
+| 1 | HIGH | Removed Skill | Remove `review` (row 15) — confirmed alias of `/code-review` since v2.1.223; commands reference carries no separate [Skill] marker for `/review`; docs state "the bundled alias `/review` never runs your skill"; row 15 description still describes pre-v2.1.223 standalone fast-single-pass PR review behavior. Count should update 18→17 after removal | ✋ ON HOLD (recurring from 2026-07-30; autonomous run cannot remove without human review) |
+| 2 | MED | Potential Removed Skill | `security-review` (row 16) — official docs explicitly state "A few built-in commands are also available through the Skill tool, including `/init` and `/security-review`", classifying it as a built-in command reachable via Skill tool, not a distinct bundled skill; commands reference carries no [Skill] marker; no changelog corroboration of removal in last 10 versions (v2.1.261–v2.1.270) | ✋ ON HOLD (recurring from 2026-07-30; awaiting human review before removing or reclassifying) |

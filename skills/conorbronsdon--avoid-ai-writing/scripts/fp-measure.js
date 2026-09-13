@@ -254,7 +254,22 @@ function report(s, units) {
 
 function main() {
   const args = process.argv.slice(2);
-  const unit = args.includes('--unit') ? args[args.indexOf('--unit') + 1] : 'paragraph';
+  const UNITS = ['paragraph', 'document'];
+  const bad = () => {
+    console.error('Error: Invalid --unit option. Pass it once as --unit VALUE, with VALUE either "paragraph" or "document".');
+    process.exit(2);
+  };
+  const flags = args.filter((a) => a === '--unit' || a.startsWith('--unit='));
+  if (flags.length > 1) bad();
+
+  let unit = 'paragraph';
+  if (flags.length === 1) {
+    const i = args.indexOf(flags[0]);
+    const val = flags[0] === '--unit' ? args[i + 1] : null;
+    if (!UNITS.includes(val)) bad();
+    unit = val;
+  }
+
   const measured = measure({ unit });
   const s = summarize(measured);
 

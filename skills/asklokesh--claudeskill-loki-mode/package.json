@@ -1,7 +1,7 @@
 {
   "name": "loki-mode",
   "mcpName": "io.github.asklokesh/loki-mode",
-  "version": "9.39.0",
+  "version": "9.49.3",
   "description": "Loki Mode by Autonomi. Autonomous spec-to-product system: takes a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief to a deployed app via the RARV-C closure loop with 8 quality gates. Provider-agnostic (Claude Code, OpenAI Codex, Cline, Aider, opencode).",
   "keywords": [
     "agent",
@@ -69,6 +69,8 @@
     "tools/",
     "plugins/",
     ".claude-plugin/marketplace.json",
+    ".github/workflows/loki-issue-to-pr.yml",
+    ".github/actions/issue-to-pr/",
     "claude/hooks/",
     "autonomy/",
     "providers/",
@@ -111,7 +113,8 @@
     "tests/detect-mock-problems.sh",
     "tests/detect-test-mutations.sh",
     "tests/detect-semantic-test-problems.sh",
-    "tests/detect-invariant-violations.sh"
+    "tests/detect-invariant-violations.sh",
+    "tests/detect-hallucinated-deps.sh"
   ],
   "scripts": {
     "prepack": "find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; find . -name '*.pyc' -delete 2>/dev/null; if command -v bun >/dev/null 2>&1; then (cd loki-ts && bun install --production && bun run build) || echo 'WARN: loki-ts build failed, using existing dist if present'; else echo 'WARN: bun not on PATH, skipping loki-ts build (using committed dist if present)'; fi; find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; find . -name '*.pyc' -delete 2>/dev/null; node tools/normalize-package-permissions.mjs .",

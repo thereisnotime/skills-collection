@@ -126,6 +126,77 @@ fi
 # Matching is substring-against-LABEL, consulted ONLY when TIER=fast. The full
 # tier never consults this array and is byte-for-byte its pre-tiering self.
 declare -a _FAST_KEEP=(
+  # THE RELEASE GATE'S FIRST JOB IS A TYPECHECK, AND THE FAST TIER WAS BLIND TO
+  # IT. release.yml's `gate` job runs "Bun typecheck + test (protect published
+  # loki-ts dist)" before required-ci and before every publish job, so a tsc
+  # error blocks the whole release. These two checks existed here but sat
+  # outside _FAST_KEEP, so `local-ci.sh` reported green on a tree whose
+  # typecheck was broken, and the failure only surfaced a full release cycle
+  # later. Measured 2026-09-12: v9.49.0 died on doctor.ts(300,3) TS2322 with
+  # every publish job skipped. Deferring the exact check that gates the release
+  # is the blind spot this file's own mandate exists to prevent.
+  # Measured on this machine 2026-09-12: typecheck 6s, bun test 112.67s
+  # (1602 tests across 113 files). That is a real addition to a gate whose
+  # whole point is speed, and it is accepted deliberately: the alternative
+  # is what just happened, where a tsc error passed local-ci and cost a
+  # full release cycle. If the cost becomes intolerable, shard bun test --
+  # do NOT re-defer it.
+  # Their prerequisite MUST share this tier. loki-ts/node_modules is
+  # gitignored, so on a fresh worktree the two checks below fail for a
+  # reason that has nothing to do with the code (measured 2026-08-06:
+  # `Script not found "tsc"`, and 49 of 50 bun-test failures were the
+  # missing toolchain). Promoting the dependents alone would trade a
+  # blind spot for a false red on every clean checkout.
+  "loki-ts dependencies installed"
+  "bun run typecheck"
+  "bun test"
+  # Two suites added this session that CI runs and the fast tier did not, which
+  # is exactly how v9.49.0 and v9.49.1 both reached CI carrying a failure I had
+  # never executed locally. Same blind spot as the typecheck promotion above:
+  # the gate cannot catch what it does not run.
+  "tests/test-doctor-optional-skill-not-blocking.sh"
+  "tests/test-multi-repo-orchestrates.sh"
+  # Guards the founder-reported quickstart defect: typing a brief in an EMPTY
+  # directory and answering "none" produced a spec asserting "This is an
+  # EXISTING codebase... Do NOT scaffold a new project" -- telling the build not
+  # to create the app the user had just asked for, on a path the help text
+  # advertises. Deferring this would leave the release gate blind to the exact
+  # class of bug that prompted the fix. Measured 2s (no provider call: the
+  # suite stubs the classifier and pins the non-interactive path).
+  "tests/cli/test-quickstart-brownfield.sh"
+  # Proves every web-app client path resolves to a real FastAPI route. Ten
+  # client calls had drifted onto URLs no route served (/github/runs against a
+  # server serving /github/actions/runs), so the CI/CD and deploy panels were
+  # dead with complete backends behind them. Dead GETs fell through the SPA
+  # catch-all as 200 + text/html, so the user was told to restart the server
+  # for what was a client typo. No GitHub CI job inspects this contract.
+  # Measured ~4s (one TypeScript AST walk plus one in-process route-table read).
+  "tests/test-verify-client-routes.sh"
+  # Guards the budget spend-key contract: every READER must read the key the
+  # WRITERS emit. Two shipped defects of the same class motivated it, and both
+  # were invisible because every existing fixture wrote the key the reader
+  # wanted rather than the key production writes. loki_remaining_budget and its
+  # TS byte-mirror read "current_spend", which NO production writer has ever
+  # emitted, so spend read 0 forever and --max-budget-usd got the FULL cap on
+  # every call instead of the remainder. The budget-80pct notification read
+  # "used" from a sub-dict whose key is "budget_used", so it never fired at all.
+  # Both reproduced against the exact shapes run.sh writes, with controls.
+  # Measured 0.48s on this machine (no provider call, no network).
+  "tests/test-verify-budget-keys.sh"
+  # Pins the deploy `error` field from server to rendered UI. The server has
+  # always returned {"connected": false, "error": "Token expired or revoked"}
+  # when a stored token is rejected; the client had ZERO readers, so an EXPIRED
+  # token rendered identically to one never connected -- a dead tile with no
+  # path to fix it. The blindness was structural: ConnectionStatus is declared
+  # TWICE and ConnectionCard is typed against the component-local copy, so
+  # adding the field only to types/api.ts compiles and changes nothing on
+  # screen. Static, not Playwright, deliberately: the only reachable surface is
+  # behind an auth-guarded /lab mount AND a tab condition, so an e2e harness
+  # for a two-line conditional is more fragile than what it guards (three
+  # attempts each died on a different environmental gate, one of which made the
+  # NEGATIVE control pass). Also asserts web-app/dist carries the change, since
+  # dist is tracked and is what npm users receive. Measured 0.07s.
+  "tests/test-verify-deploy-error-surfaced.sh"
   # 1. syntax + structure (cheap, already background lanes)
   "bash -n "
   "JSON validation"
@@ -250,6 +321,19 @@ declare -a _FAST_KEEP=(
   #    about being slow-only. Times measured by name on this Mac (2026-07-30);
   #    a suite whose cost was NOT measured is deliberately left deferred rather
   #    than guessed into the fast tier.
+  # Guards the CI security scanners (pip-audit / gitleaks / CodeQL) in
+  # security-audit.yml, which release.yml's required-ci job waits on by name.
+  # Same class as the packaged-artifact checks above: it asserts a SHIPPED
+  # release gate is still wired and still fail-closed, and no GitHub CI job
+  # inspects that wiring. Deferring it would mean a scanner could be deleted or
+  # quietly turned into a no-op and nothing would say so before the push.
+  # Measured 1098ms (static YAML parse only; no network, no scanner run).
+  "tests/test-security-scan-coverage.sh"
+  # The reachability guard for the line above. A registration gate that is
+  # itself unregistered (or deferred) is self-refuting: it would stop enforcing
+  # the moment it stopped running, and nothing would say so. Measured 1.2-1.5s
+  # (it executes the coverage suite once to prove that suite is not vacuous).
+  "tests/test-security-scan-registered.sh"
   "tests/test-bench-honest-degrade.sh"        # 100ms
   "tests/test-build-home-isolation.sh"        # 107ms
   "tests/test-codex-model-trusted.sh"         # 134ms
@@ -848,6 +932,8 @@ run_check "tests/test-export-overwrite-noninteractive.sh (prompt never hangs)" "
 # real slow first preview with a fast one) and never invented from a missing or
 # absurd baseline.
 run_check "tests/test-first-preview-metric.sh (write-once, never invented)" "bash tests/test-first-preview-metric.sh 2>&1 | tail -3"
+run_check "tests/test-verify-budget-keys.sh (spend-key readers match writers)" "bash tests/test-verify-budget-keys.sh 2>&1 | tail -3"
+run_check "tests/test-verify-deploy-error-surfaced.sh (expiry reaches the UI)" "bash tests/test-verify-deploy-error-surfaced.sh 2>&1 | tail -3"
 
 # The v8 SDK-default-flip audit concluded there is no cross-iteration context to
 # regress BECAUSE these knobs ship OFF. If anything ever turns one on, that
@@ -870,6 +956,19 @@ run_check "tests/test-sentrux-gate.sh (unit, fake binary)" "bash tests/test-sent
 # run_secure_scan wiring (advisory default / LOKI_SECURE_GATE=block / waiver), and
 # the `loki secure` waiver CLI shape. Fast, no network, throwaway temp fixtures.
 run_check "tests/test-secure-scan.sh (secure-by-default gate)" "bash tests/test-secure-scan.sh 2>&1 | tail -3"
+
+# CI security scanners (issue #189): pip-audit over every Python dependency
+# manifest, gitleaks over all reachable history, CodeQL over the supported
+# source surfaces. This suite existed and passed but was wired into NO runner,
+# so it never executed -- the same orphan class that let a hardcoded Codex
+# model ship. security-audit.yml is a required-ci gate, so an unguarded edit
+# there can silently weaken a release gate.
+run_check "tests/test-security-scan-coverage.sh (CI security scanners wired, fail-closed)" "bash tests/test-security-scan-coverage.sh 2>&1 | tail -3"
+
+# The reachability half: the guard above must actually RUN (registered, not
+# deferred by the fast-tier allowlist) and must not report success from its
+# pyyaml-missing skip path, which exits 0 having asserted nothing.
+run_check "tests/test-security-scan-registered.sh (that guard runs and is not vacuous)" "bash tests/test-security-scan-registered.sh 2>&1 | tail -3"
 run_check "tests/test-build-home-isolation.sh (in-build app exec sandbox)" "bash tests/test-build-home-isolation.sh 2>&1 | tail -3"
 run_check "tests/test-proven-pr-receipt.sh (PR-body honesty + no false green)" "bash tests/test-proven-pr-receipt.sh 2>&1 | tail -3"
 run_check "tests/test-proven-pr-check.sh (advisory check-run, cannot block merge)" "bash tests/test-proven-pr-check.sh 2>&1 | tail -3"
@@ -1280,7 +1379,24 @@ run_check "tests/test-bundled-sdk-provider.sh (bundled SDK provider, fail-closed
 # Enter x4 flow writes ./prd.md and invokes cmd_start --yes --no-plan, the
 # deterministic template scorer (run1==run2, design top-3, empty default), and
 # the existing-prd.md fallback to prd-quickstart.md.
+# The client/server route contract. A drifted path is invisible to every other
+# gate: the server still starts, the bundle still builds, and the panel simply
+# returns nothing.
+run_check "tests/test-verify-client-routes.sh (web-app client paths resolve to real routes)" "bash tests/test-verify-client-routes.sh 2>&1 | tail -4"
+
+# Both added this session and run by CI but not by this gate, which is how two
+# releases reached CI carrying a failure never executed locally.
+run_check "tests/test-doctor-optional-skill-not-blocking.sh (optional-provider skill severity)" "bash tests/test-doctor-optional-skill-not-blocking.sh 2>&1 | tail -4"
+run_check "tests/test-multi-repo-orchestrates.sh (--multi-repo visits every repo)" "bash tests/test-multi-repo-orchestrates.sh 2>&1 | tail -4"
+
 run_check "tests/cli/test-quickstart.sh (guided interview composition)" "bash tests/cli/test-quickstart.sh 2>&1 | tail -3"
+
+# Guards the inverse-of-intent defects: a rejection ("none") must not become a
+# template selection, a change request inside an existing project must not build
+# a new app, and the generated spec's framing must MATCH the situation -- a new
+# build must never be told "Do NOT scaffold a new project". Same stub harness as
+# the suite above: ZERO spend, ZERO real build.
+run_check "tests/cli/test-quickstart-brownfield.sh (rejection + brownfield framing)" "bash tests/cli/test-quickstart-brownfield.sh 2>&1 | tail -3"
 
 # v7.28.0: held-out spec evals. Deterministic ~25% checklist reservation,
 # exclusion from the build prompt feed, and the completion council held-out gate.

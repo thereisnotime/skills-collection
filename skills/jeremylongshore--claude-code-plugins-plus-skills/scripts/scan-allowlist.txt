@@ -429,6 +429,18 @@ plugins/saas-packs/lindy-pack/skills/lindy-local-dev-loop/SKILL.md:secret-exfil-
 plugins/saas-packs/lindy-pack/skills/lindy-webhooks-events/references/implementation-guide.md:secret-exfil-cooccur  reviewed webhook reference: LINDY_TRIGGER_SECRET is loaded only after exact HTTPS public.lindy.ai webhook URL validation and sent only to that Lindy endpoint; the distinct LINDY_CALLBACK_SECRET is receiver-owned and used only for constant-time inbound callback authentication, never attached to the outbound fetch
 plugins/saas-packs/hootsuite-pack/skills/hootsuite-security-basics/SKILL.md:secret-exfil-cooccur  reviewed OAuth refresh example: HOOTSUITE_CLIENT_ID and HOOTSUITE_CLIENT_SECRET are combined only for Basic authentication to Hootsuite's own exact HTTPS token endpoint at platform.hootsuite.com/oauth2/token; no third-party or caller-controlled sink
 plugins/saas-packs/mistral-pack/skills/mistral-common-errors/SKILL.md:secret-exfil-cooccur  reviewed diagnostic examples send MISTRAL_API_KEY only to the fixed HTTPS host api.mistral.ai; status, documentation, and Discord links never receive the credential, and the behavioral probe tests suppress error bodies
+
+# ── Anima v2 operator pack — reviewed first-party API-client examples. ──
+# Anima tokens are passed only to the official @animaapp/anima-sdk backend
+# client. Figma tokens are sent only to fixed https://api.figma.com endpoints;
+# generated output, exception payloads, design contents, and credentials are
+# excluded from logs. Reviewed 2026-09-12 against Anima SDK 0.27.0 at upstream
+# commit 95b66d7e56514908d2017b6d9da03699e6ee0e00 and current Figma REST docs.
+plugins/saas-packs/anima-pack/skills/anima-core-workflow-a/SKILL.md:secret-exfil-cooccur  Figma token is sent only to fixed api.figma.com discovery and the official Anima SDK receives only its matching Anima/Figma credentials; output is path-contained and errors are redacted
+plugins/saas-packs/anima-pack/skills/anima-debug-bundle/SKILL.md:secret-exfil-cooccur  scoped Figma token is sent only to fixed api.figma.com identity verification; Anima token stays inside the official backend SDK and the private mode-0600 bundle stores only redacted presence/status fields
+plugins/saas-packs/anima-pack/skills/anima-performance-tuning/SKILL.md:secret-exfil-cooccur  scoped Figma token is sent only to fixed api.figma.com node metadata lookup; no credential is written into the source-version cache, output receipt, or third-party request
+plugins/saas-packs/anima-pack/skills/anima-prod-checklist/SKILL.md:secret-exfil-cooccur  production preflight sends the Figma token only to fixed api.figma.com identity verification and records only HTTP status; Anima credentials are presence-checked without transmission or disclosure
+plugins/saas-packs/anima-pack/skills/anima-webhooks-events/SKILL.md:secret-exfil-cooccur  Figma token and configured webhook passcode are sent only to Figma's fixed api.figma.com Webhooks v2 registration endpoint; the receiver verifies the echoed passcode locally and queues no credential
 sources.yaml:sources-change-unscanned  E8.4 changes only fail-closed publication dispositions for existing Skyvern and Hyperflow mirrors; both remain pinned by exact resolved_ref and per-file sha256 entries in sources.lock.json, with no mirrored content changed
 
 # ── Webflow operator pack remediation (2026-09-10). ──

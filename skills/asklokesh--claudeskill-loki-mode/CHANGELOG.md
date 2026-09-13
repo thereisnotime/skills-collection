@@ -5,6 +5,786 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.49.3
+
+Six fixes, four of them the same defect class: a READER reading a key or file
+that no WRITER produces. Each was invisible because the tests that should have
+caught it were written against the shape the reader wanted rather than the
+shape production writes.
+
+### Fixed
+
+- **Budget spend readers read a key nothing writes.** `loki_remaining_budget`
+  (`autonomy/lib/claude-flags.sh`) and its byte-mirror `remainingBudget`
+  (`loki-ts/src/providers/claude_flags.ts`) read `current_spend`. All six
+  production writers of `.loki/metrics/budget.json` write `budget_used`, so
+  spend resolved to 0 forever and `--max-budget-usd` received the FULL cap on
+  every call instead of the remainder -- the per-call backstop never tightened
+  as spend accumulated. Reachable only for users who set `LOKI_BUDGET_LIMIT`
+  explicitly, i.e. exactly the cost-conscious users who asked for a cap. Both
+  readers are fixed together (they are byte-mirrors; fixing one alone would
+  make the two routes disagree), with the legacy key kept as a fallback.
+
+- **The 80% budget notification never fired.** `check_budget_threshold` read
+  `used` from a sub-dict whose key is `budget_used`. Verified: 0 notifications
+  at 85% of cap against the exact state `run.sh` writes. The in-loop 80%
+  `log_warn` was unaffected, so terminal users did still get a warning; the
+  notification half had simply never worked.
+
+- **The quality-gate notification read a file nothing writes.**
+  `check_quality_gate` read `.loki/state/quality-gates.json`; all seven repo
+  references to it are readers, and `proof-generator.py` already records this
+  as issue #125 and works around it. It now reads
+  `.loki/quality/gate-failures.txt`, the artifact `run.sh` actually writes.
+
+- **An expired deploy token rendered as "never connected".** The server has
+  always returned `{"connected": false, "error": "Token expired or revoked"}`;
+  the client had zero readers of that field, so a revoked token looked
+  identical to a platform never set up, with no way to fix it in place. The
+  blindness was structural: `ConnectionStatus` is declared twice and
+  `ConnectionCard` is typed against the component-local copy, so adding the
+  field to only one declaration compiles and changes nothing on screen. Both
+  declarations now carry it, and the card offers Reconnect.
+
+- **A comment quoting a call site broke two test shards.** A comment in
+  `run.sh` reproduced the literal call-site expression while explaining it. One
+  suite COUNTS that string and asserts exactly one occurrence; another MUTATES
+  it to prove a valve's guard goes red. Both broke. The comment now describes
+  the call site instead of reproducing it.
+
+### Added
+
+- **Live cost visibility.** `check_budget_limit` has always computed cumulative
+  spend every iteration and printed nothing below 80% of cap. It now reports
+  the running total each iteration, reusing the already-computed value rather
+  than adding a second reader. Unmeasured runs print nothing -- the zero test
+  is numeric, so a run with no recorded cost never claims `$0.0`.
+
+- **`tests/test-verify-budget-keys.sh`** (12 assertions) and
+  **`tests/test-verify-deploy-error-surfaced.sh`** (7 assertions), both in the
+  fast tier via `_FAST_KEEP` and `run_check`, both mutation-verified in both
+  directions. The budget suite also asserts that no production file writes the
+  orphan keys, so a future writer cannot silently resurrect either
+  contradiction.
+
+### Changed
+
+- **The release gate now runs its cheapest failing check first.** `release.yml`
+  ran `bun run typecheck` as the LAST step of the job that gates every publish.
+  v9.49.0 died on a one-line TS2322 after the job had already spent ~3m46s on
+  pip installs and pytest. Bash syntax validation and the Bun typecheck need no
+  Python, so they now run first. Nothing about what is verified changes.
+
+- Corrected four places claiming `LOKI_BUDGET_LIMIT` defaults to unset/no cap.
+  It has defaulted to `100.00` since v9.42.0, and breaching it PAUSES the run
+  rather than reporting a terminal failure.
+
+## v9.49.2
+
+v9.49.0 and v9.49.1 both failed CI and published nothing: no tag, no npm
+release. This is that release, with both causes fixed.
+
+### Fixed
+
+- **v9.49.0 died on a TypeScript error.** `SkillStatus` requires
+  `dangling: boolean` and none of the three `checkSkills` return arms set it.
+  Fixed with the value the type's own comment calls for: pass false,
+  broken-symlink true, not-found false.
+
+- **v9.49.1 died on two tests that asserted host state.** The doctor suite
+  asserted `doctor --json` exits 0, which is true on a machine with a provider
+  CLI installed and false on a CI runner, where the `ai_provider` check
+  correctly fails. And `tests/test-e2e-features.sh` piped stderr into a JSON
+  parser, so it failed on any warning; every other `doctor --json` assertion in
+  the repo already discards stderr. Neither was a product defect.
+
+- **The gate blind spot behind all of it.** `bun run typecheck`, `bun test` and
+  two suites added this session ran in CI but not in the fast tier, so the local
+  gate reported green on trees that CI rejected. All are now registered and in
+  `_FAST_KEEP` -- allowlist membership alone does nothing, since it only
+  controls deferral of checks that are already registered.
+
+### Known issue
+
+`doctor --json` writes 108 bytes to stderr on a provider-less host while stdout
+is 5176 bytes of valid JSON. Non-blocking. `docs/KNOWN-ISSUES.md` records six
+tested and refuted hypotheses plus the strongest remaining lead.
+
+Everything else is v9.49.0's content unchanged: ten corrected client paths, a
+deploy-status route that no longer returns null, an API catch-all that returns
+JSON 404, two deleted surfaces that fabricated data, and the client/server
+route contract guard.
+
+## v9.49.1
+
+v9.49.0 never published. Its Release workflow died in the `gate` job on a
+TypeScript error, so `required-ci` and every publish job were skipped: no tag,
+no npm release, nothing shipped. This is that release, corrected.
+
+### Fixed
+
+- **The type error that blocked it.** `SkillStatus` requires `dangling: boolean`
+  and none of the three `checkSkills` return arms set it. Fixed with the value
+  the type's own comment calls for, since the text renderer uses it to print the
+  Fix line for a BROKEN link but not an ABSENT one: pass false, broken-symlink
+  true, not-found false. Defaulting all three to false would have satisfied the
+  compiler while silently changing doctor output.
+
+- **The gate blind spot that let it through.** `bun run typecheck` and `bun test`
+  were deferred in the fast tier, while the release workflow runs that exact
+  typecheck first, ahead of every publish job. The local gate reported green on
+  a tree whose typecheck was broken. All three checks, including their
+  dependency-install prerequisite, now run in the fast tier. The promotion
+  earned itself immediately: the next gate run caught a stale bundle before a
+  push, a class that previously reached CI.
+
+Everything else in this release is v9.49.0's content unchanged: ten corrected
+client paths, a deploy-status route that no longer returns null, an API
+catch-all that returns JSON 404 instead of telling users to restart the server,
+two deleted surfaces that fabricated data, and the client/server route contract
+guard.
+
+## v9.49.0
+
+Every integration reaches real data, and the client can no longer drift away
+from the server.
+
+### Fixed
+
+- **Ten client paths pointed at working backends by the wrong URL.**
+  `client.ts` called `/sessions/{id}/github/runs` while the server served
+  `/sessions/{id}/github/actions/runs`. The same drift hit run detail, logs,
+  workflows, dispatch, rerun and cancel, plus two deploy calls asking for
+  `/connect` where the server serves `/token`. The entire CI/CD panel and the
+  entire deploy-connections panel were dead, with complete backends behind
+  them. All nine drifted paths corrected; the missing `disconnect` route added.
+
+- **A route that returned `None`.** `get_all_deploy_status` defined its two
+  platform checkers and then the function body simply ended: no `asyncio.gather`,
+  no return. Because `res.ok` was true and the content-type was JSON, no error
+  ever fired. The panel showed every platform as permanently disconnected and
+  re-polled every 30 seconds forever. It now gathers all three checkers.
+
+- **The catch-all told users to restart the server for a client typo.** The SPA
+  route did not exclude `/api/`, so a dead API GET returned 200 with
+  `text/html`, which the client reported as "API endpoint not available. Please
+  restart the server with the latest version." Restarting could never fix it.
+  `/api/*` now returns a JSON 404 while the SPA still serves HTML.
+
+- **A worktree-detection regression.** `run.sh` had replaced
+  `git rev-parse --is-inside-work-tree` with `[ -d .git ]`, which is false for
+  every git worktree (measured: a worktree's `.git` is a 63-byte file). That
+  silently disabled scoped-change detection for the parallel worktree runs this
+  project uses by default.
+
+### Removed
+
+- **A UI that minted fake credentials.** `APIKeyManager` generated
+  `pk_live_${Math.random()...}` client-side with zero backend calls. Deleted; a
+  real audit-logged implementation already ships at `/api/v2/api-keys`.
+
+- **321 lines of invented metrics.** `MetricsPage` rendered a cost trend, token
+  split, builds-per-day, a `Math.random()` activity heatmap, a provider radar, a
+  pipeline timeline, a quality gauge pinned to 87, invented sparklines and a
+  code timeline of three fabricated iterations. None of it was measured. It is
+  now backed by `/api/cost` and `/api/cost/timeline`, and surfaces with no
+  backing field were deleted rather than re-fed from a new source of invented
+  numbers. Unrecorded values render "Not recorded", never `$0.00`.
+
+- **A third, dead frontend.** `dashboard/frontend/` had no `dist/`, had not been
+  touched since 2026-02-13, and had zero live references against a positive
+  control of 23.
+
+### Added
+
+- **`tests/test-verify-client-routes.sh`** proves every web-app client path
+  resolves to a real FastAPI route. It reads the actual route table via
+  `server.app.routes` and walks `client.ts` with the TypeScript AST -- no regex
+  on either side, because a regex differ produced both a false positive
+  (reporting `/sessions` missing while 58 such routes exist) and a false
+  negative (missing the `/github/runs` drift entirely). Four rules exit 2 rather
+  than under-report: zero captures, an unresolvable path, a partially
+  interpolated segment, and a non-literal HTTP method.
+
+- `/api/cost` and `/api/cost/timeline` in web-app, delegating to the dashboard
+  readers using the pattern already established for `/api/proofs`, so the two
+  surfaces cannot drift into disagreeing about what a build cost.
+
+### Verification
+
+The guard went RED first on all ten drift lines, then GREEN. A positive control
+reintroduced one drift and confirmed it went RED again, because a zero that
+cannot go non-zero proves nothing. Two mutations failed on different
+assertions. The deploy status and disconnect routes were driven live, including
+a path-traversal refusal. The catch-all was driven with both an SPA control and
+a real-route control. 157 server tests pass, and `pk_live_` is confirmed absent
+from the rebuilt bundle.
+
+### Honest limit
+
+The quickstart greenfield-rejection path could not be driven end to end:
+`quickstart` refuses non-TTY stdin, so its suite assertion and a mutation are
+the evidence there, not a live drive. That is stated rather than papered over.
+
+## v9.48.2
+
+A flag that announced work it never did.
+
+### Fixed
+
+- **`loki migrate --multi-repo` stops claiming to migrate repositories it never
+  touches.** Reproduced: `loki migrate <alpha> --multi-repo './services/*'`
+  printed **"Multi-repo migration (3 repositories)"**, listed all three, then
+  created a single migration scoped to alpha. beta and gamma were never touched.
+
+  The discovery block populates `repos[]` and never references it again.
+  Measured with a positive control: `repos[]` / `repo_count` appear four times
+  inside that block and **zero times after it**; every downstream step operates
+  on the single `$codebase_path`.
+
+  A user reading "Multi-repo migration (3 repositories)" reasonably believes
+  three repositories were migrated. One was.
+
+  The output now names the repository actually migrating, says plainly that
+  `--multi-repo` discovers rather than orchestrates, and hands over runnable
+  commands covering the rest.
+
+  Guarded by `tests/test-multi-repo-claims-honest.sh` (9 assertions,
+  source-level plus end-to-end against the real CLI).
+
+### What this does NOT do
+
+This does not implement multi-repo orchestration, and the fix is careful not to
+imply otherwise. Real orchestration needs dependency ordering, per-repo gates,
+per-repo receipts, and a decision about partial failure (repo 2 of 5 fails:
+stop, or continue and report?). That work is tracked separately.
+
+**No behaviour changed.** The migration that ran before is the migration that
+runs now. Only the claim about it is corrected.
+
+The guard asserts the output is HONEST, not that orchestration works. If
+orchestration is built later, those assertions should be REPLACED by ones
+verifying every repository was migrated -- not deleted to make room.
+
+## v9.48.1
+
+Hand Loki a GitHub issue and get a pull request, with nothing installed. And
+two commands that used to contradict each other now agree.
+
+### Added
+
+- **An issue-to-PR GitHub Action.** The headline use case had no entry point:
+  the only Action in the repo was `Loki Mode Code Review`, and NO workflow or
+  action was listed in `package.json` `files[]`, so npm users got no GitHub
+  trigger at all.
+
+  Ships `.github/actions/issue-to-pr/` (a composite action) and
+  `.github/workflows/loki-issue-to-pr.yml` (a gated workflow). Label an issue
+  `loki`, or comment `/loki`, and the run opens a pull request. It fails fast
+  with a clear message when `ANTHROPIC_API_KEY` is absent rather than burning a
+  runner, holds a `concurrency` group per issue so double-labelling cannot race
+  itself, and checks out with `fetch-depth: 0` so the agent can read history.
+
+  Both are in `files[]`. The packaged-artifact blind spot has cost four
+  releases; a shipped entry point that is not actually packaged is the same
+  bug.
+
+  Guarded by `tests/test-issue-to-pr-action.sh` (8 assertions).
+
+### Fixed
+
+- **`loki next` and `loki resume` no longer contradict each other.** Reproduced:
+  `cmd_next` maps `max_iterations_reached` and `budget_exceeded` to
+  "Will run: loki resume", but the resume hint accepted only status
+  `interrupted`. So `loki next` told you to run `loki resume`, and `loki resume`
+  answered "No session to resume. Start a session with: loki start" -- and
+  exited 0, so nothing went red. The two commands whose entire job is "do the
+  right next thing" disagreed on every run that stopped at a limit.
+
+  The hint now covers the three statuses that stop WITHOUT a verdict, and a
+  capped run is told to raise `LOKI_MAX_ITERATIONS` or `LOKI_BUDGET_LIMIT`
+  first, because resuming it unchanged hits the same wall on the next
+  iteration.
+
+  Deliberately unchanged: `council_approved`, `council_force_approved` and
+  `completion_promise_fulfilled` still decline to resume. Those carry a verdict
+  and route to `loki ship`; inviting an approved build back into the iteration
+  loop would be worse than the silence this replaces.
+
+  Guarded by `tests/test-next-resume-agree.sh` (16 assertions). It reads the
+  command `loki next` actually announces and then RUNS it, so the agreement is
+  the property under test rather than either command alone.
+
+### A correction caught by CI, before anyone saw it
+
+v9.48.0 was tagged in this repo's history but **never published** -- its
+`required-ci` job went red, so every publish job was skipped. The cause was
+mine, and it is worth naming.
+
+The first version of the resume fix printed "Stopped at iteration 47 ... It
+picks up from iteration 47" for a capped run. That is false.
+`load_state` resets `ITERATION_COUNT=0` for `max_iterations_reached` and
+`budget_exceeded`, so a fresh `loki start` after a capped run is a NEW session
+from iteration 0. The message promised a continuation the runtime does not
+honour -- the exact false-claim class this project exists to prevent.
+
+`tests/test-resume-discoverability.sh` had guarded that direction since before
+this change and failed the build. It was in the deferred tier, so the local
+fast gate did not run it.
+
+Capped runs now say plainly that they start a new session from iteration 0, and
+the "picks up from iteration N" line is printed only for a genuinely
+`interrupted` run, which is the one status that really does resume its count.
+The guard that let the wrong version through now asserts this too, with a
+positive control so it cannot pass vacuously (19 assertions, up from 16).
+
+### Honest limits
+
+- The issue-to-PR action is a real entry point, not a managed service. It runs
+  in the user's own Actions minutes with the user's own API key, and it is
+  gated on an explicit label or comment so it cannot fire on every issue.
+- The resume fix does NOT address changing one thing about a FINISHED build.
+  A `council_approved` run still has no delta path and still cannot be resumed;
+  that work is open. Resuming a capped run and revising a finished one are
+  different problems, and conflating them is how the first would get called
+  done.
+
+## v9.47.0
+
+A second repository the agent can actually read, plans that arrive whole, and
+the flake that blocked two releases.
+
+### Added
+
+- **`LOKI_ADD_DIRS` grants the agent read access to sibling repositories.**
+  Nothing in `autonomy/`, `providers/`, `loki-ts/src/` or `bin/` ever passed
+  `--add-dir` or `additionalDirectories` (0 files; positive control
+  `run_autonomous` = 7 files). An agent asked to change a shared type in
+  `../service-b` could not read it, did **not** error, and guessed, so the user
+  got a change that does not compile with no signal why.
+
+  Colon-separated, matching PATH convention, wired into the auto-flags builder
+  so every call site inherits it. Gated on CLI flag support, so an older CLI
+  degrades instead of erroring.
+
+  **A nonexistent entry is skipped WITH A WARNING, never passed through.** A
+  typo reaching the CLI aborts it and takes the whole run down, turning a
+  convenience into an outage; dropping it silently would reproduce the exact
+  silent-wrong-output defect being fixed.
+
+### Fixed
+
+- **A decomposed plan was capped at 3 tasks.** `load_queue_tasks` used
+  `tasks[:3]`, applied SEPARATELY to `in-progress.json` and `pending.json`, so a
+  release doc decomposed into 5 tasks silently lost 2 from each file. The agent
+  received a partial plan and was never told it was partial.
+
+  A count was the wrong bound anyway: one rich PRD task (300-char description
+  plus acceptance criteria plus a user story) can outweigh ten legacy one-liners.
+  The bound is now characters (`LOKI_QUEUE_TASK_CHARS`, default 6000), and
+  **truncation is disclosed in the prompt** instead of hidden. Measured: 5 tasks
+  in, 5 tasks out; at a tight budget, at least one task always survives and the
+  remainder is announced.
+
+- **The CI flake that blocked two releases.**
+  `tests/test-review-assurance-tail.sh` used
+  `quality_review="$(find ... -type d | head -1)"` under its own
+  `set -o pipefail`. `head -1` closes the pipe, `find` dies of SIGPIPE, and the
+  pipeline reports 141 even though the value was captured correctly.
+
+  It only fires once `find` emits enough output to fill the pipe buffer, so it is
+  **load-dependent**: the suite passed 44/0 locally every single time and failed
+  twice on a loaded CI shard. Reproduced directly: 4,000 entries through
+  `find | head -1` under pipefail returns **rc=141**. Replaced with a pipe-free
+  glob loop.
+
+  Verified that `while read ... done < <(cmd | head -N)` does NOT have this
+  defect (process substitution does not propagate the inner status: reads 40
+  lines, rc=0), so the same-shaped lines elsewhere are safe and were left alone
+  rather than changed cosmetically.
+
+### Guards
+
+`tests/test-add-dir-reaches-provider.sh` (7 assertions) and
+`tests/test-queue-tasks-not-truncated.sh` (6 assertions). Both drive the real
+code rather than asserting on source text, both carry a vacuity guard, and both
+are mutation-verified in both directions.
+
+## v9.46.0
+
+The agent was handed a manual with half its pages missing.
+
+### Fixed
+
+- **`copy_skill_files` copied skills and never copied their references.**
+  `autonomy/run.sh` copied `skills/*.md` into `.loki/skills/` and nothing, in
+  any file, copied `references/`. The copied skills cite `references/*.md`
+  **21 times across 8 files** (`skills/00-index.md` alone has 11), and every one
+  of those files exists in the repo. So the agent followed 21 dead paths every
+  run and silently lost guidance this function believed it had shipped.
+
+  Measured after the fix: 26 reference files copied, **0 dead cited paths**.
+
+- **The SKILL.md path rewrite named 8 filenames by hand.** It rewrote
+  `skills/00-index.md`, `skills/model-selection.md` and six siblings explicitly,
+  plus a `Read skills/` catchall. Three consequences, all silent: any NEW skill
+  kept an unrewritten path, a path written as "See skills/..." survived because
+  it is not "Read", and `references/` paths were never rewritten at all.
+
+  Replaced with one portable, idempotent transform: protect already-correct
+  `.loki/` prefixes with a sentinel, rewrite bare paths unconditionally, restore.
+  Measured: 17 rewritten paths, 0 bare paths left, no `.loki/.loki/` doubling.
+
+### The portability trap this nearly shipped with
+
+The obvious replacement is a single `sed -E 's|(^|[^.])skills/|\1.loki/skills/|g'`.
+**BSD sed rejects it** -- `RE error: parentheses not balanced` -- which fails
+SILENTLY on macOS and leaves every path unrewritten. It was caught by executing
+the function rather than reading it, and the guard now reproduces that exact
+mutation: substituting the `-E` form turns the suite red with "the rewrite is a
+no-op".
+
+### Guard
+
+`tests/test-skills-references-copied.sh` (6 assertions) EXECUTES
+`copy_skill_files` against the real repo rather than asserting on source text,
+and checks the thing that actually matters: every `references/` path cited by a
+copied skill must resolve inside `.loki/`. It guards against vacuity by
+asserting the skills still cite references at all. Mutation-verified both ways:
+removing the copy goes red, and the BSD-incompatible sed goes red.
+
+## v9.45.0
+
+The first artifact a user sees no longer misstates the product or ignores the
+user.
+
+### Fixed
+
+- **The generated PRD reported `Loki Mode CLI v6.0.0`.** A hardcoded literal at
+  `autonomy/issue-providers.sh`, printing on a v9.44.0 install: three majors
+  stale. This is the first file the `loki start owner/repo#123` path produces
+  and the document the agent then works from, so it is what a user reads in
+  their first five minutes. A product whose entire pitch is a verifiable receipt
+  cannot misreport its own version in its own first artifact.
+
+  The real version is now plumbed through from `get_version()` at the call site
+  (`autonomy/loki:10457`). Absent that, it reports `unknown` rather than a number
+  it cannot substantiate.
+
+- **Acceptance Criteria discarded the user's own requirements.** The section was
+  a fixed four-line list beginning "Address all requirements specified in the
+  issue body above". An issue whose body enumerated three specific checkboxes
+  had them rendered in the PRD and then overridden by that boilerplate in the
+  same document.
+
+  Checkboxes and numbered lists are now extracted from the issue body and become
+  the acceptance criteria. Measured on a real issue shape: three `- [ ]` items
+  in, three numbered criteria out.
+
+  **It never fabricates.** A body with no checklist still gets the default list,
+  and that output says so explicitly ("The issue body lists no explicit
+  checklist, so these are defaults") rather than presenting defaults as if the
+  user had written them.
+
+### Guard
+
+`tests/test-issue-prd-is-honest.sh` (7 assertions) drives the real generator
+rather than asserting on source text, and checks BOTH directions: a body with a
+checklist must surface the user's items and must not show filler, and a body
+without one must fall back AND label the fallback. Mutation-verified: restoring
+the hardcoded version goes red, and disabling extraction goes red.
+
+### Provenance
+
+From a 71-agent research fan-out against primary sources (1,298 tool uses, 0
+errors). Every claimed gap was adversarially verified: **61 claimed gaps -> 9
+BUILD, 31 not worth it, 19 already built, 1 unsourced.** An 85% kill rate is the
+point; most "missing" capabilities were already present.
+
+## v9.44.0
+
+An MCP tool that was broken on every call that did real work.
+
+### Fixed
+
+- **`loki_graph_query` raised `NameError: name 'subprocess' is not defined`.**
+  `mcp/server.py` imports `subprocess` inside `_maybe_autoreindex_code` (:1724)
+  and nowhere else. `loki_graph_query` called `subprocess.run` at :2578 with the
+  name in NO enclosing scope, so every invocation that reached a real graph
+  failed. Not a cross-repo edge case: single-repo too. The early-return path
+  (no graph present) returned before the call, which is why the tool looked
+  alive.
+
+  One line: a function-local `import subprocess`.
+
+  Guarded by `tests/mcp/test_graph_query_executes.py`, which drives the function
+  against a real graph rather than asserting on source text. Mutation-verified:
+  removing the import turns it red.
+
+### How it was found, and a correction I owe the record
+
+A research agent proposed wiring a cross-repo graph merge. Verifying that
+proposal REFUTED it (the existing `graphify` CLI already merges cross-repo, and
+`mcp/server.py:2566` already builds the merged path, so the wrapper would have
+been exactly the fix-shaped non-feature this project has shipped too many of)
+and uncovered this instead.
+
+I then wrongly refuted the agent's finding. I ran an AST check confirming a
+local `import subprocess` was present and concluded the tool worked. It was
+present because the agent had already patched the file; I validated the fix, not
+the bug. Checking the committed version showed the name in neither scope, and
+executing the original statement sequence reproduced `NameError` directly.
+
+The lesson is specific and worth keeping: when verifying a claim about code an
+agent may have touched, check the COMMITTED version, not the working tree.
+
+## v9.43.0
+
+The pull request is the deliverable. It no longer needs a flag.
+
+### Changed
+
+- **`LOKI_DELEGATE_PR` now defaults ON.** On completion the product used to
+  print `Pull request: not opened (set LOKI_DELEGATE_PR=1 to open one)`. It knew
+  exactly what the user wanted and asked them to go read documentation instead
+  of doing it. For the core use case -- hand it a GitHub issue and get a
+  resolution -- the PR IS the outcome, so shipping it off shipped the product
+  off.
+
+  **Nothing about the safety model changed.** Every guard was already built and
+  is unchanged: it requires a GitHub repo AND a successful `gh auth status` AND
+  a non-default branch, it opens a PR and NEVER merges, and every call is
+  best-effort so a failure cannot block completion. `LOKI_DELEGATE_PR=0` opts
+  out, and an explicit 0 is honored.
+
+  The completion line no longer advertises a flag that is now the default; it
+  names the actual reason a PR was not opened (no GitHub remote, gh not
+  authenticated, or on a default branch).
+
+### Why this release exists
+
+Measured against this repo's own history: **671 releases in eight months, 248
+fix-shaped and 37 feature-shaped.** The project has been repairing itself rather
+than shipping product. A separate measurement explains the retention gap that
+comes with that: **80 `LOKI_*` flags default OFF**, and they gate the best parts
+of the engine -- the auto-PR path, the simple-build fast path, the entire
+Bun/SDK route. A user installs, runs `loki start`, and gets the slow,
+unautomated version of a product whose good half is behind flags they have no
+reason to know exist.
+
+npm downloads are healthy and accelerating (1,819 in a day against 4,923 in the
+week). The defect is not discovery. It is what happens after install.
+
+This is the first of those defaults to flip. Each one is a separate release with
+its own guard, because a default that takes an ACTION is only safe while every
+condition around it holds.
+
+Guarded by `tests/test-auto-pr-default-on.sh` (7 assertions). It checks the
+default AND each safety condition individually, so a future edit that loosens
+the auth check or the default-branch check fails here. Mutation-verified in both
+directions: reverting the default goes red, and removing the gh-auth guard also
+goes red.
+
+## v9.42.0
+
+A benchmark number that counted strings, an unbounded spend default, and a
+supply-chain gate that did not exist.
+
+### Fixed
+
+- **"99.67% SWE-bench" was a count of non-empty strings.** Re-measuring the
+  stored 300-instance run: **179 of 300 model_patch values were prose, not
+  diffs** (a model preamble followed by a fenced diff). `clean_patch` stripped a
+  fence only at position 0, so any preamble defeated it. `qa_agent` then
+  validated with substring tests over the whole blob (`"---" in patch`, `"@@" in
+  patch`), which prose quoting a diff satisfies: **178 of 179 prose entries
+  passed every format check**, with `attempts == 1`, so the retry loop never
+  fired. `generated_count` incremented on any non-empty string, and that counter
+  is what was published.
+
+  Three fixes: the extractor finds a fenced diff anywhere (falling back to the
+  first real diff line, and never fabricating), the validator is anchored to
+  LINE STARTS which prose cannot satisfy by accident, and the counter requires a
+  real diff header.
+
+  Measured on the same data after the fix: **174 of 179 prose entries now yield
+  a genuine diff, 5 are honestly rejected, 0 remain falsely certified.** A
+  genuine clean diff still validates.
+
+  All four published instances of 99.67% in this file are annotated in place
+  rather than deleted. **No corrected figure is published**: producing one
+  requires re-running the harness, and an estimate would repeat the original
+  error of publishing a number nobody measured.
+
+- **`LOKI_BUDGET_LIMIT` shipped as unlimited.** This file's own F4 analysis
+  already named it as one of three runaway valves that all ship disabled,
+  leaving a measured 8.3-day iteration ceiling as the only backstop. Now
+  defaults to 100.00 USD, well above the measured envelope (median 0.48 per
+  trial, max 3.06 across 79 trials). Breaching PAUSES and saves state; it never
+  kills work. Uses `${VAR-default}`, so an explicit empty value still means
+  unlimited and the operator's choice is honored.
+
+- **`pinned-subset.json` declared `dataset: "SWE-bench Verified"`** while its own
+  `VERIFICATION_STATUS` said `UNVERIFIED_AS_VERIFIED_SPLIT` and its note said the
+  ids came from a LITE run. The note was honest; the field a consumer reads was
+  not.
+
+### Added
+
+- **`tests/detect-hallucinated-deps.sh`** -- a slopsquatting guard. A model can
+  emit a dependency name that does not exist, and an attacker who registers it
+  owns code execution in every install that follows
+  (arxiv.org/pdf/2606.13918, 2026-06-15). The repo had no dependency
+  verification at all.
+
+  Three states, not two: resolved / MISSING / **unchecked**. No network or a 5xx
+  means NOT CHECKED, never a pass. Verified against a fabricated npm name and a
+  fabricated PyPI name, against 88 of this repo's real dependencies (zero false
+  positives), and with an unreachable registry.
+
+  One bug was found while verifying it: `curl -fsS` exits non-zero on 404, so the
+  fallback discarded the status code and every MISSING package was reported as
+  unchecked. Without catching that, the detector would have been theatre.
+
+### Provenance
+
+Found by a web-sourced research fan-out: 91 agents, 1,770 tool uses, 0 errors,
+82 proposals across eight domains. Every proposal was independently verified
+against the codebase and its sources fetched. **27 BUILD, 22 ALREADY_BUILT, 27
+NOT_WORTH_IT, 4 UNSOURCED.** Only a third survived, which is the point: 22
+proposals were things Loki already had, and 4 cited sources that did not support
+the claim.
+
+## v9.41.0
+
+The upgrade that could not work, and the diagnosis that never fired.
+
+### The bug, as a user hit it
+
+```
+$ bun install -g loki-mode
+installed loki-mode@9.39.0 with binaries: - loki
+$ loki --version
+Loki Mode v9.22.3
+A newer Loki Mode is available: 9.35.0 (you have 9.22.3). Update: bun install -g loki-mode
+```
+
+Three different version numbers in four lines, and the advice is unfollowable:
+the user just ran that exact command. Reported from the field twice.
+
+**Cause: PATH shadowing.** An older copy sits EARLIER on PATH than the one the
+package manager writes (typically `~/.local/bin/loki`, symlinked into a
+Homebrew node prefix, ahead of `~/.bun/bin/loki`). Every reinstall updates the
+copy that is not winning, so the user loops forever.
+
+### Fixed
+
+- **The shadow check was gated behind a registry lookup.** v9.36.0 added
+  `findShadowedNewerInstall`, and it works. But the call sat INSIDE the "a newer
+  release exists" branch, so it only ran after a successful registry check said
+  the running version was outdated. Two consequences, both hit in the field:
+  with the registry unreachable the user got **silence**, and with a stale
+  <=24h cache they got the generic "install 9.35.0" nudge quoting a version
+  that was neither installed nor latest.
+
+  Shadowing is a local, on-disk fact. It does not depend on the registry, the
+  cache, or the network, so nothing about a registry result should gate
+  reporting it. The check now runs FIRST. The ordinary "newer release" nudge is
+  unchanged and still does the registry lookup, just after.
+
+- **`loki doctor` did not detect it at all.** Doctor is where a user goes when
+  something is wrong, and on the bash route (which a default `loki` invocation
+  takes) there was no shadow handling anywhere. It now walks PATH, resolves each
+  entry through realpath, and reports every OTHER install with its version and
+  location as a BLOCKER, stating plainly that reinstalling will not fix it.
+
+  Verified against the real shadow on a developer machine (running 9.40.0 from a
+  Homebrew node prefix while 9.39.0 sat in `~/.bun/bin`), and against two
+  negative controls: a single install reports OK, and the SAME install reachable
+  through two PATH entries is deduped by realpath rather than reported as
+  shadowing itself.
+
+### Guard
+
+Three tests in `loki-ts/tests/util/update_check.test.ts`, covering the two cases
+that were unreachable before (registry down, stale cache quoting a wrong
+version) plus a no-shadow case proving the ordinary nudge is unchanged. All 19
+pre-existing tests in that file pass **unmodified**. Mutation-verified: putting
+the registry gate back in front of the shadow check turns the registry-down test
+red, which is exactly the production symptom.
+
+### Why this took two releases to get right
+
+v9.36.0 fixed the wrong half. It made the message better while leaving it behind
+a gate that the failing case never passes, so the improved message could not
+reach the users who needed it. A fix that is correct but unreachable is not a
+fix, which is the same defect class as the reachability audit in v9.39.0.
+
+## v9.40.0
+
+Authored reviewer personas now reach the prompt, and a shipped test that could
+silently invert itself.
+
+### Fixed
+
+- **All 41 agent types carry hand-written persona prose that was thrown away.**
+  `agents/types.json` gives every type a real authored persona ("You are a
+  senior backend engineer specializing in server-side development, API design,
+  and distributed systems..."). The selector SET that persona on the specialist
+  dict and the reviewers payload then copied only `name`, `focus` and `checks`,
+  so it was discarded before any prompt was built.
+
+  Nothing looked broken, which is why it survived: the role still reached the
+  reviewer through a SYNTHESIZED line ("Review from X perspective: ..."). What
+  was lost was the specific authored expertise that makes a specialist reviewer
+  worth more than a generic one.
+
+  Wired through all six sites: payload (built-in and installed specialists),
+  read-out, export, prompt interpolation, and unset. The persona leads the
+  prompt; the "Your SOLE focus is" constraint that keeps a blind reviewer in its
+  lane is untouched.
+
+  **Strictly additive.** A specialist with no persona, or a whitespace-only one,
+  produces a prompt byte-identical to the previous behavior. Verified by driving
+  the prompt logic directly in both directions.
+
+- **`tests/test-provider-arm-coverage.sh` (shipped in v9.39.0) contained a
+  latent self-inverting bug.** It used `printf '%s' "$blk" | grep -q ...` under
+  `set -o pipefail`. `grep -q` exits at the first match and closes the pipe, so
+  `printf` dies of SIGPIPE and pipefail reports the PIPELINE as failed even
+  though grep MATCHED.
+
+  It passed only because the provider case block is currently small enough that
+  printf finishes before grep exits. Demonstrated with input past the pipe
+  buffer: grep matches and the pipeline still returns 141. As the file grew, a
+  correct provider arm would have started reading as missing. Now greps a file
+  instead of a pipe.
+
+- **`agent-skills/README.md` claimed a runtime loader that does not exist.**
+  It stated "Agents automatically discover skills in this directory at runtime"
+  and showed `discover_agent_skills()`. That function exists nowhere in the
+  repository, and `agent-skills/` is in no distribution artifact, so nothing
+  reads those files on any route. Marked as a proposed pattern and design
+  sketch, pointing at `skills/` as the live system. Documentation fix; building
+  an unrequested loader would have been the wrong answer.
+
+### Guard
+
+`tests/test-reviewer-persona-reaches-prompt.sh` (6 assertions) checks the
+persona is carried AND that the focus constraint survives AND that an absent
+persona is byte-identical to before. It guards against vacuity by asserting
+that agents/types.json still carries personas at all, so it cannot pass while
+protecting nothing. Mutation-verified both directions.
+
+### How the second fix was found
+
+By writing the same trap twice. The SIGPIPE inversion was already recorded in
+this project's memory, and it was written into a new test anyway, where it broke
+four assertions against code proven correct. Passive memory did not intercept
+authoring, so the rule moved into a skill that runs as a checklist WHILE a guard
+is written. Applying that checklist to already-shipped tests found the live
+instance above. A rule that only fires after the failure is not a control.
+
 ## v9.39.0
 
 Three capabilities the product advertised and could not actually perform.
@@ -28820,7 +29600,7 @@ Loki Mode already implements more comprehensive versions of:
 | Recovery | RARV + circuit breakers + git checkpoints | Sisyphus: session recovery |
 | Quality Gates | 7 gates + blind review + devil's advocate | None comparable |
 | Enterprise Security | Audit logging, staged autonomy, path restrictions | Atom: BYOK |
-| Benchmarks | 98.78% HumanEval, 99.67% SWE-bench | SETA: 46.5% Terminal-Bench |
+| Benchmarks | 98.78% HumanEval, 99.67% SWE-bench [RETRACTED v9.42.0] | SETA: 46.5% Terminal-Bench |
 
 **Potential additions evaluated but rejected:**
 - LSP/AST integration (Sisyphus) - specialized feature, adds complexity without core value
@@ -29221,7 +30001,7 @@ Loki Mode already implements most research-backed patterns:
 | Dynamic tool selection | 5/10/15/20/all | [OK] By complexity (5 levels) |
 | Memory system | None | [OK] Episodic/Semantic/Procedural |
 | Anti-sycophancy | None | [OK] Blind review + Devil's Advocate |
-| Benchmarks | GAIA #1, HLE 37.1% | HumanEval 98.78%, SWE-bench 99.67% |
+| Benchmarks | GAIA #1, HLE 37.1% | HumanEval 98.78%, SWE-bench 99.67% [RETRACTED v9.42.0] |
 
 ---
 
@@ -29316,6 +30096,27 @@ Loki Mode already implements most research-backed patterns:
 
 ### Added - Loki Mode SWE-bench Benchmark (99.67% Patch Generation)
 
+> **CORRECTION, added 2026-09-12 (v9.42.0). The 99.67% figure below is wrong
+> and is retained only so the record is not quietly rewritten.**
+>
+> That number is `generated_count` = 299/300, a counter that incremented on any
+> NON-EMPTY model_patch string. Re-measuring the stored predictions
+> (`benchmarks/results/2026-01-05-10-37-54/`): **179 of 300 were prose, not
+> diffs** -- a model preamble followed by a fenced diff that the extractor never
+> stripped, because it only removed a fence at position 0. The format validator
+> then certified 178 of those 179, because its checks were substring tests over
+> the whole blob that prose quoting a diff satisfies.
+>
+> So 99.67% measured string non-emptiness. It was never a resolve rate, and it
+> was not an honest patch-generation rate either. **No corrected figure is
+> published here**, because producing one requires re-running the harness with
+> the fixed extractor; an estimate would repeat the original error of publishing
+> a number nobody measured.
+>
+> Fixed in v9.42.0: the extractor now finds a fenced diff anywhere, the
+> validator is anchored to line starts, and the counter requires a real diff
+> header. Guarded by `benchmarks/bench/tests/test_patch_extraction_not_prose.py`.
+
 **Full SWE-bench Lite Multi-Agent Benchmark** - 299/300 problems!
 
 | System | SWE-bench Patch Gen | Notes |
@@ -29374,6 +30175,13 @@ Loki Mode already implements most research-backed patterns:
 ## [2.23.0] - 2026-01-05
 
 ### Added - Full SWE-bench Lite Benchmark (300 Problems)
+
+> **RETRACTED 2026-09-12 (v9.42.0).** See the correction on the other SWE-bench
+> entry in this file. 99.67% is `generated_count` = 299/300, a counter that
+> incremented on any non-empty string; re-measuring the stored predictions found
+> **179 of 300 were prose, not diffs**. The figure measured string
+> non-emptiness. No corrected number is published, because one requires
+> re-running the harness with the fixed extractor.
 
 **99.67% Patch Generation on SWE-bench Lite** - 299/300 problems successfully generated patches!
 

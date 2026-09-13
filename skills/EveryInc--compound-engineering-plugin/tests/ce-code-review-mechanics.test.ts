@@ -51,6 +51,21 @@ describe("ce-code-review deterministic mechanics", () => {
     expect(scope.lite_eligible).toBe(false)
   })
 
+  test("scope helper counts .mjs and .cjs files as executable code", () => {
+    const { dir, base } = fixtureRepo()
+    writeFileSync(path.join(dir, "esm.mjs"), "export const value = 1\n")
+    writeFileSync(path.join(dir, "common.cjs"), "module.exports = 1\n")
+    git(dir, "add", ".")
+
+    const result = run("python3", [SCOPE_SCRIPT, "--base", base], dir)
+    expect(result.status).toBe(0)
+    const scope = JSON.parse(result.stdout)
+
+    expect(scope.exec_lines).toBe(2)
+    expect(scope.uncounted_files).toBe(0)
+    expect(scope.lite_eligible).toBe(true)
+  })
+
   test("scope helper emits UNKNOWN-equivalent state for an invalid endpoint", () => {
     const { dir } = fixtureRepo()
     const result = run("python3", [SCOPE_SCRIPT, "--base", "missing-ref"], dir)
@@ -294,12 +309,39 @@ describe("ce-code-review deterministic mechanics", () => {
 
     expect(merged.findings).toHaveLength(1)
     expect(merged.findings[0]["#"]).toBe(1)
-    expect(merged.findings[0].confidence).toBe(100)
+    expect(merged.findings[0].confidence).toBe(75)
     expect(merged.findings[0].autofix_class).toBe("manual")
     expect(merged.findings[0].owner).toBe("human")
     expect(merged.findings[0].reviewers).toEqual(["correctness", "reliability"])
     expect(merged.findings[0].independent_reviewers).toEqual(["correctness", "reliability"])
     expect(merged.suppressed_by_confidence).toEqual({ "50": 1 })
+  })
+
+  test("agreement promotes only with a verified cross-model peer", () => {
+    const finding = {
+      title: "Stale result", severity: "P1", file: "src/worker.ts", line: 12,
+      confidence: 75, autofix_class: "manual", owner: "downstream-resolver",
+      requires_verification: true, pre_existing: false,
+      first_evidence: "src/worker.ts:12 -- result = staleValue",
+    }
+    const merge = (peer: Record<string, unknown>) => {
+      const returns = [
+        { reviewer: "correctness", findings: [finding], residual_risks: [], testing_gaps: [] },
+        { reviewer: "reliability", findings: [finding], residual_risks: [], testing_gaps: [] },
+        { reviewer: "adversarial-codex", findings: [finding], residual_risks: [], testing_gaps: [], ...peer },
+      ]
+      const result = run("python3", [FINDINGS_SCRIPT], undefined, JSON.stringify(returns))
+      expect(result.status).toBe(0)
+      return JSON.parse(result.stdout).findings[0]
+    }
+
+    const verified = merge({ independence_verified: true })
+    expect(verified.confidence).toBe(100)
+    expect(verified.independent_reviewers).toEqual(["correctness", "reliability", "adversarial-codex"])
+
+    const unverified = merge({ independence_verified: false })
+    expect(unverified.confidence).toBe(75)
+    expect(unverified.independent_reviewers).toEqual(["correctness", "reliability"])
   })
 
   test("synthetic reruns preserve independent corroboration from semantic duplicates", () => {
@@ -314,8 +356,8 @@ describe("ce-code-review deterministic mechanics", () => {
       requires_verification: true,
       pre_existing: false,
       first_evidence: "src/worker.ts:12 -- result = staleValue",
-      reviewers: ["correctness", "testing"],
-      independent_reviewers: ["correctness", "testing"],
+      reviewers: ["correctness", "adversarial-codex"],
+      independent_reviewers: ["correctness", "adversarial-codex"],
     }
 
     const result = run(
@@ -339,8 +381,8 @@ describe("ce-code-review deterministic mechanics", () => {
       expect.objectContaining({
         title: reconciled.title,
         confidence: 75,
-        reviewers: ["correctness", "testing"],
-        independent_reviewers: ["correctness", "testing"],
+        reviewers: ["correctness", "adversarial-codex"],
+        independent_reviewers: ["correctness", "adversarial-codex"],
       }),
     ])
   })

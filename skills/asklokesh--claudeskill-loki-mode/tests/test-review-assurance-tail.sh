@@ -798,7 +798,22 @@ QUALITY_REPO="$TMPROOT/product-quality-repo"
 setup_repo "$QUALITY_REPO"
 printf '%s\n' 'const testimonial = "Jane Doe: We hired in days."; export default function App() { return <main><p>95% faster.</p><blockquote>{testimonial}</blockquote><button>Start now</button></main>; }' > "$QUALITY_REPO/src/App.tsx"
 quality_rc=$(run_review_case "$QUALITY_REPO" 1 requirements-quality-miss "$QUALITY_SPEC")
-quality_review="$(find "$QUALITY_REPO/.loki/quality/reviews" -mindepth 1 -maxdepth 1 -type d | head -1)"
+# NOT `find ... | head -1`. Under the `set -o pipefail` at the top of this file,
+# head closes the pipe at the first line, find dies of SIGPIPE, and the PIPELINE
+# reports 141 even though the value was captured. It only bites when find emits
+# enough output to fill the pipe buffer, so it is load-dependent -- which is
+# exactly why this suite flaked in CI twice (blocking two releases) while
+# passing 44/0 locally every time. Reproduced directly: 4000 entries through
+# `find | head -1` under pipefail returns rc=141.
+#
+# `sort | head` would have the same defect. Read the first entry without a pipe.
+quality_review=""
+for _qr in "$QUALITY_REPO/.loki/quality/reviews"/*/; do
+    if [ -d "$_qr" ]; then
+        quality_review="${_qr%/}"
+        break
+    fi
+done
 if [ "$quality_rc" -ne 0 ] \
    && python3 - "$quality_review/requirements-manifest.json" \
        "$quality_review/requirements-verdict-schema.json" \
