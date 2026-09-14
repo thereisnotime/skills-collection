@@ -214,7 +214,7 @@
       "name": "agent-context-manager",
       "source": "./plugins/productivity/agent-context-manager",
       "description": "Automatically detects and loads AGENTS.md files to provide agent-specific instructions",
-      "version": "1.23.0",
+      "version": "1.24.0",
       "category": "productivity",
       "keywords": [
         "agents",
@@ -363,7 +363,7 @@
       "name": "ai-sdk-agents",
       "source": "./plugins/ai-ml/ai-sdk-agents",
       "description": "Multi-agent orchestration with AI SDK v5 - handoffs, routing, and coordination for any AI provider (OpenAI, Anthropic, Google)",
-      "version": "1.36.0",
+      "version": "1.37.0",
       "category": "ai-ml",
       "keywords": [
         "ai-sdk",
@@ -2870,7 +2870,7 @@
       "name": "engineer-design-diagram",
       "source": "./plugins/devops/engineer-design-diagram",
       "description": "Generate production-grade engineering design diagrams (architecture, sequence, delta, drift) as self-contained dark-themed HTML files with accessible inline SVG. Grounds every diagram in real repo topology via DCI — package manifests, docker-compose, k8s, terraform, import graph. Four modes: generate, diff, trace, watch. Semantic OKLCH palette; Mermaid fallback for large graphs.",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "category": "devops",
       "keywords": [
         "architecture",
@@ -5052,7 +5052,7 @@
       "name": "severity1-marketplace",
       "source": "./plugins/security/severity1-marketplace",
       "description": "Severity level classification and prompt improvement for marketplace plugins. Assigns severity ratings (S1-Critical through S4-Low) and enhances plugin prompts for clarity, safety, and effectiveness.",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "category": "security",
       "keywords": [
         "severity",
@@ -7080,7 +7080,7 @@
       "name": "cursor-pack",
       "source": "./plugins/saas-packs/cursor-pack",
       "description": "Complete Cursor integration skill pack with 30 skills covering AI code editing, composer workflows, codebase indexing, and productivity features. Flagship+ tier vendor pack.",
-      "version": "1.18.0",
+      "version": "1.19.0",
       "category": "saas-packs",
       "keywords": [
         "cursor",
@@ -7494,17 +7494,19 @@
     {
       "name": "vastai-pack",
       "source": "./plugins/saas-packs/vastai-pack",
-      "description": "Complete Vast.ai integration skill pack with 24 skills covering GPU marketplace, cloud compute, and ML infrastructure. Flagship tier vendor pack.",
-      "version": "1.11.0",
+      "description": "Evidence-gated Vast.ai operator pack for GPU rentals, Serverless, governance, recovery, and cost control (24 skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "vastai",
         "vast-ai",
         "gpu-marketplace",
         "cloud-gpu",
-        "ml-infrastructure",
-        "compute",
-        "training"
+        "serverless",
+        "checkpoint-recovery",
+        "signed-webhooks",
+        "teams-rbac",
+        "cost-control"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -7515,10 +7517,10 @@
         "skills": 24
       },
       "verification": {
-        "score": 86,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 93,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
@@ -7648,7 +7650,7 @@
       "name": "langchain-py-pack",
       "source": "./plugins/saas-packs/langchain-py-pack",
       "description": "LangChain 1.0 + LangGraph 1.0 skill pack for Python. Pain-first skills anchored to a 68-entry pain catalog covering content blocks, streaming token accounting, structured-output, vector stores, checkpointing, HITL, middleware, Deep Agents, and native OTEL. Includes 33 skills across four epics.",
-      "version": "2.6.0",
+      "version": "2.7.0",
       "category": "saas-packs",
       "keywords": [
         "langchain",
@@ -7801,7 +7803,7 @@
       "name": "clerk-pack",
       "source": "./plugins/saas-packs/clerk-pack",
       "description": "Complete Clerk integration skill pack with 24 skills covering authentication, user management, embeddable UIs, and identity platform. Flagship tier vendor pack.",
-      "version": "1.14.0",
+      "version": "1.15.0",
       "category": "saas-packs",
       "keywords": [
         "clerk",
@@ -8553,7 +8555,7 @@
       "name": "anthropic-pack",
       "source": "./plugins/saas-packs/anthropic-pack",
       "description": "Claude Code skill pack for Anthropic (30 skills)",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "category": "saas-packs",
       "keywords": [
         "anthropic",
@@ -8829,13 +8831,14 @@
     {
       "name": "clari-pack",
       "source": "./plugins/saas-packs/clari-pack",
-      "description": "Claude Code skill pack for Clari (18 skills)",
-      "version": "1.6.0",
+      "description": "18 governed Clari operator workflows for Revenue API exports, v2 ingestion, Copilot, governance, and production operations",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "clari",
-        "saas",
-        "sdk",
+        "revenue-operations",
+        "forecasting",
+        "copilot",
         "integration"
       ],
       "author": {
@@ -8847,10 +8850,10 @@
         "skills": 18
       },
       "verification": {
-        "score": 86,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 95,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
@@ -9102,15 +9105,16 @@
     {
       "name": "flyio-pack",
       "source": "./plugins/saas-packs/flyio-pack",
-      "description": "Claude Code skill pack for Fly.io (18 skills)",
-      "version": "1.7.0",
+      "description": "Operator-grade Fly.io skill pack for controlled app, Machine, data, security, deployment, and observability workflows (18 skills)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "flyio",
         "fly.io",
         "saas",
-        "sdk",
-        "integration"
+        "machines-api",
+        "deployment",
+        "operations"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -9121,10 +9125,10 @@
         "skills": 18
       },
       "verification": {
-        "score": 86,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 95,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
@@ -9633,8 +9637,8 @@
     {
       "name": "persona-pack",
       "source": "./plugins/saas-packs/persona-pack",
-      "description": "Claude Code skill pack for Persona (18 skills)",
-      "version": "1.4.0",
+      "description": "Operator-grade Persona identity workflow pack with 18 skills for inquiry lifecycles, authentic webhooks, privacy, reliability, and governed production delivery",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "persona",
@@ -9651,10 +9655,10 @@
         "skills": 18
       },
       "verification": {
-        "score": 86,
-        "grade": "B",
-        "badge": "silver",
-        "lastValidated": "2026-09-11T00:00:00.000Z"
+        "score": 95,
+        "grade": "A",
+        "badge": "gold",
+        "lastValidated": "2026-09-13T00:00:00.000Z"
       }
     },
     {
@@ -11359,7 +11363,7 @@
       "name": "agent-safety-preflight",
       "source": "./plugins/security/agent-safety-preflight",
       "description": "Local Claude Code command that generates a repo-risk receipt before AI-agent edits.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "security",
       "keywords": [
         "security",
@@ -11589,7 +11593,7 @@
       "name": "claude-pack",
       "source": "./plugins/saas-packs/claude-pack",
       "description": "Claude Code skill pack for building with the Claude API and Anthropic SDK.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "saas-packs",
       "keywords": [
         "claude",

@@ -2774,7 +2774,7 @@ type GateToggles = {
   lspDiagnostics: boolean;
 };
 
-function readToggles(): GateToggles {
+export function readToggles(): GateToggles {
   const flag = (key: string, fallback: boolean): boolean => {
     const v = process.env[key];
     if (v === undefined || v === "") return fallback;
@@ -2809,7 +2809,14 @@ function readToggles(): GateToggles {
       flag("LOKI_GATE_INVARIANTS_BLOCK", false),
     codeReview: flag("PHASE_CODE_REVIEW", true),
     docCoverage: flag("LOKI_GATE_DOC_COVERAGE", true),
-    magicDebate: flag("LOKI_GATE_MAGIC_DEBATE", true),
+    // NOT flag(): this gate's body short-circuits to pass unless the value is
+    // exactly "true" (:2520, opt-in default-off per the Phase 5 spec), and
+    // flag()'s semantics disagree with that on three of five values -- unset,
+    // "" and "1" all yield an ENABLED toggle for a gate that then self-skips,
+    // so the orchestrator records a gate as on that never ran. Mirroring the
+    // body's own predicate makes the toggle agree on every value. This changes
+    // no gate outcome: every value that skipped before still skips.
+    magicDebate: process.env["LOKI_GATE_MAGIC_DEBATE"] === "true",
     // P1-5 (v7.57.0): DEFAULT-ON, ADVISORY ONLY (mirrors bash
     // `${LOKI_GATE_LSP_DIAGNOSTICS:-true}`). The writer no-ops honestly when no
     // language server is installed (artifact absent -> "gate did not run"), so

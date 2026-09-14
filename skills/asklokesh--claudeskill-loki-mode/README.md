@@ -532,14 +532,14 @@ Required:
 
 - An agent provider CLI: [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`, Tier 1, recommended and E2E-verified - the provider Loki Mode is built for). Cline, Codex, Aider, and opencode are supported as experimental providers (wiring in place; not yet E2E-verified by us). Loki cannot run a build without one of these installed and authenticated.
 - Python 3.10+ (`python3`) for the dashboard, memory system, and orchestration helpers.
+- Node.js 18+ (`node`) for the npm install path and the bundled runtime.
+- `jq` for the JSON that the shell flows and the quality gates parse.
 - Git 2.x (`git`) for checkpoints and worktrees.
 - `curl` for installation and network calls.
 
 Recommended:
 
 - Bun 1.3.0+ (`bun`) for the fast runtime (the recommended install path above installs it).
-- Node.js 18+ and npm if you install via npm instead of Bun.
-- `jq` for nicer JSON handling in shell flows.
 - Docker if you want Loki's App Runner to run containerized projects, or to run Loki itself from the published image.
 
 You also need credentials for whichever provider you use (for Claude Code, an authenticated `claude` login or `ANTHROPIC_API_KEY`). `loki doctor` flags a missing or unauthenticated provider as the first thing to fix.

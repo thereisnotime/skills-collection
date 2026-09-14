@@ -87,7 +87,16 @@ local_import_is_source() {
     import_base="$test_dir/$spec"
 
     case "$leaf" in
-        *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs|*.mts|*.cts|*.vue|*.svelte)
+        # TS NodeNext resolution: a spec written "./foo.js" (or .jsx/.mjs/.cjs)
+        # commonly names a real ".ts"/".tsx"/".mts"/".cts" source file -- the
+        # extension in the specifier is the post-build one, not the on-disk one.
+        # Try the literal path first, then its TS sibling, before falling
+        # through to "not a source import".
+        *.js)  [ -f "$import_base" ] && return 0; [ -f "${import_base%.js}.ts" ] && return 0 ;;
+        *.jsx) [ -f "$import_base" ] && return 0; [ -f "${import_base%.jsx}.tsx" ] && return 0 ;;
+        *.mjs) [ -f "$import_base" ] && return 0; [ -f "${import_base%.mjs}.mts" ] && return 0 ;;
+        *.cjs) [ -f "$import_base" ] && return 0; [ -f "${import_base%.cjs}.cts" ] && return 0 ;;
+        *.ts|*.tsx|*.mts|*.cts|*.vue|*.svelte)
             [ -f "$import_base" ] && return 0
             ;;
         *.*) ;;
@@ -119,6 +128,11 @@ test_has_source_import() {
     # does -- it is how a subprocess/E2E test points at the source it runs.
     # Separate pattern (not an alternation) so the path stays BASH_REMATCH[1].
     local cjs_resolve_re="require\.resolve[[:space:]]*\([[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
+    # `await import('./x.ts')` / `import('./x.ts')` -- the dynamic-import form,
+    # used to load the module under test after mock.module() has been set up
+    # (bun:test's documented pattern for stubbing an import before it resolves).
+    # Same relative-path capture as the static forms above.
+    local dynamic_import_re="import[[:space:]]*\([[:space:]]*['\"](\.{1,2}/[^'\"]+)['\"]"
     # A test that hands a literal source path to a child process exercises the
     # real code end-to-end without ever naming it in an import. Gated on the
     # file importing child_process, because this flag unlocks a deliberately
@@ -211,6 +225,8 @@ test_has_source_import() {
         elif [[ "$line" =~ $cjs_resolve_re ]]; then
             spec="${BASH_REMATCH[1]}"
         elif [[ "$line" =~ $cjs_re ]]; then
+            spec="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ $dynamic_import_re ]]; then
             spec="${BASH_REMATCH[1]}"
         elif [ "$has_subprocess" = true ] && [[ "$line" =~ $subproc_re ]]; then
             spec="${BASH_REMATCH[1]}"

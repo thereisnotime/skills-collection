@@ -150,14 +150,27 @@ rate_limit_handling:
   circuit_breaker:
     threshold: 3 failures in 60s
     cooldown: 300s
-    state_file: ".loki/state/circuit-breakers.json"
 ```
 
 ### Circuit Breaker System
 
 The circuit breaker prevents cascading failures by temporarily disabling operations that are repeatedly failing.
 
-#### JSON Schema: `.loki/state/circuit-breakers.json`
+Loki ships three circuit breakers, and all of them hold state IN MEMORY for the
+life of the run. None persists to a state file:
+
+- `council_circuit_breaker_triggered()` (`autonomy/completion-council.sh:397`) --
+  stagnation and repeated done-signals
+- the repeated-signature breaker (`loki-ts/src/runner/recovery_policy.ts:91`)
+- the budget breaker (`loki-ts/src/runner/budget.ts:296`,
+  `check_budget_limit()` in `autonomy/run.sh`), which writes
+  `.loki/metrics/budget.json` and `.loki/signals/BUDGET_EXCEEDED`
+
+#### Reference schema (DESIGN PATTERN -- not an artifact Loki writes)
+
+The shape below describes the pattern for an implementer. No code in this
+repository reads or writes `.loki/state/circuit-breakers.json`; do not expect
+the file to exist at runtime.
 
 ```json
 {
@@ -310,8 +323,12 @@ The circuit breaker prevents cascading failures by temporarily disabling operati
 When a circuit breaker is OPEN:
 
 1. **Check State**
+
+   Breaker state is in memory, so read it from the run's own output rather than
+   a file. The budget breaker is the one with durable artifacts:
    ```bash
-   cat .loki/state/circuit-breakers.json | jq '.["api/claude"]'
+   cat .loki/metrics/budget.json          # budget_used vs the cap
+   ls .loki/signals/BUDGET_EXCEEDED       # present once the cap is breached
    ```
 
 2. **Calculate Wait Time**
@@ -461,7 +478,9 @@ A task should be permanently abandoned when:
 | Scope no longer relevant | Project direction changed |
 | Human explicitly abandons | Documented decision to deprioritize |
 
-When abandoning, move task to `.loki/queue/abandoned.json` with reason documented.
+When abandoning, move the task to `.loki/queue/dead-letter.json` with the reason
+documented. That is the real terminal queue (`autonomy/run.sh:6536`,
+`dashboard/server.py:2348`); there is no `abandoned.json`.
 
 ### Recovery Strategies
 
@@ -470,7 +489,7 @@ When abandoning, move task to `.loki/queue/abandoned.json` with reason documente
 | `retry_with_simpler_approach` | Complex implementation failed multiple times | Break into smaller subtasks, reduce scope, use simpler patterns |
 | `dependency_blocked` | Task needs output from another task that failed | Wait for dependency resolution, check daily |
 | `requires_human_review` | Security decision, unclear spec, or irreversible action | Log to `.loki/escalations/` and notify, do not retry |
-| `permanent_abandon` | Met abandon criteria above | Move to `abandoned.json`, document reason, move on |
+| `permanent_abandon` | Met abandon criteria above | Move to `dead-letter.json`, document reason, move on |
 
 ### Human Escalation Triggers
 
@@ -523,7 +542,7 @@ Human decision on recovery path.
       - Document recovery reason
       - Reset failure_count if new approach
    d. ELSE IF meets abandon criteria:
-      - Move to abandoned.json
+      - Move to dead-letter.json
       - Document reason
    e. ELSE IF needs human:
       - Create escalation file

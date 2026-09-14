@@ -601,7 +601,12 @@ VERIFY:
 
 ## Key Metrics Dashboard
 
-Track these metrics in `.loki/metrics/dashboard.json`:
+Track these metrics using the shape below. NOTE: this is the reference schema
+for the pattern, NOT a file Loki writes -- nothing in this repository produces
+`.loki/metrics/dashboard.json`. The metrics that ARE written per run are
+`.loki/metrics/efficiency/iteration-<N>.json` (`autonomy/run.sh:8303`),
+`.loki/metrics/budget.json`, and `.loki/metrics/trust-events.jsonl`
+(`autonomy/run.sh:2620`).
 
 ```json
 {

@@ -76,7 +76,7 @@ velocity_quality_balance:
 5. Mock Integrity Detector - HIGH blocks
 6. Test Mutation Detector - HIGH blocks
 7. Documentation Coverage
-8. Magic Modules Debate - BLOCK severity
+8. Magic Modules Debate - advisory by default on both routes (bash needs LOKI_GATE_MAGIC_DEBATE_BLOCKING=true; Bun self-skips unless LOKI_GATE_MAGIC_DEBATE="true")
 
 Conditional auditor (not numbered): backward-compatibility / legacy-healing-auditor (healing mode only).
 

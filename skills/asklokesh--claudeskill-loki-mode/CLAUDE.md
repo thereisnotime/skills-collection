@@ -119,7 +119,7 @@ LOKI_PROVIDER=codex loki start ./prd.md
 5. Mock-integrity detector (HIGH blocks)
 6. Test-mutation detector (HIGH blocks)
 7. Documentation coverage
-8. Magic Modules debate (BLOCK severity)
+8. Magic Modules debate (ADVISORY by default on both routes; bash enforces only with `LOKI_GATE_MAGIC_DEBATE_BLOCKING=true`, Bun self-skips unless `LOKI_GATE_MAGIC_DEBATE="true"`)
 
 Conditional auditor (not numbered): Backward-compatibility / legacy-healing-auditor (healing mode only - behavioral preservation, v6.67.0).
 
@@ -465,7 +465,7 @@ loki_run_tmp_cleanup() {
 
 ### Version Numbering
 Follows semantic versioning: MAJOR.MINOR.PATCH
-- Current: v9.49.3 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
+- Current: v9.50.1 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
 - MAJOR bump for architecture changes (v6.0.0 = dual-mode architecture, loki run)
 - MINOR bump for new features (v5.23.0 = Dashboard File-Based API)
 - PATCH bump for fixes (v5.22.1 = session.json phantom state)

@@ -14,6 +14,7 @@ import type {
 } from '../types/search';
 import { getClient, isKeylessMode, keylessRequest } from '../utils/client';
 import { writeOutput } from '../utils/output';
+import { apiFailure, requireAlexandriaKey } from './alexandria';
 
 /**
  * Execute search command
@@ -22,11 +23,15 @@ export async function executeSearch(
   options: SearchOptions
 ): Promise<SearchResult> {
   try {
+    if (options.domainTools || options.sources?.includes('alexandria'))
+      requireAlexandriaKey(options.apiKey);
     // Build search options for the SDK
     const searchParams: Record<string, any> = {
       limit: options.limit,
       integration: 'cli',
     };
+    if (options.domainTools !== undefined)
+      searchParams.domainTools = options.domainTools;
 
     if (options.highlights !== undefined) {
       searchParams.highlights = options.highlights;
@@ -121,6 +126,7 @@ export async function executeSearch(
     const payload = (envelope.data ?? {}) as Record<string, any>;
 
     const data: SearchResultData = {};
+    if (payload.tools) data.tools = payload.tools;
     if (payload.web) data.web = payload.web as WebSearchResult[];
     if (payload.images) data.images = payload.images as ImageSearchResult[];
     if (payload.news) data.news = payload.news as NewsSearchResult[];
@@ -139,7 +145,12 @@ export async function executeSearch(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      error:
+        options.domainTools || options.sources?.includes('alexandria')
+          ? JSON.stringify(apiFailure(error))
+          : error instanceof Error
+            ? error.message
+            : 'Unknown error occurred',
     };
   }
 }
@@ -164,6 +175,9 @@ function formatSearchReadable(
   options: SearchOptions
 ): string {
   const lines: string[] = [];
+  if (data.tools?.length) {
+    lines.push('=== Tools ===', JSON.stringify(data.tools, null, 2), '');
+  }
 
   // Format web results
   if (data.web && data.web.length > 0) {
@@ -292,12 +306,13 @@ export async function handleSearchCommand(
 
   // Check if there are any results
   const hasResults =
+    (result.data.tools && result.data.tools.length > 0) ||
     (result.data.web && result.data.web.length > 0) ||
     (result.data.images && result.data.images.length > 0) ||
     (result.data.news && result.data.news.length > 0) ||
     (result.data.developer && result.data.developer.length > 0);
 
-  if (!hasResults) {
+  if (!hasResults && !(result.data.tools && (options.json || options.pretty))) {
     console.log('No results found.');
     return;
   }

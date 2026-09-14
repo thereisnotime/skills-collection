@@ -100,6 +100,7 @@ export function parseScrapeOptions(options: any): ScrapeOptions {
 
   return {
     url: options.url,
+    domainTools: options.domainTools,
     formats,
     onlyMainContent: options.onlyMainContent,
     waitFor: options.waitFor,

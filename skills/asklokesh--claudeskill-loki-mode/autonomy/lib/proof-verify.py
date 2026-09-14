@@ -324,7 +324,8 @@ def _compute_headline(facts, degraded):
         or tests.get("status") == "failed"
         or build.get("status") == "failed"
         or any(g.get("status") == "failed"
-               for g in (facts.get("quality_gates") or []))
+               for g in (facts.get("quality_gates") or [])
+               if _is_exogenous(g))
         or sec_high
         or fn_failed
     )
@@ -342,7 +343,8 @@ def _compute_headline(facts, degraded):
         tests.get("status") == "verified"
         or build.get("status") == "verified"
         or any(g.get("status") == "passed"
-               for g in (facts.get("quality_gates") or []))
+               for g in (facts.get("quality_gates") or [])
+               if _is_exogenous(g))
     )
     if any_verified and degraded:
         return "VERIFIED WITH GAPS"

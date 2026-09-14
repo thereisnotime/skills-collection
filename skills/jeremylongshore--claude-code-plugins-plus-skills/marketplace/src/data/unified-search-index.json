@@ -248,7 +248,6 @@
       "Bash(ruff*)",
       "Bash(rum:*)",
       "Bash(scan:*)",
-      "Bash(scp:*)",
       "Bash(scrapy*)",
       "Bash(scripts/run-jrig-eval.sh:*)",
       "Bash(security-check:*)",
@@ -308,7 +307,6 @@
       "Bash(util:*)",
       "Bash(uv*)",
       "Bash(uv:*)",
-      "Bash(vastai:*)",
       "Bash(vault:*)",
       "Bash(vercel:*)",
       "Bash(vmstat:*)",
@@ -577,6 +575,7 @@
       "chaos-engineering",
       "charts",
       "chatops",
+      "checkpoint-recovery",
       "checkpointing",
       "chromatic",
       "ci-cd",
@@ -632,7 +631,6 @@
       "compliance",
       "component-generation",
       "composer",
-      "compute",
       "concurrency",
       "config",
       "configuration",
@@ -665,11 +663,13 @@
       "conversational-ai",
       "conversion",
       "coordination",
+      "copilot",
       "copilot-alternative",
       "coreweave",
       "corpus-linguistics",
       "correlation",
       "cost",
+      "cost-control",
       "cost-optimization",
       "coverage",
       "cpu",
@@ -1083,6 +1083,7 @@
       "lpu",
       "lucidchart",
       "machine-learning",
+      "machines-api",
       "macroeconomics",
       "maintainx",
       "maintenance",
@@ -1120,7 +1121,6 @@
       "miro",
       "mistral",
       "ml",
-      "ml-infrastructure",
       "mlflow",
       "mlops",
       "mobile",
@@ -1385,6 +1385,7 @@
       "return on investment",
       "revenue",
       "revenue-enablement",
+      "revenue-operations",
       "review",
       "rewards",
       "risk",
@@ -1459,6 +1460,7 @@
       "shopify",
       "signals",
       "signature",
+      "signed-webhooks",
       "simulation",
       "sinon",
       "skill",
@@ -1550,6 +1552,7 @@
       "tax",
       "tdd",
       "team-behavior",
+      "teams-rbac",
       "tech-debt",
       "technical-analysis",
       "technical-debt",
@@ -1942,7 +1945,7 @@
         "name": "Jeremy Longshore"
       },
       "authorType": "official",
-      "version": "1.23.0",
+      "version": "1.24.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -2131,7 +2134,7 @@
         "email": "[email protected]"
       },
       "authorType": "official",
-      "version": "1.36.0",
+      "version": "1.37.0",
       "isFeatured": true,
       "isNew": false,
       "badges": [],
@@ -5226,7 +5229,7 @@
         "email": "[email protected]"
       },
       "authorType": "official",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -7894,7 +7897,7 @@
         "email": "severity1@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -10262,7 +10265,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.18.0",
+      "version": "1.19.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -10702,16 +10705,18 @@
       "slug": "vastai-pack",
       "name": "vastai-pack",
       "displayName": "vastai pack",
-      "description": "Complete Vast.ai integration skill pack with 24 skills covering GPU marketplace, cloud compute, and ML infrastructure. Flagship tier vendor pack.",
+      "description": "Evidence-gated Vast.ai operator pack for GPU rentals, Serverless, governance, recovery, and cost control (24 skills)",
       "category": "saas-packs",
       "keywords": [
         "vastai",
         "vast-ai",
         "gpu-marketplace",
         "cloud-gpu",
-        "ml-infrastructure",
-        "compute",
-        "training"
+        "serverless",
+        "checkpoint-recovery",
+        "signed-webhooks",
+        "teams-rbac",
+        "cost-control"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -10719,15 +10724,15 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.11.0",
+      "version": "2.0.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
       "skillCount": 24,
-      "verificationScore": 86,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "vastai pack complete vast.ai integration skill pack with 24 skills covering gpu marketplace, cloud compute, and ml infrastructure. flagship tier vendor pack. saas-packs vastai vast-ai gpu-marketplace cloud-gpu ml-infrastructure compute training"
+      "verificationScore": 93,
+      "verificationGrade": "A",
+      "verificationBadge": "gold",
+      "searchText": "vastai pack evidence-gated vast.ai operator pack for gpu rentals, serverless, governance, recovery, and cost control (24 skills) saas-packs vastai vast-ai gpu-marketplace cloud-gpu serverless checkpoint-recovery signed-webhooks teams-rbac cost-control"
     },
     {
       "type": "plugin",
@@ -10890,7 +10895,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "2.6.0",
+      "version": "2.7.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -11056,7 +11061,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.14.0",
+      "version": "1.15.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -11867,7 +11872,7 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -12160,12 +12165,13 @@
       "slug": "clari-pack",
       "name": "clari-pack",
       "displayName": "clari pack",
-      "description": "Claude Code skill pack for Clari (18 skills)",
+      "description": "18 governed Clari operator workflows for Revenue API exports, v2 ingestion, Copilot, governance, and production operations",
       "category": "saas-packs",
       "keywords": [
         "clari",
-        "saas",
-        "sdk",
+        "revenue-operations",
+        "forecasting",
+        "copilot",
         "integration"
       ],
       "author": {
@@ -12174,15 +12180,15 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.6.0",
+      "version": "2.0.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
       "skillCount": 18,
-      "verificationScore": 86,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "clari pack claude code skill pack for clari (18 skills) saas-packs clari saas sdk integration"
+      "verificationScore": 95,
+      "verificationGrade": "A",
+      "verificationBadge": "gold",
+      "searchText": "clari pack 18 governed clari operator workflows for revenue api exports, v2 ingestion, copilot, governance, and production operations saas-packs clari revenue-operations forecasting copilot integration"
     },
     {
       "type": "plugin",
@@ -12463,14 +12469,15 @@
       "slug": "flyio-pack",
       "name": "flyio-pack",
       "displayName": "flyio pack",
-      "description": "Claude Code skill pack for Fly.io (18 skills)",
+      "description": "Operator-grade Fly.io skill pack for controlled app, Machine, data, security, deployment, and observability workflows (18 skills)",
       "category": "saas-packs",
       "keywords": [
         "flyio",
         "fly.io",
         "saas",
-        "sdk",
-        "integration"
+        "machines-api",
+        "deployment",
+        "operations"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -12478,15 +12485,15 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.7.0",
+      "version": "2.0.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
       "skillCount": 18,
-      "verificationScore": 86,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "flyio pack claude code skill pack for fly.io (18 skills) saas-packs flyio fly.io saas sdk integration"
+      "verificationScore": 95,
+      "verificationGrade": "A",
+      "verificationBadge": "gold",
+      "searchText": "flyio pack operator-grade fly.io skill pack for controlled app, machine, data, security, deployment, and observability workflows (18 skills) saas-packs flyio fly.io saas machines-api deployment operations"
     },
     {
       "type": "plugin",
@@ -13051,7 +13058,7 @@
       "slug": "persona-pack",
       "name": "persona-pack",
       "displayName": "persona pack",
-      "description": "Claude Code skill pack for Persona (18 skills)",
+      "description": "Operator-grade Persona identity workflow pack with 18 skills for inquiry lifecycles, authentic webhooks, privacy, reliability, and governed production delivery",
       "category": "saas-packs",
       "keywords": [
         "persona",
@@ -13065,15 +13072,15 @@
         "url": "https://github.com/jeremylongshore"
       },
       "authorType": "official",
-      "version": "1.4.0",
+      "version": "2.0.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
       "skillCount": 18,
-      "verificationScore": 86,
-      "verificationGrade": "B",
-      "verificationBadge": "silver",
-      "searchText": "persona pack claude code skill pack for persona (18 skills) saas-packs persona saas sdk integration"
+      "verificationScore": 95,
+      "verificationGrade": "A",
+      "verificationBadge": "gold",
+      "searchText": "persona pack operator-grade persona identity workflow pack with 18 skills for inquiry lifecycles, authentic webhooks, privacy, reliability, and governed production delivery saas-packs persona saas sdk integration"
     },
     {
       "type": "plugin",
@@ -14850,7 +14857,7 @@
         "url": "https://github.com/el-zachariah"
       },
       "authorType": "community",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -15093,7 +15100,7 @@
         "email": "jeremy@intentsolutions.io"
       },
       "authorType": "official",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "isFeatured": false,
       "isNew": false,
       "badges": [],
@@ -16354,7 +16361,7 @@
         "Bash(util:*)"
       ],
       "compatibleWith": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "parentPlugin": {
         "name": "agent-context-manager",
         "category": "productivity"
@@ -16417,7 +16424,7 @@
         "Bash(python3:*)"
       ],
       "compatibleWith": [],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "parentPlugin": {
         "name": "agent-safety-preflight",
         "category": "security"
@@ -18235,7 +18242,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18256,7 +18263,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18278,7 +18285,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18298,7 +18305,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18320,7 +18327,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18342,7 +18349,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18363,7 +18370,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18384,7 +18391,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18406,7 +18413,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18428,7 +18435,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18449,7 +18456,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18469,7 +18476,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18489,7 +18496,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18512,7 +18519,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18533,7 +18540,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18555,7 +18562,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18578,7 +18585,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18600,7 +18607,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18622,7 +18629,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18643,7 +18650,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18664,7 +18671,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18685,7 +18692,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18705,7 +18712,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18725,7 +18732,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18746,7 +18753,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18767,7 +18774,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18787,7 +18794,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18807,7 +18814,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18830,7 +18837,7 @@
         "Bash(git:*)"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -18852,7 +18859,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "anthropic-pack",
         "category": "saas-packs"
@@ -25148,7 +25155,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25168,7 +25175,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25189,7 +25196,7 @@
         "Bash(npm:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25209,7 +25216,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25227,7 +25234,7 @@
         "Read"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25245,7 +25252,7 @@
         "Read"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25265,7 +25272,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25285,7 +25292,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25305,7 +25312,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25328,7 +25335,7 @@
         "Bash(gcloud:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25350,7 +25357,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25370,7 +25377,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25390,7 +25397,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25410,7 +25417,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25433,7 +25440,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25453,7 +25460,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25473,7 +25480,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25495,7 +25502,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25516,7 +25523,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25538,7 +25545,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25558,7 +25565,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25578,7 +25585,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25598,7 +25605,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25618,7 +25625,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25638,7 +25645,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25658,7 +25665,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25679,7 +25686,7 @@
         "Bash(npm:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25699,7 +25706,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25719,7 +25726,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25739,7 +25746,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25762,7 +25769,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25783,7 +25790,7 @@
         "Bash(curl:*)"
       ],
       "compatibleWith": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "parentPlugin": {
         "name": "claude-pack",
         "category": "saas-packs"
@@ -25795,384 +25802,378 @@
       "id": "clari-ci-integration",
       "slug": "clari-ci-integration",
       "name": "clari-ci-integration",
-      "description": "Integrate Clari export pipeline testing and validation into CI/CD. Use when adding automated tests for Clari integrations, validating export schemas in CI, or testing pipeline reliability. Trigger with phrases like \"clari CI\", \"clari github actions\", \"clari automated tests\", \"test clari pipeline\".",
+      "description": "Validate a Clari integration in CI with offline OpenAPI-derived contracts, synthetic job lifecycles, schema drift checks, and secret scanning. Use when adding release gates. Trigger with: \"add Clari CI\", \"test the Clari contract\", \"gate a Clari release\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(gh:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-ci-integration integrate clari export pipeline testing and validation into ci/cd. use when adding automated tests for clari integrations, validating export schemas in ci, or testing pipeline reliability. trigger with phrases like \"clari ci\", \"clari github actions\", \"clari automated tests\", \"test clari pipeline\". saas-packs read write edit bash(gh:*) "
+      "searchText": "clari-ci-integration validate a clari integration in ci with offline openapi-derived contracts, synthetic job lifecycles, schema drift checks, and secret scanning. use when adding release gates. trigger with: \"add clari ci\", \"test the clari contract\", \"gate a clari release\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-common-errors",
       "slug": "clari-common-errors",
       "name": "clari-common-errors",
-      "description": "Diagnose and fix Clari API errors including auth failures, export issues, and data mismatches. Use when Clari API calls fail, exports return empty data, or forecast numbers do not match the UI. Trigger with phrases like \"clari error\", \"clari not working\", \"clari api failure\", \"fix clari\", \"debug clari\".",
+      "description": "Analyze and resolve Clari authentication, authorization, job, ingestion, schema, and empty-result failures from redacted evidence. Use when an integration fails or returns incomplete data. Trigger with: \"debug Clari\", \"triage a Clari error\", \"fix an empty Clari export\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(curl:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-common-errors diagnose and fix clari api errors including auth failures, export issues, and data mismatches. use when clari api calls fail, exports return empty data, or forecast numbers do not match the ui. trigger with phrases like \"clari error\", \"clari not working\", \"clari api failure\", \"fix clari\", \"debug clari\". saas-packs read bash(curl:*) grep "
+      "searchText": "clari-common-errors analyze and resolve clari authentication, authorization, job, ingestion, schema, and empty-result failures from redacted evidence. use when an integration fails or returns incomplete data. trigger with: \"debug clari\", \"triage a clari error\", \"fix an empty clari export\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-core-workflow-a",
       "slug": "clari-core-workflow-a",
       "name": "clari-core-workflow-a",
-      "description": "Build a Clari forecast export pipeline to your data warehouse. Use when exporting forecast calls, quota data, and CRM totals from Clari to Snowflake, BigQuery, or a local database. Trigger with phrases like \"clari forecast export\", \"clari data pipeline\", \"clari to snowflake\", \"clari to bigquery\", \"export clari data\".",
+      "description": "Build a Clari forecast-export pipeline with reconciliation, schema controls, and warehouse lineage. Use when loading forecasts, quotas, adjustments, or CRM totals. Trigger with: \"export Clari forecasts\", \"load Clari into the warehouse\", \"build a forecast pipeline\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(python3:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-core-workflow-a build a clari forecast export pipeline to your data warehouse. use when exporting forecast calls, quota data, and crm totals from clari to snowflake, bigquery, or a local database. trigger with phrases like \"clari forecast export\", \"clari data pipeline\", \"clari to snowflake\", \"clari to bigquery\", \"export clari data\". saas-packs read write edit bash(python3:*) bash(curl:*) grep "
+      "searchText": "clari-core-workflow-a build a clari forecast-export pipeline with reconciliation, schema controls, and warehouse lineage. use when loading forecasts, quotas, adjustments, or crm totals. trigger with: \"export clari forecasts\", \"load clari into the warehouse\", \"build a forecast pipeline\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-core-workflow-b",
       "slug": "clari-core-workflow-b",
       "name": "clari-core-workflow-b",
-      "description": "Build Clari revenue analytics: pipeline coverage, forecast accuracy, and rep performance dashboards from exported data. Use when analyzing forecast accuracy, building attainment reports, or creating executive revenue dashboards. Trigger with phrases like \"clari analytics\", \"clari dashboard\", \"clari forecast accuracy\", \"clari pipeline coverage\".",
+      "description": "Extract Clari Copilot calls, details, users, topics, and scorecards into a governed analytics flow. Use when building conversation or coaching datasets. Trigger with: \"export Clari Copilot calls\", \"build conversation analytics\", \"load Copilot scorecards\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(python3:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-core-workflow-b build clari revenue analytics: pipeline coverage, forecast accuracy, and rep performance dashboards from exported data. use when analyzing forecast accuracy, building attainment reports, or creating executive revenue dashboards. trigger with phrases like \"clari analytics\", \"clari dashboard\", \"clari forecast accuracy\", \"clari pipeline coverage\". saas-packs read write edit bash(python3:*) grep "
+      "searchText": "clari-core-workflow-b extract clari copilot calls, details, users, topics, and scorecards into a governed analytics flow. use when building conversation or coaching datasets. trigger with: \"export clari copilot calls\", \"build conversation analytics\", \"load copilot scorecards\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-cost-tuning",
       "slug": "clari-cost-tuning",
       "name": "clari-cost-tuning",
-      "description": "Optimize Clari API usage and integration costs. Use when reducing API call volume, optimizing export frequency, or evaluating Clari license utilization. Trigger with phrases like \"clari cost\", \"clari api usage\", \"reduce clari calls\", \"clari optimization\".",
+      "description": "Analyze and optimize Clari integration consumption across export quota, Copilot requests, transfer, storage, and warehouse work. Use when reducing unnecessary runs. Trigger with: \"reduce Clari cost\", \"budget Clari exports\", \"tune Clari retention\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-cost-tuning optimize clari api usage and integration costs. use when reducing api call volume, optimizing export frequency, or evaluating clari license utilization. trigger with phrases like \"clari cost\", \"clari api usage\", \"reduce clari calls\", \"clari optimization\". saas-packs read write edit grep "
+      "searchText": "clari-cost-tuning analyze and optimize clari integration consumption across export quota, copilot requests, transfer, storage, and warehouse work. use when reducing unnecessary runs. trigger with: \"reduce clari cost\", \"budget clari exports\", \"tune clari retention\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-debug-bundle",
       "slug": "clari-debug-bundle",
       "name": "clari-debug-bundle",
-      "description": "Collect Clari API diagnostic info for support cases. Use when preparing a support ticket, collecting API response samples, or documenting integration issues. Trigger with phrases like \"clari debug\", \"clari support bundle\", \"collect clari diagnostics\", \"clari troubleshoot\".",
+      "description": "Analyze a Clari incident and collect a minimal support bundle with job timelines, contract fingerprints, and secret-safe evidence. Use when escalating a provider or pipeline failure. Trigger with: \"collect Clari diagnostics\", \"build a Clari support bundle\", \"redact a Clari incident\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(curl:*)",
-        "Bash(python3:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-debug-bundle collect clari api diagnostic info for support cases. use when preparing a support ticket, collecting api response samples, or documenting integration issues. trigger with phrases like \"clari debug\", \"clari support bundle\", \"collect clari diagnostics\", \"clari troubleshoot\". saas-packs read bash(curl:*) bash(python3:*) grep "
+      "searchText": "clari-debug-bundle analyze a clari incident and collect a minimal support bundle with job timelines, contract fingerprints, and secret-safe evidence. use when escalating a provider or pipeline failure. trigger with: \"collect clari diagnostics\", \"build a clari support bundle\", \"redact a clari incident\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-deploy-integration",
       "slug": "clari-deploy-integration",
       "name": "clari-deploy-integration",
-      "description": "Deploy Clari export pipelines to production with Airflow, Cloud Functions, or Lambda. Use when scheduling automated exports, deploying to cloud platforms, or setting up serverless Clari sync. Trigger with phrases like \"deploy clari\", \"clari airflow\", \"clari lambda\", \"clari cloud function\", \"clari scheduled export\".",
+      "description": "Deploy a single-writer Clari scheduler with durable job state, atomic publication, observability, and rollback. Use when productionizing recurring Revenue or Copilot extraction. Trigger with: \"deploy a Clari pipeline\", \"schedule Clari exports\", \"ship Clari integration\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(gcloud:*)",
-        "Bash(aws:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-deploy-integration deploy clari export pipelines to production with airflow, cloud functions, or lambda. use when scheduling automated exports, deploying to cloud platforms, or setting up serverless clari sync. trigger with phrases like \"deploy clari\", \"clari airflow\", \"clari lambda\", \"clari cloud function\", \"clari scheduled export\". saas-packs read write edit bash(gcloud:*) bash(aws:*) "
+      "searchText": "clari-deploy-integration deploy a single-writer clari scheduler with durable job state, atomic publication, observability, and rollback. use when productionizing recurring revenue or copilot extraction. trigger with: \"deploy a clari pipeline\", \"schedule clari exports\", \"ship clari integration\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-hello-world",
       "slug": "clari-hello-world",
       "name": "clari-hello-world",
-      "description": "Export your first Clari forecast and pipeline snapshot. Use when testing Clari API connectivity, pulling forecast data, or learning the export API structure. Trigger with phrases like \"clari hello world\", \"clari first export\", \"clari test api\", \"clari forecast export\".",
+      "description": "Run one bounded Clari forecast export through request, status polling, and result retrieval. Use when proving Revenue API connectivity or learning the job lifecycle. Trigger with: \"run my first Clari export\", \"test Clari connectivity\", \"export a forecast snapshot\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(python3:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-hello-world export your first clari forecast and pipeline snapshot. use when testing clari api connectivity, pulling forecast data, or learning the export api structure. trigger with phrases like \"clari hello world\", \"clari first export\", \"clari test api\", \"clari forecast export\". saas-packs read write edit bash(curl:*) bash(python3:*) "
+      "searchText": "clari-hello-world run one bounded clari forecast export through request, status polling, and result retrieval. use when proving revenue api connectivity or learning the job lifecycle. trigger with: \"run my first clari export\", \"test clari connectivity\", \"export a forecast snapshot\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-install-auth",
       "slug": "clari-install-auth",
       "name": "clari-install-auth",
-      "description": "Configure Clari API authentication with API key and set up export access. Use when connecting to the Clari API, generating API tokens, or configuring forecast data exports. Trigger with phrases like \"install clari\", \"setup clari api\", \"clari auth\", \"clari api key\", \"configure clari\".",
+      "description": "Configure a least-privilege Clari identity and validate Revenue API or Copilot credentials without exposing secrets. Use when starting an integration or rotating access. Trigger with: \"set up Clari auth\", \"configure a Clari token\", \"test Copilot credentials\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(pip:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-install-auth configure clari api authentication with api key and set up export access. use when connecting to the clari api, generating api tokens, or configuring forecast data exports. trigger with phrases like \"install clari\", \"setup clari api\", \"clari auth\", \"clari api key\", \"configure clari\". saas-packs read write edit bash(curl:*) bash(pip:*) grep "
+      "searchText": "clari-install-auth configure a least-privilege clari identity and validate revenue api or copilot credentials without exposing secrets. use when starting an integration or rotating access. trigger with: \"set up clari auth\", \"configure a clari token\", \"test copilot credentials\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-local-dev-loop",
       "slug": "clari-local-dev-loop",
       "name": "clari-local-dev-loop",
-      "description": "Set up local development for Clari API integrations with mock data. Use when building forecast dashboards, testing export pipelines, or iterating on Clari data transformations locally. Trigger with phrases like \"clari dev setup\", \"clari local testing\", \"develop with clari\", \"clari mock data\".",
+      "description": "Build and test a Clari integration locally with redacted fixtures and a deterministic job simulator. Use when developing without spending quota or exposing customer data. Trigger with: \"mock Clari locally\", \"build Clari fixtures\", \"test Clari offline\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(python3:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-local-dev-loop set up local development for clari api integrations with mock data. use when building forecast dashboards, testing export pipelines, or iterating on clari data transformations locally. trigger with phrases like \"clari dev setup\", \"clari local testing\", \"develop with clari\", \"clari mock data\". saas-packs read write edit bash(npm:*) bash(python3:*) grep "
+      "searchText": "clari-local-dev-loop build and test a clari integration locally with redacted fixtures and a deterministic job simulator. use when developing without spending quota or exposing customer data. trigger with: \"mock clari locally\", \"build clari fixtures\", \"test clari offline\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-performance-tuning",
       "slug": "clari-performance-tuning",
       "name": "clari-performance-tuning",
-      "description": "Optimize Clari API performance with caching, batch exports, and data pipeline efficiency. Use when exports take too long, optimizing data warehouse load times, or reducing API calls in multi-forecast environments. Trigger with phrases like \"clari performance\", \"clari slow export\", \"optimize clari pipeline\", \"clari caching\".",
+      "description": "Optimize Clari integration latency without violating concurrency, quota, correctness, or duplicate-work controls. Use when exports or Copilot extraction miss an SLO. Trigger with: \"speed up Clari exports\", \"tune Clari polling\", \"reduce Clari pipeline latency\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-performance-tuning optimize clari api performance with caching, batch exports, and data pipeline efficiency. use when exports take too long, optimizing data warehouse load times, or reducing api calls in multi-forecast environments. trigger with phrases like \"clari performance\", \"clari slow export\", \"optimize clari pipeline\", \"clari caching\". saas-packs read write edit "
+      "searchText": "clari-performance-tuning optimize clari integration latency without violating concurrency, quota, correctness, or duplicate-work controls. use when exports or copilot extraction miss an slo. trigger with: \"speed up clari exports\", \"tune clari polling\", \"reduce clari pipeline latency\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-prod-checklist",
       "slug": "clari-prod-checklist",
       "name": "clari-prod-checklist",
-      "description": "Production readiness checklist for Clari API integrations. Use when launching a Clari data pipeline, validating export automation, or preparing for production forecast sync. Trigger with phrases like \"clari production\", \"clari go-live\", \"clari checklist\", \"clari launch\".",
+      "description": "Analyze and gate a Clari integration for production with evidence for access, correctness, resilience, privacy, rollback, and ownership. Use when approving a launch or material change. Trigger with: \"review Clari readiness\", \"approve Clari production\", \"run the Clari launch checklist\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(curl:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-prod-checklist production readiness checklist for clari api integrations. use when launching a clari data pipeline, validating export automation, or preparing for production forecast sync. trigger with phrases like \"clari production\", \"clari go-live\", \"clari checklist\", \"clari launch\". saas-packs read bash(curl:*) grep "
+      "searchText": "clari-prod-checklist analyze and gate a clari integration for production with evidence for access, correctness, resilience, privacy, rollback, and ownership. use when approving a launch or material change. trigger with: \"review clari readiness\", \"approve clari production\", \"run the clari launch checklist\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-rate-limits",
       "slug": "clari-rate-limits",
       "name": "clari-rate-limits",
-      "description": "Handle Clari API rate limits with backoff and export job scheduling. Use when hitting 429 errors, optimizing export frequency, or scheduling bulk forecast exports. Trigger with phrases like \"clari rate limit\", \"clari 429\", \"clari throttle\", \"clari api limits\".",
+      "description": "Analyze and schedule Clari exports, ingestion jobs, and Copilot reads within provider concurrency and quota controls. Use when preventing 429 responses or coordinating workers. Trigger with: \"handle Clari rate limits\", \"schedule Clari jobs\", \"recover from Clari 429\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-rate-limits handle clari api rate limits with backoff and export job scheduling. use when hitting 429 errors, optimizing export frequency, or scheduling bulk forecast exports. trigger with phrases like \"clari rate limit\", \"clari 429\", \"clari throttle\", \"clari api limits\". saas-packs read write edit "
+      "searchText": "clari-rate-limits analyze and schedule clari exports, ingestion jobs, and copilot reads within provider concurrency and quota controls. use when preventing 429 responses or coordinating workers. trigger with: \"handle clari rate limits\", \"schedule clari jobs\", \"recover from clari 429\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-reference-architecture",
       "slug": "clari-reference-architecture",
       "name": "clari-reference-architecture",
-      "description": "Reference architecture for Clari revenue intelligence integrations. Use when designing a forecast data platform, planning Clari integration architecture, or establishing team patterns for revenue analytics. Trigger with phrases like \"clari architecture\", \"clari data platform\", \"clari integration design\", \"clari best practices\".",
+      "description": "Design a Clari architecture that separates Revenue exports, v2 ingestion, Copilot, control state, landing, validation, and publication. Use when defining or reviewing a platform boundary. Trigger with: \"design Clari architecture\", \"review a Clari topology\", \"map Clari data flow\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-reference-architecture reference architecture for clari revenue intelligence integrations. use when designing a forecast data platform, planning clari integration architecture, or establishing team patterns for revenue analytics. trigger with phrases like \"clari architecture\", \"clari data platform\", \"clari integration design\", \"clari best practices\". saas-packs read write edit grep "
+      "searchText": "clari-reference-architecture design a clari architecture that separates revenue exports, v2 ingestion, copilot, control state, landing, validation, and publication. use when defining or reviewing a platform boundary. trigger with: \"design clari architecture\", \"review a clari topology\", \"map clari data flow\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-sdk-patterns",
       "slug": "clari-sdk-patterns",
       "name": "clari-sdk-patterns",
-      "description": "Production-ready Clari API client patterns in Python and TypeScript. Use when building reusable Clari clients, implementing export pipelines, or wrapping the Clari v4 API for team use. Trigger with phrases like \"clari API patterns\", \"clari client wrapper\", \"clari Python client\", \"clari TypeScript client\".",
+      "description": "Build and validate a typed local Clari REST client with bounded retries, job polling, pagination, and redaction. Use when standardizing application code around public contracts. Trigger with: \"build a Clari client\", \"wrap the Clari API\", \"type Clari responses\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-sdk-patterns production-ready clari api client patterns in python and typescript. use when building reusable clari clients, implementing export pipelines, or wrapping the clari v4 api for team use. trigger with phrases like \"clari api patterns\", \"clari client wrapper\", \"clari python client\", \"clari typescript client\". saas-packs read write edit "
+      "searchText": "clari-sdk-patterns build and validate a typed local clari rest client with bounded retries, job polling, pagination, and redaction. use when standardizing application code around public contracts. trigger with: \"build a clari client\", \"wrap the clari api\", \"type clari responses\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-security-basics",
       "slug": "clari-security-basics",
       "name": "clari-security-basics",
-      "description": "Secure Clari API tokens and implement data handling best practices. Use when managing API tokens, restricting data access, or implementing PII handling for exported forecast data. Trigger with phrases like \"clari security\", \"clari api key rotation\", \"secure clari\", \"clari pii handling\".",
+      "description": "Secure Clari identities, credentials, exported revenue data, Copilot content, and ingestion mutations. Use when threat-modeling or reviewing least privilege and data handling. Trigger with: \"secure Clari\", \"threat-model Clari\", \"review Clari access\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-security-basics secure clari api tokens and implement data handling best practices. use when managing api tokens, restricting data access, or implementing pii handling for exported forecast data. trigger with phrases like \"clari security\", \"clari api key rotation\", \"secure clari\", \"clari pii handling\". saas-packs read write edit grep "
+      "searchText": "clari-security-basics secure clari identities, credentials, exported revenue data, copilot content, and ingestion mutations. use when threat-modeling or reviewing least privilege and data handling. trigger with: \"secure clari\", \"threat-model clari\", \"review clari access\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-upgrade-migration",
       "slug": "clari-upgrade-migration",
       "name": "clari-upgrade-migration",
-      "description": "Handle Clari API version changes and export schema migrations. Use when Clari updates their API, export format changes, or migrating from v3 to v4 API. Trigger with phrases like \"upgrade clari\", \"clari api migration\", \"clari schema change\", \"clari v4 migration\".",
+      "description": "Migrate a Clari integration across hosts, versions, endpoint contracts, or export schemas with dual-read comparison and rollback. Use when retiring legacy clients or mappings. Trigger with: \"upgrade Clari API\", \"migrate a Clari client\", \"handle Clari schema drift\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-upgrade-migration handle clari api version changes and export schema migrations. use when clari updates their api, export format changes, or migrating from v3 to v4 api. trigger with phrases like \"upgrade clari\", \"clari api migration\", \"clari schema change\", \"clari v4 migration\". saas-packs read write edit bash(curl:*) grep "
+      "searchText": "clari-upgrade-migration migrate a clari integration across hosts, versions, endpoint contracts, or export schemas with dual-read comparison and rollback. use when retiring legacy clients or mappings. trigger with: \"upgrade clari api\", \"migrate a clari client\", \"handle clari schema drift\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "clari-webhooks-events",
       "slug": "clari-webhooks-events",
       "name": "clari-webhooks-events",
-      "description": "Monitor Clari forecast changes using export job polling and change detection. Use when tracking forecast submission changes, building alerts for significant forecast movements, or syncing Clari data in near-real-time. Trigger with phrases like \"clari webhooks\", \"clari notifications\", \"clari forecast alerts\", \"clari change detection\".",
+      "description": "Detect Clari changes through supported paginated audit reads and asynchronous activity exports instead of assuming webhooks. Use when building an administrative or sales-activity feed. Trigger with: \"monitor Clari changes\", \"stream Clari audit events\", \"replace Clari webhooks\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Bash(python3:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "clari-pack",
         "category": "saas-packs"
       },
-      "searchText": "clari-webhooks-events monitor clari forecast changes using export job polling and change detection. use when tracking forecast submission changes, building alerts for significant forecast movements, or syncing clari data in near-real-time. trigger with phrases like \"clari webhooks\", \"clari notifications\", \"clari forecast alerts\", \"clari change detection\". saas-packs read write edit bash(curl:*) bash(python3:*) "
+      "searchText": "clari-webhooks-events detect clari changes through supported paginated audit reads and asynchronous activity exports instead of assuming webhooks. use when building an administrative or sales-activity feed. trigger with: \"monitor clari changes\", \"stream clari audit events\", \"replace clari webhooks\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
@@ -26865,7 +26866,7 @@
         "Bash(gh:*)"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -26887,7 +26888,7 @@
         "Bash(npm:*)"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -26908,7 +26909,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -26929,7 +26930,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -26950,7 +26951,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -26972,7 +26973,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -26995,7 +26996,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27018,7 +27019,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27039,7 +27040,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27061,7 +27062,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27084,7 +27085,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27107,7 +27108,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27130,7 +27131,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27152,7 +27153,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27174,7 +27175,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27196,7 +27197,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27217,7 +27218,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27239,7 +27240,7 @@
         "Bash(npm:*)"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27260,7 +27261,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27281,7 +27282,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27302,7 +27303,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27323,7 +27324,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27346,7 +27347,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -27368,7 +27369,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "parentPlugin": {
         "name": "clerk-pack",
         "category": "saas-packs"
@@ -30904,7 +30905,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -30925,7 +30926,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -30946,7 +30947,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -30967,7 +30968,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -30988,7 +30989,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31009,7 +31010,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31030,7 +31031,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31051,7 +31052,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31072,7 +31073,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31093,7 +31094,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31114,7 +31115,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31135,7 +31136,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31156,7 +31157,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31177,7 +31178,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31198,7 +31199,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31219,7 +31220,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31240,7 +31241,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31261,7 +31262,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31282,7 +31283,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31303,7 +31304,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31324,7 +31325,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31345,7 +31346,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31366,7 +31367,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31387,7 +31388,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31408,7 +31409,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31429,7 +31430,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31450,7 +31451,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31471,7 +31472,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31492,7 +31493,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -31513,7 +31514,7 @@
         "Bash(cmd:*)"
       ],
       "compatibleWith": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "parentPlugin": {
         "name": "cursor-pack",
         "category": "saas-packs"
@@ -34791,7 +34792,7 @@
         "AskUserQuestion"
       ],
       "compatibleWith": [],
-      "version": "0.5.0",
+      "version": "0.6.0",
       "parentPlugin": {
         "name": "engineer-design-diagram",
         "category": "devops"
@@ -40009,391 +40010,378 @@
       "id": "flyio-ci-integration",
       "slug": "flyio-ci-integration",
       "name": "flyio-ci-integration",
-      "description": "Configure CI/CD pipelines for Fly.io with GitHub Actions, Docker builds, deploy tokens, and automated deployment workflows. Trigger: \"fly.io CI\", \"fly.io GitHub Actions\", \"fly deploy CI/CD\".",
+      "description": "Design a least-privilege Fly.io CI lane with deterministic validation, deployment, and rollback evidence. Use when wiring or auditing automated deployments. Trigger with: \"add Fly.io CI\", \"harden Fly deploy workflow\", \"rotate Fly CI token\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-ci-integration configure ci/cd pipelines for fly.io with github actions, docker builds, deploy tokens, and automated deployment workflows. trigger: \"fly.io ci\", \"fly.io github actions\", \"fly deploy ci/cd\". saas-packs read write edit bash(fly:*) grep "
+      "searchText": "flyio-ci-integration design a least-privilege fly.io ci lane with deterministic validation, deployment, and rollback evidence. use when wiring or auditing automated deployments. trigger with: \"add fly.io ci\", \"harden fly deploy workflow\", \"rotate fly ci token\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-common-errors",
       "slug": "flyio-common-errors",
       "name": "flyio-common-errors",
-      "description": "Diagnose and fix common Fly.io errors including deployment failures, health check failures, machine issues, and networking problems. Trigger: \"fly.io error\", \"fly deploy failed\", \"fly.io not working\", \"fly health check\".",
+      "description": "Diagnose Fly.io deployment, routing, health, Machine, volume, and private-network failures with evidence-first triage. Use when an app is unhealthy or a release stalls. Trigger with: \"debug Fly deploy\", \"why is my Fly app down\", \"triage Fly Machine\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(fly:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-common-errors diagnose and fix common fly.io errors including deployment failures, health check failures, machine issues, and networking problems. trigger: \"fly.io error\", \"fly deploy failed\", \"fly.io not working\", \"fly health check\". saas-packs read bash(fly:*) bash(curl:*) grep "
+      "searchText": "flyio-common-errors diagnose fly.io deployment, routing, health, machine, volume, and private-network failures with evidence-first triage. use when an app is unhealthy or a release stalls. trigger with: \"debug fly deploy\", \"why is my fly app down\", \"triage fly machine\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-core-workflow-a",
       "slug": "flyio-core-workflow-a",
       "name": "flyio-core-workflow-a",
-      "description": "Execute Fly.io primary workflow: deploy, scale, and manage apps with flyctl and fly.toml. Use when deploying applications, configuring regions, setting secrets, or managing the app lifecycle on Fly.io. Trigger: \"fly deploy\", \"fly.io app management\", \"fly scale\", \"fly.io regions\".",
+      "description": "Operate a Fly.io application release from configuration review through deploy, scale, secret change, and rollback. Use when shipping or changing a Fly Launch app. Trigger with: \"deploy Fly app\", \"scale Fly Machines\", \"roll back Fly release\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-core-workflow-a execute fly.io primary workflow: deploy, scale, and manage apps with flyctl and fly.toml. use when deploying applications, configuring regions, setting secrets, or managing the app lifecycle on fly.io. trigger: \"fly deploy\", \"fly.io app management\", \"fly scale\", \"fly.io regions\". saas-packs read write edit bash(fly:*) bash(curl:*) grep "
+      "searchText": "flyio-core-workflow-a operate a fly.io application release from configuration review through deploy, scale, secret change, and rollback. use when shipping or changing a fly launch app. trigger with: \"deploy fly app\", \"scale fly machines\", \"roll back fly release\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-core-workflow-b",
       "slug": "flyio-core-workflow-b",
       "name": "flyio-core-workflow-b",
-      "description": "Execute Fly.io secondary workflow: Postgres clusters, persistent volumes, and private networking. Use when adding databases, persistent storage, or internal service communication. Trigger: \"fly postgres\", \"fly volumes\", \"fly.io database\", \"fly.io persistent storage\".",
+      "description": "Design Fly.io Managed Postgres, Fly Volumes, and private 6PN connectivity with explicit durability boundaries. Use when an app needs persistent data or private service access. Trigger with: \"add Fly Managed Postgres\", \"plan Fly volume storage\", \"connect Fly apps privately\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Bash(psql:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-core-workflow-b execute fly.io secondary workflow: postgres clusters, persistent volumes, and private networking. use when adding databases, persistent storage, or internal service communication. trigger: \"fly postgres\", \"fly volumes\", \"fly.io database\", \"fly.io persistent storage\". saas-packs read write edit bash(fly:*) bash(psql:*) grep "
+      "searchText": "flyio-core-workflow-b design fly.io managed postgres, fly volumes, and private 6pn connectivity with explicit durability boundaries. use when an app needs persistent data or private service access. trigger with: \"add fly managed postgres\", \"plan fly volume storage\", \"connect fly apps privately\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-cost-tuning",
       "slug": "flyio-cost-tuning",
       "name": "flyio-cost-tuning",
-      "description": "Optimize Fly.io costs with auto-stop/suspend, right-sizing VMs, volume management, and monitoring spend across apps and regions. Trigger: \"fly.io costs\", \"fly.io pricing\", \"fly.io billing\", \"reduce fly.io spend\".",
+      "description": "Analyze Fly.io Machine, volume, network, IP, and Managed Postgres cost drivers without freezing volatile prices. Use when reducing spend or forecasting capacity. Trigger with: \"audit Fly bill\", \"right-size Fly Machines\", \"reduce Fly idle cost\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-cost-tuning optimize fly.io costs with auto-stop/suspend, right-sizing vms, volume management, and monitoring spend across apps and regions. trigger: \"fly.io costs\", \"fly.io pricing\", \"fly.io billing\", \"reduce fly.io spend\". saas-packs read write edit bash(fly:*) "
+      "searchText": "flyio-cost-tuning analyze fly.io machine, volume, network, ip, and managed postgres cost drivers without freezing volatile prices. use when reducing spend or forecasting capacity. trigger with: \"audit fly bill\", \"right-size fly machines\", \"reduce fly idle cost\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-debug-bundle",
       "slug": "flyio-debug-bundle",
       "name": "flyio-debug-bundle",
-      "description": "Collect Fly.io debug evidence for support tickets including machine status, logs, health checks, volume state, and networking diagnostics. Trigger: \"fly.io debug\", \"fly.io support\", \"fly.io diagnostic\", \"fly doctor\".",
+      "description": "Collect a bounded, redacted Fly.io support bundle for release, Machine, health, volume, network, and platform incidents. Use when escalating a reproducible problem. Trigger with: \"build Fly debug bundle\", \"collect Fly support evidence\", \"sanitize Fly incident data\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(fly:*)",
-        "Bash(curl:*)",
-        "Bash(tar:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-debug-bundle collect fly.io debug evidence for support tickets including machine status, logs, health checks, volume state, and networking diagnostics. trigger: \"fly.io debug\", \"fly.io support\", \"fly.io diagnostic\", \"fly doctor\". saas-packs read bash(fly:*) bash(curl:*) bash(tar:*) grep "
+      "searchText": "flyio-debug-bundle collect a bounded, redacted fly.io support bundle for release, machine, health, volume, network, and platform incidents. use when escalating a reproducible problem. trigger with: \"build fly debug bundle\", \"collect fly support evidence\", \"sanitize fly incident data\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-deploy-integration",
       "slug": "flyio-deploy-integration",
       "name": "flyio-deploy-integration",
-      "description": "Advanced Fly.io deployment strategies including blue-green deployments, canary releases, multi-region rollouts, and Machines API orchestration. Trigger: \"fly.io blue-green\", \"fly.io canary deploy\", \"fly.io rolling update\".",
+      "description": "Plan a Fly.io rolling, canary, or blue-green release with health, capacity, storage, and rollback constraints. Use when a release needs progressive exposure. Trigger with: \"canary deploy on Fly\", \"use Fly blue-green\", \"design Fly rollout\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-deploy-integration advanced fly.io deployment strategies including blue-green deployments, canary releases, multi-region rollouts, and machines api orchestration. trigger: \"fly.io blue-green\", \"fly.io canary deploy\", \"fly.io rolling update\". saas-packs read write edit bash(fly:*) bash(curl:*) grep "
+      "searchText": "flyio-deploy-integration plan a fly.io rolling, canary, or blue-green release with health, capacity, storage, and rollback constraints. use when a release needs progressive exposure. trigger with: \"canary deploy on fly\", \"use fly blue-green\", \"design fly rollout\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-hello-world",
       "slug": "flyio-hello-world",
       "name": "flyio-hello-world",
-      "description": "Deploy your first app to Fly.io with flyctl launch and the Machines API. Use when starting a new Fly.io project, deploying a container globally, or testing edge compute deployment. Trigger: \"fly.io hello world\", \"fly launch\", \"deploy to fly.io\", \"first fly app\".",
+      "description": "Prepare and verify a minimal Fly.io application launch with reviewable configuration and a safe first deployment. Use when onboarding a new service. Trigger with: \"launch first Fly app\", \"deploy hello world to Fly\", \"create Fly launch plan\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Bash(curl:*)",
-        "Bash(docker:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-hello-world deploy your first app to fly.io with flyctl launch and the machines api. use when starting a new fly.io project, deploying a container globally, or testing edge compute deployment. trigger: \"fly.io hello world\", \"fly launch\", \"deploy to fly.io\", \"first fly app\". saas-packs read write edit bash(fly:*) bash(curl:*) bash(docker:*) "
+      "searchText": "flyio-hello-world prepare and verify a minimal fly.io application launch with reviewable configuration and a safe first deployment. use when onboarding a new service. trigger with: \"launch first fly app\", \"deploy hello world to fly\", \"create fly launch plan\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-install-auth",
       "slug": "flyio-install-auth",
       "name": "flyio-install-auth",
-      "description": "Install flyctl CLI and configure Fly.io authentication with API tokens. Use when setting up a new Fly.io project, configuring deploy tokens, or initializing the Machines API for edge compute deployments. Trigger: \"install fly.io\", \"setup flyctl\", \"fly.io auth\", \"fly.io API token\".",
+      "description": "Install or upgrade flyctl and establish least-privilege Fly.io authentication with expiry and rotation evidence. Use when onboarding an operator or automation identity. Trigger with: \"install flyctl\", \"create Fly deploy token\", \"test Fly API auth\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-install-auth install flyctl cli and configure fly.io authentication with api tokens. use when setting up a new fly.io project, configuring deploy tokens, or initializing the machines api for edge compute deployments. trigger: \"install fly.io\", \"setup flyctl\", \"fly.io auth\", \"fly.io api token\". saas-packs read write edit bash(fly:*) bash(curl:*) grep "
+      "searchText": "flyio-install-auth install or upgrade flyctl and establish least-privilege fly.io authentication with expiry and rotation evidence. use when onboarding an operator or automation identity. trigger with: \"install flyctl\", \"create fly deploy token\", \"test fly api auth\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-local-dev-loop",
       "slug": "flyio-local-dev-loop",
       "name": "flyio-local-dev-loop",
-      "description": "Configure Fly.io local development with Docker, proxy, and SSH console. Use when setting up local dev against Fly services, testing Dockerfiles, or establishing a fast iteration cycle. Trigger: \"fly.io dev setup\", \"fly.io local development\", \"fly proxy\".",
+      "description": "Build a repeatable local Fly.io development loop with containers, config validation, private-service access, and disposable remote verification. Use when aligning local behavior with Fly Machines. Trigger with: \"develop Fly app locally\", \"proxy Fly database\", \"test fly.toml before deploy\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Bash(docker:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-local-dev-loop configure fly.io local development with docker, proxy, and ssh console. use when setting up local dev against fly services, testing dockerfiles, or establishing a fast iteration cycle. trigger: \"fly.io dev setup\", \"fly.io local development\", \"fly proxy\". saas-packs read write edit bash(fly:*) bash(docker:*) grep "
+      "searchText": "flyio-local-dev-loop build a repeatable local fly.io development loop with containers, config validation, private-service access, and disposable remote verification. use when aligning local behavior with fly machines. trigger with: \"develop fly app locally\", \"proxy fly database\", \"test fly.toml before deploy\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-performance-tuning",
       "slug": "flyio-performance-tuning",
       "name": "flyio-performance-tuning",
-      "description": "Optimize Fly.io application performance with auto-stop/start tuning, VM sizing, multi-region latency optimization, and connection pooling. Trigger: \"fly.io performance\", \"fly.io cold start\", \"fly.io latency\", \"fly.io VM sizing\".",
+      "description": "Analyze and tune Fly.io placement, VM resources, concurrency, autostart behavior, networking, and data locality from measured service objectives. Use when latency or saturation is unacceptable. Trigger with: \"speed up Fly app\", \"tune Fly concurrency\", \"reduce Fly cold starts\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-performance-tuning optimize fly.io application performance with auto-stop/start tuning, vm sizing, multi-region latency optimization, and connection pooling. trigger: \"fly.io performance\", \"fly.io cold start\", \"fly.io latency\", \"fly.io vm sizing\". saas-packs read write edit bash(fly:*) "
+      "searchText": "flyio-performance-tuning analyze and tune fly.io placement, vm resources, concurrency, autostart behavior, networking, and data locality from measured service objectives. use when latency or saturation is unacceptable. trigger with: \"speed up fly app\", \"tune fly concurrency\", \"reduce fly cold starts\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-prod-checklist",
       "slug": "flyio-prod-checklist",
       "name": "flyio-prod-checklist",
-      "description": "Execute Fly.io production deployment checklist with health checks, auto-scaling, monitoring, and rollback procedures. Trigger: \"fly.io production\", \"fly.io go-live\", \"fly.io prod checklist\".",
+      "description": "Gate a Fly.io production release across ownership, configuration, identity, health, capacity, data, observability, cost, and rollback. Use when reviewing a first launch or material change. Trigger with: \"review Fly production readiness\", \"approve Fly launch\", \"run Fly go-live checklist\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(fly:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-prod-checklist execute fly.io production deployment checklist with health checks, auto-scaling, monitoring, and rollback procedures. trigger: \"fly.io production\", \"fly.io go-live\", \"fly.io prod checklist\". saas-packs read bash(fly:*) bash(curl:*) grep "
+      "searchText": "flyio-prod-checklist gate a fly.io production release across ownership, configuration, identity, health, capacity, data, observability, cost, and rollback. use when reviewing a first launch or material change. trigger with: \"review fly production readiness\", \"approve fly launch\", \"run fly go-live checklist\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-rate-limits",
       "slug": "flyio-rate-limits",
       "name": "flyio-rate-limits",
-      "description": "Handle Fly.io Machines API rate limits with backoff, concurrency control, and request batching for machine management operations. Trigger: \"fly.io rate limit\", \"fly.io 429\", \"fly.io throttling\", \"machines API limit\".",
+      "description": "Implement Fly.io Machines API pacing, per-resource serialization, retry, and reconciliation from the documented action limits. Use when automating Machine or app operations. Trigger with: \"handle Fly 429\", \"throttle Machines API\", \"batch Fly Machine updates\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-rate-limits handle fly.io machines api rate limits with backoff, concurrency control, and request batching for machine management operations. trigger: \"fly.io rate limit\", \"fly.io 429\", \"fly.io throttling\", \"machines api limit\". saas-packs read write edit "
+      "searchText": "flyio-rate-limits implement fly.io machines api pacing, per-resource serialization, retry, and reconciliation from the documented action limits. use when automating machine or app operations. trigger with: \"handle fly 429\", \"throttle machines api\", \"batch fly machine updates\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-reference-architecture",
       "slug": "flyio-reference-architecture",
       "name": "flyio-reference-architecture",
-      "description": "Implement Fly.io reference architecture with multi-region apps, Postgres, Redis, background workers, and private networking. Trigger: \"fly.io architecture\", \"fly.io system design\", \"fly.io multi-region\".",
+      "description": "Design a Fly.io multi-region architecture with explicit routing, Machine, data, private-network, observability, and recovery boundaries. Use when reviewing a production topology. Trigger with: \"architect app on Fly\", \"design multi-region Fly service\", \"review Fly platform topology\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-reference-architecture implement fly.io reference architecture with multi-region apps, postgres, redis, background workers, and private networking. trigger: \"fly.io architecture\", \"fly.io system design\", \"fly.io multi-region\". saas-packs read write edit "
+      "searchText": "flyio-reference-architecture design a fly.io multi-region architecture with explicit routing, machine, data, private-network, observability, and recovery boundaries. use when reviewing a production topology. trigger with: \"architect app on fly\", \"design multi-region fly service\", \"review fly platform topology\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-sdk-patterns",
       "slug": "flyio-sdk-patterns",
       "name": "flyio-sdk-patterns",
-      "description": "Apply production-ready Fly.io Machines API patterns for TypeScript with typed clients, machine lifecycle management, and multi-region orchestration. Trigger: \"fly.io Machines API\", \"fly.io SDK patterns\", \"fly.io API client\".",
+      "description": "Build a typed local adapter for the Fly.io Machines REST API with scoped auth, state waits, limits, reconciliation, and contract tests. Use when code must manage Machines or volumes. Trigger with: \"wrap Machines API\", \"build Fly API client\", \"type Fly Machine states\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-sdk-patterns apply production-ready fly.io machines api patterns for typescript with typed clients, machine lifecycle management, and multi-region orchestration. trigger: \"fly.io machines api\", \"fly.io sdk patterns\", \"fly.io api client\". saas-packs read write edit "
+      "searchText": "flyio-sdk-patterns build a typed local adapter for the fly.io machines rest api with scoped auth, state waits, limits, reconciliation, and contract tests. use when code must manage machines or volumes. trigger with: \"wrap machines api\", \"build fly api client\", \"type fly machine states\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-security-basics",
       "slug": "flyio-security-basics",
       "name": "flyio-security-basics",
-      "description": "Apply Fly.io security best practices for secrets management, private networking, TLS certificates, and deploy token scoping. Trigger: \"fly.io security\", \"fly secrets\", \"fly.io TLS\", \"fly.io private network\".",
+      "description": "Harden Fly.io tokens, deploy authority, App secrets, private networking, images, and operational evidence with least privilege. Use when establishing or reviewing platform security. Trigger with: \"secure Fly app\", \"audit Fly tokens\", \"harden Fly private network\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-security-basics apply fly.io security best practices for secrets management, private networking, tls certificates, and deploy token scoping. trigger: \"fly.io security\", \"fly secrets\", \"fly.io tls\", \"fly.io private network\". saas-packs read write edit bash(fly:*) "
+      "searchText": "flyio-security-basics harden fly.io tokens, deploy authority, app secrets, private networking, images, and operational evidence with least privilege. use when establishing or reviewing platform security. trigger with: \"secure fly app\", \"audit fly tokens\", \"harden fly private network\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-upgrade-migration",
       "slug": "flyio-upgrade-migration",
       "name": "flyio-upgrade-migration",
-      "description": "Migrate between Fly.io platform versions including Apps v1 to v2 (Machines), flyctl upgrades, and Postgres major version upgrades. Trigger: \"fly.io upgrade\", \"fly.io migration\", \"fly apps v2\", \"fly postgres upgrade\".",
+      "description": "Migrate Fly.io app configuration, runtime images, Machine resources, regions, volumes, or Managed Postgres through staged change control. Use when upgrading a live workload. Trigger with: \"upgrade Fly app\", \"migrate Fly region\", \"change Fly runtime safely\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-upgrade-migration migrate between fly.io platform versions including apps v1 to v2 (machines), flyctl upgrades, and postgres major version upgrades. trigger: \"fly.io upgrade\", \"fly.io migration\", \"fly apps v2\", \"fly postgres upgrade\". saas-packs read write edit bash(fly:*) grep "
+      "searchText": "flyio-upgrade-migration migrate fly.io app configuration, runtime images, machine resources, regions, volumes, or managed postgres through staged change control. use when upgrading a live workload. trigger with: \"upgrade fly app\", \"migrate fly region\", \"change fly runtime safely\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "flyio-webhooks-events",
       "slug": "flyio-webhooks-events",
       "name": "flyio-webhooks-events",
-      "description": "Implement Fly.io machine events, health check monitoring, and log-based event processing for deployment automation and alerting. Trigger: \"fly.io events\", \"fly.io machine status\", \"fly.io health monitoring\".",
+      "description": "Detect Fly.io Machine, health, release, and log changes through supported reads, waits, and log export without claiming general app webhooks. Use when building operational event automation. Trigger with: \"monitor Fly Machine changes\", \"replace Fly webhook\", \"stream Fly health events\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(fly:*)",
-        "Bash(curl:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.7.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "flyio-pack",
         "category": "saas-packs"
       },
-      "searchText": "flyio-webhooks-events implement fly.io machine events, health check monitoring, and log-based event processing for deployment automation and alerting. trigger: \"fly.io events\", \"fly.io machine status\", \"fly.io health monitoring\". saas-packs read write edit bash(fly:*) bash(curl:*) "
+      "searchText": "flyio-webhooks-events detect fly.io machine, health, release, and log changes through supported reads, waits, and log export without claiming general app webhooks. use when building operational event automation. trigger with: \"monitor fly machine changes\", \"replace fly webhook\", \"stream fly health events\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
@@ -50103,7 +50091,7 @@
         "Bash(pytest:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50122,7 +50110,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50143,7 +50131,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50164,7 +50152,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50186,7 +50174,7 @@
         "Bash(redis-cli:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50208,7 +50196,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50230,7 +50218,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50251,7 +50239,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50274,7 +50262,7 @@
         "Bash(vercel:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50297,7 +50285,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50318,7 +50306,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50341,7 +50329,7 @@
         "Bash(pytest:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50359,7 +50347,7 @@
         "Read"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50380,7 +50368,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50401,7 +50389,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50423,7 +50411,7 @@
         "Bash(psql:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50444,7 +50432,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50465,7 +50453,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50486,7 +50474,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50509,7 +50497,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50530,7 +50518,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50553,7 +50541,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50575,7 +50563,7 @@
         "Bash(gcloud:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50596,7 +50584,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50618,7 +50606,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50640,7 +50628,7 @@
         "Bash(redis-cli:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50662,7 +50650,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50684,7 +50672,7 @@
         "Bash(redis-cli:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50704,7 +50692,7 @@
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50726,7 +50714,7 @@
         "Bash(pip:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50748,7 +50736,7 @@
         "Bash(grep:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50770,7 +50758,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -50791,7 +50779,7 @@
         "Bash(python:*)"
       ],
       "compatibleWith": [],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "parentPlugin": {
         "name": "langchain-py-pack",
         "category": "saas-packs"
@@ -61273,7 +61261,7 @@
         "Bash(npm:*)"
       ],
       "compatibleWith": [],
-      "version": "1.36.0",
+      "version": "1.37.0",
       "parentPlugin": {
         "name": "ai-sdk-agents",
         "category": "ai-ml"
@@ -62185,375 +62173,378 @@
       "id": "persona-ci-integration",
       "slug": "persona-ci-integration",
       "name": "persona-ci-integration",
-      "description": "CI/CD pipeline for Persona integrations with sandbox API testing. Use when working with Persona identity verification. Trigger with phrases like \"persona ci-integration\", \"persona ci-integration\".",
+      "description": "Build Persona CI around offline contract fixtures and bounded sandbox smoke tests without production identity data. Use when adding integration gates. Trigger with: \"test Persona in CI\", \"Persona contract tests\", \"Persona GitHub Actions\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(gh:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-ci-integration ci/cd pipeline for persona integrations with sandbox api testing. use when working with persona identity verification. trigger with phrases like \"persona ci-integration\", \"persona ci-integration\". saas-packs read write edit bash(gh:*) "
+      "searchText": "persona-ci-integration build persona ci around offline contract fixtures and bounded sandbox smoke tests without production identity data. use when adding integration gates. trigger with: \"test persona in ci\", \"persona contract tests\", \"persona github actions\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-common-errors",
       "slug": "persona-common-errors",
       "name": "persona-common-errors",
-      "description": "Fix top Persona API errors: 401, 422, webhook signature failures, inquiry state issues. Use when working with Persona identity verification. Trigger with phrases like \"persona common-errors\", \"persona common-errors\".",
+      "description": "Triage Persona authentication, JSON:API, inquiry, session, webhook, and throttle failures with redacted evidence. Use when an integration is failing. Trigger with: \"debug Persona error\", \"Persona 401\", \"Persona inquiry failed\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Grep",
-        "Bash(curl:*)"
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-common-errors fix top persona api errors: 401, 422, webhook signature failures, inquiry state issues. use when working with persona identity verification. trigger with phrases like \"persona common-errors\", \"persona common-errors\". saas-packs read grep bash(curl:*) "
+      "searchText": "persona-common-errors triage persona authentication, json:api, inquiry, session, webhook, and throttle failures with redacted evidence. use when an integration is failing. trigger with: \"debug persona error\", \"persona 401\", \"persona inquiry failed\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-core-workflow-a",
       "slug": "persona-core-workflow-a",
       "name": "persona-core-workflow-a",
-      "description": "Build a complete KYC verification flow with Persona inquiries and embedded UI. Use when implementing identity verification, building KYC onboarding, or integrating Persona's hosted flow into your application. Trigger with phrases like \"persona KYC flow\", \"identity verification\", \"persona inquiry workflow\", \"onboarding verification\".",
+      "description": "Operate the account-linked Persona inquiry and session lifecycle from creation through safe resume. Use when implementing a customer verification journey. Trigger with: \"create Persona inquiry\", \"resume Persona inquiry\", \"link Persona account\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-core-workflow-a build a complete kyc verification flow with persona inquiries and embedded ui. use when implementing identity verification, building kyc onboarding, or integrating persona's hosted flow into your application. trigger with phrases like \"persona kyc flow\", \"identity verification\", \"persona inquiry workflow\", \"onboarding verification\". saas-packs read write edit bash(npm:*) grep "
+      "searchText": "persona-core-workflow-a operate the account-linked persona inquiry and session lifecycle from creation through safe resume. use when implementing a customer verification journey. trigger with: \"create persona inquiry\", \"resume persona inquiry\", \"link persona account\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-core-workflow-b",
       "slug": "persona-core-workflow-b",
       "name": "persona-core-workflow-b",
-      "description": "Work with Persona verification types: government ID, selfie, database checks. Use when implementing specific verification checks, reviewing verification results, or building custom verification workflows. Trigger with phrases like \"persona verification\", \"government ID check\", \"selfie verification\", \"persona database check\", \"verification results\".",
+      "description": "Interpret Persona verification resources without collapsing provider evidence into an automatic business decision. Use when mapping checks to review outcomes. Trigger with: \"evaluate Persona verification\", \"map KYC result\", \"handle Persona checks\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-core-workflow-b work with persona verification types: government id, selfie, database checks. use when implementing specific verification checks, reviewing verification results, or building custom verification workflows. trigger with phrases like \"persona verification\", \"government id check\", \"selfie verification\", \"persona database check\", \"verification results\". saas-packs read write edit bash(curl:*) grep "
+      "searchText": "persona-core-workflow-b interpret persona verification resources without collapsing provider evidence into an automatic business decision. use when mapping checks to review outcomes. trigger with: \"evaluate persona verification\", \"map kyc result\", \"handle persona checks\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-cost-tuning",
       "slug": "persona-cost-tuning",
       "name": "persona-cost-tuning",
-      "description": "Optimize Persona verification costs with template selection and caching. Use when working with Persona identity verification. Trigger with phrases like \"persona cost-tuning\", \"persona cost-tuning\".",
+      "description": "Review Persona cost drivers through template policy, duplicate prevention, sandbox use, and measured product quotas. Use when reducing spend without weakening controls. Trigger with: \"optimize Persona cost\", \"Persona usage review\", \"reduce duplicate inquiries\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-cost-tuning optimize persona verification costs with template selection and caching. use when working with persona identity verification. trigger with phrases like \"persona cost-tuning\", \"persona cost-tuning\". saas-packs read grep "
+      "searchText": "persona-cost-tuning review persona cost drivers through template policy, duplicate prevention, sandbox use, and measured product quotas. use when reducing spend without weakening controls. trigger with: \"optimize persona cost\", \"persona usage review\", \"reduce duplicate inquiries\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-debug-bundle",
       "slug": "persona-debug-bundle",
       "name": "persona-debug-bundle",
-      "description": "Collect Persona diagnostic info: inquiry IDs, API responses, webhook logs. Use when working with Persona identity verification. Trigger with phrases like \"persona debug-bundle\", \"persona debug-bundle\".",
+      "description": "Assemble a minimal, verifiable Persona diagnostic bundle without exporting secrets or identity payloads. Use when escalating an incident. Trigger with: \"collect Persona debug bundle\", \"escalate Persona issue\", \"Persona support evidence\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(grep:*)",
-        "Bash(curl:*)",
-        "Bash(tar:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-debug-bundle collect persona diagnostic info: inquiry ids, api responses, webhook logs. use when working with persona identity verification. trigger with phrases like \"persona debug-bundle\", \"persona debug-bundle\". saas-packs read bash(grep:*) bash(curl:*) bash(tar:*) grep "
+      "searchText": "persona-debug-bundle assemble a minimal, verifiable persona diagnostic bundle without exporting secrets or identity payloads. use when escalating an incident. trigger with: \"collect persona debug bundle\", \"escalate persona issue\", \"persona support evidence\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-deploy-integration",
       "slug": "persona-deploy-integration",
       "name": "persona-deploy-integration",
-      "description": "Deploy Persona verification service to cloud platforms. Use when working with Persona identity verification. Trigger with phrases like \"persona deploy-integration\", \"persona deploy-integration\".",
+      "description": "Deploy a Persona integration with immutable configuration, event compatibility, canary evidence, and lossless rollback. Use when releasing service changes. Trigger with: \"deploy Persona service\", \"release Persona integration\", \"rollback Persona change\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(gcloud:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-deploy-integration deploy persona verification service to cloud platforms. use when working with persona identity verification. trigger with phrases like \"persona deploy-integration\", \"persona deploy-integration\". saas-packs read write edit bash(gcloud:*) "
+      "searchText": "persona-deploy-integration deploy a persona integration with immutable configuration, event compatibility, canary evidence, and lossless rollback. use when releasing service changes. trigger with: \"deploy persona service\", \"release persona integration\", \"rollback persona change\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-hello-world",
       "slug": "persona-hello-world",
       "name": "persona-hello-world",
-      "description": "Create your first Persona identity verification inquiry and check its status. Use when learning Persona API basics, testing inquiry creation, or building a simple verification flow. Trigger with phrases like \"persona hello world\", \"first persona inquiry\", \"persona quick start\", \"test identity verification\".",
+      "description": "Create and inspect one replay-safe Persona sandbox inquiry without implying a completed verification. Use when proving a new integration path. Trigger with: \"test Persona inquiry\", \"Persona hello world\", \"smoke test Persona sandbox\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(curl:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-hello-world create your first persona identity verification inquiry and check its status. use when learning persona api basics, testing inquiry creation, or building a simple verification flow. trigger with phrases like \"persona hello world\", \"first persona inquiry\", \"persona quick start\", \"test identity verification\". saas-packs read write edit bash(curl:*) "
+      "searchText": "persona-hello-world create and inspect one replay-safe persona sandbox inquiry without implying a completed verification. use when proving a new integration path. trigger with: \"test persona inquiry\", \"persona hello world\", \"smoke test persona sandbox\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-install-auth",
       "slug": "persona-install-auth",
       "name": "persona-install-auth",
-      "description": "Configure Persona API authentication with sandbox and production API keys. Use when setting up identity verification, configuring API credentials, or initializing Persona in your project. Trigger with phrases like \"install persona\", \"setup persona\", \"persona auth\", \"persona API key\", \"KYC setup\".",
+      "description": "Configure sandbox and production Persona API keys, dated API-version headers, and a least-privilege client boundary. Use when bootstrapping or rotating Persona credentials. Trigger with: \"set up Persona auth\", \"rotate Persona API key\", \"configure Persona environment\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(pip:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-install-auth configure persona api authentication with sandbox and production api keys. use when setting up identity verification, configuring api credentials, or initializing persona in your project. trigger with phrases like \"install persona\", \"setup persona\", \"persona auth\", \"persona api key\", \"kyc setup\". saas-packs read write edit bash(npm:*) bash(pip:*) grep "
+      "searchText": "persona-install-auth configure sandbox and production persona api keys, dated api-version headers, and a least-privilege client boundary. use when bootstrapping or rotating persona credentials. trigger with: \"set up persona auth\", \"rotate persona api key\", \"configure persona environment\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-local-dev-loop",
       "slug": "persona-local-dev-loop",
       "name": "persona-local-dev-loop",
-      "description": "Local development with Persona sandbox, ngrok for webhooks, mock verifications. Use when working with Persona identity verification. Trigger with phrases like \"persona local-dev-loop\", \"persona local-dev-loop\".",
+      "description": "Run a deterministic local Persona sandbox loop with synthetic inquiries, raw webhook fixtures, and replay checks. Use when developing without production PII. Trigger with: \"develop Persona locally\", \"test Persona webhook\", \"mock Persona flow\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-local-dev-loop local development with persona sandbox, ngrok for webhooks, mock verifications. use when working with persona identity verification. trigger with phrases like \"persona local-dev-loop\", \"persona local-dev-loop\". saas-packs read write edit bash(npm:*) grep "
+      "searchText": "persona-local-dev-loop run a deterministic local persona sandbox loop with synthetic inquiries, raw webhook fixtures, and replay checks. use when developing without production pii. trigger with: \"develop persona locally\", \"test persona webhook\", \"mock persona flow\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-performance-tuning",
       "slug": "persona-performance-tuning",
       "name": "persona-performance-tuning",
-      "description": "Optimize Persona API performance with batching and caching. Use when working with Persona identity verification. Trigger with phrases like \"persona performance-tuning\", \"persona performance-tuning\".",
+      "description": "Improve Persona integration latency and throughput with event-driven processing, bounded reconciliation, and evidence-based measurement. Use when reducing polling or queue lag. Trigger with: \"speed up Persona\", \"reduce inquiry polling\", \"tune Persona webhooks\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-performance-tuning optimize persona api performance with batching and caching. use when working with persona identity verification. trigger with phrases like \"persona performance-tuning\", \"persona performance-tuning\". saas-packs read write edit "
+      "searchText": "persona-performance-tuning improve persona integration latency and throughput with event-driven processing, bounded reconciliation, and evidence-based measurement. use when reducing polling or queue lag. trigger with: \"speed up persona\", \"reduce inquiry polling\", \"tune persona webhooks\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-prod-checklist",
       "slug": "persona-prod-checklist",
       "name": "persona-prod-checklist",
-      "description": "Production deployment checklist for Persona identity verification. Use when working with Persona identity verification. Trigger with phrases like \"persona prod-checklist\", \"persona prod-checklist\".",
+      "description": "Validate a Persona integration for production with evidence across identity flow, privacy, security, reliability, and rollback. Use when preparing a go-live. Trigger with: \"launch Persona\", \"Persona production checklist\", \"approve Persona go-live\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(curl:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-prod-checklist production deployment checklist for persona identity verification. use when working with persona identity verification. trigger with phrases like \"persona prod-checklist\", \"persona prod-checklist\". saas-packs read bash(curl:*) grep "
+      "searchText": "persona-prod-checklist validate a persona integration for production with evidence across identity flow, privacy, security, reliability, and rollback. use when preparing a go-live. trigger with: \"launch persona\", \"persona production checklist\", \"approve persona go-live\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-rate-limits",
       "slug": "persona-rate-limits",
       "name": "persona-rate-limits",
-      "description": "Handle Persona API rate limits with exponential backoff and request queuing. Use when working with Persona identity verification. Trigger with phrases like \"persona rate-limits\", \"persona rate-limits\".",
+      "description": "Analyze and control Persona request rate and product quotas from live headers, Dashboard limits, and durable retry state. Use when scaling or handling 429 responses. Trigger with: \"Persona rate limit\", \"throttle Persona API\", \"handle Persona 429\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-rate-limits handle persona api rate limits with exponential backoff and request queuing. use when working with persona identity verification. trigger with phrases like \"persona rate-limits\", \"persona rate-limits\". saas-packs read write edit "
+      "searchText": "persona-rate-limits analyze and control persona request rate and product quotas from live headers, dashboard limits, and durable retry state. use when scaling or handling 429 responses. trigger with: \"persona rate limit\", \"throttle persona api\", \"handle persona 429\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-reference-architecture",
       "slug": "persona-reference-architecture",
       "name": "persona-reference-architecture",
-      "description": "KYC service architecture with Persona as verification provider. Use when working with Persona identity verification. Trigger with phrases like \"persona reference-architecture\", \"persona reference-architecture\".",
+      "description": "Design an account-linked KYC control plane around Persona with explicit trust, data, event, and decision boundaries. Use when conducting an architecture review. Trigger with: \"architect Persona integration\", \"Persona KYC design\", \"design identity workflow\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-reference-architecture kyc service architecture with persona as verification provider. use when working with persona identity verification. trigger with phrases like \"persona reference-architecture\", \"persona reference-architecture\". saas-packs read grep "
+      "searchText": "persona-reference-architecture design an account-linked kyc control plane around persona with explicit trust, data, event, and decision boundaries. use when conducting an architecture review. trigger with: \"architect persona integration\", \"persona kyc design\", \"design identity workflow\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-sdk-patterns",
       "slug": "persona-sdk-patterns",
       "name": "persona-sdk-patterns",
-      "description": "Production Persona API client wrapper with retry, pagination, typed responses. Use when working with Persona identity verification. Trigger with phrases like \"persona sdk-patterns\", \"persona sdk-patterns\".",
+      "description": "Design a typed Persona REST adapter that preserves JSON:API envelopes, request evidence, and compatible additions. Use when building a reusable client. Trigger with: \"wrap Persona API\", \"type Persona responses\", \"Persona SDK pattern\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-sdk-patterns production persona api client wrapper with retry, pagination, typed responses. use when working with persona identity verification. trigger with phrases like \"persona sdk-patterns\", \"persona sdk-patterns\". saas-packs read write edit "
+      "searchText": "persona-sdk-patterns design a typed persona rest adapter that preserves json:api envelopes, request evidence, and compatible additions. use when building a reusable client. trigger with: \"wrap persona api\", \"type persona responses\", \"persona sdk pattern\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-security-basics",
       "slug": "persona-security-basics",
       "name": "persona-security-basics",
-      "description": "Secure Persona API keys, webhook secrets, PII handling in verification data. Use when working with Persona identity verification. Trigger with phrases like \"persona security-basics\", \"persona security-basics\".",
+      "description": "Harden Persona API keys, identity data, inquiry sessions, webhook verification, and destructive redaction. Use when conducting a security review. Trigger with: \"secure Persona integration\", \"Persona PII controls\", \"audit Persona webhook security\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-security-basics secure persona api keys, webhook secrets, pii handling in verification data. use when working with persona identity verification. trigger with phrases like \"persona security-basics\", \"persona security-basics\". saas-packs read write grep "
+      "searchText": "persona-security-basics harden persona api keys, identity data, inquiry sessions, webhook verification, and destructive redaction. use when conducting a security review. trigger with: \"secure persona integration\", \"persona pii controls\", \"audit persona webhook security\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-upgrade-migration",
       "slug": "persona-upgrade-migration",
       "name": "persona-upgrade-migration",
-      "description": "Upgrade Persona API versions and handle breaking changes. Use when working with Persona identity verification. Trigger with phrases like \"persona upgrade-migration\", \"persona upgrade-migration\".",
+      "description": "Migrate between dated Persona API versions using inventory, contract fixtures, dual-read evidence, and rollback. Use when changing Persona-Version. Trigger with: \"upgrade Persona API\", \"migrate Persona version\", \"update Persona-Version\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(npm:*)",
-        "Bash(git:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-upgrade-migration upgrade persona api versions and handle breaking changes. use when working with persona identity verification. trigger with phrases like \"persona upgrade-migration\", \"persona upgrade-migration\". saas-packs read write edit bash(npm:*) bash(git:*) "
+      "searchText": "persona-upgrade-migration migrate between dated persona api versions using inventory, contract fixtures, dual-read evidence, and rollback. use when changing persona-version. trigger with: \"upgrade persona api\", \"migrate persona version\", \"update persona-version\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "persona-webhooks-events",
       "slug": "persona-webhooks-events",
       "name": "persona-webhooks-events",
-      "description": "Handle Persona webhook events for inquiry and verification status changes. Use when working with Persona identity verification. Trigger with phrases like \"persona webhooks-events\", \"persona webhooks-events\".",
+      "description": "Verify, persist, deduplicate, order, and reconcile Persona webhook events from exact raw bytes. Use when implementing webhook consumers. Trigger with: \"handle Persona webhook\", \"verify Persona-Signature\", \"dedupe Persona events\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(curl:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "persona-pack",
         "category": "saas-packs"
       },
-      "searchText": "persona-webhooks-events handle persona webhook events for inquiry and verification status changes. use when working with persona identity verification. trigger with phrases like \"persona webhooks-events\", \"persona webhooks-events\". saas-packs read write edit bash(curl:*) "
+      "searchText": "persona-webhooks-events verify, persist, deduplicate, order, and reconcile persona webhook events from exact raw bytes. use when implementing webhook consumers. trigger with: \"handle persona webhook\", \"verify persona-signature\", \"dedupe persona events\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
@@ -64882,7 +64873,7 @@
         "Grep"
       ],
       "compatibleWith": [],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "parentPlugin": {
         "name": "severity1-marketplace",
         "category": "security"
@@ -76343,528 +76334,504 @@
       "id": "vastai-ci-integration",
       "slug": "vastai-ci-integration",
       "name": "vastai-ci-integration",
-      "description": "Configure Vast.ai CI/CD integration with GitHub Actions and automated GPU testing. Use when setting up automated testing on GPU instances, or integrating Vast.ai provisioning into CI/CD pipelines. Trigger with phrases like \"vastai CI\", \"vastai github actions\", \"vastai automated testing\", \"vastai pipeline\".",
+      "description": "Run a credential-safe disposable Vast.ai GPU CI job with a scoped key, immutable image, cost ceiling, terminal-state deadline, and guaranteed destruction. Use when GPU-only acceptance must run in CI. Trigger with: \"run GPU tests in CI\", \"add Vast.ai to GitHub Actions\", \"make Vast.ai CI clean up\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-ci-integration configure vast.ai ci/cd integration with github actions and automated gpu testing. use when setting up automated testing on gpu instances, or integrating vast.ai provisioning into ci/cd pipelines. trigger with phrases like \"vastai ci\", \"vastai github actions\", \"vastai automated testing\", \"vastai pipeline\". saas-packs read write edit bash(vastai:*) grep "
+      "searchText": "vastai-ci-integration run a credential-safe disposable vast.ai gpu ci job with a scoped key, immutable image, cost ceiling, terminal-state deadline, and guaranteed destruction. use when gpu-only acceptance must run in ci. trigger with: \"run gpu tests in ci\", \"add vast.ai to github actions\", \"make vast.ai ci clean up\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-common-errors",
       "slug": "vastai-common-errors",
       "name": "vastai-common-errors",
-      "description": "Diagnose and fix Vast.ai common errors and exceptions. Use when encountering Vast.ai errors, debugging failed instances, or troubleshooting GPU rental issues. Trigger with phrases like \"vastai error\", \"fix vastai\", \"vastai not working\", \"debug vastai\", \"vastai instance failed\".",
+      "description": "Classify Vast.ai authentication, offer, instance-state, SSH, image, credit, and API failures before choosing a recovery action. Use when automation is stuck or a GPU workload cannot start. Trigger with: \"diagnose Vast.ai\", \"why is my instance scheduling\", \"fix a Vast.ai CLI error\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Grep",
-        "Bash(vastai:*)",
-        "Bash(curl:*)"
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-common-errors diagnose and fix vast.ai common errors and exceptions. use when encountering vast.ai errors, debugging failed instances, or troubleshooting gpu rental issues. trigger with phrases like \"vastai error\", \"fix vastai\", \"vastai not working\", \"debug vastai\", \"vastai instance failed\". saas-packs read grep bash(vastai:*) bash(curl:*) "
+      "searchText": "vastai-common-errors classify vast.ai authentication, offer, instance-state, ssh, image, credit, and api failures before choosing a recovery action. use when automation is stuck or a gpu workload cannot start. trigger with: \"diagnose vast.ai\", \"why is my instance scheduling\", \"fix a vast.ai cli error\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-core-workflow-a",
       "slug": "vastai-core-workflow-a",
       "name": "vastai-core-workflow-a",
-      "description": "Execute Vast.ai primary workflow: GPU instance provisioning and job execution. Use when renting GPUs for training, searching offers by price and specs, or managing the full instance lifecycle from search to teardown. Trigger with phrases like \"vastai rent gpu\", \"vastai training job\", \"vastai provision instance\", \"run job on vastai\".",
+      "description": "Analyze and execute a checkpointed Vast.ai training job from offer policy through artifact recovery and destruction. Use when a repeatable single-job GPU run needs budget and interruption controls. Trigger with: \"run training on Vast.ai\", \"checkpoint a Vast.ai job\", \"recover Vast.ai training artifacts\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(curl:*)",
-        "Bash(ssh:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-core-workflow-a execute vast.ai primary workflow: gpu instance provisioning and job execution. use when renting gpus for training, searching offers by price and specs, or managing the full instance lifecycle from search to teardown. trigger with phrases like \"vastai rent gpu\", \"vastai training job\", \"vastai provision instance\", \"run job on vastai\". saas-packs read write edit bash(vastai:*) bash(curl:*) bash(ssh:*) grep "
+      "searchText": "vastai-core-workflow-a analyze and execute a checkpointed vast.ai training job from offer policy through artifact recovery and destruction. use when a repeatable single-job gpu run needs budget and interruption controls. trigger with: \"run training on vast.ai\", \"checkpoint a vast.ai job\", \"recover vast.ai training artifacts\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-core-workflow-b",
       "slug": "vastai-core-workflow-b",
       "name": "vastai-core-workflow-b",
-      "description": "Execute Vast.ai secondary workflow: multi-instance orchestration, spot recovery, and cost optimization. Use when running distributed training, handling spot preemption, or optimizing GPU spend across multiple instances. Trigger with phrases like \"vastai distributed training\", \"vastai spot recovery\", \"vastai multi-gpu\", \"vastai cost optimization\".",
+      "description": "Build and roll out a Vast.ai Serverless endpoint with measured autoscaling, a canary template, and a zero-downtime worker update. Use when production inference capacity or model bytes change. Trigger with: \"deploy Vast.ai Serverless\", \"tune a Vast.ai worker group\", \"roll a model without downtime\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-core-workflow-b execute vast.ai secondary workflow: multi-instance orchestration, spot recovery, and cost optimization. use when running distributed training, handling spot preemption, or optimizing gpu spend across multiple instances. trigger with phrases like \"vastai distributed training\", \"vastai spot recovery\", \"vastai multi-gpu\", \"vastai cost optimization\". saas-packs read write edit bash(vastai:*) bash(curl:*) grep "
+      "searchText": "vastai-core-workflow-b build and roll out a vast.ai serverless endpoint with measured autoscaling, a canary template, and a zero-downtime worker update. use when production inference capacity or model bytes change. trigger with: \"deploy vast.ai serverless\", \"tune a vast.ai worker group\", \"roll a model without downtime\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-cost-tuning",
       "slug": "vastai-cost-tuning",
       "name": "vastai-cost-tuning",
-      "description": "Optimize Vast.ai GPU cloud costs through smart instance selection and lifecycle management. Use when analyzing GPU spending, reducing training costs, or implementing budget controls for Vast.ai workloads. Trigger with phrases like \"vastai cost\", \"vastai billing\", \"reduce vastai costs\", \"vastai pricing\", \"vastai budget\".",
+      "description": "Reduce Vast.ai GPU, storage, and bandwidth spend without weakening workload requirements or leaving stopped resources billable. Use when selecting offers, setting spot policy, cleaning idle resources, or reconciling invoices. Trigger with: \"optimize Vast.ai cost\", \"find Vast.ai cost leaks\", \"compare Vast.ai offers\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-cost-tuning optimize vast.ai gpu cloud costs through smart instance selection and lifecycle management. use when analyzing gpu spending, reducing training costs, or implementing budget controls for vast.ai workloads. trigger with phrases like \"vastai cost\", \"vastai billing\", \"reduce vastai costs\", \"vastai pricing\", \"vastai budget\". saas-packs read write edit bash(vastai:*) grep "
+      "searchText": "vastai-cost-tuning reduce vast.ai gpu, storage, and bandwidth spend without weakening workload requirements or leaving stopped resources billable. use when selecting offers, setting spot policy, cleaning idle resources, or reconciling invoices. trigger with: \"optimize vast.ai cost\", \"find vast.ai cost leaks\", \"compare vast.ai offers\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-data-handling",
       "slug": "vastai-data-handling",
       "name": "vastai-data-handling",
-      "description": "Manage training data and model artifacts securely on Vast.ai GPU instances. Use when transferring data to instances, managing checkpoints, or implementing secure data lifecycle on rented hardware. Trigger with phrases like \"vastai data\", \"vastai upload data\", \"vastai checkpoints\", \"vastai data security\", \"vastai artifacts\".",
+      "description": "Manage datasets, checkpoints, models, and artifacts through Vast.ai instances, volumes, and cloud connections with integrity and teardown controls. Use when data must move to, from, or between Vast.ai resources. Trigger with: \"copy data to Vast.ai\", \"protect Vast.ai checkpoints\", \"recover data before destroying an instance\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(ssh:*)",
-        "Bash(scp:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-data-handling manage training data and model artifacts securely on vast.ai gpu instances. use when transferring data to instances, managing checkpoints, or implementing secure data lifecycle on rented hardware. trigger with phrases like \"vastai data\", \"vastai upload data\", \"vastai checkpoints\", \"vastai data security\", \"vastai artifacts\". saas-packs read write edit bash(vastai:*) bash(ssh:*) bash(scp:*) "
+      "searchText": "vastai-data-handling manage datasets, checkpoints, models, and artifacts through vast.ai instances, volumes, and cloud connections with integrity and teardown controls. use when data must move to, from, or between vast.ai resources. trigger with: \"copy data to vast.ai\", \"protect vast.ai checkpoints\", \"recover data before destroying an instance\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-debug-bundle",
       "slug": "vastai-debug-bundle",
       "name": "vastai-debug-bundle",
-      "description": "Collect Vast.ai debug evidence for support tickets and troubleshooting. Use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for Vast.ai problems. Trigger with phrases like \"vastai debug\", \"vastai support bundle\", \"collect vastai logs\", \"vastai diagnostic\".",
+      "description": "Collect a minimal, redacted Vast.ai diagnostic manifest that support can act on without exposing API keys, SSH material, workload secrets, or unnecessary customer data. Use when escalating a platform or workload fault. Trigger with: \"build a Vast.ai debug bundle\", \"collect Vast.ai support evidence\", \"redact Vast.ai diagnostics\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(vastai:*)",
-        "Bash(curl:*)",
-        "Bash(ssh:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-debug-bundle collect vast.ai debug evidence for support tickets and troubleshooting. use when encountering persistent issues, preparing support tickets, or collecting diagnostic information for vast.ai problems. trigger with phrases like \"vastai debug\", \"vastai support bundle\", \"collect vastai logs\", \"vastai diagnostic\". saas-packs read bash(vastai:*) bash(curl:*) bash(ssh:*) grep "
+      "searchText": "vastai-debug-bundle collect a minimal, redacted vast.ai diagnostic manifest that support can act on without exposing api keys, ssh material, workload secrets, or unnecessary customer data. use when escalating a platform or workload fault. trigger with: \"build a vast.ai debug bundle\", \"collect vast.ai support evidence\", \"redact vast.ai diagnostics\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-deploy-integration",
       "slug": "vastai-deploy-integration",
       "name": "vastai-deploy-integration",
-      "description": "Deploy ML training jobs and inference services on Vast.ai GPU cloud. Use when deploying GPU workloads, configuring Docker images, or setting up automated deployment scripts. Trigger with phrases like \"deploy vastai\", \"vastai deployment\", \"vastai docker\", \"vastai production deploy\".",
+      "description": "Deploy an immutable service or batch worker to a Vast.ai instance with template, health, artifact, rollback, and cleanup controls. Use when shipping an instance-based workload rather than Serverless. Trigger with: \"deploy to a Vast.ai instance\", \"release a Vast.ai template\", \"roll back a Vast.ai deployment\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(docker:*)",
-        "Bash(ssh:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-deploy-integration deploy ml training jobs and inference services on vast.ai gpu cloud. use when deploying gpu workloads, configuring docker images, or setting up automated deployment scripts. trigger with phrases like \"deploy vastai\", \"vastai deployment\", \"vastai docker\", \"vastai production deploy\". saas-packs read write edit bash(vastai:*) bash(docker:*) bash(ssh:*) "
+      "searchText": "vastai-deploy-integration deploy an immutable service or batch worker to a vast.ai instance with template, health, artifact, rollback, and cleanup controls. use when shipping an instance-based workload rather than serverless. trigger with: \"deploy to a vast.ai instance\", \"release a vast.ai template\", \"roll back a vast.ai deployment\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-enterprise-rbac",
       "slug": "vastai-enterprise-rbac",
       "name": "vastai-enterprise-rbac",
-      "description": "Implement team access control and spending governance for Vast.ai GPU cloud. Use when managing multi-team GPU access, implementing spending controls, or setting up API key separation for different teams. Trigger with phrases like \"vastai team access\", \"vastai RBAC\", \"vastai enterprise\", \"vastai spending controls\", \"vastai permissions\".",
+      "description": "Design and verify native Vast.ai Teams roles plus scoped API keys for least-privilege renter operations. Use when onboarding members, separating duties, or constraining automation. Trigger with: \"configure Vast.ai RBAC\", \"create a Vast.ai team role\", \"scope a Vast.ai API key\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-enterprise-rbac implement team access control and spending governance for vast.ai gpu cloud. use when managing multi-team gpu access, implementing spending controls, or setting up api key separation for different teams. trigger with phrases like \"vastai team access\", \"vastai rbac\", \"vastai enterprise\", \"vastai spending controls\", \"vastai permissions\". saas-packs read write edit bash(vastai:*) "
+      "searchText": "vastai-enterprise-rbac design and verify native vast.ai teams roles plus scoped api keys for least-privilege renter operations. use when onboarding members, separating duties, or constraining automation. trigger with: \"configure vast.ai rbac\", \"create a vast.ai team role\", \"scope a vast.ai api key\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-hello-world",
       "slug": "vastai-hello-world",
       "name": "vastai-hello-world",
-      "description": "Rent your first GPU instance on Vast.ai and run a workload. Use when starting a new Vast.ai integration, testing your setup, or learning basic Vast.ai GPU rental patterns. Trigger with phrases like \"vastai hello world\", \"vastai example\", \"vastai quick start\", \"rent first gpu\", \"vastai first instance\".",
+      "description": "Rent, verify, use, and destroy a first Vast.ai GPU instance with bounded cost and explicit failure cleanup. Use when running a safe platform canary or onboarding exercise. Trigger with: \"rent my first Vast.ai GPU\", \"run a Vast.ai canary\", \"test Vast.ai end to end\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(curl:*)",
-        "Bash(ssh:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-hello-world rent your first gpu instance on vast.ai and run a workload. use when starting a new vast.ai integration, testing your setup, or learning basic vast.ai gpu rental patterns. trigger with phrases like \"vastai hello world\", \"vastai example\", \"vastai quick start\", \"rent first gpu\", \"vastai first instance\". saas-packs read write edit bash(vastai:*) bash(curl:*) bash(ssh:*) "
+      "searchText": "vastai-hello-world rent, verify, use, and destroy a first vast.ai gpu instance with bounded cost and explicit failure cleanup. use when running a safe platform canary or onboarding exercise. trigger with: \"rent my first vast.ai gpu\", \"run a vast.ai canary\", \"test vast.ai end to end\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-incident-runbook",
       "slug": "vastai-incident-runbook",
       "name": "vastai-incident-runbook",
-      "description": "Execute Vast.ai incident response for GPU instance failures and outages. Use when responding to instance failures, investigating training crashes, or handling spot preemption emergencies. Trigger with phrases like \"vastai incident\", \"vastai outage\", \"vastai down\", \"vastai emergency\", \"vastai instance failed\".",
+      "description": "Analyze, diagnose, and recover a Vast.ai renter workload from outbid, exited, offline, scheduling, low-credit, or data-risk incidents while controlling billing and destructive actions. Use when a Vast.ai workload or account enters an incident state. Trigger with: \"Vast.ai incident\", \"recover an offline Vast.ai job\", \"stop emergency Vast.ai spend\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Grep",
-        "Bash(vastai:*)",
-        "Bash(curl:*)",
-        "Bash(ssh:*)"
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-incident-runbook execute vast.ai incident response for gpu instance failures and outages. use when responding to instance failures, investigating training crashes, or handling spot preemption emergencies. trigger with phrases like \"vastai incident\", \"vastai outage\", \"vastai down\", \"vastai emergency\", \"vastai instance failed\". saas-packs read grep bash(vastai:*) bash(curl:*) bash(ssh:*) "
+      "searchText": "vastai-incident-runbook analyze, diagnose, and recover a vast.ai renter workload from outbid, exited, offline, scheduling, low-credit, or data-risk incidents while controlling billing and destructive actions. use when a vast.ai workload or account enters an incident state. trigger with: \"vast.ai incident\", \"recover an offline vast.ai job\", \"stop emergency vast.ai spend\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-install-auth",
       "slug": "vastai-install-auth",
       "name": "vastai-install-auth",
-      "description": "Install and configure Vast.ai CLI and REST API authentication. Use when setting up a new Vast.ai integration, configuring API keys, or initializing Vast.ai GPU cloud access in your project. Trigger with phrases like \"install vastai\", \"setup vastai\", \"vastai auth\", \"configure vastai API key\", \"vastai gpu setup\".",
+      "description": "Install the supported Vast.ai CLI and establish a least-privilege authentication boundary without leaking or persisting the wrong key. Use when bootstrapping a workstation, CI runner, or automation account. Trigger with: \"install Vast.ai\", \"configure VAST_API_KEY\", \"create a scoped Vast.ai key\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(pip:*)",
-        "Bash(vastai:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-install-auth install and configure vast.ai cli and rest api authentication. use when setting up a new vast.ai integration, configuring api keys, or initializing vast.ai gpu cloud access in your project. trigger with phrases like \"install vastai\", \"setup vastai\", \"vastai auth\", \"configure vastai api key\", \"vastai gpu setup\". saas-packs read write edit bash(pip:*) bash(vastai:*) bash(curl:*) grep "
+      "searchText": "vastai-install-auth install the supported vast.ai cli and establish a least-privilege authentication boundary without leaking or persisting the wrong key. use when bootstrapping a workstation, ci runner, or automation account. trigger with: \"install vast.ai\", \"configure vast_api_key\", \"create a scoped vast.ai key\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-local-dev-loop",
       "slug": "vastai-local-dev-loop",
       "name": "vastai-local-dev-loop",
-      "description": "Configure Vast.ai local development with testing and fast iteration. Use when setting up a development environment, testing instance provisioning, or building a fast iteration cycle for GPU workloads. Trigger with phrases like \"vastai dev setup\", \"vastai local development\", \"vastai dev environment\", \"develop with vastai\".",
+      "description": "Build a fast local development loop that promotes a CPU-tested change to one disposable Vast.ai GPU canary and always tears it down. Use when iterating on images, startup scripts, or training code. Trigger with: \"test locally then on Vast.ai\", \"build a GPU canary loop\", \"shorten Vast.ai iteration\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(pip:*)",
-        "Bash(docker:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-local-dev-loop configure vast.ai local development with testing and fast iteration. use when setting up a development environment, testing instance provisioning, or building a fast iteration cycle for gpu workloads. trigger with phrases like \"vastai dev setup\", \"vastai local development\", \"vastai dev environment\", \"develop with vastai\". saas-packs read write edit bash(vastai:*) bash(pip:*) bash(docker:*) grep "
+      "searchText": "vastai-local-dev-loop build a fast local development loop that promotes a cpu-tested change to one disposable vast.ai gpu canary and always tears it down. use when iterating on images, startup scripts, or training code. trigger with: \"test locally then on vast.ai\", \"build a gpu canary loop\", \"shorten vast.ai iteration\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-migration-deep-dive",
       "slug": "vastai-migration-deep-dive",
       "name": "vastai-migration-deep-dive",
-      "description": "Migrate GPU workloads to or from Vast.ai, or between GPU providers. Use when switching from AWS/GCP/Azure GPU instances to Vast.ai, migrating between GPU types, or re-platforming ML infrastructure. Trigger with phrases like \"migrate to vastai\", \"vastai migration\", \"switch to vastai\", \"vastai from aws\", \"vastai from lambda\".",
+      "description": "Migrate a GPU workload from another provider to Vast.ai through inventory, container and data parity, a checkpointed canary, measured comparison, and rollback. Use when planning or executing a provider cutover. Trigger with: \"migrate Runpod to Vast.ai\", \"move GPU jobs to Vast.ai\", \"validate a Vast.ai migration\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(docker:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-migration-deep-dive migrate gpu workloads to or from vast.ai, or between gpu providers. use when switching from aws/gcp/azure gpu instances to vast.ai, migrating between gpu types, or re-platforming ml infrastructure. trigger with phrases like \"migrate to vastai\", \"vastai migration\", \"switch to vastai\", \"vastai from aws\", \"vastai from lambda\". saas-packs read write edit bash(vastai:*) bash(docker:*) grep "
+      "searchText": "vastai-migration-deep-dive migrate a gpu workload from another provider to vast.ai through inventory, container and data parity, a checkpointed canary, measured comparison, and rollback. use when planning or executing a provider cutover. trigger with: \"migrate runpod to vast.ai\", \"move gpu jobs to vast.ai\", \"validate a vast.ai migration\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-multi-env-setup",
       "slug": "vastai-multi-env-setup",
       "name": "vastai-multi-env-setup",
-      "description": "Configure Vast.ai GPU cloud across dev, staging, and production environments. Use when isolating GPU pools per team, managing API key separation by env, or implementing spending controls per deployment tier. Trigger with phrases like \"vastai environments\", \"vastai staging\", \"vastai dev prod\", \"vastai multi-env\".",
+      "description": "Separate development, staging, and production Vast.ai identities, templates, labels, budgets, data, and evidence so one environment cannot mutate another. Use when establishing or auditing environment isolation. Trigger with: \"set up Vast.ai environments\", \"separate Vast.ai prod and dev\", \"govern Vast.ai templates by environment\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-multi-env-setup configure vast.ai gpu cloud across dev, staging, and production environments. use when isolating gpu pools per team, managing api key separation by env, or implementing spending controls per deployment tier. trigger with phrases like \"vastai environments\", \"vastai staging\", \"vastai dev prod\", \"vastai multi-env\". saas-packs read write edit bash(vastai:*) grep "
+      "searchText": "vastai-multi-env-setup separate development, staging, and production vast.ai identities, templates, labels, budgets, data, and evidence so one environment cannot mutate another. use when establishing or auditing environment isolation. trigger with: \"set up vast.ai environments\", \"separate vast.ai prod and dev\", \"govern vast.ai templates by environment\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-observability",
       "slug": "vastai-observability",
       "name": "vastai-observability",
-      "description": "Monitor Vast.ai GPU instance health, utilization, and costs. Use when setting up monitoring dashboards, configuring alerts, or tracking GPU utilization and spending. Trigger with phrases like \"vastai monitoring\", \"vastai metrics\", \"vastai observability\", \"monitor vastai\", \"vastai alerts\".",
+      "description": "Observe Vast.ai renter instances and Serverless resources using actionable state, logs, queue, utilization, balance, and cost signals. Use when building dashboards, alerts, or release telemetry. Trigger with: \"monitor Vast.ai\", \"alert on Vast.ai instances\", \"observe Vast.ai Serverless\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(curl:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-observability monitor vast.ai gpu instance health, utilization, and costs. use when setting up monitoring dashboards, configuring alerts, or tracking gpu utilization and spending. trigger with phrases like \"vastai monitoring\", \"vastai metrics\", \"vastai observability\", \"monitor vastai\", \"vastai alerts\". saas-packs read write edit bash(vastai:*) bash(curl:*) "
+      "searchText": "vastai-observability observe vast.ai renter instances and serverless resources using actionable state, logs, queue, utilization, balance, and cost signals. use when building dashboards, alerts, or release telemetry. trigger with: \"monitor vast.ai\", \"alert on vast.ai instances\", \"observe vast.ai serverless\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-performance-tuning",
       "slug": "vastai-performance-tuning",
       "name": "vastai-performance-tuning",
-      "description": "Optimize Vast.ai GPU instance selection, startup time, and training throughput. Use when optimizing instance selection, reducing startup latency, or maximizing GPU utilization on rented hardware. Trigger with phrases like \"vastai performance\", \"optimize vastai\", \"vastai slow\", \"vastai gpu utilization\", \"vastai throughput\".",
+      "description": "Tune Vast.ai offer selection, startup, data feeding, GPU memory, and scaling from measured useful-work throughput. Use when jobs are slow, GPUs are underutilized, or faster offers cost more. Trigger with: \"tune Vast.ai performance\", \"improve GPU utilization\", \"compare Vast.ai throughput\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(ssh:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-performance-tuning optimize vast.ai gpu instance selection, startup time, and training throughput. use when optimizing instance selection, reducing startup latency, or maximizing gpu utilization on rented hardware. trigger with phrases like \"vastai performance\", \"optimize vastai\", \"vastai slow\", \"vastai gpu utilization\", \"vastai throughput\". saas-packs read write edit bash(vastai:*) bash(ssh:*) "
+      "searchText": "vastai-performance-tuning tune vast.ai offer selection, startup, data feeding, gpu memory, and scaling from measured useful-work throughput. use when jobs are slow, gpus are underutilized, or faster offers cost more. trigger with: \"tune vast.ai performance\", \"improve gpu utilization\", \"compare vast.ai throughput\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-prod-checklist",
       "slug": "vastai-prod-checklist",
       "name": "vastai-prod-checklist",
-      "description": "Execute Vast.ai production deployment checklist for GPU workloads. Use when deploying training pipelines to production, preparing for large-scale GPU jobs, or auditing production readiness. Trigger with phrases like \"vastai production\", \"deploy vastai\", \"vastai go-live\", \"vastai launch checklist\".",
+      "description": "Analyze readiness and issue a production go/no-go decision for a Vast.ai renter workload using retained evidence for cost, capacity, security, recovery, observability, and teardown. Use when a release needs production approval. Trigger with: \"approve Vast.ai production\", \"run the Vast.ai launch checklist\", \"is this Vast.ai workload production ready\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Bash(vastai:*)",
-        "Bash(curl:*)",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-prod-checklist execute vast.ai production deployment checklist for gpu workloads. use when deploying training pipelines to production, preparing for large-scale gpu jobs, or auditing production readiness. trigger with phrases like \"vastai production\", \"deploy vastai\", \"vastai go-live\", \"vastai launch checklist\". saas-packs read bash(vastai:*) bash(curl:*) grep "
+      "searchText": "vastai-prod-checklist analyze readiness and issue a production go/no-go decision for a vast.ai renter workload using retained evidence for cost, capacity, security, recovery, observability, and teardown. use when a release needs production approval. trigger with: \"approve vast.ai production\", \"run the vast.ai launch checklist\", \"is this vast.ai workload production ready\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-rate-limits",
       "slug": "vastai-rate-limits",
       "name": "vastai-rate-limits",
-      "description": "Handle Vast.ai API rate limits with backoff and request optimization. Use when encountering 429 errors, implementing retry logic, or optimizing API request throughput. Trigger with phrases like \"vastai rate limit\", \"vastai throttling\", \"vastai 429\", \"vastai retry\", \"vastai backoff\".",
+      "description": "Diagnose and design bounded Vast.ai CLI and REST traffic around per-endpoint, per-identity rate limits and the absence of Retry-After headers. Use when implementing polling, batch automation, or 429 recovery. Trigger with: \"handle Vast.ai 429\", \"reduce Vast.ai polling\", \"set Vast.ai retry policy\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
         "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-rate-limits handle vast.ai api rate limits with backoff and request optimization. use when encountering 429 errors, implementing retry logic, or optimizing api request throughput. trigger with phrases like \"vastai rate limit\", \"vastai throttling\", \"vastai 429\", \"vastai retry\", \"vastai backoff\". saas-packs read write edit "
+      "searchText": "vastai-rate-limits diagnose and design bounded vast.ai cli and rest traffic around per-endpoint, per-identity rate limits and the absence of retry-after headers. use when implementing polling, batch automation, or 429 recovery. trigger with: \"handle vast.ai 429\", \"reduce vast.ai polling\", \"set vast.ai retry policy\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-reference-architecture",
       "slug": "vastai-reference-architecture",
       "name": "vastai-reference-architecture",
-      "description": "Implement Vast.ai reference architecture for GPU compute workflows. Use when designing ML training pipelines, structuring GPU orchestration, or establishing architecture patterns for Vast.ai applications. Trigger with phrases like \"vastai architecture\", \"vastai design pattern\", \"vastai project structure\", \"vastai ml pipeline\".",
+      "description": "Design a governed Vast.ai GPU control plane that separates planning, paid mutation, execution, recovery, evidence, and teardown. Use when reviewing a production architecture spanning instances or Serverless. Trigger with: \"design a Vast.ai architecture\", \"govern GPU workload lifecycles\", \"review a Vast.ai platform\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
-        "Grep"
+        "Grep",
+        "Write",
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-reference-architecture implement vast.ai reference architecture for gpu compute workflows. use when designing ml training pipelines, structuring gpu orchestration, or establishing architecture patterns for vast.ai applications. trigger with phrases like \"vastai architecture\", \"vastai design pattern\", \"vastai project structure\", \"vastai ml pipeline\". saas-packs read grep "
+      "searchText": "vastai-reference-architecture design a governed vast.ai gpu control plane that separates planning, paid mutation, execution, recovery, evidence, and teardown. use when reviewing a production architecture spanning instances or serverless. trigger with: \"design a vast.ai architecture\", \"govern gpu workload lifecycles\", \"review a vast.ai platform\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-sdk-patterns",
       "slug": "vastai-sdk-patterns",
       "name": "vastai-sdk-patterns",
-      "description": "Apply production-ready Vast.ai SDK patterns for Python and REST API. Use when implementing Vast.ai integrations, refactoring SDK usage, or establishing coding standards for GPU cloud operations. Trigger with phrases like \"vastai SDK patterns\", \"vastai best practices\", \"vastai code patterns\", \"idiomatic vastai\".",
+      "description": "Choose the correct Vast.ai Python client and implement typed, bounded, ownership-safe GPU lifecycles. Use when integrating the high-level SDK, SyncClient, AsyncClient, or Serverless client. Trigger with: \"use the Vast.ai SDK\", \"wrap a Vast.ai instance lifecycle\", \"choose SyncClient or AsyncClient\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-sdk-patterns apply production-ready vast.ai sdk patterns for python and rest api. use when implementing vast.ai integrations, refactoring sdk usage, or establishing coding standards for gpu cloud operations. trigger with phrases like \"vastai sdk patterns\", \"vastai best practices\", \"vastai code patterns\", \"idiomatic vastai\". saas-packs read write edit grep "
+      "searchText": "vastai-sdk-patterns choose the correct vast.ai python client and implement typed, bounded, ownership-safe gpu lifecycles. use when integrating the high-level sdk, syncclient, asyncclient, or serverless client. trigger with: \"use the vast.ai sdk\", \"wrap a vast.ai instance lifecycle\", \"choose syncclient or asyncclient\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-security-basics",
       "slug": "vastai-security-basics",
       "name": "vastai-security-basics",
-      "description": "Apply Vast.ai security best practices for API keys and instance access. Use when securing API keys, hardening SSH access to GPU instances, or auditing Vast.ai security configuration. Trigger with phrases like \"vastai security\", \"vastai secrets\", \"secure vastai\", \"vastai API key security\", \"vastai ssh security\".",
+      "description": "Harden Vast.ai renter access across scoped API keys, SSH, images, hosts, data, and teardown. Use when reviewing security before placing workloads on marketplace hardware. Trigger with: \"secure Vast.ai\", \"review Vast.ai credentials\", \"protect data on a rented GPU\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Grep"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-security-basics apply vast.ai security best practices for api keys and instance access. use when securing api keys, hardening ssh access to gpu instances, or auditing vast.ai security configuration. trigger with phrases like \"vastai security\", \"vastai secrets\", \"secure vastai\", \"vastai api key security\", \"vastai ssh security\". saas-packs read write grep "
+      "searchText": "vastai-security-basics harden vast.ai renter access across scoped api keys, ssh, images, hosts, data, and teardown. use when reviewing security before placing workloads on marketplace hardware. trigger with: \"secure vast.ai\", \"review vast.ai credentials\", \"protect data on a rented gpu\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-upgrade-migration",
       "slug": "vastai-upgrade-migration",
       "name": "vastai-upgrade-migration",
-      "description": "Upgrade Vast.ai CLI, migrate API versions, and handle breaking changes. Use when upgrading vastai CLI, detecting deprecations, or migrating between API versions. Trigger with phrases like \"upgrade vastai\", \"vastai migration\", \"vastai breaking changes\", \"update vastai CLI\".",
+      "description": "Upgrade or roll back the Vast.ai CLI, Python SDK import surface, and workload template without speculative API-version changes. Use when changing a client pin, SDK import, or production template. Trigger with: \"upgrade Vast.ai CLI\", \"migrate from vastai_sdk\", \"roll a Vast.ai template update\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(pip:*)",
-        "Bash(vastai:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-upgrade-migration upgrade vast.ai cli, migrate api versions, and handle breaking changes. use when upgrading vastai cli, detecting deprecations, or migrating between api versions. trigger with phrases like \"upgrade vastai\", \"vastai migration\", \"vastai breaking changes\", \"update vastai cli\". saas-packs read write edit bash(pip:*) bash(vastai:*) "
+      "searchText": "vastai-upgrade-migration upgrade or roll back the vast.ai cli, python sdk import surface, and workload template without speculative api-version changes. use when changing a client pin, sdk import, or production template. trigger with: \"upgrade vast.ai cli\", \"migrate from vastai_sdk\", \"roll a vast.ai template update\". saas-packs read grep write edit "
     },
     {
       "type": "skill",
       "id": "vastai-webhooks-events",
       "slug": "vastai-webhooks-events",
       "name": "vastai-webhooks-events",
-      "description": "Build event-driven workflows around Vast.ai instance lifecycle events. Use when monitoring instance status changes, implementing auto-recovery, or building event-driven GPU orchestration. Trigger with phrases like \"vastai events\", \"vastai instance monitoring\", \"vastai status changes\", \"vastai lifecycle events\".",
+      "description": "Analyze, verify, and operate Vast.ai notification webhooks with exact-body HMAC, replay protection, deduplication, durable enqueue, and failure-aware acknowledgment. Use when notification events must drive automation. Trigger with: \"receive Vast.ai webhooks\", \"verify X-Vast-Signature-256\", \"handle duplicate Vast.ai events\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
+        "Grep",
         "Write",
-        "Edit",
-        "Bash(vastai:*)",
-        "Bash(curl:*)"
+        "Edit"
       ],
       "compatibleWith": [],
-      "version": "1.11.0",
+      "version": "2.0.0",
       "parentPlugin": {
         "name": "vastai-pack",
         "category": "saas-packs"
       },
-      "searchText": "vastai-webhooks-events build event-driven workflows around vast.ai instance lifecycle events. use when monitoring instance status changes, implementing auto-recovery, or building event-driven gpu orchestration. trigger with phrases like \"vastai events\", \"vastai instance monitoring\", \"vastai status changes\", \"vastai lifecycle events\". saas-packs read write edit bash(vastai:*) bash(curl:*) "
+      "searchText": "vastai-webhooks-events analyze, verify, and operate vast.ai notification webhooks with exact-body hmac, replay protection, deduplication, durable enqueue, and failure-aware acknowledgment. use when notification events must drive automation. trigger with: \"receive vast.ai webhooks\", \"verify x-vast-signature-256\", \"handle duplicate vast.ai events\". saas-packs read grep write edit "
     },
     {
       "type": "skill",

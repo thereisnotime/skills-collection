@@ -181,15 +181,18 @@ else
         pass "the guard did not take a vacuous SKIPPED path"
     fi
 
-    # 3b. A real, plausible assertion count. A "Passed: 0" report is a scanner
-    # that scanned nothing and called it success -- the exact case this must catch.
+    # 3b. The guard reported a real run at all. A "Passed: 0" report is a
+    # scanner that scanned nothing and called it success -- the exact case this
+    # must catch. This is a NON-VACUITY check, not a coverage check: it asks
+    # only whether any assertion ran. WHICH assertions ran is settled
+    # individually in 3e, because a count cannot name what went missing.
     _passed="$(printf '%s\n' "$_out" | sed -n 's/.*Passed:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | tail -1)"
     if [ -z "$_passed" ]; then
         fail "the guard printed no 'Passed: N' line -- cannot confirm any assertion ran"
-    elif [ "$_passed" -lt 20 ]; then
-        fail "the guard reported only $_passed assertion(s); it covers 5 requirements files, the Python SDK, gitleaks and CodeQL, so a real run is 20+"
+    elif [ "$_passed" -eq 0 ]; then
+        fail "the guard reported 'Passed: 0' -- it asserted nothing and called it success"
     else
-        pass "the guard reported $_passed real assertions"
+        pass "the guard reported $_passed assertions (coverage is checked per item in 3e)"
     fi
 
     # 3c. Each scanner issue #189 named must be individually evidenced in the
@@ -219,6 +222,47 @@ else
     else
         fail "the guard FAILED (exit $_rc) -- a CI security scanner has regressed"
     fi
+
+    # 3e. Each SCANNED ARTIFACT named individually. This block replaced a
+    # `[ "$_passed" -lt 20 ]` threshold, which stood in for exactly this list
+    # ("5 requirements files, the Python SDK, gitleaks and CodeQL") without
+    # being able to say which of them vanished. A count also picks up slack it
+    # was never meant to have: drop mcp/requirements.txt, add two assertions
+    # anywhere else, and 20+ still passes while a shipped manifest goes
+    # unaudited. 3c above asserts the three SCANNERS are present by name; this
+    # asserts WHAT each one covers, which is a different question.
+    #
+    # Matched against the guard's own `PASS:` spelling, never the bare artifact
+    # name: a `FAIL:` line names the same manifest, so an unanchored grep would
+    # read a regression as coverage.
+    for _manifest in \
+        requirements-test.txt \
+        dashboard/requirements.txt \
+        web-app/requirements.txt \
+        web-app/requirements-test.txt \
+        mcp/requirements.txt ; do
+        if printf '%s\n' "$_out" | grep -qF "PASS: audited: $_manifest"; then
+            pass "the guard evidences pip-audit coverage of $_manifest"
+        else
+            fail "no passing pip-audit evidence for $_manifest -- that manifest is unaudited"
+        fi
+    done
+    if printf '%s\n' "$_out" | grep -qF \
+        'PASS: audited and new-findings-blocking: sdk/python/pyproject.toml'; then
+        pass "the guard evidences the published Python SDK's blocking pip-audit"
+    else
+        fail "no passing evidence for sdk/python/pyproject.toml -- the PyPI-published surface is unaudited"
+    fi
+    # Both CodeQL databases, separately. "CodeQL" alone (3c) cannot tell a
+    # two-language matrix from a one-language one, and losing either leaves a
+    # whole shipped source surface unanalyzed.
+    for _lang in javascript-typescript python ; do
+        if printf '%s\n' "$_out" | grep -qF "PASS: CodeQL SAST matrix covers $_lang"; then
+            pass "the guard evidences CodeQL SAST coverage of $_lang"
+        else
+            fail "no passing CodeQL evidence for $_lang -- that source surface is unanalyzed"
+        fi
+    done
 fi
 
 # --- 4. POSITIVE CONTROL ---------------------------------------------------

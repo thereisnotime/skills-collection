@@ -10806,8 +10806,8 @@
       "description": "\"Explore vague or ambitious ideas into a right-sized requirements-only unified plan. Use when the user wants to brainstorm or scope what to build. Not for executing already-specified work. Use ce-pov ",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-brainstorm/SKILL.md",
       "remote_path": "skills/ce-brainstorm/SKILL.md",
-      "lines": 68,
-      "words": 1120,
+      "lines": 70,
+      "words": 1154,
       "code_blocks": 0,
       "languages": []
     },
@@ -10823,11 +10823,11 @@
     },
     {
       "name": "lfg",
-      "description": "\"Run the full autonomous shipping pipeline end-to-end, hands-off with no check-ins. Use only when the user explicitly asks to build or ship something autonomously all the way to an open PR, or invokes",
+      "description": "\"Take a request all the way to done, hands-off, through the right Compound Engineering skills. A code change ends as an open pull request, pushed without stopping. Use only when the user explicitly as",
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
-      "lines": 58,
-      "words": 1154,
+      "lines": 60,
+      "words": 1193,
       "code_blocks": 0,
       "languages": []
     },
@@ -10837,7 +10837,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-noslop/SKILL.md",
       "remote_path": "skills/ce-noslop/SKILL.md",
       "lines": 46,
-      "words": 646,
+      "words": 676,
       "code_blocks": 0,
       "languages": []
     },
@@ -10928,7 +10928,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-prototype/SKILL.md",
       "remote_path": "skills/ce-prototype/SKILL.md",
       "lines": 60,
-      "words": 1230,
+      "words": 1257,
       "code_blocks": 0,
       "languages": []
     },
@@ -11029,8 +11029,8 @@
       "description": "\"Diagnosis loop for bugs and failing behavior. Use when asked to debug or fix failing or slow behavior.\"",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
-      "lines": 121,
-      "words": 2529,
+      "lines": 123,
+      "words": 2656,
       "code_blocks": 1,
       "languages": []
     },
@@ -11757,8 +11757,8 @@
       "description": "\"Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-researc",
       "path": "Imbad0202--academic-research-skills/academic-pipeline/SKILL.md",
       "remote_path": "academic-pipeline/SKILL.md",
-      "lines": 737,
-      "words": 7011,
+      "lines": 739,
+      "words": 7058,
       "code_blocks": 11,
       "languages": []
     },
@@ -11767,8 +11767,8 @@
       "description": "\"Multi-perspective academic paper review with dynamic reviewer personas. Runs a 5-seat, role-separated review panel (Journal-Fit Reviewer + 3 peer-review roles + Devil's Advocate) with field-specific ",
       "path": "Imbad0202--academic-research-skills/academic-paper-reviewer/SKILL.md",
       "remote_path": "academic-paper-reviewer/SKILL.md",
-      "lines": 492,
-      "words": 4859,
+      "lines": 494,
+      "words": 4907,
       "code_blocks": 4,
       "languages": []
     },
@@ -11981,8 +11981,8 @@
       "description": "\"Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 8 modes: full research, quick brief, paper review, lit-review, fact-check, three-way literature scan",
       "path": "Imbad0202--academic-research-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 601,
-      "words": 4608,
+      "lines": 603,
+      "words": 4650,
       "code_blocks": 6,
       "languages": [
         "markdown"
@@ -11993,8 +11993,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 543,
-      "words": 6228,
+      "lines": 545,
+      "words": 6324,
       "code_blocks": 4,
       "languages": []
     },
@@ -13704,6 +13704,20 @@
       "code_blocks": 8,
       "languages": [
         "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "alphagenome",
+      "description": "\"Look up precomputed AlphaGenome Atlas effects for any GRCh38 single-nucleotide variant (AVI score with Phred and 18 SHAP feature attributions, plus raw and quantile scores for RNA-seq, DNase, ATAC, C",
+      "path": "K-Dense-AI--claude-scientific-skills/skills/alphagenome/SKILL.md",
+      "remote_path": "skills/alphagenome/SKILL.md",
+      "lines": 276,
+      "words": 2002,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "python"
       ],
       "license": "MIT"
     },
@@ -22553,7 +22567,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.34.0",
+      "version": "3.35.0",
       "license": "MIT"
     },
     {
@@ -22561,13 +22575,13 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
-      "lines": 905,
-      "words": 18080,
+      "lines": 919,
+      "words": 18309,
       "code_blocks": 1,
       "languages": [
         "bash"
       ],
-      "version": "3.34.0",
+      "version": "3.35.0",
       "license": "MIT"
     },
     {
@@ -22575,11 +22589,11 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
-      "lines": 902,
-      "words": 18036,
+      "lines": 916,
+      "words": 18265,
       "code_blocks": 0,
       "languages": [],
-      "version": "3.34.0",
+      "version": "3.35.0",
       "license": "MIT"
     },
     {
@@ -22593,7 +22607,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.34.0",
+      "version": "3.35.0",
       "license": "MIT"
     },
     {
@@ -22619,7 +22633,7 @@
       "languages": [
         "bash"
       ],
-      "version": "3.34.0",
+      "version": "3.35.0",
       "license": "MIT"
     },
     {
@@ -22637,8 +22651,8 @@
       "description": "Use when a request combines AI-writing audit, rewrite, file editing, voice preservation, false-positive interpretation, verification, or when the user invokes Avoid AI Writing without naming a mode.",
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing-router/SKILL.md",
       "remote_path": "skills/avoid-ai-writing-router/SKILL.md",
-      "lines": 117,
-      "words": 861,
+      "lines": 118,
+      "words": 869,
       "code_blocks": 0,
       "languages": []
     },
@@ -23835,6 +23849,18 @@
       "code_blocks": 1,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "firecrawl-alexandria",
+      "description": "Use for explicitly requested Firecrawl Alexandria beta tool discovery or provider execution, including Find Tools, provider-backed search, and structured third-party data. Requires an authorized Firec",
+      "path": "firecrawl--cli/beta-skills/firecrawl-alexandria/SKILL.md",
+      "remote_path": "beta-skills/firecrawl-alexandria/SKILL.md",
+      "lines": 41,
+      "words": 435,
+      "code_blocks": 2,
+      "languages": [
+        "sh"
       ]
     }
   ],
@@ -30188,6 +30214,20 @@
       "words": 143,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "post-patch-validation",
+      "description": ">",
+      "path": "trailofbits--skills/plugins/post-patch-validation/skills/post-patch-validation/SKILL.md",
+      "remote_path": "plugins/post-patch-validation/skills/post-patch-validation/SKILL.md",
+      "lines": 237,
+      "words": 1916,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "javascript",
+        "json"
+      ]
     },
     {
       "name": "vulnerability-triage-brocards",
@@ -62735,10 +62775,10 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/productivity/agent-context-manager/skills/agent-context-loader/SKILL.md",
       "remote_path": "plugins/productivity/agent-context-manager/skills/agent-context-loader/SKILL.md",
       "lines": 80,
-      "words": 604,
+      "words": 603,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -66502,7 +66542,7 @@
       "words": 727,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.36.0",
+      "version": "1.37.0",
       "license": "MIT"
     },
     {
@@ -70667,7 +70707,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT"
     },
     {
@@ -70801,7 +70841,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -85573,7 +85613,7 @@
         "json",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85587,7 +85627,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85603,7 +85643,7 @@
         "python",
         "toml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85617,7 +85657,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85631,7 +85671,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85645,7 +85685,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85659,7 +85699,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85673,7 +85713,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85687,7 +85727,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85701,7 +85741,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85715,7 +85755,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85729,7 +85769,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85743,7 +85783,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85757,7 +85797,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85771,7 +85811,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85786,7 +85826,7 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85801,7 +85841,7 @@
         "json",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85815,7 +85855,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85831,7 +85871,7 @@
         "toml",
         "yaml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85845,7 +85885,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85859,7 +85899,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85873,7 +85913,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85887,7 +85927,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85902,7 +85942,7 @@
         "python",
         "toml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85916,7 +85956,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85931,7 +85971,7 @@
         "python",
         "yaml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85945,7 +85985,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85960,7 +86000,7 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85975,7 +86015,7 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -85989,7 +86029,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -86003,7 +86043,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -86017,7 +86057,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -86032,361 +86072,295 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
       "name": "vastai-debug-bundle",
-      "description": "'Collect Vast.ai debug evidence for support tickets and troubleshooting.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-debug-bundle/SKILL.md",
-      "lines": 155,
-      "words": 600,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 562,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-multi-env-setup",
-      "description": "'Configure Vast.ai GPU cloud across dev, staging, and production environments.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-multi-env-setup/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-multi-env-setup/SKILL.md",
-      "lines": 182,
-      "words": 563,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 541,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-upgrade-migration",
-      "description": "'Upgrade Vast.ai CLI, migrate API versions, and handle breaking changes.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-upgrade-migration/SKILL.md",
-      "lines": 157,
-      "words": 583,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 591,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-enterprise-rbac",
-      "description": "'Implement team access control and spending governance for Vast.ai GPU",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-enterprise-rbac/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-enterprise-rbac/SKILL.md",
-      "lines": 186,
-      "words": 634,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 563,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-deploy-integration",
-      "description": "'Deploy ML training jobs and inference services on Vast.ai GPU cloud.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-deploy-integration/SKILL.md",
-      "lines": 178,
-      "words": 603,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 571,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-rate-limits",
-      "description": "'Handle Vast.ai API rate limits with backoff and request optimization.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-rate-limits/SKILL.md",
-      "lines": 159,
-      "words": 586,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 583,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-core-workflow-a",
-      "description": "'Execute Vast.ai primary workflow: GPU instance provisioning and job",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-core-workflow-a/SKILL.md",
-      "lines": 197,
-      "words": 745,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 593,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-core-workflow-b",
-      "description": "'Execute Vast.ai secondary workflow: multi-instance orchestration, spot",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-core-workflow-b/SKILL.md",
-      "lines": 193,
-      "words": 718,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 581,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-reference-architecture",
-      "description": "'Implement Vast.ai reference architecture for GPU compute workflows.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-reference-architecture/SKILL.md",
-      "lines": 186,
-      "words": 632,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 591,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-ci-integration",
-      "description": "'Configure Vast.ai CI/CD integration with GitHub Actions and automated",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-ci-integration/SKILL.md",
-      "lines": 178,
-      "words": 661,
-      "code_blocks": 3,
-      "languages": [
-        "python",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 592,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-incident-runbook",
-      "description": "'Execute Vast.ai incident response for GPU instance failures and outages.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-incident-runbook/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-incident-runbook/SKILL.md",
-      "lines": 184,
-      "words": 783,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 590,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-local-dev-loop",
-      "description": "'Configure Vast.ai local development with testing and fast iteration.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-local-dev-loop/SKILL.md",
-      "lines": 154,
-      "words": 640,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 585,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-migration-deep-dive",
-      "description": "'Migrate GPU workloads to or from Vast.ai, or between GPU providers.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-migration-deep-dive/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-migration-deep-dive/SKILL.md",
-      "lines": 199,
-      "words": 868,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 560,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-sdk-patterns",
-      "description": "'Apply production-ready Vast.ai SDK patterns for Python and REST API.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-sdk-patterns/SKILL.md",
-      "lines": 165,
-      "words": 552,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 575,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-cost-tuning",
-      "description": "'Optimize Vast.ai GPU cloud costs through smart instance selection and",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-cost-tuning/SKILL.md",
-      "lines": 166,
-      "words": 680,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 560,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-data-handling",
-      "description": "'Manage training data and model artifacts securely on Vast.ai GPU instances.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-data-handling/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-data-handling/SKILL.md",
-      "lines": 182,
-      "words": 717,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 578,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-observability",
-      "description": "'Monitor Vast.ai GPU instance health, utilization, and costs.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-observability/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-observability/SKILL.md",
-      "lines": 173,
-      "words": 546,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 523,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-security-basics",
-      "description": "'Apply Vast.ai security best practices for API keys and instance access.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-security-basics/SKILL.md",
-      "lines": 142,
-      "words": 615,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 584,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-hello-world",
-      "description": "'Rent your first GPU instance on Vast.ai and run a workload.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-hello-world/SKILL.md",
-      "lines": 179,
-      "words": 686,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 621,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-webhooks-events",
-      "description": "'Build event-driven workflows around Vast.ai instance lifecycle events.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-webhooks-events/SKILL.md",
-      "lines": 178,
-      "words": 615,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 585,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-common-errors",
-      "description": "'Diagnose and fix Vast.ai common errors and exceptions.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-common-errors/SKILL.md",
-      "lines": 151,
-      "words": 756,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 609,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-install-auth",
-      "description": "'Install and configure Vast.ai CLI and REST API authentication.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-install-auth/SKILL.md",
-      "lines": 178,
-      "words": 663,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 90,
+      "words": 593,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-prod-checklist",
-      "description": "'Execute Vast.ai production deployment checklist for GPU workloads.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-prod-checklist/SKILL.md",
-      "lines": 138,
-      "words": 712,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 543,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "vastai-performance-tuning",
-      "description": "'Optimize Vast.ai GPU instance selection, startup time, and training",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/vastai-pack/skills/vastai-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/vastai-pack/skills/vastai-performance-tuning/SKILL.md",
-      "lines": 179,
-      "words": 768,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 556,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -88733,7 +88707,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88747,7 +88721,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88763,7 +88737,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88778,7 +88752,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88793,7 +88767,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88807,7 +88781,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88823,7 +88797,7 @@
         "gitignore",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88837,7 +88811,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88853,7 +88827,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88868,7 +88842,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88883,7 +88857,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88899,7 +88873,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88913,7 +88887,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88928,7 +88902,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88944,7 +88918,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88959,7 +88933,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88974,7 +88948,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -88989,7 +88963,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -89004,7 +88978,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -89016,7 +88990,7 @@
       "words": 439,
       "code_blocks": 2,
       "languages": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -89033,7 +89007,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -89047,7 +89021,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -89062,7 +89036,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -89077,7 +89051,7 @@
         "prisma",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -90519,272 +90493,218 @@
     },
     {
       "name": "flyio-webhooks-events",
-      "description": "'Implement Fly.io machine events, health check monitoring, and log-based",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-webhooks-events/SKILL.md",
-      "lines": 140,
-      "words": 545,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 98,
+      "words": 668,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-common-errors",
-      "description": "'Diagnose and fix common Fly.io errors including deployment failures,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-common-errors/SKILL.md",
-      "lines": 186,
-      "words": 662,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-core-workflow-a",
-      "description": "'Execute Fly.io primary workflow: deploy, scale, and manage apps with",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-core-workflow-a/SKILL.md",
-      "lines": 150,
-      "words": 550,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 658,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-local-dev-loop",
-      "description": "'Configure Fly.io local development with Docker, proxy, and SSH console.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-local-dev-loop/SKILL.md",
-      "lines": 140,
-      "words": 542,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "json",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 95,
+      "words": 651,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-cost-tuning",
-      "description": "'Optimize Fly.io costs with auto-stop/suspend, right-sizing VMs,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-cost-tuning/SKILL.md",
-      "lines": 123,
-      "words": 542,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 633,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-deploy-integration",
-      "description": "'Advanced Fly.io deployment strategies including blue-green deployments,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-deploy-integration/SKILL.md",
-      "lines": 169,
-      "words": 657,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 95,
+      "words": 629,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-rate-limits",
-      "description": "'Handle Fly.io Machines API rate limits with backoff, concurrency control,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-rate-limits/SKILL.md",
-      "lines": 158,
-      "words": 784,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 94,
+      "words": 673,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-debug-bundle",
-      "description": "'Collect Fly.io debug evidence for support tickets including machine",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-debug-bundle/SKILL.md",
-      "lines": 139,
-      "words": 738,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-ci-integration",
-      "description": "'Configure CI/CD pipelines for Fly.io with GitHub Actions, Docker builds,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-ci-integration/SKILL.md",
-      "lines": 149,
-      "words": 640,
-      "code_blocks": 3,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.7.0",
+      "lines": 95,
+      "words": 661,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-install-auth",
-      "description": "'Install flyctl CLI and configure Fly.io authentication with API tokens.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-install-auth/SKILL.md",
-      "lines": 126,
-      "words": 517,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 643,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-hello-world",
-      "description": "'Deploy your first app to Fly.io with flyctl launch and the Machines",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-hello-world/SKILL.md",
-      "lines": 152,
-      "words": 520,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 638,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-prod-checklist",
-      "description": "'Execute Fly.io production deployment checklist with health checks,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-prod-checklist/SKILL.md",
-      "lines": 125,
-      "words": 751,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 619,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-security-basics",
-      "description": "'Apply Fly.io security best practices for secrets management, private",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-security-basics/SKILL.md",
-      "lines": 140,
-      "words": 686,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 660,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-performance-tuning",
-      "description": "'Optimize Fly.io application performance with auto-stop/start tuning,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-performance-tuning/SKILL.md",
-      "lines": 123,
-      "words": 546,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 643,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-core-workflow-b",
-      "description": "'Execute Fly.io secondary workflow: Postgres clusters, persistent volumes,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-core-workflow-b/SKILL.md",
-      "lines": 141,
-      "words": 564,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 675,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-upgrade-migration",
-      "description": "'Migrate between Fly.io platform versions including Apps v1 to v2 (Machines),",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-upgrade-migration/SKILL.md",
-      "lines": 125,
-      "words": 521,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 676,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-sdk-patterns",
-      "description": "'Apply production-ready Fly.io Machines API patterns for TypeScript with",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-sdk-patterns/SKILL.md",
-      "lines": 157,
-      "words": 798,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 649,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-reference-architecture",
-      "description": "'Implement Fly.io reference architecture with multi-region apps, Postgres,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/flyio-pack/skills/flyio-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/flyio-pack/skills/flyio-reference-architecture/SKILL.md",
-      "lines": 153,
-      "words": 632,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 639,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -91612,259 +91532,218 @@
     },
     {
       "name": "persona-hello-world",
-      "description": "'Create your first Persona identity verification inquiry and check its",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-hello-world/SKILL.md",
-      "lines": 143,
-      "words": 476,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 96,
+      "words": 628,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-security-basics",
-      "description": "'Secure Persona API keys, webhook secrets, PII handling in verification",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-security-basics/SKILL.md",
-      "lines": 75,
-      "words": 226,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 635,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-install-auth",
-      "description": "'Configure Persona API authentication with sandbox and production API",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-install-auth/SKILL.md",
-      "lines": 135,
-      "words": 420,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python",
-        "text",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 96,
+      "words": 649,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-ci-integration",
-      "description": "'CI/CD pipeline for Persona integrations with sandbox API testing.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-ci-integration/SKILL.md",
-      "lines": 74,
-      "words": 217,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 616,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-common-errors",
-      "description": "'Fix top Persona API errors: 401, 422, webhook signature failures, inquiry",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-common-errors/SKILL.md",
-      "lines": 109,
-      "words": 370,
-      "code_blocks": 6,
+      "lines": 101,
+      "words": 637,
+      "code_blocks": 0,
       "languages": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-core-workflow-a",
-      "description": "'Build a complete KYC verification flow with Persona inquiries and embedded",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-core-workflow-a/SKILL.md",
-      "lines": 203,
-      "words": 637,
-      "code_blocks": 4,
-      "languages": [
-        "html",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 638,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-upgrade-migration",
-      "description": "'Upgrade Persona API versions and handle breaking changes.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-upgrade-migration/SKILL.md",
-      "lines": 74,
-      "words": 220,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 610,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-performance-tuning",
-      "description": "'Optimize Persona API performance with batching and caching.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-performance-tuning/SKILL.md",
-      "lines": 74,
-      "words": 212,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 605,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-cost-tuning",
-      "description": "'Optimize Persona verification costs with template selection and caching.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-cost-tuning/SKILL.md",
-      "lines": 74,
-      "words": 215,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 609,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-debug-bundle",
-      "description": "'Collect Persona diagnostic info: inquiry IDs, API responses, webhook",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-debug-bundle/SKILL.md",
-      "lines": 75,
-      "words": 224,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 603,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-prod-checklist",
-      "description": "'Production deployment checklist for Persona identity verification.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-prod-checklist/SKILL.md",
-      "lines": 74,
-      "words": 212,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 602,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-deploy-integration",
-      "description": "'Deploy Persona verification service to cloud platforms.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-deploy-integration/SKILL.md",
-      "lines": 74,
-      "words": 211,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 597,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-local-dev-loop",
-      "description": "'Local development with Persona sandbox, ngrok for webhooks, mock verifications.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-local-dev-loop/SKILL.md",
-      "lines": 115,
-      "words": 364,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 623,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-rate-limits",
-      "description": "'Handle Persona API rate limits with exponential backoff and request",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-rate-limits/SKILL.md",
-      "lines": 75,
-      "words": 230,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 640,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-core-workflow-b",
-      "description": "'Work with Persona verification types: government ID, selfie, database",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-core-workflow-b/SKILL.md",
-      "lines": 174,
-      "words": 519,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 614,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-sdk-patterns",
-      "description": "'Production Persona API client wrapper with retry, pagination, typed",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-sdk-patterns/SKILL.md",
-      "lines": 136,
-      "words": 449,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 627,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-webhooks-events",
-      "description": "'Handle Persona webhook events for inquiry and verification status changes.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-webhooks-events/SKILL.md",
-      "lines": 151,
-      "words": 407,
-      "code_blocks": 4,
-      "languages": [
-        "text",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 101,
+      "words": 630,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-reference-architecture",
-      "description": "'KYC service architecture with Persona as verification provider.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/persona-pack/skills/persona-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/persona-pack/skills/persona-reference-architecture/SKILL.md",
-      "lines": 74,
-      "words": 211,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 636,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -92139,7 +92018,7 @@
         "dockerfile",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92151,7 +92030,7 @@
       "words": 457,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92167,7 +92046,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92182,7 +92061,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92197,7 +92076,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92211,7 +92090,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92225,7 +92104,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92240,7 +92119,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92256,7 +92135,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92272,7 +92151,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92287,7 +92166,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92302,7 +92181,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92316,7 +92195,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92330,7 +92209,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92345,7 +92224,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92360,7 +92239,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92372,7 +92251,7 @@
       "words": 665,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92388,7 +92267,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92402,7 +92281,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92416,7 +92295,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92430,7 +92309,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92445,7 +92324,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92460,7 +92339,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92475,7 +92354,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92489,7 +92368,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92505,7 +92384,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92519,7 +92398,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92533,7 +92412,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92547,7 +92426,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92562,7 +92441,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92577,7 +92456,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92591,7 +92470,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -92956,265 +92835,218 @@
     },
     {
       "name": "clari-prod-checklist",
-      "description": "'Production readiness checklist for Clari API integrations.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-prod-checklist/SKILL.md",
-      "lines": 141,
-      "words": 814,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 520,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-deploy-integration",
-      "description": "'Deploy Clari export pipelines to production with Airflow, Cloud Functions,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-deploy-integration/SKILL.md",
-      "lines": 156,
-      "words": 480,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 556,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-debug-bundle",
-      "description": "'Collect Clari API diagnostic info for support cases.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-debug-bundle/SKILL.md",
-      "lines": 118,
-      "words": 510,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 559,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-performance-tuning",
-      "description": "'Optimize Clari API performance with caching, batch exports, and data",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-performance-tuning/SKILL.md",
-      "lines": 167,
-      "words": 638,
-      "code_blocks": 3,
-      "languages": [
-        "python",
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 524,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-common-errors",
-      "description": "'Diagnose and fix Clari API errors including auth failures, export issues,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-common-errors/SKILL.md",
-      "lines": 178,
-      "words": 740,
-      "code_blocks": 7,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 572,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-install-auth",
-      "description": "'Configure Clari API authentication with API key and set up export access.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-install-auth/SKILL.md",
-      "lines": 142,
-      "words": 531,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 634,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-ci-integration",
-      "description": "'Integrate Clari export pipeline testing and validation into CI/CD.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-ci-integration/SKILL.md",
-      "lines": 121,
-      "words": 445,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "yaml"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 550,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-core-workflow-a",
-      "description": "'Build a Clari forecast export pipeline to your data warehouse.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-core-workflow-a/SKILL.md",
-      "lines": 206,
-      "words": 678,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 91,
+      "words": 564,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-sdk-patterns",
-      "description": "'Production-ready Clari API client patterns in Python and TypeScript.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-sdk-patterns/SKILL.md",
-      "lines": 258,
-      "words": 748,
-      "code_blocks": 2,
-      "languages": [
-        "python",
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 579,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-cost-tuning",
-      "description": "'Optimize Clari API usage and integration costs.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-cost-tuning/SKILL.md",
-      "lines": 131,
-      "words": 492,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 539,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-upgrade-migration",
-      "description": "'Handle Clari API version changes and export schema migrations.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-upgrade-migration/SKILL.md",
-      "lines": 127,
-      "words": 495,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 558,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-security-basics",
-      "description": "'Secure Clari API tokens and implement data handling best practices.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-security-basics/SKILL.md",
-      "lines": 118,
-      "words": 537,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 546,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-local-dev-loop",
-      "description": "'Set up local development for Clari API integrations with mock data.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-local-dev-loop/SKILL.md",
-      "lines": 159,
-      "words": 536,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 573,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-core-workflow-b",
-      "description": "'Build Clari revenue analytics: pipeline coverage, forecast accuracy,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-core-workflow-b/SKILL.md",
-      "lines": 182,
-      "words": 601,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 91,
+      "words": 553,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-hello-world",
-      "description": "'Export your first Clari forecast and pipeline snapshot.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-hello-world/SKILL.md",
-      "lines": 160,
-      "words": 525,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 582,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-webhooks-events",
-      "description": "'Monitor Clari forecast changes using export job polling and change detection.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-webhooks-events/SKILL.md",
-      "lines": 182,
-      "words": 609,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 91,
+      "words": 573,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-rate-limits",
-      "description": "'Handle Clari API rate limits with backoff and export job scheduling.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-rate-limits/SKILL.md",
-      "lines": 133,
-      "words": 473,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 560,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "clari-reference-architecture",
-      "description": "'Reference architecture for Clari revenue intelligence integrations.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/clari-pack/skills/clari-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/clari-pack/skills/clari-reference-architecture/SKILL.md",
-      "lines": 182,
-      "words": 769,
-      "code_blocks": 3,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 535,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -94313,7 +94145,7 @@
         "bash",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94327,7 +94159,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94343,7 +94175,7 @@
         "json",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94358,7 +94190,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94372,7 +94204,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94386,7 +94218,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94400,7 +94232,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94415,7 +94247,7 @@
         "python",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94430,7 +94262,7 @@
         "bash",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94445,7 +94277,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94460,7 +94292,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94476,7 +94308,7 @@
         "markdown",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94492,7 +94324,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94507,7 +94339,7 @@
         "bash",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94521,7 +94353,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94536,7 +94368,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94552,7 +94384,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94566,7 +94398,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94580,7 +94412,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94595,7 +94427,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94611,7 +94443,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94625,7 +94457,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94639,7 +94471,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94656,7 +94488,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94671,7 +94503,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94688,7 +94520,7 @@
         "python",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94702,7 +94534,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94716,7 +94548,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94730,7 +94562,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -94744,7 +94576,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -98039,7 +97871,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98054,7 +97886,7 @@
         "bash",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98069,7 +97901,7 @@
         "gitignore",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98083,7 +97915,7 @@
       "languages": [
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98098,7 +97930,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98113,7 +97945,7 @@
         "bash",
         "gitignore"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98129,7 +97961,7 @@
         "gitignore",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98143,7 +97975,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98155,7 +97987,7 @@
       "words": 1332,
       "code_blocks": 12,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98169,7 +98001,7 @@
       "languages": [
         "diff"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98183,7 +98015,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98198,7 +98030,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98213,7 +98045,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98227,7 +98059,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98242,7 +98074,7 @@
         "gitignore",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98256,7 +98088,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98271,7 +98103,7 @@
         "bash",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98288,7 +98120,7 @@
         "tsx",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98303,7 +98135,7 @@
         "gitignore",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98319,7 +98151,7 @@
         "gitignore",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98331,7 +98163,7 @@
       "words": 1109,
       "code_blocks": 6,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98347,7 +98179,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98363,7 +98195,7 @@
         "json",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98378,7 +98210,7 @@
         "bash",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98393,7 +98225,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98405,7 +98237,7 @@
       "words": 1196,
       "code_blocks": 3,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98417,7 +98249,7 @@
       "words": 1180,
       "code_blocks": 8,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98431,7 +98263,7 @@
       "languages": [
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98448,7 +98280,7 @@
         "json",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -98462,7 +98294,7 @@
       "languages": [
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -110030,7 +109862,7 @@
       "languages": [
         "bash"
       ],
-      "version": "0.5.0",
+      "version": "0.6.0",
       "license": "MIT"
     },
     {
@@ -115312,7 +115144,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -115524,7 +115356,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -115618,7 +115450,7 @@
         "bash",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -115672,7 +115504,7 @@
         "gitignore",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -115824,7 +115656,7 @@
         "bash",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -116181,7 +116013,7 @@
         "json",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -116468,7 +116300,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -116482,7 +116314,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -116525,7 +116357,7 @@
         "markdown",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -116639,7 +116471,7 @@
         "dockerfile",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -116910,7 +116742,7 @@
       "words": 457,
       "code_blocks": 1,
       "languages": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -116981,17 +116813,14 @@
     },
     {
       "name": "flyio-webhooks-events",
-      "description": "'Implement Fly.io machine events, health check monitoring, and log-based",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/flyio-webhooks-events/SKILL.md",
-      "lines": 140,
-      "words": 545,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 98,
+      "words": 668,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -117075,7 +116904,7 @@
       "languages": [
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -117212,7 +117041,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -117695,16 +117524,14 @@
     },
     {
       "name": "clari-prod-checklist",
-      "description": "'Production readiness checklist for Clari API integrations.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/clari-prod-checklist/SKILL.md",
-      "lines": 141,
-      "words": 814,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 520,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -117720,7 +117547,7 @@
         "python",
         "toml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -117840,16 +117667,14 @@
     },
     {
       "name": "clari-deploy-integration",
-      "description": "'Deploy Clari export pipelines to production with Airflow, Cloud Functions,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-deploy-integration/SKILL.md",
       "remote_path": "skills/.curated/clari-deploy-integration/SKILL.md",
-      "lines": 156,
-      "words": 480,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 556,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -117912,16 +117737,14 @@
     },
     {
       "name": "vastai-debug-bundle",
-      "description": "'Collect Vast.ai debug evidence for support tickets and troubleshooting.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/vastai-debug-bundle/SKILL.md",
-      "lines": 155,
-      "words": 600,
-      "code_blocks": 5,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 562,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -117988,7 +117811,7 @@
         "bash",
         "gitignore"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -118019,16 +117842,14 @@
     },
     {
       "name": "clari-debug-bundle",
-      "description": "'Collect Clari API diagnostic info for support cases.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/clari-debug-bundle/SKILL.md",
-      "lines": 118,
-      "words": 510,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 559,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -118098,7 +117919,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT"
     },
     {
@@ -118176,7 +117997,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -118192,7 +118013,7 @@
         "gitignore",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -118254,7 +118075,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -118370,7 +118191,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -118623,7 +118444,7 @@
         "json",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -118656,16 +118477,14 @@
     },
     {
       "name": "persona-hello-world",
-      "description": "'Create your first Persona identity verification inquiry and check its",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-hello-world/SKILL.md",
       "remote_path": "skills/.curated/persona-hello-world/SKILL.md",
-      "lines": 143,
-      "words": 476,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 96,
+      "words": 628,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -118710,16 +118529,14 @@
     },
     {
       "name": "persona-security-basics",
-      "description": "'Secure Persona API keys, webhook secrets, PII handling in verification",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-security-basics/SKILL.md",
       "remote_path": "skills/.curated/persona-security-basics/SKILL.md",
-      "lines": 75,
-      "words": 226,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 635,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -118797,7 +118614,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -118884,17 +118701,14 @@
     },
     {
       "name": "vastai-multi-env-setup",
-      "description": "'Configure Vast.ai GPU cloud across dev, staging, and production environments.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-multi-env-setup/SKILL.md",
       "remote_path": "skills/.curated/vastai-multi-env-setup/SKILL.md",
-      "lines": 182,
-      "words": 563,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 541,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -119425,7 +119239,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -119530,7 +119344,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -119611,7 +119425,7 @@
       "words": 1332,
       "code_blocks": 12,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -119669,7 +119483,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -119710,7 +119524,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -119897,7 +119711,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -119961,7 +119775,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -120089,17 +119903,14 @@
     },
     {
       "name": "flyio-common-errors",
-      "description": "'Diagnose and fix common Fly.io errors including deployment failures,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-common-errors/SKILL.md",
       "remote_path": "skills/.curated/flyio-common-errors/SKILL.md",
-      "lines": 186,
-      "words": 662,
-      "code_blocks": 13,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -120239,17 +120050,14 @@
     },
     {
       "name": "clari-performance-tuning",
-      "description": "'Optimize Clari API performance with caching, batch exports, and data",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/clari-performance-tuning/SKILL.md",
-      "lines": 167,
-      "words": 638,
-      "code_blocks": 3,
-      "languages": [
-        "python",
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 524,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -120333,7 +120141,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -120476,7 +120284,7 @@
       "languages": [
         "diff"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -120628,7 +120436,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -121655,7 +121463,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -121884,33 +121692,26 @@
     },
     {
       "name": "clari-common-errors",
-      "description": "'Diagnose and fix Clari API errors including auth failures, export issues,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-common-errors/SKILL.md",
       "remote_path": "skills/.curated/clari-common-errors/SKILL.md",
-      "lines": 178,
-      "words": 740,
-      "code_blocks": 7,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.6.0",
+      "lines": 93,
+      "words": 572,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-install-auth",
-      "description": "'Configure Persona API authentication with sandbox and production API",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-install-auth/SKILL.md",
       "remote_path": "skills/.curated/persona-install-auth/SKILL.md",
-      "lines": 135,
-      "words": 420,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python",
-        "text",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 96,
+      "words": 649,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -122135,7 +121936,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -122319,7 +122120,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -122333,7 +122134,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -122364,7 +122165,7 @@
         "gitignore",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -122436,7 +122237,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -122470,17 +122271,14 @@
     },
     {
       "name": "clari-install-auth",
-      "description": "'Configure Clari API authentication with API key and set up export access.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-install-auth/SKILL.md",
       "remote_path": "skills/.curated/clari-install-auth/SKILL.md",
-      "lines": 142,
-      "words": 531,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 634,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -122554,7 +122352,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -122677,31 +122475,26 @@
     },
     {
       "name": "flyio-core-workflow-a",
-      "description": "'Execute Fly.io primary workflow: deploy, scale, and manage apps with",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/flyio-core-workflow-a/SKILL.md",
-      "lines": 150,
-      "words": 550,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 658,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "persona-ci-integration",
-      "description": "'CI/CD pipeline for Persona integrations with sandbox API testing.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-ci-integration/SKILL.md",
       "remote_path": "skills/.curated/persona-ci-integration/SKILL.md",
-      "lines": 74,
-      "words": 217,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 616,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -122859,22 +122652,19 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
       "name": "vastai-upgrade-migration",
-      "description": "'Upgrade Vast.ai CLI, migrate API versions, and handle breaking changes.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/vastai-upgrade-migration/SKILL.md",
-      "lines": 157,
-      "words": 583,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 591,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -123354,16 +123144,14 @@
     },
     {
       "name": "vastai-enterprise-rbac",
-      "description": "'Implement team access control and spending governance for Vast.ai GPU",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-enterprise-rbac/SKILL.md",
       "remote_path": "skills/.curated/vastai-enterprise-rbac/SKILL.md",
-      "lines": 186,
-      "words": 634,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 563,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -123551,14 +123339,14 @@
     },
     {
       "name": "persona-common-errors",
-      "description": "'Fix top Persona API errors: 401, 422, webhook signature failures, inquiry",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-common-errors/SKILL.md",
       "remote_path": "skills/.curated/persona-common-errors/SKILL.md",
-      "lines": 109,
-      "words": 370,
-      "code_blocks": 6,
+      "lines": 101,
+      "words": 637,
+      "code_blocks": 0,
       "languages": [],
-      "version": "1.4.0",
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -123597,7 +123385,7 @@
         "python",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -123713,7 +123501,7 @@
         "bash",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -123970,7 +123758,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -123984,7 +123772,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -124025,7 +123813,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -124553,7 +124341,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -124625,18 +124413,14 @@
     },
     {
       "name": "vastai-deploy-integration",
-      "description": "'Deploy ML training jobs and inference services on Vast.ai GPU cloud.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-deploy-integration/SKILL.md",
       "remote_path": "skills/.curated/vastai-deploy-integration/SKILL.md",
-      "lines": 178,
-      "words": 603,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 571,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -124670,17 +124454,14 @@
     },
     {
       "name": "persona-core-workflow-a",
-      "description": "'Build a complete KYC verification flow with Persona inquiries and embedded",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/persona-core-workflow-a/SKILL.md",
-      "lines": 203,
-      "words": 637,
-      "code_blocks": 4,
-      "languages": [
-        "html",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 638,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -124743,7 +124524,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -124907,7 +124688,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -125019,7 +124800,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -125109,16 +124890,14 @@
     },
     {
       "name": "persona-upgrade-migration",
-      "description": "'Upgrade Persona API versions and handle breaking changes.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/persona-upgrade-migration/SKILL.md",
-      "lines": 74,
-      "words": 220,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 610,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -125480,16 +125259,14 @@
     },
     {
       "name": "vastai-rate-limits",
-      "description": "'Handle Vast.ai API rate limits with backoff and request optimization.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/vastai-rate-limits/SKILL.md",
-      "lines": 159,
-      "words": 586,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 583,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -125588,7 +125365,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -125637,17 +125414,14 @@
     },
     {
       "name": "clari-ci-integration",
-      "description": "'Integrate Clari export pipeline testing and validation into CI/CD.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-ci-integration/SKILL.md",
       "remote_path": "skills/.curated/clari-ci-integration/SKILL.md",
-      "lines": 121,
-      "words": 445,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "yaml"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 550,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -125667,17 +125441,14 @@
     },
     {
       "name": "vastai-core-workflow-a",
-      "description": "'Execute Vast.ai primary workflow: GPU instance provisioning and job",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/vastai-core-workflow-a/SKILL.md",
-      "lines": 197,
-      "words": 745,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 593,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -125952,16 +125723,14 @@
     },
     {
       "name": "vastai-core-workflow-b",
-      "description": "'Execute Vast.ai secondary workflow: multi-instance orchestration, spot",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/vastai-core-workflow-b/SKILL.md",
-      "lines": 193,
-      "words": 718,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 581,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -126216,18 +125985,14 @@
     },
     {
       "name": "flyio-local-dev-loop",
-      "description": "'Configure Fly.io local development with Docker, proxy, and SSH console.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/flyio-local-dev-loop/SKILL.md",
-      "lines": 140,
-      "words": 542,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "json",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 95,
+      "words": 651,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -126523,7 +126288,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -126582,7 +126347,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -126771,7 +126536,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -127422,16 +127187,14 @@
     },
     {
       "name": "clari-core-workflow-a",
-      "description": "'Build a Clari forecast export pipeline to your data warehouse.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/clari-core-workflow-a/SKILL.md",
-      "lines": 206,
-      "words": 678,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 91,
+      "words": 564,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -127629,7 +127392,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -127779,22 +127542,19 @@
         "text",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
       "name": "vastai-reference-architecture",
-      "description": "'Implement Vast.ai reference architecture for GPU compute workflows.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/vastai-reference-architecture/SKILL.md",
-      "lines": 186,
-      "words": 632,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 591,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -127809,7 +127569,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -127887,7 +127647,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -128274,7 +128034,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -128374,7 +128134,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -128441,7 +128201,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -128750,7 +128510,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -129146,7 +128906,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -129178,17 +128938,14 @@
     },
     {
       "name": "flyio-cost-tuning",
-      "description": "'Optimize Fly.io costs with auto-stop/suspend, right-sizing VMs,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/flyio-cost-tuning/SKILL.md",
-      "lines": 123,
-      "words": 542,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 633,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -129454,7 +129211,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -129468,7 +129225,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -129483,7 +129240,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -129526,7 +129283,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -129566,7 +129323,7 @@
       "languages": [
         "bash"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -129732,7 +129489,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -130136,7 +129893,7 @@
         "gitignore",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -130190,7 +129947,7 @@
       "languages": [
         "markdown"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -130594,7 +130351,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -130794,24 +130551,19 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
       "name": "flyio-deploy-integration",
-      "description": "'Advanced Fly.io deployment strategies including blue-green deployments,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-deploy-integration/SKILL.md",
       "remote_path": "skills/.curated/flyio-deploy-integration/SKILL.md",
-      "lines": 169,
-      "words": 657,
-      "code_blocks": 8,
-      "languages": [
-        "bash",
-        "dockerfile",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 95,
+      "words": 629,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -130868,6 +130620,18 @@
         "typescript"
       ],
       "version": "1.6.0",
+      "license": "MIT"
+    },
+    {
+      "name": "clari-sdk-patterns",
+      "description": ">-",
+      "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-sdk-patterns/SKILL.md",
+      "remote_path": "skills/.curated/clari-sdk-patterns/SKILL.md",
+      "lines": 92,
+      "words": 579,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -131053,7 +130817,7 @@
         "json",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -131095,7 +130859,7 @@
       "words": 665,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -131122,7 +130886,7 @@
         "bash",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -131138,7 +130902,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -131193,7 +130957,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -131532,7 +131296,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -132067,16 +131831,14 @@
     },
     {
       "name": "clari-cost-tuning",
-      "description": "'Optimize Clari API usage and integration costs.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/clari-cost-tuning/SKILL.md",
-      "lines": 131,
-      "words": 492,
-      "code_blocks": 3,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 539,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -132190,7 +131952,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -132483,7 +132245,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -132538,7 +132300,7 @@
         "tsx",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -132580,7 +132342,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -132597,17 +132359,14 @@
     },
     {
       "name": "vastai-ci-integration",
-      "description": "'Configure Vast.ai CI/CD integration with GitHub Actions and automated",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-ci-integration/SKILL.md",
       "remote_path": "skills/.curated/vastai-ci-integration/SKILL.md",
-      "lines": 178,
-      "words": 661,
-      "code_blocks": 3,
-      "languages": [
-        "python",
-        "yaml"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 592,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -132931,17 +132690,14 @@
     },
     {
       "name": "vastai-incident-runbook",
-      "description": "'Execute Vast.ai incident response for GPU instance failures and outages.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-incident-runbook/SKILL.md",
       "remote_path": "skills/.curated/vastai-incident-runbook/SKILL.md",
-      "lines": 184,
-      "words": 783,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "markdown"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 590,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -133016,7 +132772,7 @@
         "markdown",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -133244,7 +133000,7 @@
         "markdown",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -133277,16 +133033,14 @@
     },
     {
       "name": "persona-performance-tuning",
-      "description": "'Optimize Persona API performance with batching and caching.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/persona-performance-tuning/SKILL.md",
-      "lines": 74,
-      "words": 212,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 605,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -133372,17 +133126,14 @@
     },
     {
       "name": "vastai-local-dev-loop",
-      "description": "'Configure Vast.ai local development with testing and fast iteration.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/vastai-local-dev-loop/SKILL.md",
-      "lines": 154,
-      "words": 640,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 585,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -133666,16 +133417,14 @@
     },
     {
       "name": "persona-cost-tuning",
-      "description": "'Optimize Persona verification costs with template selection and caching.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/persona-cost-tuning/SKILL.md",
-      "lines": 74,
-      "words": 215,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 609,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -133704,23 +133453,19 @@
         "gitignore",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
       "name": "clari-upgrade-migration",
-      "description": "'Handle Clari API version changes and export schema migrations.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/clari-upgrade-migration/SKILL.md",
-      "lines": 127,
-      "words": 495,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 558,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -134188,7 +133933,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -134275,17 +134020,14 @@
     },
     {
       "name": "clari-security-basics",
-      "description": "'Secure Clari API tokens and implement data handling best practices.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-security-basics/SKILL.md",
       "remote_path": "skills/.curated/clari-security-basics/SKILL.md",
-      "lines": 118,
-      "words": 537,
-      "code_blocks": 2,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 546,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -134390,17 +134132,14 @@
     },
     {
       "name": "clari-local-dev-loop",
-      "description": "'Set up local development for Clari API integrations with mock data.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/clari-local-dev-loop/SKILL.md",
-      "lines": 159,
-      "words": 536,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 573,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -134501,18 +134240,14 @@
     },
     {
       "name": "vastai-migration-deep-dive",
-      "description": "'Migrate GPU workloads to or from Vast.ai, or between GPU providers.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-migration-deep-dive/SKILL.md",
       "remote_path": "skills/.curated/vastai-migration-deep-dive/SKILL.md",
-      "lines": 199,
-      "words": 868,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "markdown",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 560,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -134528,7 +134263,7 @@
         "gitignore",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -134681,7 +134416,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -134696,21 +134431,19 @@
         "bash",
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
       "name": "persona-debug-bundle",
-      "description": "'Collect Persona diagnostic info: inquiry IDs, API responses, webhook",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/persona-debug-bundle/SKILL.md",
-      "lines": 75,
-      "words": 224,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 603,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -134724,35 +134457,31 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
       "name": "vastai-sdk-patterns",
-      "description": "'Apply production-ready Vast.ai SDK patterns for Python and REST API.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-sdk-patterns/SKILL.md",
       "remote_path": "skills/.curated/vastai-sdk-patterns/SKILL.md",
-      "lines": 165,
-      "words": 552,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 575,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "flyio-rate-limits",
-      "description": "'Handle Fly.io Machines API rate limits with backoff, concurrency control,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/flyio-rate-limits/SKILL.md",
-      "lines": 158,
-      "words": 784,
-      "code_blocks": 3,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 94,
+      "words": 673,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -134887,17 +134616,14 @@
     },
     {
       "name": "flyio-debug-bundle",
-      "description": "'Collect Fly.io debug evidence for support tickets including machine",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/flyio-debug-bundle/SKILL.md",
-      "lines": 139,
-      "words": 738,
-      "code_blocks": 3,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 646,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -135072,7 +134798,7 @@
         "toml",
         "yaml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -135156,16 +134882,14 @@
     },
     {
       "name": "persona-prod-checklist",
-      "description": "'Production deployment checklist for Persona identity verification.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/persona-prod-checklist/SKILL.md",
-      "lines": 74,
-      "words": 212,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 602,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -135194,7 +134918,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -135369,7 +135093,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -135436,7 +135160,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -135450,7 +135174,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -135527,17 +135251,14 @@
     },
     {
       "name": "vastai-cost-tuning",
-      "description": "'Optimize Vast.ai GPU cloud costs through smart instance selection and",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/vastai-cost-tuning/SKILL.md",
-      "lines": 166,
-      "words": 680,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 560,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -136222,7 +135943,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -136269,16 +135990,14 @@
     },
     {
       "name": "persona-deploy-integration",
-      "description": "'Deploy Persona verification service to cloud platforms.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-deploy-integration/SKILL.md",
       "remote_path": "skills/.curated/persona-deploy-integration/SKILL.md",
-      "lines": 74,
-      "words": 211,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 597,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -136445,7 +136164,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -136500,22 +136219,19 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
       "name": "vastai-data-handling",
-      "description": "'Manage training data and model artifacts securely on Vast.ai GPU instances.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-data-handling/SKILL.md",
       "remote_path": "skills/.curated/vastai-data-handling/SKILL.md",
-      "lines": 182,
-      "words": 717,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 578,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -136547,18 +136263,14 @@
     },
     {
       "name": "persona-local-dev-loop",
-      "description": "'Local development with Persona sandbox, ngrok for webhooks, mock verifications.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/persona-local-dev-loop/SKILL.md",
-      "lines": 115,
-      "words": 364,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 623,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -136955,7 +136667,7 @@
         "python",
         "toml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -137290,17 +137002,14 @@
     },
     {
       "name": "clari-core-workflow-b",
-      "description": "'Build Clari revenue analytics: pipeline coverage, forecast accuracy,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/clari-core-workflow-b/SKILL.md",
-      "lines": 182,
-      "words": 601,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 91,
+      "words": 553,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -137314,7 +137023,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -137328,7 +137037,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -137430,17 +137139,14 @@
     },
     {
       "name": "flyio-ci-integration",
-      "description": "'Configure CI/CD pipelines for Fly.io with GitHub Actions, Docker builds,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-ci-integration/SKILL.md",
       "remote_path": "skills/.curated/flyio-ci-integration/SKILL.md",
-      "lines": 149,
-      "words": 640,
-      "code_blocks": 3,
-      "languages": [
-        "typescript",
-        "yaml"
-      ],
-      "version": "1.7.0",
+      "lines": 95,
+      "words": 661,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -137481,7 +137187,7 @@
         "python",
         "yaml"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -137555,7 +137261,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -137720,7 +137426,7 @@
       "words": 1109,
       "code_blocks": 6,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -137843,7 +137549,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -137932,17 +137638,14 @@
     },
     {
       "name": "vastai-observability",
-      "description": "'Monitor Vast.ai GPU instance health, utilization, and costs.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-observability/SKILL.md",
       "remote_path": "skills/.curated/vastai-observability/SKILL.md",
-      "lines": 173,
-      "words": 546,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 523,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -138014,7 +137717,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -138080,22 +137783,19 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
       "name": "clari-hello-world",
-      "description": "'Export your first Clari forecast and pipeline snapshot.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-hello-world/SKILL.md",
       "remote_path": "skills/.curated/clari-hello-world/SKILL.md",
-      "lines": 160,
-      "words": 525,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 582,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -138198,7 +137898,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -138370,7 +138070,7 @@
         "json",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -138718,17 +138418,14 @@
     },
     {
       "name": "flyio-install-auth",
-      "description": "'Install flyctl CLI and configure Fly.io authentication with API tokens.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-install-auth/SKILL.md",
       "remote_path": "skills/.curated/flyio-install-auth/SKILL.md",
-      "lines": 126,
-      "words": 517,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 643,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -139029,17 +138726,14 @@
     },
     {
       "name": "flyio-hello-world",
-      "description": "'Deploy your first app to Fly.io with flyctl launch and the Machines",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-hello-world/SKILL.md",
       "remote_path": "skills/.curated/flyio-hello-world/SKILL.md",
-      "lines": 152,
-      "words": 520,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 638,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -139136,7 +138830,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -139195,7 +138889,7 @@
       "languages": [
         "bash"
       ],
-      "version": "0.5.0",
+      "version": "0.6.0",
       "license": "MIT"
     },
     {
@@ -139221,7 +138915,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -139367,7 +139061,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -139906,7 +139600,7 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -139998,7 +139692,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -140148,7 +139842,7 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -140195,17 +139889,14 @@
     },
     {
       "name": "vastai-security-basics",
-      "description": "'Apply Vast.ai security best practices for API keys and instance access.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-security-basics/SKILL.md",
       "remote_path": "skills/.curated/vastai-security-basics/SKILL.md",
-      "lines": 142,
-      "words": 615,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 584,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -140492,17 +140183,14 @@
     },
     {
       "name": "vastai-hello-world",
-      "description": "'Rent your first GPU instance on Vast.ai and run a workload.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-hello-world/SKILL.md",
       "remote_path": "skills/.curated/vastai-hello-world/SKILL.md",
-      "lines": 179,
-      "words": 686,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 621,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -140545,16 +140233,14 @@
     },
     {
       "name": "flyio-prod-checklist",
-      "description": "'Execute Fly.io production deployment checklist with health checks,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/flyio-prod-checklist/SKILL.md",
-      "lines": 125,
-      "words": 751,
-      "code_blocks": 1,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 619,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -140582,7 +140268,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -141127,7 +140813,7 @@
         "json",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -141141,7 +140827,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -141304,16 +140990,14 @@
     },
     {
       "name": "vastai-webhooks-events",
-      "description": "'Build event-driven workflows around Vast.ai instance lifecycle events.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/vastai-webhooks-events/SKILL.md",
-      "lines": 178,
-      "words": 615,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 585,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -141395,7 +141079,7 @@
         "bash",
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -141489,7 +141173,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -141700,7 +141384,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -141932,7 +141616,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -141990,7 +141674,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -142113,16 +141797,14 @@
     },
     {
       "name": "vastai-common-errors",
-      "description": "'Diagnose and fix Vast.ai common errors and exceptions.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-common-errors/SKILL.md",
       "remote_path": "skills/.curated/vastai-common-errors/SKILL.md",
-      "lines": 151,
-      "words": 756,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 609,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -142267,7 +141949,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -142296,7 +141978,7 @@
       "languages": [
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -142492,17 +142174,14 @@
     },
     {
       "name": "clari-webhooks-events",
-      "description": "'Monitor Clari forecast changes using export job polling and change detection.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/clari-webhooks-events/SKILL.md",
-      "lines": 182,
-      "words": 609,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 91,
+      "words": 573,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -142767,16 +142446,14 @@
     },
     {
       "name": "persona-rate-limits",
-      "description": "'Handle Persona API rate limits with exponential backoff and request",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/persona-rate-limits/SKILL.md",
-      "lines": 75,
-      "words": 230,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 640,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -143332,17 +143009,14 @@
     },
     {
       "name": "vastai-install-auth",
-      "description": "'Install and configure Vast.ai CLI and REST API authentication.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-install-auth/SKILL.md",
       "remote_path": "skills/.curated/vastai-install-auth/SKILL.md",
-      "lines": 178,
-      "words": 663,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 90,
+      "words": 593,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -143370,7 +143044,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -143534,16 +143208,14 @@
     },
     {
       "name": "persona-core-workflow-b",
-      "description": "'Work with Persona verification types: government ID, selfie, database",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/persona-core-workflow-b/SKILL.md",
-      "lines": 174,
-      "words": 519,
-      "code_blocks": 5,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 614,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -144252,7 +143924,7 @@
         "bash",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -144359,7 +144031,7 @@
         "bash",
         "python"
       ],
-      "version": "2.6.0",
+      "version": "2.7.0",
       "license": "MIT"
     },
     {
@@ -144379,16 +144051,14 @@
     },
     {
       "name": "flyio-security-basics",
-      "description": "'Apply Fly.io security best practices for secrets management, private",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-security-basics/SKILL.md",
       "remote_path": "skills/.curated/flyio-security-basics/SKILL.md",
-      "lines": 140,
-      "words": 686,
-      "code_blocks": 4,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 660,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -145218,16 +144888,14 @@
     },
     {
       "name": "clari-rate-limits",
-      "description": "'Handle Clari API rate limits with backoff and export job scheduling.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/clari-rate-limits/SKILL.md",
-      "lines": 133,
-      "words": 473,
-      "code_blocks": 2,
-      "languages": [
-        "python"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 560,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -145239,7 +144907,7 @@
       "words": 727,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.36.0",
+      "version": "1.37.0",
       "license": "MIT"
     },
     {
@@ -145270,16 +144938,14 @@
     },
     {
       "name": "persona-sdk-patterns",
-      "description": "'Production Persona API client wrapper with retry, pagination, typed",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-sdk-patterns/SKILL.md",
       "remote_path": "skills/.curated/persona-sdk-patterns/SKILL.md",
-      "lines": 136,
-      "words": 449,
-      "code_blocks": 2,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 627,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -145327,7 +144993,7 @@
       "words": 1196,
       "code_blocks": 3,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -145749,7 +145415,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -146116,7 +145782,7 @@
         "text",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -146424,18 +146090,14 @@
     },
     {
       "name": "flyio-performance-tuning",
-      "description": "'Optimize Fly.io application performance with auto-stop/start tuning,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/flyio-performance-tuning/SKILL.md",
-      "lines": 123,
-      "words": 546,
-      "code_blocks": 5,
-      "languages": [
-        "bash",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 643,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -146534,7 +146196,7 @@
         "python",
         "typescript"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -147021,17 +146683,14 @@
     },
     {
       "name": "persona-webhooks-events",
-      "description": "'Handle Persona webhook events for inquiry and verification status changes.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/persona-webhooks-events/SKILL.md",
-      "lines": 151,
-      "words": 407,
-      "code_blocks": 4,
-      "languages": [
-        "text",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 101,
+      "words": 630,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -147118,7 +146777,7 @@
         "python",
         "yaml"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -147218,16 +146877,14 @@
     },
     {
       "name": "clari-reference-architecture",
-      "description": "'Reference architecture for Clari revenue intelligence integrations.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/clari-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/clari-reference-architecture/SKILL.md",
-      "lines": 182,
-      "words": 769,
-      "code_blocks": 3,
-      "languages": [
-        "sql"
-      ],
-      "version": "1.6.0",
+      "lines": 92,
+      "words": 535,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -147294,18 +146951,14 @@
     },
     {
       "name": "flyio-core-workflow-b",
-      "description": "'Execute Fly.io secondary workflow: Postgres clusters, persistent volumes,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/flyio-core-workflow-b/SKILL.md",
-      "lines": 141,
-      "words": 564,
-      "code_blocks": 7,
-      "languages": [
-        "bash",
-        "toml",
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 675,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -147333,7 +146986,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -147495,7 +147148,7 @@
       "words": 1180,
       "code_blocks": 8,
       "languages": [],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -147779,7 +147432,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -147855,7 +147508,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -147908,7 +147561,7 @@
       "words": 439,
       "code_blocks": 2,
       "languages": [],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -148147,7 +147800,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -148166,16 +147819,14 @@
     },
     {
       "name": "flyio-upgrade-migration",
-      "description": "'Migrate between Fly.io platform versions including Apps v1 to v2 (Machines),",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/flyio-upgrade-migration/SKILL.md",
-      "lines": 125,
-      "words": 521,
-      "code_blocks": 4,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 676,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -149040,16 +148691,14 @@
     },
     {
       "name": "flyio-sdk-patterns",
-      "description": "'Apply production-ready Fly.io Machines API patterns for TypeScript with",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-sdk-patterns/SKILL.md",
       "remote_path": "skills/.curated/flyio-sdk-patterns/SKILL.md",
-      "lines": 157,
-      "words": 798,
-      "code_blocks": 5,
-      "languages": [
-        "typescript"
-      ],
-      "version": "1.7.0",
+      "lines": 96,
+      "words": 649,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -149313,16 +148962,14 @@
     },
     {
       "name": "persona-reference-architecture",
-      "description": "'KYC service architecture with Persona as verification provider.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/persona-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/persona-reference-architecture/SKILL.md",
-      "lines": 74,
-      "words": 211,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 636,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -149535,7 +149182,7 @@
         "typescript",
         "yaml"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -149568,16 +149215,14 @@
     },
     {
       "name": "vastai-prod-checklist",
-      "description": "'Execute Vast.ai production deployment checklist for GPU workloads.",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/vastai-prod-checklist/SKILL.md",
-      "lines": 138,
-      "words": 712,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 543,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -149591,7 +149236,7 @@
       "languages": [
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -149605,7 +149250,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT"
     },
     {
@@ -149647,7 +149292,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -149681,17 +149326,14 @@
     },
     {
       "name": "vastai-performance-tuning",
-      "description": "'Optimize Vast.ai GPU instance selection, startup time, and training",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/vastai-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/vastai-performance-tuning/SKILL.md",
-      "lines": 179,
-      "words": 768,
-      "code_blocks": 6,
-      "languages": [
-        "bash",
-        "python"
-      ],
-      "version": "1.11.0",
+      "lines": 94,
+      "words": 556,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -149817,7 +149459,7 @@
       "languages": [
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -150030,7 +149672,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -150167,7 +149809,7 @@
         "bash",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -150181,7 +149823,7 @@
       "languages": [
         "python"
       ],
-      "version": "1.6.0",
+      "version": "1.7.0",
       "license": "MIT"
     },
     {
@@ -150341,10 +149983,10 @@
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/agent-context-loader/SKILL.md",
       "remote_path": "skills/.curated/agent-context-loader/SKILL.md",
       "lines": 80,
-      "words": 604,
+      "words": 603,
       "code_blocks": 0,
       "languages": [],
-      "version": "1.23.0",
+      "version": "1.24.0",
       "license": "MIT"
     },
     {
@@ -150375,7 +150017,7 @@
         "json",
         "yaml"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -150827,17 +150469,14 @@
     },
     {
       "name": "flyio-reference-architecture",
-      "description": "'Implement Fly.io reference architecture with multi-region apps, Postgres,",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/flyio-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/flyio-reference-architecture/SKILL.md",
-      "lines": 153,
-      "words": 632,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "toml"
-      ],
-      "version": "1.7.0",
+      "lines": 97,
+      "words": 639,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -151158,7 +150797,7 @@
       "languages": [
         "json"
       ],
-      "version": "1.18.0",
+      "version": "1.19.0",
       "license": "MIT"
     },
     {
@@ -151572,7 +151211,7 @@
         "prisma",
         "typescript"
       ],
-      "version": "1.14.0",
+      "version": "1.15.0",
       "license": "MIT"
     },
     {
@@ -157563,7 +157202,7 @@
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
       "lines": 1322,
-      "words": 12192,
+      "words": 12213,
       "code_blocks": 71,
       "languages": [
         "bash",
@@ -158135,8 +157774,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 274,
-      "words": 1982,
+      "lines": 282,
+      "words": 2056,
       "code_blocks": 6,
       "languages": [
         "bash"

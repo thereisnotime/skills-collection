@@ -6,7 +6,26 @@ name: Phase 6 Readiness (weekly)
 
 on:
   # schedule:
-  #   # Mondays at 08:00 UTC -- disabled 2026-05-22: issues disabled on repo, workflow_dispatch only
+  #   # Mondays at 08:00 UTC. Cron DISABLED; workflow_dispatch only.
+  #   #
+  #   # The original 2026-05-22 reason was "issues disabled on repo". That reason
+  #   # is now STALE: issues are enabled again (REST has_issues=true, 6 open as of
+  #   # 2026-09-13), and the issue-opening step re-checks live at :97 anyway, so it
+  #   # would no longer fail the way the four scheduled runs in Apr-May 2026 did
+  #   # ("the 'asklokesh/loki-mode' repository has disabled issues", exit 1).
+  #   #
+  #   # The cron stays off for a DIFFERENT and durable reason: this gate guards
+  #   # "Phase 6 -- Sunset of Bash" for a v8.0.0 release that SHIPPED long ago.
+  #   # Measured 2026-09-13: VERSION is 9.49.4, v8.0.0 is a real tag, and there are
+  #   # 127 v8.x plus 41 v9.x tags behind us. The premise is also false on its own
+  #   # terms -- bash was never sunset; autonomy/run.sh is still 27k lines and still
+  #   # the default route (bin/loki, LOKI_SDK_MODE defaults to off).
+  #   #
+  #   # So the check reports 6 genuine NOT-READY preconditions against a milestone
+  #   # the repository has already shipped past. Re-enabling would open a weekly
+  #   # "readiness regression" issue about a dead milestone. Re-enable only if
+  #   # loki-ts/docs/phase6-readiness-checklist.md is first rewritten for a live
+  #   # target; until then workflow_dispatch is the honest surface.
   #   - cron: '0 8 * * 1'
   workflow_dispatch:
 

@@ -834,8 +834,27 @@ class BuildSupervisorTests(unittest.TestCase):
             digest,
             write_identity=False,
             headline="NOT VERIFIED",
-            degraded=[{"item": "quality_gate:code_review", "status": "failed"}],
-            quality_gates=[{"name": "code_review", "status": "failed"}],
+            # static_analysis, not code_review: the gate must be EXOGENOUS for
+            # this fixture to be self-consistent. Both proof-generator.py and
+            # proof-verify.py compute the headline from exogenous gates only, so
+            # a failed ADVISORY gate (code_review) now derives VERIFIED WITH
+            # GAPS, and a hand-written NOT VERIFIED alongside it makes
+            # headline_consistent false, which drops proof.bound and defeats the
+            # point of this test.
+            #
+            # This fixture used code_review and passed only while the verifier
+            # still counted advisory gates in any_failed while the generator did
+            # not -- a real drift between the two, closed in 46e2b293. The test
+            # was green on that inconsistency.
+            #
+            # The contract under test is unchanged: failed_quality_gates is
+            # built from the raw facts without a provenance filter
+            # (build_supervisor.py:588), so it still lists the failed gate, and
+            # :1538 still refuses "completed" while that list is non-empty. The
+            # merely-degraded case is covered separately by
+            # test_bound_proof_with_gaps_is_not_completed.
+            degraded=[{"item": "quality_gate:static_analysis", "status": "failed"}],
+            quality_gates=[{"name": "static_analysis", "status": "failed"}],
         )
         result = self._run(
             self._runner(
@@ -847,7 +866,7 @@ class BuildSupervisorTests(unittest.TestCase):
         self.assertEqual(result, 0)
         state = supervisor.read_state(self.execution_id)
         self.assertTrue(state["proof"]["bound"])
-        self.assertEqual(state["proof"]["failed_quality_gates"], ["code_review"])
+        self.assertEqual(state["proof"]["failed_quality_gates"], ["static_analysis"])
         self.assertEqual(state["termination_reason"], "verification_failed")
 
     def test_signal_exit_is_recorded_without_inventing_an_exit_code(self):

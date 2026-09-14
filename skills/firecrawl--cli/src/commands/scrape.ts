@@ -18,6 +18,7 @@ import {
 import { getOrigin } from '../utils/url';
 import { executeMap } from './map';
 import { getStatus } from './status';
+import { requireAlexandriaKey } from './alexandria';
 
 /**
  * Output timing information if requested
@@ -142,6 +143,10 @@ export async function executeScrape(
   const requestStartTime = Date.now();
 
   try {
+    if (options.domainTools) {
+      requireAlexandriaKey(options.apiKey);
+      scrapeParams.domainTools = true;
+    }
     let result: any;
     if (isKeylessMode(options.apiKey, options.apiUrl)) {
       // Keyless free tier: header-less request. The API identifies the CLI via

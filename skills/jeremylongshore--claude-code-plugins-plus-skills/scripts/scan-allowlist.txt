@@ -911,3 +911,11 @@ plugins/saas-packs/openevidence-pack/skills/openevidence-sdk-patterns/SKILL.md:a
 plugins/saas-packs/openevidence-pack/skills/openevidence-security-basics/SKILL.md:allowed-tools-network  reviewed least-privilege documentation lookup; WebFetch is restricted to current first-party OpenEvidence documentation
 plugins/saas-packs/openevidence-pack/skills/openevidence-upgrade-migration/SKILL.md:allowed-tools-network  reviewed least-privilege documentation lookup; WebFetch is restricted to current first-party OpenEvidence documentation
 plugins/saas-packs/openevidence-pack/skills/openevidence-webhooks-events/SKILL.md:allowed-tools-network  reviewed least-privilege documentation lookup; WebFetch is restricted to current first-party OpenEvidence documentation
+
+# ── Anthropic retired documentation host migration (#1146). ──
+# The complete contents of these three first-party documentation surfaces were
+# reviewed while replacing deprecated Anthropic documentation links. The reported
+# dual-use patterns are unchanged and remain constrained to examples.
+plugins/ai-ml/ai-sdk-agents/README.md:secret-exfil-cooccur  documented model-provider configuration example; environment selection never transmits a credential and the file contains no credential-bearing network request
+plugins/saas-packs/claude-pack/skills/clade-reference-architecture/SKILL.md:hook-definition  inert JSON documentation for fixed pre-tool and post-tool echo hooks; no network, credentials, dynamic command construction, or untrusted input
+plugins/saas-packs/vendors/anthropic.yaml:outbound-network  documented Anthropic API smoke-test curl sends ANTHROPIC_API_KEY only to the fixed HTTPS api.anthropic.com origin and prints only the API response

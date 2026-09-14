@@ -309,9 +309,17 @@ describe("runQualityGates orchestration", () => {
     expect(r.failed).toEqual([]);
     expect(r.blocked).toBe(false);
     expect(r.escalated).toBe(false);
-    // All seven gates enabled by default (mock_integrity and
-    // mutation_integrity were added default-on; with no findings artifact
-    // they pass honestly with a "gate did not run" detail).
+    // Six gates enabled by default (mock_integrity and mutation_integrity
+    // were added default-on; with no findings artifact they pass honestly
+    // with a "gate did not run" detail).
+    //
+    // magic_debate is NOT among them: it is opt-in default-OFF per the Phase 5
+    // spec, which this same suite pins at "passes (skipped) when
+    // LOKI_GATE_MAGIC_DEBATE is not 'true'". This list previously included it
+    // because the orchestrator's toggle defaulted to ENABLED while the gate
+    // body self-skipped, so the stub answered for a gate the operator had
+    // never turned on. The toggle now mirrors the body's own predicate, and a
+    // stub cannot conjure a disabled gate into passed[].
     expect(r.passed).toEqual([
       "static_analysis",
       "test_coverage",
@@ -319,8 +327,8 @@ describe("runQualityGates orchestration", () => {
       "mutation_integrity",
       "code_review",
       "doc_coverage",
-      "magic_debate",
     ]);
+    expect(r.passed).not.toContain("magic_debate");
   });
 
   it("writes gate-failures.txt with comma-trailing list when blocked", async () => {

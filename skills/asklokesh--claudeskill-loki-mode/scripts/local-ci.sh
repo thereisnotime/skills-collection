@@ -253,6 +253,25 @@ declare -a _FAST_KEEP=(
   "tests/test_effort_estimate.py"
   "tests/test_bench_"
   "tests/dashboard/test_proofs_routes.py"
+  # The local-caller boundary must fail CLOSED on a forwarded value it cannot
+  # parse. _is_local_caller treats an unparseable host as local, which is
+  # correct for a DIRECT peer (ASGI reports "testclient", UDS reports names)
+  # and was a fail-open for a value that arrived in an X-Forwarded-For header:
+  # any caller behind a trusted proxy could pass the local check by sending a
+  # non-IP token, and "unknown" is a literal real proxies emit. The blanket
+  # pytest run is DEFERRED in this tier and the other two dashboard auth
+  # suites are deferred too, so without this entry the guard would never run
+  # before a push. Measured 0.4s.
+  "tests/dashboard/test_forwarded_host_fails_closed.py"
+  # Two more SECURITY boundary suites that had a run_check call site and no keep
+  # entry, so the fast tier deferred both and neither ran before a push. That is
+  # the same half-registration that shipped an orphaned guard earlier today:
+  # _FAST_KEEP membership alone does nothing, and a call site alone is deferred.
+  # An auth-boundary suite that no pre-push gate runs is indistinguishable from
+  # one that does not exist. Measured on this machine: tenant isolation 0.86s
+  # (20 tests), OIDC RBAC 0.40s (17 tests).
+  "tests/dashboard/test_tenant_isolation.py"
+  "tests/dashboard/test_oidc_rbac_mapping.py"
   "tests/cli/test-proof-command.sh"
   "tests/test-evidence-gate"
   "tests/test-evidence-boot-axis.sh"
@@ -360,6 +379,20 @@ declare -a _FAST_KEEP=(
   # checks that the definition still attaches it. The gap it closes went
   # unnoticed for months because a dead workflow trigger reads as an empty run
   # list, never a red one.
+  # Guards the SHIPPED README against the tool list that actually blocks. A
+  # reader who installs exactly what "Required:" names must get a doctor that
+  # passes; jq and Node.js sat under "Recommended:" while doctor failed on both.
+  # Docs are a shipped artifact, so by the CLAUDE.md rule this runs in fast.
+  "tests/test-readme-lists-required-tools.sh" # 0.1s
+  # Every module under web-app/src must be reachable from main.tsx. The measured
+  # defect: pages/ConnectionsPage.tsx rendered a complete deploy-connections
+  # panel that App.tsx imported ZERO times, so /connections fell through the SPA
+  # catch-all to NotFoundPage and no user could open it. A sweep found 38 such
+  # modules. Reachability, not an inbound-import count: main.tsx has zero
+  # inbound and is the entry, and 6 charts had one inbound edge each from a
+  # barrel nothing imported. Deleted code is invisible to every other gate, so
+  # nothing else in CI can see this class. Measured 0.1s (one node graph walk).
+  "tests/test-web-app-no-orphan-components.sh"
   "tests/test-release-sbom-attached.sh"       # 0.2s
   "tests/test-mcp-tool-surface-packaged.sh"   # 2.9s
   "tests/test-mcp-tool-surface-guard-rejects.sh" # 8s, proves the guard rejects
@@ -747,6 +780,7 @@ fi
 # Dashboard proof routes need fastapi (python3.12 only).
 if command -v python3.12 >/dev/null 2>&1; then
   run_check_pyfile "tests/dashboard/test_proofs_routes.py (R1 proof routes + traversal)" "python3.12 -m pytest -q tests/dashboard/test_proofs_routes.py 2>&1 | tail -5"
+  run_check_pyfile "tests/dashboard/test_forwarded_host_fails_closed.py (local-caller boundary fails closed)" "python3.12 -m pytest -q tests/dashboard/test_forwarded_host_fails_closed.py 2>&1 | tail -5"
   # v7.34.0 Phase 1: /api/status surfaces claude_session_id from claude-session.json.
   run_check_pyfile "tests/dashboard/test_claude_session_status.py (v7.34.0 claude_session_id)" "python3.12 -m pytest -q tests/dashboard/test_claude_session_status.py 2>&1 | tail -5"
 else
@@ -1302,6 +1336,21 @@ PYHS
 # -- the same deferral that let dist ship 8.11.0 for 27 releases. Measured 2.9s.
 run_check "tests/test-mcp-tool-surface-packaged.sh (packaged MCP surface, exact names)" \
   "bash tests/test-mcp-tool-surface-packaged.sh 2>&1 | tail -4"
+
+# The README's "Required:" list must cover every tool doctor actually blocks
+# on. jq and Node.js sat under "Recommended:" while doctor failed on both, so a
+# reader who installed exactly what was Required got a doctor that refused to
+# pass. Reads the required set out of doctor; measured 0.1s.
+run_check "tests/test-readme-lists-required-tools.sh (README Required block covers doctor)" \
+  "bash tests/test-readme-lists-required-tools.sh 2>&1 | tail -3"
+
+# web-app/src modules must all be reachable from main.tsx. A _FAST_KEEP entry
+# alone would never fire: the fast tier is a positive allowlist over checks that
+# are REGISTERED here, so membership without this call site is a no-op. That gap
+# is exactly what this line closes. Measured 0.1s.
+run_check "tests/test-web-app-no-orphan-components.sh (no unreachable web-app modules)" \
+  "bash tests/test-web-app-no-orphan-components.sh 2>&1 | tail -3"
+
 
 # Same rule, a different shipped artifact: the SBOM exists ONLY as a release
 # asset, attached at `gh release create` time. Nothing else checks that the

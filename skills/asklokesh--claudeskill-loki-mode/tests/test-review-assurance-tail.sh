@@ -1352,7 +1352,7 @@ da_ended=$(monotonic_ms)
 da_elapsed=$((da_ended - da_started))
 da_review="$(find "$DA_REPO/.loki/quality/reviews" -mindepth 1 -maxdepth 1 -type d | head -1)"
 if [ "$da_rc" -ne 0 ] && [ -s "$TMPROOT/da-started" ] \
-   && python3 - "$da_review/aggregate.json" "$da_review/assurance-timing.json" <<'PY'
+   && python3 - "$da_review/aggregate.json" "$da_review/assurance-timing.json" "$REVIEW_TIMEOUT_SCALE" <<'PY'
 import json
 import sys
 
@@ -1363,7 +1363,47 @@ assert aggregate["devils_advocate"] == {
     "status": "block", "exit_code": 0, "speculative": True
 }
 assert timing["devils_advocate_speculative"] is True
-assert timing["elapsed_ms"] < 6000
+# This bound tracks CONTENTION SLACK, not the dispatched budget.
+#
+# MEASURED 2026-09-13: this speculative DA call completes in 1498ms, giving
+# 4502ms of headroom under the historical 6000ms bound. The point of the
+# speculative path is that the DA runs CONCURRENTLY, so its elapsed time does
+# not grow with the review budget -- a 12s budget and a 48s budget both finish
+# in ~1.5s. Scaling this bound by the budget factor was therefore wrong: at
+# `review_budget 12` * 4 it would have permitted 24000ms, tolerating a ~10s
+# partial regression (DA serialised back into the council wait) that the 6000ms
+# bound catches. Half-the-budget looked principled and silently removed the
+# assertion's teeth.
+#
+# What DOES legitimately grow under contention is the fixed startup and process
+# overhead, not the concurrent call itself. So the bound scales by the shard
+# factor ONLY, applied to the historical 6000ms: 6000 locally, 24000 on a
+# sharded runner.
+#
+# STATED CEILING, because this does not close the hole completely. At scale 4
+# the 24000ms bound would NOT catch a ~10s partial regression (the DA
+# serialising back into the council wait), which the flat 6000ms bound does
+# catch. A flat bound at every scale would be strictly stronger, and I could
+# not justify it: that requires evidence this concurrent call never exceeds
+# 6000ms under real shard contention, and the run that would have measured it
+# was invalidated (background CPU load leaked into it). Until that measurement
+# exists, scaling is the conservative choice, because a bound that false-fails
+# on correct code trains people to ignore the suite.
+#
+# What this DOES fix is real: the previous code derived the bound from the
+# dispatched BUDGET (review_budget 12, so 12s or 48s), which is wrong in kind.
+# This call is speculative and concurrent, so its elapsed time does not grow
+# with the budget at all -- measured at 1498ms regardless.
+#
+# The heredoc is quoted (<<'PY'), so no shell interpolation can reach a literal
+# here; the factor MUST arrive as an argument.
+_scale = int(sys.argv[3])
+_bound_ms = 6000 * _scale
+assert timing["elapsed_ms"] < _bound_ms, (
+    "elapsed_ms %r exceeds the contention-scaled bound %rms (scale %r); the "
+    "speculative DA should not grow with the budget"
+    % (timing["elapsed_ms"], _bound_ms, _scale)
+)
 PY
 then
     ok "speculative DA removes the serial tail and preserves blocker propagation"

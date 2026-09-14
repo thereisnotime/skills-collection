@@ -261,16 +261,16 @@ def _real_client_host(request: Request):
     client = getattr(request, "client", None)
     host = getattr(client, "host", None) if client else None
     if host is None:
-        return None
+        return None, False
     if host in _trusted_proxies():
         fwd = request.headers.get("x-forwarded-for", "")
         first = fwd.split(",")[0].strip()
         if first:
-            return first
-    return host
+            return first, True
+    return host, False
 
 
-def _is_local_caller(host) -> bool:
+def _is_local_caller(host, from_forwarded: bool = False) -> bool:
     """True only for a caller we can positively identify as non-routable.
 
     A peer that is not an IP literal (ASGI test transports report
@@ -285,7 +285,18 @@ def _is_local_caller(host) -> bool:
     try:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
-        return True
+        # A DIRECT peer that is not an IP literal is genuinely local: ASGI test
+        # transports report "testclient" and UDS transports report names, and
+        # refusing those closes no hole while breaking 17 tests.
+        #
+        # A FORWARDED value is different in kind. It arrived inside a request
+        # header, so treating an unparseable one as local lets any caller behind
+        # a trusted proxy pass the local check by sending a non-IP token.
+        # Measured: with LOKI_TRUSTED_PROXIES set, "not-an-ip", "unknown" and
+        # "testclient" all returned local, while an empty value correctly did
+        # not. "unknown" is a literal some proxies emit when the client address
+        # is unavailable, so this is reachable without an attacker choosing it.
+        return not from_forwarded
 
 
 def require_local_or_authenticated(request: Request) -> None:
@@ -316,13 +327,13 @@ def require_local_or_authenticated(request: Request) -> None:
     """
     if auth.ENTERPRISE_AUTH_ENABLED or auth.OIDC_ENABLED:
         return
-    host = _real_client_host(request)
+    host, host_from_forwarded = _real_client_host(request)
     if host is None:
         raise HTTPException(
             status_code=403,
             detail="control requires an identifiable client; enable "
                    "LOKI_ENTERPRISE_AUTH to allow remote access")
-    if _is_local_caller(host):
+    if _is_local_caller(host, host_from_forwarded):
         return
     raise HTTPException(
         status_code=403,
@@ -1211,14 +1222,16 @@ class WebSocketBoundaryMiddleware:
         if not (auth.ENTERPRISE_AUTH_ENABLED or auth.OIDC_ENABLED):
             client = scope.get("client")
             host = client[0] if client else None
+            host_from_forwarded = False
             if host in _trusted_proxies():
                 for raw_name, raw_value in scope.get("headers", []):
                     if raw_name == b"x-forwarded-for":
                         first = raw_value.decode("latin-1").split(",")[0].strip()
                         if first:
                             host = first
+                            host_from_forwarded = True
                         break
-            if not _is_local_caller(host):
+            if not _is_local_caller(host, host_from_forwarded):
                 # 1008 = policy violation. Closing with a code beats an
                 # accept-then-drop, which reads to a client as a flaky network.
                 await send({"type": "websocket.close", "code": 1008})

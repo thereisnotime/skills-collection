@@ -16,15 +16,15 @@
     "values": {
       "a_error_total": 25,
       "a_failing": 8,
-      "ab_error_total": 208,
-      "ab_failing": 58,
-      "b_failing": 50,
-      "error_files": 315,
-      "error_total": 2836,
+      "ab_error_total": 190,
+      "ab_failing": 40,
+      "b_failing": 32,
+      "error_files": 297,
+      "error_total": 2818,
       "grade_distribution": {
-        "A": 2785,
-        "B": 415,
-        "C": 133,
+        "A": 2857,
+        "B": 344,
+        "C": 132,
         "D": 154,
         "F": 4
       },
@@ -42,7 +42,7 @@
       "values": {
         "plugin_agent_files": 352,
         "raw_tracked_plugin_skill_files": 2991,
-        "tracked_files": 25712
+        "tracked_files": 25880
       }
     },
     "2": {
@@ -90,8 +90,8 @@
           "validator_reported_mixed_denominator_percent": 80.9
         },
         "marketplace_terminal": {
-          "error_total_all_validated_surfaces": 3073,
-          "fully_compliant_surfaces": 1968,
+          "error_total_all_validated_surfaces": 3055,
+          "fully_compliant_surfaces": 2046,
           "terminal_denominator": {
             "agents": 363,
             "commands": 370,
@@ -101,20 +101,20 @@
             "skills": 3491
           },
           "validated_plugin_manifests": 595,
-          "validator_reported_mixed_denominator_percent": 40.9
+          "validator_reported_mixed_denominator_percent": 42.5
         },
         "skill_rows": {
           "a_error_total": 25,
           "a_failing": 8,
-          "ab_error_total": 208,
-          "ab_failing": 58,
-          "b_failing": 50,
-          "error_files": 315,
-          "error_total": 2836,
+          "ab_error_total": 190,
+          "ab_failing": 40,
+          "b_failing": 32,
+          "error_files": 297,
+          "error_total": 2818,
           "grade_distribution": {
-            "A": 2785,
-            "B": 415,
-            "C": 133,
+            "A": 2857,
+            "B": 344,
+            "C": 132,
             "D": 154,
             "F": 4
           },
@@ -129,17 +129,17 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "average_score": 91.5,
+        "average_score": 91.7,
         "grade_distribution": {
-          "A": 2785,
-          "B": 415,
-          "C": 133,
+          "A": 2857,
+          "B": 344,
+          "C": 132,
           "D": 154,
           "F": 4
         },
         "grade_percentages": {
-          "A": 79.8,
-          "B": 11.9,
+          "A": 81.8,
+          "B": 9.9,
           "C": 3.8,
           "D": 4.4,
           "F": 0.1
@@ -156,10 +156,10 @@
       "values": {
         "a_error_total": 25,
         "a_failing": 8,
-        "ab_error_total": 208,
-        "ab_failing": 58,
-        "b_error_total": 183,
-        "b_failing": 50,
+        "ab_error_total": 190,
+        "ab_failing": 40,
+        "b_error_total": 165,
+        "b_failing": 32,
         "certified_target": 0,
         "skill_summary_rows": 3491
       }
@@ -286,7 +286,7 @@
       "source": ["scripts/validate-skills-schema.py"],
       "status": "measured",
       "values": {
-        "distinct_values": 379,
+        "distinct_values": 440,
         "invalid_or_empty": 0,
         "target_free_text_values": 0,
         "values": [
@@ -391,7 +391,7 @@
             "value": "Cross-platform — talks WebDriver HTTP directly via Node's built-in node:https; no platform-specific binary dependency. Requires Node.js >= 18, a persistent local filesystem (the observe-decide-act loop passes state through local turn files), and ~/.kobiton/.credentials written by /automate:setup — scripts/appium.js reads that file directly and never calls the MCP getCredential tool, so it is required, not a fallback. An authenticated Kobiton MCP connection is additionally useful for device selection."
           },
           {
-            "count": 2327,
+            "count": 2249,
             "value": "Designed for Claude Code"
           },
           {
@@ -1384,7 +1384,31 @@
           },
           {
             "count": 1,
+            "value": "Requires Python 3.9+, the current Vast.ai package, a scoped API key, and tests that can replace network calls."
+          },
+          {
+            "count": 1,
+            "value": "Requires Revenue API access to the chosen audit or activity surface, durable checkpoint or window state, and an approved downstream event sink."
+          },
+          {
+            "count": 1,
+            "value": "Requires Revenue API export entitlement, an existing Forecast Tab, an approved warehouse target, and governed handling of revenue data."
+          },
+          {
+            "count": 1,
+            "value": "Requires Vast.ai Serverless access, a tested template, a scoped API key, representative load, and endpoint observability."
+          },
+          {
+            "count": 1,
             "value": "Requires a CI runner, sanitized fixtures, and optional isolated Procore Developer Sandbox credentials for protected provider tests."
+          },
+          {
+            "count": 1,
+            "value": "Requires a CI runner, synthetic fixtures, a pinned first-party contract fingerprint, and a separately gated non-production credential for optional smoke tests."
+          },
+          {
+            "count": 1,
+            "value": "Requires a CI secret store, current Vast.ai CLI, immutable test image, registered SSH key, and a disposable test budget."
           },
           {
             "count": 1,
@@ -1397,6 +1421,22 @@
           {
             "count": 1,
             "value": "Requires a Flexport administrator, an approved secret store, and network access to api.flexport.com."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Fly Launch app, immutable image, configured health checks, sufficient temporary capacity, and an approved deployment and rollback owner."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Fly.io account and organization, a containerizable application, an available app name, and approval to create billable resources."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Fly.io app, an approved CI system, an app-scoped or organization-scoped token, and a protected deployment environment."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Fly.io organization, approved data classification and regions, a backup objective, and access to the relevant app and Managed Postgres controls."
           },
           {
             "count": 1,
@@ -1424,6 +1464,18 @@
           },
           {
             "count": 1,
+            "value": "Requires a Revenue API token, access to an existing Forecast Tab, and permission to export its hierarchy."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Vast.ai Team, team administration authority, an actor/action inventory, and an independent access reviewer."
+          },
+          {
+            "count": 1,
+            "value": "Requires a Vast.ai account, an approved secret store, and Linux, macOS, WSL, or Python 3.9+."
+          },
+          {
+            "count": 1,
             "value": "Requires a backend web application, approved secret store, threat owner, and current Canva security documentation."
           },
           {
@@ -1433,6 +1485,10 @@
           {
             "count": 1,
             "value": "Requires a backend-held access token for a dedicated authorized test user."
+          },
+          {
+            "count": 1,
+            "value": "Requires a classified workload, approved secrets and image registries, SSH key management, and a verified-datacenter policy."
           },
           {
             "count": 1,
@@ -1460,11 +1516,19 @@
           },
           {
             "count": 1,
+            "value": "Requires a local test runner, approved synthetic or irreversibly redacted fixtures, and a pinned provider contract snapshot."
+          },
+          {
+            "count": 1,
             "value": "Requires a managed HTTPS destination, an approved Bright Data snapshot, and durable streaming storage"
           },
           {
             "count": 1,
             "value": "Requires a pinned Canva OpenAPI snapshot and a backend credential/policy service; generated code is application-owned."
+          },
+          {
+            "count": 1,
+            "value": "Requires a pinned Clari API contract and an HTTP client with timeout, retry, TLS, and structured logging controls; no official public Clari SDK is assumed."
           },
           {
             "count": 1,
@@ -1476,7 +1540,15 @@
           },
           {
             "count": 1,
+            "value": "Requires a public HTTPS receiver, durable queue and deduplication store, secret manager, and notification webhook access."
+          },
+          {
+            "count": 1,
             "value": "Requires a public HTTPS receiver, durable queue, reconciliation store, and Webhooks API permissions for the intended Procore scope."
+          },
+          {
+            "count": 1,
+            "value": "Requires a redacted request manifest, provider response status, correlation or error identifiers, and access to the matching first-party contract."
           },
           {
             "count": 1,
@@ -1488,11 +1560,27 @@
           },
           {
             "count": 1,
+            "value": "Requires a release candidate, non-production test evidence, named owners, and an approved production change window."
+          },
+          {
+            "count": 1,
             "value": "Requires a repository with CAST AI infrastructure definitions; any live probe requires a protected environment and a dedicated read-only identity"
           },
           {
             "count": 1,
+            "value": "Requires a representative benchmark, structured offer data, GPU telemetry, immutable images, and a cost objective."
+          },
+          {
+            "count": 1,
+            "value": "Requires a scoped Fly.io API token, an operation and resource inventory, durable job state, and current provider limit documentation."
+          },
+          {
+            "count": 1,
             "value": "Requires a supported Kubernetes cluster, castctl, reviewed cloud permissions, and an approved CAST AI organization"
+          },
+          {
+            "count": 1,
+            "value": "Requires a supported operator workstation or CI runner, a Fly.io account, an approved organization or app scope, and a secret manager."
           },
           {
             "count": 1,
@@ -1528,6 +1616,10 @@
           },
           {
             "count": 1,
+            "value": "Requires affected resource IDs, read access, external checkpoints, incident authority, and a named billing owner."
+          },
+          {
+            "count": 1,
             "value": "Requires an HTTP client with access to documented Procore REST endpoints and a caller-supplied OAuth token provider."
           },
           {
@@ -1544,11 +1636,19 @@
           },
           {
             "count": 1,
+            "value": "Requires an approved orchestrator, secret manager, durable state store, destination, capacity plan, and rollback environment."
+          },
+          {
+            "count": 1,
             "value": "Requires an approved organizational privacy/security policy and resource-owner authorization; this skill is not legal advice."
           },
           {
             "count": 1,
             "value": "Requires an approved policy owner, repository scope, exception process, and current Canva contracts."
+          },
+          {
+            "count": 1,
+            "value": "Requires an approved production app, accountable owners, service objectives, a scoped deploy identity, and evidence from a representative non-production release."
           },
           {
             "count": 1,
@@ -1575,8 +1675,16 @@
             "value": "Requires an authenticated Flexport MCP connection, account permission for selected tools, and an authorized freight approver."
           },
           {
+            "count": 18,
+            "value": "Requires an authorized Persona environment, current first-party documentation, a reviewed dated API version, and privacy-safe operational evidence."
+          },
+          {
             "count": 1,
             "value": "Requires an authorized test or production user, explicit design scopes, and approved content/retention policy."
+          },
+          {
+            "count": 1,
+            "value": "Requires an entitled Clari tenant, an approved integration owner, and access to the relevant Revenue API or conversation-intelligence workspace settings."
           },
           {
             "count": 1,
@@ -1584,7 +1692,23 @@
           },
           {
             "count": 1,
+            "value": "Requires an existing Fly.io organization, an approved app target, a deploy-capable scoped identity, and a tested health and rollback contract."
+          },
+          {
+            "count": 1,
             "value": "Requires an existing infrastructure delivery system and cloud-specific CAST AI permissions reviewed for each target cluster"
+          },
+          {
+            "count": 1,
+            "value": "Requires an immutable image, Vast.ai template or creation manifest, scoped deployment key, health contract, and rollback artifact."
+          },
+          {
+            "count": 1,
+            "value": "Requires an immutable release candidate, approved Vast.ai account, workload SLOs, security policy, and rollback owner."
+          },
+          {
+            "count": 1,
+            "value": "Requires an immutable training image, reachable checkpoint storage, a scoped Vast.ai key, and an approved GPU budget."
           },
           {
             "count": 1,
@@ -1592,11 +1716,31 @@
           },
           {
             "count": 1,
+            "value": "Requires an incident identifier, authorized time window, redaction policy, and an encrypted evidence destination."
+          },
+          {
+            "count": 1,
             "value": "Requires an incident workspace, approved redaction policy, and a named recipient for the diagnostic manifest."
           },
           {
             "count": 1,
+            "value": "Requires an inventory of Vast.ai endpoints, calling identities, deadlines, and the current CLI or REST client."
+          },
+          {
+            "count": 1,
             "value": "Requires application architecture, data classification, permission inventory, and access to the Procore app configuration."
+          },
+          {
+            "count": 1,
+            "value": "Requires application service objectives, representative traffic, metrics and health evidence, current Machine sizes, regions, and data dependency placement."
+          },
+          {
+            "count": 1,
+            "value": "Requires application source, a local container runtime where used, read access to a development Fly.io app, and explicit approval before connecting to remote data."
+          },
+          {
+            "count": 1,
+            "value": "Requires approved Clari products, destination systems, data classifications, service objectives, and platform ownership."
           },
           {
             "count": 1,
@@ -1613,6 +1757,10 @@
           {
             "count": 1,
             "value": "Requires approved source files, Procore resource permissions, encrypted temporary storage, and checksum-capable transfer tooling."
+          },
+          {
+            "count": 1,
+            "value": "Requires approved storage endpoints, Vast.ai copy or cloud-copy access, integrity manifests, and a data-retention policy."
           },
           {
             "count": 1,
@@ -1652,7 +1800,23 @@
           },
           {
             "count": 1,
+            "value": "Requires current and target client versions, a test environment, immutable templates, and retained rollback artifacts."
+          },
+          {
+            "count": 1,
             "value": "Requires current and target contract artifacts, compatibility tests, feature flags, and rollback authority."
+          },
+          {
+            "count": 1,
+            "value": "Requires current and target contract fingerprints, representative non-production data, a compatibility mapping, and a retained rollback path."
+          },
+          {
+            "count": 1,
+            "value": "Requires current and target contracts, an immutable backup or export where data is involved, a representative staging boundary, and approved rollback criteria."
+          },
+          {
+            "count": 1,
+            "value": "Requires current billing exports or invoices, app and database inventory, utilization evidence, service objectives, and an approved optimization window."
           },
           {
             "count": 1,
@@ -1672,6 +1836,10 @@
           },
           {
             "count": 1,
+            "value": "Requires entitlement to the Clari conversation-intelligence API, workspace integration credentials, and approval to process recordings, transcripts, and participant data."
+          },
+          {
+            "count": 1,
             "value": "Requires environment owners, separate secret stores, and Flexport/account-executive coordination for any test credential."
           },
           {
@@ -1684,11 +1852,23 @@
           },
           {
             "count": 1,
+            "value": "Requires local container tooling, the Vast.ai CLI, a registry, a scoped API key, and a disposable GPU budget."
+          },
+          {
+            "count": 1,
             "value": "Requires local test tooling and, for provider tests, a Procore Developer Sandbox with sandbox OAuth credentials."
           },
           {
             "count": 1,
             "value": "Requires locally pinned infrastructure tools; optional sandbox checks require an explicitly selected non-production kube context"
+          },
+          {
+            "count": 1,
+            "value": "Requires named environments, Teams or account contexts, scoped keys, immutable templates, secret stores, and cost ownership."
+          },
+          {
+            "count": 1,
+            "value": "Requires named security and application owners, a Fly.io organization and app inventory, approved identity policy, and access to redacted configuration evidence."
           },
           {
             "count": 1,
@@ -1704,11 +1884,31 @@
           },
           {
             "count": 1,
+            "value": "Requires read access to affected Vast.ai resources, an approved evidence location, and a defined incident window."
+          },
+          {
+            "count": 1,
+            "value": "Requires read access to the affected app, an incident time window, a secure evidence destination, and approval for any log or configuration collection."
+          },
+          {
+            "count": 1,
+            "value": "Requires read access to the affected app, the relevant release identifier, and permission to inspect redacted configuration, health, Machine, and log evidence."
+          },
+          {
+            "count": 1,
+            "value": "Requires read access to the selected app signals, durable checkpoint state, a bounded observation window, and an approved downstream alert or event sink."
+          },
+          {
+            "count": 1,
             "value": "Requires read access to the target kube context; console or API evidence may require an appropriately scoped CAST AI identity"
           },
           {
             "count": 1,
             "value": "Requires read-only access to the selected cluster; collection must follow local data-handling and support-sharing policy"
+          },
+          {
+            "count": 1,
+            "value": "Requires read-scoped Vast.ai access, resource labels, durable telemetry storage, and named responders."
           },
           {
             "count": 1,
@@ -1728,6 +1928,14 @@
           },
           {
             "count": 1,
+            "value": "Requires security ownership, a data-classification policy, approved secret storage, and an inventory of Clari surfaces and destinations."
+          },
+          {
+            "count": 1,
+            "value": "Requires source-provider inventory, portable workload artifacts, Vast.ai capacity, external storage, and an approved rollback window."
+          },
+          {
+            "count": 1,
             "value": "Requires source/target contracts, content rights, user-consent analysis, rollback authority, and a bounded migration cohort."
           },
           {
@@ -1736,11 +1944,23 @@
           },
           {
             "count": 1,
+            "value": "Requires the Vast.ai CLI, a valid API key, account credit, an SSH public key, and an approved container image."
+          },
+          {
+            "count": 1,
+            "value": "Requires the Vast.ai CLI, redacted structured output, and access to the affected account or instance."
+          },
+          {
+            "count": 1,
             "value": "Requires the current CAST AI API specification and observability for the client; limits vary by endpoint and upstream edge controls"
           },
           {
             "count": 1,
             "value": "Requires the current CAST AI API specification; declarative infrastructure should use the supported Terraform provider where appropriate"
+          },
+          {
+            "count": 1,
+            "value": "Requires the current Machines OpenAPI contract, a supported runtime, a scoped test identity, fixtures, and a non-production integration boundary."
           },
           {
             "count": 4,
@@ -1752,7 +1972,31 @@
           },
           {
             "count": 1,
+            "value": "Requires timing telemetry by stage, provider capacity evidence, representative workloads, and a rollbackable tuning boundary."
+          },
+          {
+            "count": 1,
+            "value": "Requires workload and data classification, Vast.ai account design, immutable artifacts, external storage, observability, and incident ownership."
+          },
+          {
+            "count": 1,
+            "value": "Requires workload and data requirements, service objectives, approved regions, dependency ownership, and a cost and recovery model."
+          },
+          {
+            "count": 1,
+            "value": "Requires workload inventory, organization limit evidence, destination usage metrics, and an approved freshness and retention policy."
+          },
+          {
+            "count": 1,
+            "value": "Requires workload performance requirements, Vast.ai offer and instance data, billing-read access, and a cleanup owner."
+          },
+          {
+            "count": 1,
             "value": "Requires workload telemetry, SLOs, and read access to effective CAST AI and Kubernetes scaling configuration"
+          },
+          {
+            "count": 1,
+            "value": "Requires workload volume estimates, retained job or pagination state, and access to organization limits where the provider exposes them."
           },
           {
             "count": 1,
@@ -1877,194 +2121,17 @@
       "cohort": "literal docs.anthropic.com occurrences in tracked text-like files",
       "dimension": "docs.anthropic.com occurrences",
       "measured_proxy": {
-        "files": 189,
-        "occurrences": 521,
+        "files": 12,
+        "occurrences": 22,
         "paths": [
-          "000-docs/198-DR-SOPS-03-mcp-reliability.md",
-          "000-docs/688-AA-AACR-2026-06-04-wiki-audit.md",
           "000-docs/719-RA-REPT-cleanup-candidate-register.json",
           "000-docs/719-RA-REPT-cleanup-candidate-register.md",
           "000-docs/725-RA-DATA-legacy-migration-inventory.md",
           "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
           "000-docs/778-RA-DATA-model-agnostic-migration-surface.md",
-          "marketplace/src/content/blog-posts/noise-robust-signed-llm-judge-evals.md",
-          "marketplace/src/content/docs/concepts/agents.md",
-          "marketplace/src/content/docs/concepts/commands-and-hooks.md",
-          "marketplace/src/content/docs/concepts/mcp-servers.md",
-          "marketplace/src/content/docs/concepts/plugins.md",
-          "marketplace/src/content/docs/concepts/skills.md",
-          "marketplace/src/content/docs/ecosystem/community-resources.md",
-          "marketplace/src/content/docs/ecosystem/faq.md",
-          "marketplace/src/content/docs/ecosystem/marketplace-overview.md",
-          "marketplace/src/content/docs/ecosystem/official-anthropic-docs.md",
-          "marketplace/src/content/docs/getting-started/cli-reference.md",
-          "marketplace/src/content/docs/getting-started/first-plugin.md",
-          "marketplace/src/content/docs/getting-started/first-skill.md",
-          "marketplace/src/content/docs/getting-started/installation.md",
-          "marketplace/src/content/docs/guides/build-a-plugin.md",
-          "marketplace/src/content/docs/guides/create-an-agent.md",
-          "marketplace/src/content/docs/guides/mcp-server-plugin.md",
-          "marketplace/src/content/docs/guides/publish-to-marketplace.md",
-          "marketplace/src/content/docs/guides/saas-skill-packs.md",
-          "marketplace/src/content/docs/guides/write-a-skill.md",
-          "marketplace/src/content/docs/reference/allowed-tools.md",
-          "marketplace/src/content/docs/reference/cli-commands.md",
-          "marketplace/src/content/docs/reference/plugin-categories.md",
-          "marketplace/src/content/docs/reference/plugin-json-schema.md",
-          "marketplace/src/content/docs/reference/skill-frontmatter.md",
-          "marketplace/src/content/playbooks/03-mcp-reliability.md",
-          "marketplace/src/content/playbooks/12-beginner-onboarding.md",
-          "marketplace/src/data/skills-catalog.json",
           "plugins/ai-agency/tonone/README.md",
-          "plugins/ai-ml/ai-sdk-agents/README.md",
-          "plugins/devops/engineer-design-diagram/skills/engineer-design-diagram/references/docs-layout.md",
-          "plugins/productivity/agent-context-manager/skills/agent-context-loader/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/README.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-advanced-troubleshooting/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-architecture-variants/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-ci-integration/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-common-errors/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-a/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-b/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-cost-tuning/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-debug-bundle/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-deploy-integration/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-enterprise-rbac/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-hello-world/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-incident-runbook/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-install-auth/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-known-pitfalls/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-load-scale/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-local-dev-loop/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-migration-deep-dive/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-multi-env-setup/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-observability/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-performance-tuning/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-policy-guardrails/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-prod-checklist/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-rate-limits/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-reference-architecture/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-reliability-patterns/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-sdk-patterns/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-security-basics/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-upgrade-migration/SKILL.md",
-          "plugins/saas-packs/anthropic-pack/skills/anth-webhooks-events/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-advanced-troubleshooting/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-architecture-variants/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-common-errors/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-core-workflow-a/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-core-workflow-b/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-cost-tuning/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-data-handling/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-debug-bundle/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-deploy-integration/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-embeddings-search/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-hello-world/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-install-auth/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-known-pitfalls/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-load-scale/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-local-dev-loop/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-migration-deep-dive/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-model-inference/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-observability/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-performance-tuning/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-policy-guardrails/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-prod-checklist/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-rate-limits/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-reference-architecture/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-reliability-patterns/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-sdk-patterns/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-security-basics/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-upgrade-migration/SKILL.md",
-          "plugins/saas-packs/claude-pack/skills/clade-webhooks-events/SKILL.md",
-          "plugins/saas-packs/cursor-pack/skills/cursor-api-key-management/SKILL.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-content-blocks/SKILL.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-content-blocks/references/multimodal-composition.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-content-blocks/references/thinking-blocks.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-cost-tuning/SKILL.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-prompt-engineering/SKILL.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-prompt-engineering/references/claude-prompt-conventions.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-rate-limits/SKILL.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-rate-limits/references/provider-tier-matrix.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-security-basics/SKILL.md",
-          "plugins/saas-packs/langchain-py-pack/skills/langchain-security-basics/references/prompt-injection-defenses.md",
-          "plugins/saas-packs/vendors/anthropic.yaml",
-          "plugins/security/agent-safety-preflight/skills/agent-safety-preflight/SKILL.md",
-          "plugins/security/severity1-marketplace/skills/prompt-improver/SKILL.md",
-          "plugins/skill-enhancers/web-to-github-issue/README.md",
           "plugins/testing/kobiton-automate/README.md",
           "scripts/measure-canonical-surface.mjs",
-          "skills/.curated/agent-context-loader/SKILL.md",
-          "skills/.curated/agent-safety-preflight/SKILL.md",
-          "skills/.curated/anth-advanced-troubleshooting/SKILL.md",
-          "skills/.curated/anth-architecture-variants/SKILL.md",
-          "skills/.curated/anth-ci-integration/SKILL.md",
-          "skills/.curated/anth-common-errors/SKILL.md",
-          "skills/.curated/anth-core-workflow-a/SKILL.md",
-          "skills/.curated/anth-core-workflow-b/SKILL.md",
-          "skills/.curated/anth-cost-tuning/SKILL.md",
-          "skills/.curated/anth-debug-bundle/SKILL.md",
-          "skills/.curated/anth-deploy-integration/SKILL.md",
-          "skills/.curated/anth-enterprise-rbac/SKILL.md",
-          "skills/.curated/anth-hello-world/SKILL.md",
-          "skills/.curated/anth-incident-runbook/SKILL.md",
-          "skills/.curated/anth-install-auth/SKILL.md",
-          "skills/.curated/anth-known-pitfalls/SKILL.md",
-          "skills/.curated/anth-load-scale/SKILL.md",
-          "skills/.curated/anth-local-dev-loop/SKILL.md",
-          "skills/.curated/anth-migration-deep-dive/SKILL.md",
-          "skills/.curated/anth-multi-env-setup/SKILL.md",
-          "skills/.curated/anth-observability/SKILL.md",
-          "skills/.curated/anth-performance-tuning/SKILL.md",
-          "skills/.curated/anth-policy-guardrails/SKILL.md",
-          "skills/.curated/anth-prod-checklist/SKILL.md",
-          "skills/.curated/anth-rate-limits/SKILL.md",
-          "skills/.curated/anth-reference-architecture/SKILL.md",
-          "skills/.curated/anth-reliability-patterns/SKILL.md",
-          "skills/.curated/anth-security-basics/SKILL.md",
-          "skills/.curated/anth-upgrade-migration/SKILL.md",
-          "skills/.curated/anth-webhooks-events/SKILL.md",
-          "skills/.curated/clade-advanced-troubleshooting/SKILL.md",
-          "skills/.curated/clade-architecture-variants/SKILL.md",
-          "skills/.curated/clade-common-errors/SKILL.md",
-          "skills/.curated/clade-core-workflow-a/SKILL.md",
-          "skills/.curated/clade-core-workflow-b/SKILL.md",
-          "skills/.curated/clade-cost-tuning/SKILL.md",
-          "skills/.curated/clade-data-handling/SKILL.md",
-          "skills/.curated/clade-debug-bundle/SKILL.md",
-          "skills/.curated/clade-deploy-integration/SKILL.md",
-          "skills/.curated/clade-embeddings-search/SKILL.md",
-          "skills/.curated/clade-hello-world/SKILL.md",
-          "skills/.curated/clade-install-auth/SKILL.md",
-          "skills/.curated/clade-known-pitfalls/SKILL.md",
-          "skills/.curated/clade-load-scale/SKILL.md",
-          "skills/.curated/clade-local-dev-loop/SKILL.md",
-          "skills/.curated/clade-migration-deep-dive/SKILL.md",
-          "skills/.curated/clade-model-inference/SKILL.md",
-          "skills/.curated/clade-observability/SKILL.md",
-          "skills/.curated/clade-performance-tuning/SKILL.md",
-          "skills/.curated/clade-policy-guardrails/SKILL.md",
-          "skills/.curated/clade-prod-checklist/SKILL.md",
-          "skills/.curated/clade-rate-limits/SKILL.md",
-          "skills/.curated/clade-reference-architecture/SKILL.md",
-          "skills/.curated/clade-reliability-patterns/SKILL.md",
-          "skills/.curated/clade-sdk-patterns/SKILL.md",
-          "skills/.curated/clade-security-basics/SKILL.md",
-          "skills/.curated/clade-upgrade-migration/SKILL.md",
-          "skills/.curated/clade-webhooks-events/SKILL.md",
-          "skills/.curated/cursor-api-key-management/SKILL.md",
-          "skills/.curated/engineer-design-diagram/references/docs-layout.md",
-          "skills/.curated/langchain-content-blocks/SKILL.md",
-          "skills/.curated/langchain-content-blocks/references/multimodal-composition.md",
-          "skills/.curated/langchain-content-blocks/references/thinking-blocks.md",
-          "skills/.curated/langchain-cost-tuning/SKILL.md",
-          "skills/.curated/langchain-prompt-engineering/SKILL.md",
-          "skills/.curated/langchain-prompt-engineering/references/claude-prompt-conventions.md",
-          "skills/.curated/langchain-rate-limits/SKILL.md",
-          "skills/.curated/langchain-rate-limits/references/provider-tier-matrix.md",
-          "skills/.curated/langchain-security-basics/SKILL.md",
-          "skills/.curated/langchain-security-basics/references/prompt-injection-defenses.md",
-          "skills/.curated/prompt-improver/SKILL.md",
           "tests/fixtures/skill-frontmatter/17a1bc46/input.md",
           "tests/fixtures/skill-frontmatter/2b9b4960/input.md",
           "tests/fixtures/skill-frontmatter/d15c47d9/input.md",
@@ -2077,191 +2144,14 @@
         "machine-readable generated-artifact registry for source versus projection split"
       ],
       "source": [
-        "000-docs/198-DR-SOPS-03-mcp-reliability.md",
-        "000-docs/688-AA-AACR-2026-06-04-wiki-audit.md",
         "000-docs/719-RA-REPT-cleanup-candidate-register.json",
         "000-docs/719-RA-REPT-cleanup-candidate-register.md",
         "000-docs/725-RA-DATA-legacy-migration-inventory.md",
         "000-docs/727-AT-ARCH-master-modernization-blueprint.md",
         "000-docs/778-RA-DATA-model-agnostic-migration-surface.md",
-        "marketplace/src/content/blog-posts/noise-robust-signed-llm-judge-evals.md",
-        "marketplace/src/content/docs/concepts/agents.md",
-        "marketplace/src/content/docs/concepts/commands-and-hooks.md",
-        "marketplace/src/content/docs/concepts/mcp-servers.md",
-        "marketplace/src/content/docs/concepts/plugins.md",
-        "marketplace/src/content/docs/concepts/skills.md",
-        "marketplace/src/content/docs/ecosystem/community-resources.md",
-        "marketplace/src/content/docs/ecosystem/faq.md",
-        "marketplace/src/content/docs/ecosystem/marketplace-overview.md",
-        "marketplace/src/content/docs/ecosystem/official-anthropic-docs.md",
-        "marketplace/src/content/docs/getting-started/cli-reference.md",
-        "marketplace/src/content/docs/getting-started/first-plugin.md",
-        "marketplace/src/content/docs/getting-started/first-skill.md",
-        "marketplace/src/content/docs/getting-started/installation.md",
-        "marketplace/src/content/docs/guides/build-a-plugin.md",
-        "marketplace/src/content/docs/guides/create-an-agent.md",
-        "marketplace/src/content/docs/guides/mcp-server-plugin.md",
-        "marketplace/src/content/docs/guides/publish-to-marketplace.md",
-        "marketplace/src/content/docs/guides/saas-skill-packs.md",
-        "marketplace/src/content/docs/guides/write-a-skill.md",
-        "marketplace/src/content/docs/reference/allowed-tools.md",
-        "marketplace/src/content/docs/reference/cli-commands.md",
-        "marketplace/src/content/docs/reference/plugin-categories.md",
-        "marketplace/src/content/docs/reference/plugin-json-schema.md",
-        "marketplace/src/content/docs/reference/skill-frontmatter.md",
-        "marketplace/src/content/playbooks/03-mcp-reliability.md",
-        "marketplace/src/content/playbooks/12-beginner-onboarding.md",
-        "marketplace/src/data/skills-catalog.json",
         "plugins/ai-agency/tonone/README.md",
-        "plugins/ai-ml/ai-sdk-agents/README.md",
-        "plugins/devops/engineer-design-diagram/skills/engineer-design-diagram/references/docs-layout.md",
-        "plugins/productivity/agent-context-manager/skills/agent-context-loader/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/README.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-advanced-troubleshooting/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-architecture-variants/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-ci-integration/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-common-errors/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-a/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-core-workflow-b/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-cost-tuning/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-debug-bundle/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-deploy-integration/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-enterprise-rbac/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-hello-world/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-incident-runbook/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-install-auth/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-known-pitfalls/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-load-scale/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-local-dev-loop/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-migration-deep-dive/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-multi-env-setup/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-observability/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-performance-tuning/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-policy-guardrails/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-prod-checklist/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-rate-limits/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-reference-architecture/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-reliability-patterns/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-sdk-patterns/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-security-basics/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-upgrade-migration/SKILL.md",
-        "plugins/saas-packs/anthropic-pack/skills/anth-webhooks-events/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-advanced-troubleshooting/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-architecture-variants/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-common-errors/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-core-workflow-a/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-core-workflow-b/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-cost-tuning/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-data-handling/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-debug-bundle/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-deploy-integration/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-embeddings-search/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-hello-world/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-install-auth/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-known-pitfalls/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-load-scale/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-local-dev-loop/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-migration-deep-dive/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-model-inference/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-observability/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-performance-tuning/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-policy-guardrails/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-prod-checklist/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-rate-limits/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-reference-architecture/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-reliability-patterns/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-sdk-patterns/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-security-basics/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-upgrade-migration/SKILL.md",
-        "plugins/saas-packs/claude-pack/skills/clade-webhooks-events/SKILL.md",
-        "plugins/saas-packs/cursor-pack/skills/cursor-api-key-management/SKILL.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-content-blocks/SKILL.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-content-blocks/references/multimodal-composition.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-content-blocks/references/thinking-blocks.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-cost-tuning/SKILL.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-prompt-engineering/SKILL.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-prompt-engineering/references/claude-prompt-conventions.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-rate-limits/SKILL.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-rate-limits/references/provider-tier-matrix.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-security-basics/SKILL.md",
-        "plugins/saas-packs/langchain-py-pack/skills/langchain-security-basics/references/prompt-injection-defenses.md",
-        "plugins/saas-packs/vendors/anthropic.yaml",
-        "plugins/security/agent-safety-preflight/skills/agent-safety-preflight/SKILL.md",
-        "plugins/security/severity1-marketplace/skills/prompt-improver/SKILL.md",
-        "plugins/skill-enhancers/web-to-github-issue/README.md",
         "plugins/testing/kobiton-automate/README.md",
         "scripts/measure-canonical-surface.mjs",
-        "skills/.curated/agent-context-loader/SKILL.md",
-        "skills/.curated/agent-safety-preflight/SKILL.md",
-        "skills/.curated/anth-advanced-troubleshooting/SKILL.md",
-        "skills/.curated/anth-architecture-variants/SKILL.md",
-        "skills/.curated/anth-ci-integration/SKILL.md",
-        "skills/.curated/anth-common-errors/SKILL.md",
-        "skills/.curated/anth-core-workflow-a/SKILL.md",
-        "skills/.curated/anth-core-workflow-b/SKILL.md",
-        "skills/.curated/anth-cost-tuning/SKILL.md",
-        "skills/.curated/anth-debug-bundle/SKILL.md",
-        "skills/.curated/anth-deploy-integration/SKILL.md",
-        "skills/.curated/anth-enterprise-rbac/SKILL.md",
-        "skills/.curated/anth-hello-world/SKILL.md",
-        "skills/.curated/anth-incident-runbook/SKILL.md",
-        "skills/.curated/anth-install-auth/SKILL.md",
-        "skills/.curated/anth-known-pitfalls/SKILL.md",
-        "skills/.curated/anth-load-scale/SKILL.md",
-        "skills/.curated/anth-local-dev-loop/SKILL.md",
-        "skills/.curated/anth-migration-deep-dive/SKILL.md",
-        "skills/.curated/anth-multi-env-setup/SKILL.md",
-        "skills/.curated/anth-observability/SKILL.md",
-        "skills/.curated/anth-performance-tuning/SKILL.md",
-        "skills/.curated/anth-policy-guardrails/SKILL.md",
-        "skills/.curated/anth-prod-checklist/SKILL.md",
-        "skills/.curated/anth-rate-limits/SKILL.md",
-        "skills/.curated/anth-reference-architecture/SKILL.md",
-        "skills/.curated/anth-reliability-patterns/SKILL.md",
-        "skills/.curated/anth-security-basics/SKILL.md",
-        "skills/.curated/anth-upgrade-migration/SKILL.md",
-        "skills/.curated/anth-webhooks-events/SKILL.md",
-        "skills/.curated/clade-advanced-troubleshooting/SKILL.md",
-        "skills/.curated/clade-architecture-variants/SKILL.md",
-        "skills/.curated/clade-common-errors/SKILL.md",
-        "skills/.curated/clade-core-workflow-a/SKILL.md",
-        "skills/.curated/clade-core-workflow-b/SKILL.md",
-        "skills/.curated/clade-cost-tuning/SKILL.md",
-        "skills/.curated/clade-data-handling/SKILL.md",
-        "skills/.curated/clade-debug-bundle/SKILL.md",
-        "skills/.curated/clade-deploy-integration/SKILL.md",
-        "skills/.curated/clade-embeddings-search/SKILL.md",
-        "skills/.curated/clade-hello-world/SKILL.md",
-        "skills/.curated/clade-install-auth/SKILL.md",
-        "skills/.curated/clade-known-pitfalls/SKILL.md",
-        "skills/.curated/clade-load-scale/SKILL.md",
-        "skills/.curated/clade-local-dev-loop/SKILL.md",
-        "skills/.curated/clade-migration-deep-dive/SKILL.md",
-        "skills/.curated/clade-model-inference/SKILL.md",
-        "skills/.curated/clade-observability/SKILL.md",
-        "skills/.curated/clade-performance-tuning/SKILL.md",
-        "skills/.curated/clade-policy-guardrails/SKILL.md",
-        "skills/.curated/clade-prod-checklist/SKILL.md",
-        "skills/.curated/clade-rate-limits/SKILL.md",
-        "skills/.curated/clade-reference-architecture/SKILL.md",
-        "skills/.curated/clade-reliability-patterns/SKILL.md",
-        "skills/.curated/clade-sdk-patterns/SKILL.md",
-        "skills/.curated/clade-security-basics/SKILL.md",
-        "skills/.curated/clade-upgrade-migration/SKILL.md",
-        "skills/.curated/clade-webhooks-events/SKILL.md",
-        "skills/.curated/cursor-api-key-management/SKILL.md",
-        "skills/.curated/engineer-design-diagram/references/docs-layout.md",
-        "skills/.curated/langchain-content-blocks/SKILL.md",
-        "skills/.curated/langchain-content-blocks/references/multimodal-composition.md",
-        "skills/.curated/langchain-content-blocks/references/thinking-blocks.md",
-        "skills/.curated/langchain-cost-tuning/SKILL.md",
-        "skills/.curated/langchain-prompt-engineering/SKILL.md",
-        "skills/.curated/langchain-prompt-engineering/references/claude-prompt-conventions.md",
-        "skills/.curated/langchain-rate-limits/SKILL.md",
-        "skills/.curated/langchain-rate-limits/references/provider-tier-matrix.md",
-        "skills/.curated/langchain-security-basics/SKILL.md",
-        "skills/.curated/langchain-security-basics/references/prompt-injection-defenses.md",
-        "skills/.curated/prompt-improver/SKILL.md",
         "tests/fixtures/skill-frontmatter/17a1bc46/input.md",
         "tests/fixtures/skill-frontmatter/2b9b4960/input.md",
         "tests/fixtures/skill-frontmatter/d15c47d9/input.md",
@@ -2488,7 +2378,7 @@
         "answers": [
           {
             "cohort": "curated-mirror",
-            "value": 2627
+            "value": 2628
           },
           {
             "cohort": "curriculum",
@@ -3228,7 +3118,7 @@
         "invalid_patterns": 0,
         "invisible_files": 5,
         "target_invisible_files": 0,
-        "tracked_files": 25712
+        "tracked_files": 25880
       }
     },
     "47": {
@@ -3313,15 +3203,15 @@
       "dimension": "Inventory header versus rows",
       "reproduce": "pnpm run measure:e1 --row=52 --stdout",
       "source": [
-        "freshie/reports/run-delta-127.json",
+        "freshie/reports/run-delta-133.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"
       ],
       "status": "target_met",
       "values": {
-        "dolt_commit": "ccifml2jpnk66o7qda1qn4jkgkkkrspk",
+        "dolt_commit": "bov00qvmn4v08t28navdolq4sshrekhi",
         "header_total_skills": 2914,
-        "run_id": 127,
+        "run_id": 133,
         "skill_row_delta": 0,
         "skill_rows": 2914,
         "target_skill_row_delta": 0
@@ -3334,32 +3224,32 @@
       "source": [
         "freshie/grade-histogram.json",
         "freshie/grades.csv",
-        "freshie/reports/run-delta-127.json"
+        "freshie/reports/run-delta-133.json"
       ],
       "status": "target_met",
       "values": {
         "compliance_rows": 3491,
-        "export_dolt_commit": "ccifml2jpnk66o7qda1qn4jkgkkkrspk",
-        "export_run_id": 127,
+        "export_dolt_commit": "bov00qvmn4v08t28navdolq4sshrekhi",
+        "export_run_id": 133,
         "grades_csv_rows": 3491,
-        "grades_csv_sha256": "dfc2caf3c9817fc0026a048cc354bab7f57f0d9e19989c3922d59e993d201cef",
+        "grades_csv_sha256": "5b22ab61101133aaa93b63bb7844cf219ede7e11323a4985208417bad05f3b1a",
         "histogram_grades": {
-          "A": 2785,
-          "B": 415,
-          "C": 133,
+          "A": 2857,
+          "B": 344,
+          "C": 132,
           "D": 154,
           "F": 4
         },
         "histogram_total": 3491,
         "immutable_grade_counts": {
-          "A": 2785,
-          "B": 415,
-          "C": 133,
+          "A": 2857,
+          "B": 344,
+          "C": 132,
           "D": 154,
           "F": 4
         },
-        "inventory_dolt_commit": "ccifml2jpnk66o7qda1qn4jkgkkkrspk",
-        "inventory_run_id": 127,
+        "inventory_dolt_commit": "bov00qvmn4v08t28navdolq4sshrekhi",
+        "inventory_run_id": 133,
         "target_lag_runs": 0
       }
     },
@@ -3369,7 +3259,7 @@
       "reproduce": "pnpm run measure:e1 --row=54 --stdout",
       "source": [
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-127.json",
+        "freshie/reports/run-delta-133.json",
         "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py",
@@ -3383,7 +3273,7 @@
           "E2": 0,
           "E3": 0
         },
-        "current_run_id": 127,
+        "current_run_id": 133,
         "invalid_identities": 0,
         "legacy_e0_records": 3,
         "retained_e2_e3": 0,
@@ -3407,7 +3297,7 @@
       "source": [
         "000-docs/807-DR-STND-evaluation-evidence.md",
         "freshie/reports/legacy-forge-proofs-demotion.json",
-        "freshie/reports/run-delta-127.json",
+        "freshie/reports/run-delta-133.json",
         "freshie/reports/run-delta-19.json",
         "freshie/scripts/dolt-sync.py",
         "freshie/scripts/run-delta.py"

@@ -26,7 +26,7 @@ green gate is a bounded signal, not a proof of correctness.
 | 5 | Mock Integrity Detector | Tautological assertions, internal-mock ratio, tests that do not import source; HIGH blocks | Semantic correctness of mocks | Yes (HIGH blocks) | `LOKI_GATE_MOCK=false` |
 | 6 | Test Mutation Detector | Assertion-value churn alongside implementation changes (test-fitting), low assertion density; HIGH blocks | Logically-correct-but-weak assertions | Yes (HIGH blocks) | `LOKI_GATE_MUTATION=false` |
 | 7 | Documentation Coverage | README presence, docs freshness within 10 commits, API docs for packages | Whether the docs are accurate or useful | Yes | `LOKI_GATE_DOC_COVERAGE=false` |
-| 8 | Magic Modules Debate | Spec-vs-implementation debate findings on generated Magic Modules; BLOCK-severity findings block | Issues outside the Magic Modules debate scope | Yes (BLOCK severity) | `LOKI_GATE_MAGIC_DEBATE=false` |
+| 8 | Magic Modules Debate | Spec-vs-implementation debate findings on generated Magic Modules | Issues outside the Magic Modules debate scope | **No, advisory by default on both routes.** bash blocks only with `LOKI_GATE_MAGIC_DEBATE_BLOCKING=true` (`autonomy/run.sh:12925`); Bun self-skips unless `LOKI_GATE_MAGIC_DEBATE="true"` (`loki-ts/src/runner/quality_gates.ts:2520`). | `LOKI_GATE_MAGIC_DEBATE=false` |
 
 Severity-based blocking is the rule that ties the review gates together: any
 Critical or High finding blocks completion. Medium, Low, and cosmetic findings

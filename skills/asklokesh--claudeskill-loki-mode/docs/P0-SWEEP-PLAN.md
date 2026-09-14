@@ -42,7 +42,7 @@ Honest count after this sweep: 8 gates.
 | 5 | Mock Integrity Detector | enforce_mock_integrity -> tests/detect-mock-problems.sh | Yes (HIGH blocks) | LOKI_GATE_MOCK=false |
 | 6 | Test Mutation Detector | enforce_mutation_integrity -> tests/detect-test-mutations.sh | Yes (HIGH blocks) | LOKI_GATE_MUTATION=false |
 | 7 | Documentation Coverage | run_doc_quality_gate (run.sh:7388) | Yes | LOKI_GATE_DOC_COVERAGE=false |
-| 8 | Magic Modules Debate | run_magic_debate_gate (run.sh:7495) | Yes (BLOCK sev) | LOKI_GATE_MAGIC_DEBATE=false |
+| 8 | Magic Modules Debate | run_magic_debate_gate (run.sh:7495) | No, advisory by default. NOTE added 2026-09-13: this row said "Yes (BLOCK sev)" and that was never true on either route; bash enforces only with LOKI_GATE_MAGIC_DEBATE_BLOCKING=true and Bun self-skips unless LOKI_GATE_MAGIC_DEBATE="true". Line numbers in this document are as grep-verified in June 2026 and are left unchanged. | LOKI_GATE_MAGIC_DEBATE=false |
 
 Conditional auditor (documented separately, NOT numbered): Backward-Compatibility
 / legacy-healing-auditor (healing mode only). Removed: Input/Output Guardrails.

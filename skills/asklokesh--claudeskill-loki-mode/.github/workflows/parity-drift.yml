@@ -153,6 +153,34 @@ jobs:
             echo "drift_detected=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check MCP registry entry is not stale
+        id: registry
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Network-dependent. An unreachable registry exits 0 (UNKNOWN is never
+          # a failure), so this step does not redden on someone else's outage.
+          mkdir -p /tmp/parity
+          # STRICT so the guard returns rc 1 on drift and this step can branch.
+          # The guard is ADVISORY by default precisely so the push path cannot go
+          # red on a gap only a credential holder can close: it is registered in
+          # run-all-tests.sh, which test.yml runs in every shard on every push.
+          # This nightly job is the one caller that wants the hard signal.
+          # `|| rc=$?` is load-bearing: GitHub runs steps with `bash -e`, and a
+          # step's own `set -uo pipefail` does NOT disable it. Without the `||`
+          # the STRICT exit 1 kills the step before rc is ever read, so the
+          # branch below never runs and registry_stale is never set.
+          rc=0
+          LOKI_MCP_REGISTRY_STRICT=1 \
+            bash tests/test-mcp-registry-not-stale.sh > /tmp/parity/registry.txt 2>&1 \
+            || rc=$?
+          cat /tmp/parity/registry.txt
+          if [ "$rc" = "1" ]; then
+            echo "registry_stale=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "registry_stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload parity report
         if: always()
         uses: actions/upload-artifact@v4
@@ -161,6 +189,46 @@ jobs:
           path: /tmp/parity/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Report MCP registry drift
+        if: steps.registry.outputs.registry_stale == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # A separate step from "Open issue on drift" on purpose. That step's
+          # body reads two artifacts that ONLY the parity matrix writes, so
+          # reusing it for a registry-only run would open an issue whose body
+          # cats a file that does not exist. This step references only what the
+          # registry guard itself wrote.
+          #
+          # Closing registry drift needs publisher credentials no CI job holds,
+          # so this REPORTS and exits 0. It must not redden the workflow.
+          issues_enabled=$(gh repo view "$GITHUB_REPOSITORY" --json hasIssuesEnabled --jq .hasIssuesEnabled 2>/dev/null || echo "false")
+          if [ "$issues_enabled" != "true" ]; then
+            echo "INFO: GitHub Issues disabled -- registry drift reported in the log only"
+            cat /tmp/parity/registry.txt || true
+            exit 0
+          fi
+          TITLE="MCP registry entry is stale"
+          BODY_FILE=/tmp/parity/registry-issue.md
+          {
+            echo "The published MCP registry entry has fallen behind the shipped VERSION."
+            echo ""
+            echo "Guard output:"
+            echo '```'
+            cat /tmp/parity/registry.txt
+            echo '```'
+            echo ""
+            echo "Closing this requires MCP registry publisher credentials."
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > "$BODY_FILE"
+          existing=$(gh issue list --search "$TITLE in:title" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+          fi
 
       - name: Open issue on drift
         if: steps.parity.outputs.drift_detected == 'true'

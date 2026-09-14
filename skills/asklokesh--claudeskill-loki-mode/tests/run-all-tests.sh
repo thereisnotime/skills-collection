@@ -236,6 +236,13 @@ run_test "outcome ledger anchors before it measures" "$SCRIPT_DIR/test-outcome-l
 run_test "intent ledger detects spec-drifted-from-intent" "$SCRIPT_DIR/test-intent-ledger.sh"
 run_test "pre-edit snapshot separates agent from human rescue" "$SCRIPT_DIR/test-preedit-snapshot.sh"
 run_test "server.json tracks VERSION (MCP registry not stale)" "$SCRIPT_DIR/test-server-json-current.sh"
+# The published registry entry must not fall behind what we ship. The guard
+# above compares server.json to VERSION, both LOCAL, so they agree with each
+# other while saying nothing about what the registry serves. Measured
+# 2026-09-13 with both green: registry 7.34.1, shipped 9.49.4.
+# Network-dependent, so it is deliberately NOT in the fast tier; an
+# unreachable registry exits 0 rather than reddening a pre-push gate.
+run_test "MCP registry entry is not stale (published vs shipped)" "$SCRIPT_DIR/test-mcp-registry-not-stale.sh"
 run_test "plugin.json tracks VERSION (plugin updates not stale)" "$SCRIPT_DIR/test-plugin-json-current.sh"
 run_test "subagent fleet capacity is explicit (CC 2.1.217 defaults)" "$SCRIPT_DIR/test-subagent-fleet-capacity.sh"
 run_test "build wall-clock is attributable (boot/teardown timed)" "$SCRIPT_DIR/test-build-time-attribution.sh"
@@ -912,6 +919,7 @@ run_test "skill docs match source (gate flags, providers, tiers, index routing, 
 run_test "proof md (paste-able receipt, one renderer)" "$SCRIPT_DIR/test-proof-md.sh"
 run_test "air-gapped read-only path (egress severed)" "$SCRIPT_DIR/test-airgap-commands.sh"
 run_test "proof phases CLI/API parity (one reader, two surfaces)" "$SCRIPT_DIR/test_cli_phases_parity.sh"
+run_test "web-app has no orphaned modules (reachable from main.tsx)" "$SCRIPT_DIR/test-web-app-no-orphan-components.sh"
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 
 # Summary

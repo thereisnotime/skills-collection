@@ -328,6 +328,68 @@ else
     bad "DRIFT: generator/verifier disagree on: $drift -- loki proof verify would false-alarm"
 fi
 
+# ---- DRIFT GUARD 2: the split must survive INTO the headline ---------------
+# The guard above compares _gate_provenance/_is_exogenous in isolation. Both
+# agreed there while _compute_headline still disagreed: the verifier defined
+# _is_exogenous and never called it, so its two quality_gates comprehensions
+# counted EVERY gate. A failed ADVISORY gate therefore re-derived NOT VERIFIED
+# against a generator that recorded VERIFIED, and the user was told their
+# honest receipt "was edited to misrepresent the facts". Comparing the helpers
+# alone cannot see that; this drives the real headline on real fact dicts.
+headline_drift="$(cd "$SCRIPT_DIR/.." && python3 - <<'PYEOF'
+import importlib.util as ilu, sys, copy
+def load(alias, path):
+    sp = ilu.spec_from_file_location(alias, path)
+    mod = ilu.module_from_spec(sp)
+    sys.modules.setdefault(alias, mod)
+    sp.loader.exec_module(mod)
+    return mod
+v = load("pv_hl", "autonomy/lib/proof-verify.py")
+g = load("pg_hl", "autonomy/lib/proof-generator.py")
+base = {
+    "tests": {"status": "verified", "command": "bun test", "exit_code": 0},
+    "build": {"status": "verified"},
+    "git": {"diff": {"count": 7}},
+    "security": {"ran": True, "high_active": 0},
+    "execution": {"outcome": "complete", "exit_code": 0, "terminated": False},
+    "quality_gates": [],
+}
+def headlines(gates):
+    f = copy.deepcopy(base); f["quality_gates"] = gates
+    return g._compute_headline(copy.deepcopy(f), []), v._compute_headline(copy.deepcopy(f), [])
+bad = []
+# The two halves must agree on every shape.
+for label, gates in (
+    ("failed_advisory", [{"name": "code_review", "status": "failed"}]),
+    ("failed_advisory_magic", [{"name": "magic_debate", "status": "failed"}]),
+    ("failed_exogenous", [{"name": "static_analysis", "status": "failed"}]),
+    ("passed_advisory_only", [{"name": "code_review", "status": "passed"}]),
+    ("no_gates", []),
+):
+    gen, ver = headlines(gates)
+    if gen != ver:
+        bad.append("%s(gen=%s,ver=%s)" % (label, gen, ver))
+# THE PROPERTY THAT MUST NOT REGRESS: filtering advisory gates must not blind
+# the verifier. A failed EXOGENOUS gate still has to sink the headline on BOTH
+# halves -- otherwise this guard would pass against two functions that simply
+# ignore quality_gates entirely.
+for label, gates in (
+    ("exogenous_must_block", [{"name": "static_analysis", "status": "failed"}]),
+    ("stamped_exogenous_must_block",
+     [{"name": "code_review", "status": "failed", "provenance": "exogenous"}]),
+):
+    gen, ver = headlines(gates)
+    if gen != "NOT VERIFIED" or ver != "NOT VERIFIED":
+        bad.append("%s(gen=%s,ver=%s)" % (label, gen, ver))
+print(",".join(bad))
+PYEOF
+)"
+if [ -z "$headline_drift" ]; then
+    ok "DRIFT: generator and verifier agree on the HEADLINE, and a failed exogenous gate still blocks"
+else
+    bad "DRIFT: headline re-derivation disagrees on: $headline_drift"
+fi
+
 echo
 echo "Passed: $PASS  Failed: $FAIL"
 [ "$FAIL" -eq 0 ]

@@ -1255,7 +1255,12 @@ MemEvolve analyzes how memories are located and retrieved at inference time.
    ```
 
 2. **Temporal Index:** Date-based episodic retrieval
-   - `.loki/memory/episodic/index.json` provides temporal navigation
+   - Episodes are stored as `.loki/memory/episodic/<YYYY-MM-DD>/task-<id>.json`
+     (`memory/storage.py:477,521`), so the DATE DIRECTORY is what provides
+     temporal navigation
+   - The index layer itself is `index.json` at the memory ROOT, not under
+     `episodic/` (`memory/engine.py:151`). `memory/cross_project.py:67` walks
+     the store recursively and explicitly SKIPS `index.json` sidecars
    - Enables queries like "what happened last week"
 
 3. **Keyword Search:** Skill matching by keywords

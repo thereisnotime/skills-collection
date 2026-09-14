@@ -5,6 +5,198 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.50.1
+
+Two published SWE-bench figures were never retracted, though they measure the
+same broken counter that v9.42.0 retracted everywhere else.
+
+`generated_count` incremented on any NON-EMPTY `model_patch` string, and the
+validator used substring tests (`"---" in patch`, `"@@" in patch`) that prose
+quoting a diff satisfies. Re-measuring the stored 300-instance run found 179 of
+300 were prose, not diffs. Four instances of the resulting 99.67% figure were
+annotated in place in v9.42.0. Two were missed:
+
+- `### Added - SWE-bench Lite Benchmark Results (50 Problems)` and its
+  "100% Patch Generation" claim. That 50-instance run was never re-measured, so
+  its true rate is UNKNOWN.
+- A one-line blog bullet citing "SWE-bench 100%".
+
+Both now carry a correction in place. No corrected figure is published, for the
+same reason v9.42.0 published none: producing one requires re-running the
+harness, and an estimate would repeat the original error of publishing a number
+nobody measured.
+
+The HumanEval 98.78% figure was audited in the same pass and is SOUND. Recounted
+independently from the cited results JSON: 164 problems recorded, 162 with
+`passed is True`, and the strict count equals the truthy count, so no
+string-counting inflation is present. Every `passed` field is a real boolean. It
+is left unchanged and its "Self-reported" framing in README.md is accurate.
+
+Also audited clean in this pass, with controls: both benchmark scorers gate
+`passed_count` on a real pass signal rather than truthiness
+(`run-benchmarks.sh:463` on `test_result["passed"]` from actual test execution,
+`:880` on `problem_result["passed"]`); a timed-out cell returns `passed: False`
+rather than vanishing, so it cannot inflate a rate by shrinking the denominator;
+and `benchmarks/bench/equivalence_report.py` deliberately handicaps Loki's own
+signal so false-green cannot be biased in our favour.
+
+## v9.50.0
+
+A quality gate was calling four real tests fake, and a guard nobody could clear
+was failing every push.
+
+### The mock detector's source-import check missed two real forms
+
+`tests/detect-mock-problems.sh` is a BLOCKING gate: `run.sh` invokes it with
+`--strict`, which exits 1 on CRITICAL or HIGH. Two legitimate import forms were
+invisible to it, so it reported the tests using them as having no source import
+at all.
+
+- **TS NodeNext resolution.** A specifier written `./foo.js` commonly names a
+  real `./foo.ts` on disk; the extension in the specifier is the post-build one.
+  The check tried only the literal path. It now tries the literal first, then
+  the TS sibling, for `.js`/`.jsx`/`.mjs`/`.cjs`.
+- **Dynamic import.** `await import('./x.ts')` is bun:test's documented pattern
+  for loading a module after `mock.module()` has stubbed an import. Only static
+  and `require` forms matched.
+
+Mutation-verified in both directions against this repository: CRITICAL went
+14 -> 10 with HIGH unchanged at 2, and ZERO new findings appeared. The four that
+cleared are genuine source-importing tests (`loki-dashboard-grid`,
+`loki-session-control-focus`, `oauth_dev`, `sdk_query_provider`). `--strict`
+still exits 1 on the 10 remaining, which are a different shape.
+
+### A guard only a credential holder could clear was reddening every push
+
+`tests/test-mcp-registry-not-stale.sh` compares the local VERSION to the live
+MCP registry. It was registered in `run-all-tests.sh`, which every CI shard
+runs on every push, and it exited 1 on drift. Closing that drift needs registry
+publisher credentials nobody working in the repo holds, so the red was
+unclearable. It is now ADVISORY by default: it still prints the FAIL line and
+still reports the drift, and exits 0. `LOKI_MCP_REGISTRY_STRICT=1` asks for the
+hard signal, and only the nightly parity-drift job sets it.
+
+Two defects surfaced while wiring that nightly job, both caught by controls:
+`rc=$?` could never run because GitHub runs steps with `bash -e` and a step's
+own `set -uo pipefail` does not disable it, so the STRICT exit killed the step
+before rc was read (now `|| rc=$?`); and the output had no consumer, so a
+separate reporting step was added that references only what the registry guard
+itself wrote. Verified end to end: the mechanism opened issue #198.
+
+### Documentation that described artifacts no code writes
+
+Four `.loki/` paths were named in `skills/` and `references/` with zero
+producing code, including a draft-07 schema and a `cat ... | jq` recovery
+command for `.loki/state/circuit-breakers.json`, a file that has never existed.
+Corrected to name the real artifacts: the three circuit breakers hold state in
+memory, the terminal queue is `dead-letter.json`, the memory index lives at the
+memory root, and the metrics actually written are
+`efficiency/iteration-<N>.json`, `budget.json` and `trust-events.jsonl`.
+
+`check-phase6-ready.yml` also carried a disable reason that stopped being true
+in May ("issues disabled on repo"; they are enabled). The cron stays off for a
+durable reason instead: it gates "Phase 6 - Sunset of Bash" for a v8.0.0 release
+that shipped 168 tags ago.
+
+### Two security boundary suites were registered but never ran
+
+`test_tenant_isolation.py` and `test_oidc_rbac_mapping.py` had a `run_check`
+call site and no `_FAST_KEEP` entry, so the fast tier deferred both and neither
+ran before a push. An auth-boundary suite no pre-push gate runs is
+indistinguishable from one that does not exist.
+
+## v9.49.4
+
+Mostly a deletion release. 4,794 lines removed against 905 added, because the
+largest item is code that could never run: 38 web-app modules unreachable from
+the app entry point, including a complete deploy-connections page the router
+never referenced.
+
+### Fixed
+
+- **A toggle reported a quality gate as enabled while the gate skipped itself.**
+  `readToggles` registered `flag("LOKI_GATE_MAGIC_DEBATE", true)`, so with the
+  variable unset the orchestrator recorded magic_debate as ENABLED, while the
+  gate body short-circuits to pass unless the value is exactly `"true"`. Unset,
+  `""` and `"1"` all disagreed; `"1"` is the sharp case, because `flag()`
+  accepts it as true and the gate does not. The toggle now uses the gate body's
+  own predicate. No gate outcome changes: every value that skipped still skips.
+  Checked across every other gate in `readToggles` and this was a singleton,
+  not a family.
+
+- **The receipt verifier and generator disagreed about what a receipt meant.**
+  `proof-verify.py` defined `_is_exogenous` and never called it, while the
+  generator filters by it. A failed ADVISORY gate therefore read VERIFIED to the
+  generator and NOT VERIFIED to the verifier, so `loki proof verify` told users
+  an honest receipt "was edited to misrepresent the facts". Demonstrated on a
+  receipt fixture through both real code paths before the fix, and both now
+  agree on all five cases.
+
+- **A test bound could not scale with the call it measured.** The speculative
+  devils-advocate assertion used a bare `elapsed_ms < 6000` while the call it
+  measures is dispatched with a budget this suite scales 4x on a sharded runner.
+  A first attempt scaled the bound by that budget; an adversarial reviewer
+  showed that permitted a 10s regression, and measuring settled it: the call is
+  concurrent and completes in 1498ms regardless of budget. The bound now scales
+  by the shard factor only, and the comment states the ceiling that remains.
+
+- **Documentation claimed a gate blocks when it is advisory on both routes.**
+  Five places, including a competitor-comparison document, listed the Magic
+  Modules Debate gate as "Yes (BLOCK severity)". bash enforces it only with
+  `LOKI_GATE_MAGIC_DEBATE_BLOCKING=true`; the Bun route self-skips unless the
+  env var is exactly `"true"`. The in-code comment records why it was made
+  advisory: 3 of 4 personas returned block on a deliberately thorough spec.
+
+- **The README promised an install that doctor rejects.** It said an API key was
+  enough while `doctor` marks jq and Node.js required and fails without them.
+
+- **The dashboard local-caller check failed open on a forwarded value.**
+  `_real_client_host` substitutes the left-most `X-Forwarded-For` entry when the
+  peer is a trusted proxy, and `_is_local_caller` then treated any host it could
+  not parse as an IP as local. A caller behind a trusted proxy could therefore
+  pass the local check by sending a non-IP token, and `unknown` is a literal
+  some proxies emit when the client address is unavailable, so this was
+  reachable without an attacker choosing the value. The direct-peer leniency is
+  deliberate and unchanged: ASGI test transports report `testclient` and UDS
+  transports report socket names. Only the forwarded path now fails closed, at
+  both the HTTP and websocket boundaries.
+
+  Scope, measured rather than asserted: `LOKI_TRUSTED_PROXIES` appears in no
+  deploy artifact, so the substitution only happens for an operator who set it.
+  But `dashboard/Dockerfile` does ship `LOKI_DASHBOARD_HOST=0.0.0.0`, so the
+  container is not loopback-only and the boundary carries real weight.
+
+### Removed
+
+- 38 modules under `web-app/src` unreachable from `main.tsx`, including
+  `pages/ConnectionsPage.tsx`, which rendered a complete deploy-connections
+  panel that the router imported zero times, so the route fell through the SPA
+  catch-all to NotFoundPage. The set was confirmed by extracting the previous
+  commit into a clean directory and checking the guard names exactly the deleted
+  modules, with neither over- nor under-reach.
+
+### Added
+
+- `tests/test-web-app-no-orphan-components.sh`: every module under
+  `web-app/src` must be reachable from the entry point. Deleted and unreachable
+  code is invisible to every other gate, so nothing else in CI could see this
+  class.
+- `tests/test-readme-lists-required-tools.sh`: every tool `doctor` marks
+  required must appear in the README prerequisites. Demonstrated by adding a
+  sixth required tool to doctor and watching the guard go red.
+- `loki-ts/tests/magic-debate-toggle-agreement.test.ts`: the toggle and the gate
+  body must agree for unset, `""`, `"true"`, `"1"` and `"false"`. It asserts the
+  two real predicates against each other rather than a hardcoded table.
+
+### Changed
+
+- Security coverage is now asserted per artifact rather than by count. A
+  `[ "$_passed" -lt 20 ]` threshold became eight individually named assertions,
+  one per audited manifest plus the SDK. A count cannot say which manifest went
+  unaudited, and it picks up slack it was never meant to have: drop one
+  manifest, add two assertions elsewhere, and the threshold still passes while a
+  shipped manifest goes unscanned.
+
 ## v9.49.3
 
 Six fixes, four of them the same defect class: a READER reading a key or file
@@ -541,6 +733,12 @@ agent may have touched, check the COMMITTED version, not the working tree.
 ## v9.43.0
 
 The pull request is the deliverable. It no longer needs a flag.
+
+Never published: `required-ci` failed with `Tests: completed/cancelled` at this
+SHA (run 34703144204), so `release` and every publish job was skipped. The Tests
+run was cancelled rather than broken -- v9.44.0 pushed eight minutes later and
+superseded it -- so nothing here was reverted or refixed; the content shipped in
+v9.44.0. No tag or npm version for 9.43.0 exists.
 
 ### Changed
 
@@ -2139,6 +2337,11 @@ any code moved.
 
 ## v9.26.2
 
+Committed and pushed but never released: `required-ci` failed with
+`Tests: completed/failure` at this SHA, so every publish job was skipped
+(run 34432149958). The cause is the environment-conditional `yq` assertion
+corrected in v9.26.3 above. No tag or npm version for it exists.
+
 ### Fixed
 
 - **YAML unknown-key detection now falls back to `yq`.** The check added in
@@ -2337,6 +2540,12 @@ so no gate goes red and only a bill shows the difference. Both are guarded.
 
 ## v9.23.0
 
+Committed and tagged locally but never released: `required-ci` failed with
+`Security Audit: completed/failure` at this SHA, so `release` and every publish
+job was skipped (run 34395800201). The audit failure is the fast-uri advisory
+set fixed in v9.23.1 below, which is the version that reached npm. No remote tag
+or npm version for 9.23.0 exists.
+
 ### Fixed
 
 - **The marketplace plugin failed to load at all.** `plugin.json` declared
@@ -2376,6 +2585,14 @@ so no gate goes red and only a bill shows the difference. Both are guarded.
   than deleted.
 
 ## v9.22.13
+
+Tagged but never published to npm: `gate`, `required-ci` and `release` all
+succeeded and the tag was pushed, so no test or gate blocked it. Both npm
+publishing jobs then failed on the registry PUT (run 32751584247):
+`publish-npm` with `npm error 404 Not Found - PUT
+https://registry.npmjs.org/loki-mode`, and `publish-ts-sdk` with the same E404
+on `.../loki-mode-sdk`, while `publish-docker` and `publish-python-sdk`
+succeeded. v9.22.14 did not publish either; v9.24.0 is the next version on npm.
 
 ### Added
 
@@ -26471,7 +26688,7 @@ multi-persona debate (MoMoA) into a native Loki subsystem.
 - Dashboard: API pricing reference card (Opus/Sonnet/Haiku)
 - Backend: `GET /api/cost` endpoint for token/cost metrics
 - Templates: 12 PRD templates (saas-starter, cli-tool, discord-bot, chrome-extension, mobile-app, blog-platform, e-commerce, ai-chatbot + 4 from examples)
-- Blog: Benchmark results page with Chart.js visualizations (HumanEval 98.78%, SWE-bench 100%)
+- Blog: Benchmark results page with Chart.js visualizations (HumanEval 98.78%, SWE-bench 100% [RETRACTED 2026-09-14: the SWE-bench figure is the `generated_count` string-counting metric retracted in v9.42.0; the HumanEval figure is unaffected and independently recounted as 162/164])
 - GitHub Action: Reusable `action.yml` for CI/CD code review integration
 - GitHub: 12 good-first-issues (#14-#25) for community onboarding
 
@@ -30200,6 +30417,21 @@ Loki Mode already implements most research-backed patterns:
 ## [2.22.0] - 2026-01-05
 
 ### Added - SWE-bench Lite Benchmark Results (50 Problems)
+
+> **CORRECTION, added 2026-09-14. The 100% figure below is wrong and is
+> retained only so the record is not quietly rewritten.**
+>
+> This is the SAME `generated_count` metric retracted for the 300-instance run
+> in v9.42.0: a counter that incremented on any NON-EMPTY `model_patch` string,
+> validated by substring tests (`"---" in patch`, `"@@" in patch`) that prose
+> quoting a diff satisfies. "100% patch generation" therefore means 50 of 50
+> produced a non-empty string, NOT 50 of 50 produced a genuine diff.
+>
+> The 300-instance re-measurement found 179 of 300 were prose rather than
+> diffs. This 50-instance run was never re-measured, so its true rate is
+> UNKNOWN. No corrected figure is published here: producing one requires
+> re-running the harness, and an estimate would repeat the original error of
+> publishing a number nobody measured.
 
 **100% Patch Generation on SWE-bench Lite** - Initial 50 problems successfully generated patches!
 

@@ -23,6 +23,7 @@ export interface ScrapeLocation {
 }
 
 export interface ScrapeOptions {
+  domainTools?: boolean;
   /** URL to scrape */
   url: string;
   /** Output format(s) - single format or array of formats */
