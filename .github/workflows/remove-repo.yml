@@ -109,6 +109,7 @@ on:
           - mrgoonie--claudekit-skills
           - hesreallyhim--awesome-claude-code
           - jqueryscript--awesome-claude-code
+          - shaunburdick--skills
 
 permissions:
   contents: write

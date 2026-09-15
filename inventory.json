@@ -498,5 +498,10 @@
     "url": "https://github.com/jqueryscript/awesome-claude-code",
     "dir": "jqueryscript--awesome-claude-code",
     "description": "A curated list of awesome tools, IDE integrations, frameworks, and other resources for developers working with Anthropic's Claude Code."
+  },
+  {
+    "url": "https://github.com/shaunburdick/skills",
+    "dir": "shaunburdick--skills",
+    "description": "Shaun Burdick skills collection"
   }
 ]
