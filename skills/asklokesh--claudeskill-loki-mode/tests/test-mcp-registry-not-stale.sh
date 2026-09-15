@@ -130,7 +130,15 @@ for entry in doc.get("servers") or []:
     server = entry.get("server") if isinstance(entry, dict) else None
     if not isinstance(server, dict):
         continue
-    if server.get("name") == want:
+    if server.get("name") != want:
+        continue
+    # The registry keeps EVERY published version as a separate, still-"active"
+    # row. Taking the first name match reports whichever row the API happens to
+    # order first, which is how this guard read 7.34.1 as live for hours AFTER
+    # 9.50.1 was published and flagged latest. Select on isLatest, never order.
+    meta = entry.get("_meta") or {}
+    official = meta.get("io.modelcontextprotocol.registry/official") or {}
+    if official.get("isLatest") is True:
         print(server.get("version") or "")
         break
 ' 2>/dev/null)"

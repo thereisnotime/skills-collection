@@ -368,7 +368,6 @@ const AIDetector = (() => {
     'generic-conclusion': 3,
     'lets-construction': 2,
     'reasoning-artifact': 6,
-    'acknowledgment-loop': 3,
     'significance-inflation': 4,
     'vague-attribution': 5,
     'hollow-intensifier': 2,
@@ -528,12 +527,11 @@ const AIDetector = (() => {
     /\bworking\s+through\s+this\s+logically\b/gi,
   ];
 
-  // ─── Acknowledgment loops ──────────────────────────────────────────
-  const ACKNOWLEDGMENT_LOOPS = [
-    /\byou'?re\s+asking\s+about\b/gi,
-    /\bthe\s+question\s+of\s+whether\b/gi,
-    /\bto\s+answer\s+your\s+question\b/gi,
-  ];
+  // NOTE: Acknowledgment loops are judgment-only (#239). The three phrases the
+  // detector matched ("you're asking about", "the question of whether", "to answer
+  // your question") are also how people open an ordinary reply and standard
+  // analytical English. The tell is a restatement that adds nothing, which a
+  // regex cannot see. See detector/CATEGORIES.md §C.
 
   // ─── Significance inflation ────────────────────────────────────────
   const SIGNIFICANCE_INFLATION = [
@@ -1508,10 +1506,15 @@ const AIDetector = (() => {
   // Setext headings (`Title`/`=====`) need no prefix: their text line is bare
   // and already matched by this same pattern.
   // Interior tokens accept Title Case words, acronyms (`AI`, `API`, `CLI`) and
-  // the capitalised single-letter function word `A`. The first and last tokens
+  // the capitalised single-letter words `A` and `I`. The first and last tokens
   // stay ordinary `[A-Z][a-z]+` words, which also excludes all-caps banner
   // lines (`## HTTP API REFERENCE`) whose leading token is not Title Case.
-  const TITLE_CASE_HEADER = /^(?:#{1,6}[ \t]+)?([A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|A|[A-Z]{2,}|and|or|of|the|in|for|to|a|an))+\s+[A-Z][a-z]+)\s*$/gm;
+  //
+  // Separators and trailing whitespace are horizontal only (`[ \t]`), so a
+  // match can never run past one physical line: `\s` also eats newlines, which
+  // let two unrelated lines or a blank-line-separated fragment combine into a
+  // single heading match (GH-291).
+  const TITLE_CASE_HEADER = /^(?:#{1,6}[ \t]+)?([A-Z][a-z]+(?:[ \t]+(?:[A-Z][a-z]+|A|I|[A-Z]{2,}|and|or|of|the|in|for|to|a|an))+[ \t]+[A-Z][a-z]+)[ \t]*$/gm;
 
   // ─── Parenthetical hedging asides ──────────────────────────────────
   // "(and increasingly, X)", "(or more precisely, Y)", "(though to be
@@ -1865,7 +1868,6 @@ const AIDetector = (() => {
     issues.push(...matchPatterns(text, GENERIC_CONCLUSIONS, 'generic-conclusion', 'medium'));
     issues.push(...matchPatterns(text, LETS_PATTERNS, 'lets-construction', 'medium'));
     issues.push(...matchPatterns(text, REASONING_ARTIFACTS, 'reasoning-artifact', 'critical'));
-    issues.push(...matchPatterns(text, ACKNOWLEDGMENT_LOOPS, 'acknowledgment-loop', 'medium'));
     issues.push(...matchPatterns(text, SIGNIFICANCE_INFLATION, 'significance-inflation', 'high'));
     issues.push(...matchPatterns(text, VAGUE_ATTRIBUTIONS, 'vague-attribution', 'critical'));
     issues.push(...matchPatterns(text, HOLLOW_INTENSIFIERS, 'hollow-intensifier', 'medium'));
@@ -2818,7 +2820,6 @@ const AIDetector = (() => {
     'generic-conclusion': 'Generic conclusion',
     'lets-construction': '"Let\'s" opener',
     'reasoning-artifact': 'Reasoning artifact',
-    'acknowledgment-loop': 'Acknowledgment loop',
     'significance-inflation': 'Significance inflation',
     'vague-attribution': 'Vague attribution',
     'hollow-intensifier': 'Hollow intensifier',

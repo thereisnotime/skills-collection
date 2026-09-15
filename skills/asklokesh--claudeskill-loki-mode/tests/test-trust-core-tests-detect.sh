@@ -544,8 +544,10 @@ probe_case "a changed failure reason keeps iterating" \
 probe_case "a stuck gate never reports success" \
     "autonomy/run.sh" \
     '                        save_state "${retry:-0}" "gate_stuck_mutation_integrity" 20 2>/dev/null || true
+                        emit_completion_summary gate_stuck_mutation_integrity
                         return 20' \
     '                        save_state "${retry:-0}" "gate_stuck_mutation_integrity" 20 2>/dev/null || true
+                        emit_completion_summary gate_stuck_mutation_integrity
                         return 0' \
     bash tests/test-gate-stuck-abort.sh
 

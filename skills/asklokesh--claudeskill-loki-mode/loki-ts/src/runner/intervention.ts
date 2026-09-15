@@ -385,8 +385,23 @@ export async function handlePause(opts: HandlePauseOptions = {}): Promise<Handle
   try {
     mkdirSync(dir, { recursive: true });
     atomicWriteFileSync(sp.pausedMd, body);
-  } catch {
+  } catch (err) {
     // Non-fatal: PAUSED.md is informational. The wait still proceeds.
+    //
+    // Swallowing is deliberate -- every consumer treats PAUSED.md as a
+    // human-readable notice (autonomous.ts::cleanStaleSignalFiles only
+    // unlinks it; run.sh:4900 only points the user at it), and a pause that
+    // HANGS because a lockfile was contended is worse than a pause with no
+    // notice file. But the write goes through withFileLockSync
+    // (util/atomic.ts), which THROWS when it cannot acquire the lock within
+    // state.ts::LOCK_MAX_WAIT_MS (5s -- atomicWriteFileSync passes it
+    // explicitly, so the 10s default in the signature never applies here),
+    // and nothing re-writes the file afterwards -- one write here against
+    // four rmIfExists sites -- so a swallow is terminal and was previously
+    // invisible. Log it so the next occurrence is diagnosable.
+    console.error(
+      `handlePause: could not write ${sp.pausedMd}: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   // Human-intervention counter for the Evidence Receipt. Mirrors the bash

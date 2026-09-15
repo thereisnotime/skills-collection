@@ -5,6 +5,137 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.50.4
+
+**Gate-stuck was the only terminal that told the user nothing.** When the same
+quality gate failed for the same reason three times, the run stopped rather than
+grinding, which is correct. But those three exits (static analysis, mock
+integrity, mutation integrity) were the ONLY terminals in `run_autonomous` that
+never called `emit_completion_summary`. Every other one does, including the
+council force-stop. So they wrote no COMPLETION.txt, rendered no completion
+card, and sent no notification: a `--bg` user got no ping and nothing in the one
+file they are told to read.
+
+All three now write the summary with their own outcome, each outcome has a
+literal label arm in both `build_completion_summary` and
+`print_completion_card`, and the three statuses joined the ENT-3
+terminal-failure arm on BOTH routes, so exit 20 is classified by intent instead
+of falling through the arm that logs "crash, retryable".
+
+No PR is opened, deliberately. The council force-stop precedent bans the PR and
+mandates the summary in the same breath; this applies it rather than departing
+from it.
+
+This also partly refutes ONE-RUN-AUDIT finding 2, which claimed the work "stays
+on the session branch for the user to find by hand". `commit_session_changes` is
+commit-always and runs from `main()` after the 20, and `print_pr_advice` already
+prints the push and PR commands. The surviving defect was the missing summary,
+not a missing PR.
+
+**A failed PAUSED.md write was invisible (Bun route).** `handlePause` writes
+`.loki/PAUSED.md` inside a bare `catch {}`. The write goes through
+`atomicWriteFileSync` -> `withFileLockSync`, which throws when it cannot
+acquire the per-target lockfile within `LOCK_MAX_WAIT_MS` (5s). Nothing
+re-writes the file afterwards -- one write against four `rmIfExists` sites --
+so a swallowed failure was terminal and surfaced no error anywhere: a paused
+run simply had no notice file and no explanation.
+
+Reproduced by holding `PAUSED.md.lock` and calling `handlePause`: the file is
+absent for the whole wait. Negative control with the lock free: present.
+
+The catch is kept deliberately. Every consumer treats `PAUSED.md` as a
+human-readable notice (`autonomous.ts::cleanStaleSignalFiles` only unlinks it;
+`run.sh:4900` only points the user at it), and a pause that HANGS on a
+contended lockfile is worse than a pause with no notice file. The caught error
+is now logged so the next occurrence names itself.
+
+## v9.50.3
+
+A paused run could hang forever or resume on data nobody typed, and the
+Evidence Receipt it wrote was never announced. Both reach users here.
+
+**A non-interactive pause could hang, or falsely resume (#205).** When a quality
+gate escalated to a PAUSE, the wait loop polled for a keypress. Off a TTY
+(`--bg`, a container, a CI job) that read can never succeed, so the run spun
+forever with nobody able to press anything. Worse, when stdin was a pipe or file
+carrying bytes, the read SUCCEEDED on the first stray byte and the next line
+removed `.loki/PAUSE`, silently resuming a run that a blocking gate had stopped.
+The keypress arm is now gated on an interactive stdin. The file-based escapes are
+untouched and still poll every second: measured off a TTY, removing `.loki/PAUSE`
+exits in 4 loops and `touch .loki/STOP` in 5. A fully unattended run still waits,
+which is deliberate; a bounded wait would invent a new terminal outcome and could
+fail a legitimate long human pause.
+
+The pause banner and `.loki/PAUSED.md` both advertised "press Enter" where no key
+can be read. Both now state the truth per tty state.
+
+**The Evidence Receipt is now announced (#209).** The receipt was already
+generated automatically and opt-out, but the only mention to the user was a
+single line. A user who had never heard of `loki proof` could finish a run
+without learning a checkable receipt existed. The end-of-run summary now names
+the receipt path, the deterministic verdict, and the re-check command. The
+verdict is the generator's `honesty.headline`, never the council's AI judgment.
+The page line is gated on `index.html` actually existing, because the generator
+writes `proof.json` and then renders the page unwrapped, so a render failure
+would otherwise name a page that is not there.
+
+**A run could advertise the previous run's receipt (#211).**
+`.loki/state/last-proof-id.txt` was never cleared at run start, so a run that
+died before generating a proof left the previous run's id behind, and
+`COMPLETION.txt` printed that receipt under the heading "Evidence Receipt (this
+run):". A receipt naming the wrong run is worse than no receipt: absence reads as
+"no data", a stale one reads as evidence. The pointer is now cleared during run
+init, beside the existing stale-metrics reset that exists for the same reason.
+
+**The re-check command now works from any directory.** `loki proof verify <id>`
+resolves the receipt from the run's target dir, which need not be where the user
+is standing, so the printed command failed for exactly the user it invited to
+check the work. It now emits a `cd`-wrapped form when the cwd differs.
+
+**The run id is validated before use.** The headline was sanitized and the id was
+not, so an interior newline or tab in the pointer split the tab-separated record
+and handed the consumers a field boundary that is not there. Ids are confined to
+`[A-Za-z0-9._-]` and rejected rather than repaired, since a pointer outside that
+alphabet is corrupt and a repaired id would name a directory that does not exist.
+
+## v9.50.2
+
+Three fixes reach users here. The security fix landed on main after v9.50.1 was
+already published, so npm users are receiving it for the first time in this
+release.
+
+**A public placeholder was accepted as the JWT signing key.** `web-app/auth.py`
+read `PURPLE_LAB_SECRET_KEY` from the environment and used whatever it found.
+The shipped documentation and compose files carry
+`CHANGE_ME_TO_RANDOM_64_CHAR_HEX` as the example value, so any deployment that
+copied the example and did not edit it signed its tokens with a string published
+in this repository. Anyone could mint a valid token. The placeholder set is now
+rejected and a random 64-char key is generated instead, with a CRITICAL log
+line. Verified by mutation in both directions: each placeholder is rejected, a
+real 64-char secret is not.
+
+**npm could publish a stale dist that Docker would catch too late.** `prepack`
+rebuilds `loki-ts/dist` during `npm publish`, so a worktree assertion could pass
+while the PACKED tarball carried a different build. The `publish-npm` job now
+unpacks the tarball it is about to publish and asserts the dist inside it
+carries the version being released. Measured across five sampled release
+commits, one had a worktree dist lagging the tarball.
+
+**The MCP registry guard read a stale row and called a good publish drift.** The
+registry keeps every published version as its own row and every row stays
+`status=active`. The guard iterated `servers[]`, took the first name match and
+stopped, so it reported whichever row the API happened to order first. After
+9.50.1 was published and flagged `isLatest`, the registry still ordered the
+7.34.1 row first, so the guard reported drift against a registry that was
+already current. It now selects on `isLatest` rather than array order.
+
+A guard that cannot see success is worse than no guard: a red nobody can clear
+trains everyone to ignore reds. Verified three ways rather than one, since a
+single green reading proves nothing here. Live (reads 9.50.1), negative control
+(a response with `isLatest` on the old version still selects the old version, so
+genuine drift is still detected), and positive control (reversing the live array
+still selects 9.50.1, so the result is order-independent).
+
 ## v9.50.1
 
 Two published SWE-bench figures were never retracted, though they measure the

@@ -503,6 +503,41 @@ jobs:
         run: |
           test -f dashboard/static/index.html || { echo "FATAL: dashboard/static/index.html not found after build"; exit 1; }
 
+      - name: Verify the PACKED tarball carries a fresh dist
+        run: |
+          # WHY PACK AND NOT THE WORKTREE. package.json's prepack rebuilds
+          # loki-ts/dist DURING `npm publish`, so a check against the checked-out
+          # tree inspects the PRE-rebuild file. The committed dist legitimately
+          # lags VERSION (measured: 9dfb18d2 shipped VERSION 9.50.1 with a
+          # committed dist embedding 9.50.0, and npm still published 9.50.1
+          # correctly because prepack rebuilt it). Asserting on the worktree
+          # would have failed that good release. `npm pack` runs the same
+          # prepack, so the tarball is the honest artifact to inspect.
+          #
+          # WHAT THIS CATCHES. prepack SWALLOWS a failed build:
+          #   (cd loki-ts && bun install --production && bun run build) \
+          #     || echo 'WARN: loki-ts build failed, using existing dist if present'
+          # so a broken build yields exit 0 and a tarball carrying a STALE dist.
+          # publish-docker asserts `test -f dist/loki.js` after its own build,
+          # but publish-docker and publish-npm are PARALLEL siblings on
+          # `needs: release`: the channel with the assertion cannot stop the one
+          # without it, and npm has already shipped by the time Docker goes red.
+          set -euo pipefail
+          want="$(cat VERSION)"
+          # prepack's bun build writes to stdout too, so --silent is NOT
+          # enough: the capture would be three lines, not a filename. Take the
+          # LAST line, which is the tarball npm reports.
+          tgz="$(npm pack --silent | tail -n 1)"
+          tar -xzf "$tgz" package/loki-ts/dist/loki.js
+          test -f package/loki-ts/dist/loki.js || {
+            echo "FATAL: packed tarball has no loki-ts/dist/loki.js"; exit 1; }
+          grep -q "\"${want}\"" package/loki-ts/dist/loki.js || {
+            echo "FATAL: packed dist does not embed VERSION ${want}"
+            echo "       embedded: $(grep -oE '\"[0-9]+\.[0-9]+\.[0-9]+\"' package/loki-ts/dist/loki.js | sort -u | head -3 | tr '\n' ' ')"
+            exit 1; }
+          echo "OK: packed dist embeds ${want}"
+          rm -rf package "$tgz"
+
       - name: Publish to npm
         run: npm publish --access public
         env:

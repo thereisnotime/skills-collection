@@ -610,6 +610,90 @@ Report NEXT: handoff if babysit should be invoked, NEXT: continue if the active 
     grade: { files_read_post: ["references/research.md", "references/bakeoff.md"], must_include_field: "HANDOFF", must_include: ["next=ce-bakeoff", "final-author=ce-plan"], actions: "none", delegates: "none" },
   },
   {
+    id: "ce-plan/auto-bakeoff-eligible",
+    skill: "ce-plan",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    why: "Planning must route an open, costly-to-reverse technical choice to Bake-off on its own conditions; the user no longer has to name it.",
+    pre_contract: "Phase 1.6 ran Bake-off only when the user explicitly requested one.",
+    task: "Use ce-plan at the end of research for a Standard Durable plan. Product scope is settled. Research found two structurally different ways to own retry state (a per-job row versus an event-sourced ledger); neither was eliminated, both need sketching before they can be compared, and the storage shape is what every later unit builds on. I have not mentioned a Bake-off. State HANDOFF: next=<ce-bakeoff|continue-planning>, choosing one, and explain why; stop before dispatch or writing. No model override is configured.",
+    grade: { files_read_post: ["references/research.md", "references/bakeoff.md"], must_include_field: "HANDOFF", must_include: ["next=ce-bakeoff"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-plan/auto-bakeoff-settled-how-continues",
+    skill: "ce-plan",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "1953002d7",
+    why: "A choice the requirements or the codebase already settled must not be reopened into a competition just because alternatives exist.",
+    pre_contract: "Phase 1.6 ran Bake-off only when the user explicitly requested one.",
+    task: "Use ce-plan at the end of research for a Standard Durable plan. The requirements doc states retries are owned by the existing job-queue table, and every other worker in the codebase already does it that way. Research noted an event-sourced alternative would also work. I have not mentioned a Bake-off. State HANDOFF: next=<ce-bakeoff|continue-planning>, choosing one, and explain why; stop before dispatch or writing. No model override is configured.",
+    grade: { files_read_post: ["references/research.md"], must_include_field: "HANDOFF", must_include: ["next=continue-planning"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-plan/auto-bakeoff-cheap-reversal-continues",
+    skill: "ce-plan",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    baseline_ref: "1953002d7",
+    why: "An open choice a later PR can flip cheaply does not earn three candidates and a judge.",
+    pre_contract: "Phase 1.6 ran Bake-off only when the user explicitly requested one.",
+    task: "Use ce-plan at the end of research for a Standard Durable plan. Product scope is settled. Research left one choice open: whether the retry backoff constants live in a config file or an environment variable. Either is a one-line change to swap later and nothing else depends on it. I have not mentioned a Bake-off. State HANDOFF: next=<ce-bakeoff|continue-planning>, choosing one, and explain why; stop before dispatch or writing. No model override is configured.",
+    grade: { files_read_post: ["references/research.md"], must_include_field: "HANDOFF", must_include: ["next=continue-planning"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-plan/auto-bakeoff-interface-boundary-eligible",
+    skill: "ce-plan",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    why: 'The costly-reversal condition covers interfaces and ownership boundaries, not only storage; an open public contract must still trigger.',
+    pre_contract: "Phase 1.6 ran Bake-off only when the user explicitly requested one.",
+    task: 'Use ce-plan at the end of research for a Deep Durable plan. Product scope is settled. Research left open whether the new sync capability is exposed as a webhook the customer registers or as a polling endpoint the customer calls; both survived research, each needs its auth, retry, and versioning story sketched before they can be compared, and external integrators will build against whichever ships. I have not mentioned a Bake-off. State HANDOFF: next=<ce-bakeoff|continue-planning>, choosing one, and explain why; stop before dispatch or writing. No model override is configured.',
+    grade: { files_read_post: ["references/research.md", "references/bakeoff.md"], must_include_field: "HANDOFF", must_include: ["next=ce-bakeoff"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-plan/auto-bakeoff-concrete-alternatives-continue",
+    skill: "ce-plan",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    why: 'Alternatives already developed enough to compare need judgment, not a competition; routing them to Bake-off is over-triggering.',
+    pre_contract: "Phase 1.6 ran Bake-off only when the user explicitly requested one.",
+    task: "Use ce-plan at the end of research for a Standard Durable plan. Product scope is settled. Research produced two fully worked retry-ownership designs, each with its data shape, failure behavior, deadlines, migration path, and tradeoffs written out; the remaining work is to weigh them against the project's constraints and pick. I have not mentioned a Bake-off. State HANDOFF: next=<ce-bakeoff|continue-planning>, choosing one, and explain why; stop before dispatch or writing. No model override is configured.",
+    grade: { files_read_post: ["references/research.md"], must_include_field: "HANDOFF", must_include: ["next=continue-planning"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-plan/auto-bakeoff-user-said-pick-one-continues",
+    skill: "ce-plan",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    why: 'An instruction to choose without ceremony rules out a competition even when the choice would otherwise qualify.',
+    pre_contract: "Phase 1.6 ran Bake-off only when the user explicitly requested one.",
+    task: 'Use ce-plan at the end of research for a Standard Durable plan. Product scope is settled. Research left two structurally different retry-state owners open and both would need sketching, and the storage shape is what later units build on. I said at the start: we are time-boxed, just pick one and move on. I have not mentioned a Bake-off. State HANDOFF: next=<ce-bakeoff|continue-planning>, choosing one, and explain why; stop before dispatch or writing. No model override is configured.',
+    grade: { files_read_post: ["references/research.md"], must_include_field: "HANDOFF", must_include: ["next=continue-planning"], actions: "none", delegates: "none" },
+  },
+  {
+    id: "ce-plan/auto-bakeoff-chat-brief-continues",
+    skill: "ce-plan",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    post_only: true,
+    why: 'Bake-off is a Durable-plan step; a request that resolves as a Chat brief must not grow a competition.',
+    pre_contract: "Phase 1.6 ran Bake-off only when the user explicitly requested one.",
+    task: 'Use ce-plan for this: add a retry to the nightly export job so a transient S3 error does not fail the run. I am here in chat and will act on your answer now; no plan file was asked for. Research showed two ways to hold the retry counter, in memory or in the job row, and neither is obviously better. Resolve the output tier first, then I have not mentioned a Bake-off. State HANDOFF: next=<ce-bakeoff|continue-planning>, choosing one, and explain why; stop before dispatch or writing. No model override is configured.',
+    grade: { files_read_post: [], must_include_field: "HANDOFF", must_include: ["next=continue-planning"], actions: "none", delegates: "none" },
+  },
+  {
     id: "ce-brainstorm/requested-bakeoff-confirmation",
     skill: "ce-brainstorm",
     cohort: "resized",
@@ -1767,6 +1851,162 @@ Do not run the review itself.
 Also quote the specific rules you found in those files.`,
     grade: {
       must_include: ["src/cart.ts=CODING_STANDARDS.md", "explicit return type"],
+      actions: "none",
+    },
+  },
+  {
+    id: "ce-code-review/depth-gate-yaml-lite",
+    skill: "ce-code-review",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    git_staged: [".compound-engineering/config.yaml"],
+    fixture: `${FIX}/review-depth-yaml-lite`,
+    post_only: true,
+    why: "#1703: a one-property config add is structured text, not a silent-pass guard. Pre-change lite_eligible failed closed on YAML. The helper now reports a clear floor; the agent must declare lite.",
+    pre_contract:
+      "Uncounted YAML disqualifies lite. The helper awards lite_eligible: false and the full spine runs.",
+    task: `Use the ce-code-review skill on this repo with mode:agent. Resolve the Review depth gate only. This is a read-only probe: do not create the run directory and do not dispatch reviewers.
+
+End with exactly one line in this form and nothing else on that line:
+
+DEPTH: lite
+
+or
+
+DEPTH: full`,
+    grade: {
+      files_read_post: ["references/modes-and-output.md"],
+      declared: { DEPTH: "lite" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-code-review/depth-gate-plan-lite",
+    skill: "ce-code-review",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    git_staged: [".compound-engineering/config.yaml"],
+    fixture: `${FIX}/review-depth-plan-lite`,
+    post_only: true,
+    why: "Shipping callers always pass plan:. Lite must stay cheap for a one-line config change and still verify the named plan: R2/U2 (README note) is unaddressed, so the receipt must not say complete-and-ready.",
+    pre_contract:
+      "Uncounted YAML failed closed to the full spine, where Stage 6 verified the plan.",
+    task: `Use the ce-code-review skill on this repo with mode:agent plan:docs/plans/2026-09-14-001-config-docs-root-plan.md. Resolve the Review depth gate and, if lite, the plan requirements check only. This is a read-only probe: do not create the run directory and do not dispatch reviewers.
+
+End with exactly two lines in this form and nothing else on those lines:
+
+DEPTH: lite
+PLAN: complete
+
+or
+
+DEPTH: lite
+PLAN: unaddressed
+
+where PLAN is unaddressed when the named plan has any requirement or implementation unit the diff does not address. Name those ids in prose above the two lines, not on them.`,
+    grade: {
+      files_read_post: ["references/modes-and-output.md", "references/intent-and-plan.md"],
+      declared: { DEPTH: "lite", PLAN: "unaddressed" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-code-review/depth-gate-standards-violation",
+    skill: "ce-code-review",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    git_staged: ["src/cart.ts"],
+    fixture: `${FIX}/standards-designated`,
+    post_only: true,
+    why: "A four-line src addition with no high-consequence class takes lite. The repo's CODING_STANDARDS.md forbids console.log in src/; lite must still catch it in context, without a persona.",
+    pre_contract:
+      "The lite roster carried project-standards as a persona; the first cut of the depth gate dropped criteria from lite entirely.",
+    task: `Use the ce-code-review skill on this repo with mode:agent. Resolve the Review depth gate and, if lite, the criteria check only. This is a read-only probe: do not create the run directory and do not dispatch reviewers.
+
+End with exactly two lines in this form and nothing else on those lines:
+
+DEPTH: lite
+STANDARDS: violation
+
+or
+
+DEPTH: lite
+STANDARDS: clean
+
+where STANDARDS is violation when a changed line contradicts a rule in a criteria file that governs it. Quote the rule in prose above the two lines, not on them.`,
+    grade: {
+      files_read_post: ["references/modes-and-output.md"],
+      declared: { DEPTH: "lite", STANDARDS: "violation" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-code-review/depth-gate-standards-clean",
+    skill: "ce-code-review",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    git_staged: ["src/cart.ts", "src/log.ts"],
+    fixture: `${FIX}/standards-compliant`,
+    post_only: true,
+    why: "The compliant twin: same criteria file, a change that follows every rule. Lite must not invent a violation to look thorough.",
+    pre_contract:
+      "The lite roster carried project-standards as a persona; the first cut of the depth gate dropped criteria from lite entirely.",
+    task: `Use the ce-code-review skill on this repo with mode:agent. Resolve the Review depth gate and, if lite, the criteria check only. This is a read-only probe: do not create the run directory and do not dispatch reviewers.
+
+End with exactly two lines in this form and nothing else on those lines:
+
+DEPTH: lite
+STANDARDS: violation
+
+or
+
+DEPTH: lite
+STANDARDS: clean
+
+where STANDARDS is violation when a changed line contradicts a rule in a criteria file that governs it. Quote the rule in prose above the two lines, not on them.`,
+    grade: {
+      files_read_post: ["references/modes-and-output.md"],
+      declared: { DEPTH: "lite", STANDARDS: "clean" },
+      actions: "none",
+      delegates: "none",
+    },
+  },
+  {
+    id: "ce-code-review/depth-gate-ci-full",
+    skill: "ce-code-review",
+    cohort: "resized",
+    key_behavior: "judgment",
+    read_only: true,
+    git_init: true,
+    git_staged: [".github/workflows/ci.yml"],
+    fixture: `${FIX}/review-depth-ci-full`,
+    post_only: true,
+    why: "A CI workflow is a silent-pass guard the helper can name from the path. The agent must not talk that hard block down to lite.",
+    pre_contract:
+      "CI and other uncounted files fail closed to the full roster.",
+    task: `Use the ce-code-review skill on this repo with mode:agent. Resolve the Review depth gate only. This is a read-only probe: do not create the run directory and do not dispatch reviewers.
+
+End with exactly one line in this form and nothing else on that line:
+
+DEPTH: lite
+
+or
+
+DEPTH: full`,
+    grade: {
+      files_read_post: ["references/modes-and-output.md"],
+      declared: { DEPTH: "full" },
       actions: "none",
     },
   },

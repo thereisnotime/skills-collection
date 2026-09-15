@@ -36,6 +36,8 @@
 | Plan deepening, knowledge extraction | `compound-learning.md` |
 | Managed Agents memory, multiagent council, flag hierarchy | `memory.md` |
 | Non-trivial change (>3 files, agent runtime, MINOR/MAJOR release) | `sdlc-fleet.md` |
+| Several agent teams running at once, file ownership, WIP limits | `factory-operations.md` |
+| Cutting a release, version bump, publish verification | `release-cadence.md` |
 | Adding your own gate/reviewer/agent to the loop | `extending.md` |
 
 ## Module Descriptions
@@ -168,6 +170,19 @@ parity change). Binding per CLAUDE.md, so this index must be able to route to it
 - Six roles: Architect, Product Owner, Dev Fleet, SDET, Council Reviewers, Real-User QA
 - Unanimous 3-of-3 APPROVE required from the review council
 - Skip rules: typo fixes, docs-only edits, reverts, emergency hotfixes
+
+### factory-operations.md
+**When:** More than one agent team is working the repo at the same time
+- Roles and the DECIDES vs ADVISES split (CoS, PM, Dev Fleet, SDET, Council, Release Captain)
+- Per-file ownership: the lead never edits a file an agent owns
+- WIP limits, and what a blocked team does instead of waiting
+- The spine: a measurement that cannot see what it claims to measure is worse than none
+
+### release-cadence.md
+**When:** Taking a change from merged to published
+- The fast tier is the release gate; the full tier is not a blocker
+- VERSION must be the push HEAD or the release workflow never fires
+- Verify the artifact a user installs, never a green job or an exit code
 
 ### extending.md
 **When:** Adding a custom reviewer/agent to the loop without editing engine files

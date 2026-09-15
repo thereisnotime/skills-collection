@@ -1206,6 +1206,7 @@ results = {
 }
 
 generated_count = 0
+format_failed_count = 0
 error_count = 0
 skipped_count = 0
 start_time = time.time()
@@ -1905,8 +1906,14 @@ for i, problem in enumerate(problems):
         else:
             print(f"\033[0;32mGENERATED\033[0m")
     elif result["model_patch"]:
-        generated_count += 1
-        print(f"\033[0;33mGENERATED\033[0m (format issues)")
+        # NOT a generation. This branch used to do `generated_count += 1`, which
+        # restored the exact defect the comment above says was fixed: any
+        # NON-EMPTY string counted. Worse, the terminal path sets
+        # error="Format issues after N attempts", which fails the _is_real_diff
+        # test BY CONSTRUCTION and lands here -- so prose that survived every
+        # RARV retry was counted as a generated patch.
+        format_failed_count += 1
+        print(f"\033[0;31mNOT A DIFF\033[0m (format issues after retries)")
     else:
         error_count += 1
         print(f"\033[0;31mERROR\033[0m - {result.get('error', 'Unknown')[:40]}")

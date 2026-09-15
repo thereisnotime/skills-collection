@@ -2,9 +2,12 @@
 
 This document defines the JSON schemas used by skill-creator's evaluation pipeline (evals, grading, benchmark, feedback).
 
+**Coverage rule:** when a new pipeline artifact is introduced — or an existing one gains a second consumer — pin its canonical location and each consumer's lookup behavior here. Two scripts relying on an undocumented location convention is a bug waiting for a user report (#443: the aggregator and the viewer disagreed on `eval_metadata.json`'s directory level until the convention was pinned in this document).
+
 ## Contents
 
 - **evals.json** — test case definitions (prompts, expected output, assertions)
+- **eval_metadata.json** — per-eval-case prompt/metadata consumed by both the aggregator and the viewer
 - **history.json** — description optimization loop history
 - **grading.json** — per-run assertion results (viewer depends on exact field names)
 - **metrics.json** — per-run quantitative metrics
@@ -44,6 +47,31 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
 - `evals[].expected_output`: Human-readable description of success
 - `evals[].files`: Optional list of input file paths (relative to skill root)
 - `evals[].expectations`: List of verifiable statements
+
+---
+
+## eval_metadata.json
+
+Per-test-case prompt and metadata for one eval directory. Located at `<workspace>/iteration-N/eval-<name>/eval_metadata.json` — write exactly one copy, at the eval-directory level.
+
+**Consumers (which script reads it where):**
+- `scripts/aggregate_benchmark.py` reads it at the eval-directory level only (`eval_dir / "eval_metadata.json"`).
+- `eval-viewer/generate_review.py` probes `<run-dir>/eval_metadata.json`, then `<run-dir>/../eval_metadata.json`, then the eval-directory level, using the first candidate that yields a prompt. The documented paired-pipeline layout needs only the eval-directory copy; a run whose prompt shows `(No prompt found)` got no prompt from any of the three levels (and its `transcript.md` fallback also came up empty).
+
+```json
+{
+  "eval_id": 0,
+  "eval_name": "descriptive-name-here",
+  "prompt": "The user's task prompt",
+  "assertions": []
+}
+```
+
+**Fields:**
+- `eval_id`: Integer identifier. When the file or field is missing, the aggregator derives an id from the `eval-<N>` directory name or enumeration order, and the viewer sorts such runs last
+- `eval_name`: Descriptive name for the eval directory and viewer labels
+- `prompt`: The task prompt shown in the viewer
+- `assertions`: List of verifiable statements; may be written empty at run time and filled in while runs are in progress
 
 ---
 

@@ -108,6 +108,48 @@ out="$(summary_for max_iterations)"
     || ko "the rework split the advice refers to is present" \
           "the advice says 'low rework above' with no rework line rendered"
 
+# --- 6. every gate-stuck terminal actually CALLS the summary -----------------
+# Gate-stuck was the only terminal in run_autonomous that wrote no
+# COMPLETION.txt and sent no notification: it went save_state -> return 20 and
+# told the user nothing, on the one path that stopped because a gate would not
+# clear. A --bg run therefore pinged nobody and left nothing in the file those
+# users are told to read.
+#
+# This asserts on the CALL, by executing the branch, because a source grep for
+# the function name survives the mutation that matters: replacing the literal
+# with an unset variable still greps 1 while the summary receives "".
+#
+# The branch is located by pattern rather than line number. Every line number
+# the original audit cited for this code had already drifted by the time the
+# fix landed.
+for _g in static_analysis mock_integrity mutation_integrity; do
+    _s="$(grep -n "if _loki_gate_stuck \"$_g\"" "$RUN_SH" | head -1 | cut -d: -f1)"
+    if [[ -z "$_s" ]]; then
+        ko "gate-stuck branch for $_g is locatable" \
+           "the anchor moved; this guard cannot see the code it protects"
+        continue
+    fi
+    _e="$(awk -v s="$_s" 'NR>s && NR<=s+25 && /^ *fi$/ {print NR; exit}' "$RUN_SH")"
+    _got="$(awk -v s="$_s" -v e="$_e" 'NR>=s && NR<=e' "$RUN_SH" > "$SCRATCH/branch-$_g.sh"
+            cd "$SCRATCH" && bash -c '
+                set +e
+                _loki_gate_stuck() { return 0; }
+                log_error() { :; }
+                log_warn() { :; }
+                emit_event_json() { :; }
+                save_state() { :; }
+                emit_completion_summary() { printf "%s" "${1:-}"; }
+                sa_count=3; mk_count=3; mt_count=3; TARGET_DIR=.
+                source "./branch-'"$_g"'.sh"
+            ' 2>/dev/null)"
+    if [[ "$_got" == "gate_stuck_$_g" ]]; then
+        ok "gate_stuck_$_g calls emit_completion_summary with its own outcome"
+    else
+        ko "gate_stuck_$_g calls emit_completion_summary with its own outcome" \
+           "recorded [$_got]; a terminal that writes no COMPLETION.txt tells a --bg user nothing"
+    fi
+done
+
 echo ""
 echo "  Passed:     $passed"
 echo "  Failed:     $failed"

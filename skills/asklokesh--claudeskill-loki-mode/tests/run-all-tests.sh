@@ -906,6 +906,7 @@ run_test "the receipt shows disabled gates" "$SCRIPT_DIR/test-receipt-shows-disa
 run_test "the public HTML receipt shows disabled gates" "$SCRIPT_DIR/test-html-receipt-disabled-gates.sh"
 run_test "the founder-decisions document is accurate" "$SCRIPT_DIR/test-founder-decisions-doc-accurate.sh"
 run_test "entry-document pointers resolve" "$SCRIPT_DIR/test-entry-doc-pointers-resolve.sh"
+run_test "a pause needs no TTY, and a run names its receipt" "$SCRIPT_DIR/test-pause-tty-and-receipt-surface.sh"
 run_test "the mutation probe cannot silently no-op" "$SCRIPT_DIR/test-mutation-probe.sh"
 run_test "the Quality page shows which gates block" "$SCRIPT_DIR/test-gate-policy-ui-line.sh"
 run_test "the evidence receipt is reachable from the dashboard" "$SCRIPT_DIR/test-receipts-panel.sh"

@@ -4332,6 +4332,63 @@ else:
 ' 2>/dev/null || true
 }
 
+# _loki_receipt_facts <loki_dir>
+#
+# Echo three tab-separated facts about THIS run's Evidence Receipt, or nothing
+# at all: "<run_id>\t<proof_dir>\t<headline>".
+#
+# WHY THIS EXISTS (#209). The receipt is generated automatically and opt-OUT
+# (LOKI_PROOF defaults to 1), but the only place its location ever reached a
+# user was the TTFV first-run block, which fires solely on a zero-config first
+# run. A user who does not already know `loki proof` exists could therefore
+# finish a successful run without ever learning a checkable receipt was written.
+#
+# HONESTY RULES, deliberately fail-silent:
+#   - Resolved from the PERSISTED pointer (.loki/state/last-proof-id.txt),
+#     never newest-by-mtime, so it names the run the generator actually wrote.
+#   - Emits NOTHING unless the pointer, the proof dir, and proof.json all exist.
+#     the summary builder (build_completion_summary) is itself invoked mid-pause
+#     before the teardown receipt on the success path, where no receipt exists
+#     yet -- printing a path there would be a promise, not a fact.
+#   - The headline is honesty.headline, which the generator computes
+#     DETERMINISTICALLY from recorded facts (VERIFIED / VERIFIED WITH GAPS /
+#     NOT VERIFIED). It is never the council verdict, which the generator
+#     itself labels "AI judgment, not deterministic proof". A missing or
+#     unreadable headline yields an empty third field, and the callers then
+#     print the path without a verdict rather than inventing one.
+# Best-effort: never fails a run.
+_loki_receipt_facts() {
+    local loki_dir="${1:-}"
+    [ -n "$loki_dir" ] || return 0
+    local id_file="$loki_dir/state/last-proof-id.txt"
+    [ -s "$id_file" ] || return 0
+    local rid=""
+    rid="$(cat "$id_file" 2>/dev/null || true)"
+    # Confine the run id to the alphabet the generator actually mints. The
+    # headline is sanitized below; the id was not, so an interior newline or a
+    # tab in the pointer split the tab-separated record and handed the consumers
+    # a field boundary that is not there. Reject rather than repair: a pointer
+    # outside this alphabet is corrupt, and a repaired id would name a directory
+    # that does not exist.
+    case "$rid" in
+        ''|*[!A-Za-z0-9._-]*) return 0 ;;
+    esac
+    [ -n "$rid" ] || return 0
+    local pj="$loki_dir/proofs/$rid/proof.json"
+    [ -f "$pj" ] || return 0
+    local headline=""
+    headline="$(python3 -c "
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    h = (d.get('honesty') or {}).get('headline') or ''
+    print(str(h).replace('\t', ' ').replace('\n', ' ').strip())
+except Exception:
+    print('')" "$pj" 2>/dev/null || true)"
+    printf '%s\t%s\t%s\n' "$rid" "$loki_dir/proofs/$rid" "$headline"
+    return 0
+}
+
 build_completion_summary() {
     local outcome="${1:-complete}"
     local loki_dir="${TARGET_DIR:-.}/.loki"
@@ -4366,6 +4423,20 @@ build_completion_summary() {
         # checkable receipt. Name it.
         council_force_approved) outcome_label="Completed (force-approved)"
                         notify_title="Run complete (force-approved)" ;;
+        # The three gate-stuck terminals. Spelled out one literal arm each
+        # rather than as a single wildcard pattern:
+        # tests/test-completion-outcome-labels.sh derives outcomes from the call
+        # sites and matches `^ *<outcome>\)`, so a wildcard arm renders correctly
+        # at runtime while reading as "no label arm" to the guard. Literal arms
+        # keep that guard strictly literal, which is what makes a NEWLY-added
+        # outcome fail there instead of shipping as a raw enum. Same reason the
+        # block above names each outcome.
+        gate_stuck_static_analysis) outcome_label="Stopped (static analysis gate would not clear)"
+                        notify_title="Run stopped (gate not clearing)" ;;
+        gate_stuck_mock_integrity) outcome_label="Stopped (mock integrity gate would not clear)"
+                        notify_title="Run stopped (gate not clearing)" ;;
+        gate_stuck_mutation_integrity) outcome_label="Stopped (mutation integrity gate would not clear)"
+                        notify_title="Run stopped (gate not clearing)" ;;
         *)              outcome_label="$outcome";          notify_title="Run finished" ;;
     esac
 
@@ -4867,6 +4938,49 @@ except Exception:
                 echo "Resolve those in the spec, then re-run."
                 ;;
         esac
+
+        # Evidence Receipt (#209). The receipt is written automatically on every
+        # run, success or failure, but its location only ever reached the user
+        # through the zero-config first-run block. State it here, where every
+        # terminal outcome passes, so a user who has never heard of `loki proof`
+        # still learns a checkable receipt exists and how to re-check it.
+        # Prints NOTHING when no receipt has been written yet (mid-pause, or the
+        # first summary on the success path): a path that does not exist is a
+        # promise, not a fact. The verdict line is the generator's deterministic
+        # headline, omitted entirely when unreadable rather than invented.
+        _cs_receipt="$(_loki_receipt_facts "$loki_dir" 2>/dev/null || true)"
+        if [ -n "$_cs_receipt" ]; then
+            _cs_rid="${_cs_receipt%%	*}"
+            _cs_rest="${_cs_receipt#*	}"
+            _cs_dir="${_cs_rest%%	*}"
+            _cs_headline="${_cs_rest#*	}"
+            echo ""
+            echo "Evidence Receipt (this run):"
+            if [ -n "$_cs_headline" ]; then
+                echo "  Verdict: $_cs_headline"
+            fi
+            # Gated on the PAGE, not the receipt. The helper gates on
+            # proof.json, but the generator writes proof.json and THEN renders
+            # index.html unwrapped (proof-generator.py), so a render failure
+            # leaves the data present and the page absent. Naming a page that
+            # is not there is the same class proof.ts:118 refuses ("worse than
+            # an absent one") and `loki proof open` refuses with "Proof page
+            # not found". Gate only this line: proof verify reads proof.json,
+            # so the id and the re-check below still work without the page.
+            if [ -f "$_cs_dir/index.html" ]; then
+                echo "  Receipt: $_cs_dir/index.html"
+            fi
+            echo "  Re-check it yourself, do not take our word for it:"
+            # Cwd-independent: the receipt is resolved from the run's target
+            # dir, which need not be where the user is standing. A bare
+            # `loki proof verify <id>` then fails for exactly the user we just
+            # told to check our work.
+            if [ "$(cd "$loki_dir/.." 2>/dev/null && pwd -P)" = "$(pwd -P)" ]; then
+                echo "    loki proof verify $_cs_rid"
+            else
+                echo "    (cd $(cd "$loki_dir/.." 2>/dev/null && pwd -P) && loki proof verify $_cs_rid)"
+            fi
+        fi
     } > "$loki_dir/COMPLETION.txt" 2>/dev/null || true
 
     # ---- Durable machine-readable file: .loki/state/completion.json -----------
@@ -5144,6 +5258,12 @@ EOF
         force_stopped)   _label="Stopped (not verified-complete)" ;;
         failed)          _label="Failed" ;;
         intervention)    _label="Needs input" ;;
+        # Mirror of build_completion_summary's gate-stuck arms. Both must move
+        # together or the card and COMPLETION.txt disagree on the same run.
+        # Literal, not a glob, for the guard reason recorded there.
+        gate_stuck_static_analysis)    _label="Stopped (static analysis gate would not clear)" ;;
+        gate_stuck_mock_integrity)     _label="Stopped (mock integrity gate would not clear)" ;;
+        gate_stuck_mutation_integrity) _label="Stopped (mutation integrity gate would not clear)" ;;
         *)               _label="$_outcome" ;;
     esac
 
@@ -5199,6 +5319,20 @@ except Exception:
     echo -e "${GREEN}|${NC}"
     echo -e "${GREEN}|${NC} ${DIM}Review the work:${NC}"
     echo -e "${GREEN}|${NC}   ${_review}"
+    # NO Evidence Receipt line here, deliberately. The card renders from inside
+    # emit_completion_summary, which is reached only from within run_autonomous
+    # -- thousands of lines BEFORE the teardown that generates this run's
+    # receipt. Announcing here would therefore be silent on a normal success
+    # run (no proof exists yet), and on a SECOND run in the same directory it
+    # would have been actively wrong before #211: .loki/state/last-proof-id.txt
+    # was never cleared at run start, so the card would read the PREVIOUS run's
+    # pointer and print that receipt, with that run's verdict, as though it
+    # described this run. The pointer is now cleared during run init (search
+    # "Same reasoning for the proof pointer"), which closes the cross-run leak,
+    # but this site stays silent anyway: it renders thousands of lines before
+    # THIS run's receipt exists, so it would print nothing on a normal success
+    # run. The announcement lives at the teardown instead, after the final
+    # generate_proof_of_run, where the pointer is guaranteed current.
     echo -e "${GREEN}+================================================================+${NC}"
     echo ""
     return 0
@@ -6529,6 +6663,15 @@ init_loki_dir() {
     mkdir -p .loki/metrics/efficiency
     # Clear stale metrics from previous sessions so loki metrics shows current run data (#75)
     rm -f .loki/metrics/efficiency/iteration-*.json 2>/dev/null || true
+    # Same reasoning for the proof pointer (#211). .loki/state/last-proof-id.txt
+    # is written by generate_proof_of_run and was never cleared, so a run that
+    # died before generating a proof left the PREVIOUS run's id behind. Every
+    # reader then resolved a receipt describing different work, and
+    # the summary builder (build_completion_summary) would print it under the
+    # literal heading "Evidence
+    # Receipt (this run):". A receipt naming the wrong run is worse than no
+    # receipt: absence reads as "no data", a stale one reads as evidence.
+    rm -f .loki/state/last-proof-id.txt 2>/dev/null || true
     mkdir -p .loki/rules
     mkdir -p .loki/signals
 
@@ -24098,6 +24241,14 @@ EOF
                             "gate=static_analysis" \
                             "consecutive=$sa_count" 2>/dev/null || true
                         save_state "${retry:-0}" "gate_stuck_static_analysis" 20 2>/dev/null || true
+                        # Same rule as the COUNCIL_FORCE_STOPPED terminal below
+                        # ("No on_run_complete: a force-stop must never open a
+                        # 'done' PR"): a non-verified stop never opens a PR, but
+                        # it MUST still write COMPLETION.txt and ping. Without
+                        # this, the only terminal in run_autonomous that tells
+                        # the user nothing is the one that stopped because a
+                        # gate would not clear.
+                        emit_completion_summary gate_stuck_static_analysis
                         return 20
                     fi
                 fi
@@ -24224,6 +24375,7 @@ EOF
                                 "gate=mock_integrity" \
                                 "consecutive=$mk_count" 2>/dev/null || true
                             save_state "${retry:-0}" "gate_stuck_mock_integrity" 20 2>/dev/null || true
+                            emit_completion_summary gate_stuck_mock_integrity
                             return 20
                         fi
                         ;;
@@ -24272,6 +24424,7 @@ EOF
                             "gate=mutation_integrity" \
                             "consecutive=$mt_count" 2>/dev/null || true
                         save_state "${retry:-0}" "gate_stuck_mutation_integrity" 20 2>/dev/null || true
+                        emit_completion_summary gate_stuck_mutation_integrity
                         return 20
                     fi
                 fi
@@ -25728,18 +25881,45 @@ except Exception:
 
     log_header "Execution Paused"
     echo ""
-    log_info "To resume: Remove .loki/PAUSE or press Enter"
+    # The keypress half of this line is only true on an interactive terminal.
+    # Off a TTY (--bg, a container, a CI job) no key can be read, so advertising
+    # it there tells the operator to do something that cannot work.
+    if [ -t 0 ]; then
+        log_info "To resume: Remove .loki/PAUSE or press Enter"
+    else
+        log_info "To resume: Remove .loki/PAUSE  (no TTY: keypress resume unavailable)"
+    fi
     log_info "To add instructions: echo 'your instructions' > .loki/HUMAN_INPUT.md"
     log_info "To stop completely: touch .loki/STOP"
     echo ""
 
-    # Create resume instructions file
+    # Create resume instructions file.
+    #
+    # The resume line is built OUTSIDE the heredoc because the heredoc is quoted
+    # (<< 'EOF') and must stay that way: its body contains `rm .loki/PAUSE` and
+    # `touch .loki/STOP` in backticks, so unquoting to interpolate a variable
+    # would execute them and delete the PAUSE file this function just wrote.
+    #
+    # This file is the surface a NON-INTERACTIVE operator actually reads (--bg,
+    # a container, a CI job), and it was the last place still promising a
+    # keypress that cannot arrive there -- the same defect the console banner
+    # above already fixed. The no-TTY wording is byte-identical to that banner's
+    # so one grep spans both surfaces and any future divergence is visible.
+    local _resume_line
+    if [ -t 0 ]; then
+        _resume_line='1. **Resume**: Press Enter in terminal or `rm .loki/PAUSE`'
+    else
+        _resume_line='1. **Resume**: `rm .loki/PAUSE`  (no TTY: keypress resume unavailable)'
+    fi
+
     cat > "$loki_dir/PAUSED.md" << 'EOF'
 # Loki Mode - Paused
 
 Execution is currently paused. Options:
 
-1. **Resume**: Press Enter in terminal or `rm .loki/PAUSE`
+EOF
+    printf '%s\n' "$_resume_line" >> "$loki_dir/PAUSED.md"
+    cat >> "$loki_dir/PAUSED.md" << 'EOF'
 2. **Add Instructions**: `echo "Focus on fixing the login bug" > .loki/HUMAN_INPUT.md`
 3. **Stop**: `touch .loki/STOP`
 
@@ -25805,8 +25985,31 @@ except Exception:
             break
         fi
 
-        # Check for any key press (non-blocking)
-        if read -t 1 -n 1 2>/dev/null; then
+        # Check for any key press (non-blocking). GATED ON AN INTERACTIVE STDIN
+        # ([ -t 0 ], the established idiom in this file) because off a TTY this
+        # arm is not merely useless, it is wrong in BOTH directions:
+        #
+        #   1. stdin is /dev/null (--bg, a container, a CI job): the read can
+        #      never succeed, so the loop spins on `sleep 1` forever with nobody
+        #      able to press anything. That is the reported hang.
+        #   2. stdin is a PIPE OR FILE THAT HAS BYTES (stdin inherited from a
+        #      parent, a heredoc, `< somefile`): the read SUCCEEDS on the first
+        #      stray byte and the next line deletes .loki/PAUSE. A gate
+        #      escalation that paused at GATE_PAUSE_LIMIT is then silently
+        #      resumed by data nobody typed -- a false resume, which is worse
+        #      than the hang because the run continues past a blocking gate.
+        #
+        # Both were reproduced directly: with bytes on stdin `read -t 1 -n 1`
+        # returns 0, with /dev/null it returns non-zero.
+        #
+        # The human escape path is UNCHANGED. The STOP and PAUSE-removal checks
+        # above are file-based, run every second, and are what the dashboard,
+        # the CLI, and `rm .loki/PAUSE` already use -- so a non-interactive
+        # operator keeps every way out they had. Only the keypress, which that
+        # operator never had, is skipped. On a real TTY this is byte-identical.
+        # No timeout is imposed: a bounded wait would invent a new terminal
+        # outcome and could fail a legitimate long human pause.
+        if [ -t 0 ] && read -t 1 -n 1 2>/dev/null; then
             rm -f "$loki_dir/PAUSE"
             PAUSED=false
             break
@@ -26980,6 +27183,56 @@ except Exception:
         generate_proof_of_run "$result" || true
     fi
 
+    # Evidence Receipt (#209): tell the user, on screen, that a checkable
+    # receipt exists and how to re-check it.
+    #
+    # POSITION IS LOAD-BEARING. This sits immediately after the FINAL
+    # generate_proof_of_run, which is the only point where the receipt for THIS
+    # run is guaranteed written and .loki/state/last-proof-id.txt is guaranteed
+    # to point at it. Every earlier surface is either too early (the completion
+    # card renders from inside run_autonomous, long before any proof exists) or
+    # unreachable to a foreground user (COMPLETION.txt self-heals here, but only
+    # a --bg launch is ever told to read it). Before #211 the pointer was never
+    # cleared at run start, so announcing from an earlier site printed the
+    # PREVIOUS run's receipt and verdict on a second run in the same directory.
+    # Run init now clears it (search "Same reasoning for the proof pointer"), so
+    # a stale pointer no longer survives into a new run; the position still
+    # matters because an earlier site is simply too early for THIS run's proof.
+    #
+    # TTY-gated the same way print_ttfv_next_steps is above: machine output and
+    # --bg stay byte-identical, and those readers already get the same facts
+    # from COMPLETION.txt. Fail-silent and best-effort: prints nothing at all
+    # when no receipt was written (LOKI_PROOF=0, or generation failed), and
+    # never fails the run.
+    if [ -t 1 ] && [ "${BACKGROUND_MODE:-false}" != "true" ]; then
+        _rcpt="$(_loki_receipt_facts "${TARGET_DIR:-.}/.loki" 2>/dev/null || true)"
+        if [ -n "${_rcpt:-}" ]; then
+            _rcpt_id="${_rcpt%%	*}"
+            _rcpt_rest="${_rcpt#*	}"
+            _rcpt_dir="${_rcpt_rest%%	*}"
+            _rcpt_headline="${_rcpt_rest#*	}"
+            echo ""
+            if [ -n "$_rcpt_headline" ]; then
+                echo "Evidence Receipt for this run: $_rcpt_headline"
+            else
+                echo "Evidence Receipt for this run:"
+            fi
+            # Gated on the PAGE existing -- see the COMPLETION.txt site above.
+            if [ -f "$_rcpt_dir/index.html" ]; then
+                echo "  $_rcpt_dir/index.html"
+            fi
+            echo "  Re-check it yourself, do not take our word for it:"
+            # Cwd-independent, same reasoning as the COMPLETION.txt site.
+            _rcpt_root="$(cd "${TARGET_DIR:-.}" 2>/dev/null && pwd -P)"
+            if [ "$_rcpt_root" = "$(pwd -P)" ]; then
+                echo "    loki proof verify $_rcpt_id"
+            else
+                echo "    (cd $_rcpt_root && loki proof verify $_rcpt_id)"
+            fi
+            echo ""
+        fi
+    fi
+
     # Close the teardown window here rather than after cleanup: everything below
     # is process reaping and file removal, while everything above is the work a
     # user waits on (commit, PR, summary, proof). Emitting before cleanup also
@@ -27068,7 +27321,12 @@ except Exception:
             # The operator raises the cap (or narrows the spec) and submits a
             # NEW Job -- the same remedy as max_iterations_reached, which is why
             # it shares that code.
-            failed|max_iterations_reached|max_retries_exceeded|budget_exceeded|max_duration_reached|policy_blocked|inconclusive_spec_contradiction|force_stopped)
+            # gate_stuck_* is deterministic for the same reason: the same gate
+            # failed for the same reason N times, so a retry reaches the same
+            # verdict. It already arrived here as 20 via save_state, but only
+            # by falling through `*)`, which logs it as "crash, retryable" and
+            # leaves a k8s podFailurePolicy reading a value nothing asserts.
+            failed|max_iterations_reached|max_retries_exceeded|budget_exceeded|max_duration_reached|policy_blocked|inconclusive_spec_contradiction|force_stopped|gate_stuck_static_analysis|gate_stuck_mock_integrity|gate_stuck_mutation_integrity)
                 result=20 ;;
             *)
                 # Unknown/running/exited terminal: leave $result as-is (nonzero on a

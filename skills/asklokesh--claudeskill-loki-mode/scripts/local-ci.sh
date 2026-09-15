@@ -75,6 +75,13 @@ esac
 #   tests/test-proven-pr-receipt.sh      FAIL under load ->  14 passed, 0 failed
 #   tests/test-heal-assess-readiness.sh  FAIL under load ->   8 passed, 0 failed
 #
+# MEASURED on 2026-09-14, same shape, same outcome:
+#   tests/test-multi-repo-orchestrates.sh FAIL under load -> 10 passed, 0 failed
+# It makes five real-CLI invocations under `timeout 180`, so it starves exactly
+# like the four above. Diff-innocence was measured too, not assumed: the change
+# under test touched it 0 times against a 102-line positive control, and it also
+# passed 10/0 against the then-pushed baseline extracted with `git archive`.
+#
 # Hours were spent treating those as defects. Worse, a phantom failure trains the
 # reader to distrust the gate, which is exactly how a REAL failure gets waved
 # through. Refusing to start is cheaper than a verdict nobody believes.
@@ -394,6 +401,19 @@ declare -a _FAST_KEEP=(
   # nothing else in CI can see this class. Measured 0.1s (one node graph walk).
   "tests/test-web-app-no-orphan-components.sh"
   "tests/test-release-sbom-attached.sh"       # 0.2s
+  # Guards two shipped behaviors no other suite covers: a pause must not wait
+  # on a keypress that cannot arrive off a TTY (it either spun forever or was
+  # falsely resumed by stray stdin bytes), and a finished run must state the
+  # Evidence Receipt path, verdict and re-check command. Both are user-facing
+  # shipped behavior, so per the packaged-artifact rule this runs in the FAST
+  # tier -- the only tier that runs before every push. Measured ~6s (no
+  # provider call, no network; the waits are bounded by `timeout`).
+  "tests/test-pause-tty-and-receipt-surface.sh"
+  # The headline a user reads at the end of a run. Its matcher is strictly
+  # literal by design, so a NEWLY-added outcome fails here rather than shipping
+  # as a raw enum -- which is only useful if it runs before a push. It caught
+  # exactly that on the gate-stuck terminals. Measured 1s, no provider call.
+  "tests/test-completion-outcome-labels.sh"
   "tests/test-mcp-tool-surface-packaged.sh"   # 2.9s
   "tests/test-mcp-tool-surface-guard-rejects.sh" # 8s, proves the guard rejects
   # CLAUDE.md cleanup mandate: sub-second, and the whole point is that it runs
@@ -1005,6 +1025,12 @@ run_check "tests/test-security-scan-coverage.sh (CI security scanners wired, fai
 run_check "tests/test-security-scan-registered.sh (that guard runs and is not vacuous)" "bash tests/test-security-scan-registered.sh 2>&1 | tail -3"
 run_check "tests/test-build-home-isolation.sh (in-build app exec sandbox)" "bash tests/test-build-home-isolation.sh 2>&1 | tail -3"
 run_check "tests/test-proven-pr-receipt.sh (PR-body honesty + no false green)" "bash tests/test-proven-pr-receipt.sh 2>&1 | tail -3"
+# tail -40, not -4: this suite went red once in the fast tier and the 4-line
+# capture truncated the failing assertion, so the red was unfalsifiable. It
+# passed ~44 standalone executions afterwards, including 4-way concurrent
+# contention, so the cause is still unknown. Capture enough to name it next
+# time rather than re-running blind.
+run_check "tests/test-pause-tty-and-receipt-surface.sh (pause needs no TTY; receipt is announced)" "bash tests/test-pause-tty-and-receipt-surface.sh 2>&1 | tail -40"
 run_check "tests/test-proven-pr-check.sh (advisory check-run, cannot block merge)" "bash tests/test-proven-pr-check.sh 2>&1 | tail -3"
 run_check "tests/test-proven-pr-installed-layout.sh (verify-yourself on shipped routes)" "bash tests/test-proven-pr-installed-layout.sh 2>&1 | tail -3"
 run_check "tests/test-proven-pr-detached.sh (detached --pr/--ship -d carries receipt)" "bash tests/test-proven-pr-detached.sh 2>&1 | tail -3"
@@ -1436,7 +1462,13 @@ run_check "tests/test-verify-client-routes.sh (web-app client paths resolve to r
 # Both added this session and run by CI but not by this gate, which is how two
 # releases reached CI carrying a failure never executed locally.
 run_check "tests/test-doctor-optional-skill-not-blocking.sh (optional-provider skill severity)" "bash tests/test-doctor-optional-skill-not-blocking.sh 2>&1 | tail -4"
-run_check "tests/test-multi-repo-orchestrates.sh (--multi-repo visits every repo)" "bash tests/test-multi-repo-orchestrates.sh 2>&1 | tail -4"
+# tail -40, not -4: this suite prints 10 per-assertion lines plus a summary, so
+# a 4-line window holds the last two PASSes and the count -- it can only ever
+# contain the `FAIL:` line when the failure is among the final assertions. It
+# went red in the fast tier on 2026-09-14 and the capture named nothing; the
+# tree then passed 3/3 standalone, 1/1 at the pushed baseline, and a full gate
+# re-run on the identical bytes. Capture enough to name it next time.
+run_check "tests/test-multi-repo-orchestrates.sh (--multi-repo visits every repo)" "bash tests/test-multi-repo-orchestrates.sh 2>&1 | tail -40"
 
 run_check "tests/cli/test-quickstart.sh (guided interview composition)" "bash tests/cli/test-quickstart.sh 2>&1 | tail -3"
 
@@ -1455,6 +1487,7 @@ run_check "tests/test-heldout-evals.sh (held-out selection + council gate)" "bas
 # the claim exactly ONCE per iteration (check_completion_promise consumes the
 # signal); arms test _completion_claimed. Guards against the multi-call drop.
 run_check "tests/test-completion-claim.sh (completion-claim single-evaluation)" "bash tests/test-completion-claim.sh 2>&1 | tail -3"
+run_check "tests/test-completion-outcome-labels.sh (no terminal outcome renders as a raw enum)" "bash tests/test-completion-outcome-labels.sh 2>&1 | tail -6"
 
 # v7.28.0: living spec. `loki spec` lock/status/sync, drift-report.json, and the
 # SPEC_DRIFT finding surfaced by `loki verify`.

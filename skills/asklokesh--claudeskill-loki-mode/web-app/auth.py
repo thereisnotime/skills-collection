@@ -31,7 +31,34 @@ logger = logging.getLogger("purple-lab.auth")
 # Config from environment variables
 # ---------------------------------------------------------------------------
 
+# Placeholder values that ship in this repository. A non-empty placeholder used
+# to pass the `if not SECRET_KEY` check below and become the live HS256 signing
+# AND verification key -- and the same secret derives the Fernet key for secrets
+# at rest (crypto.py:31), so one placeholder compromises both cryptosystems.
+#
+# web-app/deploy/k8s/purple-lab/secret.yaml ships
+# PURPLE_LAB_SECRET_KEY: "CHANGE_ME_TO_RANDOM_64_CHAR_HEX". That value is public,
+# so an operator who applies the manifest unedited hands anyone the ability to
+# mint a token for any subject. Refusing it is the only safe direction: an
+# ephemeral key breaks sessions across restarts, which is visible and
+# recoverable, whereas a public signing key is a silent full auth bypass.
+_PLACEHOLDER_SECRETS = frozenset({
+    "CHANGE_ME_TO_RANDOM_64_CHAR_HEX",
+    "CHANGE_ME",
+    "changeme",
+    "REPLACE_ME",
+})
+
 SECRET_KEY = os.environ.get("PURPLE_LAB_SECRET_KEY", "")
+if SECRET_KEY and SECRET_KEY.strip() in _PLACEHOLDER_SECRETS:
+    logger.critical(
+        "PURPLE_LAB_SECRET_KEY is set to the placeholder value that ships in "
+        "web-app/deploy/k8s/purple-lab/secret.yaml. That value is public, so "
+        "anyone could mint a valid token. REFUSING it and generating an "
+        "ephemeral key instead; sessions will not survive a restart until you "
+        "set a real secret (openssl rand -hex 32)."
+    )
+    SECRET_KEY = ""
 if not SECRET_KEY:
     SECRET_KEY = secrets.token_hex(32)
     logger.warning(

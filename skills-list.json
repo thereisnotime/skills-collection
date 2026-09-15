@@ -10797,7 +10797,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
       "remote_path": "skills/ce-plan/SKILL.md",
       "lines": 61,
-      "words": 1161,
+      "words": 1162,
       "code_blocks": 0,
       "languages": []
     },
@@ -10827,7 +10827,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/lfg/SKILL.md",
       "remote_path": "skills/lfg/SKILL.md",
       "lines": 60,
-      "words": 1193,
+      "words": 1206,
       "code_blocks": 0,
       "languages": []
     },
@@ -11010,7 +11010,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-bakeoff/SKILL.md",
       "remote_path": "skills/ce-bakeoff/SKILL.md",
       "lines": 49,
-      "words": 1033,
+      "words": 1037,
       "code_blocks": 0,
       "languages": []
     },
@@ -11030,7 +11030,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-debug/SKILL.md",
       "remote_path": "skills/ce-debug/SKILL.md",
       "lines": 123,
-      "words": 2656,
+      "words": 2692,
       "code_blocks": 1,
       "languages": []
     },
@@ -11040,7 +11040,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
       "lines": 45,
-      "words": 1195,
+      "words": 1202,
       "code_blocks": 0,
       "languages": []
     },
@@ -11090,7 +11090,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-compound/SKILL.md",
       "remote_path": "skills/ce-compound/SKILL.md",
       "lines": 80,
-      "words": 1119,
+      "words": 1120,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22575,8 +22575,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
-      "lines": 919,
-      "words": 18309,
+      "lines": 923,
+      "words": 18471,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22589,8 +22589,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
-      "lines": 916,
-      "words": 18265,
+      "lines": 920,
+      "words": 18427,
       "code_blocks": 0,
       "languages": [],
       "version": "3.35.0",
@@ -23632,9 +23632,9 @@
       "description": "\"EAS service (paid). Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experim",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 209,
-      "words": 3513,
-      "code_blocks": 6,
+      "lines": 208,
+      "words": 3558,
+      "code_blocks": 5,
       "languages": [
         "bash"
       ],
@@ -28965,6 +28965,16 @@
       ]
     },
     {
+      "name": "stripe-pay",
+      "description": ">-",
+      "path": "stripe--ai/skills/stripe-pay/SKILL.md",
+      "remote_path": "skills/stripe-pay/SKILL.md",
+      "lines": 62,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "company-researcher",
       "description": "\"Research a company from its URL or description to infer Stripe Connect integration shape\"",
       "path": "stripe--ai/providers/grok/plugin/agents/company-researcher.md",
@@ -29073,6 +29083,16 @@
       ]
     },
     {
+      "name": "stripe-pay",
+      "description": ">-",
+      "path": "stripe--ai/providers/grok/plugin/skills/stripe-pay/SKILL.md",
+      "remote_path": "providers/grok/plugin/skills/stripe-pay/SKILL.md",
+      "lines": 62,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "stripe-docs",
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-docs/SKILL.md",
@@ -29171,6 +29191,16 @@
       ]
     },
     {
+      "name": "stripe-pay",
+      "description": ">-",
+      "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-pay/SKILL.md",
+      "remote_path": "providers/agent-plugins/plugin/skills/stripe-pay/SKILL.md",
+      "lines": 62,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "stripe-docs",
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-docs/SKILL.md",
@@ -29267,6 +29297,16 @@
       "languages": [
         "sh"
       ]
+    },
+    {
+      "name": "stripe-pay",
+      "description": ">-",
+      "path": "stripe--ai/providers/cursor/plugin/skills/stripe-pay/SKILL.md",
+      "remote_path": "providers/cursor/plugin/skills/stripe-pay/SKILL.md",
+      "lines": 62,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "Company Researcher",
@@ -29377,6 +29417,16 @@
       ]
     },
     {
+      "name": "stripe-pay",
+      "description": ">-",
+      "path": "stripe--ai/providers/claude/plugin/skills/stripe-pay/SKILL.md",
+      "remote_path": "providers/claude/plugin/skills/stripe-pay/SKILL.md",
+      "lines": 62,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "stripe-docs",
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-docs/SKILL.md",
@@ -29473,6 +29523,16 @@
       "languages": [
         "sh"
       ]
+    },
+    {
+      "name": "stripe-pay",
+      "description": ">-",
+      "path": "stripe--ai/providers/codex/plugin/skills/stripe-pay/SKILL.md",
+      "remote_path": "providers/codex/plugin/skills/stripe-pay/SKILL.md",
+      "lines": 62,
+      "words": 622,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "supabase--agent-skills": [
@@ -29578,15 +29638,13 @@
     },
     {
       "name": "second-opinion",
-      "description": "\"Runs external LLM code reviews (OpenAI Codex or Google Antigravity CLI) on uncommitted changes, branch diffs, or specific commits. Use when the user asks for a second opinion, external review, codex ",
+      "description": "\"Gets independent code reviews from Codex or Antigravity for uncommitted changes, branch diffs, and commits. Use when the user requests an external review, a second opinion on code, a codex review, a ",
       "path": "trailofbits--skills/plugins/second-opinion/skills/second-opinion/SKILL.md",
       "remote_path": "plugins/second-opinion/skills/second-opinion/SKILL.md",
-      "lines": 296,
-      "words": 1571,
-      "code_blocks": 12,
-      "languages": [
-        "bash"
-      ]
+      "lines": 102,
+      "words": 728,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "github-triage",
@@ -29688,11 +29746,11 @@
     },
     {
       "name": "mutation-testing",
-      "description": "\"Configures mewt or muton mutation testing campaigns \u2014 scopes targets, tunes timeouts, and optimizes long-running runs. Use when the user mentions mewt, muton, mutation testing, or wants to configure ",
+      "description": "\"Configures mewt or muton campaigns, analyzes surviving mutants, and investigates bugs exposed by testing gaps. Use when setting up mutation testing, reviewing campaign results, identifying equivalent",
       "path": "trailofbits--skills/plugins/mutation-testing/skills/mutation-testing/SKILL.md",
       "remote_path": "plugins/mutation-testing/skills/mutation-testing/SKILL.md",
-      "lines": 73,
-      "words": 395,
+      "lines": 110,
+      "words": 849,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -30220,8 +30278,8 @@
       "description": ">",
       "path": "trailofbits--skills/plugins/post-patch-validation/skills/post-patch-validation/SKILL.md",
       "remote_path": "plugins/post-patch-validation/skills/post-patch-validation/SKILL.md",
-      "lines": 237,
-      "words": 1916,
+      "lines": 262,
+      "words": 2196,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -30287,6 +30345,18 @@
       "lines": 207,
       "words": 988,
       "code_blocks": 8,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "review-walkthrough",
+      "description": "Generates an interactive HTML walkthrough for reviewing code changes. Use only when explicitly called.",
+      "path": "trailofbits--skills/plugins/review-walkthrough/skills/review-walkthrough/SKILL.md",
+      "remote_path": "plugins/review-walkthrough/skills/review-walkthrough/SKILL.md",
+      "lines": 122,
+      "words": 1030,
+      "code_blocks": 1,
       "languages": [
         "bash"
       ]
@@ -156963,8 +157033,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-ops/SKILL.md",
       "remote_path": "github-ops/SKILL.md",
-      "lines": 191,
-      "words": 1390,
+      "lines": 209,
+      "words": 1571,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -157179,11 +157249,12 @@
       "description": "Fetch Twitter/X post content including long-form Articles with full images and metadata. Use when Claude needs to retrieve tweet/article content, author info, engagement metrics, and embedded media. S",
       "path": "daymade--claude-code-skills/twitter-reader/SKILL.md",
       "remote_path": "twitter-reader/SKILL.md",
-      "lines": 181,
-      "words": 664,
-      "code_blocks": 12,
+      "lines": 229,
+      "words": 1077,
+      "code_blocks": 13,
       "languages": [
-        "bash"
+        "bash",
+        "json"
       ]
     },
     {
@@ -157201,8 +157272,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tunnel-doctor/SKILL.md",
       "remote_path": "tunnel-doctor/SKILL.md",
-      "lines": 1322,
-      "words": 12213,
+      "lines": 1331,
+      "words": 12454,
       "code_blocks": 71,
       "languages": [
         "bash",
@@ -157438,8 +157509,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 575,
-      "words": 2104,
+      "lines": 578,
+      "words": 2125,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -157623,8 +157694,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 253,
-      "words": 1997,
+      "lines": 285,
+      "words": 2287,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -157674,6 +157745,18 @@
       "lines": 134,
       "words": 540,
       "code_blocks": 4,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "agent-web-search-setup",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/agent-web-search-setup/SKILL.md",
+      "remote_path": "daymade-claude-code/agent-web-search-setup/SKILL.md",
+      "lines": 337,
+      "words": 3270,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -157729,8 +157812,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 196,
-      "words": 1346,
+      "lines": 203,
+      "words": 1402,
       "code_blocks": 5,
       "languages": [
         "text"
@@ -157774,9 +157857,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 282,
-      "words": 2056,
-      "code_blocks": 6,
+      "lines": 316,
+      "words": 2333,
+      "code_blocks": 7,
       "languages": [
         "bash"
       ]
@@ -158122,8 +158205,8 @@
       "description": "Parent/worker reply addressing, payload design, delivery-language discipline, evidence that stays valid while its subject is still changing, verifying inbound peer assertions before acting or replying",
       "path": "daymade--claude-code-skills/peer-message/references/coordination-and-learning-loop.md",
       "remote_path": "peer-message/references/coordination-and-learning-loop.md",
-      "lines": 250,
-      "words": 1383,
+      "lines": 252,
+      "words": 1443,
       "code_blocks": 2,
       "languages": [
         "text"
@@ -158134,8 +158217,8 @@
       "description": "Transport-neutral addressing, Claude UDS and Codex queue contracts, message envelopes, and receiver-side verification.",
       "path": "daymade--claude-code-skills/peer-message/references/protocol-and-discovery.md",
       "remote_path": "peer-message/references/protocol-and-discovery.md",
-      "lines": 221,
-      "words": 976,
+      "lines": 223,
+      "words": 997,
       "code_blocks": 6,
       "languages": [
         "bash",

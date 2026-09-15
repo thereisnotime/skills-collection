@@ -163,10 +163,11 @@ describe("review stage grounds in packs", () => {
     expect(learningsRow).toMatch(/declared_packs/)
     expect(CR_SELECT).toMatch(/`learnings-researcher` — [^\n]*declares Compound Packs[^\n]*declared_packs/)
     expect(section(CR_SELECT, "### Stage 3: Select reviewers", "### Stage 3b")).toMatch(/declared_packs/)
-    // The small-diff lite roster must carry the pack-selected persona, or a
-    // 3-line violation with no other risk signal silently escapes enforcement.
+    // Pack enforcement is a full-spine persona. The cheap lite path does not
+    // dispatch reviewers; declared_packs still has to be a helper fact the
+    // full-path selection condition can read.
     expect(section(CR_SELECT, "### Stage 3c", "### Stage 3d")).toMatch(
-      /\*\*Lite roster:\*\*[^\n]*`learnings-researcher`[^\n]*declared packs/,
+      /does not shrink the roster/,
     )
     expect(CR_SCOPE).toMatch(/`declared_packs`/)
     expect(CR_HELPER).toMatch(/"declared_packs"/)
@@ -188,7 +189,8 @@ describe("review stage grounds in packs", () => {
     expect(CR_RESEARCHER).toMatch(/\*\*changed\*\* line that contradicts it/)
     expect(CR_RESEARCHER).toMatch(/\*\*unchanged\*\* line only[^\n]*pre-existing partition/)
     expect(CR_FINISH).toMatch(/violated only by an unchanged line[^\n]*`pre_existing: true`/)
-    expect(CR_FINISH).toMatch(/`coverage\.compound_packs`/)
+    // The mode:agent JSON contract is defined once, in modes-and-output.md.
+    expect(read("skills/ce-code-review/references/modes-and-output.md")).toMatch(/`coverage\.compound_packs`/)
     expect(CR_DISPATCH).toMatch(/contradicts becomes a numbered finding in Stage 5/)
     expect(section(CR_FINISH, "### Stage 5: Merge findings", "### Stage 5b")).toMatch(
       /\*\*contradicts\*\*[^\n]*compact reviewer return/,

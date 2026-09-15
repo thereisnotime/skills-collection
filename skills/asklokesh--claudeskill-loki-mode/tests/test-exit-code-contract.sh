@@ -33,7 +33,7 @@ trap 'rm -rf "$SCRATCH"' EXIT
 
 # Statuses the bash ENT-3 arm treats as DETERMINISTIC FAILURES. Re-running the
 # same inputs fails the same way; a human needs to look.
-FAILURE_TERMINALS="failed max_iterations_reached max_retries_exceeded budget_exceeded max_duration_reached policy_blocked inconclusive_spec_contradiction force_stopped"
+FAILURE_TERMINALS="failed max_iterations_reached max_retries_exceeded budget_exceeded max_duration_reached policy_blocked inconclusive_spec_contradiction force_stopped gate_stuck_static_analysis gate_stuck_mock_integrity gate_stuck_mutation_integrity"
 
 # --- 1. every failure terminal records a NON-ZERO code where it is terminal --
 # Scanning the source rather than executing each path: several require a full

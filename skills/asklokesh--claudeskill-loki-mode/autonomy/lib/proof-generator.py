@@ -1536,11 +1536,13 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
         "honesty": honesty,
     }
 
-    # Top-level mirror for the intervention axis. trust_trajectory.py:145 already
-    # reads proof["interventions"] and documents that no writer exists yet; this
-    # is that writer. Mirrored (not moved) for the same back-compat reason the
-    # other flat keys are mirrored. Only ever set when actually measured, so the
-    # axis stays honestly "unavailable" rather than showing a fabricated zero.
+    # Top-level mirror for the intervention axis. _interventions_value in
+    # trust_trajectory.py reads proof["interventions"]; the counter itself is
+    # written by handle_pause in autonomy/run.sh, which increments
+    # .loki/state/interventions.json once per blocking pause. Mirrored (not
+    # moved) for the same back-compat reason the other flat keys are mirrored.
+    # Only ever set when actually measured, so the axis stays honestly
+    # "unavailable" rather than showing a fabricated zero.
     if isinstance(journey, dict) and isinstance(journey.get("interventions"), int):
         proof["interventions"] = journey["interventions"]
 

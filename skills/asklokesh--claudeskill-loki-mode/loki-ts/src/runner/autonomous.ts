@@ -1345,6 +1345,14 @@ const ENT3_TERMINAL_FAILURE = new Set([
   "max_duration_reached",
   "policy_blocked",
   "inconclusive_spec_contradiction",
+  // The three gate-stuck terminals. Deterministic for the same reason as the
+  // rest: the same gate failed for the same reason N times, so re-running the
+  // same inputs reaches the same verdict. The bash runner grew these arms
+  // first; ent3_exit_parity.test.ts reads the bash case arm at RUNTIME and
+  // asserts this set covers it, so the two sides cannot drift silently.
+  "gate_stuck_static_analysis",
+  "gate_stuck_mock_integrity",
+  "gate_stuck_mutation_integrity",
 ]);
 
 export function ent3ExitCode(status: string, fallback: number): number {
