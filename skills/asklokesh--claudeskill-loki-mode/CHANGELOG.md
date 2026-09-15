@@ -5,6 +5,36 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.51.1
+
+**A completion member could vote COMPLETE with work still in flight.** The
+council's `requirements_verifier` counted unfinished work by reading
+`pending.json` alone. That was safe only by accident: nothing in the current
+runtime promotes a task out of pending, so the count never dropped while work
+was outstanding. The moment a work selector claims an item, pending goes to 0
+and that member flips COMPLETE with the claimed task still running, plus
+anything sitting in blocked. Unfinished work is now the sum across pending,
+in-progress and blocked.
+
+The guard is pinned by new Cases 6 and 7 in
+`tests/test-completion-council-affirmative-evidence.sh`, each verified RED
+before the fix so the test is known to be able to fail. Case 8 is the positive
+control: it proves COMPLETE is still reachable when every queue really is
+empty, so the fix cannot have passed by making the verdict unreachable.
+
+That suite is now registered in `scripts/local-ci.sh` in both `_FAST_KEEP` and
+a `run_check` call site. It was in neither, so no pre-push gate ran this
+trust-core guard at all.
+
+**Docs.** Adds `docs/ENTERPRISE-SCALE-RESEARCH-2026-09.md`, the six-desk
+enterprise research this work derives from.
+
+The v9.51.0 tag was never published. Its release run failed `required-ci`
+because the council change left a dead `pending` assignment that shellcheck
+flagged as SC2034, failing the lint step inside Shell tests. The lint is fixed
+and the repo is clean at CI's bar (423 passed, 0 failed); this is the same
+change, re-cut.
+
 ## v9.50.4
 
 **Gate-stuck was the only terminal that told the user nothing.** When the same

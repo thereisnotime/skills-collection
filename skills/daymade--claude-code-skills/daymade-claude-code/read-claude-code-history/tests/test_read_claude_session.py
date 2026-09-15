@@ -19,6 +19,13 @@ SPEC = importlib.util.spec_from_file_location("read_claude_session", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
+sys.path.insert(0, str(SKILL_DIR / "scripts"))  # analyze_sessions imports _core.*
+ANALYZE_SPEC = importlib.util.spec_from_file_location(
+    "analyze_sessions", SKILL_DIR / "scripts" / "analyze_sessions.py"
+)
+ANALYZE = importlib.util.module_from_spec(ANALYZE_SPEC)
+ANALYZE_SPEC.loader.exec_module(ANALYZE)
+
 
 class ClaudeSessionEvidenceTests(unittest.TestCase):
     def _session_file(self, records: list[dict]) -> Path:
@@ -517,6 +524,520 @@ class ClaudeSessionEvidenceTests(unittest.TestCase):
             self.assertIn("# Claude Code Session Evidence Briefing", briefing)
             self.assertLess(briefing.index("回答一"), briefing.index("纠正二"))
             self.assertIn("Unanswered retained request", briefing)
+
+    def test_reversed_tool_result_before_use_is_not_interrupted(self):
+        # A tool_result can be written to the file before the tool_use it
+        # answers ("Tool Use / Tool Result Ordering",
+        # references/session_file_format.md); the pair must resolve anyway.
+        session_file = self._session_file(
+            [
+                {
+                    "type": "user",
+                    "sessionId": "session-order",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_1",
+                                "content": "ok",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "sessionId": "session-order",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_1",
+                                "name": "Bash",
+                                "input": {"command": "ls"},
+                            },
+                            {"type": "text", "text": "完成"},
+                        ],
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+
+        self.assertEqual(parsed["unresolved_tool_calls"], {})
+        self.assertEqual(parsed["end_reason"], "completed")
+
+    def test_genuinely_unanswered_tool_use_is_still_interrupted(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "assistant",
+                    "sessionId": "session-pending",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_9",
+                                "name": "Bash",
+                                "input": {"command": "sleep 99"},
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+
+        self.assertEqual(set(parsed["unresolved_tool_calls"]), {"toolu_9"})
+        self.assertEqual(parsed["end_reason"], "interrupted")
+
+    def test_pending_set_matches_classify_session_tail(self):
+        # Fork guard: parse_session_structure and classify_session_tail resolve
+        # tool_use/tool_result in two independent implementations; the same
+        # fixture must produce the same pending set on both, or one drifted.
+        session_file = self._session_file(
+            [
+                {  # reversed pair: result physically precedes its call
+                    "type": "user",
+                    "sessionId": "session-xmod",
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_done",
+                                "content": "ok",
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "sessionId": "session-xmod",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_done",
+                                "name": "Bash",
+                                "input": {"command": "ls"},
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_open",
+                                "name": "Read",
+                                "input": {"file_path": "/tmp/x"},
+                            },
+                        ],
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+        tail = ANALYZE.classify_session_tail(session_file)
+
+        self.assertEqual(
+            set(parsed["unresolved_tool_calls"]),
+            set(tail.pending_tool_use_ids),
+        )
+        self.assertEqual(set(tail.pending_tool_use_ids), {"toolu_open"})
+
+    def test_thinking_only_assistant_record_enters_timeline(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "assistant",
+                    "sessionId": "session-think",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "thinking",
+                                "thinking": "先核对来源再下结论",
+                                "signature": "sig-must-not-leak",
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+        timeline = MODULE.extract_turn_timeline(parsed["messages"])
+
+        self.assertEqual(len(timeline), 1)
+        self.assertEqual(timeline[0]["kind"], "assistant_thinking")
+        self.assertEqual(timeline[0]["text"], "先核对来源再下结论")
+        self.assertNotIn("sig-must-not-leak", timeline[0]["text"])
+
+    def test_thinking_and_text_in_one_record_are_two_ordered_turns(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "assistant",
+                    "sessionId": "session-mixed",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "thinking", "thinking": "权衡中", "signature": "s"},
+                            {"type": "text", "text": "结论一"},
+                            {"type": "text", "text": "结论二"},
+                        ],
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+        timeline = MODULE.extract_turn_timeline(parsed["messages"])
+
+        self.assertEqual(
+            [(t["kind"], t["text"]) for t in timeline],
+            [("assistant_thinking", "权衡中"), ("assistant_text", "结论一\n结论二")],
+        )
+
+    def test_tool_use_only_assistant_record_still_absent_from_timeline(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "assistant",
+                    "sessionId": "session-toolonly",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_only",
+                                "name": "Bash",
+                                "input": {"command": "ls"},
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+        timeline = MODULE.extract_turn_timeline(parsed["messages"])
+
+        self.assertEqual(timeline, [])
+
+    def test_plan_file_reference_binding_surfaces_in_structure_and_briefing(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "user",
+                    "sessionId": "session-plan",
+                    "message": {"role": "user", "content": "目标"},
+                },
+                {
+                    "type": "attachment",
+                    "sessionId": "session-plan",
+                    "attachment": {
+                        "type": "plan_file_reference",
+                        "planFilePath": "/fixture-home/.claude/plans/x.md",
+                        "planContent": "# 计划全文\n步骤一",
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+
+        self.assertEqual(len(parsed["plan_bindings"]), 1)
+        binding = parsed["plan_bindings"][0]
+        self.assertEqual(binding["kind"], "plan_file_reference")
+        self.assertEqual(
+            binding["plan_file_path"], "/fixture-home/.claude/plans/x.md"
+        )
+        self.assertTrue(binding["has_content"])
+
+        briefing = MODULE.build_briefing(
+            {"sessionId": "session-plan"},
+            parsed,
+            str(session_file.parent),
+            session_file.parent,
+            session_file,
+            full=True,
+        )
+        self.assertIn("## Plan Bindings", briefing)
+        self.assertIn("recoverable", briefing)
+
+    def test_plan_mode_path_only_binding_reports_content_unavailable(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "attachment",
+                    "sessionId": "session-planmode",
+                    "attachment": {
+                        "type": "plan_mode",
+                        "reminderType": "full",
+                        "isSubAgent": False,
+                        "planFilePath": "/fixture-home/.claude/plans/gone.md",
+                        "planExists": False,
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+
+        self.assertEqual(len(parsed["plan_bindings"]), 1)
+        binding = parsed["plan_bindings"][0]
+        self.assertEqual(binding["kind"], "plan_mode")
+        self.assertFalse(binding["has_content"])
+        self.assertFalse(binding["plan_exists"])
+
+        briefing = MODULE.build_briefing(
+            {"sessionId": "session-planmode"},
+            parsed,
+            str(session_file.parent),
+            session_file.parent,
+            session_file,
+            full=True,
+        )
+        self.assertIn("path only", briefing)
+
+    def test_plan_mode_required_noise_creates_no_binding(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "user",
+                    "sessionId": "session-noise",
+                    "message": {
+                        "role": "user",
+                        "content": "这里 plan_mode_required:false 与 plan 绑定无关",
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+
+        self.assertEqual(parsed["plan_bindings"], [])
+
+    def test_plan_bindings_reverse_lookup_recovers_content(self):
+        import io
+        import types
+        from contextlib import redirect_stdout
+
+        with tempfile.TemporaryDirectory() as home_dir:
+            home = Path(home_dir)
+            plan_path = str(home / "plans" / "deleted-plan.md")
+            records = [
+                {
+                    "type": "attachment",
+                    "sessionId": "s1",
+                    "timestamp": "2026-09-16T01:00:00Z",
+                    "attachment": {
+                        "type": "plan_file_reference",
+                        "planFilePath": plan_path,
+                        "planContent": "# 被删计划\n内容还在",
+                    },
+                },
+            ]
+            session_path = home / "projects" / "-tmp-proj" / "s1.jsonl"
+            session_path.parent.mkdir(parents=True)
+            session_path.write_text(
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records),
+                encoding="utf-8",
+            )
+            args = types.SimpleNamespace(
+                plan_file=plan_path,
+                home=[str(home)],
+                main_only=False,
+                history_sources=None,
+            )
+            out = io.StringIO()
+            with redirect_stdout(out):
+                exit_code = ANALYZE._cmd_plan_bindings(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("missing from disk", out.getvalue())
+        self.assertIn("Plan content recovered", out.getvalue())
+        self.assertIn("内容还在", out.getvalue())
+
+    def test_plan_bindings_reverse_lookup_path_only_reports_unavailable(self):
+        import io
+        import types
+        from contextlib import redirect_stdout
+
+        with tempfile.TemporaryDirectory() as home_dir:
+            home = Path(home_dir)
+            plan_path = str(home / "plans" / "gone.md")
+            records = [
+                {
+                    "type": "attachment",
+                    "sessionId": "s1",
+                    "timestamp": "2026-09-16T01:00:00Z",
+                    "attachment": {
+                        "type": "plan_mode",
+                        "planFilePath": plan_path,
+                        "planExists": False,
+                    },
+                },
+            ]
+            session_path = home / "projects" / "-tmp-proj" / "s1.jsonl"
+            session_path.parent.mkdir(parents=True)
+            session_path.write_text(
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records),
+                encoding="utf-8",
+            )
+            args = types.SimpleNamespace(
+                plan_file=plan_path,
+                home=[str(home)],
+                main_only=False,
+                history_sources=None,
+            )
+            out = io.StringIO()
+            with redirect_stdout(out):
+                exit_code = ANALYZE._cmd_plan_bindings(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Plan content unavailable", out.getvalue())
+        self.assertNotIn("not found", out.getvalue().lower())
+
+    def test_plan_bindings_reverse_lookup_ignores_noise_and_misses(self):
+        import io
+        import types
+        from contextlib import redirect_stdout
+
+        with tempfile.TemporaryDirectory() as home_dir:
+            home = Path(home_dir)
+            records = [
+                {
+                    "type": "user",
+                    "sessionId": "s1",
+                    "message": {
+                        "role": "user",
+                        "content": "plan_mode_required:false 只是设置回显",
+                    },
+                },
+            ]
+            session_path = home / "projects" / "-tmp-proj" / "s1.jsonl"
+            session_path.parent.mkdir(parents=True)
+            session_path.write_text(
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records),
+                encoding="utf-8",
+            )
+            args = types.SimpleNamespace(
+                plan_file=str(home / "plans" / "anything.md"),
+                home=[str(home)],
+                main_only=False,
+                history_sources=None,
+            )
+            out = io.StringIO()
+            with redirect_stdout(out):
+                exit_code = ANALYZE._cmd_plan_bindings(args)
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("No session binds", out.getvalue())
+
+    def test_interrupt_marker_as_last_record_is_interrupted_explicit(self):
+        session_file = self._session_file(
+            [
+                {
+                    "type": "user",
+                    "sessionId": "session-esc",
+                    "message": {"role": "user", "content": "做个东西"},
+                },
+                {
+                    "type": "assistant",
+                    "sessionId": "session-esc",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "做到一半"}],
+                    },
+                },
+                {
+                    "type": "user",
+                    "sessionId": "session-esc",
+                    "message": {
+                        "role": "user",
+                        "content": "[Request interrupted by user]",
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+        timeline = MODULE.extract_turn_timeline(parsed["messages"])
+
+        self.assertEqual(parsed["end_reason"], "interrupted_explicit")
+        self.assertEqual(timeline[-1]["kind"], "interrupt_marker")
+
+    def test_mid_session_interrupt_marker_does_not_trigger_tail(self):
+        # The false-positive shape analyze_sessions.classify_session_tail
+        # documented: a marker the conversation continued past is not a tail
+        # interruption.
+        session_file = self._session_file(
+            [
+                {
+                    "type": "user",
+                    "sessionId": "session-esc2",
+                    "message": {
+                        "role": "user",
+                        "content": "[Request interrupted by user]",
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "sessionId": "session-esc2",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "接着说完了"}],
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+        timeline = MODULE.extract_turn_timeline(parsed["messages"])
+
+        self.assertEqual(parsed["end_reason"], "completed")
+        self.assertEqual(timeline[0]["kind"], "interrupt_marker")
+
+    def test_interrupt_marker_outranks_pending_tool_calls(self):
+        # esc during an in-flight tool call: marker AND unresolved ids are both
+        # true — the explicit signal names the end state.
+        session_file = self._session_file(
+            [
+                {
+                    "type": "assistant",
+                    "sessionId": "session-esc3",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "toolu_cut",
+                                "name": "Bash",
+                                "input": {"command": "make"},
+                            }
+                        ],
+                    },
+                },
+                {
+                    "type": "user",
+                    "sessionId": "session-esc3",
+                    "message": {
+                        "role": "user",
+                        "content": "[Request interrupted by user for tool use]",
+                    },
+                },
+            ]
+        )
+
+        parsed = MODULE.parse_session_structure(session_file)
+
+        self.assertEqual(parsed["end_reason"], "interrupted_explicit")
+        self.assertEqual(set(parsed["unresolved_tool_calls"]), {"toolu_cut"})
 
 
 if __name__ == "__main__":

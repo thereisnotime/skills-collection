@@ -180,6 +180,64 @@ assert_vote "pending: requirements_verifier" requirements_verifier CONTINUE
 assert_vote "pending: test_auditor"          test_auditor          COMPLETE
 cdx "$ORIG_DIR"
 
+# ---------------------------------------------------------------------------
+# Case 6: work IN FLIGHT is still work. An empty pending queue does not mean
+# done when items sit in in-progress (or blocked).
+#
+# WHY THIS EXISTS. requirements_verifier counted ONLY pending.json, which was
+# safe by accident: nothing ever promoted a task out of pending, so the count
+# never dropped. The moment a selector claims an item (pending -> in-progress),
+# pending hits 0 and this member would vote COMPLETE with the work still
+# running. That is a gate weakened as a side effect of a throughput change,
+# which is exactly what this repo forbids. The count must span every queue that
+# holds unfinished work.
+#
+# The three duplicate id=iteration-1 records observed in a live
+# .loki/queue/in-progress.json are the same subsystem failing in the other
+# direction, so this case is pinned before that writer is touched.
+# ---------------------------------------------------------------------------
+echo
+echo "=== Case 6: green suite + empty pending + in-progress -> req_verifier CONTINUE ==="
+P6=$(make_project); register_cleanup "$P6"
+write_test_results "$P6" '{"timestamp":"2026-09-15T00:00:00Z","runner":"jest","pass":true,"summary":"42 passed"}'
+printf '%s\n' '[]' > "$P6/.loki/queue/pending.json"
+printf '%s\n' '[{"id":"prd-001","status":"in_progress"}]' > "$P6/.loki/queue/in-progress.json"
+# shellcheck disable=SC2034  # consumed by the sourced council_evaluate_member
+TARGET_DIR="$P6"
+cdx "$P6"
+assert_vote "in-flight: requirements_verifier" requirements_verifier CONTINUE
+assert_vote "in-flight: test_auditor"          test_auditor          COMPLETE
+cdx "$ORIG_DIR"
+
+# Case 7: a parked (blocked) item is also unfinished work.
+echo
+echo "=== Case 7: green suite + empty pending + blocked -> req_verifier CONTINUE ==="
+P7=$(make_project); register_cleanup "$P7"
+write_test_results "$P7" '{"timestamp":"2026-09-15T00:00:00Z","runner":"jest","pass":true,"summary":"42 passed"}'
+printf '%s\n' '[]' > "$P7/.loki/queue/pending.json"
+printf '%s\n' '[{"id":"prd-002","status":"blocked","reason":"needs a credential"}]' > "$P7/.loki/queue/blocked.json"
+# shellcheck disable=SC2034  # consumed by the sourced council_evaluate_member
+TARGET_DIR="$P7"
+cdx "$P7"
+assert_vote "blocked: requirements_verifier" requirements_verifier CONTINUE
+cdx "$ORIG_DIR"
+
+# Case 8: the positive control. All queues genuinely empty and tests green ->
+# requirements_verifier MUST still be able to vote COMPLETE. Without this, a
+# change that simply hardcoded CONTINUE would pass Cases 5 to 7 and this suite
+# would be a check that cannot fail in the other direction.
+echo
+echo "=== Case 8 (control): green suite + all queues empty -> req_verifier COMPLETE ==="
+P8=$(make_project); register_cleanup "$P8"
+write_test_results "$P8" '{"timestamp":"2026-09-15T00:00:00Z","runner":"jest","pass":true,"summary":"42 passed"}'
+printf '%s\n' '[]' > "$P8/.loki/queue/pending.json"
+printf '%s\n' '[]' > "$P8/.loki/queue/in-progress.json"
+# shellcheck disable=SC2034  # consumed by the sourced council_evaluate_member
+TARGET_DIR="$P8"
+cdx "$P8"
+assert_vote "all-empty: requirements_verifier" requirements_verifier COMPLETE
+cdx "$ORIG_DIR"
+
 echo
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

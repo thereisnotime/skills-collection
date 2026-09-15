@@ -1,18 +1,22 @@
 # Running your app on the remote sim — tested sequences
 
-The remote sim boots blank. You install a **simulator-targeted** build onto the session, then open it. Pick a mode from `SKILL.md`. (Sequences validated against eas-cli 20.3.x + agent-device 0.17.x in mid-2026; the commands are experimental — if one fails, re-check `<cmd> --help`.)
+The remote sim boots blank. You install a **simulator-targeted** build onto the session, then open it. Pick a mode from `SKILL.md`. (Sequences validated against eas-cli 20.3.x + agent-device 0.17.x in mid-2026. These commands are experimental — check the relevant subcommand's `--help` before using non-default flags.)
 
 In all modes, the session is started the same way and driven through `npx --yes eas-cli@latest simulator:exec`. Replace `dev.example.app` with the app's iOS `bundleIdentifier` (from `app.json` → `ios.bundleIdentifier`), and run from the project directory.
 
-> These sequences are **iOS**. For **Android**: build via `npx --yes eas-cli@latest build --platform android` (or local Gradle), `install` the `.apk` instead of an `.app`, skip `pod install`, and note there's **no `webPreviewUrl`** (Android is agent-driven / screenshot-only).
+> These sequences are **iOS**. For **Android**: build via `npx --yes eas-cli@latest build --platform android` (or local Gradle), `install` the `.apk` instead of an `.app`, and skip `pod install`. Current simulator session types include a web preview, though Android support is still in development and may lack iOS parity.
 
 ## Starting a session (shared by all modes)
 
 ```bash
-# Reset the dotenv first so the new session id isn't masked by an "Overwriting previous session" warning.
+# If the dotenv names a session, inspect it first with simulator:get --json. Reuse it when it belongs
+# to this run; stop it only when it is in scope and no longer needed. An IN_PROGRESS session may be
+# intentionally concurrent, so preserve its id/config before resetting the dotenv. Replacing the file
+# does not stop the remote session. Reset only after choosing how to handle the existing session.
 printf '# managed by eas-cli\n' > .env.eas-simulator
 
-# Start (no --json, so it writes .env.eas-simulator). It boots the sim + agent-device daemon.
+# Start (the default --out-config-type dotenv writes .env.eas-simulator). It boots the sim + agent-device daemon.
+# --json changes stdout but does not suppress the completed dotenv write; use --out-config-type env for no file.
 # --name is required practice: it labels the session in simulator:list/get and on expo.dev.
 # Describe what the run is for, in the user's terms — see "Always name the session" in SKILL.md.
 npx --yes eas-cli@latest simulator:start --platform ios --type agent-device --non-interactive \

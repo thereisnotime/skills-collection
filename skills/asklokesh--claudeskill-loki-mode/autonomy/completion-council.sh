@@ -3595,19 +3595,42 @@ else:
     local positive="false"
     case "$role" in
         requirements_verifier)
-            # Positive: tests not red AND no pending tasks. A present queue file
-            # with pending>0 is a hard "not done"; an ABSENT queue file is not
-            # itself disqualifying (a legit run need not have one), it just means
-            # this member relies on the base test evidence.
-            local pending=0
-            if [ -f "$loki_dir/queue/pending.json" ]; then
-                pending=$(_QUEUE_FILE="$loki_dir/queue/pending.json" python3 -c "import json, os; print(len(json.load(open(os.environ['_QUEUE_FILE']))))" 2>/dev/null || echo "0")
-                if [ "$pending" -gt 0 ]; then
+            # Positive: tests not red AND no UNFINISHED work in any queue.
+            #
+            # UNFINISHED WORK SPANS EVERY QUEUE THAT HOLDS IT, not just pending.
+            #
+            # This counted ONLY pending.json, which was safe purely by accident:
+            # nothing in the runtime ever promoted a task out of pending, so the
+            # count never dropped and this member stayed negative. The moment a
+            # selector claims an item (pending -> in-progress), pending hits 0
+            # and this member would vote COMPLETE with the work still running --
+            # a gate weakened as a SIDE EFFECT of a throughput change, which is
+            # the one thing the trust core must never do.
+            #
+            # in-progress: claimed and running. blocked: parked awaiting a fact.
+            # Both are unfinished. An ABSENT queue file is still not
+            # disqualifying (a legit run need not have one); only a present file
+            # with a non-zero count blocks.
+            #
+            # Pinned by tests/test-completion-council-affirmative-evidence.sh
+            # Cases 6 and 7, with Case 8 as the positive control proving this
+            # can still reach COMPLETE when every queue really is empty.
+            local unfinished=0
+            local _q _qcount
+            for _q in pending in-progress blocked; do
+                [ -f "$loki_dir/queue/${_q}.json" ] || continue
+                _qcount=$(_QUEUE_FILE="$loki_dir/queue/${_q}.json" python3 -c "import json, os
+d = json.load(open(os.environ['_QUEUE_FILE']))
+print(len(d.get('tasks', d) if isinstance(d, dict) else d))" 2>/dev/null || echo "0")
+                # Guard against a non-numeric read (malformed file, python absent).
+                case "$_qcount" in ''|*[!0-9]*) _qcount=0 ;; esac
+                if [ "$_qcount" -gt 0 ]; then
+                    unfinished=$((unfinished + _qcount))
                     blocked="true"
-                    reasons="${reasons}$pending tasks still pending; "
+                    reasons="${reasons}$_qcount tasks still ${_q}; "
                 fi
-            fi
-            if [ "$test_evidence" = "pass" ] && [ "$pending" -eq 0 ]; then
+            done
+            if [ "$test_evidence" = "pass" ] && [ "$unfinished" -eq 0 ]; then
                 positive="true"
             fi
             ;;

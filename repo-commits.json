@@ -691,6 +691,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "e3de6cd",
+      "message": "fix(ce-code-review): size review depth by consequence, not total line count (#1719)",
+      "date": "2026-09-15",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "0ec66db",
       "message": "chore: release main (#1718)",
       "date": "2026-09-15",
@@ -741,12 +747,6 @@
     {
       "sha": "062de4b",
       "message": "fix(ce-code-review): cheap review for small low-consequence diffs (#1706)",
-      "date": "2026-09-14",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "fd8abda",
-      "message": "feat(lfg): route each request to the skill that owns it before shipping (#1702)",
       "date": "2026-09-14",
       "author": "Trevin Chow"
     }
@@ -1943,6 +1943,12 @@
   ],
   "conorbronsdon--avoid-ai-writing": [
     {
+      "sha": "64b2de6",
+      "message": "docs: link GitHub Marketplace action (#317)",
+      "date": "2026-09-15",
+      "author": "Conor Bronsdon"
+    },
+    {
       "sha": "14a7087",
       "message": "fix: resolve nightly triage follow-ups (#316)",
       "date": "2026-09-14",
@@ -1995,12 +2001,6 @@
       "message": "nightly: fix tracker stripping, export spawn errors, release version gap",
       "date": "2026-09-14",
       "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "aa4da8b",
-      "message": "fix: preserve query params when stripping trackers (#305)",
-      "date": "2026-09-14",
-      "author": "Lucas Le\u00e3o"
     }
   ],
   "conorluddy--ios-simulator-skill": [
@@ -2253,6 +2253,12 @@
   ],
   "expo--skills": [
     {
+      "sha": "3970866",
+      "message": "[eas-simulator] cover current CLI flags (#187)",
+      "date": "2026-09-15",
+      "author": "Szymon Dziedzic"
+    },
+    {
       "sha": "c180b05",
       "message": "[eas-simulator] Clarify EAS Simulator cost and authorization guidance (#186)",
       "date": "2026-09-14",
@@ -2305,15 +2311,21 @@
       "message": "[skills] Add EAS Update skill",
       "date": "2026-09-03",
       "author": "SJ Kim"
-    },
-    {
-      "sha": "80090cc",
-      "message": "ENG-25791: keep expo-constants with Expo Router (#173)",
-      "date": "2026-09-02",
-      "author": "Adam Zvada"
     }
   ],
   "firecrawl--cli": [
+    {
+      "sha": "bdcfc62",
+      "message": "Natural alexandria search (#230)",
+      "date": "2026-09-15",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "0ee79b1",
+      "message": "Consolidate Alexandria discovery and execution in one skill (#227)",
+      "date": "2026-09-15",
+      "author": "Developers Digest"
+    },
     {
       "sha": "7fda708",
       "message": "Use published Alexandria SDK in CLI beta (#225)",
@@ -2361,18 +2373,6 @@
       "message": "Update package.json",
       "date": "2026-08-27",
       "author": "Nicolas"
-    },
-    {
-      "sha": "509dd9c",
-      "message": "Nick: build skills references",
-      "date": "2026-08-27",
-      "author": "Nicolas"
-    },
-    {
-      "sha": "1b7ac5f",
-      "message": "release: 1.23.2",
-      "date": "2026-08-26",
-      "author": "Karan Lokchandani"
     }
   ],
   "hashicorp--agent-skills": [
@@ -3211,6 +3211,12 @@
   ],
   "remotion-dev--skills": [
     {
+      "sha": "3b9e656",
+      "message": "Update template",
+      "date": "2026-09-15",
+      "author": "Jonny Burger"
+    },
+    {
       "sha": "bd566b6",
       "message": "Update template",
       "date": "2026-09-12",
@@ -3263,12 +3269,6 @@
       "message": "Update template",
       "date": "2026-08-25",
       "author": "Jonny Burger"
-    },
-    {
-      "sha": "78834e6",
-      "message": "Update template",
-      "date": "2026-08-24",
-      "author": "JonnyBurger"
     }
   ],
   "replicate--skills": [
@@ -4527,6 +4527,30 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
+      "sha": "ea8af7e",
+      "message": "release: v9.51.1 - re-cut after v9.51.0 failed required-ci on a lint step",
+      "date": "2026-09-15",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "68c80f9",
+      "message": "fix(council): drop the dead `pending` assignment SC2034 flagged",
+      "date": "2026-09-15",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "6ce2222",
+      "message": "release: v9.51.0 - unfinished work spans every queue, not just pending",
+      "date": "2026-09-15",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "a1ebaef",
+      "message": "fix(council): unfinished work spans every queue, not just pending",
+      "date": "2026-09-15",
+      "author": "asklokesh"
+    },
+    {
       "sha": "07a9ef1",
       "message": "release: v9.50.4 - the one terminal that told the user nothing",
       "date": "2026-09-15",
@@ -4559,30 +4583,6 @@
     {
       "sha": "35c0c82",
       "message": "fix(receipt,pause): close four guard gaps and a raw-enum regression I shipped",
-      "date": "2026-09-14",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "3f3cd3e",
-      "message": "fix(pause,receipt): a non-interactive pause could hang or falsely resume, and the receipt was never announced",
-      "date": "2026-09-14",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "c8c5c3d",
-      "message": "docs(intel): mark the intervention-counter item REFUTED in place",
-      "date": "2026-09-14",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "15b9c1b",
-      "message": "fix(docs): a new skill cited dist/loki.js, which does not exist at repo root",
-      "date": "2026-09-14",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "a9a0268",
-      "message": "docs(proof): a comment claimed the intervention counter had no writer",
       "date": "2026-09-14",
       "author": "asklokesh"
     }
@@ -5327,6 +5327,54 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "ce74fcd",
+      "message": "feat(history-skills): surface fingerprints, zero-hit census, CC-behavior claims ledger (v3.34.0) (#566)",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
+      "sha": "c9bf192",
+      "message": "fix(claude-switch-models-setup): identify pin links by listing them, not by reading setup.sh (v3.33.1) (#565)",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
+      "sha": "70106e4",
+      "message": "feat(history-skills): thinking turns, plan bindings, carrier terms + freshness, explicit interrupt marker (v3.33.0) (#56",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
+      "sha": "023166b",
+      "message": "fix(history-skills): order-independent tool resolution, AUQ answers, numbered-Read proof (v3.32.1) (#563)",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
+      "sha": "cb72564",
+      "message": "docs(claude-switch-models-setup): publish the unclaimed statusline-context section (v3.32.0) (#562)",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
+      "sha": "45bdba2",
+      "message": "fix(agent-web-search-setup): correct the mainland-China reachability claim (v3.31.1) (#561)",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
+      "sha": "f23b1cd",
+      "message": "docs(daymade-claude-code): name the converger-proof per-profile settings layer (v3.31.0) (#560)",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
+      "sha": "c5f294b",
+      "message": "fix(agent-web-search-setup): the grant step did not work as published (v3.30.2) (#554)",
+      "date": "2026-09-15",
+      "author": "daymade"
+    },
+    {
       "sha": "5585252",
       "message": "docs(skill-creator): coverage rule for multi-consumer pipeline artifacts (v1.40.0) (#559)",
       "date": "2026-09-15",
@@ -5335,54 +5383,6 @@
     {
       "sha": "a34a519",
       "message": "docs(peer-message): registry blind spot \u2014 in-flight but undiscoverable owner (v1.12.0) (#558)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "586bf34",
-      "message": "fix(retrieval): verify recovered artifacts and retain native Codex output (#557)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "7f8d0bf",
-      "message": "fix(claude-switch-models-setup): ship v2 template and rollout notes left out of #555 (v3.29.1) (#556)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "9956af2",
-      "message": "feat(claude-switch-models-setup): manifest schema v2 \u2014 include/exclude skill selectors (v3.29.0) (#555)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "bd26fc4",
-      "message": "docs(skills): shared-checkout convergence lessons from the 2026-09-15 incident (#552)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "b750ef8",
-      "message": "docs(skill-creator): pin eval_metadata.json location and consumer chain in schema SSOT (v1.39.0) (#553)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "157223d",
-      "message": "docs(skill-creator): add Case 25 \u2014 same-session knowledge doesn't propagate to earlier artifacts (v1.38.4) (#551)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "569d96c",
-      "message": "feat(tibo-reset-codex): add isolated-profile Google cookie import for multi-account usage queries (v1.11.0) (#550)",
-      "date": "2026-09-15",
-      "author": "daymade"
-    },
-    {
-      "sha": "49d50a8",
-      "message": "fix(skill-creator): generate_review.py falls back to eval-dir eval_metadata.json (v1.38.3) (#549)",
       "date": "2026-09-15",
       "author": "daymade"
     }
@@ -5699,6 +5699,30 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "804f0f9",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-15",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "daae693",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-15",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "9f3245b",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-15",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "c9b7fe9",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-15",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "b1e50b3",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-15",
@@ -5730,30 +5754,6 @@
     },
     {
       "sha": "c80288e",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-14",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "67162d1",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-14",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "b85abc0",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-14",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "f0e3aa6",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-14",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "a8e158a",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-14",
       "author": "github-actions[bot]"
@@ -5819,6 +5819,68 @@
       "message": "Revise README with updated star counts and skills",
       "date": "2026-06-25",
       "author": "jQueryScript"
+    }
+  ],
+  "shaunburdick--skills": [
+    {
+      "sha": "a8550f6",
+      "message": "feat: add spec triage gate to prevent spec sprawl (#5)",
+      "date": "2026-09-04",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "d1c90c8",
+      "message": "docs: add form integration with ElementInternals to web-component-design skill (#4)",
+      "date": "2026-09-01",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "76b0c2b",
+      "message": "feat: add web-component-design skill (#3)",
+      "date": "2026-09-01",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "b8c073f",
+      "message": "Fix description formatting in SKILL.md",
+      "date": "2026-08-21",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "b6a625c",
+      "message": "docs: update spec-kit skills for spec-kit v1.0.0 CLI (#2)",
+      "date": "2026-08-21",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "4a24613",
+      "message": "feat: add github-actions skill for secure workflow authoring (#1)",
+      "date": "2026-08-11",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "a6fd69c",
+      "message": "Updated style skill to be more aware of other orgs and not force my style when working on other projects",
+      "date": "2026-04-25",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "8271bf1",
+      "message": "Added spec-kit skill and updated other skills to use it",
+      "date": "2026-04-19",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "bce55ee",
+      "message": "Fixed formatting in code-quality skill",
+      "date": "2026-04-19",
+      "author": "Shaun Burdick"
+    },
+    {
+      "sha": "edd0c0d",
+      "message": "Reviewed and updated",
+      "date": "2026-04-19",
+      "author": "Shaun Burdick"
     }
   ]
 }

@@ -414,6 +414,15 @@ declare -a _FAST_KEEP=(
   # as a raw enum -- which is only useful if it runs before a push. It caught
   # exactly that on the gate-stuck terminals. Measured 1s, no provider call.
   "tests/test-completion-outcome-labels.sh"
+  # requirements_verifier counted ONLY pending.json, which was safe purely by
+  # accident: nothing promoted a task out of pending, so the count never
+  # dropped. A selector that claims work (pending -> in-progress) drives pending
+  # to 0 and would flip this member COMPLETE with the work still running. That
+  # is a trust-core gate weakened as a SIDE EFFECT, and no pre-push gate ran
+  # this suite (measured _FAST_KEEP 0 before this line). Cases 6 and 7 pin the
+  # in-flight and blocked queues; Case 8 is the positive control proving the
+  # member can still reach COMPLETE. Sources the real council, no provider call.
+  "tests/test-completion-council-affirmative-evidence.sh"
   "tests/test-mcp-tool-surface-packaged.sh"   # 2.9s
   "tests/test-mcp-tool-surface-guard-rejects.sh" # 8s, proves the guard rejects
   # CLAUDE.md cleanup mandate: sub-second, and the whole point is that it runs
@@ -1488,6 +1497,8 @@ run_check "tests/test-heldout-evals.sh (held-out selection + council gate)" "bas
 # signal); arms test _completion_claimed. Guards against the multi-call drop.
 run_check "tests/test-completion-claim.sh (completion-claim single-evaluation)" "bash tests/test-completion-claim.sh 2>&1 | tail -3"
 run_check "tests/test-completion-outcome-labels.sh (no terminal outcome renders as a raw enum)" "bash tests/test-completion-outcome-labels.sh 2>&1 | tail -6"
+# Membership in _FAST_KEEP alone does nothing without a call site (local-ci.sh:276).
+run_check "tests/test-completion-council-affirmative-evidence.sh (unfinished work spans every queue, not just pending)" "bash tests/test-completion-council-affirmative-evidence.sh 2>&1 | tail -6"
 
 # v7.28.0: living spec. `loki spec` lock/status/sync, drift-report.json, and the
 # SPEC_DRIFT finding surfaced by `loki verify`.

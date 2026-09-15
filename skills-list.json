@@ -11039,8 +11039,8 @@
       "description": "\"Review a named diff or PR for bugs, regressions, tests, and standards. Use when asked to review code or when a shipping skill needs a review receipt. Use when asked to apply this review's findings lo",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
-      "lines": 45,
-      "words": 1202,
+      "lines": 41,
+      "words": 1194,
       "code_blocks": 0,
       "languages": []
     },
@@ -23632,9 +23632,9 @@
       "description": "\"EAS service (paid). Run and control a user's app on a remote iOS/Android simulator hosted on EAS cloud. Read before running any `eas simulator:*` commands - it has the current syntax for this experim",
       "path": "expo--skills/plugins/expo/skills/eas-simulator/SKILL.md",
       "remote_path": "plugins/expo/skills/eas-simulator/SKILL.md",
-      "lines": 208,
-      "words": 3558,
-      "code_blocks": 5,
+      "lines": 231,
+      "words": 3813,
+      "code_blocks": 6,
       "languages": [
         "bash"
       ],
@@ -23774,8 +23774,8 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-search/SKILL.md",
       "remote_path": "skills/firecrawl-search/SKILL.md",
-      "lines": 91,
-      "words": 785,
+      "lines": 101,
+      "words": 983,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -23853,12 +23853,12 @@
     },
     {
       "name": "firecrawl-alexandria",
-      "description": "Use for explicitly requested Firecrawl Alexandria beta tool discovery or provider execution, including Find Tools, provider-backed search, and structured third-party data. Requires an authorized Firec",
+      "description": "Use with Firecrawl beta search when natural web results include Alexandria tools, when the user explicitly wants tools for a task or website, or when executing a discovered provider tool. Search norma",
       "path": "firecrawl--cli/beta-skills/firecrawl-alexandria/SKILL.md",
       "remote_path": "beta-skills/firecrawl-alexandria/SKILL.md",
-      "lines": 41,
-      "words": 435,
-      "code_blocks": 2,
+      "lines": 108,
+      "words": 1021,
+      "code_blocks": 8,
       "languages": [
         "sh"
       ]
@@ -26573,7 +26573,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-interactivity",
@@ -26586,7 +26586,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "transcribe-captions",
@@ -26638,7 +26638,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-studio",
@@ -26651,7 +26651,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "rendering",
@@ -26694,7 +26694,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "calculate-metadata",
@@ -26926,7 +26926,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "voiceover",
@@ -26989,7 +26989,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-best-practices",
@@ -27000,7 +27000,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "get-video-dimensions",
@@ -27035,7 +27035,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "get-video-duration",
@@ -27070,7 +27070,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-maps",
@@ -27081,7 +27081,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-upgrade",
@@ -27094,7 +27094,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-maps",
@@ -27105,7 +27105,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-maps-static",
@@ -27170,7 +27170,7 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-interactivity",
@@ -27183,7 +27183,7 @@
       "languages": [
         "tsx"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-captions",
@@ -27196,7 +27196,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "transcribe-captions",
@@ -27248,7 +27248,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-saas",
@@ -27259,7 +27259,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "rendering",
@@ -27419,7 +27419,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "audio-visualization",
@@ -27586,7 +27586,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "get-video-dimensions",
@@ -27621,7 +27621,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "get-video-duration",
@@ -27646,7 +27646,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "tailwind",
@@ -27667,7 +27667,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-upgrade",
@@ -27680,7 +27680,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-maps",
@@ -27691,7 +27691,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.524"
+      "version": "4.0.525"
     },
     {
       "name": "remotion-maps-static",
@@ -157694,8 +157694,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 285,
-      "words": 2287,
+      "lines": 313,
+      "words": 2511,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -157754,11 +157754,13 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/agent-web-search-setup/SKILL.md",
       "remote_path": "daymade-claude-code/agent-web-search-setup/SKILL.md",
-      "lines": 337,
-      "words": 3270,
-      "code_blocks": 2,
+      "lines": 658,
+      "words": 6336,
+      "code_blocks": 10,
       "languages": [
-        "bash"
+        "bash",
+        "json",
+        "toml"
       ]
     },
     {
@@ -157834,8 +157836,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 440,
-      "words": 4476,
+      "lines": 442,
+      "words": 4718,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -157857,8 +157859,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 316,
-      "words": 2333,
+      "lines": 337,
+      "words": 2522,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -177080,5 +177082,115 @@
     }
   ],
   "hesreallyhim--awesome-claude-code": [],
-  "jqueryscript--awesome-claude-code": []
+  "jqueryscript--awesome-claude-code": [],
+  "shaunburdick--skills": [
+    {
+      "name": "style",
+      "description": "Set up code style configuration for a project. Installs the right linting and formatting rules based on the repo's GitHub org \u2014 @shaunburdick's personal config for shaunburdick/* repos, the org's own ",
+      "path": "shaunburdick--skills/skills/style/SKILL.md",
+      "remote_path": "skills/style/SKILL.md",
+      "lines": 50,
+      "words": 464,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "git-safety",
+      "description": "Enforces safe git practices for AI coding agents. Defines branch protection rules, commit policies, amend rules, and force-push boundaries. Load this skill at the start of any session where the agent ",
+      "path": "shaunburdick--skills/skills/git-safety/SKILL.md",
+      "remote_path": "skills/git-safety/SKILL.md",
+      "lines": 93,
+      "words": 531,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "spec-driven-development",
+      "description": "Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to \"plan\", \"spec out\", \"design\", ",
+      "path": "shaunburdick--skills/skills/spec-driven-development/SKILL.md",
+      "remote_path": "skills/spec-driven-development/SKILL.md",
+      "lines": 219,
+      "words": 1340,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "markdown"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "web-component-design",
+      "description": "Design, build, test, and integrate standards-based custom elements and framework-agnostic Web Components. Covers lifecycle timing, Light DOM and Shadow DOM composition, accessibility, form submission ",
+      "path": "shaunburdick--skills/skills/web-component-design/SKILL.md",
+      "remote_path": "skills/web-component-design/SKILL.md",
+      "lines": 488,
+      "words": 2283,
+      "code_blocks": 13,
+      "languages": [
+        "text",
+        "ts"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "github-actions",
+      "description": "Author secure, maintainable GitHub Actions workflows and CI/CD pipelines. Use when asked to \"create a workflow\", \"set up CI/CD\", \"write a GitHub Action\", \"add a deploy pipeline\", \"configure Actions\", ",
+      "path": "shaunburdick--skills/skills/github-actions/SKILL.md",
+      "remote_path": "skills/github-actions/SKILL.md",
+      "lines": 414,
+      "words": 1811,
+      "code_blocks": 14,
+      "languages": [
+        "json5",
+        "yaml"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "spec-kit",
+      "description": "\"Practical guide for setting up and using the spec-kit CLI on a project. Covers installation, project initialization (--integration flag) for Claude, OpenCode, Copilot, Cursor, Codex and more, the spe",
+      "path": "shaunburdick--skills/skills/spec-kit/SKILL.md",
+      "remote_path": "skills/spec-kit/SKILL.md",
+      "lines": 376,
+      "words": 1955,
+      "code_blocks": 18,
+      "languages": [
+        "bash"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "code-quality",
+      "description": "\"Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppressions \u2014 ever), type safety (no `any` in TypeScript, no `# type: ignore` in Python), and a mandator",
+      "path": "shaunburdick--skills/skills/code-quality/SKILL.md",
+      "remote_path": "skills/code-quality/SKILL.md",
+      "lines": 114,
+      "words": 745,
+      "code_blocks": 2,
+      "languages": [
+        "python",
+        "typescript"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "skill-creator",
+      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill",
+      "path": "shaunburdick--skills/.agents/skills/skill-creator/SKILL.md",
+      "remote_path": ".agents/skills/skill-creator/SKILL.md",
+      "lines": 486,
+      "words": 5205,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "json",
+        "markdown"
+      ]
+    }
+  ]
 }

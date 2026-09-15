@@ -3,8 +3,10 @@
 
 The helper never awards lite. It reports counts, path classes, and floors
 the skill's Review depth gate reads. `hard_block_full` forces the full
-spine; a clear floor still needs the agent to confirm no high-consequence
-class before lite.
+spine: a path class the script can name, a file it could not count, or a
+change whose executable non-test lines reach the full floor. Below that
+floor, size is a fact the gate reads, never a decision; the agent judges
+consequence.
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ CODE_EXTENSIONS = {
     ".rb", ".py", ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs",
     ".java", ".swift", ".kt", ".c", ".cc", ".cpp", ".cs", ".php",
     ".ex", ".exs", ".scala",
+    ".sh", ".bash", ".zsh", ".fish", ".ps1", ".pl", ".pm", ".lua", ".dart",
+    ".vue", ".svelte",
 }
 
 SIGNAL_PATTERNS = {
@@ -52,10 +56,22 @@ HARD_BLOCK_PATTERNS = {
     "migrations": SIGNAL_PATTERNS["migrations"],
 }
 
-SMALL_LINE_MAX = 39
+# Executable non-test changed lines at or above this run the full spine; it
+# matches the maintainability reviewer's trigger. Below it, consequence decides.
+FULL_EXEC_LINE_MIN = 200
+# Total changed lines at or above this run the full spine whatever the file
+# types: a backstop for executable sources the extension list does not name.
+FULL_TOTAL_LINE_MIN = 400
 
+# Conventions recognized: tests?/spec/__tests__ directories; a .test./.spec.
+# suffix; a test_*.py / conftest.py Python prefix; and a case-sensitive
+# Test/Tests/Spec class-file suffix (Java/C#/Scala/Swift/Kotlin), so that
+# Contest.java or Manifest.cs stays production code.
 TEST_PATTERN = re.compile(
-    r"(^|/)(tests?|spec|__tests__)/|(^|/)[^/]+[._-](test|spec)\.[^/]+$",
+    r"(^|/)(tests?|spec|__tests__)/"
+    r"|(^|/)[^/]+[._-](test|spec)\.[^/]+$"
+    r"|(^|/)(test_[^/]+|conftest)\.[^/]+$"
+    r"|(?-i:(^|/)[^/]+(Test|Tests|Spec)\.(java|kt|scala|swift|cs)$)",
     re.I,
 )
 AGENT_SURFACE_PATTERN = re.compile(
@@ -202,6 +218,7 @@ def fail_closed(reason: str, signals: dict[str, object]) -> dict[str, object]:
         "status": "unknown",
         "reason": reason,
         "exec_lines": None,
+        "exec_nontest_lines": None,
         "changed_lines": None,
         "uncounted_files": 1,
         "changed_files": [],
@@ -215,12 +232,18 @@ def fail_closed(reason: str, signals: dict[str, object]) -> dict[str, object]:
     }
 
 
-def size_band_for(changed_lines: int | None) -> str:
-    if changed_lines is None:
+def size_band_for(exec_nontest_lines: int | None, changed_lines: int | None) -> str:
+    """Band the change: `large` is a full-spine floor.
+
+    Executable non-test lines at `FULL_EXEC_LINE_MIN` decide it; total changed
+    lines at `FULL_TOTAL_LINE_MIN` back it up for sources the extension list
+    cannot name.
+    """
+    if exec_nontest_lines is None or changed_lines is None:
         return "unknown"
-    if 1 <= changed_lines <= SMALL_LINE_MAX:
-        return "small"
-    return "large"
+    if exec_nontest_lines >= FULL_EXEC_LINE_MIN or changed_lines >= FULL_TOTAL_LINE_MIN:
+        return "large"
+    return "small"
 
 
 def matching_classes(
@@ -231,6 +254,19 @@ def matching_classes(
         for name, pattern in patterns.items()
         if any(pattern.search(file) for file in files)
     ]
+
+
+def numstat_path(name: str) -> str:
+    """Return the destination path from a `git diff --numstat` rename display name."""
+    if " => " not in name:
+        return name
+    if "{" in name and "}" in name:
+        prefix, rest = name.split("{", 1)
+        old_new, suffix = rest.split("}", 1)
+        _, new = old_new.split(" => ", 1)
+        return f"{prefix}{new}{suffix}"
+    _, new = name.split(" => ", 1)
+    return new
 
 
 def main() -> int:
@@ -261,12 +297,29 @@ def main() -> int:
 
     names = git("diff", "--name-only", *diff_args)
     numstat = git("diff", "--numstat", *diff_args)
-    if names.returncode != 0 or numstat.returncode != 0:
+    raw = git("diff", "--raw", *diff_args)
+    if names.returncode != 0 or numstat.returncode != 0 or raw.returncode != 0:
         print(json.dumps(fail_closed("git diff failed", repo), sort_keys=True))
         return 0
 
+    executable_mode_paths: set[str] = set()
+    for line in raw.stdout.splitlines():
+        if "\t" not in line:
+            continue
+        meta, path_field = line.split("\t", 1)
+        fields = meta.lstrip(":").split(" ")
+        if len(fields) < 2:
+            continue
+        old_mode, new_mode = fields[0], fields[1]
+        mode = old_mode if new_mode == "000000" else new_mode
+        if not mode.endswith("755"):
+            continue
+        for path in path_field.split("\t"):
+            executable_mode_paths.add(path)
+
     files = sorted(line for line in names.stdout.splitlines() if line)
     executable_lines = 0
+    executable_nontest_lines = 0
     changed_lines = 0
     uncounted = 0
     for line in numstat.stdout.splitlines():
@@ -283,19 +336,26 @@ def main() -> int:
             uncounted += 1
             continue
         changed_lines += total
-        if Path(name).suffix.lower() in CODE_EXTENSIONS:
+        resolved_name = numstat_path(name)
+        if (
+            Path(resolved_name).suffix.lower() in CODE_EXTENSIONS
+            or resolved_name in executable_mode_paths
+        ):
             executable_lines += total
+            if not TEST_PATTERN.search(resolved_name):
+                executable_nontest_lines += total
 
     signals = matching_classes(files, SIGNAL_PATTERNS)
     hard_block_classes = matching_classes(files, HARD_BLOCK_PATTERNS)
     if uncounted:
         hard_block_classes.append("uncounted")
-    band = size_band_for(changed_lines)
+    band = size_band_for(executable_nontest_lines, changed_lines)
 
     result = {
         "status": "complete",
         "reason": None,
         "exec_lines": executable_lines,
+        "exec_nontest_lines": executable_nontest_lines,
         "changed_lines": changed_lines,
         "uncounted_files": uncounted,
         "changed_files": files,
