@@ -11040,7 +11040,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-code-review/SKILL.md",
       "remote_path": "skills/ce-code-review/SKILL.md",
       "lines": 41,
-      "words": 1194,
+      "words": 1202,
       "code_blocks": 0,
       "languages": []
     },
@@ -11898,7 +11898,7 @@
       "path": "Imbad0202--academic-research-skills/commands/ars-abstract.md",
       "remote_path": "commands/ars-abstract.md",
       "lines": 11,
-      "words": 56,
+      "words": 80,
       "code_blocks": 0,
       "languages": []
     },
@@ -11994,7 +11994,7 @@
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
       "lines": 545,
-      "words": 6324,
+      "words": 6451,
       "code_blocks": 4,
       "languages": []
     },
@@ -12327,8 +12327,8 @@
       "description": "\"Writes and translates abstracts in English and the target language to journal format standards\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/abstract_bilingual_agent.md",
       "remote_path": "academic-paper/agents/abstract_bilingual_agent.md",
-      "lines": 172,
-      "words": 1121,
+      "lines": 195,
+      "words": 1666,
       "code_blocks": 1,
       "languages": [
         "markdown"
@@ -12351,8 +12351,8 @@
       "description": "\"Writes the full paper draft section by section from the structured outline and Paper Configuration Record\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/draft_writer_agent.md",
       "remote_path": "academic-paper/agents/draft_writer_agent.md",
-      "lines": 652,
-      "words": 7324,
+      "lines": 661,
+      "words": 7564,
       "code_blocks": 10,
       "languages": [
         "json",
@@ -12381,8 +12381,8 @@
       "description": "\"Designs the papers section architecture and detailed outline before drafting begins\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/structure_architect_agent.md",
       "remote_path": "academic-paper/agents/structure_architect_agent.md",
-      "lines": 402,
-      "words": 2813,
+      "lines": 404,
+      "words": 2918,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -12393,8 +12393,8 @@
       "description": "\"Conducts the paper configuration interview and produces the Paper Configuration Record for downstream agents\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/intake_agent.md",
       "remote_path": "academic-paper/agents/intake_agent.md",
-      "lines": 394,
-      "words": 3528,
+      "lines": 398,
+      "words": 3770,
       "code_blocks": 4,
       "languages": [
         "markdown"
@@ -24946,8 +24946,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 620,
-      "words": 6027,
+      "lines": 634,
+      "words": 6152,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -24959,9 +24959,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 491,
-      "words": 4697,
-      "code_blocks": 20,
+      "lines": 536,
+      "words": 5077,
+      "code_blocks": 22,
       "languages": [
         "bash",
         "text",
@@ -25040,8 +25040,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 620,
-      "words": 6027,
+      "lines": 634,
+      "words": 6152,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25053,9 +25053,9 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 491,
-      "words": 4697,
-      "code_blocks": 20,
+      "lines": 536,
+      "words": 5077,
+      "code_blocks": 22,
       "languages": [
         "bash",
         "text",
@@ -59444,7 +59444,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-33-plan-reviewer/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-33-plan-reviewer/SKILL.md",
       "lines": 137,
-      "words": 3273,
+      "words": 3270,
       "code_blocks": 0,
       "languages": []
     },
@@ -59453,8 +59453,8 @@
       "description": "\"Builds dependency-ordered delivery plans from requirements and repository evidence; read-only.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-31-delivery-plan-builder/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-31-delivery-plan-builder/SKILL.md",
-      "lines": 85,
-      "words": 995,
+      "lines": 86,
+      "words": 1018,
       "code_blocks": 0,
       "languages": []
     },
@@ -59463,8 +59463,8 @@
       "description": "\"Plans risk-based test portfolios and acceptance evidence; does not write or execute tests.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-planning-suite/skills/ln-32-test-strategy-planner/SKILL.md",
       "remote_path": "plugins/delivery-planning-suite/skills/ln-32-test-strategy-planner/SKILL.md",
-      "lines": 107,
-      "words": 1943,
+      "lines": 105,
+      "words": 1852,
       "code_blocks": 0,
       "languages": []
     },
@@ -59473,8 +59473,8 @@
       "description": "\"Records one architecture decision with alternatives, consequences and status; does not design the whole system.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-24-architecture-decision-recorder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-24-architecture-decision-recorder/SKILL.md",
-      "lines": 101,
-      "words": 1253,
+      "lines": 100,
+      "words": 1229,
       "code_blocks": 0,
       "languages": []
     },
@@ -59483,8 +59483,8 @@
       "description": "\"Defines measurable architecture drivers and constraints before system design; edits architecture docs only.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-21-system-design-baseline-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-21-system-design-baseline-builder/SKILL.md",
-      "lines": 103,
-      "words": 1372,
+      "lines": 102,
+      "words": 1334,
       "code_blocks": 0,
       "languages": []
     },
@@ -59493,8 +59493,8 @@
       "description": "\"Creates evidence-backed current or target architecture diagrams; not UI design.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-25-architecture-diagram-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-25-architecture-diagram-builder/SKILL.md",
-      "lines": 100,
-      "words": 1237,
+      "lines": 99,
+      "words": 1208,
       "code_blocks": 0,
       "languages": []
     },
@@ -59503,8 +59503,8 @@
       "description": "\"Documents current architecture from implementation evidence; does not propose a target or audit fitness.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-22-current-architecture-documenter/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-22-current-architecture-documenter/SKILL.md",
-      "lines": 100,
-      "words": 1263,
+      "lines": 99,
+      "words": 1225,
       "code_blocks": 0,
       "languages": []
     },
@@ -59513,8 +59513,8 @@
       "description": "\"Plans architecture migrations with compatibility, data safety, rollout and recovery; does not execute them.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-26-architecture-migration-planner/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-26-architecture-migration-planner/SKILL.md",
-      "lines": 104,
-      "words": 1357,
+      "lines": 103,
+      "words": 1319,
       "code_blocks": 0,
       "languages": []
     },
@@ -59523,8 +59523,8 @@
       "description": "\"Designs target system boundaries, contracts and tradeoffs from requirements; does not plan tasks or implement.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/architecture-suite/skills/ln-23-system-design-proposal-builder/SKILL.md",
       "remote_path": "plugins/architecture-suite/skills/ln-23-system-design-proposal-builder/SKILL.md",
-      "lines": 104,
-      "words": 1359,
+      "lines": 103,
+      "words": 1321,
       "code_blocks": 0,
       "languages": []
     },
@@ -59534,7 +59534,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/operations-suite/skills/ln-72-product-outcome-evaluator/SKILL.md",
       "remote_path": "plugins/operations-suite/skills/ln-72-product-outcome-evaluator/SKILL.md",
       "lines": 85,
-      "words": 986,
+      "words": 948,
       "code_blocks": 0,
       "languages": []
     },
@@ -59544,7 +59544,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/operations-suite/skills/ln-71-operations-investigator/SKILL.md",
       "remote_path": "plugins/operations-suite/skills/ln-71-operations-investigator/SKILL.md",
       "lines": 84,
-      "words": 987,
+      "words": 949,
       "code_blocks": 0,
       "languages": []
     },
@@ -59553,8 +59553,8 @@
       "description": "\"Reviews skill instructions, trigger boundaries and distribution contracts; not product code.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/skill-maintenance-suite/skills/ln-81-skill-reviewer/SKILL.md",
       "remote_path": "plugins/skill-maintenance-suite/skills/ln-81-skill-reviewer/SKILL.md",
-      "lines": 117,
-      "words": 1926,
+      "lines": 118,
+      "words": 1963,
       "code_blocks": 0,
       "languages": []
     },
@@ -59564,7 +59564,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-43-code-modernizer/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-43-code-modernizer/SKILL.md",
       "lines": 117,
-      "words": 2060,
+      "words": 2085,
       "code_blocks": 0,
       "languages": []
     },
@@ -59573,8 +59573,8 @@
       "description": "\"Compares tools or implementations through controlled benchmarks and independent correctness checks.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-45-benchmark-comparator/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-45-benchmark-comparator/SKILL.md",
-      "lines": 121,
-      "words": 2034,
+      "lines": 120,
+      "words": 1996,
       "code_blocks": 0,
       "languages": []
     },
@@ -59584,7 +59584,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-42-dependency-upgrader/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-42-dependency-upgrader/SKILL.md",
       "lines": 115,
-      "words": 1877,
+      "words": 1904,
       "code_blocks": 0,
       "languages": []
     },
@@ -59594,7 +59594,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-41-surgical-change-implementer/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-41-surgical-change-implementer/SKILL.md",
       "lines": 114,
-      "words": 2078,
+      "words": 2079,
       "code_blocks": 0,
       "languages": []
     },
@@ -59604,7 +59604,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/implementation-suite/skills/ln-44-performance-optimizer/SKILL.md",
       "remote_path": "plugins/implementation-suite/skills/ln-44-performance-optimizer/SKILL.md",
       "lines": 112,
-      "words": 1880,
+      "words": 1905,
       "code_blocks": 0,
       "languages": []
     },
@@ -59613,8 +59613,8 @@
       "description": "\"Commits, pushes and remotely verifies authorized repository changes; does not create releases.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-61-repository-publisher/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-61-repository-publisher/SKILL.md",
-      "lines": 111,
-      "words": 1507,
+      "lines": 110,
+      "words": 1485,
       "code_blocks": 0,
       "languages": []
     },
@@ -59624,7 +59624,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-63-deployment-engineer/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-63-deployment-engineer/SKILL.md",
       "lines": 89,
-      "words": 1151,
+      "words": 1113,
       "code_blocks": 0,
       "languages": []
     },
@@ -59633,8 +59633,8 @@
       "description": "\"Drafts or publishes authorized, fact-checked GitHub Discussions announcements; does not create releases.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-64-community-announcer/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-64-community-announcer/SKILL.md",
-      "lines": 113,
-      "words": 1583,
+      "lines": 112,
+      "words": 1545,
       "code_blocks": 0,
       "languages": []
     },
@@ -59643,8 +59643,8 @@
       "description": "\"Prepares and publishes an explicitly requested tagged GitHub release; does not deploy applications.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/delivery-suite/skills/ln-62-release-publisher/SKILL.md",
       "remote_path": "plugins/delivery-suite/skills/ln-62-release-publisher/SKILL.md",
-      "lines": 124,
-      "words": 1717,
+      "lines": 123,
+      "words": 1679,
       "code_blocks": 0,
       "languages": []
     },
@@ -59653,8 +59653,8 @@
       "description": "\"Evaluates new product opportunities through demand, channels and economics before committing to build.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-11-opportunity-evaluator/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-11-opportunity-evaluator/SKILL.md",
-      "lines": 105,
-      "words": 1629,
+      "lines": 104,
+      "words": 1602,
       "code_blocks": 0,
       "languages": []
     },
@@ -59664,7 +59664,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-12-product-requirements-builder/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-12-product-requirements-builder/SKILL.md",
       "lines": 84,
-      "words": 1007,
+      "words": 969,
       "code_blocks": 0,
       "languages": []
     },
@@ -59674,7 +59674,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/product-discovery-suite/skills/ln-13-interaction-design-builder/SKILL.md",
       "remote_path": "plugins/product-discovery-suite/skills/ln-13-interaction-design-builder/SKILL.md",
       "lines": 84,
-      "words": 958,
+      "words": 920,
       "code_blocks": 0,
       "languages": []
     },
@@ -59684,7 +59684,7 @@
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-53-documentation-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-53-documentation-auditor/SKILL.md",
       "lines": 122,
-      "words": 2046,
+      "words": 2059,
       "code_blocks": 0,
       "languages": []
     },
@@ -59693,8 +59693,8 @@
       "description": "\"Builds, updates or retires scoped acceptance tests and verifies execution; does not repair product code.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-51-acceptance-test-builder/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-51-acceptance-test-builder/SKILL.md",
-      "lines": 112,
-      "words": 1959,
+      "lines": 111,
+      "words": 1908,
       "code_blocks": 0,
       "languages": []
     },
@@ -59703,8 +59703,8 @@
       "description": "\"Reviews a completed change for acceptance, regressions and release risk; read-only, not a whole-codebase audit.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-52-delivery-reviewer/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-52-delivery-reviewer/SKILL.md",
-      "lines": 133,
-      "words": 3126,
+      "lines": 132,
+      "words": 3082,
       "code_blocks": 0,
       "languages": []
     },
@@ -59713,8 +59713,8 @@
       "description": "\"Audits queries, transactions, consistency and persistence resource lifetimes; read-only.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-57-persistence-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-57-persistence-auditor/SKILL.md",
-      "lines": 112,
-      "words": 1857,
+      "lines": 111,
+      "words": 1822,
       "code_blocks": 0,
       "languages": []
     },
@@ -59723,8 +59723,8 @@
       "description": "\"Audits existing tests for risk coverage, reliable oracles and maintenance value; does not edit tests.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-55-test-suite-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-55-test-suite-auditor/SKILL.md",
-      "lines": 123,
-      "words": 2324,
+      "lines": 122,
+      "words": 2351,
       "code_blocks": 0,
       "languages": []
     },
@@ -59733,8 +59733,8 @@
       "description": "\"Audits implemented architecture boundaries, dependencies and ownership; not target design or plan review.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-56-architecture-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-56-architecture-auditor/SKILL.md",
-      "lines": 117,
-      "words": 2007,
+      "lines": 116,
+      "words": 1972,
       "code_blocks": 0,
       "languages": []
     },
@@ -59743,8 +59743,8 @@
       "description": "\"Audits cross-cutting codebase health, security and maintainability; not a single-change review or specialist audit.\"",
       "path": "levnikolaevich--claude-code-skills/plugins/quality-assurance-suite/skills/ln-54-codebase-auditor/SKILL.md",
       "remote_path": "plugins/quality-assurance-suite/skills/ln-54-codebase-auditor/SKILL.md",
-      "lines": 119,
-      "words": 2068,
+      "lines": 118,
+      "words": 2033,
       "code_blocks": 0,
       "languages": []
     }
@@ -157495,7 +157495,7 @@
       "path": "daymade--claude-code-skills/terraform-skill/SKILL.md",
       "remote_path": "terraform-skill/SKILL.md",
       "lines": 296,
-      "words": 1857,
+      "words": 1862,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157561,7 +157561,7 @@
       "path": "daymade--claude-code-skills/notify-wecom/SKILL.md",
       "remote_path": "notify-wecom/SKILL.md",
       "lines": 83,
-      "words": 433,
+      "words": 448,
       "code_blocks": 4,
       "languages": []
     },
@@ -157570,9 +157570,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/setup-notifications-via-wecom/SKILL.md",
       "remote_path": "setup-notifications-via-wecom/SKILL.md",
-      "lines": 277,
-      "words": 1327,
-      "code_blocks": 16,
+      "lines": 275,
+      "words": 1390,
+      "code_blocks": 15,
       "languages": [
         "bash"
       ]
@@ -157618,8 +157618,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 372,
-      "words": 4917,
+      "lines": 398,
+      "words": 5378,
       "code_blocks": 0,
       "languages": []
     },
@@ -157706,9 +157706,9 @@
       "description": "Diagnose and resolve Claude Code plugin and skill issues. This skill should be used when plugins are installed but not showing in available skills list, skills are not activating as expected, or when ",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-skills-troubleshooting/SKILL.md",
       "remote_path": "daymade-claude-code/claude-skills-troubleshooting/SKILL.md",
-      "lines": 155,
-      "words": 651,
-      "code_blocks": 8,
+      "lines": 165,
+      "words": 733,
+      "code_blocks": 9,
       "languages": [
         "bash"
       ]
@@ -158012,8 +158012,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1848,
-      "words": 30325,
+      "lines": 1875,
+      "words": 30687,
       "code_blocks": 55,
       "languages": [
         "bash",

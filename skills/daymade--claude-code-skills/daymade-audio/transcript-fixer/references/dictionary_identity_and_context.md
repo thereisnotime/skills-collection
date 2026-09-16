@@ -156,14 +156,164 @@ other way). And no count, however clean, settles canonical direction at all —
 the frequency ban above covers identity, and it covers direction for the same
 reason: prevalence is not provenance.
 
+### A person absent from every roster: the user-controlled sources come first
+
+The frequency ban above says the transcript's own majority is not identity
+evidence. It does not say "then guess the nearest homophone". When neither the
+global roster nor the project ledger holds the person, **stop converging and go
+look where the user controls the spelling.** Those sources outrank every
+inference you can make from the audio, because a human typed them:
+
+- **A WeChat group member's own group nickname.** The most productive rung
+  found so far — but only one of the three names a chat store holds for a
+  person qualifies, and reading the wrong one turns this rung into a fresh way
+  to launder a guess:
+
+  | Field | Who typed it | Use for name correction? |
+  |---|---|---|
+  | `displayName` (group nickname) | **the member, for this group** | ✅ wins when the two disagree |
+  | `nickName` (WeChat nickname) | the member, but globally | ✅ usable, and the only field everyone has |
+  | `remark` | **you, about them** | ❌ never — validating your own memory against your own memory |
+
+  So do **not** take the name off a chat read: `read_chat.py --talker … --layout ai`
+  labels speakers by `remark` first, which is exactly the field that is yours,
+  not theirs. Go to the directory endpoint and read `users[].displayName`:
+
+  ```bash
+  curl -s --noproxy '*' -G --data-urlencode "keyword=<群名>" \
+    --data-urlencode "format=json" "http://<host>:5030/api/v1/chatroom"
+  ```
+
+  Training/cohort groups often shape it as `真名-业务方向-期数` or
+  `Name-Company-Role`, which hands you the real name and the person's line of
+  work at once. The group itself is findable from something the transcript
+  already contains — a trainer's name, a brand, a cohort label.
+
+  **`displayName` is sparse; `nickName` is not.** Setting a per-group nickname
+  is optional — measured 2026-09-16 in a 34-person cohort group, 7 had one. All
+  34 had a `nickName`. Treating the other 27 as unreachable is what leaves a
+  cohort mostly unregistered, so read both: the group nickname decides the
+  canonical spelling when the two disagree, and the WeChat nickname is what you
+  have for everyone else.
+
+  A `nickName` is often decorated, and the real name is usually still in there:
+  `文案有为王艺霖🐱京杭传媒` → 王艺霖 (a *fuller* name than the group nickname's
+  `艺霖`), `赤脚大仙（杜悦）` → 杜悦, `Eric@刘强|青析商学` → 刘强, `HerLiu何流` → 何流.
+  Take the name, record the decorated form as `别名`, and never convert either
+  into an `ASR 变体` — a 花名 is a name the person actually uses, not a mishearing,
+  so it is findable but never rewritten. Still never fill a gap from `remark`.
+
+  **Register the whole group, not just the names today's file needed.** The
+  roster's second job is answering "is this string even a person" *before*
+  anyone decides it is an ASR error, and that only works for people who are in
+  it. Same 2026-09-16 cohort: 6 of the 34 had entries, and the two names that
+  got overwritten with phonetic neighbours were both in the unregistered 28.
+  A member with no known mishearing still gets a `###` entry with `身份` — it
+  costs one line and it is the line that refuses the collapse.
+- **Project delivery docs, attendee lists, contracts, reimbursement ledgers** —
+  already rung 2 of the native ladder; the point here is only that they are not
+  optional once the rosters come up empty.
+- **Anything the user typed in chat** around the meeting window (rung 4).
+
+Then read the roster entry the group hands you *as a name*, not as a variant to
+be normalized away.
+
+**Real case (2026-09-16, cost two wrong fixes shipped to a pushed commit).** A
+post-class debrief named a classmate four ways across one file — `依林/依琳/依玲/
+艺灵` — plus a second person as `徐胜/徐盛`. Neither was in the global roster nor
+the project ledger. Both were "resolved" by collapsing each family onto its
+transcript-majority form, which is exactly the banned move; the two fixes went
+out in a commit. The user then pointed out that the class had a WeChat group,
+whose nicknames read `艺霖-老板IP操盘-第一期` and `徐盛-ip变现-第一期` — **both
+canonical forms were the minority spellings, and both of my fixes were wrong.**
+One `--find` would have settled it before any edit was made.
+
+**The shape to remember: a homophone family with no roster entry is a question,
+not a coin flip.** Enumerate the family, find the user-controlled source, and if
+none is reachable leave the raw form and enqueue `kind: entity`. What you must
+not do is pick whichever variant the transcript used most — that manufactures a
+confident wrong name that then gets committed, quoted into notes, and swept into
+a dictionary rule where it keeps firing.
+
+**Recording it:** once the group settles a canonical name, write both sides
+where they compound — the roster's `ASR 变体` line (listing every observed
+misspelling, explicitly marked as misspelling) *and* the domain context file,
+where you also name the group as the authority for that project's people so the
+next run reads it instead of re-deriving. A project whose people live in a
+nicknamed group should say so in its context file, with the room's findable
+label.
+
+**The engine now refuses the banned move at both write points.** Everything
+above was prose when the 2026-09-16 pair shipped; it is since a fail-closed
+gate (`scripts/core/name_convergence_guard.py`), not a reminder. The gate
+fires when the mapping is a person-name question — the review item's `kind`
+is `entity`/`homophone`, or the pair is 2-4 CJK characters one edit apart
+(the phonetic-neighbour shape, so `--add` is gated without any kind) — at
+`--resolve-review --decision accepted|overridden` and at `--add`, and decides
+in order:
+
+| The target form is… | Verdict |
+|---|---|
+| a roster `###` entry, or an ACTIVE dictionary rule's `to_text` | pass — converging onto a claimed canonical form is the ordinary correction |
+| ONLY someone's recorded `ASR 变体` | refuse, naming the canonical — rewriting onto a documented mishearing manufactures the error |
+| found NOWHERE (dictionary / roster / context rules / **decided** queue rows) AND the evidence names no authority | refuse — the majority-collapse shape verbatim; the message names the exits (`--enqueue-review` `kind:entity`, or name the authority) |
+| evidence names an authority — roster line / 名册 / group `displayName` / 群昵称 / 用户…裁决 / 音证 / 音频 / StepFun / dashboard | pass |
+
+Two rules keep the gate honest. A PENDING review row never counts as a claim:
+at resolve time it is the question testifying for its own answer, and the
+incident pair would otherwise read "claimed" at its own accept. And `--force`
+buys nothing past the gate — the missing piece is named evidence, not
+confidence. `--add` has no evidence field, so `--note` doubles as its
+authority channel.
+
+Two sibling `--add` gates shipped with it. An OPEN review row touching either
+text refuses the add (a dictionary rule written over an undecided question
+short-circuits it — resolve the row first). And a real-word FROM (common word
+/ ≤2 chars / substring of common words / jieba-decomposable phrase) refuses
+without `--check-corpus --corpus <dir>` on the record — 真实词只能作 context
+rule（`--add-context-rule`）或先 `--probe` 标定, because the add-time
+validators can only say "it is a real word in Chinese", never "how often it
+is real in this corpus".
+
 **Roster format** (canonical: `### Name` + `- **ASR 变体**: variant1, variant2`):
 ```markdown
 ### Ada Lovelace
 - **ASR 变体**: Aida, 艾达
 
 ### 小明
-- **ASR 变体**: 晓明, 小铭
+- **身份**: 项目组成员            # 身份 alone is a complete entry
+- **别名**: 「小明 M2」            # findable, never rewritten; quote if it has spaces
+- **ASR 变体**: 晓明, 小铭          # optional — only for forms actually misheard
 ```
+
+**Three lines, three different jobs.** `ASR 变体` is the only one that changes
+text: each variant is rewritten to the heading. `别名` and the heading itself are
+*findable but never rewritten* — `--lookup` reports them so "is this string a
+real person" is answerable, while nothing edits them. That distinction is why a
+花名 goes on `别名`: `赤脚大仙` is a name its owner uses, and auto-replacing it
+with `杜悦` would destroy information, but a run that cannot find `赤脚大仙` at
+all is one step from deciding it is a mishearing of something else.
+
+So an entry with no `ASR 变体` line is not a dead entry. It is the normal state
+for someone who has never been misheard, and it still does the roster's other
+job. Write it for every person you know about, not only the ones a file has
+already gotten wrong.
+
+**The shape is load-bearing and a wrong one fails silently.** The loader keys on
+the `###` heading and on `- **别名**:` / `- **ASR 变体**:` lines under it. Write
+the same facts as a bullet list, a table row, or under a different heading level
+and nothing is loaded — no warning, no error, exit 0. The entry looks filed and
+is inert. A 34-person cohort written up as a markdown table scored zero on every
+one of them while reading, to a human, like a complete ledger.
+
+Two ways to catch it, both cheap. The run prints what it actually took:
+`👥 People roster: +N person-name corrections (people.md)` — N should climb by
+roughly the variants you added. And `--lookup <the canonical name>` should
+answer from the roster; a `no trace anywhere` on a name you just filed means the
+shape is wrong, not that the file is unsaved. (2026-09-16: six new people were
+added as `- **Name**（role）— **ASR 变体**：…` bullets; `--lookup` returned zero
+for every one of them, and the rules were dead until they were rewritten as
+headings.)
 
 Both example shapes are worth copying. An English given name spoken inside
 Chinese speech produces *two* kinds of variant — a misspelling (`Aida`) and a

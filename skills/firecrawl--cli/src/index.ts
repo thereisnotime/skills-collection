@@ -2164,7 +2164,7 @@ program
   .option('--api-url <url>', 'API URL (default: https://api.firecrawl.dev)')
   .option(
     '--web-url <url>',
-    'Web URL for browser login (default: https://firecrawl.dev)'
+    'Web URL for browser login (default: https://www.firecrawl.dev)'
   )
   .option(
     '-m, --method <method>',
@@ -2197,7 +2197,7 @@ program
   .option('--api-url <url>', 'API URL (default: https://api.firecrawl.dev)')
   .option(
     '--web-url <url>',
-    'Web URL for browser login (default: https://firecrawl.dev)'
+    'Web URL for browser login (default: https://www.firecrawl.dev)'
   )
   .option(
     '-m, --method <method>',

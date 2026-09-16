@@ -24,6 +24,13 @@ from core import (
     DictionaryProcessor,
 )
 from core.correction_repository import normalize_domains
+
+
+def _boundary_check_available() -> bool:
+    """Imported lazily: dictionary_processor pulls jieba's prefix dictionary in,
+    and --list / --add must not pay that second."""
+    from core.dictionary_processor import boundary_check_available
+    return boundary_check_available()
 from utils.config import get_config
 
 # Heavy command-specific imports are deferred to the functions that use them
@@ -712,17 +719,28 @@ def cmd_lookup(args: argparse.Namespace) -> None:
         if hit(r["pattern"], r["replacement"])
         and (not domains or not r["domain"] or r["domain"] in domains)   # global + the named domains
     ]
-    roster: dict = {"path": None, "hits": []}
+    roster: dict = {"path": None, "hits": [], "names": []}
     roster_path = os.getenv("TRANSCRIPT_FIXER_PEOPLE_ROSTER") or get_config().paths.people_roster_path
     if roster_path:
         roster_file = Path(roster_path).expanduser()
         if roster_file.exists():
-            from core.people_roster import load_people_roster
+            from core.people_roster import load_people_roster, load_roster_names
             variants, _ = load_people_roster(roster_file)
-            roster = {"path": str(roster_file), "hits": [
+            hits = [
                 {"variant": v, "canonical": canon} for v, canon in variants.items()
                 if hit(v, canon)
-            ]}
+            ]
+            # Roster people whose name matches but who have no variant registered.
+            # Their absence from `hits` is not absence from the roster — reporting
+            # them is what stops "no trace anywhere" from reading as "unknown
+            # string, safe to normalize away".
+            claimed = {h["canonical"] for h in hits}
+            names = [
+                {"name": name, "canonical": e["canonical"], "identity": e["identity"]}
+                for name, e in load_roster_names(roster_file).items()
+                if hit(name) and e["canonical"] not in claimed
+            ]
+            roster = {"path": str(roster_file), "hits": hits, "names": names}
     review_queue = [
         {"id": r.id, "status": r.status, "source": r.source, "domain": r.domain,
          "file": r.file_path, "line": r.line_number,
@@ -747,16 +765,25 @@ def cmd_lookup(args: argparse.Namespace) -> None:
         state = "active" if r["is_active"] else "DISABLED"
         print(f"  #{r['id']} /{r['pattern']}/ → {r['replacement']!r}  [{r['domain'] or 'global'}] {state}")
     if roster["path"]:
-        print(f"People roster ({len(roster['hits'])}) — {roster['path']}:")
+        n_hits, n_names = len(roster["hits"]), len(roster["names"])
+        # The bare count stays the output for the common case; the wording only
+        # widens when there is a name-only hit it would otherwise hide.
+        summary = f"{n_hits} variant(s), {n_names} name(s)" if n_names else f"{n_hits}"
+        print(f"People roster ({summary}) — {roster['path']}:")
         for h in roster["hits"]:
             print(f"  {h['variant']!r} → {h['canonical']!r}")
+        for n in roster["names"]:
+            note = f" — {n['identity']}" if n["identity"] else ""
+            label = (f"roster entry {n['name']!r}" if n["name"] == n["canonical"]
+                     else f"alias {n['name']!r} of {n['canonical']!r}")
+            print(f"  {label}, no ASR variant registered{note}")
     else:
         print("People roster: not configured")
     print(f"Review queue ({len(review_queue)}):")
     for r in review_queue:
         anchor = f"  {Path(r['file']).name}:{r['line']}" if r["file"] else ""
         print(f"  #{r['id']} [{r['status']}/{r['source']}] {r['original']!r} → {r['suggested']!r}{anchor}")
-    if not (dictionary or context_rules or roster["hits"] or review_queue):
+    if not (dictionary or context_rules or roster["hits"] or roster["names"] or review_queue):
         print("  (no trace anywhere — nothing already claims this term)")
 
 
@@ -814,6 +841,59 @@ def cmd_add_correction(args: argparse.Namespace) -> None:
     # would defeat that default and crash the domain validator.
     _reject_all_on_write(getattr(args, "domain", None), "--add")
     domain_to_write = domains[0] if domains else "general"
+
+    # Guard 1 (fail-closed): an OPEN review item already asks about either
+    # text. Writing a dictionary rule over an undecided question short-
+    # circuits the review — resolve the row first, then add the rule.
+    pending_conflicts = _get_review_queue().pending_text_conflicts(
+        [args.from_text, args.to_text]
+    )
+    if pending_conflicts:
+        rows = "\n".join(
+            f"  #{c.id} [{c.kind}/{c.source}] {c.original_text!r} → {c.suggested_text!r}"
+            for c in pending_conflicts
+        )
+        print(
+            f"Error: review queue has {len(pending_conflicts)} OPEN item(s) touching "
+            f"'{args.from_text}'/'{args.to_text}' — a dictionary rule written over an "
+            f"undecided question short-circuits it. Resolve the row(s) first "
+            f"(--show-review / --resolve-review), then --add:\n{rows}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    # Guard 2 (fail-closed): name-convergence gate. Fires only when the new
+    # mapping is person-name shaped (2-4 char CJK, one edit apart — the
+    # 2026-09-16 依琳→依林 collapse shape); --note carries the authority
+    # evidence when the target is deliberately unrostered.
+    _name_convergence_refusal(
+        args, args.from_text, args.to_text,
+        getattr(args, "review_note", None), None,
+    )
+
+    # Guard 3 (fail-closed): a real-word FROM (common word / ≤2 chars /
+    # substring of common words / jieba-known phrase) may not be written on
+    # add-time validators alone — they answer "is it a real word", not "how
+    # often is it real in THIS corpus". Require the corpus probe on the
+    # record; not bypassed by --force, because the missing piece is evidence,
+    # not confidence.
+    if not getattr(args, "check_corpus", False):
+        from utils.common_words import check_correction_safety
+        real_word_hits = [
+            w for w in check_correction_safety(args.from_text, args.to_text, strict=False)
+            if w.category in REAL_WORD_SHAPE_CATEGORIES
+        ]
+        if real_word_hits:
+            detail = real_word_hits[0]
+            print(
+                f"Error: '{args.from_text}' is real-word shaped "
+                f"([{detail.category}] {detail.message}) — 真实词只能作 context rule "
+                f"(--add-context-rule)，或先 --probe 标定并重跑 --add 时带 "
+                f"--check-corpus --corpus <dir>，把语料实测频率留在决策记录上。",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
     try:
         service.add_correction(
             args.from_text, args.to_text, domain_to_write, force=force,
@@ -1240,6 +1320,10 @@ def cmd_run_correction(args: argparse.Namespace) -> dict | None:
                 "stage2_failed_chunks": 0,
                 "stage2_degraded": False,
                 "boundary_refused": 0,
+                # A property of the environment, not of this invocation: report it
+                # truthfully even on a path that ran no corrections, so a consumer
+                # never sees the field flip between runs of the same install.
+                "boundary_check_active": _boundary_check_available(),
             }
 
     # Initialize service
@@ -1426,6 +1510,7 @@ def cmd_run_correction(args: argparse.Namespace) -> dict | None:
     applied_count = 0
     skipped_count = 0
     boundary_refused = 0
+    boundary_check_active = _boundary_check_available()
     stage1_output_written: Path | None = None
     needs_review_written: Path | None = None
     review_enqueued = 0
@@ -1469,7 +1554,12 @@ def cmd_run_correction(args: argparse.Namespace) -> dict | None:
         if review_mode:
             print(f"  - Applied (low risk): {applied_count}")
             print(f"  - Skipped for review: {skipped_count}")
-        if summary.get("boundary_skips"):
+        if not boundary_check_active:
+            # Printed instead of the refusal line, not alongside it: a count of 0
+            # here would read as "nothing straddled" when nothing was examined.
+            print("  - Refused at word boundaries: CHECK OFF "
+                  "(jieba unavailable — CJK matches were not boundary-checked this run)")
+        elif summary.get("boundary_skips"):
             print(f"  - Refused at word boundaries: {summary['boundary_skips']} "
                   f"(match cut across dictionary words — a fragment, not a mishearing; "
                   f"--apply-all or a context rule overrides)")
@@ -1733,6 +1823,10 @@ def cmd_run_correction(args: argparse.Namespace) -> dict | None:
         # (match-time safety check 3) — neither applied nor deferred, so a caller
         # comparing runs can see why a deferral disappeared.
         "boundary_refused": boundary_refused,
+        # Additive: whether the word-boundary check could run at all. Without it,
+        # boundary_refused=0 is ambiguous between "nothing straddled" and "never
+        # checked", and automation cannot tell a healthy run from a disarmed one.
+        "boundary_check_active": boundary_check_active,
     }
 
 
@@ -2357,6 +2451,111 @@ def _get_review_queue():
     return ReviewQueue(config.database.path, dict_add_fn=dict_add)
 
 
+# SafetyWarning categories that mean "the FROM text is itself real text" — a
+# common word, a very short (substring-prone) string, a substring of common
+# words, or a string jieba decomposes into all-known words. --add of such a
+# rule needs in-corpus calibration on the record (--check-corpus), because the
+# add-time validators can only say "it is a real word in Chinese", never "how
+# often it is real *here*".
+REAL_WORD_SHAPE_CATEGORIES = frozenset({
+    "common_word", "both_common", "substring_collision", "valid_phrase", "short_text",
+})
+
+
+def _name_lookup(term: str):
+    """Production lookup_fn for the name-convergence guard: everything the
+    library already claims about `term`, across the four stores --lookup
+    consults (dictionary, people roster, context rules, review queue).
+
+    Identity questions (roster entry / variant / active dictionary to_text)
+    are exact-match — they ask "is this string THAT name", and they are the
+    strict checks that can refuse a write. The found_anywhere question uses
+    --lookup's substring semantics: it only ever widens what counts as
+    claimed, and a claimed target is the guard's PASS side, so the bias runs
+    toward not blocking.
+    """
+    from core.name_convergence_guard import NameLookup
+
+    service = _get_service()
+    needle = term.lower()
+
+    corrections = service.repository.get_all_corrections(domain=None, active_only=False)
+    dictionary_active_to = any(
+        c.is_active and c.to_text == term for c in corrections
+    )
+    found = any(
+        needle in (c.from_text or "").lower() or needle in (c.to_text or "").lower()
+        for c in corrections
+    )
+
+    if not found:
+        for r in service.list_context_rules(domain=None, include_inactive=True):
+            if needle in (r["pattern"] or "").lower() or needle in (r["replacement"] or "").lower():
+                found = True
+                break
+
+    roster_entry = False
+    variant_of: str | None = None
+    roster_path = os.getenv("TRANSCRIPT_FIXER_PEOPLE_ROSTER") or get_config().paths.people_roster_path
+    if roster_path:
+        roster_file = Path(roster_path).expanduser()
+        if roster_file.exists():
+            from core.people_roster import load_people_roster, load_roster_names
+            variants, _ = load_people_roster(roster_file)
+            names = load_roster_names(roster_file)
+            entry = names.get(term)
+            if entry is not None and entry["canonical"] == term:
+                roster_entry = True
+            variant_of = variants.get(term)
+            if not found:
+                found = any(needle in k.lower() for k in variants) or any(
+                    needle in k.lower() for k in names
+                )
+
+    if not found:
+        from core.review_queue import ReviewQueueError
+        try:
+            queue = _get_review_queue()
+            # A PENDING row is an open question, not a claim: at resolve time
+            # it is the very item being decided, and counting it would let the
+            # question testify for its own answer (circular — the incident
+            # pair would always read "claimed" at its own accept). Only
+            # decided rows count as traces that someone already judged.
+            found = any(
+                it.status != "pending"
+                and (
+                    needle in (it.original_text or "").lower()
+                    or needle in (it.suggested_text or "").lower()
+                    or needle in (it.resolved_text or "").lower()
+                )
+                for it in queue.list_items(limit=5000)
+            )
+        except ReviewQueueError:
+            # No queue DB yet: the other three stores already answered, and an
+            # absent queue claims nothing — never fabricate a hit from it.
+            pass
+
+    return NameLookup(
+        roster_entry=roster_entry,
+        roster_variant_of=variant_of,
+        dictionary_active_to=dictionary_active_to,
+        found_anywhere=found,
+    )
+
+
+def _name_convergence_refusal(args, from_text: str, to_text: str,
+                              evidence: str | None, kind: str | None):
+    """Run the name-convergence guard; on rejection emit the refusal and exit
+    non-zero with nothing written (fail-closed). Returns None when the write
+    may proceed."""
+    from core.name_convergence_guard import guard
+
+    rejection = guard(from_text, to_text, evidence, kind, lookup_fn=_name_lookup)
+    if rejection is not None:
+        _queue_cmd_error(args, rejection.code, rejection.message, code=2)
+    return None
+
+
 def _emit_json(payload) -> None:
     print(json.dumps(payload, ensure_ascii=False))
 
@@ -2561,6 +2760,27 @@ def cmd_resolve_review(args: argparse.Namespace) -> None:
         _queue_cmd_error(args, "missing_decision", "--resolve-review requires --decision")
 
     queue = _get_review_queue()
+
+    # Name-convergence gate on the two decisions that WRITE (accepted applies
+    # the suggestion, overridden applies --override-to). The 2026-09-16
+    # incident pair (依琳→依林, 徐盛→徐胜) entered exactly here: a majority-
+    # spelling collapse accepted with no authority named. kept_original /
+    # skipped / reopen write no target form, so they are not gated.
+    if decision in ("accepted", "overridden"):
+        item = queue.get(args.resolve_review)
+        if item is None:
+            _queue_cmd_error(args, "not_found",
+                             f"review item {args.resolve_review} not found")
+        to_text = item.suggested_text if decision == "accepted" else (
+            getattr(args, "review_override_to", None) or ""
+        ).strip()
+        # Empty target means the call is malformed; resolve() below raises its
+        # own specific error for that, so the guard only judges real targets.
+        if to_text:
+            _name_convergence_refusal(
+                args, item.original_text, to_text, item.evidence, item.kind,
+            )
+
     try:
         result = queue.resolve(
             args.resolve_review,

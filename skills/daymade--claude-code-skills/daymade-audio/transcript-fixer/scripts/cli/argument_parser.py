@@ -170,7 +170,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
              "(the human-readable log is routed to stderr). Fields: applied, deferred, "
              "output_path, needs_review_path, input_unchanged, review_enqueued, "
              "stage1_only_incomplete, stage2_total_chunks, stage2_failed_chunks, "
-             "stage2_degraded, boundary_refused. All eleven status fields are always present. Lets "
+             "stage2_degraded, boundary_refused, boundary_check_active. All twelve status fields are "
+             "always present. Lets "
              "consumers stop inferring no-op vs failure from whether a *_stage1.md "
              "sidecar exists. Also applies to the review-queue commands "
              "(--enqueue-review/--list-review/--show-review/--resolve-review)."
@@ -526,7 +527,10 @@ def create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--note",
         dest="review_note",
-        help="Free-text note recorded with the verdict"
+        help="Free-text note recorded with the verdict. With --add of a "
+             "person-name mapping it doubles as the authority-evidence "
+             "channel the name-convergence guard reads (roster 行 / 群 "
+             "displayName+nickName 双读 / 用户裁决 / 音证)"
     )
     parser.add_argument(
         "--by",
