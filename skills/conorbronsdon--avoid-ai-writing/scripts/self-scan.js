@@ -63,7 +63,7 @@ const FILES = Object.keys(BUDGETS);
 // ── The self-reference escape hatch, made executable ───────────────────
 //
 // Order matters: fenced code first (it can contain anything), then the
-// line-oriented block forms, then inline spans.
+// inline code, line-oriented block forms, and quoted spans.
 /**
  * Line scanner over fenced code blocks, mirroring fenceRanges() in
  * detector/patterns.js. A fence closes only on a line whose marker matches
@@ -101,10 +101,59 @@ function fenceSpans(text) {
   return spans;
 }
 
-const TABLE_BLOCK = /(?:^[ \t]*\|[^\n]*\|[ \t]*(?:\n[ \t]*\|[^\n]*\|[ \t]*)+)/gm;
 const BLOCKQUOTE_BLOCK = /(?:^[ \t]*>[^\n]*(?:\n[ \t]*>[^\n]*)*)/gm;
 const INLINE_CODE = /`[^`\n]+`/g;
 const QUOTED_SPAN = /(?:"[^"\n]{1,300}"|“[^”\n]{1,300}”|'[^'\n]{2,300}')/g;
+
+// Keep table-row semantics in sync with detector/validate.js. Four-space and
+// tab-indented lines are top-level code, not tables. Escaped pipes remain cell
+// content rather than separators.
+function tableCells(line) {
+  if (/^(?: {4}|\t)/.test(line)) return null;
+  const trimmed = line.trim();
+  const separators = [];
+  for (let i = 0; i < trimmed.length; i += 1) {
+    if (trimmed[i] !== '|') continue;
+    let slashes = 0;
+    for (let j = i - 1; j >= 0 && trimmed[j] === '\\'; j -= 1) slashes++;
+    if (slashes % 2 === 0) separators.push(i);
+  }
+  if (separators.length === 0) return null;
+
+  const cells = [];
+  let start = separators[0] === 0 ? 1 : 0;
+  for (const separator of separators) {
+    if (separator < start) continue;
+    cells.push(trimmed.slice(start, separator));
+    start = separator + 1;
+  }
+  if (start < trimmed.length) cells.push(trimmed.slice(start));
+  return cells;
+}
+
+function isTableDelimiter(line) {
+  const cells = tableCells(line);
+  return cells !== null && cells.length > 0
+    && cells.every((cell) => /^:?-+:?$/.test(cell.trim()));
+}
+
+/** Blank GFM table rows while preserving every source offset. */
+function maskTables(text) {
+  const lines = text.split('\n');
+  for (let i = 1; i < lines.length; i++) {
+    const headerCells = tableCells(lines[i - 1]);
+    const delimiterCells = tableCells(lines[i]);
+    if (!headerCells || !isTableDelimiter(lines[i])
+      || headerCells.length !== delimiterCells.length) continue;
+    let end = i;
+    while (end + 1 < lines.length && tableCells(lines[end + 1])) end++;
+    for (let row = i - 1; row <= end; row++) {
+      lines[row] = ' '.repeat(lines[row].length);
+    }
+    i = end;
+  }
+  return lines.join('\n');
+}
 
 /**
  * Blank out the spans SKILL.md exempts, preserving line and column offsets so
@@ -118,10 +167,9 @@ function applyExemptions(text) {
       if (chars[i] !== '\n') chars[i] = ' ';
     }
   }
-  return chars.join('')
-    .replace(TABLE_BLOCK, blank)
+  const withoutFencesOrInlineCode = chars.join('').replace(INLINE_CODE, blank);
+  return maskTables(withoutFencesOrInlineCode)
     .replace(BLOCKQUOTE_BLOCK, blank)
-    .replace(INLINE_CODE, blank)
     .replace(QUOTED_SPAN, blank);
 }
 
@@ -152,16 +200,30 @@ function scoreLongText(text) {
   if (current.length) chunks.push(current.join('\n\n'));
 
   const results = chunks
-    .map((chunk) => AIDetector.analyzeText(chunk))
-    .filter((r) => !r.tooShort && r.label !== 'Text too long');
+    .map((chunk) => AIDetector.analyzeText(chunk));
 
-  if (!results.length) return { score: 0, issues: 0, wordCount: 0, chunks: chunks.length, topTypes: [] };
+  // A declined (unsupported-script) chunk is not a completed scan: report
+  // the document as unscannable instead of scoring it as a clean zero (#241).
+  if (results.some((r) => r.unsupportedScript)) {
+    return {
+      declined: true,
+      score: 0,
+      issues: 0,
+      wordCount: results.reduce((sum, r) => sum + (r.stats.wordCount || 0), 0),
+      chunks: chunks.length,
+      topTypes: [],
+    };
+  }
+
+  const scored = results.filter((r) => !r.tooShort && r.label !== 'Text too long');
+
+  if (!scored.length) return { score: 0, issues: 0, wordCount: 0, chunks: chunks.length, topTypes: [] };
   return {
-    score: Math.max(...results.map((r) => r.score)),
-    issues: results.reduce((sum, r) => sum + r.issues.length, 0),
-    wordCount: results.reduce((sum, r) => sum + (r.stats.wordCount || 0), 0),
-    chunks: results.length,
-    topTypes: topTypes(results.flatMap((r) => r.issues)),
+    score: Math.max(...scored.map((r) => r.score)),
+    issues: scored.reduce((sum, r) => sum + r.issues.length, 0),
+    wordCount: scored.reduce((sum, r) => sum + (r.stats.wordCount || 0), 0),
+    chunks: scored.length,
+    topTypes: topTypes(scored.flatMap((r) => r.issues)),
   };
 }
 
@@ -169,6 +231,9 @@ function score(text) {
   const wordCount = (text.match(/\S+/g) || []).length;
   if (wordCount > 9500) return scoreLongText(text);
   const r = AIDetector.analyzeText(text);
+  if (r.unsupportedScript) {
+    return { declined: true, score: 0, issues: 0, wordCount: r.stats.wordCount || wordCount, chunks: 1, topTypes: [] };
+  }
   return {
     score: r.score,
     issues: r.issues.length,
@@ -200,6 +265,13 @@ function scanFile(rel, budget = BUDGETS[rel]) {
     exemptScore: exempt.score,
     exemptIssues: exempt.issues,
     budget,
+    // Keep the two scans independent: raw deliberately includes quoted
+    // examples, while the exemption-aware result is what --check gates.
+    rawDeclined: Boolean(raw.declined),
+    exemptDeclined: Boolean(exempt.declined),
+    // Backward-compatible summary: a document is declined only when its
+    // exemption-aware prose could not be scored.
+    declined: Boolean(exempt.declined),
     overBudget: exempt.score > budget,
     chunked: raw.chunks > 1 ? raw.chunks : null,
     topTypes: exempt.topTypes || [],
@@ -222,15 +294,26 @@ function main() {
     console.log('| Document | Words | Raw score | Exempt score | Budget |');
     console.log('|---|---:|---:|---:|---:|');
     for (const r of rows) {
-      console.log(`| \`${r.file}\` | ${r.words.toLocaleString()} | ${r.rawScore} | **${r.exemptScore}** | ${r.budget} |`);
+      const rawCell = r.rawDeclined ? 'declined' : r.rawScore;
+      const exemptCell = r.exemptDeclined ? 'declined' : `**${r.exemptScore}**`;
+      console.log(`| \`${r.file}\` | ${r.words.toLocaleString()} | ${rawCell} | ${exemptCell} | ${r.budget} |`);
     }
   } else {
     console.log('\nself-scan — this skill\'s detector against this skill\'s docs\n');
-    console.log('  file                      words    raw  exempt  budget');
+    // Header and rows share these widths so the columns cannot drift apart.
+    // The score columns are wide enough for the word `declined` (8) plus a
+    // gutter, which is why they are wider than their headings.
+    const W = { file: 24, words: 6, raw: 9, exempt: 10, budget: 8 };
+    console.log(
+      `  ${'file'.padEnd(W.file)}${'words'.padStart(W.words)}${'raw'.padStart(W.raw)}`
+      + `${'exempt'.padStart(W.exempt)}${'budget'.padStart(W.budget)}`,
+    );
     for (const r of rows) {
-      const flag = r.overBudget ? '  OVER' : '';
+      const rawCell = r.rawDeclined ? 'declined' : String(r.rawScore);
+      const exemptCell = r.exemptDeclined ? 'declined' : String(r.exemptScore);
+      const flag = r.exemptDeclined ? '  DECLINED' : (r.rawDeclined ? '  RAW DECLINED' : (r.overBudget ? '  OVER' : ''));
       console.log(
-        `  ${r.file.padEnd(24)}${String(r.words).padStart(6)}${String(r.rawScore).padStart(7)}${String(r.exemptScore).padStart(8)}${String(r.budget).padStart(8)}${flag}`,
+        `  ${r.file.padEnd(W.file)}${String(r.words).padStart(W.words)}${rawCell.padStart(W.raw)}${exemptCell.padStart(W.exempt)}${String(r.budget).padStart(W.budget)}${flag}`,
       );
     }
     const over = rows.filter((r) => r.overBudget);
@@ -246,6 +329,11 @@ function main() {
   }
 
   if (args.includes('--check')) {
+    const declined = rows.filter((r) => r.exemptDeclined);
+    if (declined.length) {
+      console.error(`\nFAIL — ${declined.length} file(s) could not be scored after exemptions (unsupported script): ${declined.map((r) => r.file).join(', ')}`);
+      process.exit(1);
+    }
     const over = rows.filter((r) => r.overBudget);
     if (over.length) {
       console.error(`\nFAIL — ${over.length} file(s) over budget: ${over.map((r) => r.file).join(', ')}`);

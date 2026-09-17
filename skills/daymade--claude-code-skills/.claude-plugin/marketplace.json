@@ -126,7 +126,7 @@
       "description": "Claude Code operations suite that bundles cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; provider-separated Claude Code and Codex history readers; identity- and lineage-gated continuation workflows; plugin/skill troubleshooting; CLAUDE.md progressive disclosure optimization; version-synced Lark CLI routing; statusline configuration; exported .txt repair; full claude.ai conversation extraction with tool-call rendering and file download; plugin marketplace development and suite consolidation; writing/testing/debugging Claude Code hooks; multi-provider profile isolation; personal-memory migration into tool-agnostic AGENTS.md reference docs; one-shot local timers that ping Claude right after subscription quota reset to start a fresh 5-hour usage window; working web search installed on an agent whose relayed model backend cannot execute the built-in one; and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "3.34.1",
+      "version": "3.34.2",
       "category": "suite",
       "keywords": [
         "suite",
@@ -306,7 +306,7 @@
       "description": "Audio processing suite covering the full speech pipeline: ASR transcription (Qwen3, StepFun) with batch-mode guards against music-only repetition-loop hallucinations, speaker diarization and CAM++ voiceprint identification for multi-speaker recordings, transcript error correction, structured meeting minutes generation, and TTS voice synthesis (StepFun). Install once for the complete audio workflow.",
       "source": "./daymade-audio",
       "strict": false,
-      "version": "1.39.1",
+      "version": "1.39.4",
       "category": "suite",
       "keywords": [
         "suite",
@@ -332,7 +332,7 @@
       "description": "Daymade skills core suite. Bundles skill creation, quality review, real Claude/Codex Skill-surface governance, suite-migration reconciliation, and marketplace development tooling under one shared namespace. Skill governance separates canonical source, installed inventory, discovery policy, the fresh model-visible catalog, and router-resolved cold resources instead of optimizing cache counts; it preserves Claude's official versioned-cache lifecycle and verifies selected entries in the real host prompt. Skill verification separates risk classification from evaluation spend: bounded fixes use targeted checks, narrow behavior changes use sampled replays, and paired baselines, graders, benchmarks, or a viewer run only after explicit user authorization or a decision-bearing evidence plan plus opt-in; that authorization does not change the risk tier. Existing-skill edits retain an old-vs-new capability audit and content-bound packaging attestation so prompt compression cannot silently delete runtime contracts. When the official skill-creator plugin is also installed, skill-creator detects the coexistence and offers a consent-based, reversible SessionStart routing hook so the daymade edition wins deterministically; on machines without the official plugin nothing is ever installed.",
       "source": "./daymade-skill",
       "strict": false,
-      "version": "1.41.0",
+      "version": "1.41.1",
       "category": "suite",
       "keywords": [
         "suite",
@@ -557,10 +557,10 @@
     },
     {
       "name": "llm-eval-harness",
-      "description": "Test/evaluate any LLM behind an OpenAI- or Anthropic-compatible endpoint: availability (max_tokens-aware), request fidelity (does system prompt/tools/history REACH the model, or does the gateway silently drop it), speed (TTFT+tok/s), concurrency (before a workshop), Anthropic protocol compliance, quality regression, vendor bug reports, deployment gates, resident canaries. Reach for this BEFORE hand-rolling a curl loop against any LLM endpoint — that instinct is the trap: it skips the N=10 sampling, Connection:close, and env-var key handling this bakes in. Use when someone tests/benchmarks/测评/压测 a model/endpoint, onboards a provider, decides whether to switch or temporarily fail over to an alternate channel (e.g. outage or quota exhaustion), writes a supported-models list, debugs \"model ignores system prompt\", or verifies a tok/s claim. Triggers on \"benchmark this model\", \"测一下这个模型/渠道/API\", \"接入新模型先测一下\", \"system prompt 不生效\", \"这个渠道能不能用/稳不稳\", \"临时切换过去顶一阵子\" — even without \"eval\", even wrapped in business narrative.",
+      "description": "Test/evaluate any LLM behind an OpenAI- or Anthropic-compatible endpoint: availability (max_tokens-aware), request fidelity (does system prompt/tools/history REACH the model, or does the gateway silently drop it), speed (TTFT+tok/s), concurrency (before a workshop), Anthropic protocol compliance, quality regression, vendor bug reports, deployment gates, resident canaries. Use BEFORE hand-rolling a curl loop (it skips the N=10 sampling, Connection:close, and env-var key handling this bakes in). Use when someone tests/benchmarks/测评/压测 a model/endpoint, onboards a provider, decides whether to switch or temporarily fail over to an alternate channel (outage/quota), writes a supported-models list, debugs \"model ignores system prompt\", or verifies a tok/s claim. NOT for TTS/voice-clone supplier eval (audio side has its own skill). Triggers on \"benchmark this model\", \"测一下这个模型/渠道/API\", \"接入新模型先测一下\", \"system prompt 不生效\", \"这个渠道能不能用/稳不稳\", \"临时切换过去顶一阵子\" — even without \"eval\", even wrapped in business narrative.",
       "source": "./llm-eval-harness",
       "strict": false,
-      "version": "1.4.0",
+      "version": "1.4.1",
       "category": "developer-tools",
       "keywords": [
         "llm",

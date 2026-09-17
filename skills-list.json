@@ -22287,6 +22287,16 @@
       "license": "MIT"
     },
     {
+      "name": "writing-user-docs",
+      "description": "House style for user-facing documentation \u2014 voice, scope, structure, and what to leave out. Use this skill whenever writing, editing, or reviewing anything a user reads to learn how to use a tool \u2014 he",
+      "path": "callstackincubator--agent-skills/skills/writing-user-docs/SKILL.md",
+      "remote_path": "skills/writing-user-docs/SKILL.md",
+      "lines": 61,
+      "words": 796,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "assess-react-native-migration",
       "description": "Assesses whether and how an existing mobile product should migrate to React Native. Use when auditing one or more product repositories for migration readiness, including products whose iOS, Android, a",
       "path": "callstackincubator--agent-skills/skills/assess-react-native-migration/SKILL.md",
@@ -22561,8 +22571,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 225,
-      "words": 3260,
+      "lines": 314,
+      "words": 4675,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22575,8 +22585,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
-      "lines": 923,
-      "words": 18471,
+      "lines": 1047,
+      "words": 20779,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22589,8 +22599,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
-      "lines": 920,
-      "words": 18427,
+      "lines": 1044,
+      "words": 20735,
       "code_blocks": 0,
       "languages": [],
       "version": "3.35.0",
@@ -22601,8 +22611,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 225,
-      "words": 3260,
+      "lines": 314,
+      "words": 4675,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22615,8 +22625,8 @@
       "description": "Use when the user asks to detect, scan, audit, score, or flag AI-writing patterns without rewriting the text, including requests for a deterministic local detector result when the host can execute Nod",
       "path": "conorbronsdon--avoid-ai-writing/skills/ai-writing-detector/SKILL.md",
       "remote_path": "skills/ai-writing-detector/SKILL.md",
-      "lines": 90,
-      "words": 563,
+      "lines": 93,
+      "words": 629,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -22627,8 +22637,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "skills/avoid-ai-writing/SKILL.md",
-      "lines": 218,
-      "words": 3244,
+      "lines": 307,
+      "words": 4659,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22651,8 +22661,8 @@
       "description": "Use when a request combines AI-writing audit, rewrite, file editing, voice preservation, false-positive interpretation, verification, or when the user invokes Avoid AI Writing without naming a mode.",
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing-router/SKILL.md",
       "remote_path": "skills/avoid-ai-writing-router/SKILL.md",
-      "lines": 118,
-      "words": 869,
+      "lines": 119,
+      "words": 993,
       "code_blocks": 0,
       "languages": []
     },
@@ -22661,8 +22671,8 @@
       "description": "Use when the user asks to rewrite, humanize, clean up, or remove AI-isms from text while preserving the writer's voice, facts, intent, structure, register, and protected material.",
       "path": "conorbronsdon--avoid-ai-writing/skills/voice-preserving-rewriter/SKILL.md",
       "remote_path": "skills/voice-preserving-rewriter/SKILL.md",
-      "lines": 100,
-      "words": 704,
+      "lines": 107,
+      "words": 1056,
       "code_blocks": 0,
       "languages": []
     },
@@ -22672,7 +22682,7 @@
       "path": "conorbronsdon--avoid-ai-writing/skills/preservation-verifier/SKILL.md",
       "remote_path": "skills/preservation-verifier/SKILL.md",
       "lines": 104,
-      "words": 601,
+      "words": 792,
       "code_blocks": 2,
       "languages": [
         "bash",
@@ -22684,8 +22694,8 @@
       "description": "Use when the user names a local file and explicitly asks to clean, rewrite, humanize, or remove AI-writing patterns in that file itself, with minimal targeted edits and post-edit verification.",
       "path": "conorbronsdon--avoid-ai-writing/skills/file-edit-in-place/SKILL.md",
       "remote_path": "skills/file-edit-in-place/SKILL.md",
-      "lines": 103,
-      "words": 654,
+      "lines": 106,
+      "words": 805,
       "code_blocks": 0,
       "languages": []
     }
@@ -23856,9 +23866,21 @@
       "description": "Use with Firecrawl beta search when natural web results include Alexandria tools, when the user explicitly wants tools for a task or website, or when executing a discovered provider tool. Search norma",
       "path": "firecrawl--cli/beta-skills/firecrawl-alexandria/SKILL.md",
       "remote_path": "beta-skills/firecrawl-alexandria/SKILL.md",
-      "lines": 108,
-      "words": 1021,
-      "code_blocks": 8,
+      "lines": 130,
+      "words": 1383,
+      "code_blocks": 9,
+      "languages": [
+        "sh"
+      ]
+    },
+    {
+      "name": "firecrawl-agent",
+      "description": "Firecrawl beta agent as a web-data subagent. Use when a web question needs more than one page or one search, when results must be compared or filtered, or when a follow-up should build on an earlier r",
+      "path": "firecrawl--cli/beta-skills/firecrawl-agent/SKILL.md",
+      "remote_path": "beta-skills/firecrawl-agent/SKILL.md",
+      "lines": 51,
+      "words": 714,
+      "code_blocks": 2,
       "languages": [
         "sh"
       ]
@@ -24947,7 +24969,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "lines": 634,
-      "words": 6152,
+      "words": 6214,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -24959,12 +24981,11 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 536,
-      "words": 5077,
+      "lines": 479,
+      "words": 4553,
       "code_blocks": 22,
       "languages": [
         "bash",
-        "text",
         "typescript"
       ]
     },
@@ -24973,8 +24994,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
-      "lines": 229,
-      "words": 2026,
+      "lines": 227,
+      "words": 2022,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -24987,7 +25008,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "lines": 279,
-      "words": 2164,
+      "words": 2162,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25000,7 +25021,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres-egress-optimizer/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres-egress-optimizer/SKILL.md",
       "lines": 267,
-      "words": 1521,
+      "words": 1520,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -25014,7 +25035,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres-branches/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres-branches/SKILL.md",
       "lines": 293,
-      "words": 1829,
+      "words": 1828,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25026,8 +25047,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
-      "lines": 316,
-      "words": 2740,
+      "lines": 314,
+      "words": 2736,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -25041,7 +25062,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 634,
-      "words": 6152,
+      "words": 6214,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25053,12 +25074,11 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 536,
-      "words": 5077,
+      "lines": 479,
+      "words": 4553,
       "code_blocks": 22,
       "languages": [
         "bash",
-        "text",
         "typescript"
       ]
     },
@@ -25067,8 +25087,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
-      "lines": 229,
-      "words": 2026,
+      "lines": 227,
+      "words": 2022,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25081,7 +25101,7 @@
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
       "lines": 279,
-      "words": 2164,
+      "words": 2162,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25094,7 +25114,7 @@
       "path": "neondatabase--agent-skills/skills/neon-postgres-egress-optimizer/SKILL.md",
       "remote_path": "skills/neon-postgres-egress-optimizer/SKILL.md",
       "lines": 267,
-      "words": 1521,
+      "words": 1520,
       "code_blocks": 17,
       "languages": [
         "bash",
@@ -25108,7 +25128,7 @@
       "path": "neondatabase--agent-skills/skills/neon-postgres-branches/SKILL.md",
       "remote_path": "skills/neon-postgres-branches/SKILL.md",
       "lines": 293,
-      "words": 1829,
+      "words": 1828,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25120,8 +25140,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
-      "lines": 316,
-      "words": 2740,
+      "lines": 314,
+      "words": 2736,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -28093,16 +28113,14 @@
       "license": "Complete terms in LICENSE.txt"
     },
     {
-      "name": "code-documenter",
+      "name": "lead",
       "description": "",
-      "path": "robertguss--claude-skills/skills/code-documenter/SKILL.md",
-      "remote_path": "skills/code-documenter/SKILL.md",
-      "lines": 635,
-      "words": 2291,
-      "code_blocks": 7,
-      "languages": [
-        "json"
-      ]
+      "path": "robertguss--claude-skills/skills/lead/SKILL.md",
+      "remote_path": "skills/lead/SKILL.md",
+      "lines": 156,
+      "words": 1134,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "brainstorm",
@@ -28116,14 +28134,26 @@
       "license": "Proprietary"
     },
     {
-      "name": "doc-refresh",
-      "description": "Refresh a repo's documentation for a live production system \u2014 audit stale docs, rebuild a focused doc set with diagrams, update AI-agent knowledge bases, and improve code-level docstrings",
-      "path": "robertguss--claude-skills/skills/doc-refresh/SKILL.md",
-      "remote_path": "skills/doc-refresh/SKILL.md",
-      "lines": 76,
-      "words": 571,
+      "name": "project-wiki",
+      "description": "",
+      "path": "robertguss--claude-skills/skills/project-wiki/SKILL.md",
+      "remote_path": "skills/project-wiki/SKILL.md",
+      "lines": 119,
+      "words": 818,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "app-store-opportunity-research",
+      "description": "",
+      "path": "robertguss--claude-skills/skills/app-store-opportunity-research/SKILL.md",
+      "remote_path": "skills/app-store-opportunity-research/SKILL.md",
+      "lines": 488,
+      "words": 3080,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ]
     },
     {
       "name": "handoff",
@@ -28224,106 +28254,6 @@
       "code_blocks": 0,
       "languages": [],
       "license": "Proprietary"
-    },
-    {
-      "name": "app-review-analyzer",
-      "description": "",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/app-review-analyzer/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/app-review-analyzer/SKILL.md",
-      "lines": 181,
-      "words": 926,
-      "code_blocks": 1,
-      "languages": []
-    },
-    {
-      "name": "app-growth-playbook",
-      "description": "",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/app-growth-playbook/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/app-growth-playbook/SKILL.md",
-      "lines": 223,
-      "words": 1239,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "app-store-opportunity-research",
-      "description": "",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/app-store-opportunity-research/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/app-store-opportunity-research/SKILL.md",
-      "lines": 488,
-      "words": 3080,
-      "code_blocks": 3,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "paywall-pricing-optimizer",
-      "description": "",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/paywall-pricing-optimizer/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/paywall-pricing-optimizer/SKILL.md",
-      "lines": 393,
-      "words": 2131,
-      "code_blocks": 2,
-      "languages": []
-    },
-    {
-      "name": "mobile-app-launch-checklist",
-      "description": "",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/mobile-app-launch-checklist/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/mobile-app-launch-checklist/SKILL.md",
-      "lines": 302,
-      "words": 1931,
-      "code_blocks": 0,
-      "languages": []
-    },
-    {
-      "name": "app-store-listing-optimizer",
-      "description": "",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/app-store-listing-optimizer/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/app-store-listing-optimizer/SKILL.md",
-      "lines": 326,
-      "words": 1864,
-      "code_blocks": 4,
-      "languages": [
-        "markdown"
-      ]
-    },
-    {
-      "name": "app-creator",
-      "description": "Orchestrate iOS/macOS app scaffolding and optional skill adoption for existing projects. Use when users want a guided wizard that can scaffold with XcodeGen and optionally install xcode-makefiles and ",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/ios-mac-app-creator/app-creator/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/ios-mac-app-creator/app-creator/SKILL.md",
-      "lines": 95,
-      "words": 271,
-      "code_blocks": 2,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "xcode-makefiles",
-      "description": "Install strict Xcode Makefile tooling for iOS/macOS projects, including build/run/test scripts with AGENT_NAME-based per-agent isolation under build/. Use when a project needs reproducible local CLI b",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/ios-mac-app-creator/xcode-makefiles/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/ios-mac-app-creator/xcode-makefiles/SKILL.md",
-      "lines": 66,
-      "words": 194,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
-    },
-    {
-      "name": "simple-tasks",
-      "description": "Install a fast local task workflow for single-project planning with `scripts/task.sh` (claim, done, status, reporting) backed by `tasks/TASKS.md` and optional `tasks/details/` notes. Use for lightweig",
-      "path": "robertguss--claude-skills/skills/mobile-app-dev/ios-mac-app-creator/simple-tasks/SKILL.md",
-      "remote_path": "skills/mobile-app-dev/ios-mac-app-creator/simple-tasks/SKILL.md",
-      "lines": 57,
-      "words": 156,
-      "code_blocks": 1,
-      "languages": [
-        "bash"
-      ]
     },
     {
       "name": "ebook-concept-development",
@@ -157187,8 +157117,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/llm-eval-harness/SKILL.md",
       "remote_path": "llm-eval-harness/SKILL.md",
-      "lines": 328,
-      "words": 2747,
+      "lines": 327,
+      "words": 2742,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -157603,11 +157533,11 @@
     },
     {
       "name": "stepfun-tts",
-      "description": "Generate Chinese / Japanese speech with StepFun's stepaudio-2.5-tts \u2014 Contextual TTS that replaces step-tts-2's `voice_label` with natural-language `instruction` (\u2264200 chars) plus inline `()` parenthe",
+      "description": "Generate Chinese / Japanese speech with StepFun's Contextual TTS \u2014 default `stepaudio-2.5-tts` (blind-judged better on neutral/emotive preset voices), `stepaudio-3-tts` for whisper & inline-prosody ca",
       "path": "daymade--claude-code-skills/daymade-audio/stepfun-tts/SKILL.md",
       "remote_path": "daymade-audio/stepfun-tts/SKILL.md",
-      "lines": 97,
-      "words": 944,
+      "lines": 103,
+      "words": 1334,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -157639,11 +157569,11 @@
     },
     {
       "name": "stepfun-asr",
-      "description": "Transcribe audio with StepFun's stepaudio-2.5-asr \u2014 an SSE endpoint (NOT /v1/audio/transcriptions) with 32K context, ~85-101x RTF on long audio, and a single-call ceiling around 30 minutes (no client-",
+      "description": "Transcribe audio with StepFun's stepaudio-3-asr-max \u2014 an SSE endpoint (NOT /v1/audio/transcriptions), single call handles long audio with no client-side chunking. Use when transcribing Chinese / Engli",
       "path": "daymade--claude-code-skills/daymade-audio/stepfun-asr/SKILL.md",
       "remote_path": "daymade-audio/stepfun-asr/SKILL.md",
-      "lines": 135,
-      "words": 1284,
+      "lines": 132,
+      "words": 1259,
       "code_blocks": 5,
       "languages": [
         "bash"
@@ -158013,7 +157943,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
       "lines": 1875,
-      "words": 30687,
+      "words": 30691,
       "code_blocks": 55,
       "languages": [
         "bash",

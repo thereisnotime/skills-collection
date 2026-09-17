@@ -6,8 +6,19 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **lead skill** — run a project as the lead: briefs to a fresh Opus worker in a
+  Herdr pane, watch it, verify with your own probes, report; setup in `LEAD.md`,
+  state and queue in `HANDOFF.md`; the loop never stops to ask
+- **project-wiki skill** — a Karpathy-style LLM wiki inside a repo with two
+  presets (project record, research vault), a schema-driven lint, and Quartz
+  publishing to GitHub Pages
 - Documentation improvements with LICENSE.md, CONTRIBUTING.md, and CHANGELOG.md
 - Skill connections guide explaining how skills work together
+
+### Removed
+
+- The `code-documenter`, `doc-refresh`, and `mobile-app-dev` skills;
+  `app-store-opportunity-research` moved to the top level of `skills/`
 
 ## [2026-01-18] - Compound Writing Plugin
 
