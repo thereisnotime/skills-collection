@@ -23760,9 +23760,9 @@
       "description": "|",
       "path": "firecrawl--cli/skills/firecrawl-scrape/SKILL.md",
       "remote_path": "skills/firecrawl-scrape/SKILL.md",
-      "lines": 55,
-      "words": 385,
-      "code_blocks": 1,
+      "lines": 65,
+      "words": 481,
+      "code_blocks": 2,
       "languages": [
         "bash"
       ]
@@ -23866,9 +23866,9 @@
       "description": "Use with Firecrawl beta search when natural web results include Alexandria tools, when the user explicitly wants tools for a task or website, or when executing a discovered provider tool. Search norma",
       "path": "firecrawl--cli/beta-skills/firecrawl-alexandria/SKILL.md",
       "remote_path": "beta-skills/firecrawl-alexandria/SKILL.md",
-      "lines": 130,
-      "words": 1383,
-      "code_blocks": 9,
+      "lines": 122,
+      "words": 1428,
+      "code_blocks": 7,
       "languages": [
         "sh"
       ]
@@ -24968,8 +24968,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
-      "lines": 634,
-      "words": 6214,
+      "lines": 646,
+      "words": 6411,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -24981,8 +24981,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
-      "lines": 479,
-      "words": 4553,
+      "lines": 475,
+      "words": 4544,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -24994,8 +24994,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-object-storage/SKILL.md",
-      "lines": 227,
-      "words": 2022,
+      "lines": 228,
+      "words": 2021,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25007,8 +25007,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-postgres/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-postgres/SKILL.md",
-      "lines": 279,
-      "words": 2162,
+      "lines": 280,
+      "words": 2176,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25043,12 +25043,25 @@
       ]
     },
     {
+      "name": "neon-auth",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-auth/SKILL.md",
+      "remote_path": "plugins/neon-postgres/skills/neon-auth/SKILL.md",
+      "lines": 156,
+      "words": 1715,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
       "name": "neon-ai-gateway",
       "description": ">-",
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-ai-gateway/SKILL.md",
       "lines": 314,
-      "words": 2736,
+      "words": 2727,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -25061,8 +25074,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
-      "lines": 634,
-      "words": 6214,
+      "lines": 646,
+      "words": 6411,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25074,8 +25087,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
-      "lines": 479,
-      "words": 4553,
+      "lines": 475,
+      "words": 4544,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -25087,8 +25100,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-object-storage/SKILL.md",
       "remote_path": "skills/neon-object-storage/SKILL.md",
-      "lines": 227,
-      "words": 2022,
+      "lines": 228,
+      "words": 2021,
       "code_blocks": 10,
       "languages": [
         "bash",
@@ -25100,8 +25113,8 @@
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-postgres/SKILL.md",
       "remote_path": "skills/neon-postgres/SKILL.md",
-      "lines": 279,
-      "words": 2162,
+      "lines": 280,
+      "words": 2176,
       "code_blocks": 4,
       "languages": [
         "bash",
@@ -25136,12 +25149,25 @@
       ]
     },
     {
+      "name": "neon-auth",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/skills/neon-auth/SKILL.md",
+      "remote_path": "skills/neon-auth/SKILL.md",
+      "lines": 156,
+      "words": 1715,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
       "name": "neon-ai-gateway",
       "description": ">-",
       "path": "neondatabase--agent-skills/skills/neon-ai-gateway/SKILL.md",
       "remote_path": "skills/neon-ai-gateway/SKILL.md",
       "lines": 314,
-      "words": 2736,
+      "words": 2727,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -26593,20 +26619,20 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-interactivity",
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-interactivity/SKILL.md",
       "remote_path": "skills/remotion-interactivity/SKILL.md",
-      "lines": 248,
-      "words": 962,
+      "lines": 250,
+      "words": 981,
       "code_blocks": 10,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "transcribe-captions",
@@ -26658,7 +26684,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-studio",
@@ -26671,7 +26697,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "rendering",
@@ -26714,7 +26740,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "calculate-metadata",
@@ -26946,7 +26972,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "voiceover",
@@ -27009,7 +27035,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-best-practices",
@@ -27020,7 +27046,7 @@
       "words": 306,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "get-video-dimensions",
@@ -27055,7 +27081,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "get-video-duration",
@@ -27090,7 +27116,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-maps",
@@ -27101,7 +27127,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-upgrade",
@@ -27114,7 +27140,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-maps",
@@ -27125,7 +27151,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-maps-static",
@@ -27190,20 +27216,20 @@
       "words": 56,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-interactivity",
       "description": "Structure Remotion markup for interactivity",
       "path": "remotion-dev--skills/skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
       "remote_path": "skills/remotion-best-practices/remotion-interactivity/REFERENCE.md",
-      "lines": 248,
-      "words": 962,
+      "lines": 250,
+      "words": 981,
       "code_blocks": 10,
       "languages": [
         "tsx"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-captions",
@@ -27216,7 +27242,7 @@
       "languages": [
         "ts"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "transcribe-captions",
@@ -27268,7 +27294,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-saas",
@@ -27279,7 +27305,7 @@
       "words": 155,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "rendering",
@@ -27439,7 +27465,7 @@
         "bash",
         "tsx"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "audio-visualization",
@@ -27606,7 +27632,7 @@
       "words": 143,
       "code_blocks": 2,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "get-video-dimensions",
@@ -27641,7 +27667,7 @@
       "words": 87,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "get-video-duration",
@@ -27666,7 +27692,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "tailwind",
@@ -27687,7 +27713,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-upgrade",
@@ -27700,7 +27726,7 @@
       "languages": [
         "bash"
       ],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-maps",
@@ -27711,7 +27737,7 @@
       "words": 139,
       "code_blocks": 0,
       "languages": [],
-      "version": "4.0.525"
+      "version": "4.0.526"
     },
     {
       "name": "remotion-maps-static",
@@ -157040,9 +157066,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-review-pr/SKILL.md",
       "remote_path": "github-review-pr/SKILL.md",
-      "lines": 488,
-      "words": 3653,
-      "code_blocks": 14,
+      "lines": 509,
+      "words": 3795,
+      "code_blocks": 15,
       "languages": [
         "bash",
         "text"
@@ -157439,9 +157465,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 578,
-      "words": 2125,
-      "code_blocks": 10,
+      "lines": 667,
+      "words": 2513,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "json"
@@ -157477,8 +157503,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/github-sensitive-data-cleanup/SKILL.md",
       "remote_path": "github-sensitive-data-cleanup/SKILL.md",
-      "lines": 341,
-      "words": 1696,
+      "lines": 351,
+      "words": 1796,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157548,8 +157574,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-audio/transcript-fixer/SKILL.md",
       "remote_path": "daymade-audio/transcript-fixer/SKILL.md",
-      "lines": 398,
-      "words": 5378,
+      "lines": 400,
+      "words": 5617,
       "code_blocks": 0,
       "languages": []
     },
@@ -157624,8 +157650,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-claude-code-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-claude-code-history/SKILL.md",
-      "lines": 313,
-      "words": 2511,
+      "lines": 323,
+      "words": 2562,
       "code_blocks": 4,
       "languages": [
         "text"
@@ -157757,7 +157783,7 @@
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-migrate-memory-to-doc/SKILL.md",
       "remote_path": "daymade-claude-code/claude-migrate-memory-to-doc/SKILL.md",
       "lines": 155,
-      "words": 2218,
+      "words": 2221,
       "code_blocks": 2,
       "languages": []
     },
@@ -157766,8 +157792,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 442,
-      "words": 4718,
+      "lines": 443,
+      "words": 4760,
       "code_blocks": 8,
       "languages": [
         "bash",
