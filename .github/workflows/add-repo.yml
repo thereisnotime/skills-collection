@@ -18,6 +18,10 @@ on:
         type: string
         default: ""
 
+concurrency:
+  group: inventory-write
+  cancel-in-progress: false
+
 permissions:
   contents: write
   actions: write
@@ -131,8 +135,21 @@ jobs:
           git config user.email "37583483+thereisnotime@users.noreply.github.com"
           git add inventory.json .github/workflows/remove-repo.yml
           git commit -m "inventory: add ${{ env.DIR_NAME }}"
-          git push
-          echo "🚀 Inventory updated"
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "🚀 Inventory updated"
+              exit 0
+            fi
+            echo "⚠️ Push rejected (attempt $attempt/5), rebasing onto origin/master..."
+            if ! git pull --rebase origin master; then
+              git rebase --abort || true
+              echo "❌ Rebase failed - manual intervention needed"
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "❌ Push failed after 5 attempts"
+          exit 1
 
       - name: "\U0001F504 Trigger sync"
         env:

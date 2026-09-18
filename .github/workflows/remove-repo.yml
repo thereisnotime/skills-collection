@@ -113,6 +113,10 @@ on:
           - ayghri--i-have-adhd
           - SnailSploit--claude-red
 
+concurrency:
+  group: inventory-write
+  cancel-in-progress: false
+
 permissions:
   contents: write
   actions: write
@@ -171,8 +175,21 @@ jobs:
           git add inventory.json .github/workflows/remove-repo.yml
           git diff --cached --quiet && echo "⚠️ Nothing changed" && exit 0
           git commit -m "inventory: remove ${{ inputs.repo_dir }}"
-          git push
-          echo "🚀 Inventory updated"
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "🚀 Inventory updated"
+              exit 0
+            fi
+            echo "⚠️ Push rejected (attempt $attempt/5), rebasing onto origin/master..."
+            if ! git pull --rebase origin master; then
+              git rebase --abort || true
+              echo "❌ Rebase failed - manual intervention needed"
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "❌ Push failed after 5 attempts"
+          exit 1
 
       - name: "\U0001F504 Trigger sync"
         env:
