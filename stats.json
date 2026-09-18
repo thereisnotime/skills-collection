@@ -886,7 +886,7 @@
   "trailofbits--skills": {
     "skills": 173,
     "md_files": 755,
-    "stars": 7149,
+    "stars": 7150,
     "forks": 612,
     "total_commits": 202,
     "issues_open": 23,
@@ -1224,7 +1224,7 @@
   "affaan-m--everything-claude-code": {
     "skills": 1293,
     "md_files": 2456,
-    "stars": 261870,
+    "stars": 261871,
     "forks": 39183,
     "total_commits": 2703,
     "issues_open": 73,
@@ -1341,7 +1341,7 @@
   "JuliusBrussee--caveman": {
     "skills": 30,
     "md_files": 132,
-    "stars": 106570,
+    "stars": 106571,
     "forks": 6174,
     "total_commits": 692,
     "issues_open": 65,
@@ -1350,5 +1350,18 @@
     "prs_closed": 421,
     "prs_merged": 91,
     "contributors": 56
+  },
+  "dietrichgebert--ponytail": {
+    "skills": 13,
+    "md_files": 52,
+    "stars": 141946,
+    "forks": 7612,
+    "total_commits": 224,
+    "issues_open": 95,
+    "issues_closed": 215,
+    "prs_open": 179,
+    "prs_closed": 204,
+    "prs_merged": 180,
+    "contributors": 65
   }
 }

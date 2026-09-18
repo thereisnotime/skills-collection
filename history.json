@@ -18388,7 +18388,7 @@
       "stripe--ai": 1824,
       "supabase--agent-skills": 2630,
       "tinybirdco--tinybird-agent-skills": 20,
-      "trailofbits--skills": 7149,
+      "trailofbits--skills": 7150,
       "typefully--agent-skills": 59,
       "varunr89--resume-tailoring-skill": 746,
       "vercel-labs--agent-skills": 31314,
@@ -18414,7 +18414,7 @@
       "rohitg00--awesome-claude-code-toolkit": 2624,
       "daymade--claude-code-skills": 1403,
       "lgbarn--devops-skills": 14,
-      "affaan-m--everything-claude-code": 261870,
+      "affaan-m--everything-claude-code": 261871,
       "glebis--claude-skills": 379,
       "shanraisshan--claude-code-best-practice": 66091,
       "mrgoonie--claudekit-skills": 2215,
@@ -18423,7 +18423,8 @@
       "shaunburdick--skills": 1,
       "ayghri--i-have-adhd": 47952,
       "SnailSploit--claude-red": 6158,
-      "JuliusBrussee--caveman": 106570
+      "JuliusBrussee--caveman": 106571,
+      "dietrichgebert--ponytail": 141946
     }
   }
 ]

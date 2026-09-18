@@ -1,6 +1,6 @@
 # Skills Index
 
-A comprehensive index of all **13,889** named skills across **104** repositories.
+A comprehensive index of all **13,902** named skills across **105** repositories.
 
 [Back to README](README.md)
 
@@ -13895,7 +13895,20 @@ A comprehensive index of all **13,889** named skills across **104** repositories
 | [caveman-optimize](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-optimize/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 112 | bash, text |
 | [Feature request](https://github.com/JuliusBrussee/caveman/blob/main/.github/ISSUE_TEMPLATE/feature_request.md) |  | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 18 |  |
 | [Bug report](https://github.com/JuliusBrussee/caveman/blob/main/.github/ISSUE_TEMPLATE/bug_report.md) |  | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 26 |  |
+| [ponytail](https://github.com/dietrichgebert/ponytail/blob/main/skills/ponytail/SKILL.md) | > | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  | MIT | 121 |  |
+| [ponytail-review](https://github.com/dietrichgebert/ponytail/blob/main/skills/ponytail-review/SKILL.md) | > | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  |  | 58 |  |
+| [ponytail-gain](https://github.com/dietrichgebert/ponytail/blob/main/skills/ponytail-gain/SKILL.md) | > | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  |  | 51 |  |
+| [ponytail-help](https://github.com/dietrichgebert/ponytail/blob/main/skills/ponytail-help/SKILL.md) | > | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  |  | 72 | bash, json |
+| [ponytail-debt](https://github.com/dietrichgebert/ponytail/blob/main/skills/ponytail-debt/SKILL.md) | > | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  |  | 45 |  |
+| [ponytail-audit](https://github.com/dietrichgebert/ponytail/blob/main/skills/ponytail-audit/SKILL.md) | > | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  |  | 42 |  |
+| [ponytail](https://github.com/dietrichgebert/ponytail/blob/main/.openclaw/skills/ponytail/SKILL.md) | "Lazy senior dev mode for any coding task (write, refactor, fix, review): YAGNI, stdlib first, no un... | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  | MIT | 109 |  |
+| [ponytail-review](https://github.com/dietrichgebert/ponytail/blob/main/.openclaw/skills/ponytail-review/SKILL.md) | "Review a diff for over-engineering. Finds what to delete: reinvented stdlib, needless deps, specula... | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  | MIT | 53 |  |
+| [ponytail-gain](https://github.com/dietrichgebert/ponytail/blob/main/.openclaw/skills/ponytail-gain/SKILL.md) | "Show ponytail measured impact as a scoreboard: less code, less cost, more speed, from the benchmark... | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  | MIT | 48 |  |
+| [ponytail-help](https://github.com/dietrichgebert/ponytail/blob/main/.openclaw/skills/ponytail-help/SKILL.md) | "Quick reference for ponytail's modes, skills, and commands. One-shot display." | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  | MIT | 71 | bash, json |
+| [ponytail-debt](https://github.com/dietrichgebert/ponytail/blob/main/.openclaw/skills/ponytail-debt/SKILL.md) | "Harvest every ponytail: shortcut comment into one debt ledger, so deferrals get tracked instead of ... | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  | MIT | 42 |  |
+| [ponytail-audit](https://github.com/dietrichgebert/ponytail/blob/main/.openclaw/skills/ponytail-audit/SKILL.md) | "Audit the whole repo for over-engineering. A ranked list of what to delete, simplify, or replace wi... | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  | MIT | 38 |  |
+| [caveman](https://github.com/dietrichgebert/ponytail/blob/main/benchmarks/arms/caveman-SKILL.md) | > | [ponytail](https://github.com/dietrichgebert/ponytail) | dietrichgebert |  |  | 68 | sql |
 
 ---
 
-*Auto-generated — 13,889 skills indexed*
+*Auto-generated — 13,902 skills indexed*

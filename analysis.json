@@ -4769,5 +4769,50 @@
     "has_license": true,
     "has_readme": true,
     "has_claude_md": true
+  },
+  "dietrichgebert--ponytail": {
+    "description": "Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote.",
+    "skill_count": 13,
+    "skill_lines_total": 818,
+    "skill_lines_avg": 63,
+    "skill_lines_min": 38,
+    "skill_lines_max": 121,
+    "skill_lines_median": 53,
+    "skill_words_total": 5335,
+    "skill_words_avg": 410,
+    "code_blocks_total": 7,
+    "code_blocks_avg": 0.5,
+    "code_languages": [
+      "bash",
+      "json",
+      "sql"
+    ],
+    "frontmatter_keys": [
+      "argument-hint",
+      "description",
+      "homepage",
+      "license",
+      "name"
+    ],
+    "reference_files": 0,
+    "eval_files": 0,
+    "test_files": 25,
+    "total_files": 166,
+    "total_size_mb": 1.68,
+    "file_types": {
+      "md": 57,
+      "js": 45,
+      "json": 20,
+      "png": 7,
+      "svg": 7,
+      "py": 6,
+      "yaml": 6,
+      "toml": 6,
+      "yml": 3,
+      "mjs": 2
+    },
+    "has_license": true,
+    "has_readme": true,
+    "has_claude_md": false
   }
 }

@@ -6068,5 +6068,67 @@
       "date": "2026-09-16",
       "author": "Claude"
     }
+  ],
+  "dietrichgebert--ponytail": [
+    {
+      "sha": "e3ba2aa",
+      "message": "chore: release v4.10.0 (#870)",
+      "date": "2026-09-14",
+      "author": "DietrichGebert"
+    },
+    {
+      "sha": "67a1601",
+      "message": "feat: add native Cursor hooks via hooks.json (#817) (#869)",
+      "date": "2026-09-14",
+      "author": "DietrichGebert"
+    },
+    {
+      "sha": "356918e",
+      "message": "docs: rename the Retriever logo files so GitHub serves the new version",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    },
+    {
+      "sha": "846fd86",
+      "message": "docs: Retriever logo with the name below the icon",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    },
+    {
+      "sha": "57f759d",
+      "message": "docs: Retriever as one logo image, icon and name together, dark and light",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    },
+    {
+      "sha": "a3624bd",
+      "message": "docs: Retriever icon and name on one line",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    },
+    {
+      "sha": "7f337d7",
+      "message": "docs: crop the transparent margin off the Retriever icon",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    },
+    {
+      "sha": "c3b6263",
+      "message": "docs: icon and name in one block, rule after the section",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    },
+    {
+      "sha": "fb720d3",
+      "message": "docs: Already built with Ponytail as a real section, left aligned",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    },
+    {
+      "sha": "210d917",
+      "message": "docs: drop the tagline under the Retriever icon",
+      "date": "2026-09-07",
+      "author": "Dietrich Gebert"
+    }
   ]
 }

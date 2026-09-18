@@ -178248,5 +178248,152 @@
       "code_blocks": 1,
       "languages": []
     }
+  ],
+  "dietrichgebert--ponytail": [
+    {
+      "name": "ponytail",
+      "description": ">",
+      "path": "dietrichgebert--ponytail/skills/ponytail/SKILL.md",
+      "remote_path": "skills/ponytail/SKILL.md",
+      "lines": 121,
+      "words": 1079,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "ponytail-review",
+      "description": ">",
+      "path": "dietrichgebert--ponytail/skills/ponytail-review/SKILL.md",
+      "remote_path": "skills/ponytail-review/SKILL.md",
+      "lines": 58,
+      "words": 339,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "ponytail-gain",
+      "description": ">",
+      "path": "dietrichgebert--ponytail/skills/ponytail-gain/SKILL.md",
+      "remote_path": "skills/ponytail-gain/SKILL.md",
+      "lines": 51,
+      "words": 246,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "ponytail-help",
+      "description": ">",
+      "path": "dietrichgebert--ponytail/skills/ponytail-help/SKILL.md",
+      "remote_path": "skills/ponytail-help/SKILL.md",
+      "lines": 72,
+      "words": 379,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "ponytail-debt",
+      "description": ">",
+      "path": "dietrichgebert--ponytail/skills/ponytail-debt/SKILL.md",
+      "remote_path": "skills/ponytail-debt/SKILL.md",
+      "lines": 45,
+      "words": 261,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "ponytail-audit",
+      "description": ">",
+      "path": "dietrichgebert--ponytail/skills/ponytail-audit/SKILL.md",
+      "remote_path": "skills/ponytail-audit/SKILL.md",
+      "lines": 42,
+      "words": 234,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "ponytail",
+      "description": "\"Lazy senior dev mode for any coding task (write, refactor, fix, review): YAGNI, stdlib first, no unrequested abstractions. Not for non-coding requests.\"",
+      "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail/SKILL.md",
+      "remote_path": ".openclaw/skills/ponytail/SKILL.md",
+      "lines": 109,
+      "words": 987,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "ponytail-review",
+      "description": "\"Review a diff for over-engineering. Finds what to delete: reinvented stdlib, needless deps, speculative abstractions. One line per finding.\"",
+      "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-review/SKILL.md",
+      "remote_path": ".openclaw/skills/ponytail-review/SKILL.md",
+      "lines": 53,
+      "words": 303,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "ponytail-gain",
+      "description": "\"Show ponytail measured impact as a scoreboard: less code, less cost, more speed, from the benchmark medians. One-shot display.\"",
+      "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-gain/SKILL.md",
+      "remote_path": ".openclaw/skills/ponytail-gain/SKILL.md",
+      "lines": 48,
+      "words": 226,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "ponytail-help",
+      "description": "\"Quick reference for ponytail's modes, skills, and commands. One-shot display.\"",
+      "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-help/SKILL.md",
+      "remote_path": ".openclaw/skills/ponytail-help/SKILL.md",
+      "lines": 71,
+      "words": 365,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ],
+      "license": "MIT"
+    },
+    {
+      "name": "ponytail-debt",
+      "description": "\"Harvest every ponytail: shortcut comment into one debt ledger, so deferrals get tracked instead of forgotten. One-shot report.\"",
+      "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-debt/SKILL.md",
+      "remote_path": ".openclaw/skills/ponytail-debt/SKILL.md",
+      "lines": 42,
+      "words": 224,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "ponytail-audit",
+      "description": "\"Audit the whole repo for over-engineering. A ranked list of what to delete, simplify, or replace with stdlib or native features.\"",
+      "path": "dietrichgebert--ponytail/.openclaw/skills/ponytail-audit/SKILL.md",
+      "remote_path": ".openclaw/skills/ponytail-audit/SKILL.md",
+      "lines": 38,
+      "words": 201,
+      "code_blocks": 0,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "caveman",
+      "description": ">",
+      "path": "dietrichgebert--ponytail/benchmarks/arms/caveman-SKILL.md",
+      "remote_path": "benchmarks/arms/caveman-SKILL.md",
+      "lines": 68,
+      "words": 491,
+      "code_blocks": 1,
+      "languages": [
+        "sql"
+      ]
+    }
   ]
 }
