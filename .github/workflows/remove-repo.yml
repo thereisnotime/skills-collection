@@ -111,6 +111,7 @@ on:
           - jqueryscript--awesome-claude-code
           - shaunburdick--skills
           - ayghri--i-have-adhd
+          - SnailSploit--claude-red
 
 permissions:
   contents: write
