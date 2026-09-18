@@ -113,6 +113,7 @@ on:
           - ayghri--i-have-adhd
           - SnailSploit--claude-red
           - JuliusBrussee--caveman
+          - dietrichgebert--ponytail
 
 concurrency:
   group: inventory-write
