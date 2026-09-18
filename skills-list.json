@@ -10792,6 +10792,16 @@
       ]
     },
     {
+      "name": "wtf",
+      "description": "\"Explain the last message, or a supplied file, link, or passage, in plain language a person follows on the first read. Use when the user invokes wtf because they did not follow something. Use ce-expla",
+      "path": "EveryInc--compound-engineering-plugin/skills/wtf/SKILL.md",
+      "remote_path": "skills/wtf/SKILL.md",
+      "lines": 34,
+      "words": 397,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "ce-plan",
       "description": "\"Create structured plans for multi-step work, including software and non-software tasks. Use when asked to plan, break down implementation, plan from requirements, or deepen an existing plan; prefer c",
       "path": "EveryInc--compound-engineering-plugin/skills/ce-plan/SKILL.md",
@@ -157827,8 +157837,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1240,
-      "words": 13900,
+      "lines": 1253,
+      "words": 14048,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -177171,6 +177181,730 @@
       "code_blocks": 1,
       "languages": [],
       "license": "MIT"
+    }
+  ],
+  "SnailSploit--claude-red": [
+    {
+      "name": "offensive-iot",
+      "description": "\"IoT and embedded device security testing methodology. Covers hardware reconnaissance (UART, JTAG, SWD, SPI flash, I2C EEPROM, eMMC chip-off), firmware acquisition (vendor portals, OTA capture, flash ",
+      "path": "SnailSploit--claude-red/Skills/iot/offensive-iot/SKILL.md",
+      "remote_path": "Skills/iot/offensive-iot/SKILL.md",
+      "lines": 436,
+      "words": 1982,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "http",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-phishing",
+      "description": "\"Phishing campaign execution methodology for authorized red team engagements. Covers end-to-end campaign lifecycle: infrastructure provisioning (GoPhish, SMTP relay configuration, domain acquisition a",
+      "path": "SnailSploit--claude-red/Skills/social-engineering/offensive-phishing/SKILL.md",
+      "remote_path": "Skills/social-engineering/offensive-phishing/SKILL.md",
+      "lines": 520,
+      "words": 2512,
+      "code_blocks": 18,
+      "languages": [
+        "bash",
+        "html",
+        "python",
+        "text",
+        "vba"
+      ]
+    },
+    {
+      "name": "offensive-social-engineering",
+      "description": "\"Social engineering attack techniques beyond email phishing for authorized red team and physical penetration testing engagements. Covers pretexting methodology (persona creation, authority and urgency",
+      "path": "SnailSploit--claude-red/Skills/social-engineering/offensive-social-engineering/SKILL.md",
+      "remote_path": "Skills/social-engineering/offensive-social-engineering/SKILL.md",
+      "lines": 577,
+      "words": 3160,
+      "code_blocks": 20,
+      "languages": [
+        "bash",
+        "javascript",
+        "python",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-tls-attacks",
+      "description": "\"Comprehensive methodology for auditing and exploiting TLS/SSL implementations and misconfigurations across network services and mobile applications. Covers protocol downgrade attacks including POODLE",
+      "path": "SnailSploit--claude-red/Skills/crypto/offensive-tls-attacks/SKILL.md",
+      "remote_path": "Skills/crypto/offensive-tls-attacks/SKILL.md",
+      "lines": 536,
+      "words": 3292,
+      "code_blocks": 22,
+      "languages": [
+        "bash",
+        "javascript",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-crypto-attacks",
+      "description": "\"Systematic methodology for identifying and exploiting cryptographic implementation weaknesses in real-world applications. Covers padding oracle attacks against CBC-mode ciphers with PKCS7 padding (Va",
+      "path": "SnailSploit--claude-red/Skills/crypto/offensive-crypto-attacks/SKILL.md",
+      "remote_path": "Skills/crypto/offensive-crypto-attacks/SKILL.md",
+      "lines": 477,
+      "words": 2593,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-network-attacks",
+      "description": "\"Dense description covering ARP spoofing, LLMNR/NBT-NS/mDNS poisoning, DNS poisoning, MITM attacks, VLAN hopping, DHCP attacks, 802.1X/NAC bypass, IPv6 attacks. Tools: Bettercap, Responder, mitm6, Ett",
+      "path": "SnailSploit--claude-red/Skills/network/offensive-network-attacks/SKILL.md",
+      "remote_path": "Skills/network/offensive-network-attacks/SKILL.md",
+      "lines": 492,
+      "words": 2534,
+      "code_blocks": 30,
+      "languages": [
+        "bash",
+        "powershell",
+        "python",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-fuzzing",
+      "description": "\"Practical offensive fuzzing methodology covering target identification, fuzzer selection (AFL++, libFuzzer, Honggfuzz, Boofuzz, syzkaller), harness writing, corpus curation, mutation strategies, cove",
+      "path": "SnailSploit--claude-red/Skills/fuzzing/offensive-fuzzing/SKILL.md",
+      "remote_path": "Skills/fuzzing/offensive-fuzzing/SKILL.md",
+      "lines": 339,
+      "words": 1437,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "c",
+        "cpp",
+        "json",
+        "powershell",
+        "yaml"
+      ]
+    },
+    {
+      "name": "offensive-mobile",
+      "description": "\"Mobile (Android + iOS) application penetration testing methodology. Covers static analysis (apktool/jadx for Android, class-dump/Hopper/IDA for iOS), dynamic instrumentation with Frida and Objection,",
+      "path": "SnailSploit--claude-red/Skills/mobile/offensive-mobile/SKILL.md",
+      "remote_path": "Skills/mobile/offensive-mobile/SKILL.md",
+      "lines": 423,
+      "words": 1803,
+      "code_blocks": 22,
+      "languages": [
+        "bash",
+        "java",
+        "javascript",
+        "objc"
+      ]
+    },
+    {
+      "name": "offensive-reporting",
+      "description": "\"Penetration test and red team report writing methodology. Covers executive summary structuring (risk-led narrative for non-technical readers), technical finding format (title, severity, affected scop",
+      "path": "SnailSploit--claude-red/Skills/utility/offensive-reporting/SKILL.md",
+      "remote_path": "Skills/utility/offensive-reporting/SKILL.md",
+      "lines": 372,
+      "words": 2204,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "csv",
+        "markdown"
+      ]
+    },
+    {
+      "name": "offensive-data-exfiltration",
+      "description": "\"Dense methodology covering DNS exfiltration (dnscat2, iodine, dns2tcp), HTTPS tunneling (domain fronting, CDN abuse, legitimate service channels), ICMP tunneling (icmpsh, ptunnel-ng), cloud storage d",
+      "path": "SnailSploit--claude-red/Skills/post-exploitation/offensive-data-exfiltration/SKILL.md",
+      "remote_path": "Skills/post-exploitation/offensive-data-exfiltration/SKILL.md",
+      "lines": 551,
+      "words": 2286,
+      "code_blocks": 37,
+      "languages": [
+        "bash",
+        "powershell",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-lateral-movement",
+      "description": "\"Comprehensive lateral movement tradecraft for authorized red team engagements covering credential-based movement (pass-the-hash, pass-the-ticket, overpass-the-hash), NTLM relay attacks (ntlmrelayx wi",
+      "path": "SnailSploit--claude-red/Skills/post-exploitation/offensive-lateral-movement/SKILL.md",
+      "remote_path": "Skills/post-exploitation/offensive-lateral-movement/SKILL.md",
+      "lines": 451,
+      "words": 2054,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "powershell",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-persistence",
+      "description": "\"Comprehensive persistence tradecraft for authorized red team engagements covering Windows and Linux mechanisms. Windows techniques include registry Run/RunOnce keys, scheduled tasks, WMI event subscr",
+      "path": "SnailSploit--claude-red/Skills/post-exploitation/offensive-persistence/SKILL.md",
+      "remote_path": "Skills/post-exploitation/offensive-persistence/SKILL.md",
+      "lines": 601,
+      "words": 2843,
+      "code_blocks": 30,
+      "languages": [
+        "bash",
+        "c",
+        "php",
+        "powershell",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-linux-privesc",
+      "description": "\"Comprehensive Linux privilege escalation methodology for offensive security engagements. Covers the full attack surface from a low-privilege shell to root: SUID/SGID binary abuse via GTFOBins, Linux ",
+      "path": "SnailSploit--claude-red/Skills/privesc/offensive-linux-privesc/SKILL.md",
+      "remote_path": "Skills/privesc/offensive-linux-privesc/SKILL.md",
+      "lines": 585,
+      "words": 2521,
+      "code_blocks": 27,
+      "languages": [
+        "bash",
+        "c",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-windows-privesc",
+      "description": "\"Comprehensive Windows privilege escalation methodology for offensive security engagements. Covers the full attack surface from a standard user shell to NT AUTHORITY\\\\SYSTEM: token impersonation via S",
+      "path": "SnailSploit--claude-red/Skills/privesc/offensive-windows-privesc/SKILL.md",
+      "remote_path": "Skills/privesc/offensive-windows-privesc/SKILL.md",
+      "lines": 581,
+      "words": 2627,
+      "code_blocks": 27,
+      "languages": [
+        "c",
+        "powershell",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-active-directory",
+      "description": "\"Active Directory attack methodology for internal network red team engagements. Covers reconnaissance (BloodHound, PowerView, ADExplorer), credential abuse (Kerberoasting, ASREProasting, NTLM relay, L",
+      "path": "SnailSploit--claude-red/Skills/active-directory/offensive-active-directory/SKILL.md",
+      "remote_path": "Skills/active-directory/offensive-active-directory/SKILL.md",
+      "lines": 429,
+      "words": 1790,
+      "code_blocks": 29,
+      "languages": [
+        "bash",
+        "cmd",
+        "powershell"
+      ]
+    },
+    {
+      "name": "offensive-toctou",
+      "description": "\"Time-of-Check / Time-of-Use (TOCTOU) race condition exploitation methodology across binary, kernel, filesystem, web, and container layers. Covers symbolic-link races (open/access/stat split), file-de",
+      "path": "SnailSploit--claude-red/Skills/exploit-dev/offensive-toctou/SKILL.md",
+      "remote_path": "Skills/exploit-dev/offensive-toctou/SKILL.md",
+      "lines": 348,
+      "words": 1803,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "c",
+        "http",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-anti-forensics",
+      "description": "\"Anti-forensics and evidence destruction techniques for red team operators conducting authorized engagements. Covers log clearing on Windows (wevtutil, Clear-EventLog, ETW provider patching) and Linux",
+      "path": "SnailSploit--claude-red/Skills/forensics/offensive-anti-forensics/SKILL.md",
+      "remote_path": "Skills/forensics/offensive-anti-forensics/SKILL.md",
+      "lines": 468,
+      "words": 2473,
+      "code_blocks": 22,
+      "languages": [
+        "bash",
+        "c",
+        "cmd",
+        "csharp",
+        "powershell",
+        "yaml"
+      ]
+    },
+    {
+      "name": "offensive-c2-frameworks",
+      "description": "\"Command and Control framework deployment, configuration, and operational tradecraft for red team engagements. Covers Cobalt Strike (malleable C2 profiles, Beacon types HTTP/HTTPS/DNS/SMB, Beacon Obje",
+      "path": "SnailSploit--claude-red/Skills/forensics/offensive-c2-frameworks/SKILL.md",
+      "remote_path": "Skills/forensics/offensive-c2-frameworks/SKILL.md",
+      "lines": 597,
+      "words": 2668,
+      "code_blocks": 17,
+      "languages": [
+        "apache",
+        "bash",
+        "c",
+        "json",
+        "ruby",
+        "text",
+        "yaml"
+      ]
+    },
+    {
+      "name": "offensive-cloud",
+      "description": "\"Cloud security attack methodology covering AWS, Azure, and GCP. Includes credential harvesting (IMDS, ~/.aws, env vars, leaked CI secrets, instance roles), enumeration with cloud-specific tools (pacu",
+      "path": "SnailSploit--claude-red/Skills/cloud/offensive-cloud/SKILL.md",
+      "remote_path": "Skills/cloud/offensive-cloud/SKILL.md",
+      "lines": 347,
+      "words": 1803,
+      "code_blocks": 18,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "offensive-api-abuse",
+      "description": "\"Advanced API exploitation methodology focused on business logic abuse and sophisticated attack patterns that bypass traditional security controls. Covers business logic bypass through API call chaini",
+      "path": "SnailSploit--claude-red/Skills/api/offensive-api-abuse/SKILL.md",
+      "remote_path": "Skills/api/offensive-api-abuse/SKILL.md",
+      "lines": 500,
+      "words": 2698,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-api-security",
+      "description": "\"Comprehensive API security testing methodology covering REST, gRPC, and WebSocket attack surfaces. Addresses the full OWASP API Security Top 10 2023 including BOLA/IDOR, broken authentication, excess",
+      "path": "SnailSploit--claude-red/Skills/api/offensive-api-security/SKILL.md",
+      "remote_path": "Skills/api/offensive-api-security/SKILL.md",
+      "lines": 505,
+      "words": 2291,
+      "code_blocks": 27,
+      "languages": [
+        "bash",
+        "html",
+        "http",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-k8s-attacks",
+      "description": "\"Kubernetes cluster attack techniques covering the full attack lifecycle from initial foothold in a pod to cluster-wide compromise. Covers service account token theft and impersonation, RBAC misconfig",
+      "path": "SnailSploit--claude-red/Skills/container/offensive-k8s-attacks/SKILL.md",
+      "remote_path": "Skills/container/offensive-k8s-attacks/SKILL.md",
+      "lines": 809,
+      "words": 3157,
+      "code_blocks": 23,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-container-escape",
+      "description": "\"Container escape and breakout techniques targeting Docker, containerd, and Podman runtimes. Covers privileged container breakout via host filesystem mount and nsenter, Docker socket abuse through /va",
+      "path": "SnailSploit--claude-red/Skills/container/offensive-container-escape/SKILL.md",
+      "remote_path": "Skills/container/offensive-container-escape/SKILL.md",
+      "lines": 673,
+      "words": 2993,
+      "code_blocks": 24,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-jwt",
+      "description": "\"JWT attack methodology for penetration testers. Covers algorithm confusion (alg:none, RS256\u2192HS256), weak HMAC secret brute force, kid parameter injection (SQLi, path traversal), jku/x5u/jwk header in",
+      "path": "SnailSploit--claude-red/Skills/auth/offensive-jwt/SKILL.md",
+      "remote_path": "Skills/auth/offensive-jwt/SKILL.md",
+      "lines": 275,
+      "words": 1399,
+      "code_blocks": 13,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-wps",
+      "description": "\"WPS (Wi-Fi Protected Setup) PIN attack methodology \u2014 Pixie Dust offline attack against vulnerable chipsets (Ralink, Realtek, Broadcom, MediaTek), online PIN brute-force with reaver/bully, lockout han",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-wps/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-wps/SKILL.md",
+      "lines": 167,
+      "words": 948,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-bluetooth-classic",
+      "description": "\"Bluetooth Classic (BR/EDR) attack methodology \u2014 device discovery, service enumeration via SDP, LMP/L2CAP layer attacks, legacy PIN cracking (BlueBorne / KNOB), Bluetooth file-transfer abuse (BlueSnar",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-bluetooth-classic/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-bluetooth-classic/SKILL.md",
+      "lines": 157,
+      "words": 782,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-wpa-enterprise",
+      "description": "\"WPA/WPA2/WPA3-Enterprise (802.1X / EAP) attack methodology \u2014 EAP method identification (PEAP-MSCHAPv2, EAP-TTLS, EAP-TLS, EAP-GTC, EAP-PWD, EAP-FAST), evil-twin RADIUS attacks with eaphammer for cred",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-wpa-enterprise/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-wpa-enterprise/SKILL.md",
+      "lines": 208,
+      "words": 1084,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "xml"
+      ]
+    },
+    {
+      "name": "offensive-krack-fragattacks",
+      "description": "\"KRACK (CVE-2017-13077..082) and FragAttacks (CVE-2020-24586..588 + 26139-26147) \u2014 key reinstallation, fragmentation, and aggregation attacks against WPA2 supplicants. Covers Vanhoef's test scripts, v",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-krack-fragattacks/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-krack-fragattacks/SKILL.md",
+      "lines": 115,
+      "words": 632,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-zigbee-thread-matter",
+      "description": "\"Zigbee, Thread, and Matter mesh-protocol attack methodology \u2014 IEEE 802.15.4 sniffing with TI CC2531 / CC2540 / Sonoff Zigbee Dongle E, KillerBee toolkit, Touchlink commissioning abuse with the well-k",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-zigbee-thread-matter/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-zigbee-thread-matter/SKILL.md",
+      "lines": 161,
+      "words": 797,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-wpa3-sae",
+      "description": "\"WPA3 / SAE (Simultaneous Authentication of Equals) attack methodology \u2014 transition-mode (mixed WPA2/WPA3) downgrade, Dragonblood side-channel attacks (CVE-2019-9494, 9495, 13377, 13456), SAE auth flo",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-wpa3-sae/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-wpa3-sae/SKILL.md",
+      "lines": 160,
+      "words": 920,
+      "code_blocks": 8,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-evil-twin",
+      "description": "\"Evil Twin / KARMA / Mana access point methodology \u2014 rogue AP construction with hostapd-mana / wifiphisher / airgeddon, KARMA universal probe response, Mana selective probe response, captive portal ph",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-evil-twin/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-evil-twin/SKILL.md",
+      "lines": 221,
+      "words": 1148,
+      "code_blocks": 9,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-deauth-disassoc",
+      "description": "\"Deauthentication and disassociation attacks against 802.11 networks \u2014 targeted single-client deauth for handshake capture, broadcast deauth for DoS (with authorization), action-frame attacks bypassin",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-deauth-disassoc/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-deauth-disassoc/SKILL.md",
+      "lines": 133,
+      "words": 693,
+      "code_blocks": 6,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-wifi-recon",
+      "description": "\"Wi-Fi reconnaissance methodology \u2014 adapter selection, monitor mode and packet injection setup, regulatory domain handling, multi-band airspace mapping, hidden SSID discovery, BSSID/ESSID/channel/PMF/",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-wifi-recon/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-wifi-recon/SKILL.md",
+      "lines": 204,
+      "words": 1033,
+      "code_blocks": 11,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-wifi",
+      "description": "\"Wireless / 802.11 attack methodology for red team engagements and wireless security assessments. Covers monitor-mode setup, WPA/WPA2-PSK handshake capture and PMKID attacks, WPA3 SAE downgrade and Dr",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-wifi/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-wifi/SKILL.md",
+      "lines": 346,
+      "words": 1617,
+      "code_blocks": 19,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-lorawan-sub-ghz",
+      "description": "\"LoRaWAN and sub-GHz (433 / 868 / 915 MHz) attack methodology \u2014 LoRaWAN ABP/OTAA join attack, network/session key reuse, frame counter replay, downlink injection on TTN/Helium-style networks, sub-GHz ",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-lorawan-sub-ghz/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-lorawan-sub-ghz/SKILL.md",
+      "lines": 183,
+      "words": 1001,
+      "code_blocks": 8,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-bluetooth-ble",
+      "description": "\"Bluetooth Low Energy (BLE) attack methodology \u2014 GATT enumeration, characteristic read/write without auth, pairing downgrade (Just Works forced), LE Secure Connections bypass, MITM via active relay, s",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-bluetooth-ble/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-bluetooth-ble/SKILL.md",
+      "lines": 195,
+      "words": 951,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-wpa2-psk",
+      "description": "\"WPA/WPA2-PSK attack methodology \u2014 four-way handshake capture via targeted deauthentication, PMKID attacks (no client required), hcxdumptool / hcxpcapngtool conversion to hashcat hc22000 format, GPU-a",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-wpa2-psk/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-wpa2-psk/SKILL.md",
+      "lines": 177,
+      "words": 895,
+      "code_blocks": 9,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "offensive-z-wave",
+      "description": "\"Z-Wave attack methodology \u2014 sniffing with Z-Force / EZ-Wave / RTL-SDR + ZniffMobile, S0 (legacy) network-key derivation flaw and key reuse, S2 (modern) ECDH commissioning analysis, replay/injection o",
+      "path": "SnailSploit--claude-red/Skills/wireless/offensive-z-wave/SKILL.md",
+      "remote_path": "Skills/wireless/offensive-z-wave/SKILL.md",
+      "lines": 147,
+      "words": 818,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-osint",
+      "description": "\"Comprehensive OSINT methodology skill for offensive security, red team intelligence gathering, and bug bounty reconnaissance. Covers domain recon, email harvesting, social media profiling, GitHub/cod",
+      "path": "SnailSploit--claude-red/Skills/recon/offensive-osint/SKILL.md",
+      "remote_path": "Skills/recon/offensive-osint/SKILL.md",
+      "lines": 398,
+      "words": 2088,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "offensive-ssti",
+      "description": "\"Dense description covering Server-Side Template Injection across Jinja2, Twig, Freemarker, Velocity, Pebble, Smarty, Mako, Handlebars, ERB, Thymeleaf, EJS, Pug. Engine fingerprinting, filter bypass, ",
+      "path": "SnailSploit--claude-red/Skills/web/offensive-ssti/SKILL.md",
+      "remote_path": "Skills/web/offensive-ssti/SKILL.md",
+      "lines": 620,
+      "words": 2110,
+      "code_blocks": 44,
+      "languages": [
+        "bash",
+        "html",
+        "http",
+        "java",
+        "javascript",
+        "php",
+        "python",
+        "ruby",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-business-logic",
+      "description": "\"Business logic vulnerability testing for web/mobile/API engagements. Covers workflow bypass, state machine violations, multi-step process abuse, price/quantity/discount manipulation, currency confusi",
+      "path": "SnailSploit--claude-red/Skills/web/offensive-business-logic/SKILL.md",
+      "remote_path": "Skills/web/offensive-business-logic/SKILL.md",
+      "lines": 399,
+      "words": 1956,
+      "code_blocks": 27,
+      "languages": [
+        "bash",
+        "http",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-deserialization",
+      "description": "\"Insecure deserialization exploitation across Java, PHP, .NET, Python, Node.js, and Ruby. Covers gadget chain construction with ysoserial/phpggc/ysoserial.net, ObjectInputStream and BinaryFormatter si",
+      "path": "SnailSploit--claude-red/Skills/web/offensive-deserialization/SKILL.md",
+      "remote_path": "Skills/web/offensive-deserialization/SKILL.md",
+      "lines": 601,
+      "words": 2670,
+      "code_blocks": 25,
+      "languages": [
+        "bash",
+        "csharp",
+        "http",
+        "java",
+        "javascript",
+        "json",
+        "php",
+        "powershell",
+        "python",
+        "ruby",
+        "xml",
+        "yaml"
+      ]
+    },
+    {
+      "name": "offensive-sqli",
+      "description": "\"SQL injection testing skill for offensive security assessments and bug bounty hunting. Covers error-based, UNION-based, boolean/time-based blind, out-of-band, second-order, NoSQL, GraphQL, WebSocket,",
+      "path": "SnailSploit--claude-red/Skills/web/offensive-sqli/SKILL.md",
+      "remote_path": "Skills/web/offensive-sqli/SKILL.md",
+      "lines": 371,
+      "words": 1324,
+      "code_blocks": 26,
+      "languages": [
+        "bash",
+        "cypher",
+        "javascript",
+        "json",
+        "spl",
+        "sql"
+      ]
+    },
+    {
+      "name": "offensive-graphql",
+      "description": "\"Offensive methodology for attacking GraphQL APIs during penetration tests and bug bounty engagements. Covers the full attack lifecycle: endpoint discovery, introspection abuse and blind schema recons",
+      "path": "SnailSploit--claude-red/Skills/web/offensive-graphql/SKILL.md",
+      "remote_path": "Skills/web/offensive-graphql/SKILL.md",
+      "lines": 568,
+      "words": 2875,
+      "code_blocks": 40,
+      "languages": [
+        "bash",
+        "graphql",
+        "html",
+        "json",
+        "python",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-supply-chain",
+      "description": "\"Comprehensive offensive methodology for software supply chain attacks covering the full kill chain from reconnaissance through exploitation. Addresses dependency confusion across npm, PyPI, and NuGet",
+      "path": "SnailSploit--claude-red/Skills/supply-chain/offensive-supply-chain/SKILL.md",
+      "remote_path": "Skills/supply-chain/offensive-supply-chain/SKILL.md",
+      "lines": 547,
+      "words": 2257,
+      "code_blocks": 25,
+      "languages": [
+        "bash",
+        "dockerfile",
+        "javascript",
+        "json",
+        "makefile",
+        "python",
+        "xml",
+        "yaml"
+      ]
+    },
+    {
+      "name": "offensive-dependency-confusion",
+      "description": "\"Deep-dive offensive methodology for dependency confusion and namespace attacks across all major package ecosystems. Covers npm scope confusion exploiting the gap between public and private scoped pac",
+      "path": "SnailSploit--claude-red/Skills/supply-chain/offensive-dependency-confusion/SKILL.md",
+      "remote_path": "Skills/supply-chain/offensive-dependency-confusion/SKILL.md",
+      "lines": 603,
+      "words": 2835,
+      "code_blocks": 32,
+      "languages": [
+        "bash",
+        "csharp",
+        "go",
+        "groovy",
+        "ini",
+        "javascript",
+        "json",
+        "python",
+        "ruby",
+        "xml",
+        "yaml"
+      ]
+    },
+    {
+      "name": "offensive-advanced-redteam",
+      "description": "\"Comprehensive red team operations methodology covering full engagement lifecycle from planning through reporting. Addresses engagement scoping and rules of engagement negotiation, multi-tier C2 infra",
+      "path": "SnailSploit--claude-red/Skills/infrastructure/offensive-advanced-redteam/SKILL.md",
+      "remote_path": "Skills/infrastructure/offensive-advanced-redteam/SKILL.md",
+      "lines": 641,
+      "words": 3551,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "csharp",
+        "nginx",
+        "powershell",
+        "python",
+        "text"
+      ]
+    },
+    {
+      "name": "offensive-shellcode",
+      "description": "\"Shellcode development reference for offensive security engagements. Use when writing custom x86/x64 shellcode, implementing position-independent code (PIC), building shellcode loaders, evading AV/EDR",
+      "path": "SnailSploit--claude-red/Skills/infrastructure/offensive-shellcode/SKILL.md",
+      "remote_path": "Skills/infrastructure/offensive-shellcode/SKILL.md",
+      "lines": 476,
+      "words": 2307,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "c",
+        "python"
+      ]
+    },
+    {
+      "name": "offensive-cicd-pipeline",
+      "description": "\"Comprehensive CI/CD pipeline exploitation methodology covering GitHub Actions injection vectors (expression injection via PR titles and issue bodies, workflow_run event abuse, GITHUB_TOKEN over-scopi",
+      "path": "SnailSploit--claude-red/Skills/cicd/offensive-cicd-pipeline/SKILL.md",
+      "remote_path": "Skills/cicd/offensive-cicd-pipeline/SKILL.md",
+      "lines": 520,
+      "words": 2471,
+      "code_blocks": 21,
+      "languages": [
+        "bash",
+        "dockerfile",
+        "groovy",
+        "text",
+        "yaml"
+      ]
+    },
+    {
+      "name": "offensive-cicd-secrets",
+      "description": "\"Comprehensive secrets extraction methodology targeting CI/CD environments across all major platforms. Covers environment variable extraction from build contexts, exploitation of vault and secrets-man",
+      "path": "SnailSploit--claude-red/Skills/cicd/offensive-cicd-secrets/SKILL.md",
+      "remote_path": "Skills/cicd/offensive-cicd-secrets/SKILL.md",
+      "lines": 580,
+      "words": 2981,
+      "code_blocks": 19,
+      "languages": [
+        "bash",
+        "groovy",
+        "json",
+        "yaml"
+      ]
     }
   ]
 }

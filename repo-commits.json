@@ -691,6 +691,18 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "a79cad3",
+      "message": "fix(skills): keep manual-only skills manual-only on Codex (#1738)",
+      "date": "2026-09-18",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "0114880",
+      "message": "feat(wtf): explain the last message or a supplied source plainly (#1737)",
+      "date": "2026-09-18",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "082c83e",
       "message": "chore: release main (#1720)",
       "date": "2026-09-15",
@@ -737,18 +749,6 @@
       "message": "chore: release main (#1701)",
       "date": "2026-09-15",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "59a3195",
-      "message": "ci(windows-native): cap the job at 10 minutes (#1714)",
-      "date": "2026-09-15",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "5a98466",
-      "message": "fix(packs): use portable guide links (#1705)",
-      "date": "2026-09-15",
-      "author": "Petteri Ponsimaa"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -2315,6 +2315,24 @@
   ],
   "firecrawl--cli": [
     {
+      "sha": "44f4726",
+      "message": "Support search alexandria query shorthand (#258)",
+      "date": "2026-09-18",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "c8d455a",
+      "message": "chore: release Alexandria CLI beta.19 (#257)",
+      "date": "2026-09-18",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "8a2f135",
+      "message": "feat: show tool inspection commands in search results (#256)",
+      "date": "2026-09-18",
+      "author": "Developers Digest"
+    },
+    {
       "sha": "2408659",
       "message": "Support provider/capability shorthand in firecrawl scrape (#254)",
       "date": "2026-09-18",
@@ -2353,24 +2371,6 @@
     {
       "sha": "bd7ad0e",
       "message": "Make agentic terms review and refusal guidance actionable (#246)",
-      "date": "2026-09-17",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "6a9e77a",
-      "message": "fix(cli): use live catalogue IDs in Alexandria guidance (#244)",
-      "date": "2026-09-17",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "559c91a",
-      "message": "feat(scrape): cap PDF parsing with --max-pages (#243)",
-      "date": "2026-09-17",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "6e004c4",
-      "message": "fix(cli): accept credits, status, and formats aliases (#242)",
       "date": "2026-09-17",
       "author": "Developers Digest"
     }
@@ -5327,6 +5327,24 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "6b469af",
+      "message": "ci(changelog): \u673a\u68b0\u68c0\u67e5\u4ed3\u6839 CHANGELOG \u53ea\u6709\u4e00\u4e2a [Unreleased] \u4e14\u5728\u6700\u524d (#605)",
+      "date": "2026-09-18",
+      "author": "daymade"
+    },
+    {
+      "sha": "c13b6b9",
+      "message": "docs(changelog): retire the zombie mid-file [Unreleased] heading (#603)",
+      "date": "2026-09-18",
+      "author": "daymade"
+    },
+    {
+      "sha": "c106b36",
+      "message": "docs(claude-code-hooks): \u6ce8\u518c\u524d\u7aef\u5230\u7aef\u6d4b\u8bd5\u5fc5\u987b\u7528\u6ce8\u518c\u539f\u6587\u5f62\u6001;\u8865 Permission denied \u75c7\u72b6\u7d22\u5f15 (v3.38.0) (#604)",
+      "date": "2026-09-18",
+      "author": "daymade"
+    },
+    {
       "sha": "92a81ba",
       "message": "docs(prior-work-retrieval): route remote-box / foreign-checkout work to the target repo's own docs first (#602)",
       "date": "2026-09-18",
@@ -5365,24 +5383,6 @@
     {
       "sha": "2b42816",
       "message": "docs(skill-creator): arbitrate the real-case vs privacy collision in sanitization checklist (daymade-skill v1.42.0) (#59",
-      "date": "2026-09-18",
-      "author": "daymade"
-    },
-    {
-      "sha": "1b90c69",
-      "message": "fix(pii): put the key rules in CI, stop reading a broken config as green, and (#595)",
-      "date": "2026-09-18",
-      "author": "daymade"
-    },
-    {
-      "sha": "acba1b7",
-      "message": "fix(ci): verify the CHANGELOG version arrow against the manifest it claims (#594)",
-      "date": "2026-09-18",
-      "author": "daymade"
-    },
-    {
-      "sha": "84dfa1e",
-      "message": "docs(claude-switch-models-setup): put mcpServers convergence in the shared-vs-isolated table (v3.36.1) (#593)",
       "date": "2026-09-18",
       "author": "daymade"
     }
@@ -5699,6 +5699,12 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "04570a2",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-18",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "069311b",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-18",
@@ -5748,12 +5754,6 @@
     },
     {
       "sha": "3b1d501",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "215aa6a",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-17",
       "author": "github-actions[bot]"
@@ -5943,6 +5943,68 @@
       "message": "Merge remote-tracking branch 'origin/main' into review/pr-69",
       "date": "2026-09-15",
       "author": "ayghri"
+    }
+  ],
+  "SnailSploit--claude-red": [
+    {
+      "sha": "24d7968",
+      "message": "Add files via upload",
+      "date": "2026-08-29",
+      "author": "SnailSploit | Kai Aizen"
+    },
+    {
+      "sha": "b385f19",
+      "message": "Merge pull request #15 from SnailSploit/claude/improve-skills-depth-variety-pfs200",
+      "date": "2026-08-29",
+      "author": "SnailSploit | Kai Aizen"
+    },
+    {
+      "sha": "96c5706",
+      "message": "Polish README for professional presentation",
+      "date": "2026-08-29",
+      "author": "Claude"
+    },
+    {
+      "sha": "a14d10d",
+      "message": "Merge pull request #13 from SnailSploit/claude/improve-skills-depth-variety-pfs200",
+      "date": "2026-08-27",
+      "author": "SnailSploit | Kai Aizen"
+    },
+    {
+      "sha": "48c3ac2",
+      "message": "Regenerate claude-skills.json manifest",
+      "date": "2026-08-26",
+      "author": "Claude"
+    },
+    {
+      "sha": "4c7fcfd",
+      "message": "Finalize network-attacks, data-exfiltration, and SSTI skill rewrites",
+      "date": "2026-08-26",
+      "author": "Claude"
+    },
+    {
+      "sha": "98ae62f",
+      "message": "Update README, CHANGELOG, and manifest for v0.3.0",
+      "date": "2026-08-25",
+      "author": "Claude"
+    },
+    {
+      "sha": "f7a0553",
+      "message": "Add network-attacks skill + final agent refinements",
+      "date": "2026-08-25",
+      "author": "Claude"
+    },
+    {
+      "sha": "c2d60cc",
+      "message": "Deeply rewrite SSTI skill + persistence refinements",
+      "date": "2026-08-25",
+      "author": "Claude"
+    },
+    {
+      "sha": "900e4c2",
+      "message": "Add data-exfiltration skill + minor agent refinements",
+      "date": "2026-08-25",
+      "author": "Claude"
     }
   ]
 }
