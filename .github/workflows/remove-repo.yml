@@ -112,6 +112,7 @@ on:
           - shaunburdick--skills
           - ayghri--i-have-adhd
           - SnailSploit--claude-red
+          - JuliusBrussee--caveman
 
 concurrency:
   group: inventory-write
