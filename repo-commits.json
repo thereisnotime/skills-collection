@@ -691,6 +691,18 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "d1734f7",
+      "message": "fix(review): let OpenCode peers receive the review prompt (#1730)",
+      "date": "2026-09-18",
+      "author": "Chris Simpson"
+    },
+    {
+      "sha": "4a610d7",
+      "message": "fix(ce-compound): read past the resumed-session preamble in extract-metadata (#1736)",
+      "date": "2026-09-18",
+      "author": "John Costa"
+    },
+    {
       "sha": "a79cad3",
       "message": "fix(skills): keep manual-only skills manual-only on Codex (#1738)",
       "date": "2026-09-18",
@@ -735,18 +747,6 @@
     {
       "sha": "1953002",
       "message": "chore: release main (#1716)",
-      "date": "2026-09-15",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "23f6564",
-      "message": "fix(lfg): keep the run going after an inline child skill returns (#1715)",
-      "date": "2026-09-15",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "0bf4d89",
-      "message": "chore: release main (#1701)",
       "date": "2026-09-15",
       "author": "github-actions[bot]"
     }
@@ -2315,6 +2315,12 @@
   ],
   "firecrawl--cli": [
     {
+      "sha": "446a792",
+      "message": "fix: inspect combined provider capability addresses (#259)",
+      "date": "2026-09-18",
+      "author": "Developers Digest"
+    },
+    {
       "sha": "44f4726",
       "message": "Support search alexandria query shorthand (#258)",
       "date": "2026-09-18",
@@ -2365,12 +2371,6 @@
     {
       "sha": "74b3732",
       "message": "fix(cli): preserve Alexandria receipts and clarify retries (#245)",
-      "date": "2026-09-17",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "bd7ad0e",
-      "message": "Make agentic terms review and refusal guidance actionable (#246)",
       "date": "2026-09-17",
       "author": "Developers Digest"
     }
@@ -2839,6 +2839,12 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "e8be8ff",
+      "message": "Release 2.0.1 (#124)",
+      "date": "2026-09-18",
+      "author": "Tony Dang"
+    },
+    {
       "sha": "b4016a3",
       "message": "docs(neon): describe Functions as an API layer, not a host-timeout workaround.",
       "date": "2026-09-18",
@@ -2889,12 +2895,6 @@
     {
       "sha": "4a4266a",
       "message": "Guide the Neon skill through complete backend setup (#116)",
-      "date": "2026-09-16",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "ad34b5a",
-      "message": "Prefer Functions and existing handlers for Postgres queries in skills (#115)",
       "date": "2026-09-16",
       "author": "Andre Landgraf"
     }
@@ -6004,6 +6004,68 @@
       "sha": "900e4c2",
       "message": "Add data-exfiltration skill + minor agent refinements",
       "date": "2026-08-25",
+      "author": "Claude"
+    }
+  ],
+  "JuliusBrussee--caveman": [
+    {
+      "sha": "542442b",
+      "message": "Merge pull request #1082 from JuliusBrussee/daily-triage/2026-09-17",
+      "date": "2026-09-17",
+      "author": "Julius Brussee"
+    },
+    {
+      "sha": "a9866bd",
+      "message": "fix(learn): count decoded tool_use blocks, not raw-line name substrings",
+      "date": "2026-09-17",
+      "author": "Claude"
+    },
+    {
+      "sha": "e2eddc1",
+      "message": "fix(learn): recognize the Agent spawn tool at every site, not just the counter",
+      "date": "2026-09-17",
+      "author": "Claude"
+    },
+    {
+      "sha": "b773f74",
+      "message": "fix(learn): stop overcounting SessionsScanned and undercounting Agent spawns",
+      "date": "2026-09-17",
+      "author": "Amir Fathi"
+    },
+    {
+      "sha": "d79cefc",
+      "message": "fix(shrink): keep \"sure\" inside the make/be/not collocations",
+      "date": "2026-09-17",
+      "author": "Claude"
+    },
+    {
+      "sha": "efd02e5",
+      "message": "fix(hooks): restore \"go (back) to normal mode\" deactivation",
+      "date": "2026-09-17",
+      "author": "Pedro Henrique Lopes De Melo"
+    },
+    {
+      "sha": "c2906c6",
+      "message": "docs: link published SDKs to complete canonical adoption guides",
+      "date": "2026-09-16",
+      "author": "Julius Brussee"
+    },
+    {
+      "sha": "eae856e",
+      "message": "Merge pull request #1070 from JuliusBrussee/daily-triage/2026-09-16",
+      "date": "2026-09-16",
+      "author": "Julius Brussee"
+    },
+    {
+      "sha": "cc067b2",
+      "message": "Merge pull request #1069 from JuliusBrussee/feat/private-factory-login",
+      "date": "2026-09-16",
+      "author": "Julius Brussee"
+    },
+    {
+      "sha": "72a22fe",
+      "message": "fix: close two gaps Devin Review found in this PR",
+      "date": "2026-09-16",
       "author": "Claude"
     }
   ]

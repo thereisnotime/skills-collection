@@ -54,7 +54,7 @@
   "ComposioHQ--awesome-claude-skills": {
     "skills": 864,
     "md_files": 889,
-    "stars": 75284,
+    "stars": 75286,
     "forks": 8723,
     "total_commits": 77,
     "issues_open": 139,
@@ -67,7 +67,7 @@
   "anthropics--skills": {
     "skills": 20,
     "md_files": 101,
-    "stars": 177021,
+    "stars": 177022,
     "forks": 20972,
     "total_commits": 55,
     "issues_open": 352,
@@ -158,14 +158,14 @@
   "EveryInc--compound-engineering-plugin": {
     "skills": 52,
     "md_files": 750,
-    "stars": 25149,
+    "stars": 25150,
     "forks": 2063,
-    "total_commits": 1375,
-    "issues_open": 73,
-    "issues_closed": 353,
-    "prs_open": 36,
+    "total_commits": 1377,
+    "issues_open": 71,
+    "issues_closed": 355,
+    "prs_open": 35,
     "prs_closed": 231,
-    "prs_merged": 1037,
+    "prs_merged": 1039,
     "contributors": 102
   },
   "Eyadkelleh--awesome-claude-skills-security": {
@@ -197,7 +197,7 @@
   "Imbad0202--academic-research-skills": {
     "skills": 62,
     "md_files": 1037,
-    "stars": 48644,
+    "stars": 48646,
     "forks": 3779,
     "total_commits": 779,
     "issues_open": 34,
@@ -210,7 +210,7 @@
   "K-Dense-AI--claude-scientific-skills": {
     "skills": 166,
     "md_files": 1257,
-    "stars": 45497,
+    "stars": 45498,
     "forks": 4126,
     "total_commits": 731,
     "issues_open": 1,
@@ -367,7 +367,7 @@
     "skills": 6,
     "md_files": 8,
     "stars": 219,
-    "forks": 33,
+    "forks": 34,
     "total_commits": 24,
     "issues_open": 1,
     "issues_closed": 4,
@@ -431,8 +431,8 @@
   "cloudflare--skills": {
     "skills": 14,
     "md_files": 284,
-    "stars": 2857,
-    "forks": 281,
+    "stars": 2859,
+    "forks": 283,
     "total_commits": 244,
     "issues_open": 12,
     "issues_closed": 22,
@@ -483,7 +483,7 @@
   "coreyhaines31--marketingskills": {
     "skills": 50,
     "md_files": 331,
-    "stars": 50818,
+    "stars": 50822,
     "forks": 7698,
     "total_commits": 473,
     "issues_open": 39,
@@ -522,7 +522,7 @@
   "expo--skills": {
     "skills": 26,
     "md_files": 96,
-    "stars": 2540,
+    "stars": 2543,
     "forks": 147,
     "total_commits": 136,
     "issues_open": 22,
@@ -537,12 +537,12 @@
     "md_files": 18,
     "stars": 635,
     "forks": 105,
-    "total_commits": 569,
+    "total_commits": 570,
     "issues_open": 17,
     "issues_closed": 6,
-    "prs_open": 44,
+    "prs_open": 43,
     "prs_closed": 20,
-    "prs_merged": 171,
+    "prs_merged": 172,
     "contributors": 19
   },
   "hashicorp--agent-skills": {
@@ -667,12 +667,12 @@
     "md_files": 60,
     "stars": 89,
     "forks": 19,
-    "total_commits": 251,
+    "total_commits": 252,
     "issues_open": 5,
     "issues_closed": 3,
     "prs_open": 10,
     "prs_closed": 13,
-    "prs_merged": 92,
+    "prs_merged": 93,
     "contributors": 14
   },
   "netlify--context-and-tools": {
@@ -691,11 +691,11 @@
   "obra--superpowers": {
     "skills": 14,
     "md_files": 92,
-    "stars": 288487,
-    "forks": 25803,
+    "stars": 288499,
+    "forks": 25804,
     "total_commits": 681,
-    "issues_open": 144,
-    "issues_closed": 778,
+    "issues_open": 142,
+    "issues_closed": 781,
     "prs_open": 230,
     "prs_closed": 802,
     "prs_merged": 189,
@@ -925,7 +925,7 @@
   "vercel-labs--agent-skills": {
     "skills": 9,
     "md_files": 199,
-    "stars": 31313,
+    "stars": 31314,
     "forks": 2755,
     "total_commits": 275,
     "issues_open": 63,
@@ -977,7 +977,7 @@
   "zarazhangrui--frontend-slides": {
     "skills": 70,
     "md_files": 144,
-    "stars": 29506,
+    "stars": 29507,
     "forks": 2319,
     "total_commits": 30,
     "issues_open": 24,
@@ -1003,7 +1003,7 @@
   "travisvn--awesome-claude-skills": {
     "skills": 0,
     "md_files": 0,
-    "stars": 15107,
+    "stars": 15108,
     "forks": 1970,
     "total_commits": 42,
     "issues_open": 46,
@@ -1055,7 +1055,7 @@
   "mukul975--Anthropic-Cybersecurity-Skills": {
     "skills": 824,
     "md_files": 2581,
-    "stars": 32959,
+    "stars": 32960,
     "forks": 3985,
     "total_commits": 245,
     "issues_open": 22,
@@ -1120,7 +1120,7 @@
   "alirezarezvani--claude-skills": {
     "skills": 1044,
     "md_files": 2991,
-    "stars": 26118,
+    "stars": 26121,
     "forks": 3682,
     "total_commits": 1499,
     "issues_open": 6,
@@ -1133,7 +1133,7 @@
   "VoltAgent--awesome-agent-skills": {
     "skills": 0,
     "md_files": 0,
-    "stars": 34569,
+    "stars": 34570,
     "forks": 3666,
     "total_commits": 649,
     "issues_open": 1,
@@ -1146,12 +1146,12 @@
   "BehiSecc--awesome-claude-skills": {
     "skills": 0,
     "md_files": 0,
-    "stars": 10153,
-    "forks": 1551,
+    "stars": 10154,
+    "forks": 1552,
     "total_commits": 246,
     "issues_open": 4,
     "issues_closed": 25,
-    "prs_open": 184,
+    "prs_open": 185,
     "prs_closed": 374,
     "prs_merged": 98,
     "contributors": 89
@@ -1186,11 +1186,11 @@
     "skills": 258,
     "md_files": 469,
     "stars": 2624,
-    "forks": 962,
+    "forks": 963,
     "total_commits": 700,
     "issues_open": 18,
     "issues_closed": 41,
-    "prs_open": 310,
+    "prs_open": 311,
     "prs_closed": 126,
     "prs_merged": 258,
     "contributors": 237
@@ -1224,8 +1224,8 @@
   "affaan-m--everything-claude-code": {
     "skills": 1293,
     "md_files": 2456,
-    "stars": 261837,
-    "forks": 39177,
+    "stars": 261870,
+    "forks": 39183,
     "total_commits": 2703,
     "issues_open": 73,
     "issues_closed": 709,
@@ -1250,7 +1250,7 @@
   "shanraisshan--claude-code-best-practice": {
     "skills": 30,
     "md_files": 110,
-    "stars": 66090,
+    "stars": 66091,
     "forks": 6554,
     "total_commits": 2187,
     "issues_open": 5,
@@ -1276,8 +1276,8 @@
   "hesreallyhim--awesome-claude-code": {
     "skills": 0,
     "md_files": 7,
-    "stars": 54263,
-    "forks": 4729,
+    "stars": 54264,
+    "forks": 4730,
     "total_commits": 1831,
     "issues_open": 1078,
     "issues_closed": 1206,
@@ -1315,7 +1315,7 @@
   "ayghri--i-have-adhd": {
     "skills": 2,
     "md_files": 24,
-    "stars": 47943,
+    "stars": 47952,
     "forks": 2796,
     "total_commits": 237,
     "issues_open": 24,
@@ -1328,7 +1328,7 @@
   "SnailSploit--claude-red": {
     "skills": 50,
     "md_files": 80,
-    "stars": 6153,
+    "stars": 6158,
     "forks": 792,
     "total_commits": 34,
     "issues_open": 10,
@@ -1337,5 +1337,18 @@
     "prs_closed": 2,
     "prs_merged": 6,
     "contributors": 5
+  },
+  "JuliusBrussee--caveman": {
+    "skills": 30,
+    "md_files": 132,
+    "stars": 106570,
+    "forks": 6174,
+    "total_commits": 692,
+    "issues_open": 65,
+    "issues_closed": 377,
+    "prs_open": 63,
+    "prs_closed": 421,
+    "prs_merged": 91,
+    "contributors": 56
   }
 }

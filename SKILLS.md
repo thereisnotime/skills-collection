@@ -1,6 +1,6 @@
 # Skills Index
 
-A comprehensive index of all **13,857** named skills across **103** repositories.
+A comprehensive index of all **13,889** named skills across **104** repositories.
 
 [Back to README](README.md)
 
@@ -13863,7 +13863,39 @@ A comprehensive index of all **13,857** named skills across **103** repositories
 | [offensive-shellcode](https://github.com/SnailSploit/claude-red/blob/main/Skills/infrastructure/offensive-shellcode/SKILL.md) | "Shellcode development reference for offensive security engagements. Use when writing custom x86/x64... | [claude-red](https://github.com/SnailSploit/claude-red) | SnailSploit |  |  | 476 | bash, c, python |
 | [offensive-cicd-pipeline](https://github.com/SnailSploit/claude-red/blob/main/Skills/cicd/offensive-cicd-pipeline/SKILL.md) | "Comprehensive CI/CD pipeline exploitation methodology covering GitHub Actions injection vectors (ex... | [claude-red](https://github.com/SnailSploit/claude-red) | SnailSploit |  |  | 520 | bash, dockerfile, groovy |
 | [offensive-cicd-secrets](https://github.com/SnailSploit/claude-red/blob/main/Skills/cicd/offensive-cicd-secrets/SKILL.md) | "Comprehensive secrets extraction methodology targeting CI/CD environments across all major platform... | [claude-red](https://github.com/SnailSploit/claude-red) | SnailSploit |  |  | 580 | bash, groovy, json |
+| [cavecrew-builder](https://github.com/JuliusBrussee/caveman/blob/main/agents/cavecrew-builder.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 47 |  |
+| [cavecrew-reviewer](https://github.com/JuliusBrussee/caveman/blob/main/agents/cavecrew-reviewer.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 48 |  |
+| [cavecrew-investigator](https://github.com/JuliusBrussee/caveman/blob/main/agents/cavecrew-investigator.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 57 |  |
+| [cavecrew-builder](https://github.com/JuliusBrussee/caveman/blob/main/plugins/caveman/agents/cavecrew-builder.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 47 |  |
+| [cavecrew-reviewer](https://github.com/JuliusBrussee/caveman/blob/main/plugins/caveman/agents/cavecrew-reviewer.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 48 |  |
+| [cavecrew-investigator](https://github.com/JuliusBrussee/caveman/blob/main/plugins/caveman/agents/cavecrew-investigator.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 57 |  |
+| [caveman-stats](https://github.com/JuliusBrussee/caveman/blob/main/plugins/caveman/skills/caveman-stats/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 18 |  |
+| [caveman](https://github.com/JuliusBrussee/caveman/blob/main/plugins/caveman/skills/caveman/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 90 | sql |
+| [cavecrew](https://github.com/JuliusBrussee/caveman/blob/main/plugins/caveman/skills/cavecrew/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 78 |  |
+| [caveman-compress](https://github.com/JuliusBrussee/caveman/blob/main/plugins/caveman/skills/caveman-compress/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 110 |  |
+| [caveman-stats](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-stats/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 18 |  |
+| [caveman-learn](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-learn/SKILL.md) | Act on a Caveman learn report - review the ranked token sinks, apply cost-lowering fixes with per-ed... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 144 |  |
+| [investigate-first](https://github.com/JuliusBrussee/caveman/blob/main/skills/investigate-first/SKILL.md) | Diagnose ambiguous failures before editing. Use for unknown causes, intermittent behavior, performan... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 17 |  |
+| [surgical-patch](https://github.com/JuliusBrussee/caveman/blob/main/skills/surgical-patch/SKILL.md) | Fix bugs and small behavior changes at the narrowest responsible layer. Use when regression proof, p... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 17 |  |
+| [verify-and-stop](https://github.com/JuliusBrussee/caveman/blob/main/skills/verify-and-stop/SKILL.md) | Prove existing work meets acceptance conditions without expanding scope. Use for validation-only tas... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 17 |  |
+| [caveman](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 90 | sql |
+| [caveman-setup](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-setup/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 223 | bash, python, ts |
+| [caveman-explore](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-explore/SKILL.md) | Read-only repository explorer for cold-start orientation, broad cross-file localization, or when a d... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 43 |  |
+| [caveman-evidence-review](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-evidence-review/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 143 | bash, text |
+| [caveman-manage](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-manage/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 113 | bash, text |
+| [caveman-discover](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-discover/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 116 |  |
+| [caveman-help](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-help/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 63 | bash, json |
+| [safe-refactor](https://github.com/JuliusBrussee/caveman/blob/main/skills/safe-refactor/SKILL.md) | Restructure code while preserving behavior. Use for extraction, consolidation, ownership moves, or c... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 17 |  |
+| [caveman-commit](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-commit/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 64 |  |
+| [caveman-review](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-review/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 53 |  |
+| [cavecrew](https://github.com/JuliusBrussee/caveman/blob/main/skills/cavecrew/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 78 |  |
+| [migration](https://github.com/JuliusBrussee/caveman/blob/main/skills/migration/SKILL.md) | Implement reversible compatibility-safe transitions. Use for schema, data, API, protocol, configurat... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 18 |  |
+| [caveman-compress](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-compress/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 110 |  |
+| [lean-build](https://github.com/JuliusBrussee/caveman/blob/main/skills/lean-build/SKILL.md) | Build feature work with high overbuilding risk. Use for new behavior, product slices, or integration... | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 19 |  |
+| [caveman-optimize](https://github.com/JuliusBrussee/caveman/blob/main/skills/caveman-optimize/SKILL.md) | > | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 112 | bash, text |
+| [Feature request](https://github.com/JuliusBrussee/caveman/blob/main/.github/ISSUE_TEMPLATE/feature_request.md) |  | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 18 |  |
+| [Bug report](https://github.com/JuliusBrussee/caveman/blob/main/.github/ISSUE_TEMPLATE/bug_report.md) |  | [caveman](https://github.com/JuliusBrussee/caveman) | JuliusBrussee |  |  | 26 |  |
 
 ---
 
-*Auto-generated — 13,857 skills indexed*
+*Auto-generated — 13,889 skills indexed*

@@ -4720,5 +4720,54 @@
     "has_license": true,
     "has_readme": true,
     "has_claude_md": false
+  },
+  "JuliusBrussee--caveman": {
+    "description": "\ud83e\udea8 why use many token when few token do trick. Viral skill + proxy for coding agents that cuts 65% of tokens by talking like a caveman.",
+    "skill_count": 32,
+    "skill_lines_total": 2119,
+    "skill_lines_avg": 66,
+    "skill_lines_min": 17,
+    "skill_lines_max": 223,
+    "skill_lines_median": 57,
+    "skill_words_total": 13958,
+    "skill_words_avg": 436,
+    "code_blocks_total": 43,
+    "code_blocks_avg": 1.3,
+    "code_languages": [
+      "bash",
+      "json",
+      "python",
+      "sql",
+      "text",
+      "ts"
+    ],
+    "frontmatter_keys": [
+      "about",
+      "description",
+      "labels",
+      "model",
+      "name",
+      "tools"
+    ],
+    "reference_files": 0,
+    "eval_files": 15,
+    "test_files": 455,
+    "total_files": 1576,
+    "total_size_mb": 17.47,
+    "file_types": {
+      "go": 565,
+      "mjs": 275,
+      "md": 171,
+      "json": 159,
+      "ts": 81,
+      "py": 80,
+      "png": 53,
+      "js": 42,
+      "yaml": 21,
+      "svg": 13
+    },
+    "has_license": true,
+    "has_readme": true,
+    "has_claude_md": true
   }
 }

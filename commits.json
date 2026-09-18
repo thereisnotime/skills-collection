@@ -11,7 +11,7 @@
   "AgriciDaniel--claude-email": "182270a0bbcd9c710713cbff4b7ce8475f5964f9",
   "ClickHouse--agent-skills": "2f6ec4b17a81a435dd116f9ac19d7b45d44dbd61",
   "Digidai--product-manager-skills": "ab7a40662c8455ece631834dee9670b3322f465b",
-  "EveryInc--compound-engineering-plugin": "a79cad35b6e0414862e2f82c0174bb0bbf5d21a5",
+  "EveryInc--compound-engineering-plugin": "d1734f7ed5341b6d0b683405da82895f0a0a25f7",
   "Eyadkelleh--awesome-claude-skills-security": "ae26985eb60c2b9e1f1b95f7af0e5c438ff85e6d",
   "HeshamFS--materials-simulation-skills": "fa1ce8de76b2ab7a856f81891525cfa227fadfe9",
   "Imbad0202--academic-research-skills": "3c546bc08c56f79e0068f1ea4f0acedf5bf69b5e",
@@ -40,7 +40,7 @@
   "dreamiurg--claude-mountaineering-skills": "4dd512b7ffd901a7cd4df3724eba36b06dea32dc",
   "emaynard--claude-family-history-research-skill": "7334d3d400740fda3de1c54c90e186307f8f1176",
   "expo--skills": "39708666ce7014def1f8e34f3d8c93e8d3f588bb",
-  "firecrawl--cli": "44f4726a6efadb3a2241170c4ff206f3cb034bad",
+  "firecrawl--cli": "446a792ffc1a4ab1f880d7a504bbffcf0b2e67c5",
   "hashicorp--agent-skills": "c2d65dfe492f74d360d35b859b88932222470bd8",
   "jananthan30--Resume-Builder": "5f288fe1d5b931b17d2d24746f9598574f79d3ef",
   "javiera-vasquez--claude-code-job-tailor": "8ae1bda0a3e82bc732d4beb8ebef1d62aba6797b",
@@ -50,7 +50,7 @@
   "livelabs-ventures--nano-skills": "66494ee53970f5b922a21c5273fa8a770e3cd851",
   "mhattingpete--claude-skills-marketplace": "b5b34bcf4c920bb72cee1c391b54a33cb5353c12",
   "michalparkola--tapestry-skills-for-claude-code": "80e1dc56df74d1cb849ad649c7ead9756e7929bb",
-  "neondatabase--agent-skills": "b4016a34956ed782ce23f3c003ac9bf2a75b8d35",
+  "neondatabase--agent-skills": "e8be8ff34267b559c90106a5e0bafd3071e76d46",
   "netlify--context-and-tools": "b113bc85757a20df478dcbe9ade81ec4b01d580f",
   "obra--superpowers": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
   "obra--superpowers-skills": "cdcd624ad3fd8026deb692e565351854569798dd",
@@ -101,5 +101,6 @@
   "jqueryscript--awesome-claude-code": "11742200cc9d06836c551225f8d0af7cbc3c7528",
   "shaunburdick--skills": "a8550f6a1366b37740d3ca4a4e8db5089fd2bf4d",
   "ayghri--i-have-adhd": "b15d0be58f55b33972ba3e39709e0e5208ef30cb",
-  "SnailSploit--claude-red": "24d7968bab4b883e7f13477afe0fd91f2df3b722"
+  "SnailSploit--claude-red": "24d7968bab4b883e7f13477afe0fd91f2df3b722",
+  "JuliusBrussee--caveman": "542442bab314973709f95b85b1ac0b3f6f5b5dc6"
 }

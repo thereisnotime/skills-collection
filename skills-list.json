@@ -177906,5 +177906,347 @@
         "yaml"
       ]
     }
+  ],
+  "JuliusBrussee--caveman": [
+    {
+      "name": "cavecrew-builder",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/agents/cavecrew-builder.md",
+      "remote_path": "agents/cavecrew-builder.md",
+      "lines": 47,
+      "words": 201,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "cavecrew-reviewer",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/agents/cavecrew-reviewer.md",
+      "remote_path": "agents/cavecrew-reviewer.md",
+      "lines": 48,
+      "words": 241,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "cavecrew-investigator",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/agents/cavecrew-investigator.md",
+      "remote_path": "agents/cavecrew-investigator.md",
+      "lines": 57,
+      "words": 224,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "cavecrew-builder",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/agents/cavecrew-builder.md",
+      "remote_path": "plugins/caveman/agents/cavecrew-builder.md",
+      "lines": 47,
+      "words": 201,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "cavecrew-reviewer",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/agents/cavecrew-reviewer.md",
+      "remote_path": "plugins/caveman/agents/cavecrew-reviewer.md",
+      "lines": 48,
+      "words": 241,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "cavecrew-investigator",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/agents/cavecrew-investigator.md",
+      "remote_path": "plugins/caveman/agents/cavecrew-investigator.md",
+      "lines": 57,
+      "words": 224,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "caveman-stats",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/skills/caveman-stats/SKILL.md",
+      "remote_path": "plugins/caveman/skills/caveman-stats/SKILL.md",
+      "lines": 18,
+      "words": 263,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "caveman",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/skills/caveman/SKILL.md",
+      "remote_path": "plugins/caveman/skills/caveman/SKILL.md",
+      "lines": 90,
+      "words": 984,
+      "code_blocks": 1,
+      "languages": [
+        "sql"
+      ]
+    },
+    {
+      "name": "cavecrew",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/skills/cavecrew/SKILL.md",
+      "remote_path": "plugins/caveman/skills/cavecrew/SKILL.md",
+      "lines": 78,
+      "words": 522,
+      "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "caveman-compress",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/plugins/caveman/skills/caveman-compress/SKILL.md",
+      "remote_path": "plugins/caveman/skills/caveman-compress/SKILL.md",
+      "lines": 110,
+      "words": 703,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "caveman-stats",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-stats/SKILL.md",
+      "remote_path": "skills/caveman-stats/SKILL.md",
+      "lines": 18,
+      "words": 281,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "caveman-learn",
+      "description": "Act on a Caveman learn report - review the ranked token sinks, apply cost-lowering fixes with per-edit consent, and report what those fixes returned. Use when asked to lower an agent's token cost, wha",
+      "path": "JuliusBrussee--caveman/skills/caveman-learn/SKILL.md",
+      "remote_path": "skills/caveman-learn/SKILL.md",
+      "lines": 144,
+      "words": 1515,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "investigate-first",
+      "description": "Diagnose ambiguous failures before editing. Use for unknown causes, intermittent behavior, performance regressions, or investigations needing evidence-ranked hypotheses.",
+      "path": "JuliusBrussee--caveman/skills/investigate-first/SKILL.md",
+      "remote_path": "skills/investigate-first/SKILL.md",
+      "lines": 17,
+      "words": 92,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "surgical-patch",
+      "description": "Fix bugs and small behavior changes at the narrowest responsible layer. Use when regression proof, preserved surrounding behavior, and task-relevant tests matter.",
+      "path": "JuliusBrussee--caveman/skills/surgical-patch/SKILL.md",
+      "remote_path": "skills/surgical-patch/SKILL.md",
+      "lines": 17,
+      "words": 93,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "verify-and-stop",
+      "description": "Prove existing work meets acceptance conditions without expanding scope. Use for validation-only tasks, completion checks, focused gate runs, and last-mile proof.",
+      "path": "JuliusBrussee--caveman/skills/verify-and-stop/SKILL.md",
+      "remote_path": "skills/verify-and-stop/SKILL.md",
+      "lines": 17,
+      "words": 98,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "caveman",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman/SKILL.md",
+      "remote_path": "skills/caveman/SKILL.md",
+      "lines": 90,
+      "words": 984,
+      "code_blocks": 1,
+      "languages": [
+        "sql"
+      ]
+    },
+    {
+      "name": "caveman-setup",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-setup/SKILL.md",
+      "remote_path": "skills/caveman-setup/SKILL.md",
+      "lines": 223,
+      "words": 1427,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "python",
+        "ts"
+      ]
+    },
+    {
+      "name": "caveman-explore",
+      "description": "Read-only repository explorer for cold-start orientation, broad cross-file localization, or when a direct search failed. Skip it when the exact file or symbol is already named. Returns path:line citat",
+      "path": "JuliusBrussee--caveman/skills/caveman-explore/SKILL.md",
+      "remote_path": "skills/caveman-explore/SKILL.md",
+      "lines": 43,
+      "words": 317,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "caveman-evidence-review",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-evidence-review/SKILL.md",
+      "remote_path": "skills/caveman-evidence-review/SKILL.md",
+      "lines": 143,
+      "words": 557,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "text"
+      ]
+    },
+    {
+      "name": "caveman-manage",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-manage/SKILL.md",
+      "remote_path": "skills/caveman-manage/SKILL.md",
+      "lines": 113,
+      "words": 549,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "text"
+      ]
+    },
+    {
+      "name": "caveman-discover",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-discover/SKILL.md",
+      "remote_path": "skills/caveman-discover/SKILL.md",
+      "lines": 116,
+      "words": 804,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "caveman-help",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-help/SKILL.md",
+      "remote_path": "skills/caveman-help/SKILL.md",
+      "lines": 63,
+      "words": 319,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "safe-refactor",
+      "description": "Restructure code while preserving behavior. Use for extraction, consolidation, ownership moves, or cleanup where verification must bracket structural edits.",
+      "path": "JuliusBrussee--caveman/skills/safe-refactor/SKILL.md",
+      "remote_path": "skills/safe-refactor/SKILL.md",
+      "lines": 17,
+      "words": 92,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "caveman-commit",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-commit/SKILL.md",
+      "remote_path": "skills/caveman-commit/SKILL.md",
+      "lines": 64,
+      "words": 358,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "caveman-review",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-review/SKILL.md",
+      "remote_path": "skills/caveman-review/SKILL.md",
+      "lines": 53,
+      "words": 412,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "cavecrew",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/cavecrew/SKILL.md",
+      "remote_path": "skills/cavecrew/SKILL.md",
+      "lines": 78,
+      "words": 522,
+      "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "migration",
+      "description": "Implement reversible compatibility-safe transitions. Use for schema, data, API, protocol, configuration, or dependency migrations requiring rollback and preservation proof.",
+      "path": "JuliusBrussee--caveman/skills/migration/SKILL.md",
+      "remote_path": "skills/migration/SKILL.md",
+      "lines": 18,
+      "words": 104,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "caveman-compress",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-compress/SKILL.md",
+      "remote_path": "skills/caveman-compress/SKILL.md",
+      "lines": 110,
+      "words": 703,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "lean-build",
+      "description": "Build feature work with high overbuilding risk. Use for new behavior, product slices, or integrations where repository reuse, strict scope, and an explicit stop condition matter.",
+      "path": "JuliusBrussee--caveman/skills/lean-build/SKILL.md",
+      "remote_path": "skills/lean-build/SKILL.md",
+      "lines": 19,
+      "words": 152,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "caveman-optimize",
+      "description": ">",
+      "path": "JuliusBrussee--caveman/skills/caveman-optimize/SKILL.md",
+      "remote_path": "skills/caveman-optimize/SKILL.md",
+      "lines": 112,
+      "words": 672,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "text"
+      ]
+    },
+    {
+      "name": "Feature request",
+      "description": "",
+      "path": "JuliusBrussee--caveman/.github/ISSUE_TEMPLATE/feature_request.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "lines": 18,
+      "words": 40,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "Bug report",
+      "description": "",
+      "path": "JuliusBrussee--caveman/.github/ISSUE_TEMPLATE/bug_report.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "lines": 26,
+      "words": 63,
+      "code_blocks": 1,
+      "languages": []
+    }
   ]
 }

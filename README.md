@@ -14,43 +14,43 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 
 | Metric | Value |
 |--------|-------|
-| **Total repos** | 103 |
-| **SKILL.md files** | 13799 (+51) |
-| **Markdown files** | 40,499 |
-| **Total size** | 1135.6 MB |
-| **Last synced** | 2026-09-18 19:06 UTC |
-| **API fetch** | 30s |
-| **Sync time** | 3s |
-| **Analysis time** | 17s |
+| **Total repos** | 104 |
+| **SKILL.md files** | 13829 (+30) |
+| **Markdown files** | 40,631 |
+| **Total size** | 1153.1 MB |
+| **Last synced** | 2026-09-18 19:43 UTC |
+| **API fetch** | 31s |
+| **Sync time** | 4s |
+| **Analysis time** | 18s |
 
 
 ## GitHub Activity
 
 | Metric | Value |
 |--------|-------|
-| **Total commits** | 30,210 |
-| **Total PRs merged** | 8,709 |
-| **PRs open** | 5,223 |
-| **PRs closed** | 6,212 |
-| **Issues open** | 3,065 |
-| **Issues closed** | 5,347 |
-| **Total forks** | 160,600 |
-| **Total contributors** | 2,029 |
+| **Total commits** | 30,906 |
+| **Total PRs merged** | 8,804 |
+| **PRs open** | 5,286 |
+| **PRs closed** | 6,633 |
+| **Issues open** | 3,126 |
+| **Issues closed** | 5,729 |
+| **Total forks** | 166,787 |
+| **Total contributors** | 2,085 |
 
 ## Content Analysis
 
 | Metric | Value |
 |--------|-------|
-| **Total skill lines** | 2,651,243 |
-| **Total skill words** | 13,776,845 |
-| **Avg lines per skill** | 267 |
-| **Avg words per skill** | 1563 |
-| **Total code blocks** | 61,540 |
+| **Total skill lines** | 2,653,362 |
+| **Total skill words** | 13,790,803 |
+| **Avg lines per skill** | 265 |
+| **Avg words per skill** | 1551 |
+| **Total code blocks** | 61,583 |
 | **Reference files** | 15,255 |
-| **Repos with evals** | 12 |
-| **Repos with tests** | 69 |
-| **Repos with license** | 77 |
-| **Repos with CLAUDE.md** | 45 |
+| **Repos with evals** | 13 |
+| **Repos with tests** | 70 |
+| **Repos with license** | 78 |
+| **Repos with CLAUDE.md** | 46 |
 | **Code languages** | 129 (alloy, apache, astro, bash, bat, batch, bibtex, bicep, blade, c, caddy, caddyfile, cedar, cmake, cmd, ...) |
 ## Charts
 
@@ -91,25 +91,25 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 | Repo | Description | Skills | Stars | Contributors | Size | Last Commit | Last Commit Date | Message |
 |------|-------------|--------|-------|--------------|------|-------------|------------------|---------|
 | [slavingia--skills](https://github.com/slavingia/skills) | Claude Code skills by Sahil Lavingia | 10 | 10445 | 6 | 0.0 MB | `eb9f57f` | 2026-04-14 | fix: remove invalid 'skills' array from plugin.json (#21) |
-| [zarazhangrui--codebase-to-course](https://github.com/zarazhangrui/codebase-to-course) | Turn any codebase into a structured course | 1 | 5565 (+1) | 3 | 0.1 MB | `ff8837e` | 2026-03-30 | Remove internal specs/plans from repo, add to .gitignore |
-| [samber--cc-skills-golang](https://github.com/samber/cc-skills-golang) | Claude Code skills for Go development | 46 | 3282 (+1) | 13 | 3.7 MB | `19a0626` | 2026-09-07 | Revise Codex plugin installation instructions (#105) |
+| [zarazhangrui--codebase-to-course](https://github.com/zarazhangrui/codebase-to-course) | Turn any codebase into a structured course | 1 | 5565 | 3 | 0.1 MB | `ff8837e` | 2026-03-30 | Remove internal specs/plans from repo, add to .gitignore |
+| [samber--cc-skills-golang](https://github.com/samber/cc-skills-golang) | Claude Code skills for Go development | 46 | 3282 | 13 | 3.7 MB | `19a0626` | 2026-09-07 | Revise Codex plugin installation instructions (#105) |
 | [realkimbarrett--advertising-skills](https://github.com/realkimbarrett/advertising-skills) | Advertising skills | 12 | 752 | 1 | 0.0 MB | `45f4a4a` | 2026-03-26 | Add files via upload |
-| [ComposioHQ--awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) | A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows  | 864 | 75284 (+4) | 29 | 11.1 MB | `be2a406` | 2026-07-24 | Update README.md |
-| [anthropics--skills](https://github.com/anthropics/skills) |  Public repository for Agent Skills  | 20 | 177021 (+15) | 16 | 10.5 MB | `34040c9` | 2026-09-10 | Update claude-api skill: Managed Agents `auto` permission policy and `ant beta:sessions connect` (#1750) |
+| [ComposioHQ--awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) | A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows  | 864 | 75286 (+2) | 29 | 11.1 MB | `be2a406` | 2026-07-24 | Update README.md |
+| [anthropics--skills](https://github.com/anthropics/skills) |  Public repository for Agent Skills  | 20 | 177022 (+1) | 16 | 10.5 MB | `34040c9` | 2026-09-10 | Update claude-api skill: Managed Agents `auto` permission policy and `ant beta:sessions connect` (#1750) |
 | [1NickPappas--move-code-quality-skill](https://github.com/1NickPappas/move-code-quality-skill) | Claude Code skill for analyzing Move packages against the official Move Book Code Quality Checklist | 1 | 22 | 1 | 0.0 MB | `6813ac5` | 2025-10-21 | fix: improve output formatting with proper line breaks |
 | [ARPeeketi--claude-resume-kit](https://github.com/ARPeeketi/claude-resume-kit) | Extract your papers once, generate tailored LaTeX resumes for every JD. Anti-fabrication controls, multi-perspective critique, AI fingerprint avoidance. | 0 | 266 | 1 | 0.5 MB | `69930e9` | 2026-03-10 | fix: use consistent 'skills' terminology in DOCS.md |
-| [AgriciDaniel--claude-blog](https://github.com/AgriciDaniel/claude-blog) | Claude Code skill ecosystem for blog content creation, optimization, and management. Dual-optimized for Google rankings and AI citations. | 52 | 2183 (+1) | 2 | 6.7 MB | `2500d4c` | 2026-09-11 | Merge pull request #77 from AgriciDaniel/codex/dependabot-noise-reduction |
+| [AgriciDaniel--claude-blog](https://github.com/AgriciDaniel/claude-blog) | Claude Code skill ecosystem for blog content creation, optimization, and management. Dual-optimized for Google rankings and AI citations. | 52 | 2183 | 2 | 6.7 MB | `2500d4c` | 2026-09-11 | Merge pull request #77 from AgriciDaniel/codex/dependabot-noise-reduction |
 | [AgriciDaniel--claude-email](https://github.com/AgriciDaniel/claude-email) | AI-powered email management and marketing skill for Claude Code. Inbox triage, composition, quality review, deliverability audit, automation sequences, and marketing strategy. | 11 | 125 | 1 | 1.0 MB | `182270a` | 2026-04-10 | Add author section, community links, and backlinks |
 | [ClickHouse--agent-skills](https://github.com/ClickHouse/agent-skills) | The official Agent Skills for ClickHouse and ClickHouse Cloud | 11 | 536 | 18 | 1.2 MB | `2f6ec4b` | 2026-09-10 | chore(deps): bump @vitest/mocker and vitest in /skills/clickhouse-js-node-rowbinary (#47) |
 | [Digidai--product-manager-skills](https://github.com/Digidai/product-manager-skills) | PM skill for Claude Code, Codex, Cursor, and Windsurf: diagnose SaaS metrics, critique PRDs, plan roadmaps, run discovery, and coach PM career transitions. | 1 | 164 | 1 | 0.2 MB | `ab7a406` | 2026-04-12 | chore: release v0.5.4 |
-| [EveryInc--compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | Office Compound Engineering plugin for Claude Code, Codex, and more | 52 (+1) | 25149 (+2) | 102 | 15.7 MB | `a79cad3` | 2026-09-18 | fix(skills): keep manual-only skills manual-only on Codex (#1738) |
+| [EveryInc--compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | Office Compound Engineering plugin for Claude Code, Codex, and more | 52 | 25150 (+1) | 102 | 15.7 MB | `d1734f7` | 2026-09-18 | fix(review): let OpenCode peers receive the review prompt (#1730) |
 | [Eyadkelleh--awesome-claude-skills-security](https://github.com/Eyadkelleh/awesome-claude-skills-security) | Security testing toolkit for Claude Code: curated SecLists wordlists, injection payloads, and expert agents for authorized pentesting, CTFs, and bug bounties | 7 | 383 | 2 | 2.4 MB | `ae26985` | 2026-06-08 | Remove Claude plugin setup and focus on skills.sh only. |
 | [HeshamFS--materials-simulation-skills](https://github.com/HeshamFS/materials-simulation-skills) | Agent Skills for computational materials science -- numerical stability, solvers, meshing,   convergence, and simulation workflows. | 24 | 68 | 1 | 2.5 MB | `fa1ce8d` | 2026-06-25 | fix: remove unused `assume` import from property tests |
-| [Imbad0202--academic-research-skills](https://github.com/Imbad0202/academic-research-skills) | Academic Research Skills for Claude Code: research → write → review → revise → finalize | 62 | 48644 (+4) | 19 | 36.9 MB | `3c546bc` | 2026-09-16 | chore(release): remove stray local-replay artifacts from the v3.22.0 release commit (#877) |
-| [K-Dense-AI--claude-scientific-skills](https://github.com/K-Dense-AI/claude-scientific-skills) | A set of ready to use Agent Skills for research, science, engineering, analysis, finance and writing. | 166 | 45497 (+19) | 59 | 268.4 MB | `330c8e7` | 2026-09-14 | chore: update security scan report [skip ci] |
+| [Imbad0202--academic-research-skills](https://github.com/Imbad0202/academic-research-skills) | Academic Research Skills for Claude Code: research → write → review → revise → finalize | 62 | 48646 (+2) | 19 | 36.9 MB | `3c546bc` | 2026-09-16 | chore(release): remove stray local-replay artifacts from the v3.22.0 release commit (#877) |
+| [K-Dense-AI--claude-scientific-skills](https://github.com/K-Dense-AI/claude-scientific-skills) | A set of ready to use Agent Skills for research, science, engineering, analysis, finance and writing. | 166 | 45498 (+1) | 59 | 268.4 MB | `330c8e7` | 2026-09-14 | chore: update security scan report [skip ci] |
 | [K-Dense-AI--claude-scientific-writer](https://github.com/K-Dense-AI/claude-scientific-writer) | A general purpose scientific writer | 78 | 2372 | 10 | 26.1 MB | `0c72606` | 2026-08-18 | docs: add Reddit to the social badges (#27) |
 | [NeoLabHQ--context-engineering-kit](https://github.com/NeoLabHQ/context-engineering-kit) | Hand-crafted Claude Code Skills focused on improving agent results quality. Compatible with OpenCode, Cursor, Antigravity, Gemini CLI, and others. | 267 | 1710 | 10 | 14.4 MB | `23e2428` | 2026-08-26 | Merge pull request #110 from NeoLabHQ/docs/vg/add-related-projects |
-| [Orchestra-Research--AI-research-SKILLs](https://github.com/Orchestra-Research/AI-research-SKILLs) | Comprehensive open-source library of AI research and engineering skills for any AI model. Package the skills and your claude code/codex/gemini agent will be an AI research agent with full horsepower. Maintained by Orchestra Research. | 99 | 12822 (+1) | 17 | 23.5 MB | `773a529` | 2026-06-16 | release: v1.7.2 — ship Qoder agent auto-detection to npm |
+| [Orchestra-Research--AI-research-SKILLs](https://github.com/Orchestra-Research/AI-research-SKILLs) | Comprehensive open-source library of AI research and engineering skills for any AI model. Package the skills and your claude code/codex/gemini agent will be an AI research agent with full horsepower. Maintained by Orchestra Research. | 99 | 12822 | 17 | 23.5 MB | `773a529` | 2026-06-16 | release: v1.7.2 — ship Qoder agent auto-detection to npm |
 | [Paramchoudhary--ResumeSkills](https://github.com/Paramchoudhary/ResumeSkills) | A collection of AI agent skills focused on resume optimization, job applications, and career development. Built for job seekers, career changers, and professionals who want Claude Code to help with resume writing, ATS optimization, interview prep, and strategic job search. | 29 | 2340 | 3 | 0.3 MB | `74ae19e` | 2026-06-19 | Merge pull request #2 from Vswaroop04/add-cold-email-and-form-filler-skills |
 | [Valian--linear-cli-skill](https://github.com/Valian/linear-cli-skill) | linear-cli-skill | 1 | 16 | 1 | 0.1 MB | `9d9c972` | 2025-10-26 | Add development guide for Linear CLI (#2) |
 | [ahmedasmar--devops-claude-skills](https://github.com/ahmedasmar/devops-claude-skills) | A Claude Code Skills Marketplace for DevOps workflows | 6 | 202 | 1 | 0.8 MB | `1489c33` | 2026-04-11 | Standardize directory structure: move all SKILL.md into skills/ subdirectory (#8) |
@@ -121,17 +121,17 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 | [better-auth--skills](https://github.com/better-auth/skills) | skills | 6 | 219 | 9 | 0.1 MB | `20c9e88` | 2026-09-01 | docs(best-practices): add version-aware documentation lookup guidance (#17) |
 | [better-i18n--skills](https://github.com/better-i18n/skills) | Official AI agent skills for Better i18n — best practices for i18n implementation, translation workflows, and localization automation with Claude, GPT, and other AI assistants | 2 | 8 | 2 | 0.2 MB | `cb212f7` | 2026-05-21 | chore: ignore .claude/ to block Shai-Hulud hook drops |
 | [brunoasm--my_claude_skills](https://github.com/brunoasm/my_claude_skills) | Claude Skill to prevent automatic confirmatory answers | 9 | 12 | 2 | 7.5 MB | `5bdff99` | 2026-08-28 | docs(secure-raw-data-backup): freeze folders before hashing, not after |
-| [callstackincubator--agent-skills](https://github.com/callstackincubator/agent-skills) | A collection of agent-optimized React Native skills for AI coding assistants. | 14 | 1650 (+1) | 17 | 10.9 MB | `61e6e7d` | 2026-09-16 | Add writing-user-docs skill (#81) |
-| [chrisvoncsefalvay--claude-d3js-skill](https://github.com/chrisvoncsefalvay/claude-d3js-skill) | A Claude skill for d3.js. | 1 | 232 (+1) | 1 | 0.1 MB | `e198c87` | 2025-10-18 | Initial commit. |
-| [cloudflare--skills](https://github.com/cloudflare/skills) | Skills for teaching agents how to build on Cloudflare. | 14 | 2857 | 36 | 1.2 MB | `b052c32` | 2026-09-08 | Merge pull request #141 from cloudflare/codex/audit-framework-migration-links |
+| [callstackincubator--agent-skills](https://github.com/callstackincubator/agent-skills) | A collection of agent-optimized React Native skills for AI coding assistants. | 14 | 1650 | 17 | 10.9 MB | `61e6e7d` | 2026-09-16 | Add writing-user-docs skill (#81) |
+| [chrisvoncsefalvay--claude-d3js-skill](https://github.com/chrisvoncsefalvay/claude-d3js-skill) | A Claude skill for d3.js. | 1 | 232 | 1 | 0.1 MB | `e198c87` | 2025-10-18 | Initial commit. |
+| [cloudflare--skills](https://github.com/cloudflare/skills) | Skills for teaching agents how to build on Cloudflare. | 14 | 2859 (+2) | 36 | 1.2 MB | `b052c32` | 2026-09-08 | Merge pull request #141 from cloudflare/codex/audit-framework-migration-links |
 | [coffeefuelbump--csv-data-summarizer-claude-skill](https://github.com/coffeefuelbump/csv-data-summarizer-claude-skill) | A Claude Skill that automatically analyzes uploaded CSV files — generating summary statistics, detecting missing data, and creating quick visualizations using Python and pandas. | 1 | 466 | 1 | 0.0 MB | `9b3affd` | 2025-10-16 | leave a like & subscribe if this was helpful :) |
-| [conorbronsdon--avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing) | Claude Code & OpenClaw skill that audits and rewrites content to remove AI writing patterns | 11 | 4472 (+4) | 42 | 4.3 MB | `7a2c7d1` | 2026-09-17 | Merge pull request #324 from nicholas-crawford/docs-badge-additions-and-table-of-contents |
+| [conorbronsdon--avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing) | Claude Code & OpenClaw skill that audits and rewrites content to remove AI writing patterns | 11 | 4472 | 42 | 4.3 MB | `7a2c7d1` | 2026-09-17 | Merge pull request #324 from nicholas-crawford/docs-badge-additions-and-table-of-contents |
 | [conorluddy--ios-simulator-skill](https://github.com/conorluddy/ios-simulator-skill) | An IOS Simulator Skill for ClaudeCode. Use it to optimise Claude's ability to build, run and interact with your apps, without using up any of the available token/context budget. | 1 | 1256 | 2 | 0.7 MB | `037a37f` | 2026-09-13 | Fix link formatting in README.md |
-| [coreyhaines31--marketingskills](https://github.com/coreyhaines31/marketingskills) | Marketing skills for Claude Code and AI agents. CRO, copywriting, SEO, analytics, and growth engineering. | 50 | 50818 (+13) | 23 | 3.6 MB | `5b2c000` | 2026-09-05 | feat: ai-seo 2.5.0 — ChatGPT 5.6 format-volatility guidance (#579) |
+| [coreyhaines31--marketingskills](https://github.com/coreyhaines31/marketingskills) | Marketing skills for Claude Code and AI agents. CRO, copywriting, SEO, analytics, and growth engineering. | 50 | 50822 (+4) | 23 | 3.6 MB | `5b2c000` | 2026-09-05 | feat: ai-seo 2.5.0 — ChatGPT 5.6 format-volatility guidance (#579) |
 | [dreamiurg--claude-mountaineering-skills](https://github.com/dreamiurg/claude-mountaineering-skills) | Automates mountain route research for North American peaks. Aggregates data from 10+ mountaineering sources to generate detailed route beta reports with weather, avalanche conditions, and trip reports. | 4 | 33 | 3 | 4.5 MB | `4dd512b` | 2026-07-09 | fix(route-researcher): harden source retrieval (#85, #86, #87, #89) (#90) |
 | [emaynard--claude-family-history-research-skill](https://github.com/emaynard/claude-family-history-research-skill) | A Claude Skill to assist with family history and genealogy research planning. | 1 | 108 | 2 | 0.1 MB | `7334d3d` | 2025-12-07 | Add Ko-fi username for funding support |
-| [expo--skills](https://github.com/expo/skills) | A collection of AI agent skills for working with Expo projects and Expo Application Services | 26 | 2540 (+1) | 30 | 4.3 MB | `3970866` | 2026-09-15 | [eas-simulator] cover current CLI flags (#187) |
-| [firecrawl--cli](https://github.com/firecrawl/cli) | CLI and Agent Skill for Firecrawl - Add scrape, search, and browsing capabilities to your AI agents | 16 | 635 (+1) | 19 | 1.0 MB | `44f4726` | 2026-09-18 | Support search alexandria query shorthand (#258) |
+| [expo--skills](https://github.com/expo/skills) | A collection of AI agent skills for working with Expo projects and Expo Application Services | 26 | 2543 (+3) | 30 | 4.3 MB | `3970866` | 2026-09-15 | [eas-simulator] cover current CLI flags (#187) |
+| [firecrawl--cli](https://github.com/firecrawl/cli) | CLI and Agent Skill for Firecrawl - Add scrape, search, and browsing capabilities to your AI agents | 16 | 635 | 19 | 1.0 MB | `446a792` | 2026-09-18 | fix: inspect combined provider capability addresses (#259) |
 | [hashicorp--agent-skills](https://github.com/hashicorp/agent-skills) | A collection of Agent skills and Claude Code plugins for HashiCorp products. | 23 | 868 | 19 | 0.7 MB | `c2d65df` | 2026-09-03 | docs: update supported model matrix (#100) |
 | [jananthan30--Resume-Builder](https://github.com/jananthan30/Resume-Builder) | AI-powered resume & cover letter generator with dual ATS + HR scoring. Works for any profession. Claude Code plugin. | 21 | 84 | 3 | 6.1 MB | `5f288fe` | 2026-08-15 | fix(evidence): give extraction its own output budget |
 | [javiera-vasquez--claude-code-job-tailor](https://github.com/javiera-vasquez/claude-code-job-tailor) | AI resume optimization system for Claude Code. Analyzes job postings, ranks requirements by priority, and automatically selects your most relevant achievements. Write your experience once in YAML, generate unlimited tailored PDFs in 60 less than seconds using Tailor | 3 | 169 | 1 | 34.3 MB | `8ae1bda` | 2025-10-28 | Merge pull request #28 from javiera-vasquez/chore/demo-v3 |
@@ -140,10 +140,10 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 | [lackeyjb--playwright-skill](https://github.com/lackeyjb/playwright-skill) | Claude Code Skill for browser automation with Playwright. Model-invoked - Claude autonomously writes and executes custom automation for testing and validation. | 1 | 3124 | 4 | 0.1 MB | `dd47a6a` | 2026-08-14 | docs: use portable temporary paths in examples (#52) |
 | [livelabs-ventures--nano-skills](https://github.com/livelabs-ventures/nano-skills) | Creating images with Nano Banana Pro | 1 | 8 | 1 | 0.0 MB | `66494ee` | 2025-11-28 | fix: always use correct file extension for actual image format |
 | [mhattingpete--claude-skills-marketplace](https://github.com/mhattingpete/claude-skills-marketplace) | Claude Code Skills for software engineering workflows - Git automation, testing, and code review | 20 | 674 | 2 | 1.5 MB | `b5b34bc` | 2026-07-25 | Add Smithery badge (#20) |
-| [michalparkola--tapestry-skills-for-claude-code](https://github.com/michalparkola/tapestry-skills-for-claude-code) | Claude Code skills to download sources (articles, PDFs, YouTube video transcripts) | 7 | 545 (+1) | 2 | 0.1 MB | `80e1dc5` | 2026-03-11 | fix username |
-| [neondatabase--agent-skills](https://github.com/neondatabase/agent-skills) | Agent Skills for Neon Severless Postgres | 19 | 89 | 14 | 1.2 MB | `b4016a3` | 2026-09-18 | docs(neon): describe Functions as an API layer, not a host-timeout workaround. |
+| [michalparkola--tapestry-skills-for-claude-code](https://github.com/michalparkola/tapestry-skills-for-claude-code) | Claude Code skills to download sources (articles, PDFs, YouTube video transcripts) | 7 | 545 | 2 | 0.1 MB | `80e1dc5` | 2026-03-11 | fix username |
+| [neondatabase--agent-skills](https://github.com/neondatabase/agent-skills) | Agent Skills for Neon Severless Postgres | 19 | 89 | 14 | 1.2 MB | `e8be8ff` | 2026-09-18 | Release 2.0.1 (#124) |
 | [netlify--context-and-tools](https://github.com/netlify/context-and-tools) | context-and-tools | 46 | 37 | 12 | 1.8 MB | `b113bc8` | 2026-09-18 | chore(main): release 1.5.0 (#129) |
-| [obra--superpowers](https://github.com/obra/superpowers) | An agentic skills framework & software development methodology that works. | 14 | 288487 (+47) | 44 | 1.6 MB | `b36e082` | 2026-08-12 | Release v6.3.0: Devin CLI and Hermes Agent support, brainstorming three-path router, SDD/Codex efficiency fixes (#2125) |
+| [obra--superpowers](https://github.com/obra/superpowers) | An agentic skills framework & software development methodology that works. | 14 | 288499 (+12) | 44 | 1.6 MB | `b36e082` | 2026-08-12 | Release v6.3.0: Devin CLI and Hermes Agent support, brainstorming three-path router, SDD/Codex efficiency fixes (#2125) |
 | [obra--superpowers-skills](https://github.com/obra/superpowers-skills) | Community-editable skills for Claude Code's superpowers plugin | 31 | 748 | 5 | 0.4 MB | `cdcd624` | 2025-10-14 | Use flexible remote detection in pulling-updates skill (#11) |
 | [omkamal--pypict-claude-skill](https://github.com/omkamal/pypict-claude-skill) | A claude skill that generate test cases using N-wise test cases using the pypict library | 1 | 95 | 2 | 0.1 MB | `fbda212` | 2026-03-22 | Merge pull request #1 from ThinkPeace/patch-1 |
 | [proficientlyjobs--proficiently-claude-skills](https://github.com/proficientlyjobs/proficiently-claude-skills) | Claude Code skills for AI-powered job search, resume tailoring, and cover letter writing | 7 | 385 | 2 | 0.1 MB | `9bc1f6f` | 2026-03-12 | Merge pull request #5 from proficientlyjobs/add-jobsearch-telegram |
@@ -158,41 +158,42 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 | [stripe--ai](https://github.com/stripe/ai) | One-stop shop for building AI-powered products and businesses with Stripe. | 56 | 1824 | 40 | 23.9 MB | `da4991b` | 2026-09-17 | sync skills |
 | [supabase--agent-skills](https://github.com/supabase/agent-skills) | Agent Skills to help developers using AI agents with Supabase | 2 | 2630 | 11 | 0.2 MB | `8331f91` | 2026-08-12 | chore: release main (#323) |
 | [tinybirdco--tinybird-agent-skills](https://github.com/tinybirdco/tinybird-agent-skills) | tinybird-agent-skills | 4 | 20 | 8 | 0.1 MB | `19a3ec1` | 2026-07-29 | skills: add TTL and partition key alignment guidance (#21) |
-| [trailofbits--skills](https://github.com/trailofbits/skills) | Trail of Bits Claude Code skills for security research, vulnerability detection, and audit workflows | 173 | 7149 (+3) | 57 | 8.3 MB | `123037e` | 2026-09-16 | Fix skill interface metadata required by ChatGPT imports (#310) |
+| [trailofbits--skills](https://github.com/trailofbits/skills) | Trail of Bits Claude Code skills for security research, vulnerability detection, and audit workflows | 173 | 7149 | 57 | 8.3 MB | `123037e` | 2026-09-16 | Fix skill interface metadata required by ChatGPT imports (#310) |
 | [typefully--agent-skills](https://github.com/typefully/agent-skills) | AI agent skills for drafting and scheduling social media posts via Typefully | 1 | 59 | 3 | 0.3 MB | `9ff8d00` | 2026-09-18 | docs(typefully): document X Article code blocks (#33) |
 | [varunr89--resume-tailoring-skill](https://github.com/varunr89/resume-tailoring-skill) | AI-powered resume tailoring skill for Claude Code | 1 | 746 | 2 | 0.2 MB | `9a4a0f2` | 2026-03-01 | feat: add plugin.json and move SKILL.md to skills/ for marketplace compatibility |
-| [vercel-labs--agent-skills](https://github.com/vercel-labs/agent-skills) | Vercel's official collection of agent skills | 9 | 31313 (+4) | 26 | 7.4 MB | `063bee9` | 2026-08-28 | Merge pull request #328 from vercel-labs/codex/suspense-crossfade-local-wrapper |
+| [vercel-labs--agent-skills](https://github.com/vercel-labs/agent-skills) | Vercel's official collection of agent skills | 9 | 31314 (+1) | 26 | 7.4 MB | `063bee9` | 2026-08-28 | Merge pull request #328 from vercel-labs/codex/suspense-crossfade-local-wrapper |
 | [vercel-labs--next-skills](https://github.com/vercel-labs/next-skills) | next-skills | 0 | 981 | 6 | 0.0 MB | `c522619` | 2026-09-16 | Add Labs status badges to README (#24) |
 | [wrsmith108--linear-claude-skill](https://github.com/wrsmith108/linear-claude-skill) | Agent skill for managing Linear issues, projects, and teams. MCP tools, SDK automation, GraphQL API patterns. | 1 | 126 | 4 | 0.7 MB | `d61cd9a` | 2026-07-17 | chore(release): 3.4.1 [skip ci] |
 | [wrsmith108--varlock-claude-skill](https://github.com/wrsmith108/varlock-claude-skill) | Claude Code skill for secure environment variable management with Varlock. Never expose secrets in Claude sessions. | 1 | 33 | 1 | 0.0 MB | `348a435` | 2026-03-04 | feat: add Claude plugin marketplace metadata |
-| [zarazhangrui--frontend-slides](https://github.com/zarazhangrui/frontend-slides) | Create beautiful slides on the web using Claude's frontend skills | 70 | 29506 (+3) | 9 | 3.4 MB | `9906a34` | 2026-06-23 | docs: add beginner-friendly walkthrough & tutorial video to README |
+| [zarazhangrui--frontend-slides](https://github.com/zarazhangrui/frontend-slides) | Create beautiful slides on the web using Claude's frontend skills | 70 | 29507 (+1) | 9 | 3.4 MB | `9906a34` | 2026-06-23 | docs: add beginner-friendly walkthrough & tutorial video to README |
 | [zxkane--aws-skills](https://github.com/zxkane/aws-skills) | Claude Agent Skills for AWS | 6 | 363 | 4 | 0.6 MB | `68530c6` | 2026-06-15 | ci: add marketplace + skill structure validation workflow (#8) |
-| [travisvn--awesome-claude-skills](https://github.com/travisvn/awesome-claude-skills) | A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows | 0 | 15107 (+3) | 2 | 0.0 MB | `1da55aa` | 2026-04-28 | Add get-shit-done project to skills list |
+| [travisvn--awesome-claude-skills](https://github.com/travisvn/awesome-claude-skills) | A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows | 0 | 15108 (+1) | 2 | 0.0 MB | `1da55aa` | 2026-04-28 | Add get-shit-done project to skills list |
 | [obra--superpowers-lab](https://github.com/obra/superpowers-lab) | Experimental skills for Claude Code Superpowers - new techniques and tools | 4 | 429 | 2 | 0.1 MB | `51111f7` | 2026-06-01 | Release v0.5.0: remove slack-messaging skill (superseded by slackline using-slack) |
 | [asklokesh--claudeskill-loki-mode](https://github.com/asklokesh/claudeskill-loki-mode) | Multi-agent provider agnostic autonomous system and framework | 4 | 1066 | 7 | 76.5 MB | `ea8af7e` | 2026-09-15 | release: v9.51.1 - re-cut after v9.51.0 failed required-ci on a lint step |
-| [yusufkaraaslan--Skill_Seekers](https://github.com/yusufkaraaslan/Skill_Seekers) | Convert documentation websites, GitHub repos, and PDFs into Claude AI skills | 27 | 14999 (+3) | 46 | 37.4 MB | `bbe9381` | 2026-09-16 | docs(zh-CN): apply translation polish from #440 (#450) |
-| [mukul975--Anthropic-Cybersecurity-Skills](https://github.com/mukul975/Anthropic-Cybersecurity-Skills) | 753+ structured cybersecurity skills for AI agents · MITRE ATT&CK mapped · agentskills.io open standard · Works with Claude Code, GitHub Copilot, OpenAI Codex CLI, Cursor, Gemini CLI & 20+ platforms · Penetration testing, DFIR, threat intel, cloud security & more · Apache 2.0 | 824 | 32959 (+4) | 17 | 30.8 MB | `54a7988` | 2026-08-31 | chore: update contributor wall |
+| [yusufkaraaslan--Skill_Seekers](https://github.com/yusufkaraaslan/Skill_Seekers) | Convert documentation websites, GitHub repos, and PDFs into Claude AI skills | 27 | 14999 | 46 | 37.4 MB | `bbe9381` | 2026-09-16 | docs(zh-CN): apply translation polish from #440 (#450) |
+| [mukul975--Anthropic-Cybersecurity-Skills](https://github.com/mukul975/Anthropic-Cybersecurity-Skills) | 753+ structured cybersecurity skills for AI agents · MITRE ATT&CK mapped · agentskills.io open standard · Works with Claude Code, GitHub Copilot, OpenAI Codex CLI, Cursor, Gemini CLI & 20+ platforms · Penetration testing, DFIR, threat intel, cloud security & more · Apache 2.0 | 824 | 32960 (+1) | 17 | 30.8 MB | `54a7988` | 2026-08-31 | chore: update contributor wall |
 | [eth0izzle--security-skills](https://github.com/eth0izzle/security-skills) | A collection of Claude Code skills that help security teams stay secure | 2 | 57 | 2 | 2.1 MB | `fee3c90` | 2026-04-27 | Merge pull request #2 from CrowdStrike/main |
 | [Masriyan--Claude-Code-CyberSecurity-Skill](https://github.com/Masriyan/Claude-Code-CyberSecurity-Skill) | A comprehensive collection of 15 Claude Code Skills for cybersecurity professionals — covering offensive security, defensive operations, reverse engineering, threat hunting, CSOC automation, and more | 22 | 428 | 3 | 3.6 MB | `42e1501` | 2026-09-07 | Add files via upload |
 | [pitimon--claude-cybersecurity-skill](https://github.com/pitimon/claude-cybersecurity-skill) | Claude Code plugin — 18 cybersecurity domains: IR, DFIR, DevSecOps, SOC, Code Security, Container, Compliance, Cloud/CSPM, Zero Trust, AI/ML, API, Vulnerability Mgmt, Threat Intel, OT/ICS, Governance. Bilingual Thai+English. | 1 | 5 | 2 | 1.2 MB | `6a1df52` | 2026-05-11 | chore: bump version to 4.0.3, reconcile manifest with tag history (#11) |
 | [transilienceai--communitytools](https://github.com/transilienceai/communitytools) | Open-source Claude Code skills, agents, and slash commands for AI-powered penetration testing, bug bounty hunting, and security research | 105 | 533 | 9 | 15.4 MB | `95fdc12` | 2026-07-29 | refactor: share one tool-gate scaffold so the skill-base guard stops running unarmed (#57) |
-| [alirezarezvani--claude-skills](https://github.com/alirezarezvani/claude-skills) | +192 Claude Code skills & agent plugins for Claude Code, Codex, Gemini CLI, Cursor, and 8 more coding agents — engineering, marketing, product, compliance, C-level advisory. | 1044 | 26118 (+4) | 49 | 38.0 MB | `19392f7` | 2026-08-26 | Merge pull request #996 from alirezarezvani/dev |
-| [VoltAgent--awesome-agent-skills](https://github.com/VoltAgent/awesome-agent-skills) | Claude Code Skills and 1000+ agent skills from official dev teams and the community, compatible with Codex, Antigravity, Gemini CLI, Cursor and others. | 0 | 34569 (+3) | 185 | 0.2 MB | `755521d` | 2026-09-15 | Merge pull request #1040 from ilyautov/add-small-business-ru |
-| [BehiSecc--awesome-claude-skills](https://github.com/BehiSecc/awesome-claude-skills) | A curated list of Claude Skills. | 0 | 10153 | 89 | 0.0 MB | `e3d2916` | 2026-08-02 | Add skill directories and marketplaces to Collections |
+| [alirezarezvani--claude-skills](https://github.com/alirezarezvani/claude-skills) | +192 Claude Code skills & agent plugins for Claude Code, Codex, Gemini CLI, Cursor, and 8 more coding agents — engineering, marketing, product, compliance, C-level advisory. | 1044 | 26121 (+3) | 49 | 38.0 MB | `19392f7` | 2026-08-26 | Merge pull request #996 from alirezarezvani/dev |
+| [VoltAgent--awesome-agent-skills](https://github.com/VoltAgent/awesome-agent-skills) | Claude Code Skills and 1000+ agent skills from official dev teams and the community, compatible with Codex, Antigravity, Gemini CLI, Cursor and others. | 0 | 34570 (+1) | 185 | 0.2 MB | `755521d` | 2026-09-15 | Merge pull request #1040 from ilyautov/add-small-business-ru |
+| [BehiSecc--awesome-claude-skills](https://github.com/BehiSecc/awesome-claude-skills) | A curated list of Claude Skills. | 0 | 10154 (+1) | 89 | 0.0 MB | `e3d2916` | 2026-08-02 | Add skill directories and marketplaces to Collections |
 | [levnikolaevich--claude-code-skills](https://github.com/levnikolaevich/claude-code-skills) | Plugin suite + bundled MCP servers for Claude Code. Full delivery lifecycle: Agile pipeline with multi-model AI review, project bootstrap, documentation generation, codebase audits, performance optimization, community workflows. Includes hex-line (hash-verified editing), hex-graph (code knowledge graph), and hex-ssh (remote SSH) MCP servers. | 31 | 565 | 1 | 0.4 MB | `d7da390` | 2026-09-16 | feat: redirect GitHub Pages to the current project page |
-| [jeremylongshore--claude-code-plugins-plus-skills](https://github.com/jeremylongshore/claude-code-plugins-plus-skills) | 340 plugins + 1367 agent skills for Claude Code. Open-source marketplace with CCPI package manager, interactive tutorials, and production orchestration patterns. | 7045 | 2775 (-1) | 59 | 160.1 MB | `7a81b1a` | 2026-09-15 | content(blog): dual-publish the-pipeline-landed-its-own-output-today to tonsofskills.com/blog |
-| [rohitg00--awesome-claude-code-toolkit](https://github.com/rohitg00/awesome-claude-code-toolkit) | The most comprehensive toolkit for Claude Code -- 135 agents, 35 curated skills (+400,000 via SkillKit), 42 commands, 150+ plugins, 19 hooks, 15 rules, 7 templates, 8 MCP configs, and more. | 258 | 2624 (+1) | 237 | 1.5 MB | `ebdf1d5` | 2026-05-12 | Merge PR #387: Add llm-prices MCP config |
-| [daymade--claude-code-skills](https://github.com/daymade/claude-code-skills) | Professional Claude Code skills marketplace featuring production-ready skills for enhanced development workflows. | 116 | 1403 (+1) | 12 | 23.0 MB | `6b469af` | 2026-09-18 | ci(changelog): 机械检查仓根 CHANGELOG 只有一个 [Unreleased] 且在最前 (#605) |
+| [jeremylongshore--claude-code-plugins-plus-skills](https://github.com/jeremylongshore/claude-code-plugins-plus-skills) | 340 plugins + 1367 agent skills for Claude Code. Open-source marketplace with CCPI package manager, interactive tutorials, and production orchestration patterns. | 7045 | 2775 | 59 | 160.1 MB | `7a81b1a` | 2026-09-15 | content(blog): dual-publish the-pipeline-landed-its-own-output-today to tonsofskills.com/blog |
+| [rohitg00--awesome-claude-code-toolkit](https://github.com/rohitg00/awesome-claude-code-toolkit) | The most comprehensive toolkit for Claude Code -- 135 agents, 35 curated skills (+400,000 via SkillKit), 42 commands, 150+ plugins, 19 hooks, 15 rules, 7 templates, 8 MCP configs, and more. | 258 | 2624 | 237 | 1.5 MB | `ebdf1d5` | 2026-05-12 | Merge PR #387: Add llm-prices MCP config |
+| [daymade--claude-code-skills](https://github.com/daymade/claude-code-skills) | Professional Claude Code skills marketplace featuring production-ready skills for enhanced development workflows. | 116 | 1403 | 12 | 23.0 MB | `6b469af` | 2026-09-18 | ci(changelog): 机械检查仓根 CHANGELOG 只有一个 [Unreleased] 且在最前 (#605) |
 | [lgbarn--devops-skills](https://github.com/lgbarn/devops-skills) | DevOps skills for Claude Code: Terraform/OpenTofu workflows, AWS infrastructure management, safety-first IaC practices | 27 | 14 | 15 | 0.6 MB | `8a37cc3` | 2026-01-23 | refactor: complete namespace migration from superpowers to devops-skills |
-| [affaan-m--everything-claude-code](https://github.com/affaan-m/everything-claude-code) | The agent harness performance optimization system. Skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, Cursor and beyond. | 1293 | 261837 (+82) | 361 | 51.2 MB | `dd6ee53` | 2026-09-17 | Merge pull request #3156 from affaan-m/fix/sponsor-status-20260917 |
-| [glebis--claude-skills](https://github.com/glebis/claude-skills) | Collection of Claude Code skills for enhanced AI workflows | 108 | 379 (+1) | 8 | 9.1 MB | `d0bc206` | 2026-09-02 | docs(cull-release): correct v0.6.x lessons - TDZ was the real smoke killer |
-| [shanraisshan--claude-code-best-practice](https://github.com/shanraisshan/claude-code-best-practice) | practice made claude perfect | 30 | 66090 (+3) | 5 | 74.5 MB | `15969ed` | 2026-09-18 | docs(subagents): update Last Updated badge to Sep 18, 2026 v2.1.276 |
+| [affaan-m--everything-claude-code](https://github.com/affaan-m/everything-claude-code) | The agent harness performance optimization system. Skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, Cursor and beyond. | 1293 | 261870 (+33) | 361 | 51.2 MB | `dd6ee53` | 2026-09-17 | Merge pull request #3156 from affaan-m/fix/sponsor-status-20260917 |
+| [glebis--claude-skills](https://github.com/glebis/claude-skills) | Collection of Claude Code skills for enhanced AI workflows | 108 | 379 | 8 | 9.1 MB | `d0bc206` | 2026-09-02 | docs(cull-release): correct v0.6.x lessons - TDZ was the real smoke killer |
+| [shanraisshan--claude-code-best-practice](https://github.com/shanraisshan/claude-code-best-practice) | practice made claude perfect | 30 | 66091 (+1) | 5 | 74.5 MB | `15969ed` | 2026-09-18 | docs(subagents): update Last Updated badge to Sep 18, 2026 v2.1.276 |
 | [mrgoonie--claudekit-skills](https://github.com/mrgoonie/claudekit-skills) | All powerful skills of ClaudeKit.cc! | 50 | 2215 | 6 | 11.2 MB | `80113d8` | 2026-04-03 | Merge pull request #19 from mrgoonie/feat/bunny-skill |
-| [hesreallyhim--awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) | A curated list of awesome skills, hooks, slash-commands, agent orchestrators, applications, and plugins for Claude Code by Anthropic | 0 | 54263 (+2) | 16 | 3.2 MB | `04570a2` | 2026-09-18 | chore: update repo ticker data and SVGs [skip ci] |
+| [hesreallyhim--awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) | A curated list of awesome skills, hooks, slash-commands, agent orchestrators, applications, and plugins for Claude Code by Anthropic | 0 | 54264 (+1) | 16 | 3.2 MB | `04570a2` | 2026-09-18 | chore: update repo ticker data and SVGs [skip ci] |
 | [jqueryscript--awesome-claude-code](https://github.com/jqueryscript/awesome-claude-code) | A curated list of awesome tools, IDE integrations, frameworks, and other resources for developers working with Anthropic's Claude Code. | 0 | 517 | 1 | 0.2 MB | `1174220` | 2026-09-10 | Add Claude Code resources |
 | [shaunburdick--skills](https://github.com/shaunburdick/skills) | Shaun Burdick skills collection | 8 | 1 | 1 | 0.3 MB | `a8550f6` | 2026-09-04 | feat: add spec triage gate to prevent spec sprawl (#5) |
-| [ayghri--i-have-adhd](https://github.com/ayghri/i-have-adhd) | A skill to stop your coding agent from burying the answer. ADHD-friendly output. | 2 | 47943 (+40) | 48 | 0.5 MB | `b15d0be` | 2026-09-16 | Update README.md |
-| [SnailSploit--claude-red](https://github.com/SnailSploit/claude-red) | claude-red is a curated library of offensive security skills designed for the Claude skills system. Each skill is a structured SKILL.md file that primes Claude with expert-level methodology for a specific attack surface — from SQLi to shellcode, EDR evasion to exploit development. | 50 | 6153 | 5 | 4.5 MB | `24d7968` | 2026-08-29 | Add files via upload |
+| [ayghri--i-have-adhd](https://github.com/ayghri/i-have-adhd) | A skill to stop your coding agent from burying the answer. ADHD-friendly output. | 2 | 47952 (+9) | 48 | 0.5 MB | `b15d0be` | 2026-09-16 | Update README.md |
+| [SnailSploit--claude-red](https://github.com/SnailSploit/claude-red) | claude-red is a curated library of offensive security skills designed for the Claude skills system. Each skill is a structured SKILL.md file that primes Claude with expert-level methodology for a specific attack surface — from SQLi to shellcode, EDR evasion to exploit development. | 50 | 6158 (+5) | 5 | 4.5 MB | `24d7968` | 2026-08-29 | Add files via upload |
+| [JuliusBrussee--caveman](https://github.com/JuliusBrussee/caveman) | 🪨 why use many token when few token do trick. Viral skill + proxy for coding agents that cuts 65% of tokens by talking like a caveman. | 30 | 106570 | 56 | 17.5 MB | `542442b` | 2026-09-17 | Merge pull request #1082 from JuliusBrussee/daily-triage/2026-09-17 |
 
 > **[View full skills index (SKILLS.md)](SKILLS.md)** — all named skills with descriptions, versions, licenses, and direct links.
 
@@ -206,4 +207,4 @@ A GitHub Actions workflow runs daily to:
 
 ---
 
-*Auto-generated by `generate_readme.py` on 2026-09-18 19:06 UTC*
+*Auto-generated by `generate_readme.py` on 2026-09-18 19:43 UTC*
