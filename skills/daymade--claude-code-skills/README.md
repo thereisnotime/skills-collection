@@ -501,6 +501,8 @@ Creates educational Teams channel posts for internal knowledge sharing.
 
 ### **peer-message** - Local Claude/Codex Agent Communication
 
+An experimental [paired-network route](peer-message/references/network-preview.md) adds invitations and cited answers from owner-selected documents through existing Claude/Codex hosts. It requires an operator-provided relay; the public hosted network and user-adoption claims are not part of this preview.
+
 > **Install**: `claude plugin install peer-message@daymade-skills`
 
 Bridge local Claude Code and Codex sessions when the current host's native tools do not cover the target. Use native discovery, messaging, replies, and waiting directly whenever available; load this skill for transport gaps or coordination evidence that needs verification.
@@ -2652,7 +2654,7 @@ claude plugin install daymade-financial@daymade-skills
 
 ### **llm-wiki-setup** - Co-Create a Personal Investment-Research LLM Wiki
 
-Co-create a personal investment-research LLM Wiki (Andrej Karpathy's pattern) where the user's OWN analysis framework becomes a living CLAUDE.md — built by interviewing them rather than handing over a template. Pure markdown + `[[wikilinks]]`, NO RAG / vector DB (Karpathy's core idea — do not over-engineer). The value is extracting the user's personal investment preferences into THEIR OWN schema, never imposing a standard one.
+Co-create a personal investment-research LLM Wiki (Andrej Karpathy's pattern) where the user's OWN analysis framework becomes a living CLAUDE.md — built by interviewing them rather than handing over a template. Pure markdown + `[[wikilinks]]`; knowledge is compiled into pages instead of being re-retrieved from raw files on every query (Karpathy's core idea — no RAG pipeline in place of compilation; a local search engine such as qmd over the grown wiki is part of his pattern). The value is extracting the user's personal investment preferences into THEIR OWN schema, never imposing a standard one.
 
 **When to use:**
 - Building a compounding research knowledge base (投研第二大脑 / 投研知识库 / 个人投研 wiki)
@@ -2678,7 +2680,7 @@ claude plugin install llm-wiki-setup@daymade-skills
 "ingest this earnings call into my research vault"
 ```
 
-**Requirements**: Python 3, `uv` (for `init_vault.py` / lint), `git`. Markdown + wikilinks only — no vector DB or embedding service. Pairs with the `analyst-track-record` skill for back-testing.
+**Requirements**: Python 3, `uv` (for `init_vault.py` / lint), `git`. Markdown + wikilinks; no vector DB or embedding service required (qmd is an optional local search layer once the wiki grows). Pairs with the `analyst-track-record` skill for back-testing.
 
 ---
 

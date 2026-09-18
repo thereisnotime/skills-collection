@@ -49,10 +49,10 @@
     },
     {
       "name": "peer-message",
-      "description": "Bridge local Claude Code and Codex sessions only when the current host's native communication tools do not cover the target. Use for cross-product messages, hooks/scripts posting to sessions, fallback reply lookup and delivery verification, or diagnosing Held peer messages. Also use its coordination guidance when shared-work ownership or an inbound peer assertion needs verification. For ordinary parent/subagent, teammate, or independent-session communication, first discover and use available native tools; do not load this skill merely to send a native message. Never bypass a denied or Held message with another transport. Not for spawning agents, moving full history, or granting user approval. Triggers: 跨产品通信、原生工具未覆盖的会话、脚本回帖、peer 送达排查、共享在制品归属核实。",
+      "description": "Bridge local Claude Code and Codex sessions only when the current host's native communication tools do not cover the target. Use for cross-product messages, hooks/scripts posting to sessions, fallback reply lookup and delivery verification, or diagnosing Held peer messages. Also use its coordination guidance when shared-work ownership or an inbound peer assertion needs verification. For ordinary parent/subagent, teammate, or independent-session communication, first discover and use available native tools; do not load this skill merely to send a native message. When the target is on another machine entirely, the bundled network preview pairs agents over an operator-provided relay — approved contacts answer questions from explicitly shared, read-only documents (invitations use the peer-message:v1 format). Never bypass a denied or Held message with another transport. Not for spawning agents, moving full history, or granting user approval. Triggers: 跨产品通信、原生工具未覆盖的会话、脚本回帖、peer 送达排查、共享在制品归属核实、跨机器配对问答、peer-message:v1 邀请。",
       "source": "./peer-message",
       "strict": false,
-      "version": "1.12.0",
+      "version": "1.13.0",
       "category": "communication",
       "keywords": [
         "agent-communication",
@@ -126,7 +126,7 @@
       "description": "Claude Code operations suite that bundles cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; provider-separated Claude Code and Codex history readers; identity- and lineage-gated continuation workflows; plugin/skill troubleshooting; CLAUDE.md progressive disclosure optimization; version-synced Lark CLI routing; statusline configuration; exported .txt repair; full claude.ai conversation extraction with tool-call rendering and file download; plugin marketplace development and suite consolidation; writing/testing/debugging Claude Code hooks; multi-provider profile isolation; personal-memory migration into tool-agnostic AGENTS.md reference docs; one-shot local timers that ping Claude right after subscription quota reset to start a fresh 5-hour usage window; working web search installed on an agent whose relayed model backend cannot execute the built-in one; and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "3.36.0",
+      "version": "3.37.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -306,7 +306,7 @@
       "description": "Audio processing suite covering the full speech pipeline: ASR transcription (Qwen3, StepFun) with batch-mode guards against music-only repetition-loop hallucinations, speaker diarization and CAM++ voiceprint identification for multi-speaker recordings, transcript error correction, structured meeting minutes generation, and TTS voice synthesis (StepFun). Install once for the complete audio workflow.",
       "source": "./daymade-audio",
       "strict": false,
-      "version": "1.39.9",
+      "version": "1.39.10",
       "category": "suite",
       "keywords": [
         "suite",
@@ -332,7 +332,7 @@
       "description": "Daymade skills core suite. Bundles skill creation, quality review, real Claude/Codex Skill-surface governance, suite-migration reconciliation, and marketplace development tooling under one shared namespace. Skill governance separates canonical source, installed inventory, discovery policy, the fresh model-visible catalog, and router-resolved cold resources instead of optimizing cache counts; it preserves Claude's official versioned-cache lifecycle and verifies selected entries in the real host prompt. Skill verification separates risk classification from evaluation spend: bounded fixes use targeted checks, narrow behavior changes use sampled replays, and paired baselines, graders, benchmarks, or a viewer run only after explicit user authorization or a decision-bearing evidence plan plus opt-in; that authorization does not change the risk tier. Existing-skill edits retain an old-vs-new capability audit and content-bound packaging attestation so prompt compression cannot silently delete runtime contracts. When the official skill-creator plugin is also installed, skill-creator detects the coexistence and offers a consent-based, reversible SessionStart routing hook so the daymade edition wins deterministically; on machines without the official plugin nothing is ever installed.",
       "source": "./daymade-skill",
       "strict": false,
-      "version": "1.41.1",
+      "version": "1.42.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -953,10 +953,10 @@
     },
     {
       "name": "llm-wiki-setup",
-      "description": "Co-create a personal investment-research LLM Wiki (Andrej Karpathy's pattern) where the user's OWN analysis framework becomes a living CLAUDE.md — by interviewing them, NOT by handing them a template. Use whenever the user wants to build a compounding research knowledge base, 投研第二大脑, 投研知识库, or 个人投研 wiki; instantiate Karpathy's LLM Wiki gist for finance/investing; turn their stock-picking, analyst-tracking, or earnings-watching workflow into a structured markdown vault; or build a wiki tracking companies / industries / macro / analysts over time. Pure markdown + wikilinks, NO RAG / vector DB (Karpathy's core idea — do not over-engineer). Also triggers for ingesting research reports / earnings calls / expert notes into an existing wiki, and for post-earnings prediction→fulfillment reviews. Core value = extracting the user's personal investment preferences into THEIR OWN schema, never imposing a standard one.",
+      "description": "Co-create a personal investment-research LLM Wiki (Andrej Karpathy's pattern) where the user's OWN analysis framework becomes a living CLAUDE.md — by interviewing them, NOT by handing them a template. Use whenever the user wants to build a compounding research knowledge base, 投研第二大脑, 投研知识库, or 个人投研 wiki; instantiate Karpathy's LLM Wiki gist for finance/investing; turn their stock-picking, analyst-tracking, or earnings-watching workflow into a structured markdown vault; or build a wiki tracking companies / industries / macro / analysts over time. Pure markdown + wikilinks; no RAG in place of compilation (Karpathy's core idea — qmd search over the grown wiki is in-pattern). Also triggers for ingesting research reports / earnings calls / expert notes into an existing wiki, and for post-earnings prediction→fulfillment reviews. Core value = extracting the user's personal investment preferences into THEIR OWN schema, never imposing a standard one.",
       "source": "./llm-wiki-setup",
       "strict": false,
-      "version": "1.1.0",
+      "version": "1.1.1",
       "category": "documentation",
       "keywords": [
         "llm-wiki",

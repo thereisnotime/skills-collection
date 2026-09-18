@@ -2315,6 +2315,12 @@
   ],
   "firecrawl--cli": [
     {
+      "sha": "2408659",
+      "message": "Support provider/capability shorthand in firecrawl scrape (#254)",
+      "date": "2026-09-18",
+      "author": "Developers Digest"
+    },
+    {
       "sha": "f7baa99",
       "message": "chore: release Alexandria CLI beta.17 (#253)",
       "date": "2026-09-17",
@@ -2365,12 +2371,6 @@
     {
       "sha": "6e004c4",
       "message": "fix(cli): accept credits, status, and formats aliases (#242)",
-      "date": "2026-09-17",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "06e2321",
-      "message": "Bump Alexandria CLI to beta.14 (#240)",
       "date": "2026-09-17",
       "author": "Developers Digest"
     }
@@ -2839,6 +2839,18 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "b4016a3",
+      "message": "docs(neon): describe Functions as an API layer, not a host-timeout workaround.",
+      "date": "2026-09-18",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "b1a4f24",
+      "message": "docs(neon): put full-stack Next.js on Vercel first and treat Data API as a PostgREST migration path.",
+      "date": "2026-09-18",
+      "author": "Andre Landgraf"
+    },
+    {
       "sha": "b5beae8",
       "message": "Release 2.0.0 (#122)",
       "date": "2026-09-17",
@@ -2885,21 +2897,39 @@
       "message": "Prefer Functions and existing handlers for Postgres queries in skills (#115)",
       "date": "2026-09-16",
       "author": "Andre Landgraf"
-    },
-    {
-      "sha": "2708d0f",
-      "message": "Restore supported CLI setup commands in the Neon skill (#114)",
-      "date": "2026-09-16",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "e5a62ea",
-      "message": "docs(neon): revamp Getting Started section (#95)",
-      "date": "2026-09-16",
-      "author": "Jeff Christoffersen"
     }
   ],
   "netlify--context-and-tools": [
+    {
+      "sha": "b113bc8",
+      "message": "chore(main): release 1.5.0 (#129)",
+      "date": "2026-09-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "fe58c5d",
+      "message": "feat(context): sync skills from netlify/docs (#127)",
+      "date": "2026-09-18",
+      "author": "Sean C Davis"
+    },
+    {
+      "sha": "2b56d4a",
+      "message": "fix(ci): title the skill sync PR so a merge actually cuts a release (#128)",
+      "date": "2026-09-18",
+      "author": "Sean C Davis"
+    },
+    {
+      "sha": "9943616",
+      "message": "chore(context): sync skills from netlify/docs (#127)",
+      "date": "2026-09-18",
+      "author": "ntl-ax-team"
+    },
+    {
+      "sha": "491362c",
+      "message": "chore(deps): update googleapis/release-please-action action to v5 (#123)",
+      "date": "2026-09-18",
+      "author": "renovate[bot]"
+    },
     {
       "sha": "8524c76",
       "message": "chore(main): release 1.4.1 (#126)",
@@ -2929,36 +2959,6 @@
       "message": "chore(main): release 1.3.2 (#119)",
       "date": "2026-09-10",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "0c6ede2",
-      "message": "fix: stop shipping skill-creator to npx skills installs (#121)",
-      "date": "2026-09-10",
-      "author": "Sean C Davis"
-    },
-    {
-      "sha": "b79c1e5",
-      "message": "fix(deps): update dependency @netlify/database to ^2.0.1 (#118)",
-      "date": "2026-09-04",
-      "author": "renovate[bot]"
-    },
-    {
-      "sha": "e3e2a59",
-      "message": "chore(main): release 1.3.1 (#116)",
-      "date": "2026-09-04",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "ee5dd6e",
-      "message": "fix(ctx-pipeline): surface guard skips, fail closed on divergence, validate --docs-commit (#117)",
-      "date": "2026-08-31",
-      "author": "Domitrius"
-    },
-    {
-      "sha": "4645e4c",
-      "message": "fix(ctx-receive): reject out-of-order deliveries (#110)",
-      "date": "2026-08-27",
-      "author": "Domitrius"
     }
   ],
   "obra--superpowers": [
@@ -5327,62 +5327,62 @@
   ],
   "daymade--claude-code-skills": [
     {
-      "sha": "2cb64a4",
-      "message": "docs(claude-switch-models-setup): credential storage is a separate switch from config isolation (v3.36.0) (#592)",
+      "sha": "92a81ba",
+      "message": "docs(prior-work-retrieval): route remote-box / foreign-checkout work to the target repo's own docs first (#602)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "94aef13",
-      "message": "docs(read-claude-code-history): \u627e\u4ea7\u7269\u7c7b\u76ee\u6807\u7684\u4e09\u4e2a\u5224\u636e (#590)",
+      "sha": "5eaeeea",
+      "message": "docs(ci): correct the node --test comment \u2014 the bare-dir form fails on Node 22 too (#601)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "601a035",
-      "message": "chore: one more example name, from the place the guard cannot look (#591)",
+      "sha": "2e94ab6",
+      "message": "docs(prior-work-retrieval): \u6574\u6279\u547d\u4e2d\u5224\u4e3a\u65e0\u5173\uff0c\u90a3\u4e2a\u5224\u65ad\u672c\u8eab\u5c31\u662f\u4e00\u6761\u5f85\u9a8c\u8bc1\u7684\u7ed3\u8bba (v3.36.2) (#600)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "39faec1",
-      "message": "chore: de-identify example data in docs, tests and fixtures (#589)",
+      "sha": "664afd7",
+      "message": "docs(CLAUDE.md): run validate_changed_skills after a skill edit \u2014 repo-level validate misses the description cap (#599)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "0c0c85f",
-      "message": "feat(tibo-reset-codex): land the interrupted quota-monitoring WIP (v1.12.0) (#588)",
+      "sha": "6434aba",
+      "message": "docs(llm-wiki-setup): a search layer over the grown wiki is in Karpathy's pattern (v1.1.1) (#598)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "8a3e406",
-      "message": "fix(transcript-fixer): --probe and harvest read past corrections as fresh evidence (#587)",
+      "sha": "3990b9f",
+      "message": "feat(peer-message): land the network preview \u2014 paired cross-machine Q&A over AgentPair relay (v1.13.0) (#596)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "60d8232",
-      "message": "feat(claude-switch-models-setup): converge mcpServers across profiles as a union (v3.35.0) (#586)",
+      "sha": "2b42816",
+      "message": "docs(skill-creator): arbitrate the real-case vs privacy collision in sanitization checklist (daymade-skill v1.42.0) (#59",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "c31e1e3",
-      "message": "docs(github-review-pr): release local review refs after the verdict (v1.3.0) (#585)",
+      "sha": "1b90c69",
+      "message": "fix(pii): put the key rules in CI, stop reading a broken config as green, and (#595)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "b4480e8",
-      "message": "docs(github-sensitive-data-cleanup): verify ownership claims before choosing a remediation route (v1.2.0) (#584)",
+      "sha": "acba1b7",
+      "message": "fix(ci): verify the CHANGELOG version arrow against the manifest it claims (#594)",
       "date": "2026-09-18",
       "author": "daymade"
     },
     {
-      "sha": "ff369e1",
-      "message": "fix(feishu-doc-scraper): scrub real Feishu tokens from example comments (v1.5.2) (#583)",
+      "sha": "84dfa1e",
+      "message": "docs(claude-switch-models-setup): put mcpServers convergence in the shared-vs-isolated table (v3.36.1) (#593)",
       "date": "2026-09-18",
       "author": "daymade"
     }
@@ -5699,6 +5699,18 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "069311b",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "e734328",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-18",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "0036cba",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-18",
@@ -5742,18 +5754,6 @@
     },
     {
       "sha": "215aa6a",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "e3dda41",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "17a4c2c",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-17",
       "author": "github-actions[bot]"
@@ -5881,6 +5881,68 @@
       "message": "Reviewed and updated",
       "date": "2026-04-19",
       "author": "Shaun Burdick"
+    }
+  ],
+  "ayghri--i-have-adhd": [
+    {
+      "sha": "b15d0be",
+      "message": "Update README.md",
+      "date": "2026-09-16",
+      "author": "Ayoub Ghriss"
+    },
+    {
+      "sha": "0a84de4",
+      "message": "Merge pull request #95 from mvanhorn/fix/evals-token-cost-delta",
+      "date": "2026-09-15",
+      "author": "Ayoub Ghriss"
+    },
+    {
+      "sha": "e9fee1a",
+      "message": "Validate cost measurements and report input overhead",
+      "date": "2026-09-15",
+      "author": "ayghri"
+    },
+    {
+      "sha": "b8b0a41",
+      "message": "Merge remote-tracking branch 'origin/main' into review/pr-95",
+      "date": "2026-09-15",
+      "author": "ayghri"
+    },
+    {
+      "sha": "076edf6",
+      "message": "Merge pull request #69 from yrooogerg/feat/session-eval",
+      "date": "2026-09-15",
+      "author": "Ayoub Ghriss"
+    },
+    {
+      "sha": "2ef2aac",
+      "message": "Merge pull request #209 from aitorvv/add-spanish-readme",
+      "date": "2026-09-15",
+      "author": "Ayoub Ghriss"
+    },
+    {
+      "sha": "89de9df",
+      "message": "Slim scenario evaluation to resumed conversation capture",
+      "date": "2026-09-15",
+      "author": "ayghri"
+    },
+    {
+      "sha": "173f9c7",
+      "message": "Remove README changes from scenario evaluation PR",
+      "date": "2026-09-15",
+      "author": "ayghri"
+    },
+    {
+      "sha": "80146b1",
+      "message": "Bound scenario evaluation and clarify behavioral coverage",
+      "date": "2026-09-15",
+      "author": "ayghri"
+    },
+    {
+      "sha": "66f7363",
+      "message": "Merge remote-tracking branch 'origin/main' into review/pr-69",
+      "date": "2026-09-15",
+      "author": "ayghri"
     }
   ]
 }

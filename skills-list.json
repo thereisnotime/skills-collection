@@ -24969,7 +24969,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon-functions/SKILL.md",
       "lines": 646,
-      "words": 6411,
+      "words": 6413,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -24982,7 +24982,7 @@
       "path": "neondatabase--agent-skills/plugins/neon-postgres/skills/neon/SKILL.md",
       "remote_path": "plugins/neon-postgres/skills/neon/SKILL.md",
       "lines": 475,
-      "words": 4544,
+      "words": 4670,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -25075,7 +25075,7 @@
       "path": "neondatabase--agent-skills/skills/neon-functions/SKILL.md",
       "remote_path": "skills/neon-functions/SKILL.md",
       "lines": 646,
-      "words": 6411,
+      "words": 6413,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25088,7 +25088,7 @@
       "path": "neondatabase--agent-skills/skills/neon/SKILL.md",
       "remote_path": "skills/neon/SKILL.md",
       "lines": 475,
-      "words": 4544,
+      "words": 4670,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -25228,8 +25228,8 @@
       "description": "Serverless form handling on Netlify-hosted sites \u2014 detects HTML forms at deploy time, stores submissions, filters spam, and sends notifications. Use when adding a contact form, lead-capture form, file",
       "path": "netlify--context-and-tools/skills/netlify-forms/SKILL.md",
       "remote_path": "skills/netlify-forms/SKILL.md",
-      "lines": 197,
-      "words": 1533,
+      "lines": 199,
+      "words": 1559,
       "code_blocks": 8,
       "languages": [
         "html",
@@ -25239,29 +25239,28 @@
     },
     {
       "name": "netlify-config",
-      "description": "Configure Netlify projects via netlify.toml and the _headers/_redirects files \u2014 covering build settings and deploy contexts alongside environment variables/scopes and the Secrets Controller plus redir",
+      "description": "Configure Netlify builds and routing via netlify.toml, _redirects, and _headers. Use when setting a build command or publish directory, adding redirects or rewrites or proxies, adding an SPA fallback ",
       "path": "netlify--context-and-tools/skills/netlify-config/SKILL.md",
       "remote_path": "skills/netlify-config/SKILL.md",
-      "lines": 303,
-      "words": 2019,
-      "code_blocks": 16,
+      "lines": 301,
+      "words": 2034,
+      "code_blocks": 19,
       "languages": [
+        "bash",
         "js",
-        "sh",
         "toml"
       ]
     },
     {
       "name": "netlify-deploy",
-      "description": "Create and manage Netlify deploys \u2014 Git continuous deployment, CLI manual/anonymous deploys, Deploy to Netlify buttons, drag-and-drop, and per-context netlify.toml build settings. Use when linking a r",
+      "description": "Create, configure, and manage Netlify deploys from code \u2014 reach for this when setting up Git continuous deployment, running netlify deploy or netlify deploy --prod from the CLI, writing netlify.toml d",
       "path": "netlify--context-and-tools/skills/netlify-deploy/SKILL.md",
       "remote_path": "skills/netlify-deploy/SKILL.md",
       "lines": 187,
-      "words": 1697,
-      "code_blocks": 6,
+      "words": 1793,
+      "code_blocks": 5,
       "languages": [
         "bash",
-        "markdown",
         "md",
         "toml",
         "txt"
@@ -25296,12 +25295,12 @@
     },
     {
       "name": "netlify-identity",
-      "description": "Add authentication and user management to a Netlify site with @netlify/identity \u2014 signup/login/logout, OAuth social login (Google/GitHub/GitLab/Bitbucket), server-side user verification in Functions, ",
+      "description": "Add user authentication to a Netlify site with @netlify/identity \u2014 signup/login/logout, Google/GitHub/GitLab/Bitbucket OAuth, server-side getUser() checks, role-based access control, and Identity even",
       "path": "netlify--context-and-tools/skills/netlify-identity/SKILL.md",
       "remote_path": "skills/netlify-identity/SKILL.md",
-      "lines": 294,
-      "words": 2021,
-      "code_blocks": 12,
+      "lines": 262,
+      "words": 1782,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "toml",
@@ -25314,8 +25313,8 @@
       "description": "Deploy and configure web frameworks on Netlify \u2014 build settings and SSR/edge adapters plus local platform emulation and env vars. Use when setting up or fixing a framework deploy (Next.js / Astro / Nu",
       "path": "netlify--context-and-tools/skills/netlify-frameworks/SKILL.md",
       "remote_path": "skills/netlify-frameworks/SKILL.md",
-      "lines": 248,
-      "words": 1906,
+      "lines": 255,
+      "words": 1980,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -25331,8 +25330,8 @@
       "description": "Write, configure, and deploy Netlify Edge Functions (Deno runtime at the network edge) in TypeScript/JavaScript. Use when adding request/response manipulation at the edge \u2014 auth middleware, geolocatio",
       "path": "netlify--context-and-tools/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "skills/netlify-edge-functions/SKILL.md",
-      "lines": 260,
-      "words": 1854,
+      "lines": 267,
+      "words": 1967,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -25360,7 +25359,7 @@
       "path": "netlify--context-and-tools/skills/netlify-database/SKILL.md",
       "remote_path": "skills/netlify-database/SKILL.md",
       "lines": 389,
-      "words": 2536,
+      "words": 2540,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25371,11 +25370,11 @@
     },
     {
       "name": "netlify-access-control",
-      "description": "Picks the right Netlify protection layer for a deployed site and disambiguates the three unrelated things people call \"auth\". Use when a developer wants to password-protect a site or previews, restric",
+      "description": "'Picks the right Netlify site-protection layer and disambiguates the three unrelated \"auth\" concepts users conflate \u2014 app-user login (Netlify Identity), site-load gating (Password Protection / project",
       "path": "netlify--context-and-tools/skills/netlify-access-control/SKILL.md",
       "remote_path": "skills/netlify-access-control/SKILL.md",
-      "lines": 166,
-      "words": 1735,
+      "lines": 119,
+      "words": 1504,
       "code_blocks": 1,
       "languages": [
         "js"
@@ -25383,15 +25382,17 @@
     },
     {
       "name": "netlify-ai-gateway",
-      "description": "Use OpenAI, Anthropic, Google Gemini, or OpenRouter models from Netlify Functions or Edge Functions without managing provider API keys or accounts \u2014 the gateway injects credentials automatically. Reac",
+      "description": "Use Netlify AI Gateway to call OpenAI, Anthropic Claude, Google Gemini, TypeSafe (Jev), or OpenRouter-hosted models (xAI/DeepSeek/Meta/Mistral/Qwen) from Netlify Functions or Edge Functions without ma",
       "path": "netlify--context-and-tools/skills/netlify-ai-gateway/SKILL.md",
       "remote_path": "skills/netlify-ai-gateway/SKILL.md",
-      "lines": 201,
-      "words": 1444,
-      "code_blocks": 8,
+      "lines": 270,
+      "words": 1787,
+      "code_blocks": 9,
       "languages": [
         "js",
-        "jsx"
+        "jsx",
+        "shell",
+        "ts"
       ]
     },
     {
@@ -25411,8 +25412,8 @@
       "description": "Write, configure, and deploy Netlify serverless functions in TypeScript, JavaScript, or Go. Use this when adding an API endpoint or backend route, adding a contact form handler, wiring auth or Identit",
       "path": "netlify--context-and-tools/skills/netlify-functions/SKILL.md",
       "remote_path": "skills/netlify-functions/SKILL.md",
-      "lines": 349,
-      "words": 2388,
+      "lines": 362,
+      "words": 2567,
       "code_blocks": 15,
       "languages": [
         "toml",
@@ -25421,14 +25422,13 @@
     },
     {
       "name": "netlify-blobs",
-      "description": "Store and retrieve unstructured objects, file uploads, and cache-like state on Netlify using the @netlify/blobs key/value API from Functions, Edge Functions, and Build Plugins. Use when a task involve",
+      "description": "Store and retrieve unstructured data like file uploads, images, documents, JSON, and cache-like state with Netlify Blobs. It is a zero-config key/value store accessible from Functions, Edge Functions,",
       "path": "netlify--context-and-tools/skills/netlify-blobs/SKILL.md",
       "remote_path": "skills/netlify-blobs/SKILL.md",
-      "lines": 265,
-      "words": 1662,
-      "code_blocks": 18,
+      "lines": 227,
+      "words": 1901,
+      "code_blocks": 16,
       "languages": [
-        "js",
         "sh",
         "ts"
       ]
@@ -25448,8 +25448,8 @@
       "description": "Serverless form handling on Netlify-hosted sites \u2014 detects HTML forms at deploy time, stores submissions, filters spam, and sends notifications. Use when adding a contact form, lead-capture form, file",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-forms/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-forms/SKILL.md",
-      "lines": 197,
-      "words": 1533,
+      "lines": 199,
+      "words": 1559,
       "code_blocks": 8,
       "languages": [
         "html",
@@ -25459,29 +25459,28 @@
     },
     {
       "name": "netlify-config",
-      "description": "Configure Netlify projects via netlify.toml and the _headers/_redirects files \u2014 covering build settings and deploy contexts alongside environment variables/scopes and the Secrets Controller plus redir",
+      "description": "Configure Netlify builds and routing via netlify.toml, _redirects, and _headers. Use when setting a build command or publish directory, adding redirects or rewrites or proxies, adding an SPA fallback ",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-config/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-config/SKILL.md",
-      "lines": 303,
-      "words": 2019,
-      "code_blocks": 16,
+      "lines": 301,
+      "words": 2034,
+      "code_blocks": 19,
       "languages": [
+        "bash",
         "js",
-        "sh",
         "toml"
       ]
     },
     {
       "name": "netlify-deploy",
-      "description": "Create and manage Netlify deploys \u2014 Git continuous deployment, CLI manual/anonymous deploys, Deploy to Netlify buttons, drag-and-drop, and per-context netlify.toml build settings. Use when linking a r",
+      "description": "Create, configure, and manage Netlify deploys from code \u2014 reach for this when setting up Git continuous deployment, running netlify deploy or netlify deploy --prod from the CLI, writing netlify.toml d",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-deploy/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-deploy/SKILL.md",
       "lines": 187,
-      "words": 1697,
-      "code_blocks": 6,
+      "words": 1793,
+      "code_blocks": 5,
       "languages": [
         "bash",
-        "markdown",
         "md",
         "toml",
         "txt"
@@ -25516,12 +25515,12 @@
     },
     {
       "name": "netlify-identity",
-      "description": "Add authentication and user management to a Netlify site with @netlify/identity \u2014 signup/login/logout, OAuth social login (Google/GitHub/GitLab/Bitbucket), server-side user verification in Functions, ",
+      "description": "Add user authentication to a Netlify site with @netlify/identity \u2014 signup/login/logout, Google/GitHub/GitLab/Bitbucket OAuth, server-side getUser() checks, role-based access control, and Identity even",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-identity/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-identity/SKILL.md",
-      "lines": 294,
-      "words": 2021,
-      "code_blocks": 12,
+      "lines": 262,
+      "words": 1782,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "toml",
@@ -25534,8 +25533,8 @@
       "description": "Deploy and configure web frameworks on Netlify \u2014 build settings and SSR/edge adapters plus local platform emulation and env vars. Use when setting up or fixing a framework deploy (Next.js / Astro / Nu",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-frameworks/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-frameworks/SKILL.md",
-      "lines": 248,
-      "words": 1906,
+      "lines": 255,
+      "words": 1980,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -25551,8 +25550,8 @@
       "description": "Write, configure, and deploy Netlify Edge Functions (Deno runtime at the network edge) in TypeScript/JavaScript. Use when adding request/response manipulation at the edge \u2014 auth middleware, geolocatio",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-edge-functions/SKILL.md",
-      "lines": 260,
-      "words": 1854,
+      "lines": 267,
+      "words": 1967,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -25580,7 +25579,7 @@
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-database/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-database/SKILL.md",
       "lines": 389,
-      "words": 2536,
+      "words": 2540,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25591,11 +25590,11 @@
     },
     {
       "name": "netlify-access-control",
-      "description": "Picks the right Netlify protection layer for a deployed site and disambiguates the three unrelated things people call \"auth\". Use when a developer wants to password-protect a site or previews, restric",
+      "description": "'Picks the right Netlify site-protection layer and disambiguates the three unrelated \"auth\" concepts users conflate \u2014 app-user login (Netlify Identity), site-load gating (Password Protection / project",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-access-control/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-access-control/SKILL.md",
-      "lines": 166,
-      "words": 1735,
+      "lines": 119,
+      "words": 1504,
       "code_blocks": 1,
       "languages": [
         "js"
@@ -25603,15 +25602,17 @@
     },
     {
       "name": "netlify-ai-gateway",
-      "description": "Use OpenAI, Anthropic, Google Gemini, or OpenRouter models from Netlify Functions or Edge Functions without managing provider API keys or accounts \u2014 the gateway injects credentials automatically. Reac",
+      "description": "Use Netlify AI Gateway to call OpenAI, Anthropic Claude, Google Gemini, TypeSafe (Jev), or OpenRouter-hosted models (xAI/DeepSeek/Meta/Mistral/Qwen) from Netlify Functions or Edge Functions without ma",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-ai-gateway/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-ai-gateway/SKILL.md",
-      "lines": 201,
-      "words": 1444,
-      "code_blocks": 8,
+      "lines": 270,
+      "words": 1787,
+      "code_blocks": 9,
       "languages": [
         "js",
-        "jsx"
+        "jsx",
+        "shell",
+        "ts"
       ]
     },
     {
@@ -25631,8 +25632,8 @@
       "description": "Write, configure, and deploy Netlify serverless functions in TypeScript, JavaScript, or Go. Use this when adding an API endpoint or backend route, adding a contact form handler, wiring auth or Identit",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-functions/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-functions/SKILL.md",
-      "lines": 349,
-      "words": 2388,
+      "lines": 362,
+      "words": 2567,
       "code_blocks": 15,
       "languages": [
         "toml",
@@ -25641,14 +25642,13 @@
     },
     {
       "name": "netlify-blobs",
-      "description": "Store and retrieve unstructured objects, file uploads, and cache-like state on Netlify using the @netlify/blobs key/value API from Functions, Edge Functions, and Build Plugins. Use when a task involve",
+      "description": "Store and retrieve unstructured data like file uploads, images, documents, JSON, and cache-like state with Netlify Blobs. It is a zero-config key/value store accessible from Functions, Edge Functions,",
       "path": "netlify--context-and-tools/agent-plugin/skills/netlify-blobs/SKILL.md",
       "remote_path": "agent-plugin/skills/netlify-blobs/SKILL.md",
-      "lines": 265,
-      "words": 1662,
-      "code_blocks": 18,
+      "lines": 227,
+      "words": 1901,
+      "code_blocks": 16,
       "languages": [
-        "js",
         "sh",
         "ts"
       ]
@@ -25658,8 +25658,8 @@
       "description": "Serverless form handling on Netlify-hosted sites \u2014 detects HTML forms at deploy time, stores submissions, filters spam, and sends notifications. Use when adding a contact form, lead-capture form, file",
       "path": "netlify--context-and-tools/codex/skills/netlify-forms/SKILL.md",
       "remote_path": "codex/skills/netlify-forms/SKILL.md",
-      "lines": 197,
-      "words": 1533,
+      "lines": 199,
+      "words": 1559,
       "code_blocks": 8,
       "languages": [
         "html",
@@ -25669,29 +25669,28 @@
     },
     {
       "name": "netlify-config",
-      "description": "Configure Netlify projects via netlify.toml and the _headers/_redirects files \u2014 covering build settings and deploy contexts alongside environment variables/scopes and the Secrets Controller plus redir",
+      "description": "Configure Netlify builds and routing via netlify.toml, _redirects, and _headers. Use when setting a build command or publish directory, adding redirects or rewrites or proxies, adding an SPA fallback ",
       "path": "netlify--context-and-tools/codex/skills/netlify-config/SKILL.md",
       "remote_path": "codex/skills/netlify-config/SKILL.md",
-      "lines": 303,
-      "words": 2019,
-      "code_blocks": 16,
+      "lines": 301,
+      "words": 2034,
+      "code_blocks": 19,
       "languages": [
+        "bash",
         "js",
-        "sh",
         "toml"
       ]
     },
     {
       "name": "netlify-deploy",
-      "description": "Create and manage Netlify deploys \u2014 Git continuous deployment, CLI manual/anonymous deploys, Deploy to Netlify buttons, drag-and-drop, and per-context netlify.toml build settings. Use when linking a r",
+      "description": "Create, configure, and manage Netlify deploys from code \u2014 reach for this when setting up Git continuous deployment, running netlify deploy or netlify deploy --prod from the CLI, writing netlify.toml d",
       "path": "netlify--context-and-tools/codex/skills/netlify-deploy/SKILL.md",
       "remote_path": "codex/skills/netlify-deploy/SKILL.md",
       "lines": 187,
-      "words": 1697,
-      "code_blocks": 6,
+      "words": 1793,
+      "code_blocks": 5,
       "languages": [
         "bash",
-        "markdown",
         "md",
         "toml",
         "txt"
@@ -25726,12 +25725,12 @@
     },
     {
       "name": "netlify-identity",
-      "description": "Add authentication and user management to a Netlify site with @netlify/identity \u2014 signup/login/logout, OAuth social login (Google/GitHub/GitLab/Bitbucket), server-side user verification in Functions, ",
+      "description": "Add user authentication to a Netlify site with @netlify/identity \u2014 signup/login/logout, Google/GitHub/GitLab/Bitbucket OAuth, server-side getUser() checks, role-based access control, and Identity even",
       "path": "netlify--context-and-tools/codex/skills/netlify-identity/SKILL.md",
       "remote_path": "codex/skills/netlify-identity/SKILL.md",
-      "lines": 294,
-      "words": 2021,
-      "code_blocks": 12,
+      "lines": 262,
+      "words": 1782,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "toml",
@@ -25744,8 +25743,8 @@
       "description": "Deploy and configure web frameworks on Netlify \u2014 build settings and SSR/edge adapters plus local platform emulation and env vars. Use when setting up or fixing a framework deploy (Next.js / Astro / Nu",
       "path": "netlify--context-and-tools/codex/skills/netlify-frameworks/SKILL.md",
       "remote_path": "codex/skills/netlify-frameworks/SKILL.md",
-      "lines": 248,
-      "words": 1906,
+      "lines": 255,
+      "words": 1980,
       "code_blocks": 14,
       "languages": [
         "bash",
@@ -25761,8 +25760,8 @@
       "description": "Write, configure, and deploy Netlify Edge Functions (Deno runtime at the network edge) in TypeScript/JavaScript. Use when adding request/response manipulation at the edge \u2014 auth middleware, geolocatio",
       "path": "netlify--context-and-tools/codex/skills/netlify-edge-functions/SKILL.md",
       "remote_path": "codex/skills/netlify-edge-functions/SKILL.md",
-      "lines": 260,
-      "words": 1854,
+      "lines": 267,
+      "words": 1967,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -25790,7 +25789,7 @@
       "path": "netlify--context-and-tools/codex/skills/netlify-database/SKILL.md",
       "remote_path": "codex/skills/netlify-database/SKILL.md",
       "lines": 389,
-      "words": 2536,
+      "words": 2540,
       "code_blocks": 21,
       "languages": [
         "bash",
@@ -25801,11 +25800,11 @@
     },
     {
       "name": "netlify-access-control",
-      "description": "Picks the right Netlify protection layer for a deployed site and disambiguates the three unrelated things people call \"auth\". Use when a developer wants to password-protect a site or previews, restric",
+      "description": "'Picks the right Netlify site-protection layer and disambiguates the three unrelated \"auth\" concepts users conflate \u2014 app-user login (Netlify Identity), site-load gating (Password Protection / project",
       "path": "netlify--context-and-tools/codex/skills/netlify-access-control/SKILL.md",
       "remote_path": "codex/skills/netlify-access-control/SKILL.md",
-      "lines": 166,
-      "words": 1735,
+      "lines": 119,
+      "words": 1504,
       "code_blocks": 1,
       "languages": [
         "js"
@@ -25813,15 +25812,17 @@
     },
     {
       "name": "netlify-ai-gateway",
-      "description": "Use OpenAI, Anthropic, Google Gemini, or OpenRouter models from Netlify Functions or Edge Functions without managing provider API keys or accounts \u2014 the gateway injects credentials automatically. Reac",
+      "description": "Use Netlify AI Gateway to call OpenAI, Anthropic Claude, Google Gemini, TypeSafe (Jev), or OpenRouter-hosted models (xAI/DeepSeek/Meta/Mistral/Qwen) from Netlify Functions or Edge Functions without ma",
       "path": "netlify--context-and-tools/codex/skills/netlify-ai-gateway/SKILL.md",
       "remote_path": "codex/skills/netlify-ai-gateway/SKILL.md",
-      "lines": 201,
-      "words": 1444,
-      "code_blocks": 8,
+      "lines": 270,
+      "words": 1787,
+      "code_blocks": 9,
       "languages": [
         "js",
-        "jsx"
+        "jsx",
+        "shell",
+        "ts"
       ]
     },
     {
@@ -25841,8 +25842,8 @@
       "description": "Write, configure, and deploy Netlify serverless functions in TypeScript, JavaScript, or Go. Use this when adding an API endpoint or backend route, adding a contact form handler, wiring auth or Identit",
       "path": "netlify--context-and-tools/codex/skills/netlify-functions/SKILL.md",
       "remote_path": "codex/skills/netlify-functions/SKILL.md",
-      "lines": 349,
-      "words": 2388,
+      "lines": 362,
+      "words": 2567,
       "code_blocks": 15,
       "languages": [
         "toml",
@@ -25851,14 +25852,13 @@
     },
     {
       "name": "netlify-blobs",
-      "description": "Store and retrieve unstructured objects, file uploads, and cache-like state on Netlify using the @netlify/blobs key/value API from Functions, Edge Functions, and Build Plugins. Use when a task involve",
+      "description": "Store and retrieve unstructured data like file uploads, images, documents, JSON, and cache-like state with Netlify Blobs. It is a zero-config key/value store accessible from Functions, Edge Functions,",
       "path": "netlify--context-and-tools/codex/skills/netlify-blobs/SKILL.md",
       "remote_path": "codex/skills/netlify-blobs/SKILL.md",
-      "lines": 265,
-      "words": 1662,
-      "code_blocks": 18,
+      "lines": 227,
+      "words": 1901,
+      "code_blocks": 16,
       "languages": [
-        "js",
         "sh",
         "ts"
       ]
@@ -157342,8 +157342,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/peer-message/SKILL.md",
       "remote_path": "peer-message/SKILL.md",
-      "lines": 86,
-      "words": 478,
+      "lines": 89,
+      "words": 521,
       "code_blocks": 0,
       "languages": []
     },
@@ -157377,7 +157377,7 @@
       "path": "daymade--claude-code-skills/llm-wiki-setup/SKILL.md",
       "remote_path": "llm-wiki-setup/SKILL.md",
       "lines": 95,
-      "words": 510,
+      "words": 521,
       "code_blocks": 3,
       "languages": [
         "bash"
@@ -157792,8 +157792,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 443,
-      "words": 4760,
+      "lines": 444,
+      "words": 4832,
       "code_blocks": 8,
       "languages": [
         "bash",
@@ -157815,8 +157815,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 337,
-      "words": 2522,
+      "lines": 349,
+      "words": 2699,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -177147,6 +177147,30 @@
         "json",
         "markdown"
       ]
+    }
+  ],
+  "ayghri--i-have-adhd": [
+    {
+      "name": "i-have-adhd",
+      "description": "'Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-",
+      "path": "ayghri--i-have-adhd/skills/i-have-adhd/SKILL.md",
+      "remote_path": "skills/i-have-adhd/SKILL.md",
+      "lines": 143,
+      "words": 1242,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "i-have-adhd",
+      "description": "'Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-",
+      "path": "ayghri--i-have-adhd/.cursor/skills/i-have-adhd/SKILL.md",
+      "remote_path": ".cursor/skills/i-have-adhd/SKILL.md",
+      "lines": 143,
+      "words": 1242,
+      "code_blocks": 1,
+      "languages": [],
+      "license": "MIT"
     }
   ]
 }
