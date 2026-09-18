@@ -503,5 +503,10 @@
     "url": "https://github.com/shaunburdick/skills",
     "dir": "shaunburdick--skills",
     "description": "Shaun Burdick skills collection"
+  },
+  {
+    "url": "https://github.com/ayghri/i-have-adhd",
+    "dir": "ayghri--i-have-adhd",
+    "description": "A skill to stop your coding agent from burying the answer. ADHD-friendly output."
   }
 ]
