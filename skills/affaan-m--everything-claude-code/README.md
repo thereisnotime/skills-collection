@@ -42,8 +42,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/affaan-m/ECC/stargazers"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.ecc.tools%2Fbadge%2Fstars&style=flat" alt="Stars" /></a>
-  <a href="https://github.com/affaan-m/ECC/network/members"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.ecc.tools%2Fbadge%2Fforks&style=flat" alt="Forks" /></a>
+  <a href="https://github.com/affaan-m/ECC"><img src="https://img.shields.io/github/stars/affaan-m/ECC?style=flat" alt="GitHub stars" /></a>
+  <a href="https://github.com/affaan-m/ECC/forks"><img src="https://img.shields.io/github/forks/affaan-m/ECC?style=flat" alt="GitHub forks" /></a>
   <a href="https://github.com/affaan-m/ECC/graphs/contributors"><img src="https://img.shields.io/github/contributors/affaan-m/ECC?style=flat" alt="Contributors" /></a>
   <a href="https://github.com/marketplace/ecc-tools"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.ecc.tools%2Fbadge%2Finstalls&logo=github" alt="GitHub App installs" /></a>
 </p>
@@ -152,8 +152,8 @@ Access to 68 agents, 292 skills, and 94 legacy command shims, plus hooks, rules,
 <p align="center">
   <a href="https://www.star-history.com/affaan-m/ecc">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/star-history-dark.svg" />
-      <img src="assets/star-history-light.svg" alt="ECC star history: first 40,000 stars, January 18 to February 7, 2026" width="100%" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=affaan-m/ECC&type=Date&theme=dark" />
+      <img src="https://api.star-history.com/svg?repos=affaan-m/ECC&type=Date" alt="Live star history chart for affaan-m/ECC" width="100%" />
     </picture>
   </a>
 </p>

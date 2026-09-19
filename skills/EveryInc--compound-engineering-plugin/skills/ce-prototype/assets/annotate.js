@@ -56,6 +56,11 @@
   layer.className = "ce-annotate-layer"
   shadow.appendChild(layer)
 
+  const pinTip = document.createElement("div")
+  pinTip.className = "ce-annotate-pin-tip"
+  pinTip.hidden = true
+  shadow.appendChild(pinTip)
+
   const composer = document.createElement("form")
   composer.className = "ce-annotate-composer"
   composer.hidden = true
@@ -80,7 +85,7 @@
 
   const overlaySession = document.currentScript?.getAttribute("data-ce-session") || ""
   const STATE_KEY = overlaySession ? `ce-annotate-state:${overlaySession}` : "ce-annotate-state"
-  const PIN_STATUS = { held: "pending", queued: "pending", working: "working", done: "attached" }
+  const PIN_STATUS = { held: "pending", queued: "pending", working: "working" }
   let commentToolOn = false
   let sessionEnded = false
   let lastPointer = { x: 0, y: 0 }
@@ -155,6 +160,7 @@
         pins.push(pin)
       }
     }
+    dropAppliedPins()
     if (saved.sessionEnded) {
       markEnded()
       return true
@@ -179,11 +185,11 @@
     } catch {
       node = null
     }
-    draft = { selector: saved.selector, textSnippet: saved.textSnippet, rect: saved.rect, x: saved.x, y: saved.y }
+    draft = { selector: saved.selector, textSnippet: saved.textSnippet, rect: saved.rect, point: saved.point, x: saved.x, y: saved.y }
     composer.hidden = false
     if (node) {
       const rect = node.getBoundingClientRect()
-      Object.assign(draft, positionFromNode(node))
+      Object.assign(draft, positionFromNode(node, draft))
       placeComposer(rect.left, rect.top + rect.height)
     } else {
       composer.style.left = saved.left || ""
@@ -198,12 +204,21 @@
   function applyAnnotationStates(states) {
     if (!states || typeof states !== "object") return
     annotationStates = states
+    dropAppliedPins()
     for (const pin of pins) {
       const status = PIN_STATUS[states[pin.id]]
       if (status) pin.status = status
     }
     reattachPins()
     syncStopButton()
+  }
+
+  // An applied note is answered by the revised screen. Its pin would only
+  // point at whatever the old selector matches now.
+  function dropAppliedPins() {
+    for (let i = pins.length - 1; i >= 0; i--) {
+      if (annotationStates[pins[i].id] === "done") pins.splice(i, 1)
+    }
   }
 
   function unflushedCount() {
@@ -310,7 +325,22 @@
     syncSubmit()
   }
 
+  // Pins stay click-through so a note on a control never blocks that control;
+  // the comment shows by pointer position instead of a hover target.
+  const PIN_SIZE = 22
+  function showPinTipAt(x, y) {
+    const pin = pins.findLast(
+      (p) => pinOnThisPage(p) && x >= p.x && x <= p.x + PIN_SIZE && y >= p.y && y <= p.y + PIN_SIZE,
+    )
+    pinTip.hidden = !pin
+    if (!pin) return
+    pinTip.textContent = pin.comment
+    pinTip.style.left = `${Math.max(0, Math.min(pin.x + PIN_SIZE + 4, window.innerWidth - 260))}px`
+    pinTip.style.top = `${pin.y}px`
+  }
+
   function renderPins() {
+    pinTip.hidden = true
     layer.replaceChildren()
     for (const pin of pins) {
       if (!pinOnThisPage(pin)) continue
@@ -325,8 +355,16 @@
     }
   }
 
-  function positionFromNode(node) {
+  // A pin stays where it was dropped inside its target, so a note on a large
+  // element does not jump to that element's corner.
+  function positionFromNode(node, pin) {
     const rect = node.getBoundingClientRect()
+    const was = pin && pin.rect
+    if (was && pin.point && was.width > 0 && was.height > 0) {
+      const fx = Math.max(0, Math.min(1, (pin.point.x - was.x) / was.width))
+      const fy = Math.max(0, Math.min(1, (pin.point.y - was.y) / was.height))
+      return { x: rect.left + fx * rect.width, y: rect.top + fy * rect.height }
+    }
     return { x: rect.left + Math.min(12, rect.width / 2), y: rect.top + 4 }
   }
 
@@ -343,7 +381,7 @@
       const queued = pin.status === "pending" || pin.status === "working"
       if (node) {
         if (!queued) pin.status = "attached"
-        Object.assign(pin, positionFromNode(node))
+        Object.assign(pin, positionFromNode(node, pin))
       } else if (!queued) {
         pin.status = "target-gone"
       }
@@ -358,20 +396,27 @@
     stop.hidden = true
     setStatus("Session ended")
     closeComposer()
+    pins.length = 0
+    renderPins()
   }
 
   function openComposer(target, event) {
     const selector = cssPath(target)
     if (!selector) return
+    const box = target.getBoundingClientRect()
     draft = {
-      ...positionFromNode(target),
+      x: event.clientX,
+      y: event.clientY,
       selector,
       textSnippet: (target.textContent || "").trim().slice(0, 240),
-      rect: {
+      rect: { x: box.left, y: box.top, width: box.width, height: box.height },
+      // On a canvas or empty space the target says little; the point is what
+      // the explorer indicated.
+      point: {
         x: event.clientX,
         y: event.clientY,
-        width: target.getBoundingClientRect().width,
-        height: target.getBoundingClientRect().height,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
       },
     }
     composer.hidden = false
@@ -412,10 +457,82 @@
     return node || prototypeRoot()
   }
 
+  // Hit testing skips pointer-events:none, which is how labels and headlines
+  // laid over a canvas are usually styled. What was indicated is the topmost
+  // painted element at the point with those counted, so every visible one
+  // smaller than the hit element joins a single hit test. One at a time would
+  // let a label win while another unhittable layer is painted over it.
+  function unhittableElementAt(x, y, hit) {
+    const hitBox = hit.getBoundingClientRect()
+    const hitArea = hitBox.width * hitBox.height
+    const candidates = []
+    for (const el of document.body.querySelectorAll("*")) {
+      if (el === host || host.contains(el)) continue
+      const box = el.getBoundingClientRect()
+      const area = box.width * box.height
+      if (!area || area >= hitArea) continue
+      if (x < box.left || x > box.right || y < box.top || y > box.bottom) continue
+      if (getComputedStyle(el).pointerEvents !== "none") continue
+      const visible = el.checkVisibility
+        ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+        : getComputedStyle(el).visibility === "visible"
+      if (visible && paintsAt(el, x, y)) candidates.push(el)
+    }
+    if (candidates.length === 0) return null
+    const saved = candidates.map((el) => [
+      el,
+      el.style.getPropertyValue("pointer-events"),
+      el.style.getPropertyPriority("pointer-events"),
+    ])
+    for (const el of candidates) el.style.setProperty("pointer-events", "auto", "important")
+    try {
+      // The top element can be a part of a candidate, such as a shape inside
+      // an svg, which became hittable by inheritance.
+      let top = pageElementFromPoint(x, y)
+      while (top && !candidates.includes(top)) top = top.parentElement
+      return top || null
+    } finally {
+      for (const [el, value, priority] of saved) {
+        if (value) el.style.setProperty("pointer-events", value, priority)
+        else el.style.removeProperty("pointer-events")
+      }
+    }
+  }
+
+  // A box that contains the point can paint nothing there: a positioned
+  // wrapper around labels has a box and no pixels of its own. Only what the
+  // element itself draws counts, so a wrapper's children are judged as themselves.
+  const REPLACED = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE", "IFRAME", "OBJECT", "EMBED", "INPUT", "SELECT", "TEXTAREA", "BUTTON"])
+  function paintsAt(el, x, y) {
+    if (REPLACED.has(el.tagName.toUpperCase())) return true
+    const style = getComputedStyle(el)
+    // Alpha is the fourth component; `rgb(255, 204, 0)` also ends in ", 0)".
+    const transparent = (color) => color === "transparent" || /^rgba\((?:[^,]+,){3}\s*0(?:\.0+)?\)$/.test(color)
+    if (!transparent(style.backgroundColor) || style.backgroundImage !== "none") return true
+    // A border paints only its own band, not the interior it surrounds.
+    const box = el.getBoundingClientRect()
+    const depth = { Top: y - box.top, Right: box.right - x, Bottom: box.bottom - y, Left: x - box.left }
+    for (const side of ["Top", "Right", "Bottom", "Left"]) {
+      const width = parseFloat(style[`border${side}Width`])
+      if (!(width > 0) || style[`border${side}Style`] === "none" || transparent(style[`border${side}Color`])) continue
+      if (depth[side] >= 0 && depth[side] <= width) return true
+    }
+    const range = document.createRange()
+    for (const node of el.childNodes) {
+      if (node.nodeType !== 3 || !node.nodeValue.trim()) continue
+      range.selectNodeContents(node)
+      for (const box of range.getClientRects()) {
+        if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) return true
+      }
+    }
+    return false
+  }
+
   function targetFromCatcher(event) {
     catcher.style.pointerEvents = "none"
     try {
-      return pageElementFromPoint(event.clientX, event.clientY)
+      const hit = pageElementFromPoint(event.clientX, event.clientY)
+      return unhittableElementAt(event.clientX, event.clientY, hit) || hit
     } finally {
       catcher.style.pointerEvents = ""
     }
@@ -522,6 +639,7 @@
       selector: draft.selector,
       textSnippet: draft.textSnippet,
       rect: draft.rect,
+      point: draft.point,
     }
     const submission = { ...payload, x: draft.x, y: draft.y }
     inFlight = true
@@ -618,6 +736,7 @@
     sawPointer = true
     lastPointer.x = event.clientX
     lastPointer.y = event.clientY
+    showPinTipAt(event.clientX, event.clientY)
   }, { capture: true, passive: true })
 
   document.addEventListener("keydown", (event) => {

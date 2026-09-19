@@ -777,6 +777,8 @@ async function main() {
       },
     });
     assert.strictEqual(initialized.id, 0);
+    assert.match(initialized.result.instructions, /host-bound harness identity/);
+    assert.match(initialized.result.instructions, /does not provide OAuth/);
     await service.handle({
       jsonrpc: '2.0',
       method: 'notifications/initialized',

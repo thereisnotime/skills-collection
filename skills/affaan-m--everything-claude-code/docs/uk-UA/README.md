@@ -27,8 +27,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/affaan-m/ECC/stargazers"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.ecc.tools%2Fbadge%2Fstars&style=flat" alt="Stars" /></a>
-  <a href="https://github.com/affaan-m/ECC/network/members"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.ecc.tools%2Fbadge%2Fforks&style=flat" alt="Forks" /></a>
+  <a href="https://github.com/affaan-m/ECC"><img src="https://img.shields.io/github/stars/affaan-m/ECC?style=flat" alt="GitHub stars" /></a>
+  <a href="https://github.com/affaan-m/ECC/forks"><img src="https://img.shields.io/github/forks/affaan-m/ECC?style=flat" alt="GitHub forks" /></a>
   <a href="https://github.com/affaan-m/ECC/graphs/contributors"><img src="https://img.shields.io/github/contributors/affaan-m/ECC?style=flat" alt="Contributors" /></a>
   <a href="https://github.com/marketplace/ecc-tools"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fapi.ecc.tools%2Fbadge%2Finstalls&logo=github" alt="GitHub App installs" /></a>
 </p>
