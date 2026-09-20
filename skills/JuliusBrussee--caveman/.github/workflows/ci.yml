@@ -8,32 +8,28 @@ on:
 permissions:
   contents: read
 
+# One live run per PR (or per branch on push); a newer push supersedes it.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Node 18 is the supported floor (engines ">=18"; bin/install.js refuses to
+  # run below it) and the only version nothing else covers: engine-ci's
+  # root-surfaces job and the macos job below already run these suites on 22.
   node:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      matrix:
-        node-version: [18, 20, 22]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: ${{ matrix.node-version }}
-      # package.json's "test" passes --test-force-exit, which needs Node >=20.14.
-      # Node 18 is still a supported RUNTIME (engines ">=18"; bin/install.js
-      # refuses to run below 18), so it stays in the matrix and runs the suite
-      # without the flag rather than being dropped — testing a version we claim
-      # to support matters more than uniform invocation. Verified flagless on
-      # 18.20.8: 172/172, no hang. The job timeout is the backstop the flag
-      # would otherwise provide.
+          node-version: 18
+      # package.json's "test" passes --test-force-exit, which needs Node >=20.14,
+      # so the suite runs flagless here. Verified on 18.20.8: 172/172, no hang.
+      # The job timeout is the backstop the flag would otherwise provide.
       - name: Installer test suite
-        run: |
-          if node -e 'process.exit(process.versions.node.split(".")[0] >= 20 ? 0 : 1)'; then
-            npm test
-          else
-            node --test tests/installer/*.test.mjs tests/hooks/*.test.mjs
-          fi
+        run: node --test tests/installer/*.test.mjs tests/hooks/*.test.mjs
       - name: Standalone hook/tool tests
         run: |
           for f in tests/test_*.js; do
@@ -41,21 +37,8 @@ jobs:
             node "$f"
           done
 
-  python:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.11'
-      # Several python tests shell out to node for hook checks — don't rely
-      # on the runner image happening to ship it.
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-      - name: Python test suite
-        run: python -m unittest discover -s tests -v
+  # The Python suites run on ubuntu in engine-ci's root-surfaces job and on
+  # macOS below; no separate ubuntu Python job here.
 
   # The Windows surface nothing else covers.
   #

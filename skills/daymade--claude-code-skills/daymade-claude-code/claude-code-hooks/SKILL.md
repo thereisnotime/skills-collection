@@ -105,7 +105,9 @@ The loop may be created entirely by an agent repeatedly applying a prose rule.
   right reason to route such a rule to Stop). That guarantee, however, does
   not extend to proving the `.prompt` field always originated from a
   keystroke: a background task-notification's own report text can populate
-  it too, with nothing in the stdin JSON marking the difference — #30. A rule like "the model must not invent a shorthand name
+  it too, and so can a teammate's or another session's message — no field in
+  the stdin JSON marks the difference, only the wrapper tag the text opens
+  with — #30. A rule like "the model must not invent a shorthand name
   for something it hasn't verified" belongs on Stop; put it on
   `UserPromptSubmit` instead and it will (a) never once catch what it was
   built for, since that text never flows through that event, and (b)
@@ -368,9 +370,13 @@ skeleton: Pattern C in [references/hook_patterns.md](references/hook_patterns.md
   every profile was converged. Register in the **main** profile's settings
   (`~/.claude/settings.json` in this setup; the Registration section of
   [references/hook_patterns.md](references/hook_patterns.md) has the exact jsonc
-  shape) — PreToolUse → matcher `Bash` → your hook — then converge the rest (this setup
-  uses `sync-profile-settings.py --all`, owned by the `claude-switch-models-setup`
-  skill). A SessionStart health check greps each profile for the Tier-0 guards to
+  shape) — PreToolUse → matcher `Bash` → your hook — and nothing further: in this
+  setup the converger is registered as a SessionStart hook **without arguments**
+  (`sync-profile-settings.py`, owned by the `claude-switch-models-setup` skill),
+  so the next profile to start a session carries the registration into every
+  profile. `--all` is the human mode — run it once by hand when you edited
+  settings and want the change live now instead of at the next session start.
+  A SessionStart health check greps each profile for the Tier-0 guards to
   catch drift. Settings edits are picked up by the CLI's file watcher (official
   hooks docs), so registration is live without a restart — confirm by watching
   the guard fire on a safe probe, or at next session's health-check line.
@@ -401,6 +407,16 @@ skeleton: Pattern C in [references/hook_patterns.md](references/hook_patterns.md
     **does not block the tool call** — so an unanswered dialog does not become a
     "no", it becomes an allow. Bound your wait well under the timeout and make
     no-answer resolve to block *yourself*, before the harness resolves it for you.
+  - ⚠️ **A human gate is only worth raising where its dialog can carry the decision.**
+    The person sees what the hook puts in the box and nothing else — so on a path
+    where the hook's own evidence is empty (it reads state *before* the command runs,
+    and this command creates that state), the dialog is empty too, and what comes
+    back is a reflexive click, not a judgement. On those paths block mechanically and
+    tell the model how to restructure the command so the state becomes observable;
+    keep the dialog for paths that can name the target, the command and the objects.
+    Whatever model-authored text the dialog shows (command, paths) gets
+    whitespace-folded first. Symptom, fix and the recorder-stub calibration:
+    [references/hook_pitfalls.md](references/hook_pitfalls.md) #44.
   - The docs also carry an in-UI channel — PreToolUse `hookSpecificOutput`
     `permissionDecision: "ask"`, which prompts through Claude Code's own interface.
     It is worth knowing about, but **unverified here under `bypassPermissions` /
@@ -1045,6 +1061,65 @@ accident, and its failure direction is a miss.
 
 Sizing, so this doesn't read as a research project: one harvest plus one loop, minutes of
 wall time.
+
+### 10. A guard that blocks legitimate work needs a **consent channel** — and the consent signal must come from a hook that sees the prompt
+
+A guard built to block a failure mode will eventually block a **legitimate,
+user-authorized** instance of that same shape. The user authorizes it in the
+conversation; the guard cannot know. `home-scan-guard` (blocks enumeration of
+personal stash directories) hits this the first time the user says "I authorize
+you to scan my Downloads for the disk cleanup."
+
+**The architectural constraint that decides the design: a PreToolUse hook sees
+the command text, never the conversation.** "The user just authorized this" is a
+fact only a `UserPromptSubmit` hook can observe. So a single hook cannot honor
+verbal authorization — the pattern is necessarily two hooks:
+
+```text
+UserPromptSubmit granter: reads the user's prompt → matches an explicit
+    authorization phrase (consent verb + action noun + target) → writes a
+    time-boxed, path-scoped consent file (mtime = grant time)
+PreToolUse guard: before blocking, reads the consent file — fresh (≤TTL) and
+    covering the target → allow; otherwise block as before
+```
+
+**Design constraints that keep the channel from becoming a bypass (all verified
+in the 2026-09-19 implementation; the instance is `home-scan-guard.sh` +
+`home-scan-consent-granter.sh`, both in `~/scripts/claude-hooks/`):**
+
+- **TTL, always.** A consent file with no expiry is a permanent disarmament.
+  Hours, not days.
+- **Path-scoped, never blanket-by-default.** Authorizing `~/Downloads` must not
+  unlock `~/Pictures`. A wildcard entry is an explicit, separately-phrased act.
+- **The highest-blast-radius rule stays hard-blocked.** For home-scan-guard that
+  is rule A (whole-home recursion): no phrase unlocks it. Decide per guard which
+  rule is consent-eligible; the answer is usually "the narrow one only."
+- **The agent must never hand-write the consent file.** The granter's input is
+  the user's real typed prompt — that is the only thing an agent cannot forge.
+  Hand-writing the file (or synthesizing granter input to match an ambiguous
+  verbal OK) defeats the audit trail and turns the guard decorative. Document
+  this ban in both hook headers.
+- **Ambiguous phrases do not grant.** "我给你授权" alone (no action noun, no
+  target) must not unlock anything. Require verb + (action noun OR named
+  target). The granter's failure direction is a *missed* grant, never a false
+  one — inverse of the guard's.
+- **Revocation by phrase** ("撤销 home-scan 授权") and by file deletion.
+
+**Registration timing (snapshotted, not live):** Claude Code captures the hook
+configuration at session start. **Script edits take effect immediately** (each
+invocation re-reads the file); **registration changes — a new hook — do not fire
+until the next session.** Plan for it: after registering a granter, the current
+session still needs the fallback (user runs one `!`-prefixed command, or the
+agent waits for a restart). Register through `register-hook.sh`, never by
+hand-editing settings.json.
+
+**Calibration is the load-bearing part:** the granter's selftest must prove
+both directions — the grant cases pass AND the ambiguous/negation cases do
+NOT grant (its failure mode is false grant, the guard's is false block; each
+needs its own two-sided probe). The guard's selftest extends to: no consent →
+blocks; fresh scoped consent → allows that path only; expired → blocks;
+consent never unlocks the hard-blocked rule. A stateful selftest (it creates
+the consent file) must back up and restore any real consent file around itself.
 
 ## Build order (in sequence)
 

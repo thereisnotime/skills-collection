@@ -14,6 +14,8 @@
 
 <a href="https://github.com/JuliusBrussee/caveman/stargazers"><img src="https://img.shields.io/github/stars/JuliusBrussee/caveman?style=flat-square&color=F0A63C&label=stars" alt="GitHub stars"></a>
 <a href="https://www.npmjs.com/package/@caveman-ai/cli"><img src="https://img.shields.io/npm/dm/@caveman-ai/cli?style=flat-square&color=F0A63C&label=cli%20downloads" alt="npm downloads"></a>
+<a href="https://www.npmjs.com/package/@caveman-ai/middleware"><img src="https://img.shields.io/npm/v/@caveman-ai/middleware?style=flat-square&color=F0A63C&label=middleware%20npm" alt="middleware on npm"></a>
+<a href="https://pypi.org/project/caveman-middleware/"><img src="https://img.shields.io/pypi/v/caveman-middleware?style=flat-square&color=F0A63C&label=middleware%20pypi" alt="middleware on PyPI"></a>
 <a href="./INSTALL.md"><img src="https://img.shields.io/badge/works_with-30%2B_agents-orange?style=flat-square" alt="30+ agents"></a>
 <a href="#wrap-any-agent"><img src="https://img.shields.io/badge/wraps-10_agents_natively-blue?style=flat-square" alt="10 native wrap profiles"></a>
 <a href="#-license"><img src="https://img.shields.io/badge/license-MIT_%2B_BSL-green?style=flat-square" alt="License"></a>
@@ -36,7 +38,7 @@
 
 <div align="center">
 
-**[See it](#-see-it) · [Quick Start](#-quick-start) · [The Numbers](#-the-numbers) · [In the Wild](#-in-the-wild) · [The Skill](#-the-skill-unpacked) · [The Proxy](#-the-proxy-unpacked) · [Wrap](#wrap-any-agent) · [When to Skip](#-when-to-use--when-to-skip) · [Docs](./docs/README.md)**
+**[See it](#-see-it) · [Quick Start](#-quick-start) · [The Numbers](#-the-numbers) · [How it compares](#-how-it-compares) · [In the Wild](#-in-the-wild) · [The Skill](#-the-skill-unpacked) · [The Proxy](#-the-proxy-unpacked) · [Wrap](#wrap-any-agent) · [Your own app](#-caveman-in-your-own-app) · [When to Skip](#-when-to-use--when-to-skip) · [Docs](./docs/README.md)**
 
 </div>
 
@@ -77,10 +79,11 @@ Caveman no make brain smaller. Caveman make *mouth* smaller.
 
 A token is what AI billing counts, roughly three quarters of a word. Your agent pays for every token it **writes** and every token it **reads**. Most agents write like a cover letter and read like a firehose.
 
-Caveman attacks both ends:
+Caveman attacks both ends, in the agent you run and in the one you build:
 
 - **The skill** shrinks what the agent *says*. One rule file. Free forever. Works in 30+ agents.
 - **The proxy** shrinks what the agent *reads*: logs, test output, JSON, diffs, search results. Runs on your machine. Every squeezed byte gets a backup, so the agent can always pull the original back.
+- **The middleware** does the same inside *your own code*: one wrapper around the LangChain, Vercel AI SDK, OpenAI, or Anthropic call you already make. Tool results get shrunk before the model sees them, the original stays in your history, and the model can fetch it back.
 
 Started as a joke on a Friday in April 2026. Hit 4,000 stars in a week. Now past 100,000, with a research paper, a JetBrains lab test, and a Primeagen reaction video. The joke got serious. The voice did not.
 
@@ -108,6 +111,17 @@ Runs on your machine, between your agent and the AI provider, and shrinks what t
 npm install -g @caveman-ai/cli && caveman setup --install
 caveman claude        # or codex · gemini · aider · kilo · qwen · opencode · hermes · openclaw · pi
 ```
+
+### Your own app: the middleware
+
+Building an agent in code instead of running one in a terminal? Same shrinking, one wrapper around the call you already make. MIT client, alpha today:
+
+```bash
+npm install @caveman-ai/middleware @caveman-ai/sdk        # TypeScript, plus your framework (ai, openai, …)
+pip install 'caveman-middleware[langchain]' caveman-sdk   # Python 3.13+, swap the extra for your framework
+```
+
+Six lines of code and a local runtime. [Full walkthrough below](#-caveman-in-your-own-app).
 
 They stack. Most people start with the small rock and graduate.
 
@@ -228,6 +242,47 @@ Your agent rereads logs, test output, diffs, and half your repo all day. The pro
 | **Memory files** (`/caveman-compress`) | Five real `CLAUDE.md`-style fixtures | **46% smaller on average**, headings, code, paths, and URLs verified intact |
 | **The skill itself** (pixel mode) | Rendered to PNG pages the model reads as an image | **1,069 to 415 estimated tokens, a 61% cut** |
 | **Your harness prefix** (`subagent-tax`) | What every subagent re-sends before doing any work | On one real machine, **219k of a 267k-char request was tool schemas**. Run it on yours |
+
+---
+
+## 🧮 How it compares
+
+Many tool in valley promise small token. They work at different layers, so first what each one touches, then what got measured. Every quote below is from that tool's own README or GitHub page on 2026-09-19.
+
+### What each one touches
+
+| Tool | What it shrinks | Get the original back? | Phones home |
+|---|---|---|---|
+| **Caveman** | What the agent **says** (skill) and what it **reads**: tool output, logs, JSON, diffs, test output, web pages (proxy) | **Always.** Byte-exact original in local SQLite, one recovery handle | CLI: anonymous counts on by default, `caveman telemetry off`. Skill and hooks: never |
+| **[RTK](https://github.com/rtk-ai/rtk)** | Shell command output only: `ls`, `cat`, `grep`, `git`, test runners. `Read` and `Grep` tool calls bypass it | When a command fails or gets cut short, or opt-in for successful runs | Off by default, opt-in |
+| **[Headroom](https://github.com/headroomlabs-ai/headroom)** | Tool output, logs, files, and history, through a local proxy | Yes, reversible cache | On by default, `HEADROOM_BEACON=off` |
+| **[context-mode](https://github.com/mksglu/context-mode)** | Tool output, run in a sandbox so raw data never enters context | Matching sections from a searchable index, not the whole thing back | Never |
+| **[pxpipe](https://github.com/teamchong/pxpipe)** | Text context, re-rendered as images the model reads | **No.** "It is lossy." Misses are silent | Local log only |
+
+### What the tin says, and who checked
+
+| Tool | Says on the tin | Who checked, on what | Found |
+|---|---|---|---|
+| **Caveman** | Only what this page measures | This repo, pinned 54-run Claude Code suite, every answer checked against a known-right answer | **33.2% fewer input tokens, 18/18 answers right** |
+| **Caveman**, skill only | | JetBrains, 86 real coding tasks, paired A/B | **8.5% fewer output tokens, quality flat** (sign test p = 0.82) |
+| **RTK** | "cuts up to 90% of the bash output your agent reads". Their README adds: "it is not the same as cutting your bill by 90%" | JetBrains, same lab, same method, 86 tasks, 425 billed trials | **+7.6% median cost per task** at low reasoning effort (p = 0.004), +0.1% at high. Quality tie |
+| **Headroom** | "20% fewer tokens for coding agents, 60-95% fewer tokens for JSON" | This repo, same 54-run suite as above | **6.7% fewer input tokens, 15/18 answers right** |
+| **context-mode** | "315 KB becomes 5.4 KB. 98% reduction." | Own size numbers only. No quality check published | — |
+| **pxpipe** | "~59–70% lower end-to-end bill" | Own SWE-bench runs | Lite 10/10 both arms. Pro 14/19 with, 15/19 without, and their rerun of the one split says run-to-run variance |
+
+### Same suite, same model, same questions
+
+The one place two of these tools ran side by side against the same known-right answers. Claude Code 2.1.223, claude-sonnet-5, Headroom 0.33.0, six agent-shaped workloads, three runs each, provider-reported input tokens:
+
+| Arm | Answers right | Provider input tokens | vs direct | 95% interval |
+|---|---:|---:|---:|---:|
+| Direct Claude Code | 18/18 | 885,793 | baseline | |
+| **Caveman wrap + skill** | **18/18** | **591,673** | **-33.2%** | **14.6% to 48.5%** |
+| Headroom wrap | 15/18 | 703,202 on its 15 correct runs | -6.7% on those 15 | -0.7% to 17.9% |
+
+Caveman used fewer tokens in 15 of the 18 paired runs. Headroom's 703,202 covers only the 15 runs it answered right, so its 6.7% is against those same 15 direct runs, not against the 885,793 total. Its three failed YAML runs stay in the table and count for nothing. Caveman's one red row, HTML at +9.9%, is in the per-case table above and stays red too. We ran this ourselves, and the raw harness artifacts are not published yet, so it is a pinned report, not something you can re-run from this repo. Method and hashes: [docs/WRAP-BENCHMARK.md](./docs/WRAP-BENCHMARK.md).
+
+RTK, context-mode, and pxpipe were not in that run. RTK rewrites shell output, and this suite hands the agent its data through a tool call, not the shell, so RTK would have sat idle. Different layer, different test. Fair is fair on the rest: RTK's telemetry is opt-in and ours is opt-out, context-mode sends nothing anywhere, and pxpipe ran SWE-bench where we have not. Stack them if you like. Headroom's own README lists caveman as something it happily runs behind.
 
 ---
 
@@ -418,9 +473,59 @@ OpenClaw, for the record, is a lobster. Lobster claw still sharp. Lobster mouth 
 
 The default wrap hands the agent the five MCP tools, the browse server when Chrome resolves, command-output shrink on Claude, opencode, Gemini, Hermes, and OpenClaw, and pixel mode on new skill installs. Codex skips the shrink hook because its runtime rejects the rewrite ([openai/codex#18491](https://github.com/openai/codex/issues/18491)). Turn pieces off in `~/.caveman-cloud/config.json`.
 
-Agent not on the list? Point any provider SDK or framework (Vercel AI SDK, LangChain, LiteLLM, OpenAI Agents, CrewAI, PydanticAI) at the local proxy with a `baseURL` swap: [`integrations/recipes/`](./integrations/recipes/). New native agent is usually one JSON profile in [`agents/profiles/`](./agents/profiles/).
+Agent not on the list, or building your own? Wrap one call natively with the [middleware](#-caveman-in-your-own-app), or point any provider SDK or framework (Vercel AI SDK, LangChain, LiteLLM, OpenAI Agents, CrewAI, PydanticAI) at the local proxy with a `baseURL` swap: [`integrations/recipes/`](./integrations/recipes/). New native agent is usually one JSON profile in [`agents/profiles/`](./agents/profiles/).
 
 </details>
+
+---
+
+## 🧩 Caveman in your own app
+
+The proxy shrinks what a coding agent reads. The middleware does the same thing for the agent *you* are building, in the framework you already use. One wrapper around one call. Before each provider request it swaps big tool results for a shorter copy and hands the model a `caveman_retrieve` tool, so the model can read the original back whenever the short copy is not enough. Your conversation history keeps every original byte. Your provider, your client, your retries, your streaming: untouched.
+
+**TypeScript** (Vercel AI SDK shown):
+
+```diff
++import { createMiddlewareRuntime } from "@caveman-ai/sdk/middleware";
++import { withCaveman } from "@caveman-ai/middleware/ai-sdk";
++
++const runtime = createMiddlewareRuntime({ endpoint: "http://127.0.0.1:8787", mode: "compress" });
++const scope = { namespace: "support", session_id: conversationId, branch_id: "main", cache_epoch: "0" };
++
+-const result = streamText(options);
++const result = streamText(withCaveman(options, { runtime, scope }));
+```
+
+**Python** (LangChain shown):
+
+```diff
++from caveman_cloud.middleware import MiddlewareRuntime, Scope
++from caveman_middleware.langchain import with_caveman_agent
++
++runtime = MiddlewareRuntime(endpoint="http://127.0.0.1:8787", mode="compress")
++scope = Scope("support", conversation_id, "main", "0")
++
+-agent = create_agent(model=model, tools=tools)
++agent = create_agent(**with_caveman_agent({"model": model, "tools": tools}, runtime=runtime, scope=scope))
+```
+
+The runtime is the same local proxy from the big rock, started once beside your app:
+
+```bash
+npm install -g @caveman-ai/cli && caveman setup --install
+CAVEMAN_MODE=compress caveman start     # binds 127.0.0.1:8787; plain `caveman start` only records
+```
+
+| | Frameworks with a native adapter |
+|---|---|
+| **TypeScript** `@caveman-ai/middleware` | Vercel AI SDK · OpenAI · Anthropic · Google GenAI · LangChain · Strands · Mastra · MCP |
+| **Python** `caveman-middleware` | OpenAI · Anthropic · Google GenAI · LangChain + LangGraph · LiteLLM · Strands · Agno · CrewAI · PydanticAI · AutoGen · LlamaIndex · FastAPI · MCP |
+
+Straight talk on the alpha: a runtime left in record mode measures and changes nothing, whichever mode the client asks for, so set both. Decision reports say what was replaced and why, and carry no token counters; provider usage is the only savings number that counts. Runtime unreachable means your original request goes through untouched, unless you opt into strict mode.
+
+Docs: [middleware overview](https://docs.caveman.so/docs/sdk/middleware) · [Vercel AI SDK guide](https://docs.caveman.so/docs/sdk/middleware/vercel-ai-sdk) · [Python guide](https://docs.caveman.so/docs/sdk/middleware/python) · [every framework and version](https://docs.caveman.so/docs/sdk/middleware/frameworks) · [deploy beside your app](https://docs.caveman.so/docs/sdk/middleware/deployment) · package READMEs for [TypeScript](./packages/middleware/typescript/README.md) and [Python](./packages/middleware/python/README.md).
+
+Rather not touch code? Point any SDK at the proxy with a `baseURL` swap instead: [`integrations/recipes/`](./integrations/recipes/).
 
 ---
 
@@ -440,7 +545,7 @@ One idea everywhere: **agent do more with less.**
 
 | Repo                                                                  | What it shrinks                                          | Status            |
 | --------------------------------------------------------------------- | -------------------------------------------------------- | ----------------- |
-| **[caveman](https://github.com/JuliusBrussee/caveman)** *(you here)*  | What the agent **says** (skill) and **reads** (proxy)    | live              |
+| **[caveman](https://github.com/JuliusBrussee/caveman)** *(you here)*  | What the agent **says** (skill), **reads** (proxy), and what **your own app** sends (middleware) | live |
 | **[caveman-browse](https://github.com/JuliusBrussee/caveman-browse)** | What the agent **sees in the browser**                   | live              |
 | **caveman-agent-sdk**                                                 | What your production agent **loads, calls, and spends**  | own repo · in dev |
 | **[cavegemma](https://github.com/JuliusBrussee/cavegemma)**           | The compression **baked into weights** (Gemma fine-tune) | labs              |

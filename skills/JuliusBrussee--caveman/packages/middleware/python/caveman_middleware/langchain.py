@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import functools
+import asyncio
 import copy
 import json
 import uuid
 from dataclasses import asdict
+from contextlib import aclosing
 
 try:
     from langchain.agents.middleware import AgentMiddleware
@@ -239,6 +241,9 @@ class CavemanMiddleware(AgentMiddleware):
             response = await handler(request.override(messages=messages))
             _observe_messages(attempt, response)
             return response
+        except asyncio.CancelledError:
+            attempt.observe("cancelled")
+            raise
         except BaseException:
             attempt.observe("failed")
             raise
@@ -308,6 +313,9 @@ def with_caveman_model(model: BaseChatModel, *, runtime, scope):
                 result = await method(view, config, **kwargs)
                 _observe_messages(attempt, result)
                 return result
+            except asyncio.CancelledError:
+                attempt.observe("cancelled")
+                raise
             except BaseException:
                 attempt.observe("failed")
                 raise
@@ -328,8 +336,9 @@ def with_caveman_model(model: BaseChatModel, *, runtime, scope):
         async def stream(input, config=None, **kwargs):
             view, attempt = await connection.prepare_async(messages(input), config)
             from ._streams import observe_async_iterator
-            async for value in observe_async_iterator(method(view if attempt else input, config, **kwargs), attempt):
-                yield value
+            async with aclosing(observe_async_iterator(method(view if attempt else input, config, **kwargs), attempt)) as observed:
+                async for value in observed:
+                    yield value
         return stream
 
     # Override public operations only on the public model_copy() clone.
@@ -384,6 +393,8 @@ class CavemanDocumentCompressor(BaseDocumentCompressor):
                     candidates=[Candidate(f"document-{i}", d.page_content, d.id or f"document-{i}", kind="artifact") for i, d in enumerate(documents)], binding=binding)
 
     def _compress(self, documents, query):
+        if not isinstance(self.runtime, MiddlewareRuntime):
+            raise TypeError("Synchronous document compression requires MiddlewareRuntime")
         documents = list(documents)
         options = self._options(documents, query)
         return documents if options is None else self._apply_documents(documents, self.runtime.optimize(**options))

@@ -20,9 +20,11 @@ python3 -m unittest discover -s tests           # Python suites
 python3 tests/verify_repo.py                    # repo invariants
 ```
 
-`.github/workflows/ci.yml` runs the same four on ubuntu (Node 18/20/22) and
-macOS, plus a `windows-powershell` job that parses every `.ps1` and drives the
-standalone install/uninstall round trip through the real Git Bash.
+`.github/workflows/ci.yml` runs the Node suites on ubuntu (Node 18, the
+supported floor) and all four on macOS, plus a `windows-powershell` job that
+parses every `.ps1` and drives the standalone install/uninstall round trip
+through the real Git Bash. `engine-ci.yml`'s `root-surfaces` job runs all four
+on ubuntu with Node 22.
 
 The tests that speak directly to this patch:
 

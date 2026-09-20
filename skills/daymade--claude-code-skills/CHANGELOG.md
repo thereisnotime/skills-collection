@@ -7,6 +7,357 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **claude-code-hooks** (`daymade-claude-code` v3.45.0 → v3.46.0): pitfall #30's
+  Fix 4 drops its "unverified … confirm before relying on it" hedge on
+  team-mode deliveries and replaces it with two sources read directly. A
+  production hook's six-week log of `.prompt` prefixes shows the hook firing
+  on `<task-notification`, `<agent-message` and `<cross-session-message`
+  deliveries with the bare wrapper tag first. A team-mode transcript stores
+  the same deliveries as `origin.kind: "peer"` (or with no `origin` at all)
+  behind an `Another Claude session sent a message:` sentence that the hook
+  did not receive that day. Spelled out as a consequence: #20's wrapper
+  forms describe the transcript, not `.prompt`; a hook can detect a delivery
+  from `.prompt` alone, and the entry says when to substring-match the tag
+  and when to anchor it. The Cause paragraph's "cannot structurally tell" and
+  the matching SKILL.md sentence are narrowed to agree: no field marks the
+  difference, the wrapper tag does.
+
+- **self-hosted-runner-mechanisms** (`github-ops` v1.5.0 → v1.6.0): a new
+  "Self-Hosted Runner Mechanisms" section in `references/workflow_operations.md`,
+  recording three platform facts that break runner job hooks and background
+  processes on a real macOS + Windows fleet: job hooks receive the default env
+  vars only, so `GITHUB_RUNNER_NAME` and `GITHUB_TOKEN` arrive empty (read
+  `agentName` from the runner root's `.runner`, or have an `if: always()` step
+  write the token into `$RUNNER_TEMP`) and neither hook has any timeout setting,
+  a Windows runner tears down everything the job-started hook spawned through
+  the per-job Job Object once the hook returns while macOS `nohup ... &`
+  survives (Windows has no `nohup` equivalent — take the snapshot in the
+  job-completed hook instead), and four Windows traps (WSL-launcher
+  `shell: bash`, PATH-less `CreateProcess`,
+  `$ErrorActionPreference='Stop'` exiting a sampling loop after one transient
+  error, PowerShell string-concatenated JSON). The env-var rule is cited to the
+  runner's own design record (ADR 1751) rather than stated from memory, and each
+  entry gives the workaround that was verified on the fleet.
+
+- **claude-code-hooks** (`daymade-claude-code` v3.44.0 → v3.45.0): a new pitfall
+  entry (#44) on confirmation dialogs that reuse a stale trigger's
+  evidence-gathering logic — when the hook's only evidence is state read
+  *before* the command runs, and the new trigger is a single command that both
+  creates and consumes that state, the dialog opens with nothing in it and a
+  human's click stops being a decision. Fix: escalate only on paths where the
+  dialog can name the target, the command, and the objects at stake, and block
+  mechanically (with a restructuring hint, never a silent bypass) everywhere
+  else; fold whitespace in every model-authored string a dialog displays, since
+  an embedded newline renders as indistinguishable extra gate lines. SKILL.md
+  rule 4 gained a matching sub-bullet pointing at the new entry. Anchor:
+  2026-09-20, a commit-scope gate's first fifteen hours in production sent 38
+  dialogs to a human, 36 of them listing zero files. Both READMEs' blurb for
+  this Skill also drops the derived pitfall-count word ("Nine" / "九类"),
+  which had already gone stale before this change, rather than update it to
+  a new number.
+
+- **marketplace-dev** (`daymade-claude-code` v3.43.0 → v3.44.0): a new "Adding a
+  member skill to an existing suite" subsection under Phase 2, because that is the
+  most common marketplace edit and the one that fails across the most CI rounds.
+  Adding a member (not a new standalone plugin) moves four things together: the
+  suite's `skills` array, a strict `metadata.version` bump (a new member changes the
+  layout signature, which `check_version_progression.py` rejects without one even
+  when the plugin `version` was already bumped), a `### **name**` detail section in
+  both `README.md` and `README.zh-CN.md` (`check_doc_skill_lists.py` is a required
+  check), and the suite's invocation list in both READMEs. It also names the PII
+  guard's absolute-path rule and notes that `post_edit_sync_check` only catches the
+  plugin-version bump — items 2–4 have no hook, so run the two validators locally
+  before pushing. Anchor: 2026-09-20 adding macos-permissions to daymade-macos took
+  three CI rounds to converge on these four.
+
+- **macos-permissions** (`daymade-macos` v1.4.0 → v1.5.0): new Skill for
+  diagnosing macOS TCC permission dialogs, opened after a `python3.11`
+  "would like to access data from other apps" (Full Disk Access) prompt kept
+  firing. Its first rule is that **the dialog's displayed name is not the
+  requester**: unsigned executables (uv-managed python, CLI tools) carry
+  `identifier=-` in TCC and are attributed to a responsible parent, while the
+  dialog title shows the interpreter name it currently calls (`python3.11` /
+  `python3.14`), which drifts with version — so the name you are asked to grant
+  can mislead. The Skill routes the two independent sources of truth (the
+  `from Sub:` path in `com.apple.TCC` logs for who is asking, the TCC.db
+  `auth_value` for what is granted), carries the full kTCCService catalogue and
+  auth semantics, and records the uv-in-launchd FDA trap: a launchd-spawned uv
+  has no FDA-bearing parent to inherit from, so it prompts where interactive
+  runs do not (the terminal holds FDA and uv inherits it); granting FDA to the
+  uv binary is the fix and it recurs whenever the binary path changes.
+  `capture-screen` and `macos-watchdog` now point their FDA sections here
+  instead of duplicating it.
+
+- **competitors-analysis** (`competitors-analysis` v1.2.0 → v1.3.0): a hard
+  Stop Gate at the top of the Skill, because it runs as `context: fork` and
+  cannot ask the user anything. When the caller passes no explicit product /
+  market target for THIS invocation, it now stops and reports instead of
+  fabricating one — a plausible task the fork generated itself is still
+  fabricated, not the user's. It also forbids picking a target by listing
+  `$COMPETITORS_BASE`, and the disk-reuse clause only adopts a product
+  directory the caller named this invocation. Anchor: 2026-09-20 a no-arg fork
+  invented an "A2A market" task and ratified it by reusing the on-disk
+  `agent-communication` directory for 1h23m.
+
+- **skill-creator** (`daymade-skill` v1.42.2 → v1.43.0): a rule after the
+  Inline-vs-Fork decision table — a fork skill that requires a target MUST
+  hard-stop when the caller gives none, and the gate must test task provenance,
+  not argument-string presence, because "ask if missing" is inert inside a
+  `context: fork`. Anchor: the same 2026-09-20 incident above; a red-team pass
+  confirmed the fork inherited no context and fabricated its task at ~14s, so
+  the fix targets task origin rather than context-clearing.
+
+- **claude-switch-models-setup** (`daymade-claude-code` v3.41.0 → v3.42.0): a
+  fatal warning against running the profile converger with a synthetic
+  `CLAUDE_MAIN_CONFIG_DIR`. Scope is the union of `~/.claude-profiles/*` and
+  `$CLAUDE_CONFIG_DIR`, so a synthetic main **on its own** — with the profiles
+  root or `$CLAUDE_CONFIG_DIR` still reaching a real profile — converges that
+  real profile toward the fake main: its whole `hooks` object is replaced by
+  whatever the fake main holds and its `env` gains the fake main's keys, so
+  **every guard registered there stops firing**. The run does name `hooks` among
+  the keys it synced, so it reads as routine convergence rather than as damage.
+  All three variables must be synthetic and disposable together.
+  Landed in three places: a dedicated section in `SKILL.md` immediately after
+  the converger's scope and exit-code rules, a short version in the script's
+  module docstring beside the existing scope WHY, and a troubleshooting entry
+  keyed to the symptom (guard hooks gone, unfamiliar `env` keys) with
+  byte-level recovery. The criteria are mechanical rather than visual: echo
+  **both halves of the scope** before a manual run, because an unset
+  `CLAUDE_PROFILES_ROOT` is not a green light — it defaults to the real
+  `~/.claude-profiles`, so every real profile converges while a
+  `CLAUDE_CONFIG_DIR`-only check reads clean. Record the target profile's
+  `settings.json` size before the run and compare after, because `.sync-backup`
+  is written with `shutil.copy2` and therefore preserves the source mtime —
+  **an old backup timestamp does not prove nothing was written**. Fixtures are
+  told to build the subprocess environment from a scrubbed base (`env -u
+  CLAUDE_CONFIG_DIR -u CLAUDE_MAIN_CONFIG_DIR -u CLAUDE_PROFILES_ROOT`), since
+  a shell profile sets these variables and `unset` inside a script does not
+  reliably reach a child process.
+
+- **claude-switch-models-setup** (`daymade-claude-code` v3.42.0 → v3.43.0): the
+  fixture suite's hermeticity tripwire could not see a leak that only touched
+  `.claude.json`. `real_profile_fingerprint()` recorded each real profile's
+  `settings.json` hook-entry and env-key counts and nothing else, and `.claude.json`
+  is inside the converger's scope — the second config layer exists precisely
+  because behavior keys live there. A leak whose synthetic main has an empty
+  `settings.json` layer therefore left the one signal that existed flat while
+  real profiles' behavior keys were rewritten. The same function also did
+  `continue` on `JSONDecodeError`, silently dropping a damaged profile out of the
+  baseline: the tripwire passed on exactly the damage it exists to catch, in the
+  fail-open direction. Two signals replace it. The artifact census counts every
+  `*.sync-backup` and `.sync-*.json` under the profiles root — `write_json_atomic()`
+  makes both and nothing else in the harness names files either way, so a write
+  on *either* layer leaves one behind regardless of which keys moved; it compares
+  (path, size) rather than existence, because these backups already exist in a
+  real tree and the pre-existing ones are not a finding. The profile fingerprint
+  additionally records the `.claude.json` subset the converger is allowed to write
+  (`BEHAVIOR_KEYS | MERGE_KEYS`), each key mapped to its value or an ABSENT
+  sentinel — ABSENT so an *added* key is caught too. Deliberately not the whole
+  file: the harness rewrites a live profile's `.claude.json` continuously
+  (measured during a fixture run — exactly the two profiles with an open session
+  changed, no non-live profile did), so a byte or key-count comparison would
+  redden every run on any machine with a session open and train the tripwire into
+  noise. Restricting to the converger's write set needs no oracle for "is this
+  profile live", which has no reliable machine-readable signal here. A red
+  tripwire now names which profile and which signal moved instead of printing two
+  nested structures. Both sides calibrated rather than trusted for being green: an
+  injected converger write into a synthetic tree — reached through
+  `$CLAUDE_CONFIG_DIR` with `CLAUDE_PROFILES_ROOT` pointed elsewhere, the same
+  union mechanism as the incident — must move the fingerprint and leave a backup,
+  and harness-style churn of keys the converger never touches must move neither.
+  Removing either signal reddens exactly its own assertion. 144 → 158 assertions.
+  Two of those pin the one property nothing else guarded: the fingerprint compares
+  **raw** values and scrubbing happens only when the text is rendered. Move
+  `_scrub` into `_converger_writable` and two dicts differing only in a secret
+  collapse onto one `<redacted>`, the fingerprints compare equal, and signal 1 goes
+  blind to a secret-only write — while every assertion that checks "plaintext is
+  absent from the printed output" stays green. Both properties would fail silently
+  together; that mutation reddens exactly these two and nothing else.
+  Replayed against a copy of the real profiles tree reached through a symlinked
+  `HOME`, the suite is green on 14 real profiles including 28 pre-existing
+  `.sync-backup` files; a behavior-key write injected *while* it runs reddens both
+  signals and names the profile and signal. That replay also caught the failure
+  detail printing live API keys — `mcpServers` is inside the compared subset and
+  carries them in its `env` — so values under a secret-looking key are now
+  redacted on the way to output, without touching the comparison itself.
+
+- **claude-switch-models-setup** (`daymade-claude-code` v3.39.0 → v3.40.0): the
+  profile converger's **default mode now converges every profile**, closing a
+  gap that had been invisible for as long as it existed. Scope used to mean "the
+  profile this session happens to live in" for the argument-free SessionStart
+  call, and nothing ran `--all` on a schedule — so a hook added to the default
+  profile only reached the profiles that had started a session since. Measured
+  2026-09-19 on a 14-profile machine: one guard hook was registered on 4
+  profiles, two more on 6, and two more scripts on 5 each. **No output anywhere
+  named the gap**, because a converged profile prints nothing and a session
+  start never audits the profiles it did not visit. Now every invocation —
+  argument-free, `--all`, or `--check` — covers all of `~/.claude-profiles/*`
+  plus `$CLAUDE_CONFIG_DIR`, and the next profile to start a session carries the
+  backlog for every profile that has not. Making that default safe needed two
+  decouplings, both of which used to be derived from `interactive = bool(args)`:
+  **scope is no longer a flag** (so a future scope flag cannot silently widen or
+  narrow what a session-start run touches), and **strictness is no longer a flag
+  count** — `--all`, a human asking for wider coverage, used to also switch on
+  "exit 2 on a corrupt main file", which is exactly why "just add `--all` to the
+  hook command" is not the fix: it would turn a corrupt main file into a blocked
+  session. Mode is now resolved from the exact flag set through a total table
+  (argument-free / `--all` / `--check` / `--check --all`), each row declaring its
+  own write-vs-audit and lenient-vs-strict fields, and an unlisted combination is
+  refused rather than falling through. Exit codes: the argument-free run returns
+  0 unconditionally — including when a main file is corrupt, where it warns,
+  converges nothing and returns 0 (a corrupt main reads as empty, so converging
+  would strip keys from every profile); `--check` returns 1 on drift, and 2 on a
+  corrupt main file or a profile it could not read; `--all` returns 2 on both of
+  those failures. Convergence still prints one line only per profile it actually
+  changed and nothing when converged, so drift is visible in session-start output
+  instead of hiding. A missing `~/.claude-profiles` is now an empty set rather
+  than an exception on every session start.
+
+  Widening scope from one profile to all of them also made two previously
+  unreachable failure modes reachable, and both are closed rather than merely
+  documented. One malformed profile used to be able to abort the run for every
+  other one — a profile whose `env` is valid JSON but not an object raised
+  `TypeError` inside `sync_profile` — so a failure is now reported per profile
+  and convergence continues with the rest. And `$CLAUDE_CONFIG_DIR` is unioned
+  into the scope only when the directory already carries a `settings.json` or
+  `.claude.json`: without that membership test an unset variable resolves to
+  the cwd, and the settings layer then fabricates a `settings.json` in
+  whatever directory the session started in, reporting it as converged forever
+  after. Fixture suite extended to 136 assertions, covering the new
+  scope (one argument-free run converges a multi-profile fixture), the two
+  corrupt-main sides across all three invocation forms, mode-table totality,
+  silence-when-converged, the unset/non-profile `$CLAUDE_CONFIG_DIR` side, a
+  malformed profile not cancelling its neighbours, and a hermeticity tripwire:
+  the suite builds its subprocess env from a scrubbed base instead of
+  `dict(os.environ)`, because an inherited `CLAUDE_CONFIG_DIR` reaches a live
+  profile through the out-of-root union — a synthetic main then converges that
+  profile's real `hooks` down to nothing, and every guard registered in it goes
+  with them.
+- **claude-code-hooks** (`daymade-claude-code` v3.40.0 → v3.41.0): two shipped
+  instructions named a manual convergence step that no longer exists — register a
+  guard in the main profile, then run `sync-profile-settings.py --all`. That was
+  written when `--all` was the only way to reach the other profiles; the converger
+  is now registered argument-free and converges every profile on any invocation,
+  so the next profile to start a session does it. `--all` stays in both places as
+  the human mode, for propagating an edit immediately instead of at the next
+  session start. The same pass corrects the exit-code line in the
+  `claude-switch-models-setup` entry above, which understated `--check`'s 2 as
+  corrupt-main-only; the `--all` clause is restated to share that wording and
+  was already correct.
+- **claude-switch-models-setup** (`daymade-claude-code` v3.40.0 → v3.41.0) —
+  ships in the same release as the entry above: four places described the
+  human-run modes' exit 2 as corrupt-main-only, when a profile that could not be
+  read returns 2 from `--all` as well. `failed` is set per profile inside the
+  convergence loop's except, and `--all` is strict, so it takes
+  `return 2 if (failed and strict) else 0`. Every description of these codes now
+  agrees: a corrupt main file and an unreadable profile each return 2 under
+  both `--check` and `--all`, and what separates the two modes is that `--check`
+  writes nothing. Fixed in SKILL.md's exit-code list, SKILL.md's
+  SessionStart-registration rule, and the script's own mode docstring; the
+  troubleshooting reference's exit-code sentence covered only the corrupt-main
+  case and now names the per-profile split too. The fixture suite pinned only the
+  corrupt-main side, so the per-profile half of this contract had no assertion
+  behind it — the fixture suite now asserts that a profile whose whole file is
+  valid JSON but not an object makes `--check` and `--all` exit 2 while the
+  argument-free SessionStart call still exits 0, with a drifted profile left in
+  the tree so the 2 is proved to be the failure's rather than the drift's 1.
+  Both new assertions are mutation-calibrated: mutating only the audit return
+  reddens the `--check` one and leaves the `--all` one green, and mutating only
+  the write return does the reverse. 136 → 144 assertions.
+- **stepfun-asr** (`daymade-audio` v1.40.0 → v1.41.0): `transcribe()` now always
+  returns an `errors` list of the raw SSE `error`-event payloads (empty when none
+  fired), including on the success path, where any error event used to be silently
+  discarded once transcript text came back non-empty — found reviewing a stricter
+  external consumer that treats any error event as a failure and had no way to see
+  one the wrapper had already swallowed. `ok`'s own logic is unchanged (`False`
+  only when there is no text at all); callers wanting that stricter old behavior
+  now check `errors` themselves. `SKILL.md`'s design invariants document the new
+  field.
+
+- **macos-cleaner** (`daymade-macos` v1.3.1 → v1.3.2): three rules closing gaps
+  a 2026-09-19 session hit in the skill's own text. Safety rule 5 now requires a
+  known-issue check before the first supported-control command runs — it
+  previously recommended an application's own cache-management command with no
+  defect precondition, which is what a session followed straight into `uv cache
+  prune`, saved only by searching its history first (#19542 makes pre-0.12.x
+  prune follow symlinks out of the cache into managed Python trees; #10153 means
+  "unreachable" is cache-graph reachability, not venv liveness). The check must
+  name the *installed version*, because both defects are invisible in the tool's
+  help text and in the size of the cache. New safety rule 11 requires naming the
+  mechanism behind a `df` gap — and getting it from the *verbatim creating
+  command*, because the copy verb alone decides the space semantics. It ships a
+  four-row table (`cp` / `cp -c` clonefile / `ln` hard link / local APFS
+  snapshot) distinguished by what `du` reports and what deletion releases, all
+  measured. Two traps it exists to kill: clonefile and hard link are opposite on
+  `du` but identical on deletion (both release ≈0), so a reclaim measurement
+  cannot tell them apart while `du` can; and **calibrating the wrong copy verb
+  proves nothing**. A 109.4 GiB nominal / 11.2 GiB reclaimed gap was twice
+  attributed to the wrong mechanism before the creating command surfaced it:
+  `cp -cR` from `3b0b97ce` line 1861 (2026-06-11) — clonefile, which matches the
+  books exactly (full nominal per path, ≈0 reclaim on copy deletion, 11.2 GiB
+  being only the copy's own writes). The earlier "clonefile was ruled out"
+  conclusion rested on a bare-`cp` probe, a different verb, and was wrong; the
+  probe must use the creating command's own flags. Where no command can be
+  found, the gap stays `unknown` rather than getting the most plausible name.
+  `docker_analysis.md` adds the missing second half of its own independent-
+  verification rule — that rule covered object eligibility but not the reclaim
+  number, so a summed `UNIQUE SIZE` total now needs recomputing from a second
+  direction before it enters a plan. An independent sweep of a "6 dangling
+  images, all deletable" set returned 6.38 GiB net with 2 images still
+  container-referenced.
+
+- **macos-cleaner** (`daymade-macos` v1.3.0 → v1.3.1): `proving-redundancy-before-deletion.md`
+  gains rung 0 — target identity. Before any evidence is collected, `df
+  <candidate-path>` must show the local data volume, not a network mount. A
+  2026-09-19 disk-accounting session walked `du` without `-x` into
+  `/Volumes/homes` — an SMB-mounted QNAP NAS — and surfaced 837 GB of remote
+  content as a candidate "big item" on the local disk; it was neither local nor
+  one item, and the 270 GB accounting gap that motivated the walk was
+  manufactured by the measurement itself. Two rules this rung enforces: paths
+  under `/Volumes/` are suspect until df'd, and `du` in disk-accounting
+  contexts always carries `-x`. A candidate that has not been df'd does not
+  enter the evidence table.
+
+- **macos-cleaner** (`daymade-macos` v1.2.0 → v1.3.0): new reference
+  `proving-redundancy-before-deletion.md` — the evidence ladder for large data
+  folders, built from a 2026-09-19 session that proposed deleting a 109 GB
+  project-asset folder from a folder name and a file comparison and was
+  correctly challenged on how "never used" could be proven. The ladder:
+  file-level duplication (name+size+mtime) → creation-origin (the verbatim
+  command that built the candidate from the canonical copy) → reference check
+  (bounded text-only grep; mdfind is fuzzy, verify at authority) → session-
+  history tool-call census (`analyze_sessions.py search --codex`, classifying
+  read/write/audit — 300 sessions, zero reads settled the case) → .DS_Store
+  newest-mtime as the manual-usage trace (Finder browsing leaves these; the
+  newest one dates the last human open) → the project's own decision records.
+  Core reframe: "never used" is unprovable (noatime, traceless Finder), but
+  "never used as a data source" is census-able — the evidence table keeps the
+  unprovable row open for the user. SKILL.md routes large data folders here
+  before any size-ranked proposal; `cleanup_targets.md`'s never-delete list
+  gains agent session history (`~/workspace/claude-dotfiles/projects/`,
+  absolute user ruling) plus the candidate-classification discipline
+  (deletable-with-evidence / user-decision / preserve — a flat "large items"
+  list is what invited the wrong deletion in the first place).
+- **claude-code-hooks** (`daymade-claude-code` v3.38.0 → v3.39.0): new rule 10 —
+  a guard that blocks legitimate work needs a consent channel, and the consent
+  signal must come from a hook that sees the prompt. A PreToolUse guard sees
+  command text, never the conversation, so "the user just authorized this" is
+  unobservable to it: the pattern is necessarily two hooks (UserPromptSubmit
+  granter writes a TTL'd path-scoped consent file; the guard reads it before
+  blocking). Verified 2026-09-19 against the home-scan-guard instance
+  (`home-scan-consent-granter.sh` + consent check): Claude Code has no built-in
+  session-scoped authorization (#3389 is an open feature request), the
+  permission allowlist is static config, and the UI's session-approve cannot
+  interact with hook blocks. The rule carries the constraints that keep the
+  channel from becoming a bypass — TTL, path scope, the highest-blast-radius
+  rule stays hard-blocked, the agent never hand-writes the consent file,
+  ambiguous phrases do not grant, revocation by phrase — plus the registration
+  snapshot semantics (script edits live, registration changes wait for next
+  session) and the two-sided selftest calibration each hook needs.
+- **tibo-reset-codex** (`tibo-reset-codex` v1.13.1 → v1.13.2): forecast-feedback.md now describes
+  what forecast_log.py actually does since the findings layer shipped — the script works locally
+  only but takes a best-effort local git snapshot per append (the "reads and writes local JSONL
+  only" wording predated it), and the global-parameter line lists `--no-git`. Doc-only change.
 - **tibo-reset-codex** (`tibo-reset-codex` v1.13.0 → v1.13.1): collects an uncommitted SKILL.md
   revision left behind by an overnight session (owner exited, diff verified complete and applied
   verbatim on top of #609). Content: scan/banked queries must not be chained with `&&` (a

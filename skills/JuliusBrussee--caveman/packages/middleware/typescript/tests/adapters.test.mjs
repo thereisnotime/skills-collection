@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { requirePeers } from './peers.mjs';
 
 // Every subpath in the package's `exports` map must import and expose the names
 // the README tells people to call. Framework peers are optional, so a missing
@@ -17,14 +18,8 @@ const ADAPTERS = {
 
 for (const [family, names] of Object.entries(ADAPTERS)) {
   test(`${family} exposes its documented entry points`, async t => {
-    let module;
-    try {
-      module = await import(`../dist/${family}.js`);
-    } catch (error) {
-      if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error;
-      t.skip(`framework peer not installed: ${error.message}`);
-      return;
-    }
+    if (!requirePeers(t, family)) return;
+    const module = await import(`../dist/${family}.js`);
     const missing = names.filter(name => typeof module[name] === 'undefined');
     assert.deepEqual(missing, [], `@caveman-ai/middleware/${family} lost ${missing}`);
   });

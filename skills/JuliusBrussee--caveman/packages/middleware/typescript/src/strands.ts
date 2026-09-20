@@ -2,11 +2,11 @@ import { Model, Message, TextBlock, ToolResultBlock, FunctionTool, type AgentCon
   type StreamOptions, type CountTokensOptions, type ModelStreamEvent, type LocalAgent, type Plugin, type FunctionToolConfig, type Usage as NativeUsage } from '@strands-agents/sdk';
 import { MiddlewareRuntime, recoveryInputSchema, recoveryToolDescription, type Candidate, type RetrieveArgs, type Scope, type Usage } from '@caveman-ai/sdk/middleware';
 import { currentOwner, manifest, observe, withOwner, type Attempt } from './common.js';
-import { matchesFramework } from './versions.js';
+import { adapterCompatible, frameworkVersion } from './compatibility.js';
 
 export type StrandsScope = Scope | ((agent:LocalAgent) => Scope);
 export interface StrandsOptions { runtime:MiddlewareRuntime; scope:StrandsScope }
-const adapter={id:'strands',version:'0.1.0',framework_version:'1.17.0',serialization_revision:'strands-message-v1'};
+const adapter={id:'strands',version:'0.1.0',framework_version:frameworkVersion('@strands-agents/sdk')??'unknown',serialization_revision:'strands-message-v1'};
 const count=(n:unknown):number|null=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0?n:null;
 function nativeUsage(value:NativeUsage|undefined):Usage|null{
   if(!value)return null;
@@ -20,7 +20,7 @@ export class CavemanStrandsModel<T extends BaseModelConfig=BaseModelConfig> exte
   registration:StrandsRegistration|null=null;
   private readonly versionSupported:boolean;
   constructor(readonly inner:Model<T>,readonly options:StrandsOptions){
-    super();this.versionSupported=matchesFramework('@strands-agents/sdk','1.17','2');
+    super();this.versionSupported=adapterCompatible('strands');
     if(!this.versionSupported&&options.runtime.mode!=='off')options.runtime.decline('unsupported_version');
   }
   override get stateful(){return this.inner.stateful;}
@@ -125,7 +125,7 @@ export function withCavemanStrandsModel<T extends BaseModelConfig>(model:Model<T
 
 export function withCavemanStrands(input:AgentConfig&{model:Model},options:StrandsOptions):AgentConfig{
   const model=new CavemanStrandsModel(input.model,options);
-  if(options.runtime.mode==='off'||!matchesFramework('@strands-agents/sdk','1.17','2'))return {...input,model};
+  if(options.runtime.mode==='off'||!adapterCompatible('strands'))return {...input,model};
   const registration=new StrandsRegistration(options);
   model.registration=registration;
   return {...input,model,plugins:[...(input.plugins??[]),registration]};

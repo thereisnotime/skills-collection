@@ -253,13 +253,23 @@ work_engine_preferences:
   - harness: cursor
     model: composer
   - harness: codex
-    model: "gpt-5.6"
+    model: "gpt-5.6-sol"
   - harness: claude
 ```
 
 The [central configuration reference](./configuration.md#implementation-routing) explains how this checkout-local default interacts with current-task, session, and project instructions.
 
 Each candidate has a `harness` (`codex`, `claude`, `grok`, `cursor`, or `opencode`) and an optional `model`. Omitting `model` means that harness's configured default. Composer is a model family reached through Cursor, so it is written as `harness: cursor` plus `model: composer`. Keep CLI flags and commands out of config.
+
+To choose the reasoning effort the external worker runs at, add a `work_engine_effort` map from harness to one of that harness's own levels:
+
+```yaml
+work_engine_effort:
+  codex: xhigh
+  claude: max
+```
+
+A harness left out keeps its default, and Cursor routes have no effort setting. A level the harness cannot run makes that entry unavailable, and `ce-work` moves to the next one. Effort is set in config only. The run fixes it at the start and reports it as requested; no harness confirms the effort it served. See the [central configuration reference](./configuration.md#implementation-routing) for levels, timeouts, and layering.
 
 `off`, a commented or missing mode, and an invalid mode preserve the native default. `off` affects only standing config; it does not cancel applicable live intent or a caller binding. Both `prefer` and `require` try ordered candidates, then fall back natively on the current harness and session model with one disclosure. `require` keeps the requested external identity fixed while viable and never substitutes an unrequested external recipient.
 

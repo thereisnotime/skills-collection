@@ -2798,6 +2798,147 @@ test('#241: unsegmented-script documents are declined, not scored "Too short"', 
   assert.equal(rko.unsupportedScript, undefined);
 });
 
+// #242: pin the stylometric signals independently of aggregate score, which
+// can stay green when another detector happens to fire on the same document.
+test('uniformity: five equal long sentences fire, varied rhythm stays clean', () => {
+  const sentence = 'The worker reads every queued message before it writes the result to disk.';
+  const issues = AIDetector.analyzeText(Array(5).fill(sentence).join(' ')).issues
+    .filter(i => i.type === 'uniformity');
+  assert.deepEqual(issues.map(i => i.text), [
+    'Sentence lengths cluster around 13 words (low variation)',
+  ]);
+  assert.equal(issues[0].severity, 'medium');
+
+  const varied = [
+    'Stop.', sentence, 'We waited for the retry.',
+    'After the connection closed, Mara checked the logs, restored the backup, and reran the batch with a smaller request limit.',
+    'It worked.',
+  ].join(' ');
+  assert.equal(AIDetector.analyzeText(varied).issues.filter(i => i.type === 'uniformity').length, 0);
+  assert.equal(AIDetector.analyzeText(Array(4).fill(sentence).join(' ')).issues
+    .filter(i => i.type === 'uniformity').length, 0, 'four sentences are below the sample gate');
+});
+
+test('uniformity: sentence-length spread pins the 0.25 variation threshold', () => {
+  // Identical sentences sit at CV 0, so they cannot tell 0.25 from 0.01.
+  // These bracket the threshold: 9/12/14/16/19 words is CV 0.243 and fires;
+  // widening the ends to 8 and 20 words is CV 0.286 and stays clean.
+  const middle = [
+    'The queue had cleared by noon, so we closed the incident early.',
+    'After the connection dropped, the worker retried twice before it finally gave up completely.',
+    'We restored the backup from Tuesday and reran the batch with a smaller request limit overnight.',
+  ];
+  const nearThreshold = [
+    'Mara checked the logs and found nothing unusual there.',
+    ...middle,
+    'Nobody could explain why the second worker still held the lock after the scheduler had already marked it done.',
+  ].join(' ');
+  const issues = AIDetector.analyzeText(nearThreshold).issues.filter(i => i.type === 'uniformity');
+  assert.deepEqual(issues.map(i => i.text), [
+    'Sentence lengths cluster around 14 words (low variation)',
+  ]);
+
+  const justOver = [
+    'Mara checked the logs and found nothing unusual.',
+    ...middle,
+    'Nobody could explain why the second worker still held the lock after the scheduler had already marked it as done.',
+  ].join(' ');
+  assert.equal(AIDetector.analyzeText(justOver).issues.filter(i => i.type === 'uniformity').length, 0,
+    'CV 0.286 must sit above the threshold');
+});
+
+test('uniformity: equal paragraph sizes fire, varied paragraph sizes stay clean', () => {
+  const paragraph = 'Mara checked the logs. The queue had cleared. We closed the incident.';
+  const issues = AIDetector.analyzeText(Array(4).fill(paragraph).join('\n\n')).issues
+    .filter(i => i.type === 'uniformity');
+  assert.deepEqual(issues.map(i => i.text), ['All paragraphs are ~3 sentences']);
+  assert.equal(issues[0].severity, 'low');
+
+  const varied = [
+    'Mara checked the logs.',
+    'The queue had cleared. We closed the incident.',
+    paragraph,
+    'One task failed. ' + paragraph + ' The workers stopped.',
+  ].join('\n\n');
+  assert.equal(AIDetector.analyzeText(varied).issues.filter(i => i.type === 'uniformity').length, 0);
+  assert.equal(AIDetector.analyzeText(Array(3).fill(paragraph).join('\n\n')).issues
+    .filter(i => i.type === 'uniformity').length, 0, 'three paragraphs are below the sample gate');
+});
+
+test('formatting: four bold spans fire, three ordinary emphases stay clean', () => {
+  const clauses = [
+    'Read the **log** before you change the limit.',
+    'Check the **queue** when the worker stops.',
+    'Keep a **backup** until the migration finishes.',
+    'Use the **timestamp** to find the failed request.',
+  ];
+  const issues = AIDetector.analyzeText(clauses.join(' ')).issues.filter(i => i.type === 'formatting');
+  assert.deepEqual(issues.map(i => i.text), ['4 bold phrases']);
+  assert.equal(AIDetector.analyzeText(clauses.slice(0, 3).join(' ')).issues
+    .filter(i => i.type === 'formatting').length, 0);
+});
+
+test('confidence-calibration: three raw matches fire, two stay clean', () => {
+  const clauses = [
+    'Interestingly, the retry completed after the connection reopened.',
+    'Surprisingly, the old worker still held the lock.',
+    'Importantly, no messages were lost during the restart.',
+  ];
+  const issues = AIDetector.analyzeText(clauses.join(' ')).issues
+    .filter(i => i.type === 'confidence-calibration');
+  assert.deepEqual(issues.map(i => i.text.toLowerCase()).sort(), [
+    'importantly', 'interestingly', 'surprisingly',
+  ]);
+  assert.equal(AIDetector.analyzeText(clauses.slice(0, 2).join(' ')).issues
+    .filter(i => i.type === 'confidence-calibration').length, 0);
+});
+
+test('confidence-calibration: repeated wording satisfies the pre-dedup gate', () => {
+  const sentence = 'Interestingly, the retry completed after the connection reopened.';
+  const issues = AIDetector.analyzeText(Array(3).fill(sentence).join(' ')).issues
+    .filter(i => i.type === 'confidence-calibration');
+  assert.equal(issues.length, 1, 'three raw matches become one displayed finding');
+  assert.equal(issues[0].text.toLowerCase(), 'interestingly');
+  assert.equal(AIDetector.analyzeText(Array(2).fill(sentence).join(' ')).issues
+    .filter(i => i.type === 'confidence-calibration').length, 0);
+});
+
+test('fnword-trigram-entropy: low entropy fires, varied grammar stays clean', () => {
+  const repeated = 'the and of '.repeat(50) + 'I can send it if you want to see what she has written.';
+  const issues = AIDetector.analyzeText(repeated).issues
+    .filter(i => i.type === 'fnword-trigram-entropy');
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].text, /^Function-word trigram entropy .* \(low\)$/);
+  assert.equal(issues[0].severity, 'medium');
+
+  const varied = [
+    'Mara checked the logs before lunch and found no failed requests.',
+    'If you can reproduce this locally, send us the input and the timestamp.',
+    'She had already read our notes when the second worker stopped.',
+    'We will use the old queue until they tell us why their patch failed.',
+    'It was a small change, but he could not deploy it without a review.',
+    'The scheduler should wait for a response rather than assume that the task is done.',
+    'I have kept your backup here so that you can restore it when needed.',
+    'Those jobs were started by another process which has since exited.',
+    'Do not remove this check because it catches a failure we have seen before.',
+    'What happens after a timeout depends on whether there is room in the queue.',
+    'They may retry from the saved cursor or ask for a new snapshot.',
+    'Our test writes a file to disk and then reads its contents back.',
+  ].join(' ');
+  const clean = AIDetector.analyzeText(varied);
+  assert.ok(clean.stats.wordCount >= 150, 'negative control must reach the entropy gate');
+  assert.equal(clean.issues.filter(i => i.type === 'fnword-trigram-entropy').length, 0);
+});
+
+test('fnword-trigram-entropy: single trigram fires at 150 words, not 149', () => {
+  const issues = AIDetector.analyzeText('the '.repeat(150)).issues
+    .filter(i => i.type === 'fnword-trigram-entropy');
+  assert.deepEqual(issues.map(i => i.text), ['Single function-word trigram repeated across document']);
+  assert.equal(issues[0].severity, 'high');
+  assert.equal(AIDetector.analyzeText('the '.repeat(149)).issues
+    .filter(i => i.type === 'fnword-trigram-entropy').length, 0);
+});
+
 if (failed > 0) {
   console.error(`\n${failed} test(s) failed`);
   process.exit(1);

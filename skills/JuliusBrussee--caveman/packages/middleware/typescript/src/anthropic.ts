@@ -2,7 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { VERSION } from '@anthropic-ai/sdk/version';
 import { MiddlewareRuntime, type Scope } from '@caveman-ai/sdk/middleware';
 import { plain } from './common.js';
-import { inRange } from './versions.js';
+import { frameworkCompatible } from './compatibility.js';
 import { createCavemanFetch, withNativeRecovery, type RecoveryContext } from './transport.js';
 
 export interface AnthropicOptions {
@@ -24,7 +24,7 @@ function scopedIterator<T>(iterator: AsyncIterator<T>, context: RecoveryContext)
 
 /** Messages and stream helpers remain native; beta.toolRunner owns execution. */
 export function withCavemanAnthropic<T extends Anthropic>(client: T, options: AnthropicOptions): T {
-  const versionSupported = inRange(VERSION, '0.124', '1');
+  const versionSupported = frameworkCompatible('@anthropic-ai/sdk', VERSION);
   if (!versionSupported && options.runtime.mode !== 'off') options.runtime.decline('unsupported_version');
   const native = client.withOptions({ fetch: createCavemanFetch({ ...options, provider: 'anthropic', providerBaseURL: client.baseURL, frameworkVersion: VERSION,
     ...(!versionSupported ? { passiveReason: 'unsupported_version' as const } : {}) }) });

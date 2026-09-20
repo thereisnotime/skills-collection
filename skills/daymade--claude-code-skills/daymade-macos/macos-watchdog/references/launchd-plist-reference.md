@@ -74,6 +74,14 @@ log show --predicate 'process == "launchd"' --last 15m | grep <label>
 | `WorkingDirectory` | Pin cwd if the script uses relative paths |
 | `UserName`/`GroupName` | (LaunchDaemon only) run as a non-root user |
 
+## TCC / permissions under launchd
+
+A `uv run` (or any unsigned-binary) LaunchAgent that keeps prompting for Full Disk Access is a
+TCC-attribution problem, not a launchd-plist problem — the requester is the `uv` binary itself.
+Diagnosis and fix live in the `daymade-macos:macos-permissions` skill (`references/uv-fda-trap.md`).
+This reference only notes the launchd-side fact: a launchd-spawned process has no FDA-bearing
+parent to inherit from, which is why the same command prompts under launchd but not interactively.
+
 ## launchctl command reference
 
 | Intent | Command |

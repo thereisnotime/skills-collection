@@ -6,7 +6,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from .runtime import MiddlewareRuntime
+from .runtime import MiddlewareRuntime, _preflight_report
 from .types import MiddlewareError, Optimization, Scope
 
 
@@ -47,6 +47,17 @@ class AsyncMiddlewareRuntime:
 
     async def ready(self):
         return await self._submit(self._runtime.ready)
+
+    async def preflight(self):
+        """Nonthrowing discovery; caller cancellation still propagates."""
+        if self.mode == "off":
+            return _preflight_report(self.mode, "disabled")
+        try:
+            return await asyncio.wait_for(self._submit(self._runtime.preflight), self._runtime.deadline_ms / 1000)
+        except TimeoutError:
+            return _preflight_report(self.mode, "deadline")
+        except Exception as error:
+            return _preflight_report(self.mode, error.code if isinstance(error, MiddlewareError) else "runtime_unavailable")
 
     def recovery(self, scope: Scope):
         async def execute(args=None, **kwargs):

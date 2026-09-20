@@ -26,6 +26,7 @@ Drop a skill into your Claude environment and it behaves like a domain specialis
 
 **Use cases:** authorized red team engagements, bug bounty triage, security research, CTF preparation, operator training, and methodical attack surface exploration.
 
+**for our actual research using skills -> https://snailsploit.com**
 ---
 
 ## Quickstart

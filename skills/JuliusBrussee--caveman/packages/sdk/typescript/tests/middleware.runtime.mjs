@@ -68,6 +68,27 @@ test('off and pre-dispatch cancellation send no content', async () => {
   assert.equal(calls, 0);
 });
 
+test('record mode prepares observations without replacements or applied reports', async () => {
+  const runtime = createMiddlewareRuntime({ mode: 'record', deadlineMs: 2000, fetch: async (url, options) => {
+    if (url.endsWith('/capabilities')) return Response.json(fixture.capabilities);
+    const request = JSON.parse(options.body), plan = structuredClone(fixture.plan);
+    assert.equal(request.mode, 'record');
+    plan.input_digest = await sha256(options.body);
+    plan.status = 'record'; plan.reason = 'record';
+    plan.replacements = [];
+    plan.skipped = request.segments.map(segment => ({ segment_id: segment.id, reason: 'record' }));
+    plan.measurement.tokens_after = plan.measurement.tokens_before;
+    plan.measurement.unique_tokens_reduced = 0;
+    return Response.json(plan);
+  }});
+  try {
+    const result = await runtime.optimize(input(null));
+    assert.equal(result.status, 'record');
+    assert.deepEqual(result.replacements, []);
+    assert.equal(runtime.report(result).status, 'recorded');
+  } finally { runtime.close(); }
+});
+
 test('recovery schema and executor stay immutable across registrations', () => {
   const runtime = createMiddlewareRuntime();
   try {

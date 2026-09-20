@@ -2,7 +2,7 @@ import type OpenAI from 'openai';
 import { VERSION } from 'openai/version';
 import { MiddlewareRuntime, type Scope } from '@caveman-ai/sdk/middleware';
 import { plain } from './common.js';
-import { inRange } from './versions.js';
+import { frameworkCompatible } from './compatibility.js';
 import { createCavemanFetch, withNativeRecovery, type RecoveryContext } from './transport.js';
 
 export interface OpenAIOptions {
@@ -33,7 +33,7 @@ export function withCavemanOpenAITools<T extends OpenAI>(client:T,options:OpenAI
   if(names.length!==Object.keys(options.functions).length||names.some(name=>typeof options.functions[name]!=='function'))throw new TypeError('Every native function definition needs exactly one executor');
   let functions=Object.freeze({...options.functions});
   let context:RecoveryContext|undefined;
-  if(options.runtime.mode==='compress'&&inRange(VERSION,'7.12','8')){
+  if(options.runtime.mode==='compress'&&frameworkCompatible('openai',VERSION)){
     const binding=options.runtime.recovery(options.scope);
     const schema={name:binding.name,description:binding.description,parameters:binding.inputSchema};
     const definition=options.protocol==='openai-chat'?{type:'function' as const,function:schema}:{type:'function' as const,...schema,strict:false};
@@ -53,7 +53,7 @@ export function withCavemanOpenAI<T extends OpenAI>(client:T,options:OpenAIOptio
 }
 
 function wrapOpenAI<T extends OpenAI>(client:T,options:OpenAIOptions,context?:RecoveryContext,protocol?:'openai-chat'|'openai-responses'):T{
-  const versionSupported=inRange(VERSION,'7.12','8');
+  const versionSupported=frameworkCompatible('openai',VERSION);
   if(!versionSupported&&options.runtime.mode!=='off')options.runtime.decline('unsupported_version');
   const fetch=createCavemanFetch({...options,provider:'openai',providerBaseURL:client.baseURL,frameworkVersion:VERSION,
     ...(!versionSupported?{passiveReason:'unsupported_version' as const}:{})});

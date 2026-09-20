@@ -1,6 +1,15 @@
 """Native version gates over release ranges, without importing the frameworks."""
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
+import re
+
+
+_STABLE_VERSION = re.compile(
+    r"(?:(?P<epoch>[0-9]+)!)?(?P<release>[0-9]+(?:\.[0-9]+)*)"
+    r"(?:(?:[-_.]?(?:post|rev|r)[-_.]?(?P<post>[0-9]*))|-(?P<implicit_post>[0-9]+))?"
+    r"(?:\+[a-z0-9]+(?:[-_.][a-z0-9]+)*)?",
+    re.IGNORECASE | re.ASCII,
+)
 
 
 @lru_cache(maxsize=32)
@@ -11,39 +20,39 @@ def installed_version(name):
         return None
 
 
-def _release(value):
-    """Leading numeric release segments of a PEP 440 version, as a tuple.
+def _stable_version(value):
+    """Validate stable PEP 440 release/post/local forms without a dependency.
 
-    `packaging` is not a dependency of this package and may not be installed, so
-    epochs, prerelease and local segments are dropped rather than ordered: an
-    `rc` compares as its own release, which is what a support gate wants.
+    Prereleases, development releases and nonzero epochs are not covered by our
+    support ranges. Local labels do not alter a stable public version's range
+    eligibility. An explicit zero epoch is equivalent to an omitted epoch.
     """
-    parts = []
-    for chunk in value.split("+")[0].split("!")[-1].split("."):
-        digits = ""
-        for character in chunk:
-            if not character.isdigit():
-                break
-            digits += character
-        if not digits:
-            break
-        parts.append(int(digits))
-        if digits != chunk:
-            break
-    return tuple(parts)
+    match = _STABLE_VERSION.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        return None
+    try:
+        if int(match["epoch"] or "0") != 0:
+            return None
+        release = tuple(int(part) for part in match["release"].split("."))
+        post = match["post"] if match["post"] is not None else match["implicit_post"]
+        return release, int(post or "0") if post is not None else -1
+    except ValueError:
+        return None
 
 
 def in_range(installed, low, high):
-    """`low <= installed < high` over release segments only.
+    """Whether a stable public version satisfies `low <= installed < high`.
 
-    A framework that breaks the wire shape inside the range is caught by the
-    adapter's serialization revision, which is part of the runtime's scope
-    identity. This gate only stops a different major from reaching the wire.
+    Range eligibility does not prove compatibility. Upstream API changes still
+    require native adapter tests; the serialization revision identifies our
+    adapter contract and cannot detect arbitrary framework changes.
     """
-    if not installed:
+    versions = [_stable_version(value) for value in (installed, low, high)]
+    if any(value is None for value in versions):
         return False
-    found = _release(installed)
-    return bool(found) and _release(low) <= found < _release(high)
+    width = max(len(value[0]) for value in versions)
+    found, lower, upper = [(release + (0,) * (width - len(release)), post) for release, post in versions]
+    return lower <= found < upper
 
 
 def matches_framework(*pins):

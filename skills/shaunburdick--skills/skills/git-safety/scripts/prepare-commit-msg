@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# prepare-commit-msg — auto-append Generated-By trailer for AI commits
+#
+# Install:
+#   HOOK_DIR=$(git config core.hooksPath 2>/dev/null || echo .git/hooks)
+#   cp .agents/skills/git-safety/scripts/prepare-commit-msg "$HOOK_DIR/prepare-commit-msg"
+#   chmod +x "$HOOK_DIR/prepare-commit-msg"
+#
+# Note: If core.hooksPath is set (e.g., Husky sets it to .husky/_/),
+# install there instead of .git/hooks/. Check with:
+#   git config core.hooksPath
+#
+# This hook checks for OPENCODE=1 or AGENT=1 environment variables (set
+# automatically by agent frameworks). If present, it appends a
+# Generated-By trailer. If absent (human terminal commit), it exits silently.
+#
+# Optional env vars for richer attribution:
+#   OPENCODE_AGENT  — agent name (e.g., "my-agent")
+#   OPENCODE_MODEL  — model ID (e.g., "my-model")
+
+set -euo pipefail
+
+commit_msg_file="$1"
+commit_source="${2:-}"
+
+# Skip merge and squash commits; amend commits are still attributed when the
+# existing message does not already contain a trailer.
+# commit_source values: "message" (-m), "template" (-t), "merge", "squash", "commit" (amend)
+case "${commit_source}" in
+  merge|squash)
+    exit 0
+    ;;
+esac
+
+# Check if this is an AI session
+if [[ "${OPENCODE:-}" != "1" ]] && [[ "${AGENT:-}" != "1" ]]; then
+  exit 0
+fi
+
+# Skip if trailer already exists (avoid duplicates on amend)
+if grep -q "^Generated-By:" "$commit_msg_file"; then
+  exit 0
+fi
+
+# Build the attribution string
+agent="${OPENCODE_AGENT:-}"
+model="${OPENCODE_MODEL:-}"
+
+if [[ -n "$agent" ]] && [[ -n "$model" ]]; then
+  attribution="${agent} (model: ${model})"
+elif [[ -n "$agent" ]]; then
+  attribution="$agent"
+else
+  attribution="opencode"
+fi
+
+# Append trailer
+printf "\nGenerated-By: %s\n" "$attribution" >> "$commit_msg_file"

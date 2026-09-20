@@ -4,7 +4,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4Middleware, LanguageModelV4Usage } from '@ai-sdk/provider';
 import { MiddlewareRuntime, type Candidate, type RecoveryBinding, type RetrieveArgs, type Scope, type Usage } from '@caveman-ai/sdk/middleware';
 import { currentOwner, manifest, observe, observeStream, plain, withOwner, type Attempt } from './common.js';
-import { matchesFramework } from './versions.js';
+import { adapterCompatible, frameworkVersion } from './compatibility.js';
 
 export interface CavemanOptions {
   runtime: MiddlewareRuntime;
@@ -20,9 +20,9 @@ interface RecoveryRegistration {
   calls: WeakMap<readonly unknown[], ToolSet>;
 }
 
-const adapter = { id: 'ai-sdk', version: '0.1.0', framework_version: '7.0.94', serialization_revision: 'ai-sdk-v4.1' };
+const adapter = { id: 'ai-sdk', version: '0.1.0', framework_version: frameworkVersion('ai') ?? 'unknown', serialization_revision: 'ai-sdk-v4.1' };
 const supported = (runtime: MiddlewareRuntime) => {
-  const yes = matchesFramework('ai', '7.0.94', '8') && matchesFramework('@ai-sdk/provider', '4.0.11', '5');
+  const yes = adapterCompatible('ai-sdk');
   if (!yes && runtime.mode !== 'off') runtime.decline('unsupported_version');
   return yes;
 };

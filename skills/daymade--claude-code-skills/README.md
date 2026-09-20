@@ -184,6 +184,7 @@ claude plugin install daymade-macos@daymade-skills
 /daymade-macos:capture-screen
 /daymade-macos:developing-ios-apps
 /daymade-macos:macos-cleaner
+/daymade-macos:macos-permissions
 /daymade-macos:macos-watchdog
 ```
 
@@ -1976,6 +1977,26 @@ claude plugin install daymade-macos@daymade-skills
 
 📚 **Documentation**: See [capture-screen/SKILL.md](./daymade-macos/capture-screen/SKILL.md).
 
+### **macos-permissions** - Diagnose macOS TCC Permission Dialogs
+
+> **Install**: `claude plugin install daymade-macos@daymade-skills` (suite-only — invoked as `daymade-macos:macos-permissions`)
+
+Diagnose why a macOS privacy dialog (Screen Recording, Full Disk Access, Automation, …) keeps firing or grants the wrong subject. The core rule: **the dialog's displayed name is not the requester** — read the TCC `from Sub:` attribution to find who is actually asking, and the TCC.db `auth_value` for what is currently granted, before deciding what to authorize.
+
+**When to use:**
+- A permission prompt ("would like to access data from other apps", screen recording, microphone) keeps reappearing after clicking Allow
+- The app you need to authorize is not in System Settings, or the listed name does not match the process you expected
+- A background/launchd job triggers a permission dialog that the same command does not trigger interactively
+- Unsigned CLI tools (uv-managed python, custom binaries) hit permission walls under launchd
+
+**Key features:**
+- Decision tree that separates the *requester* (TCC log `from Sub:`) from the *displayed name* (which drifts for unsigned, path-keyed binaries)
+- Full `kTCCService` catalogue, `auth_value`/`auth_reason` semantics, and `tccutil` shorthand
+- The uv-in-launchd Full-Disk-Access trap: root process with no FDA-bearing parent to inherit from; grant FDA to the uv binary, and it recurs on path change
+- Instrument discipline for confirming which binary requests a permission (log attribution over `fs_usage`/`pgrep` false negatives)
+
+📚 **Documentation**: See [macos-permissions/SKILL.md](./daymade-macos/macos-permissions/SKILL.md).
+
 **Requirements**: macOS (Swift + AppleScript + `screencapture`).
 
 ---
@@ -3477,7 +3498,7 @@ the completion drive can override; a hook is a wall.
 **Key features:**
 - Five runnable pattern skeletons — PreToolUse block, human-confirmation release gate, SessionStart health check, PostToolUse context injection, and a Stop hook that reacts to the model's own output — plus the shlex command-position walker for token-level command matching
 - Four hard-won rules: shlex over awk-splitting so a healthy command is never false-blocked, `bash -n` + real-JSON end-to-end testing before registering, SSOT + symlink so a reinstall can't silently disarm a guard, and per-profile registration convergence with human-confirmation release gates
-- Nine cataloged failure modes with symptom → cause → fix, including the UserPromptSubmit-vs-Stop category mistake (only Stop can see what the model itself wrote) and a literal quote/backtick inside a Python comment silently corrupting an embedded `python3 -c` block
+- Cataloged failure modes with symptom → cause → fix, including the UserPromptSubmit-vs-Stop category mistake (only Stop can see what the model itself wrote) and a literal quote/backtick inside a Python comment silently corrupting an embedded `python3 -c` block
 - Bundled end-to-end test harness (`scripts/test_hook.sh`)
 
 **Example usage:**

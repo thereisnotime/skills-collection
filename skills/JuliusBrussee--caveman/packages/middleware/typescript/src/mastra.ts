@@ -7,7 +7,7 @@ import type { Agent, AgentExecutionOptions } from '@mastra/core/agent';
 import type { LanguageModelV4CallOptions, LanguageModelV4Usage } from '@ai-sdk/provider';
 import { MiddlewareRuntime, type Candidate, type RecoveryBinding, type RetrieveArgs, type Scope, type Usage } from '@caveman-ai/sdk/middleware';
 import { currentOwner, manifest, observe, observeStream, plain, withOwner, type Attempt } from './common.js';
-import { matchesFramework } from './versions.js';
+import { adapterCompatible, frameworkVersion } from './compatibility.js';
 
 export interface CavemanMastraOptions {
   runtime: MiddlewareRuntime;
@@ -19,7 +19,7 @@ export interface CavemanMastraOptions {
   id?: string;
 }
 
-const adapter = { id: 'mastra', version: '0.1.0', framework_version: '1.65.0', serialization_revision: 'mastra-v4.1' };
+const adapter = { id: 'mastra', version: '0.1.0', framework_version: frameworkVersion('@mastra/core') ?? 'unknown', serialization_revision: 'mastra-v4.1' };
 const measured = (n: number | undefined): number | null => Number.isSafeInteger(n) && n! >= 0 ? n! : null;
 function usage(value: LanguageModelV4Usage): Usage {
   const input = measured(value.inputTokens.total), output = measured(value.outputTokens.total);
@@ -58,7 +58,7 @@ export function createCavemanMastraProcessor(options: CavemanMastraOptions): Pro
  * processors and prepareStep callback, then attests the executable tool table
  * at Mastra's enforced final prepareStep boundary. No Agent config is mutated. */
 export function withCavemanMastra<T extends Agent>(agent: T, options: CavemanMastraOptions): T {
-  if (!matchesFramework('@mastra/core', '1.65', '2', '@mastra/core/agent')) {
+  if (!adapterCompatible('mastra')) {
     if (options.runtime.mode !== 'off') options.runtime.decline('unsupported_version');
     return new Proxy(agent, { get(target, key) {
       const value = Reflect.get(target, key, target);
@@ -119,7 +119,7 @@ export function withCavemanMastra<T extends Agent>(agent: T, options: CavemanMas
 }
 
 function createProcessor(options: CavemanMastraOptions, enforcedFinalStep: boolean, isProtectedText: (text: string) => boolean = () => false, rememberProtected: (value: unknown) => void = () => {}): { processor: Processor; attest: (before: FinalStep, result: ProcessInputStepResult | undefined | void) => boolean } {
-  if (!matchesFramework('@mastra/core', '1.65', '2', '@mastra/core/agent')) {
+  if (!adapterCompatible('mastra')) {
     if (options.runtime.mode !== 'off') options.runtime.decline('unsupported_version');
     return { processor: { id: options.id ?? 'caveman', processInputStep(args) { return { model: passiveModel(args.model, options, 'unsupported_version') }; } }, attest() { return false; } };
   }

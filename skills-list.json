@@ -10881,7 +10881,7 @@
       "path": "EveryInc--compound-engineering-plugin/skills/ce-setup/SKILL.md",
       "remote_path": "skills/ce-setup/SKILL.md",
       "lines": 104,
-      "words": 1124,
+      "words": 1128,
       "code_blocks": 3,
       "languages": [
         "bash",
@@ -23733,11 +23733,11 @@
     },
     {
       "name": "firecrawl-developer-index",
-      "description": "Search issues, merged pull requests, READMEs, and documentation. Use when the question is how a library or API behaves, what an error means, or whether a bug was fixed; prefer this over a general web ",
+      "description": "Search issues, merged pull requests, and READMEs from public code repositories, plus curated documentation. Use when the question is how a library or API behaves, what an error means, or whether a bug",
       "path": "firecrawl--cli/skills/firecrawl-developer-index/SKILL.md",
       "remote_path": "skills/firecrawl-developer-index/SKILL.md",
       "lines": 64,
-      "words": 1192,
+      "words": 1230,
       "code_blocks": 0,
       "languages": []
     },
@@ -23873,14 +23873,14 @@
     },
     {
       "name": "firecrawl-alexandria",
-      "description": "Use with Firecrawl beta search when natural web results include Alexandria tools, when the user explicitly wants tools for a task or website, or when executing a discovered provider tool. Search norma",
+      "description": "Find an efficient path to structured data with Firecrawl's ready-made website workflows, API providers, and specialized indexes. Use for records, listings, financial data, research, or public records ",
       "path": "firecrawl--cli/beta-skills/firecrawl-alexandria/SKILL.md",
       "remote_path": "beta-skills/firecrawl-alexandria/SKILL.md",
-      "lines": 122,
-      "words": 1428,
-      "code_blocks": 7,
+      "lines": 90,
+      "words": 873,
+      "code_blocks": 6,
       "languages": [
-        "sh"
+        "bash"
       ]
     },
     {
@@ -109785,7 +109785,7 @@
       "words": 313,
       "code_blocks": 0,
       "languages": [],
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "MIT"
     },
     {
@@ -120809,7 +120809,7 @@
       "words": 313,
       "code_blocks": 0,
       "languages": [],
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "MIT"
     },
     {
@@ -157208,8 +157208,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/competitors-analysis/SKILL.md",
       "remote_path": "competitors-analysis/SKILL.md",
-      "lines": 232,
-      "words": 1147,
+      "lines": 259,
+      "words": 1384,
       "code_blocks": 7,
       "languages": [
         "bash",
@@ -157691,7 +157691,7 @@
       "path": "daymade--claude-code-skills/daymade-audio/stepfun-asr/SKILL.md",
       "remote_path": "daymade-audio/stepfun-asr/SKILL.md",
       "lines": 192,
-      "words": 1717,
+      "words": 1756,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -157716,8 +157716,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/marketplace-dev/SKILL.md",
       "remote_path": "daymade-claude-code/marketplace-dev/SKILL.md",
-      "lines": 401,
-      "words": 2251,
+      "lines": 428,
+      "words": 2465,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -157885,9 +157885,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-switch-models-setup/SKILL.md",
       "remote_path": "daymade-claude-code/claude-switch-models-setup/SKILL.md",
-      "lines": 444,
-      "words": 4832,
-      "code_blocks": 8,
+      "lines": 495,
+      "words": 5441,
+      "code_blocks": 11,
       "languages": [
         "bash",
         "json"
@@ -157920,9 +157920,9 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1253,
-      "words": 14048,
-      "code_blocks": 11,
+      "lines": 1328,
+      "words": 14779,
+      "code_blocks": 12,
       "languages": [
         "bash",
         "text"
@@ -158005,6 +158005,18 @@
       "languages": []
     },
     {
+      "name": "macos-permissions",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-macos/macos-permissions/SKILL.md",
+      "remote_path": "daymade-macos/macos-permissions/SKILL.md",
+      "lines": 88,
+      "words": 825,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
       "name": "capture-screen",
       "description": "Programmatic screenshot capture on macOS. Find window IDs with Swift CGWindowListCopyWindowInfo, control application windows via AppleScript (zoom, scroll, select), and capture with screencapture. Use",
       "path": "daymade--claude-code-skills/daymade-macos/capture-screen/SKILL.md",
@@ -158022,8 +158034,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-cleaner/SKILL.md",
       "remote_path": "daymade-macos/macos-cleaner/SKILL.md",
-      "lines": 263,
-      "words": 4195,
+      "lines": 278,
+      "words": 4772,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -158061,8 +158073,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
-      "lines": 1876,
-      "words": 31195,
+      "lines": 1890,
+      "words": 31362,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -159952,8 +159964,8 @@
       "description": "Track and report Claude Code token usage, spending, and budgets from the local ECC cost-tracker metrics log. Use when the user asks about costs, spending, usage, tokens, budgets, or cost breakdowns by",
       "path": "affaan-m--everything-claude-code/skills/cost-tracking/SKILL.md",
       "remote_path": "skills/cost-tracking/SKILL.md",
-      "lines": 98,
-      "words": 545,
+      "lines": 108,
+      "words": 642,
       "code_blocks": 2,
       "languages": [
         "bash"
@@ -160594,8 +160606,8 @@
       "description": "Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and ",
       "path": "affaan-m--everything-claude-code/skills/security-review/SKILL.md",
       "remote_path": "skills/security-review/SKILL.md",
-      "lines": 505,
-      "words": 1716,
+      "lines": 512,
+      "words": 1789,
       "code_blocks": 22,
       "languages": [
         "bash",
@@ -177188,9 +177200,9 @@
       "description": "Enforces safe git practices for AI coding agents. Defines branch protection rules, commit policies, amend rules, and force-push boundaries. Load this skill at the start of any session where the agent ",
       "path": "shaunburdick--skills/skills/git-safety/SKILL.md",
       "remote_path": "skills/git-safety/SKILL.md",
-      "lines": 93,
-      "words": 531,
-      "code_blocks": 4,
+      "lines": 525,
+      "words": 2877,
+      "code_blocks": 22,
       "languages": [
         "bash",
         "yaml"
@@ -177226,12 +177238,28 @@
       "license": "MIT"
     },
     {
+      "name": "ai-attribution",
+      "description": "\"Load when creating commits, PRs, issues, or comments that need AI attribution. Standardizes the Generated-By trailer format across all surfaces \u2014 commits, PRs, issues, comments, and source code \u2014 for",
+      "path": "shaunburdick--skills/skills/ai-attribution/SKILL.md",
+      "remote_path": "skills/ai-attribution/SKILL.md",
+      "lines": 247,
+      "words": 1025,
+      "code_blocks": 10,
+      "languages": [
+        "bash",
+        "javascript",
+        "markdown",
+        "python"
+      ],
+      "license": "MIT"
+    },
+    {
       "name": "github-actions",
       "description": "Author secure, maintainable GitHub Actions workflows and CI/CD pipelines. Use when asked to \"create a workflow\", \"set up CI/CD\", \"write a GitHub Action\", \"add a deploy pipeline\", \"configure Actions\", ",
       "path": "shaunburdick--skills/skills/github-actions/SKILL.md",
       "remote_path": "skills/github-actions/SKILL.md",
-      "lines": 414,
-      "words": 1811,
+      "lines": 420,
+      "words": 1829,
       "code_blocks": 14,
       "languages": [
         "json5",
@@ -177523,6 +177551,18 @@
         "bash",
         "cmd",
         "powershell"
+      ]
+    },
+    {
+      "name": "offensive-netexec",
+      "description": ">",
+      "path": "SnailSploit--claude-red/Skills/active-directory/offensive-netexec/SKILL.md",
+      "remote_path": "Skills/active-directory/offensive-netexec/SKILL.md",
+      "lines": 856,
+      "words": 3957,
+      "code_blocks": 43,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -177829,8 +177869,8 @@
       "description": "\"Comprehensive OSINT methodology skill for offensive security, red team intelligence gathering, and bug bounty reconnaissance. Covers domain recon, email harvesting, social media profiling, GitHub/cod",
       "path": "SnailSploit--claude-red/Skills/recon/offensive-osint/SKILL.md",
       "remote_path": "Skills/recon/offensive-osint/SKILL.md",
-      "lines": 398,
-      "words": 2088,
+      "lines": 400,
+      "words": 2108,
       "code_blocks": 0,
       "languages": []
     },

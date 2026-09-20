@@ -45,6 +45,12 @@ First decide which kind of rule it is:
   add a row to `detector/CATEGORIES.md`. Cover it with a fixture in
   `detector/patterns.test.js` (both a true positive and a case that must *not*
   fire).
+  The category contract in `detector/categories.test.js` requires each type
+  to appear by name in that fixture file. The phrase-level gaps listed in its
+  `LEGACY_UNCOVERED_TYPES` are explicit exceptions while #213 and the related
+  false-positive fixes are open; remove an entry when its fixtures land, and
+  never add one. The name check prevents omissions but does not replace
+  assertions that the intended behavior fires and stays clean.
 - **Judgment-only** (needs reading for meaning — tone, structure, name-dropping)
   → add it to `references/patterns.md` prose and list it under "Skill-only" in
   `detector/CATEGORIES.md`. There is no detector type for these.

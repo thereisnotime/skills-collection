@@ -119,10 +119,13 @@ Every entry here is a bug that shipped. When a hook misbehaves, match the
 - **Cause:** hooks are registered per-profile in each profile's `settings.json`.
   A hook file present in `~/.claude/hooks/` does nothing unless the *active*
   profile calls it.
-- **Fix:** register in the main profile, then **converge all profiles** (this
-  setup: `sync-profile-settings.py --all`, owned by `claude-switch-models-setup`).
-  Add the guard's name to the SessionStart health check's registration grep so
-  drift is visible.
+- **Fix:** register in the main profile; there is no separate convergence step.
+  This setup registers `sync-profile-settings.py` (owned by
+  `claude-switch-models-setup`) as a SessionStart hook **without arguments**, so
+  the next profile to start a session converges every profile at once —
+  `--all` is only for propagating an edit immediately instead of at the next
+  session start. Add the guard's name to the SessionStart health check's
+  registration grep so drift is visible.
 
 ---
 
@@ -1287,9 +1290,10 @@ this list and describe defects you reach by asking a different question):
   documents `UserPromptSubmit`'s stdin JSON as `session_id`, `transcript_path`,
   `cwd`, `permission_mode`, `hook_event_name`, `prompt_id`, and `prompt` —
   no `origin`, no `source`, nothing that tells the hook *why* this invocation
-  happened. A hook trusting `.prompt` at face value cannot structurally tell
-  "the user asked for this" from "a notification's own text satisfied my
-  regex" — from inside the hook, they are the same shape.
+  happened. A hook that keyword-scans `.prompt` without looking at how it
+  *begins* cannot tell "the user asked for this" from "a notification's own
+  text satisfied my regex". No field marks the difference; the one in-band
+  signal is the wrapper tag `.prompt` opens with (Fix 4).
 
 - **Why the existing framing undersells the risk.** "UserPromptSubmit only
   sees user input" reads as reassurance — *whatever* fires it, at least it's
@@ -1332,18 +1336,45 @@ this list and describe defects you reach by asking a different question):
      `.prompt` for its keyword match — the added step is one extra field check
      against the transcript's *last* record before acting on a match, not a
      new event type or a different hook.
-  4. **Don't assume this is limited to task-notifications.** Anything that can
-     inject a `type:"user"` record with a non-`"human"` `origin` — a
-     Stop-hook's own `additionalContext` re-surfacing, or (unverified from a
-     non-team-mode session; confirm before relying on it) a team-mode
-     teammate delivery — is the same shape from a `UserPromptSubmit` hook's
-     point of view. #20 already catches teammate deliveries, but by a
-     different mechanism (text-prefix matching on the wrapper string, not
-     `origin.kind`) — if a hook is exposed to both task-notifications and team
-     mode, check which signal a teammate delivery actually carries rather than
-     assuming either fix alone covers both. Match the symptom (fired with no
-     nearby human message in the transcript), not the specific trigger
-     (task-notification here, something else next time).
+  4. **Team-mode deliveries fire the hook too — and the hook does not receive
+     what the transcript stores.** Anything that can inject a `type:"user"`
+     record with a non-`"human"` `origin` — a Stop-hook's own
+     `additionalContext` re-surfacing, a teammate or cross-session delivery —
+     is the same shape from a `UserPromptSubmit` hook's point of view. Two
+     sources, both read directly, not inferred:
+     - **The hook's own stdin.** A production `UserPromptSubmit` hook (a
+       private hooks repo, not shipped here) logs the first 120 characters of
+       `.prompt` each time its keyword trigger matches. In six weeks of that
+       log (2026-08-05 → 2026-09-20), `.prompt` *began with the bare wrapper
+       tag* 68 times: `<task-notification` 30, `<agent-message` 29,
+       `<cross-session-message` 9. Seven more entries (`<teammate-message` 4,
+       `<agent-message` 3), all within 99 seconds on 2026-08-05, began with
+       the sentence `Another Claude session sent a message:` and only then
+       the tag. That rendering never recurs in the log, and neither does
+       `<teammate-message`.
+     - **The transcript** (one team-mode session, 2026-09-20).
+       `<agent-message from="…">` and `<cross-session-message from="…">` land
+       as `type:"user"` records with `origin: {"kind": "peer"}`,
+       `promptSource: "system"`; `<teammate-message …>` records carry neither
+       key. None is `"human"`, so Fix 1 excludes all three. The 28
+       `hook_success`/`UserPromptSubmit` attachments that followed an
+       `<agent-message>` record were each written 0.05–0.23 s after it and at
+       least 269 s from any human input.
+
+     The two disagree on the detail that decides how to match. The transcript
+     stores every one of these deliveries behind `Another Claude session sent
+     a message:`; that same day the hook's `.prompt` opened with the bare
+     `<agent-message` tag 9 times out of 9. #20's wrapper forms describe the
+     transcript — anchored on `.prompt`, that sentence would have missed all
+     68 bare-tag entries. So a hook that only needs "is this a delivery?" can
+     skip the transcript, and Fix 2's async-write lag with it: look for the
+     wrapper tag in `.prompt`. In every logged delivery the tag sat at the
+     very start or directly after that one sentence, which leaves a choice:
+     match it as a substring when acting on machine text is the costlier
+     error (a human who quotes the tag gets skipped), or anchor it at the
+     start, with the sentence optional, when skipping a human is. Match the
+     symptom (fired with no nearby human message in the transcript), not the
+     specific trigger (task-notification here, something else next time).
 
 ---
 
@@ -2200,3 +2231,79 @@ this list and describe defects you reach by asking a different question):
   A sweep that silently drops 5 of 58 is indistinguishable from one that covers
   everything, unless you compare the two counts. Same instrument discipline as
   rule 9's "a replay returning zero blocks makes the harness a suspect".
+
+---
+
+## 44. A confirmation dialog can only be as informed as the hook that raises it — an empty one trains rubber-stamping
+
+- **Symptom:** a human gate that used to be useful starts interrupting constantly,
+  and the person answering it says they have nothing to decide from. The audit log
+  agrees: approvals land within a few seconds, declines are about as frequent as
+  approvals, and the dialog body — if you capture it — lists no objects at all. Every
+  exit-code row in the suite is green.
+- **Cause:** the gate was given a new trigger, and the new trigger reused the dialog
+  body built for the old one. That body's only source of content is state the hook
+  reads **before the command runs** — a `PreToolUse` hook sees the staged set, the
+  working tree, the target as they are *now*. Under the old trigger that state was
+  non-empty by definition (the gate fired *because* it had found several things).
+  Under the new one — "this single command both creates the state and consumes it",
+  e.g. a staging step and a commit chained in one call — the pre-command state is
+  empty by construction, so the dialog is too. The hook escalated to a human on
+  exactly the path where it had nothing to show them. A person cannot out-know the
+  hook from inside its own dialog: they see strictly less than it does, often not
+  even the command or which repository. What comes back is not a decision. It is a
+  reflexive Allow — the rubber-stamp habit that costs more than a miss — or a Decline,
+  which the hook then reports to the model as "a human said no, stop and ask why"
+  when no human judged anything.
+- **Fix — escalate only where the dialog can carry a decision; elsewhere block
+  mechanically.** For each path that reaches the confirm channel, ask what the dialog
+  will contain *on that path*. If the hook cannot name the target, the command and
+  the objects at stake, do not ask a human: `exit 2` yourself, and make `stderr` say
+  three things — this is a mechanical block and **nobody was asked or refused**; do
+  not retry unchanged; and the restructured shape that makes the state observable
+  (split the creating step and the consuming step into separate tool calls, so the
+  next `PreToolUse` event sees the real state and the ordinary rule can judge it —
+  passing silently when it is fine, raising an informed dialog when it is not). Say
+  outright that the restructuring is the prescribed remedy and not a bypass, or a
+  model trained on "a refusal is a hard NO" will stop instead of fixing the command.
+  In the guard's audit file — where it logs every prompt and bypass — give that
+  path a label of its own: it is neither a human decision nor a "dialog shown,
+  nobody answered", and lumping it in with either hides how often the gate blocks.
+- **On the paths that keep the dialog, put the decision in it:** which repository or
+  target the hook actually read — labelled as *what the hook read*, not as "the
+  target", because a path parsed from command text can resolve somewhere else (#28,
+  #33) and the human clicks on that sentence; the command text; the object list; and
+  an "Allow means…" line that is true on this path (an "every file listed above"
+  promise is false when the command will add more after the click).
+- **Everything model-authored that the dialog displays is an injection surface.** The
+  command text and any path inside it are written by the model. Fold all whitespace
+  to single spaces **before** display — otherwise a directory name or argument
+  containing a newline starts fresh lines that are typographically indistinguishable
+  from the gate's own output ("repository: /safe/place", "only one area, fine to
+  allow"). Run every model-authored string through one shared helper: two hand-rolled
+  copies is how one string gets folded and the other does not. Truncate by
+  characters, not bytes, and state how much was cut; strip invalid UTF-8 — a dialog
+  binary handed a split multibyte sequence may refuse to render at all, and a gate
+  whose dialog never appears has only a "no" channel left.
+- **Calibration — exit codes cannot see any of this (#14).** Point the dialog binary
+  at a recorder stub that writes its `argv` to a file, drive every trigger path, and
+  **read what a human would have seen**. Then pin it. The no-content path asserts the
+  recorder was **never invoked** — a stub that merely fails is indistinguishable, by
+  exit code, from a channel that was never called — and an informed path asserts the
+  recorder *was* invoked, so the probe is known to be alive. Informed paths assert
+  target, command and objects by **line-anchored** match rather than substring: a
+  forged line contains the same substring, which is exactly how a fold-less version
+  sails through a green suite. Mutate each property (restore the dialog on the empty
+  path, drop the context lines, remove each fold) and confirm its own rows die.
+- **Real case:** a cross-area commit gate gained a "staging and commit chained in one
+  call ⇒ scope unknown ⇒ confirm" rule. Its calibration was thorough on the axis it
+  measured — recall and false positives over a six-figure command corpus, with a
+  mutation-tested "every exit 2 carries a reason" row — and said nothing about dialog
+  content. In the first fifteen hours 38 dialogs reached a person, **36 of them
+  listing zero files**, most approvals landing within a few seconds. The repair
+  changed no predicate: empty pre-command state now blocks with the split-calls
+  remedy and never opens a dialog; the remaining dialogs gained the read-repository
+  line, the command and a truthful Allow sentence. An independent review of that
+  repair then found the newly added repository line unfolded — a directory name with
+  embedded newlines forged three gate-looking lines — while the suite stood at
+  154/154, because every content assertion was a substring match.

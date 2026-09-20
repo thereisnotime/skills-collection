@@ -2,7 +2,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { MiddlewareRuntime, sha256, type ManifestItem, type Scope } from '@caveman-ai/sdk/middleware';
 import { currentOwner, plain } from './common.js';
-import { matchesFramework } from './versions.js';
+import { adapterCompatible, frameworkVersion } from './compatibility.js';
 
 /** A native MCP definition and the callable actually registered in the host. */
 export interface MCPToolBinding {
@@ -27,10 +27,10 @@ export class CavemanMCPHost {
   private readonly versionSupported;
   constructor(private readonly options: MCPHostOptions) {
     if (!options.serverId || !options.protocolVersion) throw new TypeError('Provide the native server identity and negotiated MCP protocol version');
-    this.versionSupported = matchesFramework('@modelcontextprotocol/sdk', '1.30', '2', '@modelcontextprotocol/sdk/client/index.js');
+    this.versionSupported = adapterCompatible('mcp');
     if (!this.versionSupported && options.runtime.mode !== 'off') options.runtime.decline('unsupported_version');
     this.binding = options.runtime.recovery(options.scope);
-    this.adapter = { id: 'mcp', version: '0.1.0', framework_version: '1.30.0', serialization_revision: `mcp-native-${options.protocolVersion}-v1` };
+    this.adapter = { id: 'mcp', version: '0.1.0', framework_version: frameworkVersion('@modelcontextprotocol/sdk') ?? 'unknown', serialization_revision: `mcp-native-${options.protocolVersion}-v1` };
     this.recovery = {
       tool: { name: this.binding.name, description: this.binding.description, inputSchema: structuredClone(this.binding.inputSchema) as Tool['inputSchema'] },
       execute: async (arguments_, options) => {

@@ -6,6 +6,13 @@ Agent context for working in this repository.
 
 This repo is a personal collection of [Agent Skills](https://agentskills.io/) installable via the [`skills` CLI](https://github.com/vercel-labs/skills). Skills are reusable instruction sets that extend AI coding agent capabilities across tools like Claude Code, OpenCode, Cursor, Codex, and others.
 
+## Editing Rules
+
+**Only edit files inside this repository** (`skills/`). Never edit the global
+installed copies at `~/.agents/skills/` — those are managed by the `skills`
+CLI and will be overwritten on install. If you need to update an installed
+skill, edit the repo copy and let the user reinstall it.
+
 ## Repository Structure
 
 ```

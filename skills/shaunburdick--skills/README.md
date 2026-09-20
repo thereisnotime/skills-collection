@@ -35,6 +35,10 @@ Practical setup and usage guide for the spec-kit CLI — covers installation, pr
 
 Enforces safe git practices for AI coding agents. Defines branch protection rules (never commit to main/master/develop), commit policies, amend rules, and recommended agent permissions. Use when configuring any agent that writes code and commits to git repositories.
 
+### [ai-attribution](skills/ai-attribution/)
+
+Standardizes `Generated-By` attribution for AI-assisted commits, pull requests, comments, issues, and optional source disclosures. Use when agent-generated content will appear under a human account.
+
 ### [code-quality](skills/code-quality/)
 
 Enforces non-negotiable code quality standards: zero lint suppressions (`eslint-disable`, `@ts-ignore`, etc.), strict TypeScript type safety (no `any`), and a mandatory pre-commit verification protocol. Use when any agent writes, edits, or reviews code.

@@ -182,6 +182,7 @@ claude plugin install daymade-macos@daymade-skills
 /daymade-macos:capture-screen
 /daymade-macos:developing-ios-apps
 /daymade-macos:macos-cleaner
+/daymade-macos:macos-permissions
 /daymade-macos:macos-watchdog
 ```
 
@@ -1992,6 +1993,26 @@ claude plugin install daymade-macos@daymade-skills
 
 📚 **文档**：参见 [capture-screen/SKILL.md](./daymade-macos/capture-screen/SKILL.md)。
 
+### **macos-permissions** - 诊断 macOS TCC 权限弹窗
+
+> **安装**：`claude plugin install daymade-macos@daymade-skills`（仅作为套件成员发布，调用方式 `daymade-macos:macos-permissions`）
+
+诊断 macOS 隐私弹窗（屏幕录制、完全磁盘访问、自动化等）为何反复弹出或授权给了错误对象。核心规则：**弹窗显示的名字 ≠ 发起方**——先读 TCC 日志的 `from Sub:` 归因确定真正在请求的进程，再读 TCC.db 的 `auth_value` 确认当前授权状态，然后才决定该给谁授权。
+
+**适用场景：**
+- 权限弹窗（"想要访问其他 App 的数据"、屏幕录制、麦克风）点了允许后仍反复出现
+- 需要授权的 App 不在系统设置里，或列表中的名字与预期进程不符
+- 后台/launchd 任务触发权限弹窗，而同一命令交互运行时却不触发
+- 无签名 CLI 工具（uv 托管的 python、自定义二进制）在 launchd 下撞权限墙
+
+**核心能力：**
+- 决策树区分「发起方」（TCC 日志 `from Sub:`）与「显示名」（无签名、按路径归因的二进制会随版本漂移）
+- 完整 `kTCCService` 目录、`auth_value`/`auth_reason` 语义与 `tccutil` 速查
+- uv-in-launchd 完全磁盘访问陷阱：作为无带 FDA 父进程可继承的 root 进程运行；给 uv 二进制授权即可，路径变更会复发
+- 确认「哪个二进制在请求权限」的仪器纪律（优先日志归因，规避 `fs_usage`/`pgrep` 的假阴性）
+
+📚 **文档**：参见 [macos-permissions/SKILL.md](./daymade-macos/macos-permissions/SKILL.md)。
+
 **要求**：macOS（Swift + AppleScript + `screencapture`）。
 
 ---
@@ -3464,7 +3485,7 @@ completion drive 随时能盖过它；hook 才是一堵墙。
 **核心能力：**
 - 五套可直接运行的模式骨架（PreToolUse 拦截、带人工确认放行闸的 PreToolUse、SessionStart 健康检查、PostToolUse 上下文注入、对模型自己输出做反应的 Stop hook），外加 token 级命令匹配的 shlex 位置遍历器
 - 四条用真实事故换来的铁律：shlex 而非 awk 拆分（绝不误杀健康命令）、注册前必须 `bash -n` + 真实 JSON 端到端测试、SSOT + symlink 防止重装后静默失效、按 profile 逐个收敛注册 + 人工确认放行闸
-- 九类已归档的失败模式（症状→根因→修法），包括 UserPromptSubmit 与 Stop 选错事件这类范畴性错误（只有 Stop 能看到模型自己写的内容），以及嵌入的 `python3 -c` 代码块里一个字面引号/反引号（哪怕藏在注释里）会怎样悄悄把逻辑改坏
+- 已归档的失败模式（症状→根因→修法），包括 UserPromptSubmit 与 Stop 选错事件这类范畴性错误（只有 Stop 能看到模型自己写的内容），以及嵌入的 `python3 -c` 代码块里一个字面引号/反引号（哪怕藏在注释里）会怎样悄悄把逻辑改坏
 - 自带端到端测试脚手架（`scripts/test_hook.sh`）
 
 **使用示例：**

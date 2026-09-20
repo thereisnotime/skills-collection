@@ -98,6 +98,25 @@ class TestMiddlewareProtocol(unittest.TestCase):
         with self.assertRaisesRegex(MiddlewareError, "remote_content_not_enabled"):
             MiddlewareRuntime(endpoint="https://remote.example")
 
+    def test_record_mode_never_prepares_replacements(self):
+        with MiddlewareRuntime(mode="record") as runtime:
+            def http(path, body, timeout):
+                if path == "capabilities":
+                    return copy.deepcopy(FIXTURE["capabilities"])
+                request = json.loads(body)
+                self.assertEqual(request["mode"], "record")
+                plan = copy.deepcopy(FIXTURE["plan"])
+                plan["input_digest"] = sha256(body)
+                plan["status"], plan["reason"], plan["replacements"] = "record", "record", []
+                plan["skipped"] = [{"segment_id": segment["id"], "reason": "record"} for segment in request["segments"]]
+                plan["measurement"]["tokens_after"] = plan["measurement"]["tokens_before"]
+                plan["measurement"]["unique_tokens_reduced"] = 0
+                return plan
+            runtime._http = http
+            result = runtime.optimize(**inputs())
+            self.assertEqual((result.status, result.replacements), ("record", []))
+            self.assertEqual(runtime.report(result).status, "recorded")
+
     def test_valid_fallback_does_not_claim_unavailable_cache_continuity(self):
         for reason in ("cache_state_unavailable", "recovery_unavailable", "protected"):
             with self.subTest(reason=reason):

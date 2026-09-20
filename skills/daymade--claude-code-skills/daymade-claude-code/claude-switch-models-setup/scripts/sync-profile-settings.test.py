@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Fixture tests for sync-profile-settings.py — both config layers.
+"""Fixture tests for sync-profile-settings.py — both config layers, plus the
+mode table (scope, strictness, silence) every invocation resolves through.
 
 Runs against synthetic main/profile directories in a tmp dir; never touches
 real ~/.claude or ~/.claude-profiles. Exit 0 = all green.
 
   python3 scripts/sync-profile-settings.test.py
 """
+from __future__ import annotations
+
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -222,7 +226,36 @@ check("symlink-to-main excluded from --all enumeration",
 print("== run() CLI contract (subprocess, real exit codes) ==")
 
 
-def cli_tree(corrupt_main=False):
+def cli_env(main, profiles_root, active=None):
+    """The complete env a CLI run gets: PATH + a throwaway HOME, plus only the
+    CLAUDE_* keys named here.
+
+    Deliberately NOT `dict(os.environ)`: a hook-shaped env inherited from the
+    running harness carries CLAUDE_CONFIG_DIR pointing at a REAL profile, and
+    `_profile_dirs_to_converge()` unions that dir in — so a leaked value makes
+    the run converge a live profile from a synthetic main. That happened in an
+    earlier revision of this suite: the live profile's `hooks` was replaced
+    with `{"Stop": []}` (its `settings.json.sync-backup` still holds the
+    77-entry original). Every variable the script reads is opted into here.
+    """
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+           "HOME": tempfile.mkdtemp(prefix="sync-test-home-")}
+    env["CLAUDE_MAIN_CONFIG_DIR"] = str(main)
+    env["CLAUDE_PROFILES_ROOT"] = str(profiles_root)
+    if active is not None:
+        env["CLAUDE_CONFIG_DIR"] = str(active)
+    return env
+
+
+def cli_env_no_active(main, profiles_root):
+    """cli_env with CLAUDE_CONFIG_DIR absent entirely — the other side of the
+    variable, and the one that used to make the CWD a profile."""
+    env = cli_env(main, profiles_root, active=None)
+    env.pop("CLAUDE_CONFIG_DIR", None)
+    return env
+
+
+def cli_tree(corrupt_main=False, active=None):
     """Build an isolated main+profiles tree; return (root, env) for subprocess runs."""
     root = Path(tempfile.mkdtemp(prefix="sync-cli-"))
     main = root / "maincfg"
@@ -240,16 +273,170 @@ def cli_tree(corrupt_main=False):
         (p / ".claude.json").write_text(json.dumps(cj))
         (p / "settings.json").write_text("{}")
     (root / "profiles" / ".archived-profiles").mkdir()
-    env = dict(os.environ)
-    env["CLAUDE_MAIN_CONFIG_DIR"] = str(main)
-    env["CLAUDE_PROFILES_ROOT"] = str(root / "profiles")
-    return root, env
+    return root, cli_env(main, root / "profiles", active if active is not None else main)
 
 
 def run_cli(args, env):
     return subprocess.run([sys.executable, str(MODULE), *args],
                           capture_output=True, text=True, env=env)
 
+
+ABSENT = "<absent>"
+
+
+def _converger_writable(data) -> tuple:
+    """The .claude.json subset the converger may write, value-or-ABSENT per key.
+
+    Deliberately NOT the whole file. The harness rewrites `.claude.json`
+    continuously for a live session — measured 2026-09-19 during a fixture run:
+    exactly the two profiles with an open session changed, and no non-live
+    profile did — so a byte or key-count comparison would redden every run on any
+    machine that has a session open, which is how a tripwire gets trained into
+    noise. Comparing only what the converger is allowed to write needs no oracle
+    for "is this profile live", which has no reliable machine-readable signal.
+
+    ABSENT rather than "only the keys that are present": a synthetic main
+    carrying a key the real profile lacks ADDS it, and an absent-vs-present map
+    catches that where a present-only map would miss it.
+    """
+    if not isinstance(data, dict):
+        return ("<not-an-object>",)
+    keys = sorted(sps.BEHAVIOR_KEYS | sps.MERGE_KEYS)
+    return tuple((k, data.get(k, ABSENT)) for k in keys)
+
+
+def converger_artifact_census(root: Path | None = None) -> tuple:
+    """Every `*.sync-backup` and `.sync-*.json` under root, with sizes.
+
+    `write_json_atomic()` copies the target to `<file>.sync-backup` and stages
+    through a `.sync-*.json` temp file in the same directory. Nothing else in
+    the harness names files either way, so their presence is a converger
+    fingerprint that survives on EITHER config layer — including a write that
+    only touches `.claude.json` behavior keys and leaves `settings.json`
+    untouched, which is the case the profile fingerprint below cannot see.
+
+    Size, not mtime: the backup is made with `shutil.copy2`, which preserves the
+    source's mtime, so an old timestamp does not mean "no write happened".
+    """
+    root = Path(root) if root is not None else Path.home() / ".claude-profiles"
+    if not root.is_dir():
+        return ()
+    out = []
+    for p in sorted(root.rglob("*")):
+        if p.name.endswith(sps.BACKUP_SUFFIX) or (
+            p.name.startswith(".sync-") and p.name.endswith(".json")
+        ):
+            try:
+                out.append((str(p.relative_to(root)), p.stat().st_size))
+            except OSError:
+                out.append((str(p.relative_to(root)), -1))
+    return tuple(out)
+
+
+def real_profile_fingerprint(root: Path | None = None):
+    """Read-only snapshot of what a converger write would change in each profile.
+
+    `root` is overridable so the calibration below can point this at a synthetic
+    tree; it defaults to the real profiles root, which is what the tripwire uses.
+
+    Returns None when there is no profiles root (a contributor's machine), so
+    the guard degrades to a no-op instead of inventing a baseline.
+    """
+    root = Path(root) if root is not None else Path.home() / ".claude-profiles"
+    if not root.is_dir():
+        return None
+    fp = {}
+    for d in sorted(p for p in root.iterdir() if p.is_dir()):
+        entry = {}
+        s = d / "settings.json"
+        if s.exists():
+            try:
+                data = json.loads(s.read_text())
+            except json.JSONDecodeError as exc:
+                # Recorded, NOT skipped. The previous version did `continue`
+                # here, which dropped a genuinely damaged profile out of the
+                # baseline — so the tripwire passed on exactly the damage it
+                # exists to catch, in the fail-open direction.
+                entry["settings.json"] = ("<invalid-json>", str(exc)[:80])
+            else:
+                hooks = data.get("hooks", {}) if isinstance(data, dict) else None
+                env = data.get("env", {}) if isinstance(data, dict) else None
+                entry["settings.json"] = (
+                    sum(len(v) for v in hooks.values()) if isinstance(hooks, dict) else -1,
+                    len(env) if isinstance(env, dict) else -1,
+                )
+        cj = d / ".claude.json"
+        if cj.exists():
+            try:
+                cdata = json.loads(cj.read_text())
+            except json.JSONDecodeError as exc:
+                entry[".claude.json"] = ("<invalid-json>", str(exc)[:80])
+            else:
+                entry[".claude.json"] = _converger_writable(cdata)
+        if entry:
+            fp[d.name] = entry
+    return fp
+
+
+_SECRETISH = ("KEY", "SECRET", "TOKEN", "PASSWORD", "PASSWD", "CREDENTIAL", "AUTH")
+
+
+def _scrub(value, _depth: int = 0):
+    """Redact secret-looking leaves before a fingerprint value reaches output.
+
+    The tripwire's failure detail prints the before/after of the converger-writable
+    subset, and `mcpServers` — which is in that subset — carries per-server `env`
+    with real API keys in it. A red tripwire would therefore print a live credential
+    into the terminal and into any CI log that captured the run. Redacting on the
+    way OUT is the half that matters: the fingerprint itself stays byte-exact, so
+    two different values still compare unequal and the assertion still fires.
+    """
+    if _depth > 6:
+        return "<deep>"
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if any(s in str(k).upper() for s in _SECRETISH):
+                out[k] = "<redacted>"
+            else:
+                out[k] = _scrub(v, _depth + 1)
+        return out
+    if isinstance(value, (list, tuple)):
+        return [_scrub(v, _depth + 1) for v in value]
+    return value
+
+
+def diff_signals(before, after) -> list:
+    """Name which signal moved, so a red tripwire says what it caught.
+
+    A bare `before != after` sends the reader to diff two nested structures by
+    hand; this is the difference between "tripwire fired" and "the .claude.json
+    behavior subset of one profile changed from X to Y". Values are scrubbed:
+    this text goes to a terminal and possibly a CI log.
+    """
+    if before == after:
+        return []
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return [f"fingerprint shape changed: {_scrub(before)!r} -> {_scrub(after)!r}"]
+    out = []
+    for name in sorted(set(before) | set(after)):
+        b, a = before.get(name, "<profile absent>"), after.get(name, "<profile absent>")
+        if b == a:
+            continue
+        if isinstance(b, dict) and isinstance(a, dict):
+            for signal in sorted(set(b) | set(a)):
+                bv, av = b.get(signal, "<absent>"), a.get(signal, "<absent>")
+                if bv != av:
+                    out.append(f"  profile {name} / {signal}: {_scrub(bv)!r} -> {_scrub(av)!r}")
+        else:
+            out.append(f"  profile {name}: {_scrub(b)!r} -> {_scrub(a)!r}")
+    return out
+
+
+# Snapshot BEFORE any subprocess runs, so the tripwire at the end can prove
+# these tests touched no real profile.
+REAL_BEFORE = real_profile_fingerprint()
+ARTIFACTS_BEFORE = converger_artifact_census()
 
 r1, e1 = cli_tree()
 r = run_cli(["--check", "--all"], e1)
@@ -267,21 +454,226 @@ check("post-sync --check --all exits 0", r.returncode == 0, f"rc={r.returncode} 
 e1_main = dict(e1, CLAUDE_CONFIG_DIR=str(r1 / "maincfg"))
 r = run_cli([], e1_main)
 check("SessionStart mode on main itself: exit 0, no output", r.returncode == 0 and r.stdout == "", f"rc={r.returncode} out={r.stdout!r}")
+check("SessionStart mode never writes the main profile's settings.json (it is the SSOT)",
+      json.loads((r1 / "maincfg/settings.json").read_text()) == {"hooks": {"Stop": []}, "env": {"A": "1"}})
 
 e1_p1 = dict(e1, CLAUDE_CONFIG_DIR=str(r1 / "profiles/p1"))
 (r1 / "profiles/p2/.claude.json").write_text(json.dumps({"workflowSizeGuideline": "medium"}))
 r = run_cli([], e1_p1)
 check("SessionStart mode on profile: exit 0", r.returncode == 0, r.stderr[-200:])
-check("SessionStart synced only the active profile",
-      json.loads((r1 / "profiles/p2/.claude.json").read_text())["workflowSizeGuideline"] == "medium")
+check("SessionStart converged EVERY profile, not just the active one",
+      json.loads((r1 / "profiles/p2/.claude.json").read_text())["workflowSizeGuideline"] == "small",
+      json.loads((r1 / "profiles/p2/.claude.json").read_text()))
 
 r2, e2 = cli_tree(corrupt_main=True)
 r = run_cli(["--check", "--all"], e2)
 check("corrupt main + --check exits 2 with warning", r.returncode == 2 and "not valid JSON" in r.stdout,
       f"rc={r.returncode} out={r.stdout!r}")
+r = run_cli(["--all"], e2)
+check("corrupt main + --all keeps its exit-2 semantics", r.returncode == 2, f"rc={r.returncode}")
 r = run_cli([], dict(e2, CLAUDE_CONFIG_DIR=str(r2 / "profiles/p1")))
 check("corrupt main + SessionStart mode still exits 0 (never blocks)",
       r.returncode == 0 and "not valid JSON" in r.stdout, f"rc={r.returncode}")
+check("corrupt main + SessionStart writes NOTHING (a corrupt main reads as {} and would converge profiles toward empty)",
+      json.loads((r2 / "profiles/p1/.claude.json").read_text()) == {}
+      and json.loads((r2 / "profiles/p1/settings.json").read_text()) == {},
+      json.loads((r2 / "profiles/p1/.claude.json").read_text()))
+
+print("== new default: no-arg call scope, strictness, and silence ==")
+
+
+def cli_tree3(names=("p1", "p2", "p3"), drift=("p2",), active=None):
+    """Same shape as cli_tree, with a settable profile count and drift set.
+
+    Drift is placed only in `.claude.json`; a profile not in `drift` starts
+    already converged, so a run's output line count is decidable.
+    """
+    root = Path(tempfile.mkdtemp(prefix="sync-cli3-"))
+    main = root / "maincfg"
+    main.mkdir()
+    (root / "maincfg.json").write_text(json.dumps({"workflowSizeGuideline": "small"}))
+    (main / "settings.json").write_text(json.dumps({"hooks": {"Stop": []}, "env": {"A": "1"}}))
+    for name in names:
+        p = root / "profiles" / name
+        p.mkdir(parents=True)
+        wg = "medium" if name in drift else "small"
+        (p / ".claude.json").write_text(json.dumps({"workflowSizeGuideline": wg}))
+        (p / "settings.json").write_text(json.dumps({"hooks": {"Stop": []}, "env": {"A": "1"}}))
+    (root / "profiles" / ".archived-profiles").mkdir()
+    return root, cli_env(main, root / "profiles", active if active is not None else main)
+
+
+r3a, e3a = cli_tree3()
+r = run_cli([], e3a)
+check("no-arg call converged p2 (the drifted one)",
+      json.loads((r3a / "profiles/p2/.claude.json").read_text())["workflowSizeGuideline"] == "small")
+check("no-arg call left already-converged p1/p3 alone (no gratuitous writes)",
+      json.loads((r3a / "profiles/p1/.claude.json").read_text()) == {"workflowSizeGuideline": "small"}
+      and json.loads((r3a / "profiles/p3/.claude.json").read_text()) == {"workflowSizeGuideline": "small"}
+      and not (r3a / "profiles/p1/.claude.json.sync-backup").exists()
+      and not (r3a / "profiles/p3/.claude.json.sync-backup").exists())
+check("no-arg call exited 0", r.returncode == 0, r.stderr[-200:])
+check("no-arg call printed exactly one line, naming the profile it changed",
+      r.stdout.splitlines() == ["[p2] .claude.json synced 1 behavior key(s): workflowSizeGuideline (applies next session)"],
+      r.stdout)
+check("no-arg call skipped the dot-archive dir",
+      not (r3a / "profiles/.archived-profiles/settings.json").exists())
+
+r = run_cli([], e3a)
+check("no-arg call is silent once converged", r.stdout == "" and r.returncode == 0, f"rc={r.returncode} out={r.stdout!r}")
+r = run_cli(["--check", "--all"], e3a)
+check("--check --all is silent once converged", r.stdout == "" and r.returncode == 0, f"rc={r.returncode} out={r.stdout!r}")
+
+print("== mode table is total: no unlisted flag set falls through ==")
+r3b, e3b = cli_tree3(drift=())  # clean tree: every listed mode must exit 0
+for flags in (["--check"], ["--all"], ["--check", "--all"]):
+    r = run_cli(flags, e3b)
+    check(f"{' '.join(flags)} exits 0 on a clean tree", r.returncode == 0,
+          f"rc={r.returncode} out={r.stdout!r} err={r.stderr[-200:]!r}")
+for flags in (["--all", "--all"], ["--check", "--check"]):
+    r = run_cli(flags, e3b)
+    check(f"repeated {' '.join(flags)} resolves to the same mode (exit 0, no refusal)",
+          r.returncode == 0 and "unknown arg" not in r.stdout, f"rc={r.returncode} out={r.stdout!r}")
+
+print("== a missing PROFILES_ROOT is empty, not an exception ==")
+r3c, e3c = cli_tree3()
+shutil.rmtree(r3c / "profiles")
+r = run_cli([], dict(e3c, CLAUDE_CONFIG_DIR=str(r3c / "maincfg")))
+check("no profiles root: exit 0, no traceback", r.returncode == 0 and "Traceback" not in r.stderr,
+      f"rc={r.returncode} err={r.stderr[-200:]!r}")
+r = run_cli(["--check", "--all"], e3c)
+check("no profiles root + audit: exit 0 (no drift, no crash)", r.returncode == 0 and "Traceback" not in r.stderr,
+      f"rc={r.returncode} err={r.stderr[-200:]!r}")
+
+print("== a profile outside PROFILES_ROOT is converged when it is the active dir ==")
+r3d, e3d = cli_tree3()
+outside = r3d / "outside-profiles" / "loose"
+outside.mkdir(parents=True)
+(outside / ".claude.json").write_text(json.dumps({"workflowSizeGuideline": "medium"}))
+(outside / "settings.json").write_text("{}")
+bystander = r3d / "outside-profiles" / "bystander"
+bystander.mkdir(parents=True)
+(bystander / ".claude.json").write_text(json.dumps({"workflowSizeGuideline": "medium"}))
+(bystander / "settings.json").write_text("{}")
+r = run_cli([], dict(e3d, CLAUDE_CONFIG_DIR=str(outside)))
+check("out-of-root profile converged via CLAUDE_CONFIG_DIR",
+      json.loads((outside / ".claude.json").read_text())["workflowSizeGuideline"] == "small")
+check("another out-of-root profile NOT visited when it is not the active dir",
+      json.loads((bystander / ".claude.json").read_text())["workflowSizeGuideline"] == "medium")
+check("an out-of-root active dir is enumerated exactly once per layer, not twice",
+      [ln for ln in r.stdout.splitlines() if ln.startswith("[loose] .claude.json")].__len__() == 1
+      and [ln for ln in r.stdout.splitlines() if ln.startswith("[loose] synced")].__len__() == 1,
+      r.stdout)
+
+print("== an unset or non-profile CLAUDE_CONFIG_DIR fabricates nothing ==")
+# Path("") is Path("."), and Path(".").is_dir() is always True — so without a
+# membership test an unset variable makes the CWD a profile, and the settings
+# layer then CREATES a settings.json in whatever directory the session started
+# in (reproduced 2026-09-19: a stray settings.json landed in a git repo).
+r3e, e3e = cli_tree3()
+scratch = r3e / "a-project-dir"
+scratch.mkdir()
+r = subprocess.run([sys.executable, str(MODULE)], capture_output=True, text=True,
+                   cwd=str(scratch), env=cli_env_no_active(r3e / "maincfg", r3e / "profiles"))
+check("unset CLAUDE_CONFIG_DIR: exit 0, no traceback", r.returncode == 0 and "Traceback" not in r.stderr,
+      f"rc={r.returncode} err={r.stderr[-200:]!r}")
+check("unset CLAUDE_CONFIG_DIR fabricates NO settings.json in the cwd",
+      sorted(p.name for p in scratch.iterdir()) == [], sorted(p.name for p in scratch.iterdir()))
+check("unset CLAUDE_CONFIG_DIR still converged the in-root profiles",
+      json.loads((r3e / "profiles/p2/.claude.json").read_text())["workflowSizeGuideline"] == "small")
+check("unset CLAUDE_CONFIG_DIR names no empty [] profile in the output",
+      "[] " not in r.stdout and "[]" not in r.stdout.split(), r.stdout)
+
+r3f, e3f = cli_tree3()
+nonprofile = r3f / "not-a-config-dir"
+nonprofile.mkdir()
+(nonprofile / "package.json").write_text("{}")
+r = run_cli([], dict(e3f, CLAUDE_CONFIG_DIR=str(nonprofile)))
+check("CLAUDE_CONFIG_DIR pointing at a non-config dir writes nothing there",
+      sorted(p.name for p in nonprofile.iterdir()) == ["package.json"],
+      sorted(p.name for p in nonprofile.iterdir()))
+
+print("== one malformed profile does not cancel convergence for the others ==")
+r3g, e3g = cli_tree3(names=("aaa-broken", "p1", "p3"), drift=("p1",))
+(r3g / "profiles/aaa-broken/settings.json").write_text(json.dumps({"env": "not-an-object"}))
+(r3g / "profiles/aaa-broken/.claude.json").write_text("{}")
+r = run_cli([], e3g)
+check("non-dict env no longer raises TypeError",
+      "TypeError" not in r.stderr and "Traceback" not in r.stderr, f"err={r.stderr[-300:]!r}")
+check("the profile AFTER the broken one still converged",
+      json.loads((r3g / "profiles/p1/.claude.json").read_text())["workflowSizeGuideline"] == "small",
+      json.loads((r3g / "profiles/p1/.claude.json").read_text()))
+check("the broken profile's non-dict env was replaced by main's",
+      json.loads((r3g / "profiles/aaa-broken/settings.json").read_text())["env"] == {"A": "1"},
+      json.loads((r3g / "profiles/aaa-broken/settings.json").read_text()))
+check("SessionStart still exits 0 with a malformed profile present", r.returncode == 0, r.returncode)
+
+print("== a profile the run could not process: 2 in both audit modes, 0 in SessionStart ==")
+# The half of the exit-code contract the docs state but the suite never pinned.
+# A whole file that is valid JSON but not an object is what raises inside
+# _converge_one (load() returns the list as-is) and sets `failed`. p1 is left
+# drifted on purpose: the assertion is that 2 wins over 1, not that the run
+# happens to be clean. The name sorts before p1, so "p1 still converged" also
+# proves the failing profile did not cancel the one after it.
+r3i, e3i = cli_tree3(names=("aaa-wrongshape", "p1"), drift=("p1",))
+(r3i / "profiles/aaa-wrongshape/settings.json").write_text("[]")
+(r3i / "profiles/aaa-wrongshape/.claude.json").write_text("{}")
+
+r = run_cli(["--check"], e3i)
+check("a wrong-shape profile is reported and skipped, not silently audited",
+      "aaa-wrongshape" in r.stdout and "ERROR" in r.stdout, f"out={r.stdout!r}")
+check("--check exits 2 on a profile it could not read (2, not the drift's 1)",
+      r.returncode == 2, f"rc={r.returncode} err={r.stderr[-200:]!r}")
+check("--check wrote nothing for that profile",
+      not (r3i / "profiles/aaa-wrongshape/settings.json.sync-backup").exists())
+
+r = run_cli(["--all"], e3i)
+check("--all exits 2 on a profile it could not read", r.returncode == 2,
+      f"rc={r.returncode} err={r.stderr[-200:]!r}")
+check("--all still converged the profile after the failing one",
+      json.loads((r3i / "profiles/p1/.claude.json").read_text())["workflowSizeGuideline"] == "small",
+      json.loads((r3i / "profiles/p1/.claude.json").read_text()))
+
+# Re-drift p1 first: the --all step above already converged it, so without this
+# the assertion below would only prove p1 is in a converged state, not that the
+# bare run put it there.
+(r3i / "profiles/p1/.claude.json").write_text(json.dumps({"workflowSizeGuideline": "medium"}))
+r = run_cli([], e3i)
+check("argument-free SessionStart exits 0 on that same failing profile", r.returncode == 0,
+      f"rc={r.returncode} err={r.stderr[-200:]!r}")
+check("SessionStart converged p1 despite the failing profile",
+      json.loads((r3i / "profiles/p1/.claude.json").read_text())["workflowSizeGuideline"] == "small")
+check("SessionStart names the failing profile in its output",
+      "aaa-wrongshape" in r.stdout, f"out={r.stdout!r}")
+
+print("== corrupt main writes nothing in EVERY writing mode (not just no-args) ==")
+
+
+def tree_snapshot(root):
+    """Byte-level snapshot of both config files in every profile dir."""
+    snap = {}
+    for p in sorted((root / "profiles").iterdir()):
+        if not p.is_dir():
+            continue
+        snap[p.name] = tuple(
+            (p / f).read_text() if (p / f).exists() else "<absent>"
+            for f in ("settings.json", ".claude.json")
+        )
+    return snap
+
+
+r3h, e3h = cli_tree(corrupt_main=True)
+before = tree_snapshot(r3h)
+for flags in (["--all"], ["--check", "--all"], ["--check"]):
+    r = run_cli(flags, e3h)
+    check(f"corrupt main + {' '.join(flags)} exits 2", r.returncode == 2, f"rc={r.returncode}")
+    check(f"corrupt main + {' '.join(flags)} wrote NOTHING to any profile",
+          before == tree_snapshot(r3h),
+          f"drifted={[k for k in before if before[k] != tree_snapshot(r3h).get(k)]}")
+    check(f"corrupt main + {' '.join(flags)} left no backup files behind",
+          not list((r3h / "profiles").glob("*/settings.json.sync-backup"))
+          and not list((r3h / "profiles").glob("*/.claude.json.sync-backup")),
+          [str(x) for x in (r3h / "profiles").glob("*/*.sync-backup")])
 
 print("== corrupt profile rebuild + unknown-arg refusal ==")
 r3, e3 = cli_tree()
@@ -348,6 +740,168 @@ for _k in ("userID", "oauthAccount", "projects", "machineID", "claudeAiMcpEverCo
 check("mcpNeedsAuthNoticed classified as state",
       sps.is_state_key("mcpNeedsAuthNoticed")
       and "mcpNeedsAuthNoticed" not in sps.BEHAVIOR_KEYS)
+
+print("== tripwire calibration: it must fire on an injected leak, and stay quiet on harness noise ==")
+# A tripwire nobody has seen go red is a green square, not a proof. Both sides:
+#
+# FALSE NEGATIVE — inject a converger write into a synthetic tree and require the
+# tripwire to go red AND name which signal caught it. This reproduces the
+# 2026-09-19 incident's mechanism without touching a real profile: the fake
+# profile is reached through $CLAUDE_CONFIG_DIR (which `_profile_dirs_to_converge`
+# unions in) while CLAUDE_PROFILES_ROOT points elsewhere, and the synthetic
+# main's settings.json layer is empty — the shape that left the previous
+# settings.json-only fingerprint blind while the real profile's .claude.json
+# behavior keys were rewritten.
+#
+# FALSE POSITIVE — a harness-style write to .claude.json must NOT fire it. The
+# live harness rewrites a profile's .claude.json continuously while a session is
+# open, so if state-key churn tripped the tripwire it would redden every run on
+# any machine with a session open and get trained into noise.
+
+_cal = Path(tempfile.mkdtemp(prefix="tripwire-cal-"))
+try:
+    _watch = _cal / "watch"
+    _fake = _watch / "fake-live"
+    _fake.mkdir(parents=True)
+    # No-op for the settings layer: the synthetic main's settings.json is empty,
+    # so nothing about hooks/env can move and the old signal stays flat.
+    (_fake / "settings.json").write_text(json.dumps({"hooks": {}, "env": {}}))
+    (_fake / ".claude.json").write_text(json.dumps({"someSessionState": 1}))
+
+    _main = _cal / "maincfg"
+    _main.mkdir()
+    (_main / "settings.json").write_text(json.dumps({}))
+    (_cal / "maincfg.json").write_text(json.dumps({"workflowSizeGuideline": "small"}))
+    _other = _cal / "other-profiles"
+    _other.mkdir()
+    (_cal / "home").mkdir()
+
+    # Scrubbed from zero — never dict(os.environ). A leaked CLAUDE_CONFIG_DIR is
+    # the whole failure mode this suite encodes, and the calibration must not be
+    # the one place it gets reintroduced.
+    _cal_env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(_cal / "home"),
+        "CLAUDE_MAIN_CONFIG_DIR": str(_main),
+        "CLAUDE_PROFILES_ROOT": str(_other),
+        "CLAUDE_CONFIG_DIR": str(_fake),
+    }
+
+    _fp_before = real_profile_fingerprint(_watch)
+    _art_before = converger_artifact_census(_watch)
+    subprocess.run([sys.executable, str(MODULE)], capture_output=True, text=True,
+                   env=_cal_env, check=False)
+    _fp_leaked = real_profile_fingerprint(_watch)
+    _art_leaked = converger_artifact_census(_watch)
+
+    _moved = diff_signals(_fp_before, _fp_leaked)
+    check("calibration: an injected converger write moves the profile fingerprint",
+          _fp_before != _fp_leaked, f"before={_fp_before!r} after={_fp_leaked!r}")
+    check("calibration: it caught the .claude.json side, which settings.json alone missed",
+          any(".claude.json" in m for m in _moved), f"moved signals: {_moved}")
+    check("calibration: settings.json stayed flat (this is the blind spot it closes)",
+          _fp_before["fake-live"]["settings.json"] == _fp_leaked["fake-live"]["settings.json"],
+          f"{_fp_before['fake-live']['settings.json']!r} -> {_fp_leaked['fake-live']['settings.json']!r}")
+    check("calibration: the write named itself in the diff output",
+          "workflowSizeGuideline" in "\n".join(_moved), f"moved signals: {_moved}")
+    check("calibration: an injected converger write leaves a .sync-backup",
+          _art_before != _art_leaked and any(
+              n.endswith(sps.BACKUP_SUFFIX) for n, _ in _art_leaked),
+          f"before={_art_before} after={_art_leaked}")
+
+    # FALSE POSITIVE side: churn the keys the converger never touches. Merged
+    # into the file rather than replacing it — overwriting would also drop the
+    # behavior key the converger just wrote, and the disappearance of a
+    # converger-writable key is real signal, not harness noise. (Found by this
+    # calibration: the first draft replaced the file and the tripwire correctly
+    # went red on it.)
+    (_fake / ".claude.json").write_text(json.dumps({
+        **json.loads((_fake / ".claude.json").read_text()),
+        "someSessionState": 2, "numStartups": 99, "tipsHistory": {"a": 1},
+        "brandNewHarnessKey": True,
+    }))
+    _fp_noise = real_profile_fingerprint(_watch)
+    _art_noise = converger_artifact_census(_watch)
+    check("calibration: harness-style .claude.json churn does NOT move the fingerprint",
+          _fp_noise == _fp_leaked,
+          f"leaked={_fp_leaked!r} after noise={_fp_noise!r}")
+    check("calibration: harness-style churn creates no converger artifact",
+          _art_noise == _art_leaked, f"{_art_leaked} -> {_art_noise}")
+
+    # And the fail-open this also closes: a damaged file must be RECORDED, so a
+    # profile broken by a leak cannot quietly drop out of the baseline.
+    (_fake / "settings.json").write_text("{corrupt")
+    _fp_broken = real_profile_fingerprint(_watch)
+    check("calibration: a profile with unparseable settings.json stays in the fingerprint",
+          "fake-live" in _fp_broken
+          and _fp_broken["fake-live"]["settings.json"][0] == "<invalid-json>",
+          f"{_fp_broken!r}")
+
+    # The red tripwire's detail text goes to a terminal and possibly a CI log, and
+    # mcpServers is inside the compared subset carrying real API keys in its `env`.
+    # Calibrated against a shape that mirrors that: scrubbing on the way OUT leaves
+    # the fingerprint byte-exact, so the assertion still fires, but the printed value
+    # must not contain the secret.
+    _secret_before = {"x": {".claude.json": (("mcpServers", {"srv": {"env": {"API_KEY": "s3cr3t", "SAFE": "ok"}}}),)}}
+    _secret_after = {"x": {".claude.json": (("mcpServers", {"srv": {"env": {"API_KEY": "CHANGED", "SAFE": "ok"}}}),)}}
+    _rendered = "\n".join(diff_signals(_secret_before, _secret_after))
+    check("calibration: a red tripwire still names the signal that moved",
+          "mcpServers" in _rendered, _rendered)
+    check("calibration: a red tripwire does not print the secret values",
+          "s3cr3t" not in _rendered and "CHANGED" not in _rendered
+          and "<redacted>" in _rendered, _rendered)
+    check("calibration: it keeps the non-secret value so the diff is still readable",
+          "SAFE" in _rendered and "'ok'" in _rendered, _rendered)
+
+    # The property nothing else pins: the FINGERPRINT compares raw values and
+    # scrubbing happens only when the text is rendered. Move `_scrub` into
+    # `_converger_writable` and two dicts differing only in a secret collapse onto
+    # one `<redacted>`, the fingerprints compare equal, and signal 1 goes blind to a
+    # secret-only write — while every scrub assertion above stays green, because
+    # they only check that plaintext is absent from what gets printed. Both
+    # properties would fail silently together, so they are pinned separately.
+    _secret_a = {"mcpServers": {"srv": {"env": {"API_KEY": "aaa-secret", "SAFE": "ok"}}},
+                 "workflowSizeGuideline": "small"}
+    _secret_b = {"mcpServers": {"srv": {"env": {"API_KEY": "bbb-secret", "SAFE": "ok"}}},
+                 "workflowSizeGuideline": "small"}
+    check("calibration: the fingerprint compares RAW values — a secret-only change still moves it",
+          _converger_writable(_secret_a) != _converger_writable(_secret_b),
+          f"a={_converger_writable(_secret_a)!r}\nb={_converger_writable(_secret_b)!r}")
+    _rendered2 = "\n".join(diff_signals(
+        {"x": {".claude.json": _converger_writable(_secret_a)}},
+        {"x": {".claude.json": _converger_writable(_secret_b)}}))
+    check("calibration: that same secret-only change renders without the plaintext",
+          "aaa-secret" not in _rendered2 and "bbb-secret" not in _rendered2
+          and "<redacted>" in _rendered2, _rendered2)
+finally:
+    shutil.rmtree(_cal, ignore_errors=True)
+
+print("== the suite touched no real profile (hermeticity tripwire) ==")
+# The failure this encodes: an earlier revision built its subprocess env from
+# dict(os.environ), so the harness's CLAUDE_CONFIG_DIR reached the run and
+# `_profile_dirs_to_converge()` converged the LIVE profile from a synthetic
+# main — its `hooks` became `{"Stop": []}` and every guard in it was gone.
+# A scrubbed env prevents it; this check proves it did.
+#
+# Two signals, because they see different damage. The profile fingerprint sees
+# settings.json's hooks/env and the .claude.json behavior subset — but a leak
+# whose synthetic main has an empty settings.json layer leaves settings.json
+# untouched, and the harness's own writes to a live .claude.json mean the whole
+# file cannot be compared. The artifact census closes that gap: `.sync-backup`
+# and `.sync-*.json` are made by write_json_atomic() and by nothing else, so a
+# write on either layer leaves one behind.
+REAL_AFTER = real_profile_fingerprint()
+ARTIFACTS_AFTER = converger_artifact_census()
+if REAL_BEFORE is None:
+    check("no real profiles root here — tripwire not applicable (skipped)", True)
+else:
+    _signals = diff_signals(REAL_BEFORE, REAL_AFTER)
+    check("no real profile changed across the whole suite",
+          REAL_BEFORE == REAL_AFTER,
+          ("\n" + "\n".join(_signals)) if _signals else f"before={REAL_BEFORE} after={REAL_AFTER}")
+    check("the converger left no .sync-backup or .sync-*.json in any real profile",
+          ARTIFACTS_BEFORE == ARTIFACTS_AFTER,
+          f"before={ARTIFACTS_BEFORE} after={ARTIFACTS_AFTER}")
 
 print()
 if FAILURES:

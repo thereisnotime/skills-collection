@@ -1,20 +1,19 @@
-import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { MiddlewareRuntime } from '@caveman-ai/sdk/middleware';
 
-// Framework peers cannot be declared globally: independently selectable native
-// adapters can require mutually incompatible optional provider SDK versions.
-// Consumers install their selected native framework; exact support is checked
-// at its entry point before any history, tool, or transport is changed.
-const require = createRequire(import.meta.url);
+// Resolve from this module, using the same ESM export conditions as its imports.
+// Supported Node bundles retain native frameworks as external packages, including
+// their package.json files. Missing metadata fails closed; never guess a version
+// from our build-time dependencies or from an unrelated process.cwd() install.
 const installed = new Map<string, string | null>();
 export function installedFrameworkVersion(name: string, entry = name): string | null {
   const key = `${name}:${entry}`;
   if (installed.has(key)) return installed.get(key)!;
   let version: string | null = null;
   try {
-    let directory = dirname(require.resolve(entry));
+    let directory = dirname(fileURLToPath(import.meta.resolve(entry)));
     for (let depth = 0; depth < 16; depth++) {
       try {
         const metadata = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'));
@@ -30,15 +29,11 @@ export function installedFrameworkVersion(name: string, entry = name): string | 
   return version;
 }
 
-/** Numeric release segments, prerelease and build metadata dropped. */
+/** Stable releases only. Prereleases have not passed the adapter contract. */
 function release(value: string): number[] {
-  const parts: number[] = [];
-  for (const chunk of (value.split('+')[0] ?? '').split('-')[0]!.split('.')) {
-    const number = Number.parseInt(chunk, 10);
-    if (!Number.isInteger(number) || number < 0) break;
-    parts.push(number);
-  }
-  return parts;
+  if (!/^(0|[1-9]\d*)(\.(0|[1-9]\d*)){0,2}(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(value)) return [];
+  const parts = value.split('+')[0]!.split('.').map(Number);
+  return parts.every(Number.isSafeInteger) ? parts : [];
 }
 
 function compare(a: number[], b: number[]): number {
@@ -49,14 +44,13 @@ function compare(a: number[], b: number[]): number {
   return 0;
 }
 
-/** `low <= version < high`, comparing release segments only. A framework that
- * ships a breaking change inside the range is caught by the adapter's own
- * serialization revision, which is part of the runtime's scope identity; this
- * gate only keeps a wildly different major from reaching the wire format. */
+/** `low <= version < high`. A compatible range is not a claim that each release
+ * was tested. Serialization revisions identify our format, not upstream changes. */
 export function inRange(version: string | null, low: string, high: string): boolean {
   if (!version) return false;
   const found = release(version);
-  return found.length > 0 && compare(found, release(low)) >= 0 && compare(found, release(high)) < 0;
+  const minimum = release(low), maximum = release(high);
+  return found.length === 3 && minimum.length > 0 && maximum.length > 0 && compare(found, minimum) >= 0 && compare(found, maximum) < 0;
 }
 
 /** Pure version check for adapters retaining a passive per-call delegate. */

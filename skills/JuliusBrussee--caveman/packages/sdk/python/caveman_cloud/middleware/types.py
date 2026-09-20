@@ -64,6 +64,21 @@ class CallReport:
     attempt_id: str | None
 
 
+@dataclass(frozen=True)
+class PreflightReport:
+    """Startup discovery only; readiness does not establish savings or quality."""
+    schema_version: int
+    status: Literal["ready", "disabled", "unavailable"]
+    reason: str
+    configured_mode: str
+    runtime_mode: str | None
+    runtime_build: str | None
+    policy_revision: str | None
+    persistent: bool | None
+    recovery: bool | None
+    action: str
+
+
 class MiddlewareError(Exception):
     def __init__(self, code: str):
         self.code = code

@@ -205,11 +205,36 @@ python3 ~/.config/claude-switch-models-setup/sync-profile-settings.py --all
 Restart the affected window — the harness reads `.claude.json` at startup, so
 a sync never changes the running session.
 
+**Scope — every run covers every profile.** The argument-free SessionStart call
+converges all of `~/.claude-profiles/*` plus `$CLAUDE_CONFIG_DIR`, so the next
+profile to start a session carries the backlog for every profile that has not.
+No flag changes that scope; `--check` and `--all` only choose audit-vs-write.
+`$CLAUDE_CONFIG_DIR` is skipped when it is unset, empty, or holds no
+`settings.json` / `.claude.json` — an unset value otherwise resolves to the
+cwd and gets a `settings.json` fabricated into it. A run prints one line per
+profile it actually changed and nothing when there is no drift — **a silent
+session start means converged**. When adding a hook to the default profile,
+confirm it appears in a profile you have not opened since; the converged line
+naming it is the evidence.
+
 Corrupt files on either layer: a corrupt profile `settings.json` or
 `.claude.json` is rebuilt from main with a WARNING line (the original bytes
-are retained in `<file>.sync-backup`); a corrupt MAIN file aborts the run —
-`--check`/`--all` exit 2, SessionStart prints the warning and exits 0
-(session start is never blocked).
+are retained in `<file>.sync-backup`); a corrupt MAIN file aborts the run and
+converges nothing — a corrupt main reads as empty, so proceeding would strip
+keys from every profile. Exit code is 2 for `--check`/`--all`, and 0 for the
+argument-free SessionStart call, which warns and lets the session start. A
+profile the run could not process — the wrong-shape case in the next paragraph —
+splits the same way, so an audit that skipped a profile says so instead of
+reporting a clean run.
+
+A profile whose **whole file** is valid JSON but the wrong shape (a list, string or
+number instead of an object) is reported as `[name] ERROR: ...` and skipped;
+convergence continues with the remaining profiles, because under "converge
+everything" one malformed profile would otherwise cancel the run for all of them.
+A single **field** of the wrong shape is handled differently: a non-object `env`
+(e.g. `"env": "oops"`) is treated as empty and rebuilt from main — the same
+semantic as a corrupt file — with the original bytes retained in
+`<file>.sync-backup`.
 
 **Classifying a NEW key (the tripwire):** when a future Claude Code release
 adds a key that differs between main and a profile, the sync prints one line
@@ -252,6 +277,35 @@ written into an active profile persisted 30+ minutes of harness writes) —
 but re-verification is cheap if a future Claude Code release changes write
 semantics: write a marker into an active profile's `.claude.json`, keep
 using the session, check the marker an hour later.
+
+## A real profile's guard hooks vanished and its `env` has unfamiliar keys
+
+Symptom: a profile stops firing its PreToolUse guards, and its `settings.json`
+has `env` keys that belong to no provider. The file often shrank sharply.
+
+Cause: the converger ran with a synthetic `CLAUDE_MAIN_CONFIG_DIR` while
+`CLAUDE_PROFILES_ROOT` or `$CLAUDE_CONFIG_DIR` still reached the real profile.
+Scope is the union of those two, so the real profile converged toward the fake
+main — `hooks` replaced wholesale by the fake main's object, `env` merged
+per-key so the fake main's keys were added. The run does name `hooks` among the
+keys it synced and, when the overwrite drops profile-only entries, reports how
+many, but nothing in it says guards stopped firing — it reads as the converger
+doing its job.
+
+Fix: restore from that profile's own backup, then verify byte-for-byte.
+
+```bash
+cp -p <profile>/settings.json.sync-backup <profile>/settings.json
+```
+
+Check size, JSON validity, top-level key count, `hooks` length, unexpected `env`
+keys, and sandbox signatures such as `/bin/true`. Do not judge by the backup's
+mtime: it is written with `shutil.copy2`, which preserves the source mtime, so
+an old timestamp does not prove nothing was written.
+
+Then scan the remaining profiles — scope is all of them, so one run can hit
+several — and correct the invocation before running the script again (see "Never
+run the converger against a synthetic main" in `SKILL.md`).
 
 ## Installation audit reports missing or unselected Skills
 

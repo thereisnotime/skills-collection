@@ -7,7 +7,7 @@ import { BaseDocumentCompressor } from '@langchain/core/retrievers/document_comp
 import { Document, type DocumentInterface } from '@langchain/core/documents';
 import { MiddlewareRuntime, recoveryInputSchema, recoveryToolDescription, type Candidate, type RecoveryBinding, type RetrieveArgs, type Scope, type Usage } from '@caveman-ai/sdk/middleware';
 import { currentOwner, manifest, observe, plain, withOwner, type Attempt } from './common.js';
-import { matchesFramework } from './versions.js';
+import { adapterCompatible, frameworkVersion } from './compatibility.js';
 
 export type LangChainScope = Scope | ((config: RunnableConfig) => Scope);
 export interface LangChainOptions { runtime: MiddlewareRuntime; scope: LangChainScope }
@@ -15,8 +15,8 @@ export interface LangChainDocumentOptions extends LangChainOptions {
   /** The runtime-owned reader already registered by the application for this scope. */
   sourceExpansion?: RecoveryBinding;
 }
-export const langChainAdapter = { id:'langchain', version:'0.1.0', framework_version:'1.5.10', serialization_revision:'langchain-message-v1' };
-export const langChainSupported=(_runtime:MiddlewareRuntime)=>matchesFramework('langchain','1.5','2')&&matchesFramework('@langchain/core','1.2','2','@langchain/core/messages')&&matchesFramework('@langchain/langgraph','1.4','2');
+export const langChainAdapter = { id:'langchain', version:'0.1.0', framework_version:frameworkVersion('langchain')??'unknown', serialization_revision:'langchain-message-v1' };
+export const langChainSupported=(_runtime:MiddlewareRuntime)=>adapterCompatible('langchain');
 
 export function scopeFromConfig(config:RunnableConfig, namespace:string):Scope{
   const c=config.configurable??{};

@@ -37,12 +37,24 @@ User-provided scope exclusions override every generic scan suggestion. Do not in
 2. **Confirm the exact target.** On a remote Mac, record the current host identity before any other work. Never infer the machine from an IP, old PID, directory name, or prior report.
 3. **Plan before asking.** Before any state change, list every command, what it changes, expected physical space reclaimed, impact, recoverability, and postconditions. Then stop if the user requested a plan-only phase.
 4. **Require explicit approval.** If the user supplies an exact confirmation phrase, require that phrase. Otherwise ask for unmistakable approval of the listed commands and targets. Approval for one plan does not authorize a fallback or a wider cleanup.
-5. **Use precise supported controls.** Prefer an application's supported cache-management command or an exact object ID. If no supported control exists, an exact application-owned cache directory may be removed only after verifying its owner, confirming the application is stopped or the directory is otherwise inactive, explaining rebuild/redownload impact, and receiving approval. Never target a broad cache root or active application state.
+5. **Use precise supported controls — and check them for known defects first.** Prefer an application's supported cache-management command or an exact object ID. "Official" and "precise" are not evidence of safety, so before the first supported-control command runs, do a known-issue check on that exact command at the installed version: a search of the tool's issue tracker for the command name, plus its changelog for fixes landing in a later release than the one installed. A command with an open, version-relevant defect is not a supported control for this skill — treat it like the category-wide commands in the next rule and either upgrade past the fix or use an exact-path alternative. If no supported control exists, an exact application-owned cache directory may be removed only after verifying its owner, confirming the application is stopped or the directory is otherwise inactive, explaining rebuild/redownload impact, and receiving approval. Never target a broad cache root or active application state.
 6. **Never use Docker prune-family commands.** This includes image, container, volume, system, builder, and buildx prune. Category-wide deletion cannot express per-object user intent.
 7. **Avoid broad destructive shell forms.** Do not recommend or execute broad `rm -rf` or glob deletion. For exact approved ordinary files, prefer Finder Trash. The bundled legacy helper permanently deletes and has only the limited guards documented below; never treat it as equivalent to Trash.
 8. **Preserve valuable state.** Never target user documents, credentials, SSH material, active databases, application configuration, or running-service state merely to increase the reported savings. Read `references/safety_rules.md` before any file deletion.
 9. **Execution follows the user's authorization.** If the user asks only for analysis or wants to run commands personally, hand off the commands. If the user asks the agent to fix the machine and explicitly confirms the scoped plan, execute the exact approved commands and verify them. Unattended recurring deletion logic needs separate approval before it is written or enabled.
 10. **Fail fast.** An unexpected non-zero command, a mismatched postcondition, an unexpected target, or a changed dependency stops the cleanup. Interpret documented probe statuses such as `lsof` exit 1 with empty output before deciding they are failures. Report the partial state; do not improvise a fallback.
+11. **Before promising physical release from any deletion, name the mechanism — and get it from the creating command, not from a guess.** A `df` gap between a nominal `du` total and actual reclaim means one candidate mechanism is at work, and **the strongest evidence is the verbatim command that created the folder**, because the copy verb alone decides the space semantics. Find it in session history before theorizing; a folder-name or size-based inference is not a mechanism. Only if no command can be found does the gap stay `unknown` — do not substitute the most plausible-sounding mechanism for one you can demonstrate.
+
+    The mechanisms, distinguished by what `du` reports and what deletion releases (all four measured on 2026-09-19, 1 GiB source, drift-controlled):
+
+    | Created by | `du` nominal | Deleting the copy releases | Fingerprint |
+    |---|---|---|---|
+    | `cp` (bare) / `cp -a` | full, counted per path | full | independent inodes, independent extents |
+    | **`cp -c` / `cp -cR`** (clonefile) | **full, counted per path** | **≈0** | **different inode, `nlink=1`, shared extent** |
+    | `ln` / `cp -l` (hard link) | **counted once** — sibling reads `0` | **≈0** | **same inode, `nlink=2`** |
+    | local APFS snapshot | full | ≈0 until snapshots are thinned | `tmutil listlocalsnapshots /` |
+
+    Two traps this table exists to kill. **The clonefile and hard-link rows are opposite on `du` but identical on deletion** — both release ≈0, so "deleting it freed nothing" cannot tell them apart, while `du` can: a hard-linked sibling counts once (or as `0`), a clonefile copy counts full. And **calibrating the wrong copy verb proves nothing**: a 98 GiB gap was twice attributed to the wrong mechanism because the probe used bare `cp` when the folder had been built with `cp -cR`. Before any deletion, run the probe with the *same flags as the creating command*. Clonefile is worth flagging as the common case — macOS `cp` defaults to it for `-c`, and directories copied for a delivery/kit routinely carry it.
 
 ## Phase contract
 
@@ -113,6 +125,8 @@ An `<approved-path>` is an exact path the user named or explicitly accepted afte
 Mole's analyzer scans a fixed set that includes the home directory, application data, system libraries, applications, and volumes. Navigation inside the results does not make the underlying scan path-scoped. If that broad read scope is not approved, do not run Mole; stop with the bounded evidence already collected or ask for the missing scan authorization in the plan.
 
 For an explicitly approved duplicate-file investigation, read the “Optional duplicate files” section in `references/cleanup_targets.md`. It is read-only and never uses an automatic-delete option.
+
+**A large data folder is not a cache — proposing its deletion needs an evidence chain, not a size ranking.** When discovery surfaces a big project-asset / media / dataset directory (not a cache, not an app remnant), do NOT put it in the action set on size alone: read `references/proving-redundancy-before-deletion.md` and climb its ladder (file-level duplication → creation-origin → reference check → session-history tool-call census → .DS_Store manual-usage trace → the project's own decision records) before proposing anything. The deliverable is the evidence table; the unprovable row (purely manual usage) goes to the user, never gets papered over.
 
 When discovery is fanned out to sub-agents, each returns candidates and measurements only — the classification, the acceptance, and the proposal happen in the session that runs the Phase 2 entry gate. A sub-agent's inventory is input to the classification table, never the plan.
 
@@ -241,6 +255,7 @@ Load only the branch relevant to the current task:
 - `references/apple_content_caching.md` — Apple Content Caching diagnosis, unit interpretation, supported remote controls, confirmation plan, and post-cleanup verification.
 - `references/chromium_code_sign_clones.md` — Chrome/Chromium/Edge code-sign-clone semantics, nominal-versus-physical reporting, exact inactive-target manifests, cleanup verification, and recurrence prevention.
 - `references/cleanup_targets.md` — cache, log, application, developer, large-file, and Time Machine target semantics.
+- `references/proving-redundancy-before-deletion.md` — the evidence ladder for large data folders (duplication → creation-origin → references → session-history census → .DS_Store → project decision records). Load BEFORE proposing deletion of any big project-asset / media / dataset directory; a size ranking is not evidence.
 - `references/docker_analysis.md` — per-object Docker and OrbStack analysis, database-volume safeguards, and refill root-cause diagnosis.
 - `references/mole_integration.md` — TTY workflow for interactive Mole analysis and preview.
 - `references/report_templates.md` — long-form general and Docker report templates.

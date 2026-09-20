@@ -51,6 +51,19 @@ export interface Capabilities {
   trust_mode: string;
   mode: 'record' | 'compress';
 }
+/** Startup discovery only; readiness does not establish savings or task quality. */
+export interface PreflightReport {
+  readonly schema_version: 1;
+  readonly status: 'ready' | 'disabled' | 'unavailable';
+  readonly reason: string;
+  readonly configured_mode: 'off' | 'record' | 'compress';
+  readonly runtime_mode: 'record' | 'compress' | null;
+  readonly runtime_build: string | null;
+  readonly policy_revision: string | null;
+  readonly persistent: boolean | null;
+  readonly recovery: boolean | null;
+  readonly action: string;
+}
 export interface BindingWire { id: string; kind: 'host_tool' | 'source_reader'; tool_name: 'caveman_retrieve'; overhead_text: string }
 export interface OptimizeRequest {
   schema_version: 1;

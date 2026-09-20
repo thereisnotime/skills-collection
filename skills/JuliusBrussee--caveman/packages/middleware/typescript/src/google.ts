@@ -3,7 +3,7 @@ import { GoogleGenAI, Models, Chats, type GoogleGenAIOptions, type GenerateConte
 import { MiddlewareRuntime, sha256, type RecoveryBinding, type Scope, type Usage } from '@caveman-ai/sdk/middleware';
 import { currentOwner, manifest, observe, plain, withOwner, type Attempt } from './common.js';
 import { parseWire, patchWire, pathKey, type StringLeaf } from './wire.js';
-import { supportsFramework } from './versions.js';
+import { adapterCompatible, frameworkVersion } from './compatibility.js';
 
 export interface GoogleOptions { runtime: MiddlewareRuntime; scope: Scope }
 type NativeClient = ConstructorParameters<typeof Models>[0];
@@ -102,7 +102,7 @@ async function prepare(request: NativeRequest, options: GoogleOptions, defaults?
       const leaves = selected(wire.value, wire.strings), history = await manifest([envelope, ...contents]);
       if (history) {
         const binding = context?.binding && options.runtime.ownsBinding(context.binding, options.scope) && acceptsRecovery(wire.value, context.binding) ? context.binding : null;
-        const optimization = await options.runtime.optimize({ scope: options.scope, adapter: { id: 'google-sdk', version: '0.1.0', framework_version: '2.21.0', serialization_revision: 'google-genai-native-wire-v1' },
+        const optimization = await options.runtime.optimize({ scope: options.scope, adapter: { id: 'google-sdk', version: '0.1.0', framework_version: frameworkVersion('@google/genai') ?? 'unknown', serialization_revision: 'google-genai-native-wire-v1' },
           model: { provider: 'google', id: request.path.replace(/:(?:generateContent|streamGenerateContent).*$/, ''), protocol: 'google-genai' }, manifest: history,
           candidates: leaves.map((leaf, i) => ({ id: `leaf-${i}`, sourceId: leaf.path.join('/'), content: leaf.value })), binding,
           ...(binding ? { recoveryOverheadText: context?.overhead ?? JSON.stringify(schema(binding)) } : {}), logicalCallId: attempt.logicalCallId, attemptId: attempt.attemptId,
@@ -216,7 +216,8 @@ export class CavemanGoogleGenAI extends GoogleGenAI {
   declare readonly chats: Chats;
   constructor(nativeOptions: GoogleGenAIOptions, options: GoogleOptions) {
     super(nativeOptions);
-    const supported = supportsFramework(options.runtime, '@google/genai', '2.21', '3');
+    const supported = options.runtime.mode !== 'off' && adapterCompatible('google');
+    if (!supported && options.runtime.mode !== 'off') options.runtime.decline('unsupported_version');
     this.models = new Models(delegatedClient(this.apiClient, options, nativeOptions.httpOptions, supported ? undefined : options.runtime.mode === 'off' ? 'disabled' : 'unsupported_version'));
     this.chats = new Chats(this.models, this.apiClient);
     if (!supported) return;

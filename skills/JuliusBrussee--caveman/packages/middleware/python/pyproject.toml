@@ -28,7 +28,7 @@ Issues = "https://github.com/JuliusBrussee/caveman/issues"
 # under [mcp] against `openai==2.54.0` under [agno] - so no two families could be
 # installed together. The framework's own dependency ranges pick the provider.
 [project.optional-dependencies]
-openai = ["openai>=2.20,<4"]
+openai = ["openai>=3.10,<4"]
 anthropic = ["anthropic>=1.4,<2"]
 google = ["google-genai>=2.22,<3"]
 langchain = ["langchain>=1.4,<2", "langchain-core>=1.6,<2", "langgraph>=1.2,<2"]
