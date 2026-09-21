@@ -78,6 +78,9 @@ jobs:
       - name: Hook command shape parses under the real Git Bash
         shell: pwsh
         run: node --test --test-force-exit tests/installer/platform-paths.test.mjs
+      - name: OMP installer ownership and Windows launch contracts
+        shell: pwsh
+        run: node --test --test-force-exit tests/installer/omp.test.mjs tests/installer/owned-install.test.mjs tests/installer/portable-process.test.mjs
       - name: Hook stdin lifecycle (no waiting on a lagging pipe close)
         shell: pwsh
         run: node tests/test_hook_stdin_lifecycle.js

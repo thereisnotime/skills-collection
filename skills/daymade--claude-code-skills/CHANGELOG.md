@@ -7,6 +7,239 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **macos-watchdog** (`daymade-macos` v1.5.0 → v1.6.0): 排障表新增一行——out.log 全绿不等于健康，失败轮可能什么都不写（`set -e` + 仅成功才打印 verified），于是最后成功时间戳永远新鲜；健康判据换成失败路径有没有出口。实测战例（五个绿信号对 err.log 里 137 条 traceback）与 `launchctl list` 只给最后一次退出码、不给退出码历史这一边界，进 `references/quiet-watchdog-patterns.md` Pattern 7。`references/launchd-plist-reference.md` 另记一条陷阱：`plutil -replace ProgramArguments.0 -string X` 是**追加**元素而非替换索引 0（实测把原脚本变成新脚本的参数），正解是用 plistlib 重写整个数组后 `plutil -p` 读回。
+
+- **claude-switch-models-setup** (`daymade-claude-code` v3.53.0 → v3.54.0): troubleshooting 新增 `## Source sync aborts with duplicate source skill name` 一节。根因是两个 main 在 19–51 分钟窗口内同时声明同名 skill（skill 跨仓迁移）；两次实测事故与功能分支无关（四个 commit 均为 main 祖先），但 syncer 读每个 checkout 的工作树，fork 自删除 commit 之前的本地分支仍会暴露该名，所以不能反过来断言"分支永远不是成因"。含两次实测窗口表、`merge-base --is-ancestor` 取证命令、先删后加的正确顺序，以及收尾一个已开窗口时必须 `git -C <checkout> pull --ff-only`——只 push 不足以让窗口关闭。
+
+- **tech-selection** (`daymade-claude-code` v3.52.0 → v3.53.0): agent orchestration no
+  longer asserts a single-agent default. The ruling was that a standing instruction
+  inside one task outranks any general delegation rule, so the section now states the
+  tech-selection instruction in mandatory terms — agent-team discussion is required,
+  picking a direction unilaterally is forbidden, Stop 1 is where it is enforced — and
+  scopes it to this task rather than presenting it as a preference about how all work
+  is delegated. The four questions remain, but as the filler for what the instruction
+  leaves open, not as an override of it. Same correction in all three mirrors
+  (`delegation-contract.md` frontmatter, its orchestration section, and both Boundary
+  tables), because a stale mirror would have kept arguing the opposite.
+
+- **transcript-fixer** (`daymade-audio` v1.41.0 → v1.41.1): `references/native_ai_full_workflow.md`
+  asr_note 契约补第三条 load-bearing constraint——任何往 frontmatter 写 `asr_note` 的流程先 grep
+  已存在 `^asr_note:` 键并合并，绝不盲追加第二行。重复键是 YAML 非法：strict 解析器 reject、permissive
+  （PyYAML 含）静默取最后值并丢较早 ledger。2026-09-20 批量收口往 8 份 transcript 追加第二 `asr_note`，
+  `sync-feishu-minutes` audit archive-scan reject（exit 2、coverage unknown）阻塞 date sweep，直至合并回单键。
+
+- **transcript-fixer** (`daymade-audio` v1.41.1 → v1.41.2): 裁决链五个缺陷——①人名收敛闸门
+  只认「已取得的权威」，但 evidence 写「**需**读名册」「**待**用户确认」这类未取得的权威也能放行
+  （正则会命中「名册」二字），2026-09-16 那起多数派收敛到查无此名的拼法的事故形状因此能穿过闸门。
+  ②裁决时才取得的权威（用户当场拍板、群昵称双读）没有通道进 evidence 列；新增
+  `--authority` / `--attach-authority`，裁决时挂载并进 audit log。③`_revert_applied` 的行级还原
+  会把同一原文在台账/frontmatter/asr_note 里的其它出现一起删掉；改调 `_revert_one_body_occurrence`。
+  ④reanchor 匹配前不屏蔽候选文件，会自我漂移；改为先屏蔽。⑤`verify_queue_audio.py` 双引擎片段
+  识别无条件挂「音证」权威，识别文本不含建议词时也挂；改为仅含建议词时才挂。
+
+  独立审阅判定「有阻塞项」后同版本追加四处修正（首版修完，闸门仍能被穿过）：**① 未取得判据从
+  「名词前 6 字内有无 marker」改成「什么算未取得」**——evidence 按句读切成子句，need-marker 管住
+  它后面的名词短语（短语止于子句结束，或止于一个权威名词闭合后的空白），任一权威名词不被任何
+  marker 管住即算已取得；同时补英文 marker（`pending` / `TBD` / `to be confirmed` / `awaiting` /
+  `unconfirmed` / `needs …`）。原窗口宽度是任意的，实测「需要先去听完整的那一段音频再判断」
+  （隔 11 字）与「pending roster confirmation」（英文，一个中文 marker 都没有）都能穿过——也就是
+  这道闸门立命要关的那类事故本身。修后 6 个假放行串全部拒住；「待用户裁定 roster 行 ### 王晓明」
+  这类「前句未取得、后句已取得」也不再被反向误拦。**③ 的还原计数只数了行、没数行内次数**：
+  同一行出现两次新词时返回 `reverted` 而文件里还剩一处，且被换掉的往往是另一处（accept 落在第二处、
+  撤回改的是第一处）。origin/main 在这个形状上是拒绝的，属本次引入的能力退化，现在行内次数也必须
+  为 1。**③ 的台账定义把整个 frontmatter 块都标成台账**，于是 `title:` 这类非台账键「写得进
+  （accept 能改）、撤不回（reopen 拒绝）」，且拒绝理由写「只活在 asr_note 台账里」，把操作者引向
+  错误方向；台账收窄为 `asr_note:` 键本身，与 accept 路径的 `_mask_ledger_spans` 定义对齐。
+  **② 的两个 flag 写在同一条命令里时被静默吞掉一个**：分派顺序让 `--attach-authority` 抢先执行，
+  打印 ✅、exit 0，而裁决从未记录；现在两者同现即 exit 2 且不写任何东西。另外 `--authority` 原本
+  先落库再过闸，一次**被拒**的裁决也会在 evidence 列和 audit log 里永久留下「权威已挂载」而审计行
+  本身看不出对应裁决被拒；改为校验先于副作用。
+
+  **① 的判据还留着同一形状的漏管**：marker 出现在权威名词**后面**、中间只隔着一个「引用完结
+  空白」时，边界规则把两者切断，名词没人管——`roster 需确认`、`dashboard 听音待核`、`群昵称 TBD`
+  在 `b37e0c93` 上实测全部放行（同形中文「名册需确认」因为名词内无空白一直拒得对）。补法：边界
+  规则让某个 marker 一个名词都够不着时，它管住全部名词；这个补丁只会把放行变成拒绝、不会反过来，
+  所以健康侧一条都不会被它带坏。没有采用更直白的「每个 marker 管住离它最近的名词」——`用户裁定：
+  需先听音频确认` 里 `需` 离 `音频` 3 字、离 `用户裁定` 5 字，最近规则会留下没人管的 `用户裁定`
+  而让整句未取得放行，而冒号不是引用完结边界。
+
+  用例进程一句话：首版 20 例（危险侧全拒、健康侧全放、缺失 evidence 键是独立一侧），独立审阅后
+  追加 26 例钉住那四处，本轮判据修正再追加 87 例（22 危险侧 + 20 健康侧 + 42 端到端 + 3 CLI 级），
+  每个新增危险侧用例都能在修正前失败、修正后通过。版本内最终实测：`test_name_convergence_guard.py`
+  与 `test_review_queue.py` 两文件合计 250 passed——这个数只覆盖这两个文件，不是全量套件；全量
+  `scripts/tests` 是 892 passed / 15 failed，15 个失败全在 `test_error_recovery.py`，在 origin/main
+  上逐条相同，与本条无关。
+
+- **git-safety-net** (v1.20.1 → v1.20.2): `references/prevention_practices.md` gains
+  "A whole-file gate cannot tell 'my bump is too low' from 'my branch is behind'". A
+  version gate that compares the whole shared manifest's current state against the base
+  — rather than this branch's diff — reports every entry someone else bumped since you
+  branched as a rollback against you, and typically phrases it for the *other* cause it
+  was built to catch (a stale-checkout whole-file write that really did undo work).
+  Measured: a branch that had simply not resynced produced 8 findings across 4 packages,
+  half of them worded as rollbacks; nothing had been rolled back, and a three-way merge
+  would not have regressed any of those values. Recovery is to merge the base into the
+  branch (verified: same branch, conflict-free merge, no edits, gate went from 8 findings
+  to a clean exit), not to export a patch and rebuild the branch elsewhere — that does
+  not address the cause and strands the original worktree with no PR pointing at it,
+  which later reads as abandoned junk during a worktree audit.
+
+- **daymade-codex** (v1.2.0 → v1.2.1): `interaction-design-board` now treats the
+  behavior inventory as a deliverable when the decision replaces a screen that already
+  ships. Step 1 asks for a numbered inventory of the current screen's user-visible
+  behaviors while you are already inspecting it; step 6 refuses to call the
+  implementation delivered until every line carries a disposition — kept, changed to
+  what, or dropped and why — recorded where reviewers of the change will read it.
+  Drawn from a run that replaced a reading page's navigation architecture: the
+  inventory came to 67 behaviors, and the disposition pass is what surfaced two
+  intentional removals the author had not written down, one of which was still
+  miscounted as "zero removed" until a reviewer read the table against the PR text.
+  Hence the explicit instruction to recheck the removal count before calling it done.
+  Prose only; no script, fixture, or interface changed, and the skill's tests are
+  unaffected.
+
+- **skill-creator**: Verification depth router 的 Tier 1 排除条件新增一条——新增或实质改写 `references/` 内容不适用 Tier 1（即使 SKILL.md diff 只有一行）：它改变运行时加载面（执行 agent 被要求打开什么、何时打开），而这正是确定性门禁看不见的轴（quick_validate 查 references 可达、不查指针被遵守）。起点为 Tier 2，且 Tier 3 触发句命中时升 Tier 3。Tier 2 证据定义为输出级判据（新内容是否塑造了输出——字面「文件被打开」是本 skill 自己禁止的 literal-tool-path 断言），reference-load ledger 装机时其读取记录是机械佐证而非判据本身。缘起：2026-09-20 一次真实失败（SKILL.md 全文在上下文、案例库 16 份零打开、五轮排查逐一自推翻）+ 三轴独立审阅收敛到同一缺口。审阅：fresh-context 审阅首版发现两处缺陷（Tier 3 无 carve-out 冲突、「whose named example」指向文档中不存在的例子且判据与 intent-not-path 纪律冲突），已按其指认重修；回归门 1 candidate preserved_or_moved + verify 通过。
+
+- **tech-selection** (`daymade-claude-code` v3.51.0 → v3.52.0): the evals README
+  reported two negatives that "leaked once each" at 1/3. Re-running both at
+  `--runs-per-query 6` returned 0/6 apiece, so the first pass was noise, not a
+  boundary defect. The baseline table and the lesson are corrected — a single
+  firing is not a leak, and the cost of wrongly narrowing a trigger surface is a
+  skill that never fires, which no score reports.
+
+- **git-safety-net** (v1.20.0 → v1.20.1): fix a SIGPIPE crash in
+  `git_verify_branch_merged.sh`, plus three reference-doc additions from a
+  separate worktree-convergence session. Both of the script's
+  `printf '%s\n' "$VAR" | head -1` extractions let `head` close its read end
+  as soon as it has one line, before `printf` finishes writing the rest of a
+  large conflict report; `printf` then gets SIGPIPE, and the unguarded
+  assignment exits the script 141 under `set -e`, before any verdict prints
+  (measured: a real repository's conflicting-branch pair produced 869 lines
+  / 248KB). Both sites are now parameter expansion (`${VAR%%$'\n'*}`), which
+  never forks a second process, so there is nothing to receive SIGPIPE. A new
+  regression test reproduces the crash with a 450-file conflict fixture
+  against the current-base site: exit 141 on the old code, `UNMERGED / NEEDS
+  REVIEW` on the fix. Mutation-verified: reverting that site alone turns the
+  new test red with exactly "141 == 141" and leaves the other 107 tests
+  unchanged; reverting the identical fix on the `--merge-commit` rung leaves
+  the full 108-test suite green, because no existing fixture drives that
+  rung's own conflict output past a pipe buffer — a real, now-documented
+  coverage gap, not assumed safety. `merge_verification.md`'s worktree-
+  retirement step now requires a full count/size inventory of ignored files
+  before removal, not a spot-check of the paths that look sensitive or
+  important — a real retirement pass that named 22 paths missed that the
+  actual `!!` set was 8092 entries and ~200MB, including 13 build-output
+  directories that existed only in that worktree, and `git worktree remove`
+  does not stop for ignored files; it deletes them with the directory
+  (verified). The same file's "where M comes from" section now checks a
+  GitHub PR's merge state by number
+  (`gh pr view <number> --json headRefOid,state,mergeCommit`), not
+  `gh pr list --head <branch>`, which produced a transient empty result for
+  a branch whose PR was already MERGED (checked again by number moments
+  later, it showed MERGED). `recovery_playbook.md` notes that
+  `git bundle create` refuses a bare SHA with "Refusing to create empty
+  bundle" even though the commit exists (verified) — it needs a ref, such as
+  the `refs/dangling-backup/<sha>` ref the same section already creates for
+  that commit.
+
+- **tech-selection** (`daymade-claude-code` v3.50.0 → v3.51.0): three corrections to
+  claims the skill could not back. Agent orchestration now states a single-agent
+  default and frames the four questions as the gate that licenses delegation
+  (explicit request, or genuinely independent parallel work current rules allow),
+  rather than as a counter-default; Q4 regains the exclusion list the source rules
+  carry — implementation work, exclusive resources (browser, Computer Use,
+  single-writer checkout) and private-context judgment never enter the fan-out pool
+  — and drops an "anti-pattern" line that existed nowhere in the rules. The
+  Boundary Quick Reference gains a sixth row settling default-vs-gate as two
+  layers, and records that in tech selection the user has asked for agent-team
+  discussion and against picking a direction unilaterally, which is what Stop 1
+  encodes. The rejection-modes reference now cites 28 entries (16 patterns + 18
+  anti-patterns, deduplicated) instead of "16", because 16 was a self-declared
+  subtotal no published text could reconstruct. Adds `evals/` — 14 trigger samples
+  (7 positive / 7 negative) with the two corrections this machine's runner needs,
+  the measured baseline, and the three facts the score hides.
+
+- **read-codex-history** (`daymade-claude-code` v3.50.0 → v3.51.0): the FTS5 syntax
+  note stated the implicit-AND behaviour as a measurement (`term-a term-b` returned
+  0 rows where the explicit `OR` returned 10,327) but wrote it with placeholder
+  terms, so the row count could not be reproduced by anyone reading it. Replaced
+  with the mechanism and the correct query form.
+
+- **claude-code-hooks** (`daymade-claude-code` v3.49.0 → v3.50.0): two pitfalls from a
+  commit-scope gate that took four review rounds — by a reviewer holding no shared
+  context — to get right.
+  **#45 — a blocking hook's `stderr` remedy is the whole product of that interception,
+  and it has to survive the gate's own parser.** Two ways it ships unexecutable while
+  every exit-code row stays green: the file list was folded for display — which #44
+  *requires*, as an injection defence — so the pasted pathspec no longer names the file
+  and the model loops; and the repair's self-check decoded its printed literal by
+  **bash** rules when the string's real checkpoint is the gate's tokenizer. Measured on
+  Python's `shlex`: `$'a\tb'` tokenizes to the literal `$a\tb` (escape never decoded)
+  and `'Foo$Bar.class'` keeps its `$`, dropping straight into the cargo filter #15
+  prescribes — so a JVM inner-class file stages for real under bash and is still never
+  recorded. The only test for a printed remedy is to assemble it, run it, re-drive the
+  event and assert the gate now passes. SKILL.md rule 4 gains a short pointer beside
+  the #44 sub-bullet. **#46 — a mutation pass that comes back empty means the assertion
+  is dead, not that the mutation was wrong.** Five shapes that all print the same green
+  (setup failure swallowed; fixture built but its precondition never held; a later fix
+  making an earlier fix's row vacuous; the rig sourcing the unmutated copy; and a probe
+  that omits an argument production always passes, so it has been exercising the
+  fallback branch all along). The fifth is the one that defeats the entry's own
+  diagnostic — its rows *do* go red under mutation, red about a branch production never
+  reaches — so it gets a check of its own: make the missing-argument branch `raise`,
+  and every probe that still runs is off the production path. When a function gains a
+  parameter, audit the **test** call sites, not just the production one. Plus the
+  boundary against rule 9 — rule 9 measures the *detector*'s false-positive rate
+  against a corpus nobody wrote for the test, #46 measures whether a *row* can fail at
+  all. Neither substitutes for the other.
+
+- **marketplace-dev** (`daymade-claude-code` v3.48.0 → v3.49.0): the Phase 2 note on
+  `check_version_progression.py` now names the argument form and the merge-time trap,
+  because both were hit in one afternoon on this repo. Pass `--base <ref>
+  --candidate HEAD`; `--candidate-index` reads the manifest blob out of the git index
+  and diffs staged paths only, so with nothing staged it re-verifies HEAD and reports
+  "no regression" about work it never saw. The CI gate resolves its base to
+  `origin/$BASE_REF` at run time and re-runs only when the head moves, so a PR whose
+  base branch has since advanced keeps the green it earned against the older base
+  while its version number may already be a regression — re-run against the current
+  `origin/main` immediately before merging.
+
+- **read-codex-history** (`daymade-claude-code` v3.46.0 → v3.47.0): adds a
+  cross-provider content-recall route through the external FTS5 index at
+  `~/.claude-flow-viewer/search.sqlite` (~2M chunks, 8,365 Codex sessions),
+  with eight measured constraints. The one that decides whether this path can
+  be trusted: **the `unicode61` tokenizer makes a contiguous CJK run a single
+  token**, so a Chinese phrase matches only when it aligns with a whole run.
+  Measured — `闭门造车` returns 10 rows against 790 substring occurrences;
+  `技术选型` 10 against 163; ASCII terms are unaffected. The decisive proof
+  that a single character is not its own token: `闭` returns 2 rows while
+  `闭门` returns 17, and an independent `闭` could not be the smaller set.
+  Searching a longer run recovers most of the gap (`不要闭门造车` → 314), but a
+  short Chinese phrase can silently miss ~94% of real occurrences — and the
+  shape of that miss is indistinguishable from "we never discussed it". Two
+  corrections to prior assumptions, both measured: the standard
+  `NEAR(A B, k)` form parses (only `NEAR/n` slash syntax raises), and a full
+  scan of the ~9GB table completes in 26s rather than hanging.
+- **prior-work-retrieval** (same suite): two routing and receipt gaps closed.
+  (1) A `result_count > 0` with `terms_passed: false` no longer permits a
+  no-reuse conclusion until the ranked results are opened — `terms_passed:
+  false` means the query terms did not appear literally in the top-K, not that
+  the results are irrelevant; the existing zero-candidate clause governs true
+  zeros and this one governs low-confidence hits, so both directions are
+  covered. (2) The search-routing table gains a Codex row: the Claude hybrid
+  index does not cover Codex, so a wording-drift question whose platform may
+  be Codex routes to read-codex-history's FTS5 path (literal-match, with the
+  CJK caveat).
+- **local-conversation-history** (same suite): the router's ranked-recall row
+  now names the Codex FTS5 path and states that it complements rather than
+  replaces the Claude hybrid index; and the invariants section gains the rule
+  that decides whether a corpus search was even aimed correctly — **ask first
+  whether the term is the topic's name or the way the person speaks**. A
+  person's corpus is searched by the latter (imperatives, negations, scenario
+  sentences); a zero from searching the topic's name is not evidence of
+  absence. Measured on this machine: 「技术选型」 is nearly absent from the
+  corpus it names, while the discussion it names lives under imperative and
+  negative phrasing.
 - **claude-code-hooks** (`daymade-claude-code` v3.45.0 → v3.46.0): pitfall #30's
   Fix 4 drops its "unverified … confirm before relying on it" hedge on
   team-mode deliveries and replaces it with two sources read directly. A
@@ -39,6 +272,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runner's own design record (ADR 1751) rather than stated from memory, and each
   entry gives the workaround that was verified on the fleet.
 
+- **git-safety-net** (v1.19.0 → v1.20.0): six additions distilled from a real multi-session
+  repository convergence. `scripts/git_hosted_vs_cached.sh` compares `git ls-remote --heads` against this checkout's cached `refs/remotes/<remote>/*` in
+  four categories (same / different-SHA / hosted-only / cached-only); a failed `ls-remote` exits
+  with a distinct code (3) and never presents the cache as hosted truth. `git_verify_branch_merged.sh`
+  gains `--no-fetch`, `--base REF`, and `--merge-commit SHA` (positional `<branch> [base]`
+  behavior is unchanged): the new rung proves a branch's content was fully present at a
+  historical merge commit when base later changes the SAME LINES again after a squash-merge
+  landed it (an edit to another file, or to other lines, leaves the current-base trial merge
+  sound on its own, so the rung is never reached there), while explicitly not claiming the
+  current base still has it. The verdict now also names the SHAPE of the
+  current-base failure it could not clear: a conflict (base moved the same lines forward again)
+  is the routine case; a clean merge that would still change base is a candidate regression,
+  called out distinctly and pointed at the new "landed, then lost" doc section.
+  `scripts/git_classify_refs.sh` runs that same ladder across every local/remote-tracking branch
+  against one frozen base in a single offline pass, carrying the same current-base shape
+  (`current-base=conflict` / `current-base=clean-changes:<n>`) in its `--pr-map`-upgraded rows,
+  with `--all-namespaces` reporting tags/stash/backup refs separately.
+  `scripts/git_align_checkout.sh` previews or materializes a checkout's content up to a target
+  commit without a throwaway snapshot branch and without moving HEAD, overwriting a path only
+  once its current content is proven reproducible from target's own history or a backup
+  manifest's sha256 — content lands before HEAD ever needs to move, so a bystander commit in
+  between lands on the checkout's old branch, never silently on the target's.
+  `references/merge_verification.md` gains the historical-merge-commit rung's own section, a
+  "landed, then lost" investigation guide for content that provably merged but is missing from
+  the current base — including which of the two current-base failure shapes actually signals a
+  loss, since a conflict alone is routine and only the clean-but-changes shape is the fingerprint
+  — a convergence-PR merge-vs-squash recommendation (a merge commit keeps absorbed branches'
+  ancestry so `git branch -d` and hosting-platform auto-merge-detection both keep working), and a
+  CAS-guarded-actions clarification for when another writer is active and exclusive ownership
+  cannot be obtained (bundle export, `--force-with-lease`, PR-open from a linked worktree, and an
+  expected-head-SHA merge precondition remain safe from your own worktree; the shared checkout's
+  HEAD/index/working tree stay off-limits either way). `references/recovery_playbook.md` gains
+  the `refs/pull/<N>/head` recovery route for a branch whose PR is gone from local reflog/fsck
+  but was hosted on GitHub. Two small corrections: `git branch -d` judges "merged" relative to
+  the checkout's current HEAD, not the base you have in mind, so a stale checkout can refuse a
+  branch that really is an ancestor of the intended base; and a version/lockfile bump collision
+  between parallel branches merges without a Git conflict and reads as valid to a checker run
+  before the first branch landed, so the check must re-run against the refreshed base, not just
+  once at PR-open time.
+
 - **claude-code-hooks** (`daymade-claude-code` v3.44.0 → v3.45.0): a new pitfall
   entry (#44) on confirmation dialogs that reuse a stale trigger's
   evidence-gathering logic — when the hook's only evidence is state read
@@ -55,6 +328,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   this Skill also drops the derived pitfall-count word ("Nine" / "九类"),
   which had already gone stale before this change, rather than update it to
   a new number.
+
+- **tech-selection** (`daymade-claude-code` v3.47.0 → v3.48.0): new Skill — a
+  gated checklist for choosing between technologies (library, framework, storage,
+  data format, model, build-vs-buy, architecture). Distilled from a multi-corpus
+  search of the user's own tech-decision patterns across 12,000+ AI sessions and
+  the user's archived meeting transcripts. Three load-bearing design decisions: (1) filters
+  not sorters — the criteria kill violators, survivors are decided by
+  business-result anchoring, never by ranking; (2) `unknown` is not `pass` — a
+  candidate carrying an unverified axis does not enter the survivor set;
+  (3) the protocol ends by returning candidates + trade-offs + a recommendation,
+  never a single pick. Trigger design deliberately avoids the literal term
+  技术选型, which the user's own corpus almost never contains — triggers fire on
+  scenario sentences (用哪个 / 要不要自建 / 先看看有没有现成的) and characteristic
+  negations (别闭门造车 / 不要过度工程). Four references: decision-axes (13 core
+  criteria with mechanical tests), scoped-criteria (13 narrower criteria with
+  scope labels), rejection-modes (16 patterns + anti-patterns deduplicated),
+  delegation-contract (domain ownership + autonomy threshold + 5 resolved scope
+  boundaries).
+
+- **deep-research** (`deep-research` v2.5.0 → v2.6.0): remove the misplaced
+  技术选型分析 trigger from the description and add an explicit boundary — this
+  skill produces a report, it does not choose a technology. Requests asking which
+  option to adopt or whether to build or reuse belong to `tech-selection`.
+  Without the boundary, the two skills randomly split the same trigger.
 
 - **marketplace-dev** (`daymade-claude-code` v3.43.0 → v3.44.0): a new "Adding a
   member skill to an existing suite" subsection under Phase 2, because that is the
@@ -384,7 +681,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   writer-discovery block now reads the two probes apart, the lineage gate's way out is reordered to
   "this work's own remote → new repository → ask the user," and the block ends read-only like the
   rest of the section.
-
 
 - **tibo-reset-codex** (`tibo-reset-codex` v1.12.0 → v1.13.0): the forecast ledger gains a raw-readings layer. A new `finding` command appends verbatim external readings (invocation shape, triggering query, endpoints hit, source-keyed readings) to `findings.jsonl` in the same state directory, and `record`/`review` accept `evidence_refs` — finding ids (full, or a uniquely-resolving prefix) that must already exist or the append fails, so a verdict carries links to the readings it was actually made from instead of a memory of them. `findings --limit N` lists recent readings compactly, and `summary` shows an `evidence_refs_count` per forecast/review. Rows without the new key parse unchanged. Every successful append now also takes a best-effort local git snapshot of the journal (auto-init, 0700 directory, one commit per append); any git failure prints a single stderr note and never blocks or reverts the append, and `--no-git` turns the snapshot off — integrity wiring, not a backup promise.
 - **stepfun-asr / stepfun-tts / asr-transcribe-to-text** (`daymade-audio` v1.39.10 → v1.40.0): StepFun ASR now sends `enable_timestamp` (the field comes back either way, but its values are all 0 unless you ask — the earlier "v3 has no word timestamps" claim is retracted), sends every request parameter by default with `check_params.py` diffing the official field table in both directions, and gains `asr_file.py` for speaker diarization on the async file endpoint (public URL only; ids are `speaker_0`, not the documented `spk_1`). `asr-transcribe-to-text` routes that official diarization as a second independent speaker track. `stepfun-tts`'s `synthesize()` takes `model=` and `extra=` and returns the server's JSON envelope (`timestamp` + `return_url` → `{"data": {"url", "subtitles"}}`) under `json`, so callers that need per-character timing stop hand-rolling `/v1/audio/speech`; it is the wrapper `llmreg.wrapper_for("stepfun-tts")` resolves to.

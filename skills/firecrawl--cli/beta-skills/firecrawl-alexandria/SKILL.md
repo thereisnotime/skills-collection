@@ -9,6 +9,12 @@ Use `npx firecrawl-cli@alexandria` for these commands. Use the user's existing F
 
 Alexandria brings website workflows, API providers, and specialized indexes into search and scrape. Discover current coverage instead of assuming a provider exists. Use ordinary web results when sufficient, and select a tool when its coverage and inputs provide a more direct route to the requested data.
 
+## Choose the discovery path
+
+For structured records, filterable listings, transcripts, or datasets, first check `npx firecrawl-cli@alexandria search alexandria '<data you need>'` for a suitable workflow or data provider. For a known website, use `npx firecrawl-cli@alexandria find-tools <url>`. Inspect a selected contract with `npx firecrawl-cli@alexandria list <provider> <capability> --pretty` before executing it through `scrape`; reuse a complete contract already returned by discovery. If no suitable tool exists, continue with web search or Agent. Use ordinary `search` for web research and URL `scrape` for a known page.
+
+`find-tools` is the direct discovery command; `search alexandria` is the semantic shortcut, and `list` browses categories, providers, tools, and selected contracts. Keep compact discovery output until a candidate needs inspection.
+
 ## Search naturally
 
 Preserve the user's question, location, market, dates, and constraints. Default search combines web results with semantic and domain-matched tools:

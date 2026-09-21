@@ -11825,8 +11825,8 @@
       "description": "ARS academic-paper `disclosure` mode \u2014 venue applicability/status bundle or policy-anchor render",
       "path": "Imbad0202--academic-research-skills/commands/ars-disclosure.md",
       "remote_path": "commands/ars-disclosure.md",
-      "lines": 11,
-      "words": 119,
+      "lines": 16,
+      "words": 191,
       "code_blocks": 0,
       "languages": []
     },
@@ -11835,8 +11835,8 @@
       "description": "ARS academic-paper `lit-review` mode \u2014 annotated bibliography in paper format",
       "path": "Imbad0202--academic-research-skills/commands/ars-lit-review.md",
       "remote_path": "commands/ars-lit-review.md",
-      "lines": 13,
-      "words": 64,
+      "lines": 18,
+      "words": 136,
       "code_blocks": 0,
       "languages": []
     },
@@ -11845,8 +11845,8 @@
       "description": "ARS academic-paper-reviewer `full` mode \u2014 simulated peer-review panel",
       "path": "Imbad0202--academic-research-skills/commands/ars-reviewer.md",
       "remote_path": "commands/ars-reviewer.md",
-      "lines": 10,
-      "words": 68,
+      "lines": 15,
+      "words": 140,
       "code_blocks": 0,
       "languages": []
     },
@@ -11855,8 +11855,8 @@
       "description": "ARS academic-paper `revision-coach` \u2014 peer-review roadmap or source-accounted real-committee response skeleton",
       "path": "Imbad0202--academic-research-skills/commands/ars-revision-coach.md",
       "remote_path": "commands/ars-revision-coach.md",
-      "lines": 10,
-      "words": 131,
+      "lines": 15,
+      "words": 203,
       "code_blocks": 0,
       "languages": []
     },
@@ -11877,8 +11877,8 @@
       "description": "ARS academic-paper `format-convert` mode \u2014 convert to LaTeX / DOCX / PDF / Markdown",
       "path": "Imbad0202--academic-research-skills/commands/ars-format-convert.md",
       "remote_path": "commands/ars-format-convert.md",
-      "lines": 11,
-      "words": 58,
+      "lines": 16,
+      "words": 130,
       "code_blocks": 0,
       "languages": []
     },
@@ -11887,8 +11887,8 @@
       "description": "ARS academic-paper `citation-check` mode \u2014 citation error report",
       "path": "Imbad0202--academic-research-skills/commands/ars-citation-check.md",
       "remote_path": "commands/ars-citation-check.md",
-      "lines": 11,
-      "words": 46,
+      "lines": 16,
+      "words": 118,
       "code_blocks": 0,
       "languages": []
     },
@@ -11897,8 +11897,8 @@
       "description": "ARS academic-paper `revision` mode \u2014 revised draft + R&R responses",
       "path": "Imbad0202--academic-research-skills/commands/ars-revision.md",
       "remote_path": "commands/ars-revision.md",
-      "lines": 11,
-      "words": 43,
+      "lines": 16,
+      "words": 115,
       "code_blocks": 0,
       "languages": []
     },
@@ -11907,8 +11907,8 @@
       "description": "ARS academic-paper `abstract-only` mode \u2014 bilingual abstract + keywords",
       "path": "Imbad0202--academic-research-skills/commands/ars-abstract.md",
       "remote_path": "commands/ars-abstract.md",
-      "lines": 11,
-      "words": 80,
+      "lines": 16,
+      "words": 152,
       "code_blocks": 0,
       "languages": []
     },
@@ -11929,8 +11929,8 @@
       "description": "ARS academic-paper `outline-only` mode \u2014 detailed outline + evidence map",
       "path": "Imbad0202--academic-research-skills/commands/ars-outline.md",
       "remote_path": "commands/ars-outline.md",
-      "lines": 11,
-      "words": 47,
+      "lines": 16,
+      "words": 119,
       "code_blocks": 0,
       "languages": []
     },
@@ -11939,8 +11939,8 @@
       "description": "ARS academic-paper `rebuttal-audit` mode \u2014 QA an existing rebuttal draft against reviewer comments",
       "path": "Imbad0202--academic-research-skills/commands/ars-rebuttal-audit.md",
       "remote_path": "commands/ars-rebuttal-audit.md",
-      "lines": 13,
-      "words": 99,
+      "lines": 18,
+      "words": 171,
       "code_blocks": 0,
       "languages": []
     },
@@ -11949,8 +11949,8 @@
       "description": "ARS full pipeline \u2014 research \u2192 write \u2192 review \u2192 revise \u2192 finalize",
       "path": "Imbad0202--academic-research-skills/commands/ars-full.md",
       "remote_path": "commands/ars-full.md",
-      "lines": 10,
-      "words": 71,
+      "lines": 15,
+      "words": 143,
       "code_blocks": 0,
       "languages": []
     },
@@ -11959,8 +11959,8 @@
       "description": "ARS deep-research `three-way-scan` mode \u2014 WHY / HOW / WHAT paper comparison",
       "path": "Imbad0202--academic-research-skills/commands/ars-3w.md",
       "remote_path": "commands/ars-3w.md",
-      "lines": 11,
-      "words": 73,
+      "lines": 16,
+      "words": 145,
       "code_blocks": 0,
       "languages": []
     },
@@ -11969,8 +11969,8 @@
       "description": "ARS academic-paper `plan` mode \u2014 Socratic chapter-by-chapter planning",
       "path": "Imbad0202--academic-research-skills/commands/ars-plan.md",
       "remote_path": "commands/ars-plan.md",
-      "lines": 11,
-      "words": 46,
+      "lines": 16,
+      "words": 118,
       "code_blocks": 0,
       "languages": []
     },
@@ -12003,8 +12003,8 @@
       "description": "\"12-agent academic paper writing pipeline. 11 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure/rebuttal-audit). 6 paper types, 5 citation f",
       "path": "Imbad0202--academic-research-skills/academic-paper/SKILL.md",
       "remote_path": "academic-paper/SKILL.md",
-      "lines": 545,
-      "words": 6451,
+      "lines": 555,
+      "words": 6516,
       "code_blocks": 4,
       "languages": []
     },
@@ -12415,8 +12415,8 @@
       "description": "\"Verifies citations against the target journals format requirements and flags non-compliant entries\"",
       "path": "Imbad0202--academic-research-skills/academic-paper/agents/citation_compliance_agent.md",
       "remote_path": "academic-paper/agents/citation_compliance_agent.md",
-      "lines": 423,
-      "words": 3096,
+      "lines": 439,
+      "words": 3548,
       "code_blocks": 7,
       "languages": [
         "markdown"
@@ -22596,7 +22596,7 @@
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
       "lines": 1047,
-      "words": 20779,
+      "words": 20763,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22610,7 +22610,7 @@
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
       "lines": 1044,
-      "words": 20735,
+      "words": 20719,
       "code_blocks": 0,
       "languages": [],
       "version": "3.35.0",
@@ -23876,8 +23876,8 @@
       "description": "Find an efficient path to structured data with Firecrawl's ready-made website workflows, API providers, and specialized indexes. Use for records, listings, financial data, research, or public records ",
       "path": "firecrawl--cli/beta-skills/firecrawl-alexandria/SKILL.md",
       "remote_path": "beta-skills/firecrawl-alexandria/SKILL.md",
-      "lines": 90,
-      "words": 873,
+      "lines": 96,
+      "words": 989,
       "code_blocks": 6,
       "languages": [
         "bash"
@@ -83348,257 +83348,218 @@
     },
     {
       "name": "runway-local-dev-loop",
-      "description": "\"Runway local dev loop \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-local-dev-loop/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-local-dev-loop/SKILL.md",
-      "lines": 68,
-      "words": 213,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 695,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-install-auth",
-      "description": "\"Runway install auth \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-install-auth/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-install-auth/SKILL.md",
-      "lines": 95,
-      "words": 303,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 765,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-ci-integration",
-      "description": "\"Runway ci integration \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-ci-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-ci-integration/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 704,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-core-workflow-a",
-      "description": "\"Runway core workflow a \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-core-workflow-a/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-core-workflow-a/SKILL.md",
-      "lines": 131,
-      "words": 465,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 700,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-common-errors",
-      "description": "\"Runway common errors \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-common-errors/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-common-errors/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 706,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-hello-world",
-      "description": "\"Runway hello world \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-hello-world/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-hello-world/SKILL.md",
-      "lines": 119,
-      "words": 391,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 728,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-security-basics",
-      "description": "\"Runway security basics \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-security-basics/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-security-basics/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 670,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-cost-tuning",
-      "description": "\"Runway cost tuning \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-cost-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-cost-tuning/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 682,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-webhooks-events",
-      "description": "\"Runway webhooks events \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-webhooks-events/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-webhooks-events/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 691,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-deploy-integration",
-      "description": "\"Runway deploy integration \\u2014 AI video generation and creative AI\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-deploy-integration/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-deploy-integration/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 681,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-prod-checklist",
-      "description": "\"Runway prod checklist \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-prod-checklist/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-prod-checklist/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 671,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-core-workflow-b",
-      "description": "\"Runway core workflow b \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-core-workflow-b/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-core-workflow-b/SKILL.md",
-      "lines": 114,
-      "words": 378,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "text"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 715,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-sdk-patterns",
-      "description": "\"Runway sdk patterns \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-sdk-patterns/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-sdk-patterns/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 679,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-debug-bundle",
-      "description": "\"Runway debug bundle \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-debug-bundle/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-debug-bundle/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 685,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-rate-limits",
-      "description": "\"Runway rate limits \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-rate-limits/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-rate-limits/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 689,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-upgrade-migration",
-      "description": "\"Runway upgrade migration \\u2014 AI video generation and creative AI\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-upgrade-migration/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-upgrade-migration/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 692,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-reference-architecture",
-      "description": "\"Runway reference architecture \\u2014 AI video generation and creative\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-reference-architecture/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-reference-architecture/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 670,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
       "name": "runway-performance-tuning",
-      "description": "\"Runway performance tuning \\u2014 AI video generation and creative AI\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/plugins/saas-packs/runway-pack/skills/runway-performance-tuning/SKILL.md",
       "remote_path": "plugins/saas-packs/runway-pack/skills/runway-performance-tuning/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 666,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -115835,16 +115796,14 @@
     },
     {
       "name": "runway-local-dev-loop",
-      "description": "\"Runway local dev loop \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-local-dev-loop/SKILL.md",
       "remote_path": "skills/.curated/runway-local-dev-loop/SKILL.md",
-      "lines": 68,
-      "words": 213,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 695,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -118344,18 +118303,14 @@
     },
     {
       "name": "runway-install-auth",
-      "description": "\"Runway install auth \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-install-auth/SKILL.md",
       "remote_path": "skills/.curated/runway-install-auth/SKILL.md",
-      "lines": 95,
-      "words": 303,
-      "code_blocks": 4,
-      "languages": [
-        "bash",
-        "python",
-        "typescript"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 765,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -118737,16 +118692,14 @@
     },
     {
       "name": "runway-ci-integration",
-      "description": "\"Runway ci integration \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-ci-integration/SKILL.md",
       "remote_path": "skills/.curated/runway-ci-integration/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 704,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -123031,16 +122984,14 @@
     },
     {
       "name": "runway-core-workflow-a",
-      "description": "\"Runway core workflow a \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-core-workflow-a/SKILL.md",
       "remote_path": "skills/.curated/runway-core-workflow-a/SKILL.md",
-      "lines": 131,
-      "words": 465,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 700,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -125148,16 +125099,14 @@
     },
     {
       "name": "runway-common-errors",
-      "description": "\"Runway common errors \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-common-errors/SKILL.md",
       "remote_path": "skills/.curated/runway-common-errors/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 706,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -126561,16 +126510,14 @@
     },
     {
       "name": "runway-hello-world",
-      "description": "\"Runway hello world \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-hello-world/SKILL.md",
       "remote_path": "skills/.curated/runway-hello-world/SKILL.md",
-      "lines": 119,
-      "words": 391,
-      "code_blocks": 4,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 728,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -127855,16 +127802,14 @@
     },
     {
       "name": "runway-security-basics",
-      "description": "\"Runway security basics \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-security-basics/SKILL.md",
       "remote_path": "skills/.curated/runway-security-basics/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 670,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -130686,16 +130631,14 @@
     },
     {
       "name": "runway-cost-tuning",
-      "description": "\"Runway cost tuning \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-cost-tuning/SKILL.md",
       "remote_path": "skills/.curated/runway-cost-tuning/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 682,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -131459,16 +131402,14 @@
     },
     {
       "name": "runway-webhooks-events",
-      "description": "\"Runway webhooks events \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-webhooks-events/SKILL.md",
       "remote_path": "skills/.curated/runway-webhooks-events/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 691,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -131518,16 +131459,14 @@
     },
     {
       "name": "runway-deploy-integration",
-      "description": "\"Runway deploy integration \\u2014 AI video generation and creative AI\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-deploy-integration/SKILL.md",
       "remote_path": "skills/.curated/runway-deploy-integration/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 681,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -134827,16 +134766,14 @@
     },
     {
       "name": "runway-prod-checklist",
-      "description": "\"Runway prod checklist \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-prod-checklist/SKILL.md",
       "remote_path": "skills/.curated/runway-prod-checklist/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 671,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -135101,17 +135038,14 @@
     },
     {
       "name": "runway-core-workflow-b",
-      "description": "\"Runway core workflow b \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-core-workflow-b/SKILL.md",
       "remote_path": "skills/.curated/runway-core-workflow-b/SKILL.md",
-      "lines": 114,
-      "words": 378,
-      "code_blocks": 4,
-      "languages": [
-        "python",
-        "text"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 715,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -136597,16 +136531,14 @@
     },
     {
       "name": "runway-sdk-patterns",
-      "description": "\"Runway sdk patterns \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-sdk-patterns/SKILL.md",
       "remote_path": "skills/.curated/runway-sdk-patterns/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 679,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -137768,16 +137700,14 @@
     },
     {
       "name": "runway-debug-bundle",
-      "description": "\"Runway debug bundle \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-debug-bundle/SKILL.md",
       "remote_path": "skills/.curated/runway-debug-bundle/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 685,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -142628,16 +142558,14 @@
     },
     {
       "name": "runway-rate-limits",
-      "description": "\"Runway rate limits \\u2014 AI video generation and creative AI platform.\\n\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-rate-limits/SKILL.md",
       "remote_path": "skills/.curated/runway-rate-limits/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 689,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -145874,16 +145802,14 @@
     },
     {
       "name": "runway-upgrade-migration",
-      "description": "\"Runway upgrade migration \\u2014 AI video generation and creative AI\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-upgrade-migration/SKILL.md",
       "remote_path": "skills/.curated/runway-upgrade-migration/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 692,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -149193,16 +149119,14 @@
     },
     {
       "name": "runway-reference-architecture",
-      "description": "\"Runway reference architecture \\u2014 AI video generation and creative\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-reference-architecture/SKILL.md",
       "remote_path": "skills/.curated/runway-reference-architecture/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 670,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -150721,16 +150645,14 @@
     },
     {
       "name": "runway-performance-tuning",
-      "description": "\"Runway performance tuning \\u2014 AI video generation and creative AI\\",
+      "description": ">-",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/skills/.curated/runway-performance-tuning/SKILL.md",
       "remote_path": "skills/.curated/runway-performance-tuning/SKILL.md",
-      "lines": 68,
-      "words": 208,
-      "code_blocks": 1,
-      "languages": [
-        "python"
-      ],
-      "version": "1.4.0",
+      "lines": 100,
+      "words": 666,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "2.0.0",
       "license": "MIT"
     },
     {
@@ -153004,8 +152926,8 @@
       "description": "|",
       "path": "jeremylongshore--claude-code-plugins-plus-skills/tests/e2e/fixtures/test-plugin/skills/test-skill/SKILL.md",
       "remote_path": "tests/e2e/fixtures/test-plugin/skills/test-skill/SKILL.md",
-      "lines": 68,
-      "words": 224,
+      "lines": 86,
+      "words": 299,
       "code_blocks": 0,
       "languages": [],
       "version": "1.0.0",
@@ -157196,8 +157118,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 775,
-      "words": 8876,
+      "lines": 792,
+      "words": 9325,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -157456,8 +157378,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 537,
-      "words": 3592,
+      "lines": 539,
+      "words": 3622,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -157716,8 +157638,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/marketplace-dev/SKILL.md",
       "remote_path": "daymade-claude-code/marketplace-dev/SKILL.md",
-      "lines": 428,
-      "words": 2465,
+      "lines": 439,
+      "words": 2599,
       "code_blocks": 11,
       "languages": [
         "bash",
@@ -157767,8 +157689,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/local-conversation-history/SKILL.md",
       "remote_path": "daymade-claude-code/local-conversation-history/SKILL.md",
-      "lines": 145,
-      "words": 1483,
+      "lines": 154,
+      "words": 1632,
       "code_blocks": 0,
       "languages": []
     },
@@ -157823,6 +157745,16 @@
       "languages": []
     },
     {
+      "name": "tech-selection",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/SKILL.md",
+      "remote_path": "daymade-claude-code/tech-selection/SKILL.md",
+      "lines": 189,
+      "words": 2143,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "fixing-claude-export-conversations",
       "description": ">",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-export-txt-better/SKILL.md",
@@ -157863,10 +157795,11 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/SKILL.md",
       "remote_path": "daymade-claude-code/read-codex-history/SKILL.md",
-      "lines": 203,
-      "words": 1402,
-      "code_blocks": 5,
+      "lines": 237,
+      "words": 2092,
+      "code_blocks": 6,
       "languages": [
+        "bash",
         "text"
       ]
     },
@@ -157908,8 +157841,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/prior-work-retrieval/SKILL.md",
       "remote_path": "daymade-claude-code/prior-work-retrieval/SKILL.md",
-      "lines": 349,
-      "words": 2699,
+      "lines": 366,
+      "words": 2919,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -157920,8 +157853,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/claude-code-hooks/SKILL.md",
       "remote_path": "daymade-claude-code/claude-code-hooks/SKILL.md",
-      "lines": 1328,
-      "words": 14779,
+      "lines": 1335,
+      "words": 14873,
       "code_blocks": 12,
       "languages": [
         "bash",
@@ -157967,6 +157900,46 @@
       ]
     },
     {
+      "name": "decision-axes",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/decision-axes.md",
+      "remote_path": "daymade-claude-code/tech-selection/references/decision-axes.md",
+      "lines": 201,
+      "words": 2412,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "rejection-modes",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/rejection-modes.md",
+      "remote_path": "daymade-claude-code/tech-selection/references/rejection-modes.md",
+      "lines": 261,
+      "words": 1515,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "scoped-criteria",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/scoped-criteria.md",
+      "remote_path": "daymade-claude-code/tech-selection/references/scoped-criteria.md",
+      "lines": 311,
+      "words": 2334,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "delegation-contract",
+      "description": ">-",
+      "path": "daymade--claude-code-skills/daymade-claude-code/tech-selection/references/delegation-contract.md",
+      "remote_path": "daymade-claude-code/tech-selection/references/delegation-contract.md",
+      "lines": 143,
+      "words": 1158,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "local-conversation-history",
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-claude-code/read-codex-history/references/legacy_multi_provider_inventory.md",
@@ -157999,8 +157972,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-macos/macos-watchdog/SKILL.md",
       "remote_path": "daymade-macos/macos-watchdog/SKILL.md",
-      "lines": 92,
-      "words": 1375,
+      "lines": 93,
+      "words": 1424,
       "code_blocks": 0,
       "languages": []
     },
@@ -158074,7 +158047,7 @@
       "path": "daymade--claude-code-skills/daymade-skill/skill-creator/SKILL.md",
       "remote_path": "daymade-skill/skill-creator/SKILL.md",
       "lines": 1890,
-      "words": 31362,
+      "words": 31510,
       "code_blocks": 55,
       "languages": [
         "bash",
@@ -158427,8 +158400,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/daymade-codex/interaction-design-board/SKILL.md",
       "remote_path": "daymade-codex/interaction-design-board/SKILL.md",
-      "lines": 217,
-      "words": 1398,
+      "lines": 231,
+      "words": 1560,
       "code_blocks": 4,
       "languages": [
         "bash",

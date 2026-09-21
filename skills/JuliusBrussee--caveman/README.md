@@ -151,6 +151,9 @@ claude plugin marketplace add JuliusBrussee/caveman && claude plugin install cav
 # Gemini CLI
 gemini extensions install https://github.com/JuliusBrussee/caveman
 
+# Oh My Pi (OMP)
+npx -y github:JuliusBrussee/caveman -- --only omp
+
 # Qwen Code CLI, then its Caveman wrapper
 npm i -g @qwen-code/qwen-code
 caveman qwen

@@ -238,6 +238,14 @@ One config can pull documentation, GitHub, PDFs, videos, and more into a single 
 </details>
 
 <details>
+<summary><b>Search index inside the skill</b> — query before you read (opt-in)</summary>
+
+`skill-seekers create <source> --index` adds a stdlib-only `scripts/search.py` and a SQLite FTS5 index over the generated references, so an agent can find the right `file#anchor` before reading a large Markdown file wholesale. Off by default; the Markdown is untouched.
+
+→ [Skill Search Index](docs/features/SKILL_SEARCH_INDEX.md)
+</details>
+
+<details>
 <summary><b>Video extraction</b> — transcripts, frames, on-screen code</summary>
 
 YouTube, Vimeo, and local files. Three-tier transcript fallback (subtitles → YouTube transcript API → local Whisper), plus optional visual extraction that OCRs on-screen code from sampled frames.
@@ -248,7 +256,7 @@ YouTube, Vimeo, and local files. Three-tier transcript fallback (subtitles → Y
 <details>
 <summary><b>Quality, sync & scale</b></summary>
 
-Quality scoring with a gate (`skill-seekers quality output/react/ --threshold 7`), provisional English readability metrics (informational — they never affect the score), doc-change detection with scheduled re-scrapes and notifications, streaming ingestion for very large doc sets, and incremental updates.
+Quality scoring with a gate (`skill-seekers quality output/react/ --threshold 7`) or JSON stdout (`skill-seekers quality output/react/ --json`), provisional English readability metrics (informational — they never affect the score), doc-change detection with scheduled re-scrapes and notifications, streaming ingestion for very large doc sets, and incremental updates.
 
 → [Large Documentation](docs/reference/LARGE_DOCUMENTATION.md) · [Code Quality](docs/reference/CODE_QUALITY.md)
 </details>
@@ -386,6 +394,7 @@ Full history: **[CHANGELOG.md](CHANGELOG.md)**
 
 ```bash
 skill-seekers doctor          # diagnose installation & environment
+skill-seekers doctor --json   # machine-readable diagnostics for CI and agents
 skill-seekers sync-config     # detect config drift
 ```
 
