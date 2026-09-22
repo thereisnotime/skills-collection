@@ -24,6 +24,28 @@ works. So the recovery mindset is: **find the dangling object, point a ref at it
 one thing that permanently loses work is `gc` running while nothing references it — which is why
 "preserve before cleanup" (below) matters.
 
+**Deleting a branch is the exception to that rule.** `git branch -D <name>` deletes the branch's own
+reflog (`logs/refs/heads/<name>`) along with the ref, so the "~90 days" window quoted above does
+**not** cover the deleted branch's tip. What keeps it alive afterwards is only whatever *other* reflog
+happens to mention it — HEAD's own, or a checkout record — and that is luck, not a window you can
+plan around. Measured 2026-09-22 on a scratch repo: after deleting a checked-out branch,
+`git gc --prune=now` still kept the tip (HEAD's reflog was a reachability root), and only
+`git reflog expire --expire-unreachable=now --all` followed by `gc --prune=now` took it.
+**So "gc has not taken it yet" is not a safety signal — the object is one expire away.**
+**Criterion: before `-D`, capture the tip with `git rev-parse <branch>` and run
+`git cat-file -e "<sha>^{commit}"`; 0 means the object is in the local store, and that is the case worth
+preserving.** Non-zero is genuinely ambiguous *for this form*, so do not read it as a verdict either
+way: its stderr is always `fatal: Not a valid object name <whatever-you-typed>^{commit}`, so a
+mistyped SHA and an object `gc` already collected print the same words (measured 2026-09-22). What
+settles it in practice — if the SHA came straight from `git rev-parse` moments ago, non-zero means the
+local object is already gone and the only copies left are whatever you pinned or pushed earlier.
+**Which is why the pin/push below happens *before* the delete, not after reading this probe.** (The
+`… -e <branch>:<path>` form has the richer stderr — it distinguishes a missing path from a bad branch
+— but it answers a different question; see [../SKILL.md](../SKILL.md) § Troubleshooting.) Nor are a
+successful probe plus a completed preserve deletion authority: worktree-removal authority does not
+authorize branch deletion ([merge_verification.md](merge_verification.md) § Worktree retirement) —
+`-D` still needs the verified backup and explicit authorization.
+
 ## The authoritative "is anything at risk" check
 
 Before anything else, answer the only question that matters — *is any committed or uncommitted
@@ -199,6 +221,17 @@ Bundling that same commit needs a ref too — `git bundle create` refuses a bare
 `fatal: Refusing to create empty bundle` even though the commit exists (measured). Bundle the
 `refs/dangling-backup/<sha>` ref just pinned above by name; a commit with no ref at all needs one
 created first (`git update-ref refs/backup/<name> <sha>`) before it can be bundled.
+
+**The same error string names more than one cause, and one of them is a trap.** Above: "the positive
+revision has no ref" (a bare SHA) — create a ref first. Below: "the negation range is empty", meaning
+`<sha>`'s content is **already in** the ref you excluded and there is no increment to preserve; measured
+2026-09-22 across three repos, it fired on exactly the branches the patch-id set comparison had already
+confirmed contained. The trap: `git bundle create out.bundle ^<ref> <bare-sha-not-in-<ref>>` prints the
+*identical* message while the real cause is still "no ref" — building that SHA into a ref first makes
+the bundle succeed. **Criterion: never branch on the error string. Create the ref first
+(`git update-ref refs/backup/<name> <sha>`), retry, and only an empty result *then* means "nothing to
+preserve". The cross-check is `git format-patch <merge-base>..<head>`, read as "no output **and exit
+0**" — an empty stdout with a non-zero exit is a malformed range, not containment.**
 
 ## Triple-backup a critical commit
 

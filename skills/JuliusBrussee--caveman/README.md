@@ -452,6 +452,8 @@ Convert only fires when pages beat the text. Any failure leaves the skill byte-i
 
 `caveman <agent>` turns the proxy on for good and launches the agent. `caveman wrap <agent>` runs one session and leaves nothing behind. It never edits your config files.
 
+In managed mode the wrap also sends the repository (github.com owner/name) and current branch as `x-cave-tags`, so Cloud can join a session's spend to the change it shipped. Branch names can carry a person's name; if that is not acceptable, launch outside a checkout or set your own `x-cave-tags` in `ANTHROPIC_CUSTOM_HEADERS` and the wrap keeps it.
+
 | Agent                | Vendor           | How it's wrapped                                             |
 | -------------------- | ---------------- | ------------------------------------------------------------ |
 | **Claude Code**      | Anthropic        | env vars                                                     |

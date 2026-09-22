@@ -7,10 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **transcript-fixer** (`daymade-audio` v1.41.2 → v1.41.3): 两处补缺——①人名裁决的权威源必须走 `--authority` 而不是 `--note`；②高频词「真实口呼称呼 vs ASR 误识」补共现判据。
+  ① SKILL.md step 10 原先只讲 `--close-sidecars`，从未交代 `--authority` 与 `--note` 的分工——那个分工只躺在 `references/script_parameters.md` 的参数表里。后果不是记性问题：`--note` 是理由、不进闸门，`--authority` 才会被 append 进 item 的 `evidence` 供 name-convergence guard 读。2026-09-22 实测翻车：同一昵称的两条队列行（#1213 / #3819）把整段权威源写进了 `--note`，关成 `kept_original` 之后 `--show-review` 读出 `evidence` = "待用户确认" 与 `decision_note` = 已裁定并存——一个 item 同时挂着「未解决」和「已解决」两种状态。附带一条会静默吃掉裁定的坑：`--attach-authority` 与 `--resolve-review` 写进同一命令行会被实现拒绝（`fix_transcription.py` 的互斥分支），因为 "verified it, now settle it" 是最自然的写法，而它会只跑 append、打印 ✅、exit 0，行仍留在 pending。
+  ② `references/dictionary_identity_and_context.md` 早有频率禁令「Never use the most frequent spelling in the transcript as identity evidence」，但从没回答禁令之后该用什么。高频词对称地兼容「人人真用的昵称」和「一次系统性误识」，计数区分不了。补的是共现判据：与当事人 handle / displayName 同频道出现且本人应答（微信群归档里 `@displayName 昵称` + 同串该账号回复）＝真实称呼 → 不改正文、不建词典规则、只记项目别名台账防下一轮重开；反之才是 roster 变体或域规则。2026-09-22 实例：一个两字职衔全库 5269 处、名册无其他同姓人——两个数字都不是证据，共现才是，且最终处置（保留、不建规则）与「高频＝已确立」的读法正好相反。已标注为单例：写的是「要去找的形状」，不是已证通则。
+- **daymade-skill** (v1.44.0 → v1.44.1): `skill-creator` discipline #6 补上「空转自证」这一类——一个检查可以因为**根本没检查任何东西**而通过，而且长得和「测错子句」「在健康输入上误报」「仪器未标定」这三种全绿一模一样，原四条一条都不覆盖它。补两条判据：① 唯一的探测器是**变异测试**——破掉被测机制，确认对应用例由绿转红；所有变异下都存活的用例，无论多绿都没被证明测到了任何东西。② **变异必须移除被测机制本身**，不能是旁边一个方便下手的东西：改一个其结果被后续行丢掉的 helper、改一个根本进不了候选集的 token（太短、缺扫描器键依赖的分隔符），用例会因为与你的规则无关的原因继续绿。同一条用例修了两次仍空转，两次都栽在 ②。可操作的替代判据：**每个闸门测试断言「检查了多少项」这个数**，fixture 里明明有 N 项而计数为 0 是红不是绿——那个数一直在输出里，只是没人读。顺带删掉 "Four rules" 这个会腐烂的计数（那一条目下早已是五条 bullet）：持久化的派生值在**正确时**也照样会烂，而烂掉的计数读起来像一次测量。
+- **git-safety-net** (`daymade-claude-code` v1.20.3 → v1.20.5): 三处退役判据补漏,都是「看起来已验证、实际答的是另一个问题」。① `references/recovery_playbook.md` §Mental model 补「删分支是这个规律的例外」:`git branch -D` 会连该分支自己的 `logs/refs/heads/<name>` 一起删,于是「~90 天」窗口不覆盖被删分支的 tip——**此后它还活着只靠别的 reflog 恰好提及它,那是运气不是窗口**。scratch 仓实测:删掉一个 checkout 过的分支后 `git gc --prune=now` 仍保留 tip(HEAD reflog 是可达根),要 `git reflog expire --expire-unreachable=now --all` + gc 才拿走;所以「gc 还没拿走」不是安全信号。判据是删前 `git rev-parse <branch>` 取 tip 再 `git cat-file -e "<sha>^{commit}"`:0 说明本地对象库里有、值得 preserve;非零在这个形态下**两种成因同形**(SHA 打错与被 gc 收走,stderr 恒为 `fatal: Not a valid object name …`),既读不出"在"也读不出"不在"——而 SHA 若是刚从 rev-parse 取到的,非零就等于本地对象已经没了、只剩早先 pin/push 的副本,**这正是 pin/push 必须发生在删除之前的理由**;探过 + 钉过也**不是**删除授权。② 同文件把 `fatal: Refusing to create empty bundle` 的成因从两种补到三种并给出机械判别:「positive revision 没有 ref」「negation 范围为空 ⇒ 内容已在 ref」「negation 配一个未被 ref 包含的裸 sha」——第三种打的是逐字相同的错而真因仍是第一种。判据:**永远不凭 error string 分流**,先建 ref 再重试,只有那时仍空才算"无可保全";交叉验证 `git format-patch <merge-base>..<head>` 要读成「无输出**且 exit 0**」,空 stdout 配非零退出是区间写错。③ `references/merge_verification.md` §Manual-only hints 增列 patch-id 集合比对,并附**五个落地形状的实测矩阵**(单 commit squash / 多 commit squash / 逐 commit merge / cherry-pick / rebase)。结论与第一版写反了:它与 `git cherry` 在五个形状下**结论完全一致**,未能构造出任何两者相左的场景——所以它**没有超出 cherry 的判别力**,唯一差别是逐 commit 的 MATCH/miss 清单而非聚合 `+`/`-`。矩阵里最要紧的一行是**多 commit squash 下两者同时 miss**(squash 产出的那个新 patch 的 id 不等于任何一个原 commit),而那恰是 GitHub PR 的默认合并方式,所以 miss 是「该升级」的信号、不是「未合并」的证据。据此把节末仲裁句从「patch-id 是例外」改成「**本节无一 hint 能 establish containment**」,升级路径指向 `## The historical-merge-commit rung`(`git_verify_branch_merged.sh --merge-commit`)——该节另补它的两个前置条件:M 要调用方从平台 API 独立取得;它只证 containment **at M**,不证明当前 base 还有。unsoundness 按同节格式写明:只见扫描窗口、窗口含 merge(其 combined-diff id 不对应任何单一 parent;trivial merge 根本不产 patch-id 行)、contained 不说哪个版本存活。`SKILL.md` Mode E Step 3 分支删除 bullet 补删前 `-D` 门:**按 PR number 查,不按分支名查**——`gh pr list --head <branch>` 曾对已有 PR 的分支返回空、而「基于这个空结果的删除决定会是错的」(本仓 merge_verification.md §The historical-merge-commit rung 实测记录),改用 `gh pr view <number> --json headRefOid,state,mergeCommit` 或 REST;非 GitHub remote 用平台等价物,不许拿分支名 grep 顶替。必须紧邻删除前查。
+
+- **claude-switch-models-setup** (`daymade-claude-code` v3.54.2 → v3.55.0): 源仓库发现里的 `marketplace_name()` 原来把四种状态压成同一个返回值 `None`：manifest 路径不存在、manifest 存在但读不出来、manifest 能解析但没有可用的 `name`、manifest 路径存在却不是可读的常规文件（悬空 symlink / 本身是目录；`.claude-plugin` 是个普通文件则属于第一种——那条路径确实不存在）。
+第一种照旧静默——`infer_repos()` 的脚本路径遍历要靠它穿过大量没有 manifest 的父目录，四个硬编码 base 目录 × 三个仓库名里不存在的也走这条；另外几种现在分别抛 `UnreadableMarketplaceManifest`（读不出来）与 `InvalidMarketplaceManifest`（读到了但本身不合法），消息带 manifest 绝对路径、底层错误原因和各自不同的补救动作。`UnicodeDecodeError` 是 `ValueError` 子类、不在 `OSError`/`JSONDecodeError` 里，第一版漏了它会让裸异常完全不带路径地逃出去；而它正是装满 CJK 的 manifest 被写坏时最常见的形状——截断落在多字节字符中间时，解码先于 JSON 解析失败（在 `-pro` 那个 126KB 的 manifest 上随机取 400 个截断点，约 14% 命中它）。判据也从 `is_file()` 换成直接 `os.lstat()`：悬空 symlink 和「manifest 本身是目录」都会让 `is_file()` 给出「不存在」的答案，于是 repo 再次静默消失。**没有**用 `os.path.lexists()`——它对所有 OSError 返 False，包括 EACCES，而 `.claude-plugin` 不可搜索时 `is_file()` 本来是抛 `PermissionError` 的；换成 `lexists()` 会把「查不了」静默降级成「不存在」，正是本改动要关的那扇门。现在 `lstat` 的 `FileNotFoundError`/`NotADirectoryError` 才是唯一的静默态，其余 OSError 报成「存在但查不了」。`load_marketplace()` 补上同一个三态捕获（有专测试守着，删掉会红），免得显式 `--repo` 时同样的问题仍不带路径。
+「可用的 name」判据同时与 `load_marketplace()` 统一为 `isinstance(market, str) and market`：空串 name 原先会穿过 `marketplace_name()` 被返回，而 `add_repo()` 拿到的 `""` 永远不在 `LOCAL_MARKETPLACE_NAMES` 里，于是又走一次静默跳过、又产出同一句误导报错。
+之所以必须分开：manifest 读不出来时该 repo 会从发现列表里静默消失，改由后面一处与激活清单对照的硬校验炸出，报的是 `marketplace activation fields name repos not discovered: daymade-skills`——读报错的人会去查「repo 去哪了」，而真因是那一瞬读不出来，方向整个指错。
+**关于成因，这条改动本身改了三次口径，最终口径是有实测支持的那一个。** 触发本次改动的那次失败只留下两个事实：它 21:39:05 发生、随后自行恢复。能支持的结论仅是「当时有个写入者正在写这个文件」，**不指明是谁**。两次被自己机械测量推翻的口径都记录在此，免得再犯：①「git 不可能是写入者，因为 checkout 是整文件替换」——错。inode 变化推不出原子性，实测在 160KB 满 CJK 的 manifest 上并发切换分支，读者看到 **43 次半读 + 232 次 FileNotFoundError**（基线零），因为 git 是 unlink 后原地重写，不是原子 rename。②「通常是共享 checkout 正被 git 重写」——作为**这一类**写入者成立（该文件在共享 checkout 最近 8 个 commit 里 8 个都改过，且是 sync daemon 的 WatchPath 之一），但作为**这一次**的成因从未被建立。所以新消息说的是「有个并发写入者在原地重写它是常见成因，共享 checkout 里的 git 切分支正是其中一种（附实测数字）」，不断言它就是那次失败的元凶。
+16 条新测试（该 skill 套件 103 → 119）覆盖**十一种**坏 manifest（截断 / 空文件 / trailing garbage / 无 name / name 为空串 / name 非 str / 根节点非对象 / 非 UTF-8 字节 / 截断在多字节中间 / 悬空 symlink / manifest 是目录）与四种健康输入（无 manifest / 合法 / 名字不属于 LOCAL_MARKETPLACE_NAMES / `.claude-plugin` 是普通文件）。独立标定仪器（隔离 HOME + 中立脚本副本 + `DAYMADE_SKILL_SOURCE_REPOS`，复现生产发现路径）是**另一套**输入，十个危险侧 case（含非 UTF-8、悬空 symlink、manifest 是目录三个后补的），两侧都跑过：未改代码上十个危险侧全部复现问题（七个是误导报错，三个是非 UTF-8 形状的裸异常）、两个健康输入静默 exit 0，改后十个全部点名 manifest 路径。变异测试确认：两处各去掉 `UnicodeDecodeError`、把 `lstat` 换回 `is_file()`、把 `lstat` 换成 `os.path.lexists()`、删掉 `load_marketplace()` 的三态捕获、`or not market` 退回只判 `isinstance`、删掉重试建议——各被对应测试抓红。归因那条测试守的是**一组短语**（四种历史错措辞 + `is the cause` / `ruled out` / `caused this failure` + 两个必需子串），不是「任何错口径都跑得掉」：措辞全新的过度声称它抓不到，这点在测试 docstring 里写明了，不假称覆盖更宽。
+**两处行为变化需要知情**。① `add_repo()` 对每个候选都调 `marketplace_name()`，候选有四个来源：env / `known_marketplaces.json` / 四个硬编码 base 目录 × 三个仓库名 / **脚本自身路径的祖先目录遍历**。所以一个在盘上但**未激活**的本地 marketplace，其 manifest 不可用现在也会让整次 sync 失败（改之前被静默跳过）；同理，若脚本碰巧位于某个 manifest 损坏的无关仓库之下，祖先遍历也会中止整次 sync——当前部署位置（plugin cache）的各级祖先都没有 `.claude-plugin`，生产 daemon 不受影响，受影响的是从源码 checkout 直接运行的情形。保留硬失败而非按激活与否分流：`load_marketplace()` 对「根节点非对象」「缺 name」本来就是抛异常，`marketplace_name()` 是全文件唯一会静默咽掉 manifest 读取错误的通道；且候选集主体就是这三个自有仓库，其中一个身份损坏时 Claude Code 自己也加载不了那个 marketplace。代价是：故意停用某个本地 marketplace 而它的 manifest 又恰好损坏时，daemon 会每 5 分钟失败一次直到有人去修那个 checkout。② 仍未收口的同类形状：`{"name": "  daymade-skills  "}` 这类带空白的 name 会被原样返回，于是作为「不属于 LOCAL_MARKETPLACE_NAMES 的名字」静默跳过——这与「manifest 声明一个本工具不管理的外国 marketplace」走同一条健康路径，是设计如此（`marketplace_name()` 不知道激活清单，无法区分二者）。因此「本 bug 的输入已全部收口」的说法**不成立**，此处明记。
+- **openclaw** (v1.2.0 → v1.2.1): three precision fixes to the previous entry, each
+  taken verbatim from the independent review's own measured evidence rather than
+  newly asserted. The `doctor` Memory search note's first form names the **Active
+  Memory** plugin specifically and only appears while
+  `memory.search.rememberAcrossConversations` is on — the earlier paraphrase called
+  it "the memory plugin", which reads as if the note were about the provider already
+  in use. The `extraDirs` casing failure is now placed at the right stage: discovery
+  lists the skill (both sides use plain `realpathSync` there) and the refusal happens
+  when the file is opened under its root, so "discovery worked but the skill never
+  loaded" is the observable shape. The allowlist error has two renderings — the CLI
+  prints `Plugin "<id>" could not be enabled (blocked by allowlist).` with a capital
+  and a period, the managed path carries it lowercased without one — so the reference
+  now tells readers to grep `blocked by allowlist` instead of either exact form.
+- **claude-switch-models-setup** (`daymade-claude-code` v3.54.1 → v3.54.2): references 补两处诊断缺口。① `local-source-sync-architecture.md` 新增 Optional failure recorder 一节：`scripts/sync-daemon-recorder.sh` 包住 daemon 入口，把「失败轮一个字都不写」变成 `source-sync.failures.log` 里一行（时间+退出码+**本轮新增**的最后一条 stderr；本轮一条都没写则明确记 `(no new stderr this pass)`，不拿 `err.log` 尾部的历史残留下结论——它是 append-only 的，直接 `tail -n 1` 会让一次静默失败继承上一次的 traceback。连续相同失败折叠、1MB 轮换、原退出码继续抛给 launchd）；同节写明**成功侧的新鲜 `verified` 行只证明有轮次成功、不证明每轮成功**，健康判据在失败路径，而 `launchctl` 只给最后一次退出码，所以间歇失败在两次失败之间读起来是健康的。② `troubleshooting.md` 新增症状节：Codex 侧同步全绿、`~/.claude/skills` 却毫无变化时，判据是 dry-run 输出里**一条 `Claude skill …` 都没有**——那说明 `manage_claude` 为 false（manifest 缺 `claude_active_marketplaces` 或它是空数组），该根整体没被接管；修法是把自有 marketplace 名写进那个键，并先用 `--claude-skills` 指向镜像根做零写入预演。另把 recorder 与其自包含双向标定测试从本机 `~/.config` 迁进 `scripts/`（此前 health-check 一直报「在跑但不在任何 git 仓」），`TARGET` 改为解析运行位置而非本文件同级目录。
+
+
+- **marketplace-dev** (`daymade-claude-code` v3.54.0 → v3.54.1): 交付前清单补一项连 hook 和 checker 都不查的——**CHANGELOG 条目**。`check_version_progression.py` 只裁决新增箭头行的终点是否等于 candidate 版本、`check_changelog_structure.py` 只查标题唯一性，两者都不要求条目存在，所以「bump 了版本但漏了 changelog」会全绿合入（2026-09-21 实证：一个带 bump 的 PR 四个 checker 全绿、CI 四个 check 全 pass，缺条目由独立 agent 审阅才抓到）。约定原文在 `marketplace-health-check/SKILL.md:90`，但该 skill 被 `marketplace-dev/SKILL.md:33` 显式排除在定向改动之外，而 skill 文档 PR 走的正是定向改动这条路——闸门恰好不在路上。同节另补三个 checker 的 base 参数对照表，并写明 `exit 2` 是 argparse 用法错误、仓库根本没被判定，与 checker 判定仓库坏是两件事。
+
+- **openclaw** (v1.1.0 → v1.2.0): four corrections, each paid for by a wrong turn
+  while following the previous entry. **`extraDirs` needs the canonical path, not
+  the typed one** — macOS preserves on-disk casing while `fs.realpathSync` keeps
+  the input casing and `fs.realpathSync.native` returns the canonical form;
+  OpenClaw resolves the configured root with the former and the candidate skill
+  with the latter, so a typed-casing root compared against a canonical candidate
+  fails as `resolved path escapes skill root` and the skill is silently skipped
+  even though the config change applied. Resolve first and paste what
+  `realpathSync.native` prints; neither `git rev-parse --show-toplevel` nor
+  `os.path.realpath` reports the canonical form on this platform. **A plugin can
+  load cleanly and still be dead** — `plugins doctor` passing says nothing about
+  the provider behind it: mem9 passed every plugin check while every call failed
+  on a provider-side tenant/embedding schema mismatch that no plugin setting can
+  reach, and `doctor`'s Memory search note degrades from "plugin disabled" to
+  "provider does not support protected private transcript recall" as the plugin
+  layer is repaired. **`plugins enable` has a second gate** — `plugins.allow` is
+  separate from `entries.<id>.enabled`, and since it is an array a `config patch`
+  replaces it, so the existing entries must be repeated. **An agent's own report
+  of a tool call is not evidence** — `openclaw agent --json` returned
+  `toolSummary: { calls: 1, tools: ["memory_store"], failures: 0 }` while the
+  gateway log recorded the provider rejecting that store, and the agent then
+  "confirmed" the value by reading it back out of the same conversation. A round
+  trip inside one session proves the session, not the backend.
+- **git-safety-net** (v1.20.2 → v1.20.3): route the branch-deletion probe rule to where the
+  deletion actually happens. Troubleshooting already carried a measured rule — a bare
+  `git ls-remote <remote> <branch>` cannot distinguish "the ref is gone" from "the remote was
+  unreachable" (both print nothing), so the probe must be `--exit-code` with a fully-qualified ref
+  (0 present / 2 absent / 128 probe failed, where 128 means the fate is unknown and nothing may be
+  retired). That rule had **no inbound reference anywhere in the skill**, and the two places that
+  most need it both contradicted or omitted it: Mode B's scoped-evidence block demonstrated the bare
+  form, and Mode E's deletion step said only to re-verify remote and ownership *before* deleting,
+  with no readback after. Mode B's snippet now shows the `--exit-code` form with the reason inline;
+  Mode E gains a readback bullet covering both directions of the trap, including that a repository
+  which deletes branches on merge makes a later `push --delete` exit 1 with `remote ref does not
+  exist` — the desired end state reported as an error. No new rule: the criterion was already
+  measured and unchanged, this makes it reachable from the modes that need it.
+
 - **macos-watchdog** (`daymade-macos` v1.5.0 → v1.6.0): 排障表新增一行——out.log 全绿不等于健康，失败轮可能什么都不写（`set -e` + 仅成功才打印 verified），于是最后成功时间戳永远新鲜；健康判据换成失败路径有没有出口。实测战例（五个绿信号对 err.log 里 137 条 traceback）与 `launchctl list` 只给最后一次退出码、不给退出码历史这一边界，进 `references/quiet-watchdog-patterns.md` Pattern 7。`references/launchd-plist-reference.md` 另记一条陷阱：`plutil -replace ProgramArguments.0 -string X` 是**追加**元素而非替换索引 0（实测把原脚本变成新脚本的参数），正解是用 plistlib 重写整个数组后 `plutil -p` 读回。
 
 - **claude-switch-models-setup** (`daymade-claude-code` v3.53.0 → v3.54.0): troubleshooting 新增 `## Source sync aborts with duplicate source skill name` 一节。根因是两个 main 在 19–51 分钟窗口内同时声明同名 skill（skill 跨仓迁移）；两次实测事故与功能分支无关（四个 commit 均为 main 祖先），但 syncer 读每个 checkout 的工作树，fork 自删除 commit 之前的本地分支仍会暴露该名，所以不能反过来断言"分支永远不是成因"。含两次实测窗口表、`merge-base --is-ancestor` 取证命令、先删后加的正确顺序，以及收尾一个已开窗口时必须 `git -C <checkout> pull --ff-only`——只 push 不足以让窗口关闭。
 
+- **openclaw** (v1.0.0 → v1.1.0): the skill managed `openclaw.json` only; gateway
+  health and plugin lifecycle had no home. Adds
+  `references/openclaw_operations.md`, distilled from a 2026-09-21 session on a
+  node whose gateway was parked and whose memory plugin was broken. It carries
+  the three-source version check (and why `npm view` alone can lag a GitHub
+  release), the repair order where `doctor --fix` migrates but does not restart,
+  the failure mode where `gateway status` stays green while plugin hooks are
+  blocked, the `plugins install` path that `plugins update` cannot reach, the
+  `openclaw.plugin.json` capability diff to run before accepting
+  `--accept-capabilities`, the `allowConversationAccess` /
+  `allowPromptInjection` switches, `doctor --fix` side effects including a legacy
+  `HEARTBEAT.md` becoming an active cron no cron client can disable, the
+  `skills.load.allowSymlinkTargets` fix for symlinked skill roots, and a
+  verification ladder for claiming a repair worked. SKILL.md and the marketplace
+  entry now also trigger on gateway down/parked, plugin register failure, and
+  out-of-date-install questions.
 - **tech-selection** (`daymade-claude-code` v3.52.0 → v3.53.0): agent orchestration no
   longer asserts a single-agent default. The ruling was that a standing instruction
   inside one task outranks any general delegation rule, so the section now states the

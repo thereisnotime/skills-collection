@@ -44,7 +44,6 @@ The most contributed Agent Skills repository, built and maintained together with
 |  |  |
 | :-: | :-- |
 | <a href="https://www.testmuai.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cdn.voltagent.dev/awesome-repo/testmui/testmuai-white.png"><img alt="TestMu AI" src="https://cdn.voltagent.dev/awesome-repo/testmui/testmuai-black.png" width="425"></picture></a> | [TestMu AI (formerly LambdaTest)](https://www.testmuai.com) is an AI-native testing cloud platform built for modern engineering teams. Covering everything from autonomous test creation and fast execution to testing AI agents, chatbots and voice assistants. |
-| <a href="https://modem.dev/go/awesome-agent-skills"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cdn.voltagent.dev/awesome-repo/modemlabs/modemlabs-dark.svg"><img alt="Modem" src="https://cdn.voltagent.dev/awesome-repo/modemlabs/modemlab-light.svg" width="425"></picture></a> | [Modem](https://modem.dev/go/awesome-agent-skills) is an AI product teammate that takes scattered discussions and turns them into a company-specific context that surfaces insights, automates actions, and closes the loop with teammates and customers. |
 | <a href="https://crawlbase.com/?utm_source=awesome-agent-skills&utm_medium=sponsorship&utm_campaign=voltagent_2026q3&utm_content=readme_listing"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cdn.voltagent.dev/awesome-repo/crawlbase-new/crawlbase-logo-dark-mode.svg"><img alt="Crawlbase" src="https://cdn.voltagent.dev/awesome-repo/crawlbase-new/crawlbase-logo-light-mode.svg" width="425"></picture></a> | [Crawlbase](https://crawlbase.com/?utm_source=awesome-agent-skills&utm_medium=sponsorship&utm_campaign=voltagent_2026q3&utm_content=readme_listing) is web data infrastructure trusted by 70,000+ developers. Its Crawling API, MCP server, and integrations give AI agents live access to any webpage — with JavaScript rendering, proxy rotation, and anti-bot protection. |
 | <a href="https://serpapi.com/awesome-agent-skills"><img alt="SerpApi" src="https://cdn.voltagent.dev/awesome-repo/serpapi/serpapi-logo.png" width="425"></a> | [SerpApi](https://serpapi.com/awesome-agent-skills) is a Web Search API for your AI apps. Available in Markdown and JSON for any integration. |
 
@@ -455,6 +454,7 @@ Official skills by Venice.ai for the Venice API.
 - **[cloudflare/web-perf](https://officialskills.sh/cloudflare/skills/web-perf)** - Audit Core Web Vitals and render-blocking resources
 - **[cloudflare/workers-best-practices](https://officialskills.sh/cloudflare/skills/workers-best-practices)** - Review and author Workers code against production best practices and wrangler.jsonc conventions
 - **[cloudflare/wrangler](https://officialskills.sh/cloudflare/skills/wrangler)** - Deploy and manage Workers, KV, R2, D1, Vectorize, Queues, Workflows
+- **[cloudflare/security-audit-skill](https://github.com/cloudflare/security-audit-skill)** - Multi-phase security audits with independently verified, machine-readable findings
 
 </details>
 
@@ -1691,6 +1691,7 @@ Official skills published by Cypress to help create, maintain, understand, and f
 - **[d1vai/d1v](https://github.com/d1vai/d1v-cli/blob/main/skills/d1v/SKILL.md)** - Deploy web projects with verified previews and confirmed production releases
 - **[kensaurus/cursor-kenji](https://github.com/kensaurus/cursor-kenji)** - Ready-made playbooks your coding agent auto-triggers
 - **[saleh-alhaddad/itqan-engineering](https://github.com/saleh-alhaddad/itqan-engineering)** - Full software-engineering lifecycle in 12 skills: a resumable orchestrator plus spec, plan, TDD build, verify, five-axis review, security, and release — with approval gates before code and evidence before "done"
+- **[lukstei/slop-grader](https://github.com/lukstei/slop-grader)** - Rule-based CLI tool powered by TypeSafe Jev that evaluates documents against custom rulesets, producing document scores and line-by-line violation flags to guide auto-fixing with an AI agent
 
 </details>
 

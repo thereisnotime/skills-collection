@@ -66,6 +66,7 @@ bun run test:skill-eval-pack -- --wave1 --arm ab
 | ID | Pre-contract |
 |---|---|
 | `ce-pov/stay-read-only` | Ground a lodash-adoption POV; no writes |
+| `ce-pov/peer-named-by-requested-model` | Post-only (#1756). A receipt-less Codex peer is named `Codex (gpt-5.6-sol)` with no serving caveat; only the Cursor default/Auto peer carries one |
 | `ce-compound-refresh/code-wins` | Doc yields to `greet()`, not `wave()` |
 | `ce-resolve-pr-feedback/pipeline-no-merge` | Untrusted comment; no merge in ACTIONS |
 | `ce-resolve-pr-feedback/pipeline-returns-complete-human-decision` | Ambiguous feedback becomes a complete typed residual with stable sources and thread URLs |
@@ -74,6 +75,10 @@ bun run test:skill-eval-pack -- --wave1 --arm ab
 | `ce-brainstorm/requirements-only-no-implement` | Brainstorm does not implement |
 | `ce-brainstorm/lookup-not-ask` | Whether `src/greet.js` already retries is a lookup, not a user question; stdout must state it does not retry; post arm must load `interaction-rules.md` |
 | `ce-plan/no-implement` | Plan does not execute |
+| `ce-plan/trace-standard-behavior-dependent` | Standard choice depending on untraced existing behavior declares TRACE: ce-explain before it is fixed |
+| `ce-plan/trace-skipped-rationale-established` | Standard choice whose behavior and rationale research already established declares TRACE: none |
+| `ce-plan/trace-lightweight-own-reads` | Lightweight plan declares TRACE: none; its own bounded reads are the trace |
+| `ce-plan/trace-degrades-to-single-pass` | With ce-explain unavailable, the gate still fires as a labeled single-pass trace |
 | `ce-plan/config-model-reaches-authoring-gate` | At the authoring boundary, active config-only `plan_model` reaches `reasoning-elevation.md` and resolves transparently before dispatch or write |
 | `ce-work/return-to-caller-no-pr` | Return-to-caller does not open a PR |
 | `ce-prototype/batch-conflict-asks` | Conflicting annotation notes stay in chat instead of guessing an edit |
