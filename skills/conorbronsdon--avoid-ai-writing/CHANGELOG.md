@@ -6,10 +6,15 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- Require explicit skill names matching their directories and reject duplicate frontmatter keys, including mixed quoted/unquoted keys, while retaining required names in every generated distribution (#259).
-- Accept `--context marketing` and `--context personal` in the `avoid-ai-writing` scoring CLI, which previously rejected them with exit 2 even though the engine and the gate CLI support all four contexts. `--help` now lists the same values in both binaries (#207).
+- The bundled `ai-writing-detector` script accepts `--source-mode <plain|rendered-markdown>`, so the published plugin can reach rendered-Markdown scoring instead of flagging YAML frontmatter as the author's prose. It also accepts the `marketing` and `personal` contexts the root CLI and the detector already support, which it previously rejected. Blank input reports the selected context and source mode instead of an empty `stats` object, matching the root CLI. A bad argument now prints the usage message and exits 2 instead of throwing an uncaught stack trace (#244).
+
+### Changed
+
+- Cover two phrasings flagged in #325 as judgment-only examples: cold-outreach flattery asks ("I'd value your take on this") under sycophantic tone, and the teaser form of the crowd contrast ("the call most leaders still won't make"). No detector change and no new category.
+
+## [3.36.0] — 2026-09-23
 
 ### Added
 
@@ -28,6 +33,8 @@ All notable changes to this project are documented here.
 
 ### Fixed
 
+- Require explicit skill names matching their directories and reject duplicate frontmatter keys, including mixed quoted/unquoted keys, while retaining required names in every generated distribution (#259).
+- Accept `--context marketing` and `--context personal` in the `avoid-ai-writing` scoring CLI, which previously rejected them with exit 2 even though the engine and the gate CLI support all four contexts. `--help` now lists the same values in both binaries (#207).
 - Detect unsegmented-script documents (Chinese/Japanese: no inter-word spaces) before the word gate and label them `Unsupported script` instead of `Too short`, with the reason and CJK character count in `stats`. The check recognizes the full Unicode Han and kana scripts (including supplementary-plane and halfwidth forms) and declines only when CJK characters dominate the non-whitespace text, so newline-wrapped lines cannot bypass it and short English documents with an incidental place name stay scorable. The gate CLI now exits 2 on such files — matching the documented unscannable-input exit code — instead of passing silently at every threshold, and the repository self-scan reports declined documents instead of scoring them as clean while keeping raw and exemption-aware declines distinct (#241).
 - Align false-positive preprocessing with CommonMark for backtick fence info strings and multiline setext headings, preserve unique normalized units as modified when only whitespace boundaries move their source spans, reject Windows OpenCode command shims with an actionable native-binary error, and recognize first-person `I` inside otherwise targeted Title Case headings (#314).
 - Restrict Title Case header word separators and trailing whitespace to horizontal whitespace, so a match can never run past one physical line. `\s` also ate newlines, which let two unrelated lines or a blank-line-separated fragment combine into a single heading match that neither line independently satisfied (#291).

@@ -76,6 +76,8 @@ plugins/mcp/a2a-client/dist/index.js:long-base64-blob  bundled dependency WASM p
 plugins/skill-enhancers/agent-systems-toolkit/skills/production-upgrade/scripts/audit_evidence.py:outbound-network  imports urllib.parse.urlsplit solely for offline HTTPS URL validation; contains no request client, socket use, or command execution — reviewed 2026-09-05
 
 # ── sources-change-unscanned is a ONE-SHOT waiver (enforced in code by
+sources.yaml:sources-change-unscanned  claude-2957 HOL Guard registration-only review: verified five exact upstream files at 8e8d190fdef125d7d09e7da499338cc35bdad08f against locked SHA256 values; explicit five-file includes, pinned optional CLI installs with user approval, verified:false; no mirror, package, or publication in this PR
+sources.lock.json:sources-change-unscanned  claude-2957 HOL Guard registration-only review: all five SHA256 values reverified against hashgraph-online/hol-guard-plugin at 8e8d190fdef125d7d09e7da499338cc35bdad08f; no executable implementation admitted; later upstream drift remains quarantined
 # honoredWaivers, blocker 62ye.3 / #985 defect 3): a line is honored ONLY in the
 # PR whose diff adds it, so it can never persistently waive future source-list
 # changes. Do NOT leave a standing line here — after its PR merges it is inert

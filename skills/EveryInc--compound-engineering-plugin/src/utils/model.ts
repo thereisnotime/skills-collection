@@ -13,7 +13,7 @@
 export const CLAUDE_FAMILY_ALIASES: Record<string, string> = {
   haiku: "claude-haiku-4-5",
   sonnet: "claude-sonnet-5",
-  opus: "claude-opus-4-8",
+  opus: "claude-opus-5-5",
 }
 
 /**
@@ -21,12 +21,14 @@ export const CLAUDE_FAMILY_ALIASES: Record<string, string> = {
  * (`temperature`/`top_p`/`top_k`) with HTTP 400. Emitting an inferred
  * temperature alongside one of these produces a config that fails at runtime.
  * Keep in sync with CLAUDE_FAMILY_ALIASES when new generations are released.
- * See the Sonnet 5 and Opus 4.7/4.8 migration notes.
+ * See the Sonnet 5, Opus 4.7/4.8, and Opus 5.5 migration notes.
  */
 const SAMPLING_PARAM_REJECTING_MODELS: ReadonlySet<string> = new Set([
   "claude-sonnet-5",
   "claude-opus-4-7",
   "claude-opus-4-8",
+  "claude-opus-5",
+  "claude-opus-5-5",
 ])
 
 /**
@@ -45,7 +47,7 @@ export function resolveClaudeFamilyAlias(model: string): string {
  * Returns the input unchanged if already prefixed (contains "/").
  *
  * "claude-sonnet-5" -> "anthropic/claude-sonnet-5"
- * "gpt-5.6-sol"       -> "openai/gpt-5.6-sol"
+ * "gpt-6-sol"       -> "openai/gpt-6-sol"
  * "gemini-2.0"        -> "google/gemini-2.0"
  * "minimax-m3"        -> "minimax/minimax-m3"
  * "anthropic/foo"     -> "anthropic/foo" (unchanged)

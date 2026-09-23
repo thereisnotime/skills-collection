@@ -281,7 +281,7 @@ firecrawl https://example.com --exclude-tags nav,aside,.ad
 
 ### `search` - Search the web
 
-Search the web and optionally scrape content from search results.
+Search the web with query-relevant highlights and optionally scrape content from search results.
 
 ```bash
 # Basic search
@@ -299,15 +299,14 @@ firecrawl search "landscape photography" --sources images
 # Multiple sources
 firecrawl search "machine learning" --sources web,news,images
 
-# Filter by category (GitHub, research-affiliated websites, PDFs)
-firecrawl search "web data python" --categories github
+# Filter by category (research-affiliated websites, PDFs, developer index)
 firecrawl search "transformer architecture" --categories research
-firecrawl search "machine learning" --categories github,research
+firecrawl search "machine learning" --categories pdf,research
 
 # Note: --categories research narrows *web* results to research-affiliated
 # websites. To search papers themselves, use `firecrawl research search-papers`.
 
-# Developer search: GitHub issues, merged PRs, READMEs, and docs
+# Developer search: public repositories, GitHub issues, merged PRs, READMEs, and docs
 firecrawl search "axum middleware ordering" --categories developer
 
 # Time-based search
@@ -328,23 +327,23 @@ firecrawl search "AI data tools"
 
 #### Search Options
 
-| Option                       | Description                                                                                                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--limit <n>`                | Maximum results (default: 5, max: 100)                                                                                                                                    |
-| `--sources <sources>`        | Comma-separated: `web`, `images`, `news` (default: web)                                                                                                                   |
-| `--categories <categories>`  | Comma-separated: `github`, `research` (research-affiliated websites -- for papers use [`research search-papers`](#research---search-research-papers)), `pdf`, `developer` |
-| `--tbs <value>`              | Time filter: `qdr:h` (hour), `qdr:d` (day), `qdr:w` (week), `qdr:m` (month), `qdr:y` (year)                                                                               |
-| `--location <location>`      | Geo-targeting (e.g., "Germany", "San Francisco,California,United States")                                                                                                 |
-| `--country <code>`           | ISO country code (default: US)                                                                                                                                            |
-| `--timeout <ms>`             | Timeout in milliseconds (default: 60000)                                                                                                                                  |
-| `--highlights`               | Return query-relevant highlights for each result                                                                                                                          |
-| `--no-highlights`            | Keep the original search snippets                                                                                                                                         |
-| `--ignore-invalid-urls`      | Exclude URLs invalid for other Firecrawl endpoints                                                                                                                        |
-| `--scrape`                   | Enable scraping of search results                                                                                                                                         |
-| `--scrape-formats <formats>` | Scrape formats when `--scrape` enabled (default: markdown)                                                                                                                |
-| `--only-main-content`        | Include only main content when scraping (default: true)                                                                                                                   |
-| `-o, --output <path>`        | Save to file                                                                                                                                                              |
-| `--json`                     | Output as compact JSON                                                                                                                                                    |
+| Option                       | Description                                                                                                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--limit <n>`                | Maximum results (default: 5, max: 100)                                                                                                                          |
+| `--sources <sources>`        | Comma-separated: `web`, `images`, `news` (default: web)                                                                                                         |
+| `--categories <categories>`  | Comma-separated: `research` (research-affiliated websites -- for papers use [`research search-papers`](#research---search-research-papers)), `pdf`, `developer` |
+| `--tbs <value>`              | Time filter: `qdr:h` (hour), `qdr:d` (day), `qdr:w` (week), `qdr:m` (month), `qdr:y` (year)                                                                     |
+| `--location <location>`      | Geo-targeting (e.g., "Germany", "San Francisco,California,United States")                                                                                       |
+| `--country <code>`           | ISO country code (default: US)                                                                                                                                  |
+| `--timeout <ms>`             | Timeout in milliseconds (default: 60000)                                                                                                                        |
+| `--highlights`               | Query-relevant highlights for web and news when available (default)                                                                                             |
+| `--no-highlights`            | Keep the original search snippets                                                                                                                               |
+| `--ignore-invalid-urls`      | Exclude URLs invalid for other Firecrawl endpoints                                                                                                              |
+| `--scrape`                   | Enable scraping of search results                                                                                                                               |
+| `--scrape-formats <formats>` | Scrape formats when `--scrape` enabled (default: markdown)                                                                                                      |
+| `--only-main-content`        | Include only main content when scraping (default: true)                                                                                                         |
+| `-o, --output <path>`        | Save to file                                                                                                                                                    |
+| `--json`                     | Output as compact JSON                                                                                                                                          |
 
 #### Examples
 
@@ -352,8 +351,8 @@ firecrawl search "AI data tools"
 # Research a topic with recent results
 firecrawl search "React Server Components" --tbs qdr:m --limit 10
 
-# Find GitHub repositories
-firecrawl search "web data library" --categories github --limit 20
+# Search public developer sources
+firecrawl search "web data library" --categories developer --limit 20
 
 # Search and get full content
 firecrawl search "firecrawl documentation" --scrape --scrape-formats markdown --json -o results.json
@@ -364,7 +363,7 @@ firecrawl research search-papers "large language models" --json
 # Narrow web results to research-affiliated websites (not the paper index)
 firecrawl search "large language models" --categories research --json
 
-# Answer a programming question from issues, merged PRs, READMEs, and docs
+# Answer a programming question from public repositories, GitHub issues, merged PRs, READMEs, and docs
 firecrawl search "tokio select cancellation safety" --categories developer --json
 
 # Search with location targeting
@@ -378,7 +377,7 @@ firecrawl search "AI startups funding" --sources news --tbs qdr:w --limit 15
 
 ### `developer` - Search developer sources
 
-Search an index built for coding agents: GitHub issues, merged pull requests, repository READMEs, and curated documentation sites. Use it for a programming question: code behaviour, a library or framework, an API contract, an error message, or a known bug.
+Search an index built for coding agents: public repositories, GitHub issues, merged pull requests, repository READMEs, and curated documentation sites. Use it for a programming question: code behaviour, a library or framework, an API contract, an error message, or a known bug.
 
 The CLI intentionally keeps this agent-facing surface lean: it accepts only the query and result count. Express repository, source, result-kind, language, topic, license, and other scoping intent in the query text; semantic retrieval handles the scoping. For advanced filters, use the [Developer Index REST API](https://docs.firecrawl.dev/features/developer).
 

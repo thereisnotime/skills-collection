@@ -919,7 +919,9 @@ Max upload size: 50 MB
  */
 function createSearchCommand(): Command {
   const searchCmd = new Command('search')
-    .description('Search the web and discover relevant Alexandria tools')
+    .description(
+      'Search the web with query-relevant highlights and discover relevant Alexandria tools'
+    )
     .argument('<query>', 'Search query, or alexandria for semantic tool search')
     .argument('[tool-query]', 'Query for search alexandria')
     .option(
@@ -933,7 +935,7 @@ function createSearchCommand(): Command {
     )
     .option(
       '--categories <categories>',
-      'Comma-separated categories to filter: github, research, pdf, developer (research filters web results to research-affiliated websites -- it is NOT the paper index; for papers use `firecrawl research search-papers`. developer searches indexed GitHub issues, merged PRs, READMEs, and docs)'
+      'Comma-separated categories to filter: research, pdf, developer (research filters web results to research-affiliated websites -- it is NOT the paper index; for papers use `firecrawl research search-papers`. developer searches an index of public repositories, GitHub issues, merged PRs, READMEs, and docs)'
     )
     .option(
       '--tbs <value>',
@@ -959,7 +961,7 @@ function createSearchCommand(): Command {
     )
     .option(
       '--highlights',
-      'Return query-relevant highlights for each search result'
+      'Return query-relevant page excerpts for web and news results when available (default).'
     )
     .option(
       '--no-highlights',
@@ -1036,7 +1038,7 @@ function createSearchCommand(): Command {
           .map((c: string) => c.trim().toLowerCase()) as SearchCategory[];
 
         // Validate categories
-        const validCategories = ['github', 'research', 'pdf', 'developer'];
+        const validCategories = ['research', 'pdf', 'developer'];
         for (const category of categories) {
           if (!validCategories.includes(category)) {
             console.error(
@@ -1110,7 +1112,7 @@ function createSearchCommand(): Command {
 function createDeveloperCommand(): Command {
   const developerCmd = new Command('developer')
     .description(
-      'Search an index built for coding agents: GitHub issues, merged PRs, repository READMEs, and curated documentation sites. Express repository, source, language, topic, license, and other scoping intent in the query text; semantic retrieval handles the scoping.'
+      'Search an index built for coding agents: public repositories, GitHub issues, merged PRs, repository READMEs, and curated documentation sites. Express repository, source, language, topic, license, and other scoping intent in the query text; semantic retrieval handles the scoping.'
     )
     .argument('<query>', 'Natural-language developer question or search phrase')
     .option(

@@ -23,6 +23,7 @@ const SUITES = [
   'scripts/test-canonical-skill-package.js',
   'bin/avoid-ai-writing.test.js',
   'bin/avoid-ai-writing-gate.test.js',
+  'scripts/detect-parity.test.js',
   'scripts/rewrite-demo.test.js',
   'scripts/rewrite-eval.test.js',
   'scripts/rewrite-eval-opencode.test.js',

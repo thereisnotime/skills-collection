@@ -42,7 +42,7 @@
       "values": {
         "plugin_agent_files": 352,
         "raw_tracked_plugin_skill_files": 2991,
-        "tracked_files": 25934
+        "tracked_files": 25938
       }
     },
     "2": {
@@ -2459,10 +2459,10 @@
       "source": ["sources.lock.json", "sources.yaml"],
       "status": "measured",
       "values": {
-        "lock_keys": 37,
+        "lock_keys": 38,
         "lock_only": [],
         "target_equal": true,
-        "yaml_keys": 37,
+        "yaml_keys": 38,
         "yaml_only": []
       }
     },
@@ -3122,7 +3122,7 @@
         "invalid_patterns": 0,
         "invisible_files": 5,
         "target_invisible_files": 0,
-        "tracked_files": 25934
+        "tracked_files": 25938
       }
     },
     "47": {

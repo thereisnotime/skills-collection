@@ -268,7 +268,7 @@ printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"resid
     expect(cmd).toContain("-s read-only")
     expect(cmd).toContain("--skip-git-repo-check")
     expect(cmd).toContain('model_reasoning_effort="xhigh"')
-    expect(cmd).toContain("gpt-5.6-luna")
+    expect(cmd).toContain("gpt-6-luna")
   })
 
   test("claude: all tools disabled + safe mode + dontAsk + effort high", () => {
@@ -279,7 +279,7 @@ printf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[],"resid
     expect(cmd).toContain("--disable-slash-commands")
     expect(cmd).not.toContain("--bare")
     expect(cmd).toContain("--effort high")
-    expect(cmd).toContain("--model claude-opus-5")
+    expect(cmd).toContain("--model claude-opus-5-5")
     expect(cmd).toContain("--output-format stream-json")
     expect(cmd).toContain("--verbose")
   })
@@ -1220,10 +1220,10 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
 
   test("records model_requested and the dated model_actual when the claude receipt matches (R7)", () => {
     // Real claude CLI envelope shape: modelUsage at the envelope top level, keyed
-    // by the full dated id that actually served the run. Requested id "claude-opus-5"
-    // expects a served id starting claude-opus-5 (undated or dated).
+    // by the full dated id that actually served the run. Requested id "claude-opus-5-5"
+    // expects a served id starting claude-opus-5-5 (undated or dated).
     const receiptStub =
-      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[{"section":"X","title":"t"}]},"modelUsage":{"claude-opus-5-20260801":{"inputTokens":10}}}'\n`
+      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[{"section":"X","title":"t"}]},"modelUsage":{"claude-opus-5-5-20260801":{"inputTokens":10}}}'\n`
     const { env } = sandbox(["claude"], receiptStub)
     const doc = makeDoc()
     const runDir = makeRunDir()
@@ -1233,8 +1233,8 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
       readFileSync(path.join(runDir, "adversarial-claude.json"), "utf8"),
     )
     expect(out.cross_model_route).toBe("claude")
-    expect(out.model_requested).toBe("claude-opus-5")
-    expect(out.model_actual).toBe("claude-opus-5-20260801")
+    expect(out.model_requested).toBe("claude-opus-5-5")
+    expect(out.model_actual).toBe("claude-opus-5-5-20260801")
     expect(out.effort_requested).toBe("high")
     expect(r.stderr).not.toContain("model mismatch")
   })
@@ -1261,7 +1261,7 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
     // pick) would choose haiku; the prefix match must select the opus key and
     // raise no mismatch warning.
     const multiKeyStub =
-      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[{"section":"X","title":"t"}]},"modelUsage":{"claude-haiku-4-5-20251001":{"inputTokens":2},"claude-opus-5-20260801":{"inputTokens":10}}}'\n`
+      `#!/bin/sh\ncat >/dev/null\nprintf '%s' '{"structured_output":{"reviewer":"adversarial","findings":[{"section":"X","title":"t"}]},"modelUsage":{"claude-haiku-4-5-20251001":{"inputTokens":2},"claude-opus-5-5-20260801":{"inputTokens":10}}}'\n`
     const { env } = sandbox(["claude"], multiKeyStub)
     const doc = makeDoc()
     const runDir = makeRunDir()
@@ -1270,8 +1270,8 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
     const out = JSON.parse(
       readFileSync(path.join(runDir, "adversarial-claude.json"), "utf8"),
     )
-    expect(out.model_requested).toBe("claude-opus-5")
-    expect(out.model_actual).toBe("claude-opus-5-20260801")
+    expect(out.model_requested).toBe("claude-opus-5-5")
+    expect(out.model_actual).toBe("claude-opus-5-5-20260801")
     expect(r.stderr).not.toContain("model mismatch")
   })
 
@@ -1287,9 +1287,9 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
     const out = JSON.parse(
       readFileSync(path.join(runDir, "adversarial-claude.json"), "utf8"),
     )
-    expect(out.model_requested).toBe("claude-opus-5")
+    expect(out.model_requested).toBe("claude-opus-5-5")
     expect(out.model_actual).toBe("claude-haiku-4-5-20251001")
-    expect(r.stderr).toContain("WARNING: model mismatch - requested claude-opus-5, backend served claude-haiku-4-5-20251001")
+    expect(r.stderr).toContain("WARNING: model mismatch - requested claude-opus-5-5, backend served claude-haiku-4-5-20251001")
   })
 
   test("records model_actual unverified with a parse warning when the claude envelope carries no receipt (R8)", () => {
@@ -1303,7 +1303,7 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
     const out = JSON.parse(
       readFileSync(path.join(runDir, "adversarial-claude.json"), "utf8"),
     )
-    expect(out.model_requested).toBe("claude-opus-5")
+    expect(out.model_requested).toBe("claude-opus-5-5")
     expect(out.model_actual).toBe("unverified")
     expect(r.stderr).toContain("model receipt absent/unparseable on claude route; recording unverified")
   })
@@ -1365,7 +1365,7 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
       env: {
         ...process.env,
         CROSS_MODEL_MODEL_OVERRIDE_TARGET: "composer",
-        CROSS_MODEL_MODEL_OVERRIDE: "gpt-5.6-sol",
+        CROSS_MODEL_MODEL_OVERRIDE: "gpt-6-sol",
       },
     })
     expect(crossFamily.status).toBe(2)
@@ -1375,28 +1375,28 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
   test("a provider-qualified codex model id is accepted; family is still checked", () => {
     // A codex CLI pointed at a non-default model_provider may require ids in
     // that provider's own namespace. Measured against the OpenAI-compatible
-    // surface at bedrock-mantle.<region>.api.aws: `gpt-5.6-luna` 404s there and
-    // `openai.gpt-5.6-sol` serves. Where that holds, the documented
+    // surface at bedrock-mantle.<region>.api.aws: `gpt-6-luna` 404s there and
+    // `openai.gpt-6-sol` serves. Where that holds, the documented
     // cross_model_model escape hatch has to be able to express the served form.
     expect(
       emitAdapter("codex", {
         CROSS_MODEL_MODEL_OVERRIDE_TARGET: "codex",
-        CROSS_MODEL_MODEL_OVERRIDE: "openai.gpt-5.6-sol",
+        CROSS_MODEL_MODEL_OVERRIDE: "openai.gpt-6-sol",
       }),
-    ).toContain("-m openai.gpt-5.6-sol")
+    ).toContain("-m openai.gpt-6-sol")
     expect(
       emitAdapter("codex", {
         CROSS_MODEL_MODEL_OVERRIDE_TARGET: "codex",
-        CROSS_MODEL_MODEL_OVERRIDE: "openai/gpt-5.6-sol",
+        CROSS_MODEL_MODEL_OVERRIDE: "openai/gpt-6-sol",
       }),
-    ).toContain("-m openai/gpt-5.6-sol")
+    ).toContain("-m openai/gpt-6-sol")
 
     const crossFamily = spawnSync("bash", [SCRIPT, "--emit-adapter", "codex"], {
       encoding: "utf8",
       env: {
         ...process.env,
         CROSS_MODEL_MODEL_OVERRIDE_TARGET: "codex",
-        CROSS_MODEL_MODEL_OVERRIDE: "bedrock.claude-opus-5",
+        CROSS_MODEL_MODEL_OVERRIDE: "bedrock.claude-opus-5-5",
       },
     })
     expect(crossFamily.status).toBe(2)
@@ -1418,7 +1418,7 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
       readFileSync(path.join(runDir, "adversarial-codex.json"), "utf8"),
     )
     expect(out.cross_model_route).toBe("codex")
-    expect(out.model_requested).toBe("gpt-5.6-luna")
+    expect(out.model_requested).toBe("gpt-6-luna")
     expect(out.model_actual).toBe("unverified")
   }, 20_000) // the codex liveness poll sleeps in 5s slices even for a fast stub
 
