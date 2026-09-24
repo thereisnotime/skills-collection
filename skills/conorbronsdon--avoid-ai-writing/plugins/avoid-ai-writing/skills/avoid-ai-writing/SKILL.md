@@ -19,6 +19,8 @@ You are editing content to remove AI writing patterns ("AI-isms") that make text
 
 ## What this skill is and isn't
 
+These rules and the project's detector are calibrated for English; applying them to another language requires language-specific rules and evidence.
+
 This is a **writing-quality tool**, not a verdict. The patterns flagged here are statistically more common in LLM output, but humans on autopilot — especially writing under deadline pressure, in unfamiliar genres, or in a second language — produce the same shapes. Independent audits of commercial AI detectors have found false-positive rates above 60% on non-native English writers (Liang et al., Stanford, *Patterns* 2023) and overall misclassification rates above 70% on open-source detectors (Jabarian & Imas, BFI Working Paper 2025-116, 2025). Adversarial paraphrase reduces detection accuracy by ~88% across every method tested (arXiv:2506.07001, 2025).
 
 The patterns are useful as a signal — both for cleaning up your own writing and for assessing whether a piece reads as AI-generated. Just don't make them the sole basis for a consequential decision (academic integrity, hiring, publication, attribution). Several rules here also fire on second-language writing, deadline-pressed humans, and technical genres that compress vocabulary by design. Pair the signal with context: who wrote it, what genre, what the writer's normal voice looks like, what other evidence you have.
@@ -300,7 +302,7 @@ The instruction above — put voice back on purpose — has a predictable failur
 
 None of the following may be **added** to a text that did not already contain it. Every one is a rewrite failure even when the result scores clean:
 
-- **Fabricated speaker perspective.** "I've seen this a hundred times," "in my experience," or "I'll admit" without source support invents a speaker or experience. An explicit voice transformation may recast an existing stance in or out of first person, but it cannot create an experience, opinion, preference, or reaction.
+- **Fabricated speaker perspective.** "I've seen this a hundred times," "in my experience," or "I'll admit" without source support invents a speaker or experience. An explicit voice transformation may recast an existing stance in or out of first person, but it cannot create an experience, opinion, preference, or reaction. The same applies when drafting new copy in someone else's voice: do not give them a possession, trial, or reaction the source never records ("I have one on my desk", "the recording turned out to be the least interesting part"). Flag the gap for the author instead.
 - **Manufactured stakes.** "In a world where," "now more than ever," "the stakes have never been higher." Covered as a detection rule under Speculative scenario openers; listed again here because the rewrite side is where it gets *introduced*.
 - **Forced contrarianism.** "Everyone says X, but they're wrong," "the conventional wisdom is backwards." Only legitimate when the source actually argued it. Inventing a foil is inventing a claim.
 - **Performed candor.** "Let's be honest," "real talk," "here's the thing." See Narrated candor and Infomercial engagement hooks. A rewrite that adds one is failing two rules at once.

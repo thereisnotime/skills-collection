@@ -2279,6 +2279,50 @@ test('performed-insight: essayist tics fire', () => {
   assert.ok(hits.length >= 3, `expected >=3 performed-insight hits, got ${JSON.stringify(hits)}`);
 });
 
+test('performed-insight: staged discovery fires once per phrase', () => {
+  const r = AIDetector.analyzeText(
+    "I have the device on my desk, and the recording turned out to be the least interesting part. The real story was the queue of work it created."
+  );
+  const hits = r.issues.filter((i) => i.type === 'performed-insight').map((i) => i.text.toLowerCase());
+  assert.deepEqual(hits, ['turned out to be the least interesting part', 'the real story was']);
+});
+
+test('performed-insight: sentence-initial Turns out is subsumed by staged discovery', () => {
+  const r = AIDetector.analyzeText(
+    'Turns out to be the most interesting part was the detour, according to the post.'
+  );
+  const hits = r.issues.filter((i) => i.type === 'performed-insight').map((i) => i.text.toLowerCase());
+  assert.deepEqual(hits, ['turns out to be the most interesting part']);
+});
+
+test('performed-insight: nested emotional flatline counts once', () => {
+  const r = AIDetector.analyzeText(
+    'The recording turned out to be the most interesting part. The most interesting thing was the battery life.'
+  );
+  const performed = r.issues.filter((i) => i.type === 'performed-insight');
+  const flatline = r.issues.filter((i) => i.type === 'emotional-flatline');
+  assert.deepEqual(performed.map((i) => i.text.toLowerCase()), ['turned out to be the most interesting part']);
+  assert.deepEqual(flatline.map((i) => i.text.toLowerCase()), ['the most interesting thing']);
+  assert.equal(r.stats.patternCount, r.issues.length);
+});
+
+test('performed-insight: older phrases preserve their nested flatline finding', () => {
+  const r = AIDetector.analyzeText(
+    'That is why the most interesting part mattered to the team during the launch.'
+  );
+  const types = r.issues.map((i) => i.type);
+  assert.ok(types.includes('performed-insight'));
+  assert.ok(types.includes('emotional-flatline'));
+});
+
+test('performed-insight: literal turned-out and story uses stay clean', () => {
+  const r = AIDetector.analyzeText(
+    "The cheaper vendor turned out to be the most expensive option once support was priced in. The real story was covered by two local papers, and the real estate market cooled that spring."
+  );
+  const hits = r.issues.filter((i) => i.type === 'performed-insight');
+  assert.equal(hits.length, 0, `false positives: ${JSON.stringify(hits.map((i) => i.text))}`);
+});
+
 test('performed-insight: ordinary uses do not fire', () => {
   const r = AIDetector.analyzeText(
     "She sat with him through the appointment and the long drive home afterward. The whole family gathered for the reunion photos on Saturday. Naming names in the report was the part of the job he liked least of all."

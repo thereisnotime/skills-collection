@@ -7,7 +7,178 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **daymade-skill** (v1.52.0 → v1.53.0): Route decision-useful outcome reports from `skill-creator` and newly created Skills through `report-with-html`. A recurring customer-report Skill saves its own reusable template only after the user reviews a real report and approves that form; concise replies and the existing eval viewer remain the default where they already fit.
+
+- **daymade-audio** (v1.43.0 → v1.44.0): Add `audio-router` for StepFun ASR/TTS and minutes from existing transcripts. Those three specialist instructions and manual commands stay installed; general transcription and transcript correction remain directly discoverable.
+
+- **daymade-claude-code** (v3.64.0 → v3.65.0): Add `claude-code-ops-router` for eight setup and maintenance specialists. Their full instructions and manual commands remain installed; conversation history, continuation, hooks, prior-work retrieval, and other distinct automatic entries stay direct.
+
+- **daymade-financial** (v1.4.0 → v1.5.0): Add `financial-router` for five data, sector-research, and Gangtise setup specialists. Their full instructions and manual commands remain installed; `devils-advocate`, `benchmark-due-diligence`, and the Feishu-sending `pharma-daily-report` stay directly discoverable.
+
+- **daymade-docs** (v1.18.0 → v1.19.0): Add `docs-router` as the suite's automatic document-work entry. It selects a bundled specialist by input and requested output, resolves the active router's canonical source path to find sibling skills on Claude Code or Codex, then reads the selected full `SKILL.md` and task-required references. Routes cover document-to-Markdown, Markdown-to-PDF, existing Word-to-PDF, DOCX creation and review, PDF-to-HTML including translation with figures, Mermaid PNGs, complex Excel models and macOS automation, photos or unsigned digital documents to scanned PDFs, post-change documentation impact checks, and explicit cleanup.
+
+### Changed
+
+- **read-codex-history** (`daymade-claude-code` v3.67.0 → v3.68.0): Add `--index-only` to Codex inventory. Missing or unreadable state metadata now returns an explicit unavailable result before any rollout fallback; the Skill and storage reference use this guarded route.
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.14.1 → v1.14.2): `forecast_log.py summary` now surfaces `due_for_followup` — pending forecasts whose window has elapsed or closes within 24 hours, with full ids, urgency, and elapsed hours — so a bare invocation sees what needs verification before reading any rationale text. Motivation: on 2026-09-24 a banked forecast sat 26h past its window before anyone checked it, and the arrival interval could no longer be narrowed inside the window (would-be hit scored unknown).
+- **tibo-reset-codex** (`tibo-reset-codex` v1.14.0 → v1.14.1): Record the 2026-09-24 field lessons: authenticated `twitter-cli` slots into the fallback chain before fxtwitter (both Radar and fxtwitter were down that day and it covered announcement plus known-thread reply legs); known candidate threads read in one call via `twitter tweet <id> --json` (author field `data[].author.screenName`); the negative-claim boundary moves when `twitter-cli` is logged in; `query_usage` `reset_at` cross-checks the `scan_rollouts` tail anchor to bind the mixed rollout series tail to the current CLI account; elapsed forecasts must be verified immediately (a 26h delay turned a would-be hit into unknown), `event_start` must follow forecast issuance, and the `findings` command returns summaries only — raw readings live in `findings.jsonl`; the fxtwitter win-channel claim is clamped to when `twitter-cli` is unavailable.
+- **tibo-reset-codex** (`tibo-reset-codex` v1.13.3 → v1.14.0): Make each invoked monitoring round carry unresolved questions forward, judge new and newly discovered older posts by their effect on the user's decision, follow relevant source leads including the identified WeChat group and its image or voice messages, and keep global, banked, both, and unknown recommendations distinct. The existing forecast ledger stores the handoff; no standalone monitor or scheduler is added.
+
+- **claude-md-progressive-disclosurer** (`daymade-claude-code` v3.66.0 → v3.67.0): Description now also routes requests to optimize instruction files, questions about CLAUDE.md/AGENTS.md best practices, and /context reports of large Memory files; it points memory-to-docs migration to `claude-code-ops-router`. Step 2.0 lists auto memory's `MEMORY.md` as a loaded surface, with its official load limit and switches, and treats it as a conflict source.
+
+- **claude-md-progressive-disclosurer** (`daymade-claude-code` v3.65.1 → v3.66.0): Extend the evidence table with the 2026 factorial study of file structure (arXiv 2605.10039), IFScale, Chroma Context Rot, Anthropic's guidance on emphatic wording, and practitioner guides, each with what it does not support; add a refresh rule so best-practice questions start from the table instead of a new search; treat stacked emphasis as priority inflation.
+
+- **prior-work-retrieval** (`daymade-claude-code` v3.65.0 → v3.65.1): Route conversation evidence through provider-scoped indexed recall and exact-session verification; restrict project `rg` to code/docs and report uncovered history instead of suggesting raw corpus search.
+
+- **frontend-visual-qa** (`frontend-visual-qa` v1.14.0 → v1.15.0): Check image-present, image-absent, failed-load, and long-text rows together when media is optional in a repeated list or table; compare the actual media slot and text bounds before calling the layout consistent.
+
+- **slides-creator** (`slides-creator` v2.0.0 → v2.1.0): description now opens with what it was and where to go instead (deck-creator), so the first ~160 characters Codex shows are usable; deprecation notice unchanged in substance.
+
+- **auto-repo-setup** (`auto-repo-setup` v2.0.0 → v2.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **bilibili-source** (`bilibili-source` v1.2.0 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **cli-demo-generator** (`cli-demo-generator` v1.0.1 → v1.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **competitors-analysis** (`competitors-analysis` v1.3.0 → v1.4.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **meeting-minutes-taker, stepfun-asr, stepfun-tts, transcript-fixer** (`daymade-audio` v1.42.0 → v1.43.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **agent-web-search-setup, claude-export-txt-better, claude-md-progressive-disclosurer, claude-migrate-memory-to-doc, claude-switch-models-setup, continue-claude-code-work, continue-codex-work, lark-cli-router, marketplace-dev, prior-work-retrieval, read-claude-web-conversation, read-codex-history, statusline-generator, terminal-screenshot** (`daymade-claude-code` v3.63.0 → v3.64.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **codex-1m-context-window-setup, interaction-design-board, local-codex** (`daymade-codex` v1.2.3 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **benchmark-due-diligence, bigdata-skill, financial-data-collector** (`daymade-financial` v1.3.0 → v1.4.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **developing-ios-apps, macos-cleaner, macos-permissions** (`daymade-macos` v1.8.0 → v1.9.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **skill-governance** (`daymade-skill` v1.51.0 → v1.52.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **deep-research** (`deep-research` v2.6.0 → v2.7.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **excalidraw-use** (`excalidraw-use` v1.0.2 → v1.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **feishu-doc-scraper** (`feishu-doc-scraper` v1.5.2 → v1.6.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **frontend-visual-qa** (`frontend-visual-qa` v1.13.0 → v1.14.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **github-contributor** (`github-contributor` v1.2.0 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **github-ops** (`github-ops` v1.6.0 → v1.7.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **github-review-pr** (`github-review-pr` v1.3.0 → v1.4.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **github-sensitive-data-cleanup** (`github-sensitive-data-cleanup` v1.2.0 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **ima-copilot** (`ima-copilot` v1.0.1 → v1.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **kimi-use** (`kimi-use` v1.2.0 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **llm-eval-harness** (`llm-eval-harness` v1.4.2 → v1.5.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **llm-wiki-setup** (`llm-wiki-setup` v1.1.1 → v1.2.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **marketplace-health-check** (`marketplace-health-check` v1.0.1 → v1.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **meme-creator** (`meme-creator` v1.0.0 → v1.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **openclaw-model-switch** (`openclaw-model-switch` v1.1.0 → v1.2.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **openclaw** (`openclaw` v1.2.1 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **prompt-optimizer** (`prompt-optimizer` v1.1.0 → v1.2.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **qa-expert** (`qa-expert` v1.0.0 → v1.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **teams-channel-post-writer** (`teams-channel-post-writer` v1.0.0 → v1.1.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **terraform-skill** (`terraform-skill` v1.2.0 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **windows-remote-desktop-connection-doctor** (`windows-remote-desktop-connection-doctor` v1.1.0 → v1.2.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **docs-router** (`daymade-docs` v1.19.0 → v1.20.0): Its first 160 description characters now name the document routes and post-change checks that Codex can see. The nine specialist instructions and manual commands are unchanged.
+
+- **skill-creator** (`daymade-skill` v1.50.0 → v1.51.0): The description rule now requires the first ~160 characters to stand on their own (what the skill does and its main trigger). Measured in `codex debug prompt-input` with 260 skills installed: Codex cuts 254 of them at 164–168 characters, so later trigger phrases and "Not for" redirects are invisible there.
+
+- **daymade-docs**: Make the nine active specialists manual-only for direct skill invocation while preserving their bodies and `/daymade-docs:<leaf>` commands. `ppt-creator` remains manual-only; new presentation creation routes to `deck-creator` when installed, while public users without it keep explicit compatibility access to `ppt-creator`. The router preserves `docs-cleaner`'s post-change documentation check after authorized code/config/deployment work, even when docs were not mentioned, and also handles explicit cleanup. This changes discovery without retiring the post-change workflow.
+
+- **skill-creator** (`daymade-skill` v1.49.0 → v1.50.0): When rewriting a description, a placeholder such as "its named contacts" no longer counts as a home for the literal names, product names or error strings users type. Found when a rewrite collapsed a client's contact list into a placeholder that can no longer trigger.
+
+- **read-codex-history** (`daymade-claude-code` v3.62.0 → v3.63.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **docx-creator** (`daymade-docs` v1.17.0 → v1.18.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **daymade-sector-research** (`daymade-financial` v1.2.1 → v1.3.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **debugging-network-issues** (`debugging-network-issues` v1.9.0 → v1.10.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **peer-message** (`peer-message` v1.13.0 → v1.14.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **twitter-reader** (`twitter-reader` v1.3.0 → v1.4.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **skill-creator** (`daymade-skill` v1.48.0 → v1.49.0): The description Length rule now says what to do when keeping every distinct job pushes past 420 characters: compress first (one phrasing per situation, a shorter what-it-does clause, no transport or implementation details), and go over only when a distinct job would otherwise be lost.
+
+- **read-claude-code-history, tech-selection** (`daymade-claude-code` v3.61.0 → v3.62.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **git-safety-net** (`git-safety-net` v1.21.0 → v1.22.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **tunnel-doctor** (`tunnel-doctor` v1.14.0 → v1.15.0): description rewritten as a short routing key under skill-creator's rule; every removed clause has a cited home, and dropped secondary phrasings are listed in the PR description.
+
+- **Local conversation history** (`daymade-claude-code` v3.60.2 → v3.61.0): Live `analyze_sessions.py search` now fails before reading conversation files. History discovery uses indexed recall and exact-session verification; the Skills report index coverage gaps instead of falling back to a raw corpus sweep. Isolated fixture search remains available for parser regression tests.
+
+- **claude-switch-models-setup** (`daymade-claude-code` v3.60.0 → v3.60.1): The profile settings converger now propagates env deletions: a non-identity env key removed from main is deleted from every profile and reported, instead of surviving forever under the old additive-only merge. Identity keys (provider routing, Anthropic-native isolation) are exempt — main never carries them, so their absence is not deletion evidence. Deletion also propagates when main drops the `env` key entirely, which the old loop-shaped code could never do.
+
+- **claude-switch-models-setup** (`daymade-claude-code` v3.60.1 → v3.60.2): Docs now match the v3.60.1 deletion-propagation behavior: SKILL.md describes the two-way env convergence (non-identity residue keys are deleted and reported; identity keys exempt), and troubleshooting.md's synthetic-main incident notes the damage is two-sided — a fake main now also deletes every non-identity env key the real profile carries, including credential keys.
+
+- **macos-watchdog** (`daymade-macos` v1.7.0 → v1.8.0): Shorten the discovery description
+  while preserving watchdog setup, repair, and stop triggers; add Script Editor notification
+  attribution as a trigger and route it to the delivered-card check in `alert-discipline.md`.
+
+- **skill-creator** (`daymade-skill` v1.46.0 → v1.47.0): Rewriting an existing description now goes through the existing-skill regression gate, and each removed clause gets a home by type: a when-to-use situation must stay in the description or be listed as a dropped secondary phrasing; a Not-for exclusion or operational rule must land in the description or the body and is never dropped. Blind audits of two real rewrites showed body-only checks miss lost triggers. The Tier 3 row no longer classifies such a rewrite as trigger optimization.
+
+- **tunnel-doctor** (`tunnel-doctor` v1.13.0 → v1.14.0): 1019 → 355 characters; description rewritten by skill-creator's new rule as a short routing key; operational rules it used to carry already live in the SKILL.md body.
+
+- **tech-selection, claude-code-hooks, local-conversation-history, read-claude-code-history** (`daymade-claude-code` v3.59.0 → v3.60.0): 810–1011 → 315–420 characters; description rewritten by skill-creator's new rule as a short routing key; operational rules it used to carry already live in the SKILL.md body.
+
+- **asr-transcribe-to-text** (`daymade-audio` v1.41.3 → v1.42.0): 972 → 345 characters; description rewritten by skill-creator's new rule as a short routing key; operational rules it used to carry already live in the SKILL.md body.
+
+- **pdf-creator** (`daymade-docs` v1.16.1 → v1.17.0): 594 → 244 characters; description rewritten by skill-creator's new rule as a short routing key; operational rules it used to carry already live in the SKILL.md body.
+
+- **git-safety-net** (`git-safety-net` v1.20.5 → v1.21.0): 1018 → 379 characters; description rewritten by skill-creator's new rule as a short routing key; operational rules it used to carry already live in the SKILL.md body.
+
+- **skill-creator** (`daymade-skill` v1.45.0 → v1.46.0): Replaces the description-writing rule. The old rule
+  treated the 1024-character spec limit as a budget to fill; the new one treats the description as a routing
+  key sharing one listing budget with every installed skill: aim for 200–300 characters (about 420 for
+  routers), shape `<what it does>. Use when <situations>. Not for <sibling>`, move operational rules to the
+  body. `quick_validate` now warns above 420 characters. The trigger-rate optimizer is no longer a default step;
+  descriptions are tuned from real sessions where the skill missed or misfired.
+
+- **macos-watchdog** (`daymade-macos` v1.6.1 → v1.7.0): Check the delivered macOS notification's
+  app label in Notification Center. `osascript` can appear as Script Editor; when that label is generic,
+  put the watcher or monitored service in the title so the reader can identify its log.
+
+- **tech-selection** (`daymade-claude-code` v3.58.0 → v3.59.0): When a `favorites-search` skill is installed, the
+  description now requires running it on the user's own curated favorites before external research, and Step 1
+  lists those favorites as a layer-1 source, so the prior-art gate starts from sources the user already vetted. Wording elsewhere is compressed to stay within the
+  1024-character frontmatter limit; every trigger phrase is kept.
+
+- **tunnel-doctor** (`tunnel-doctor` v1.12.8 → v1.13.0): The description now opens with a mandatory trigger —
+  use this skill first for any tunnel / proxy-path connectivity failure before ad-hoc probes — and adds Chinese
+  trigger phrases (网络故障 / 连不上 / 代理或隧道下超时 / Tailscale 不通). Existing symptom triggers are kept with
+  compressed wording so the description stays within the 1024-character frontmatter limit.
+
 ### Fixed
+
+- **daymade-skill** (v1.53.0 → v1.53.1): Direct user-approved customer-report templates to a stable local data directory outside Skill source and plugin caches, so package updates do not own the approved form.
+
+- **daymade-macos** (v1.9.0 → v1.9.1): `macos-permissions` no longer sends public readers to an app-development skill that is not in this repository; permission-onboarding UX is marked out of scope.
+
+- **kimi-use** (v1.3.0 → v1.3.1): The routing table notes that `kimi-webbridge` belongs to the Kimi Browser Extension and is not part of this repository.
+
+- **skill-creator** (`daymade-skill` v1.47.0 → v1.48.0): `audit_skill_regression` no longer loses parts of an old description. Short trigger phrases in a long comma list ("选哪个", "which library") and short sentences fell under the minimum clause length and were silently dropped, and a `|-`/`>-` description stopped at its first blank line. Both now reach the review, so removing them from a description is surfaced. Checked against all 149 current descriptions over 420 characters: every word now lands in some candidate (was 148).
 
 - **tibo-reset-codex** (`tibo-reset-codex` v1.13.2 → v1.13.3): Preserve the approved sleep-window
   polling reduction while closing its signal-loss exception. Normal rounds now read Tibo's main-post

@@ -18,7 +18,7 @@ skill-name/
 ├── SKILL.md (required)          # Core skill instructions with YAML frontmatter
 ├── scripts/ (optional)          # Executable Python/Bash scripts
 ├── references/ (optional)       # Documentation loaded as needed
-└── assets/ (optional)           # Templates and resources for output
+└── assets/ (optional)           # Update-owned templates and resources for output
 ```
 
 ### Progressive Disclosure Pattern
@@ -62,6 +62,9 @@ claude plugin install daymade-skill@daymade-skills
 Use [skill-creator](daymade-skill/skill-creator/SKILL.md) before creating or
 changing a skill. It owns change classification, evidence selection, regression
 review, validation, initialization, and packaging.
+
+For customer-approved report forms, follow
+[skill-creator's report-template contract](daymade-skill/skill-creator/SKILL.md#show-the-result-not-just-the-work).
 
 Treat [packaging_policy.py](daymade-skill/skill-creator/scripts/packaging_policy.py)
 as the canonical inclusion policy for packaging, security attestation, source
@@ -149,6 +152,12 @@ already created by the current prompt. Artifact selection and runtime-read
 comparison are owned by that Skill; a receipt about a locator is not proof of
 the delivered artifact. Detailed retrieval mechanics remain in
 `daymade-claude-code/prior-work-retrieval/SKILL.md`.
+
+### Local Conversation History Boundary
+
+Codex inventory must use the index-only command in
+`daymade-claude-code/read-codex-history/SKILL.md`. If its state database is
+unavailable, report an unknown inventory; do not substitute a raw rollout scan.
 
 ### Local Agent Messaging
 

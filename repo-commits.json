@@ -877,63 +877,63 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "8c53caf",
+      "message": "feat(integrity): extend the instruction/data boundary to tool-call receivers and the main session (#894) (#903)",
+      "date": "2026-09-24",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "6234edf",
+      "message": "feat(pipeline): render the handoff check in the ledger script and hash files at write time (#898) (#902)",
+      "date": "2026-09-24",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "f0139b1",
+      "message": "fix(routing): carry the routing core to plugin and skills-copy installs (#892) (#901)",
+      "date": "2026-09-24",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "3643b65",
+      "message": "fix(academic-paper): keep peer review out of the committee-correspondence variant (#854) (#900)",
+      "date": "2026-09-24",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "bff0533",
+      "message": "fix(commands): keep /ars-lit-review in its mode when papers are missing (#897) (#899)",
+      "date": "2026-09-24",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "d8494a0",
+      "message": "feat(integrity): extend the instruction/data boundary to dispatch and passport-import paths (#890) (#893)",
+      "date": "2026-09-23",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "a03e636",
+      "message": "feat(pipeline): run ledger and handoff check across compaction and subagent returns (#887) (#896)",
+      "date": "2026-09-23",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "1e60122",
+      "message": "fix(routing): recalibrate the #133 routing fixtures on Claude Opus 5.5 and Claude Fable 5.1 (#889) (#895)",
+      "date": "2026-09-23",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "df064e9",
+      "message": "docs(pipeline): scope \"authoritative\" skill output to deliverable ownership (#888) (#891)",
+      "date": "2026-09-23",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "95929c0",
       "message": "test(spec-consistency): derive README fixtures from the lint's version pins (#886)",
       "date": "2026-09-23",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "86b8d8b",
-      "message": "docs(release): v3.22.1 \u2014 model currency for Claude Opus 5.5, citation-check loading and Chinese APA 7 repairs, and a Pi ",
-      "date": "2026-09-23",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "b0cad01",
-      "message": "docs(models): support Claude Opus 5.5 alongside Fable 5.1 (#883) (#884)",
-      "date": "2026-09-23",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "a1819d8",
-      "message": "fix: restore citation mode loading and Chinese APA checks (#857, #882) (#881)",
-      "date": "2026-09-21",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "1515a21",
-      "message": "fix(pi): preserve array system prompts without changing string behavior (#880)",
-      "date": "2026-09-19",
-      "author": "niulai123"
-    },
-    {
-      "sha": "3c546bc",
-      "message": "chore(release): remove stray local-replay artifacts from the v3.22.0 release commit (#877)",
-      "date": "2026-09-16",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "ae5e32c",
-      "message": "docs(release): v3.22.0 \u2014 output-language-pair contract, locale track, plugin eval suites, and Windows / transport repair",
-      "date": "2026-09-16",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "c16a7e8",
-      "message": "docs(changelog): cite PR #869 on the output_language_pair Phase 1 entry [skip-closes-check] (#875)",
-      "date": "2026-09-16",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "774d6c5",
-      "message": "Phase 1: per-run output_language_pair (contract, Schema 4 field, consumers, lint) (#869)",
-      "date": "2026-09-16",
-      "author": "D\u00eddac Rios"
-    },
-    {
-      "sha": "7e019f5",
-      "message": "docs(readme): Wang, Li et al. 2026 (arXiv:2609.07713) as the fifth human-in-the-loop anchor; panel placed on the evaluat",
-      "date": "2026-09-15",
       "author": "Edward Cheng-I Wu"
     }
   ],
@@ -1555,6 +1555,30 @@
   ],
   "avifenesh--agentsys": [
     {
+      "sha": "90dac7e",
+      "message": "marketplace: pin every rewritten plugin at its current main (#405)",
+      "date": "2026-09-23",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "1e28156",
+      "message": "chore: sync core lib and CLAUDE.md from agent-core (#404)",
+      "date": "2026-09-23",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "7f452c9",
+      "message": "marketplace: pin the rewritten plugins (batches A and B) (#401)",
+      "date": "2026-09-23",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "35b75c6",
+      "message": "chore: current model ids in CI and consult tables, banthis v0.4.0 pin (#400)",
+      "date": "2026-09-23",
+      "author": "Avi Fenesh"
+    },
+    {
       "sha": "dc49e04",
       "message": "chore(deps-dev): bump jest in the security-and-patches group (#399)",
       "date": "2026-09-13",
@@ -1588,30 +1612,6 @@
       "sha": "a0b2c8d",
       "message": "fix(adapters): delete the two install.sh scripts instead of documenting them (#395)",
       "date": "2026-08-17",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "471c11b",
-      "message": "fix(windows): resolve dev-install's claude through where.exe, not a fixed suffix (#394)",
-      "date": "2026-08-16",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "39e44f5",
-      "message": "fix(windows): run dev-install's external commands without a shell (#393)",
-      "date": "2026-08-16",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "ff005f9",
-      "message": "ci: run the test job on windows-latest too (#392)",
-      "date": "2026-08-16",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "5b46d8e",
-      "message": "fix(windows): route .cmd shims through cmd.exe at every spawn site (#391)",
-      "date": "2026-08-16",
       "author": "Avi Fenesh"
     }
   ],
@@ -1943,6 +1943,42 @@
   ],
   "conorbronsdon--avoid-ai-writing": [
     {
+      "sha": "b2838ed",
+      "message": "Catch staged discoveries; extend speaker guardrail to drafting (#346)",
+      "date": "2026-09-24",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "020f4a4",
+      "message": "docs: define language adaptation guidance and community links (#345)",
+      "date": "2026-09-23",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "f86304b",
+      "message": "docs: distinguish published plugin from repository version (#344)",
+      "date": "2026-09-23",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "7e58aef",
+      "message": "fix(scripts): use available Python for Cursor sync (#343)",
+      "date": "2026-09-23",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "4d817c3",
+      "message": "docs: add sync, self-scan, and SSOT PR checklist items (#341)",
+      "date": "2026-09-23",
+      "author": "Sigfre"
+    },
+    {
+      "sha": "869836b",
+      "message": "fix(scripts): use the resolved interpreter in read_manifest_version (#342)",
+      "date": "2026-09-23",
+      "author": "Abdelrhman Mohamed"
+    },
+    {
       "sha": "d5e524e",
       "message": "fix(detector): add --source-mode to the bundled detect.js (#340)",
       "date": "2026-09-23",
@@ -1964,42 +2000,6 @@
       "sha": "d220d5c",
       "message": "docs: pin the Action example to v3.36.0 (#337)",
       "date": "2026-09-23",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "6135015",
-      "message": "chore(release): prepare v3.36.0 (#336)",
-      "date": "2026-09-23",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "3514947",
-      "message": "docs(detector): count only cross-para-burstiness against the stylometric TODO (#335)",
-      "date": "2026-09-22",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "54043ad",
-      "message": "docs: replace comments naming a missing script, roadmap and research file (#332)",
-      "date": "2026-09-22",
-      "author": "Abdelrhman Mohamed"
-    },
-    {
-      "sha": "aa91be9",
-      "message": "nightly-deep: qualify the pinned Action example and execute the gate's JSON error paths (#331)",
-      "date": "2026-09-22",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "75f3e3f",
-      "message": "nightly: stop inline backtick spans from opening an unclosed fence (#330)",
-      "date": "2026-09-22",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "313dbc3",
-      "message": "docs: qualify unsupported writing-frequency claims (#329)",
-      "date": "2026-09-21",
       "author": "Conor Bronsdon"
     }
   ],
@@ -2839,6 +2839,18 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "80164a2",
+      "message": "docs: point Neon Discord invites at neon.com/discord (#126)",
+      "date": "2026-09-23",
+      "author": "Dominik K."
+    },
+    {
+      "sha": "dd290a9",
+      "message": "feat: add Drizzle guide to the Lakebase Search skill (#110)",
+      "date": "2026-09-23",
+      "author": "Rishi Raj Jain"
+    },
+    {
       "sha": "8272497",
       "message": "Point neon-ai-gateway at the published neon-functions AI SDK reference.",
       "date": "2026-09-22",
@@ -2883,18 +2895,6 @@
     {
       "sha": "9fd97c5",
       "message": "Add neon-auth skill for Managed and self-managed Better Auth (#121)",
-      "date": "2026-09-17",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "e481b50",
-      "message": "Scope neon-postgres to database implementation (#118)",
-      "date": "2026-09-17",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "4b1a060",
-      "message": "docs: list all four regions for branch logs (#120)",
       "date": "2026-09-17",
       "author": "Andre Landgraf"
     }
@@ -3211,6 +3211,12 @@
   ],
   "remotion-dev--skills": [
     {
+      "sha": "41b22ee",
+      "message": "Update template",
+      "date": "2026-09-24",
+      "author": "JonnyBurger"
+    },
+    {
       "sha": "9682e99",
       "message": "Update template",
       "date": "2026-09-22",
@@ -3262,12 +3268,6 @@
       "sha": "9875d9a",
       "message": "Update template",
       "date": "2026-09-01",
-      "author": "Jonny Burger"
-    },
-    {
-      "sha": "357a270",
-      "message": "Update template",
-      "date": "2026-08-31",
       "author": "Jonny Burger"
     }
   ],
@@ -3645,6 +3645,36 @@
   ],
   "squirrelscan--skills": [
     {
+      "sha": "993ff2e",
+      "message": "feat(manifest): publish a hashed manifest.json of every skill file (#12)",
+      "date": "2026-09-23",
+      "author": "Nik Cubrilovic"
+    },
+    {
+      "sha": "e23765f",
+      "message": "docs(readme): auto-update covers global installs; CI runs on PRs and main (#10)",
+      "date": "2026-09-23",
+      "author": "Nik Cubrilovic"
+    },
+    {
+      "sha": "1aaf01f",
+      "message": "chore(mcp): remove the stale MCP registry server.json (#11)",
+      "date": "2026-09-23",
+      "author": "Nik Cubrilovic"
+    },
+    {
+      "sha": "31e96d1",
+      "message": "feat(plugins): make this repo the only home of the squirrelscan agent plugins (#9)",
+      "date": "2026-09-23",
+      "author": "Nik Cubrilovic"
+    },
+    {
+      "sha": "cda41cc",
+      "message": "fix(squirrelscan): make the skill installable again, plus a frontmatter check in CI (#8)",
+      "date": "2026-09-23",
+      "author": "Nik Cubrilovic"
+    },
+    {
       "sha": "8721d5e",
       "message": "feat(squirrelscan): entity map guidance (#2098) (#5)",
       "date": "2026-09-13",
@@ -3673,39 +3703,21 @@
       "message": "docs(readme): align rule counts to catalog (261 rules, 21 categories, ax 17)",
       "date": "2026-07-17",
       "author": "Nik Cubrilovic"
-    },
-    {
-      "sha": "aaf3dff",
-      "message": "docs(squirrelscan): bug_report/feature_request feedback categories + support pointers, bump to v1.1",
-      "date": "2026-07-17",
-      "author": "Nik Cubrilovic"
-    },
-    {
-      "sha": "9ce775f",
-      "message": "docs(skill): document the send_feedback MCP tool for agents",
-      "date": "2026-07-14",
-      "author": "Nik Cubrilovic"
-    },
-    {
-      "sha": "f99e354",
-      "message": "docs(readme): per-tool install matrix (npx skills, Claude Code plugin, Cursor, Codex, CLI)",
-      "date": "2026-07-08",
-      "author": "Nik Cubrilovic"
-    },
-    {
-      "sha": "c37041a",
-      "message": "fix(skills): marketplace description at top level per schema",
-      "date": "2026-07-08",
-      "author": "Nik Cubrilovic"
-    },
-    {
-      "sha": "bc4fe5b",
-      "message": "feat(skills): split into squirrelscan (core CLI) + audit-website (fix loop) skills",
-      "date": "2026-07-08",
-      "author": "Nik Cubrilovic"
     }
   ],
   "stripe--ai": [
+    {
+      "sha": "a682cd5",
+      "message": "sync skills",
+      "date": "2026-09-24",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
+      "sha": "77e2f4b",
+      "message": "feat(claude): count Metronome mentions as Stripe work in feedback hooks (#543)",
+      "date": "2026-09-23",
+      "author": "Mark Guan"
+    },
     {
       "sha": "99ef7dd",
       "message": "sync skills",
@@ -3753,21 +3765,15 @@
       "message": "sync skills",
       "date": "2026-09-16",
       "author": "stripe-ai-sync[bot]"
-    },
-    {
-      "sha": "9dde68a",
-      "message": "sync skills",
-      "date": "2026-09-15",
-      "author": "stripe-ai-sync[bot]"
-    },
-    {
-      "sha": "583467a",
-      "message": "sync skills",
-      "date": "2026-09-11",
-      "author": "stripe-ai-sync[bot]"
     }
   ],
   "supabase--agent-skills": [
+    {
+      "sha": "551274e",
+      "message": "fix(supabase): recommend scoped personal access tokens for the Management API, CLI, and MCP (#604)",
+      "date": "2026-09-24",
+      "author": "Wen Bo Xie"
+    },
     {
       "sha": "8331f91",
       "message": "chore: release main (#323)",
@@ -3821,12 +3827,6 @@
       "message": "chore: release main (#122)",
       "date": "2026-07-10",
       "author": "supabase-agent-skills-releaser[bot]"
-    },
-    {
-      "sha": "94cf44f",
-      "message": "feat: add declarative schema section to schema management (#120)",
-      "date": "2026-07-10",
-      "author": "Pedro Rodrigues"
     }
   ],
   "tinybirdco--tinybird-agent-skills": [
@@ -5203,6 +5203,18 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "d066105",
+      "message": "content(blog): dual-publish move-wrapper-math-out-of-the-llm-prompt to tonsofskills.com/blog",
+      "date": "2026-09-24",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "2857336",
+      "message": "feat(marketplace-site): add AI-search About page (#1566)",
+      "date": "2026-09-24",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "aa3173c",
       "message": "content(blog): dual-publish refuse-to-substitute-weaker-token-scheduled-ci to tonsofskills.com/blog",
       "date": "2026-09-23",
@@ -5249,18 +5261,6 @@
       "message": "content(blog): dual-publish three-classes-of-self-healing-and-slow-is-not-failed to tonsofskills.com/blog",
       "date": "2026-09-21",
       "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "cfe5182",
-      "message": "fix(deps): remediate root and marketplace advisories (#1499)",
-      "date": "2026-09-21",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "f81049f",
-      "message": "feat(plugins-saas-packs): modernize Runway operator pack (#1548)",
-      "date": "2026-09-21",
-      "author": "intentsolutions.io"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5327,63 +5327,63 @@
   ],
   "daymade--claude-code-skills": [
     {
-      "sha": "8e59e1b",
-      "message": "fix(tibo-reset-codex): detect unindexed reset signals (#675)",
-      "date": "2026-09-23",
+      "sha": "c8caafc",
+      "message": "feat(tibo-reset-codex): surface due-for-followup forecasts in summary (#709)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "e0bc5e5",
-      "message": "fix(daymade-docs): make retired ppt-creator manual-only (#674)",
-      "date": "2026-09-23",
+      "sha": "5c1119f",
+      "message": "docs: distinguish bundled assets from approved report forms (#710)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "e6f63fe",
-      "message": "docs(claude-code-hooks): pitfall #47 and the selftest-trap sibling of #29 (#673)",
-      "date": "2026-09-23",
+      "sha": "e89716e",
+      "message": "Require indexed Codex inventory in history workflow (#708)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "f7c2028",
-      "message": "docs(changelog): \u8865 local-codex 1.2.3 \u7684\u6761\u76ee (#671)",
-      "date": "2026-09-22",
+      "sha": "f399f6c",
+      "message": "docs(tibo-reset-codex): record 2026-09-24 failover and forecast-timing lessons (#707)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "cfad0b2",
-      "message": "fix(skills): explicit source selection and managed recorder deployment (#670)",
-      "date": "2026-09-22",
+      "sha": "d92c3fa",
+      "message": "skill-creator: store approved reports outside skill packages (#706)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "88cbcdd",
-      "message": "fix(ci): a plugin release with no CHANGELOG entry is now visible (#669)",
-      "date": "2026-09-22",
+      "sha": "1aef26b",
+      "message": "fix(refs): stop pointing public readers at skills this repo does not ship (#705)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "1bcc995",
-      "message": "fix(history): narrow quoted-session candidates before scanning (#668)",
-      "date": "2026-09-22",
+      "sha": "305db33",
+      "message": "Teach Tibo skill to carry signal leads across monitoring rounds (#704)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "3190798",
-      "message": "fix(claude-switch-models-setup): --install \u4e0d\u518d\u9759\u9ed8\u6458\u6389 operator \u88c5\u7684\u5916\u6302 (v3.55.2) (#661)",
-      "date": "2026-09-22",
+      "sha": "43550fb",
+      "message": "fix(claude-md-progressive-disclosurer): route optimize and best-practice asks (#703)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "703bdf1",
-      "message": "docs(changelog): \u8865 #664 \u6f0f\u6389\u7684 local-codex \u6761\u76ee (#667)",
-      "date": "2026-09-22",
+      "sha": "cdefe27",
+      "message": "skill-creator: promote visual reports only after user approval (#702)",
+      "date": "2026-09-24",
       "author": "daymade"
     },
     {
-      "sha": "687a5be",
-      "message": "fix(local-codex): CLI \u67e5\u627e\u5e8f\u6539\u4e3a PATH \u4f18\u5148\uff0c\u5220\u6389\u56db\u4e2a\u6b7b\u8def\u5f84 (#665)",
-      "date": "2026-09-22",
+      "sha": "1f8ac1f",
+      "message": "docs(claude-md-progressive-disclosurer): refresh external evidence table (#701)",
+      "date": "2026-09-24",
       "author": "daymade"
     }
   ],
@@ -5575,63 +5575,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "ddc2173",
-      "message": "chore(best-practice): update subagents badge to Sep 23, 2026 / v2.1.280",
-      "date": "2026-09-23",
+      "sha": "36d47e7",
+      "message": "chore(subagents-badge): update Last Updated badge to Sep 24, 2026 v2.1.281",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "44f32ab",
-      "message": "chore(changelog): add 2026-09-23 subagents drift scan entry (v2.1.280)",
-      "date": "2026-09-23",
+      "sha": "8295670",
+      "message": "chore(subagents-changelog): add 2026-09-24 drift entry for v2.1.281",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "a4ac951",
-      "message": "changelog(commands): append 2026-09-23 entry \u2014 v2.1.280, 10 description updates",
-      "date": "2026-09-23",
+      "sha": "c7aad56",
+      "message": "chore(commands): bump badge to v2.1.281, update Last Updated timestamp",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "4b86b1c",
-      "message": "docs(commands): sync descriptions to v2.1.280 \u2014 10 behavioral updates",
-      "date": "2026-09-23",
+      "sha": "c2b99c6",
+      "message": "chore(changelog): append commands drift entry for v2.1.281 (2026-09-24)",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "eed227e",
-      "message": "changelog(skills): append 2026-09-23 entry \u2014 v2.1.280, update-config added",
-      "date": "2026-09-23",
+      "sha": "20a4555",
+      "message": "chore(changelog): append skills drift entry for v2.1.281 (2026-09-24)",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "ef69750",
-      "message": "feat(skills): add update-config row, bump count 18\u219219, update badge to v2.1.280",
-      "date": "2026-09-23",
+      "sha": "5febaa3",
+      "message": "chore(skills): bump badge to v2.1.281, update Last Updated timestamp",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "d7471bb",
-      "message": "chore(badge): update Last Updated badge to Sep 23, 2026 9:44 AM PKT",
-      "date": "2026-09-23",
+      "sha": "9985eb9",
+      "message": "Update Last Updated badge to Sep 24, 2026 9:45 AM PKT",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "58c39e4",
-      "message": "changelog(concepts): append 2026-09-23 drift entry \u2014 v2.1.280, AGENTS.md Location gap flagged",
-      "date": "2026-09-23",
+      "sha": "c6d9763",
+      "message": "Append Sep 24 2026 CONCEPTS drift-check changelog entry (v2.1.281)",
+      "date": "2026-09-24",
       "author": "Claude"
     },
     {
-      "sha": "b0f9cab",
-      "message": "Append changelog entry: development workflows Sep 23 2026",
-      "date": "2026-09-23",
+      "sha": "70af702",
+      "message": "Append Sep 24 2026 development workflows changelog entry",
+      "date": "2026-09-24",
       "author": "Claude Routine"
     },
     {
-      "sha": "1665769",
-      "message": "Update DEVELOPMENT WORKFLOWS table: stars, counts, badge (Sep 23 2026)",
-      "date": "2026-09-23",
+      "sha": "dd29ed3",
+      "message": "Update development workflows table: star bumps + count corrections (Sep 24 2026)",
+      "date": "2026-09-24",
       "author": "Claude Routine"
     }
   ],
@@ -5699,6 +5699,54 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "d31a7f6",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-24",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "d8e3342",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-24",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "b4d1422",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-24",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "3fe38a6",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-24",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "b364cae",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-23",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "e942c10",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-23",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "a805b2f",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-23",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "617772a",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-09-23",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "7818307",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-23",
@@ -5708,54 +5756,6 @@
       "sha": "4b841fc",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-09-23",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "b36ea12",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-23",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "d6c38ef",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-23",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "2d7df08",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-22",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "408b449",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-22",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "7b77e18",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-22",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "fa12be3",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-22",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "b8738d5",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-22",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "77c8b3f",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-09-22",
       "author": "github-actions[bot]"
     }
   ],
