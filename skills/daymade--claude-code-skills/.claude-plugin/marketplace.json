@@ -5,8 +5,8 @@
     "email": "daymadev89@gmail.com"
   },
   "metadata": {
-    "description": "Professional Claude Code and Codex skills marketplace — production-ready skills spanning GitHub and git operations (including current-base contributor PR review), document conversion and generation (Markdown, PDF, PPTX, DOCX), diagram and UI-design extraction, the full audio pipeline (ASR transcription, TTS, transcript correction, meeting minutes), financial and investment-research data, web scraping and content capture, security/PII tooling and secure repomix packaging, macOS and iOS development, CLI demo and terminal automation, prompt and skill engineering, deep research and fact-checking, QA and LLM-evaluation infrastructure, internationalization, network/Tailscale and remote-desktop diagnostics, local inter-agent messaging, Claude Code operations, technology selection and build-vs-buy decisions, and model-aware Codex workstation setup. Suite plugins bundle related skills under shared namespaces, including the StepFun StepAudio 2.5 audio family. See the Available Skills list in the README for the authoritative per-skill breakdown.",
-    "version": "3.17.0"
+    "description": "Professional Claude Code and Codex skills marketplace — production-ready skills spanning GitHub and git operations (including current-base contributor PR review), document conversion and generation (Markdown, PDF, PPTX, DOCX), diagram and UI-design extraction, the full audio pipeline (ASR transcription, TTS, transcript correction, meeting minutes), financial and investment-research data, web scraping and content capture, security/PII tooling and secure repomix packaging, macOS and iOS development, CLI demo and terminal automation, evidence-backed HTML reports and data-visualization judgment, prompt and skill engineering, deep research and fact-checking, QA and LLM-evaluation infrastructure, internationalization, network/Tailscale and remote-desktop diagnostics, local inter-agent messaging, Claude Code operations, technology selection and build-vs-buy decisions, and model-aware Codex workstation setup. Suite plugins bundle related skills under shared namespaces, including the StepFun StepAudio 2.5 audio family. See the Available Skills list in the README for the authoritative per-skill breakdown.",
+    "version": "3.18.0"
   },
   "plugins": [
     {
@@ -33,7 +33,7 @@
       "description": "Drives the Kimi desktop app (Kimi.app) via computer-use to query its built-in data plugins — 天眼查、同花顺 iFinD、SEC、IMF and more — through the user's own logged-in session, no API keys needed. Use for \"用 Kimi 查\" / \"操作 Kimi 客户端\" / \"Kimi 插件\", or fetching company, financial, academic, or legal records with no dedicated API. Not for kimi.com browser automation (use kimi-webbridge) or direct iFinD API access.",
       "source": "./kimi-use",
       "strict": false,
-      "version": "1.3.1",
+      "version": "1.3.2",
       "category": "developer-tools",
       "keywords": [
         "kimi",
@@ -126,7 +126,7 @@
       "description": "Claude Code operations suite that bundles cross-project prior-work retrieval across code, docs, Skills, meetings, WeChat archives, and conversation history; provider-separated Claude Code and Codex history readers; identity- and lineage-gated continuation workflows; plugin/skill troubleshooting; CLAUDE.md progressive disclosure optimization; version-synced Lark CLI routing; statusline configuration; exported .txt repair; full claude.ai conversation extraction with tool-call rendering and file download; plugin marketplace development and suite consolidation; writing/testing/debugging Claude Code hooks; multi-provider profile isolation; personal-memory migration into tool-agnostic AGENTS.md reference docs; one-shot local timers that ping Claude right after subscription quota reset to start a fresh 5-hour usage window; working web search installed on an agent whose relayed model backend cannot execute the built-in one; and terminal-output-to-PNG rendering for visual CLI verification under one shared namespace. Install once to get the full Claude Code power-user toolkit.",
       "source": "./daymade-claude-code",
       "strict": false,
-      "version": "3.68.0",
+      "version": "4.0.0",
       "category": "suite",
       "keywords": [
         "suite",
@@ -282,10 +282,10 @@
     },
     {
       "name": "daymade-macos",
-      "description": "Apple-platform development and operations suite bundling programmatic macOS window capture, iOS/macOS app development with XcodeGen and SwiftUI, safe disk-space diagnosis and cleanup, and disciplined launchd watchdog design under one shared namespace. Install once for the complete macOS and iOS toolkit.",
+      "description": "Apple-platform development and operations suite for macOS window capture, TCC permission diagnosis and Full Disk Access repair, iOS/macOS app development, disk cleanup, and launchd watchdogs.",
       "source": "./daymade-macos",
       "strict": false,
-      "version": "1.9.1",
+      "version": "1.12.1",
       "category": "suite",
       "keywords": [
         "suite",
@@ -784,7 +784,7 @@
       "description": "MUST be used first for tunnel / proxy-path connectivity failures or slow throughput (网络故障 / 连不上 / 代理或隧道下超时). Diagnoses Tailscale, proxy, TUN, DNS and SSH-tunnel problems on macOS and Windows/WSL, e.g. Tailscale ping works but SSH fails, curl works but browser gets 503, Git/Docker fails behind the proxy, or downloads crawl despite a reachable proxy. Not for application-layer bugs (use debugging-network-issues).",
       "source": "./tunnel-doctor",
       "strict": false,
-      "version": "1.15.0",
+      "version": "1.15.2",
       "category": "developer-tools",
       "keywords": [
         "tailscale",
@@ -1169,7 +1169,7 @@
       "description": "查询 ChatGPT/Codex 重置公告及多个 Pro 账号的剩余额度、备用 Full reset；复用 Google 登录逐个核实并恢复网页账号，换算北京时间。区分 Tibo 官宣、未官宣的平台静默重置、banked reset 与账户级周期重置。Use when 用户问「什么时候重置」「额度什么时候恢复」「下次全员重置几点」 「banked reset 到了吗」「Tibo 说了什么」「usage limit when reset」，或说「额度突然回到 100%」「好像/肯定又重置了」，或问「几个账号都用完了吗」「哪个还满额」。必须用实时产品状态、独立用户实测与公告交叉核验；禁止因 Tibo Radar 没有新条目就否定已经发生的重置，并须把太平洋时间当场换算为北京时间。",
       "source": "./tibo-reset-codex",
       "strict": false,
-      "version": "1.14.2",
+      "version": "1.14.6",
       "category": "utilities",
       "keywords": [
         "chatgpt",
@@ -1219,6 +1219,64 @@
         "sticker",
         "avatar",
         "logo"
+      ]
+    },
+    {
+      "name": "data-visualization-discipline",
+      "description": "数据可视化的判断层 SSOT——画任何图表、dashboard、看板之前先加载它，不是画完之后。管\"该不该这么画\"：这张图想让读者得出什么结论、用均值还是中位数、能不能聚合、堆叠还是折线、能不能上双轴、配色与颜色数量、同一实体跨图是否同色同位、表格该留几列。介质无关：HTML 报告页、React/Vue dashboard、PPT 原生图表、matplotlib/plotly/ECharts/D3、渲染成 PNG 的图，一律适用。Use when 动手画图之前，或评审既有图表（\"这几张图有什么问题\"、\"图例为什么不一致\"）。Not for 报告页的排版/组件/交互（用 report-with-html:report-with-html）或 PPT 原生图表的实现与渲染陷阱（用 deck-creator:deck-creator）。",
+      "source": "./data-visualization-discipline",
+      "strict": false,
+      "version": "1.0.0",
+      "category": "documentation",
+      "keywords": [
+        "数据可视化",
+        "图表",
+        "chart",
+        "dashboard",
+        "看板",
+        "可视化纪律",
+        "图型选择",
+        "统计量",
+        "中位数",
+        "堆叠图",
+        "双轴",
+        "配色",
+        "图例",
+        "Cleveland",
+        "Tufte",
+        "Bertin",
+        "data visualization",
+        "chart critique",
+        "图表评审"
+      ]
+    },
+    {
+      "name": "report-with-html",
+      "description": "Produces the reader-facing HTML artifact — report, dashboard, architecture view, data browser, or review workbench — evidence-backed, browser-verified. Use when the deliverable IS a visual HTML report, or the user asks for an HTML/web presentation. Load data-visualization-discipline for chart judgment. Not for chat status or Markdown prose unless asked to become a report; not for PowerPoint (deck-creator Route C).",
+      "source": "./report-with-html",
+      "strict": false,
+      "version": "1.0.1",
+      "category": "documentation",
+      "keywords": [
+        "HTML报告",
+        "可视化报告",
+        "一页纸",
+        "数据报告",
+        "半年报",
+        "系统可视化",
+        "差距地图",
+        "架构可视化",
+        "用户旅程",
+        "决策看板",
+        "事故时间线",
+        "对比看板",
+        "dashboard",
+        "html",
+        "html one-pager",
+        "数据浏览器",
+        "归档浏览器",
+        "审核工作台",
+        "review workbench"
       ]
     }
   ]

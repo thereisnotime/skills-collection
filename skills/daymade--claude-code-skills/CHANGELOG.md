@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **read-codex-history** (`daymade-claude-code` v3.69.0 → v4.0.0): Codex inventory no longer falls back to scanning rollout trees when the state database is missing or unreadable. The shared core and both bundled copies now fail closed; exact-session reading remains available.
+
 ### Added
+
+- **tunnel-doctor** (`tunnel-doctor` v1.15.0 → v1.15.1): Step 2K now counts a venue change (phone hotspot, different WiFi) as a second vantage point — a 2026-09-24 cafe-WiFi blackout of an entire proxy provider's domains and nodes was indistinguishable from a provider block, and switching networks fixed it with zero config change.
+- **claude-migrate-memory-to-doc** (`daymade-claude-code` v3.68.0 → v3.69.0): Add a second goal, retiring a project's auto memory entirely, with its own reference (per-project switch, shared-directory coordination, inventory across every skill repo, one disposition per file, verbatim migration, pointer repointing, a control probe that proves memory stopped loading, and an archive index). `scripts/migrate_verbatim.py` appends memory bodies to their owning documents and checks every line landed; its tests are registered. Three new failure cases. `claude-code-ops-router` now routes requests to turn auto memory off.
+
+- **report-with-html** (v1.0.0): new skill — reader-facing HTML reports, dashboards, and review workbenches with traceable numbers, a decision-card contract, reusable interaction components, a masked-render delivery gate, and an independent reader review. Pairs with `data-visualization-discipline`.
+
+- **data-visualization-discipline** (v1.0.0): new skill — the judgment layer for charts and dashboards: which conclusion a chart supports, which statistic and chart type fit, whether segments may be aggregated, and how color and tables are disciplined, with a nine-item delivery gate. Medium-agnostic.
 
 - **daymade-skill** (v1.52.0 → v1.53.0): Route decision-useful outcome reports from `skill-creator` and newly created Skills through `report-with-html`. A recurring customer-report Skill saves its own reusable template only after the user reviews a real report and approves that form; concise replies and the existing eval viewer remain the default where they already fit.
 
@@ -21,7 +32,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **kimi-use** (`kimi-use` v1.3.1 → v1.3.2): Route Codex to the currently available CUA or legacy computer plugin. The CUA path pastes Chinese text into Kimi's rich editor and reads back the full prompt and enabled send button before sending.
+
+- **macos-permissions** (`daymade-macos` v1.12.0 → v1.12.1): Route LaunchAgent Full Disk Access repair from `CLAUDE.md` to the canonical SOP, and remove transient UI tool status and a derived route count from that SOP.
+
+- **macos-permissions** (`daymade-macos` v1.11.1 → v1.12.0): Document two end-to-end macOS Full Disk Access GUI routes verified with real LaunchAgents: enabling an existing denied entry and adding a new executable through the file picker. Both require a system TCC readback and protected background read; hidden-path picker submission remains unverified on this host.
+
+- **macos-permissions** (`daymade-macos` v1.11.0 → v1.11.1): Correct the Full Disk Access SQL example to read the system TCC database. User-database examples no longer appear to prove an FDA grant.
+
+- **macos-permissions, macos-watchdog, capture-screen** (`daymade-macos` v1.10.0 → v1.11.0): Align Full Disk Access guidance with the tested background reader and its installer. The repair route now checks existing grants before opening System Settings, uses exact TCC client paths, and validates a protected read. LaunchAgent and README guidance point to that route instead of treating the displayed interpreter or a manual grant as universal.
+
+- **macos-permissions** (`daymade-macos` v1.9.1 → v1.10.0): Route background Full Disk Access failures through requester identification, verified reuse of an existing grant when the owning installer supports it, and a real background readback. New grants use System Settings; the GUI path remains unverified in the documented case.
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.14.5 → v1.14.6): Clarify that the hosted branch is a read-only research **task** with application-owned state, even when its workspace sandbox permits network access and temporary files to read explicitly authorized private sources. The normal direct-call ledger path remains unchanged.
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.14.4 → v1.14.5): Define a read-only, application-owned research mode for an Agent host that supplies the prior report, unresolved state, corrections and exact source authorization. The Skill keeps its Tibo evidence and reset-type decisions, returns leads and next checks in the host artifact, and does not write or silently read the standalone local ledger in that mode. Ordinary direct invocations retain the existing local findings/forecast workflow.
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.14.3 → v1.14.4): Add a read-only `forecast_log.py handoff` command that returns the latest complete monitor finding, including unresolved questions and source coverage. Monitoring rounds now read that handoff directly instead of manually scanning raw JSONL; `null` stays unknown, and the due-forecast summary remains the first check.
+
 - **read-codex-history** (`daymade-claude-code` v3.67.0 → v3.68.0): Add `--index-only` to Codex inventory. Missing or unreadable state metadata now returns an explicit unavailable result before any rollout fallback; the Skill and storage reference use this guarded route.
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.14.2 → v1.14.3): Sync SKILL.md to the new summary contract — the monitoring round's first step and the sleep-window escalation note now read `due_for_followup` instead of hunting due promises through pending rationale text; the closing-soon threshold is defined once via the script constant and referenced, not re-copied.
 
 - **tibo-reset-codex** (`tibo-reset-codex` v1.14.1 → v1.14.2): `forecast_log.py summary` now surfaces `due_for_followup` — pending forecasts whose window has elapsed or closes within 24 hours, with full ids, urgency, and elapsed hours — so a bare invocation sees what needs verification before reading any rationale text. Motivation: on 2026-09-24 a banked forecast sat 26h past its window before anyone checked it, and the arrival interval could no longer be narrowed inside the window (would-be hit scored unknown).
 - **tibo-reset-codex** (`tibo-reset-codex` v1.14.0 → v1.14.1): Record the 2026-09-24 field lessons: authenticated `twitter-cli` slots into the fallback chain before fxtwitter (both Radar and fxtwitter were down that day and it covered announcement plus known-thread reply legs); known candidate threads read in one call via `twitter tweet <id> --json` (author field `data[].author.screenName`); the negative-claim boundary moves when `twitter-cli` is logged in; `query_usage` `reset_at` cross-checks the `scan_rollouts` tail anchor to bind the mixed rollout series tail to the current CLI account; elapsed forecasts must be verified immediately (a 26h delay turned a would-be hit into unknown), `event_start` must follow forecast issuance, and the `findings` command returns summaries only — raw readings live in `findings.jsonl`; the fxtwitter win-channel claim is clamped to when `twitter-cli` is unavailable.
@@ -171,6 +202,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compressed wording so the description stays within the 1024-character frontmatter limit.
 
 ### Fixed
+
+- **tunnel-doctor** (`tunnel-doctor` v1.15.1 → v1.15.2): The quick diagnostic compares scheme-specific shell and system-proxy paths before suggesting a host bypass. A failed forced system-proxy probe alone now calls for checking the affected client; the deterministic regression suite is registered in CI.
+
+- **report-with-html** (v1.0.0 → v1.0.1): `reconcile_content_diff.py` no longer waits for Chrome to exit after `--dump-dom`. Chrome can print the complete DOM and then never exit (reproduced on Chrome 153 / macOS even for a minimal page), so every extraction timed out twice and the tool gave no verdict; it now takes the dump once it is complete and still reaps the whole process group. The regression suite (`tests/report-with-html/`) is repaired — browser probes use the same completion rule, the regen fixtures fill the template's TODO config block, and the narrow-viewport probe asserts the 500 px width headless Chrome actually honours — and now runs in CI.
+
+- **CI**: restore the two report-with-html checks that did not survive its moves between repositories — `Delivery gates match data-viz SSOT` (`scripts/sync_delivery_gates.py --check` plus its tests, so an edit to data-visualization-discipline's nine gates cannot ship without regenerating `report-with-html/assets/delivery-gates.json`) and `Report renderer reaps its process group` (`test_reconcile_content_diff.py` under `-W error::ResourceWarning`).
 
 - **daymade-skill** (v1.53.0 → v1.53.1): Direct user-approved customer-report templates to a stable local data directory outside Skill source and plugin caches, so package updates do not own the approved form.
 

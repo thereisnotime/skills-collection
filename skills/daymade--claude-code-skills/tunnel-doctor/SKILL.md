@@ -192,9 +192,11 @@ python3 scripts/quick_diagnose.py --host <target-host> --url http://<target-host
 ```
 
 Interpretation:
-- `direct=PASS` + `forced_proxy=FAIL` = host must bypass proxy (`skip-proxy` + `NO_PROXY`).
+- `direct=PASS` + `ambient=FAIL` + `forced_proxy=FAIL` supports investigating the shell proxy path. `direct=PASS` + `system_proxy=FAIL` is a warning until the affected browser or system client fails too; only then consider a host-specific bypass.
+- `forced_proxy` uses the target URL's proxy environment (`https_proxy` for HTTPS, `http_proxy` for HTTP, then `all_proxy`); a failed forced probe alone is not a reason to change a working ambient path.
+- `direct=FAIL` does not support a bypass recommendation. A non-`000` HTTP response (including 403) proves a response arrived, not that the application accepted the request.
 - `strict_tls=FAIL` + `direct=PASS` = path is reachable; trust issue only (install/trust local CA).
-- `host in scutil exceptions: no` = browser/system clients still likely proxied.
+- `host in scutil exceptions: no` is context, not a fault by itself. The script's `direct` probe bypasses curl proxies but may still traverse a system TUN; it does not prove an independent physical path.
 
 ### Step 2A: Fix HTTP Proxy Environment Variables
 
@@ -952,6 +954,8 @@ nft list ruleset 2>/dev/null | head -60
 
 - **The clean host fails too, and its egress IP matches yours** → the destination is refusing you; your tunnel was never the problem.
 - **The clean host succeeds** → the blocker really is local, and you now also have a working path (`ssh -J <clean-host> <destination>` relays TCP while your key stays on your own machine).
+
+The second vantage point doesn't have to be a second host — **a second network counts too** (phone hotspot, a different WiFi). 2026-09-24: a cafe WiFi black-holed JMS's subscription domain *and* main site *and* all nodes (every TCP connect timed out for 2h), a picture indistinguishable from "the provider is GFW-blocked" — every self-heal level failed because each heal action rode the same venue egress. Switching WiFi restored everything with zero config change. A venue change is a two-minute experiment; run it before concluding "the provider is down/blocked" from single-venue probes.
 
 **Confirm a local blocker** by asking the proxy to relay explicitly instead of letting the TUN intercept:
 

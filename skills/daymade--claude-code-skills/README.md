@@ -2012,27 +2012,15 @@ claude plugin install daymade-macos@daymade-skills
 
 📚 **Documentation**: See [capture-screen/SKILL.md](./daymade-macos/capture-screen/SKILL.md).
 
-### **macos-permissions** - Diagnose macOS TCC Permission Dialogs
+### **macos-permissions** - Diagnose and Repair macOS Privacy Permissions
 
 > **Install**: `claude plugin install daymade-macos@daymade-skills` (suite-only — invoked as `daymade-macos:macos-permissions`)
 
-Diagnose why a macOS privacy dialog (Screen Recording, Full Disk Access, Automation, …) keeps firing or grants the wrong subject. The core rule: **the dialog's displayed name is not the requester** — read the TCC `from Sub:` attribution to find who is actually asking, and the TCC.db `auth_value` for what is currently granted, before deciding what to authorize.
-
-**When to use:**
-- A permission prompt ("would like to access data from other apps", screen recording, microphone) keeps reappearing after clicking Allow
-- The app you need to authorize is not in System Settings, or the listed name does not match the process you expected
-- A background/launchd job triggers a permission dialog that the same command does not trigger interactively
-- Unsigned CLI tools (uv-managed python, custom binaries) hit permission walls under launchd
-
-**Key features:**
-- Decision tree that separates the *requester* (TCC log `from Sub:`) from the *displayed name* (which drifts for unsigned, path-keyed binaries)
-- Full `kTCCService` catalogue, `auth_value`/`auth_reason` semantics, and `tccutil` shorthand
-- The uv-in-launchd Full-Disk-Access trap: root process with no FDA-bearing parent to inherit from; grant FDA to the uv binary, and it recurs on path change
-- Instrument discipline for confirming which binary requests a permission (log attribution over `fs_usage`/`pgrep` false negatives)
+Use for repeated TCC prompts, silent denials, and background jobs that cannot read protected files. It identifies the actual requester, checks for a usable existing grant, and verifies the repair through the real job. The Skill contains the diagnostic and Full Disk Access repair procedure.
 
 📚 **Documentation**: See [macos-permissions/SKILL.md](./daymade-macos/macos-permissions/SKILL.md).
 
-**Requirements**: macOS (Swift + AppleScript + `screencapture`).
+**Requirements**: macOS. Reading TCC.db also requires Full Disk Access for the process doing the read.
 
 ---
 
@@ -3456,7 +3444,9 @@ blind to them.
 - Two-layer architecture: `references/` + CLAUDE.md-inline + AGENTS.md-symlink, designed around
   what each tool actually auto-loads (plain-text pointers are on-demand in both tools)
 - Full workflow: diagnosis, multi-agent review, empirical `codex` verification, and memory cleanup
-- Leaves memory as a thin handoff cache instead of the SSOT
+- Two goals: end tool lock-in, where memory stays as a thin handoff cache; or retire a project's
+  auto memory, where every entry moves to a document, the project switch goes off, and a control
+  probe confirms memory no longer loads
 - Runs inline, orchestrating review subagents and invoking `codex` directly
 
 **Example usage:**
@@ -3465,6 +3455,7 @@ blind to them.
 migrate my memory — Codex doesn't know who I am
 my memory is locked to Claude Code, make it tool-agnostic
 memory has grown bloated with content that should live in docs
+turn off auto memory for this project and move everything into docs
 ```
 
 ---
@@ -3564,7 +3555,7 @@ watchdogs and their incident history.
 
 **Key features:**
 - The quiet-watchdog contract — premise-state self-check (a monitor's lifecycle binds to its premise), patient mode (defer disruption, not detection), escalating auto-cooldown, and never-resurrect-what-the-user-quit
-- Deploy mechanics that bite — gui vs system domain, StandardOut/ErrorPath, TCC/FDA on the actual interpreter, and stop semantics (`unload` is deprecated and gets resurrected by `RunAtLoad` — bootout/bootstrap/disable only)
+- Deploy mechanics that bite — gui vs system domain, StandardOut/ErrorPath, TCC/FDA attribution through `macos-permissions`, and stop semantics (`unload` is deprecated and gets resurrected by `RunAtLoad` — bootout/bootstrap/disable only)
 - Batch-loop throttling by default and SRE alert layering (page vs ticket, fatigue numbers)
 - Bundles `watchdog-cooldown.sh` (source-able escalating cooldown + manual pause state machine), `new-launchagent.sh` (idempotent installer with validation), and an annotated plist template
 
@@ -3878,6 +3869,38 @@ Glue logos, avatars, or stickers onto moving objects in a video clip so they fol
 📚 **Documentation**: See [meme-creator/SKILL.md](./meme-creator/SKILL.md) and the bundled `references/` for the tracking playbook and the asset-binding gate.
 
 **Requirements**: `ffmpeg`; `uv` (bundled Python scripts carry inline dependencies). `yt-dlp` only when downloading from a URL.
+
+---
+
+### **data-visualization-discipline** - Judgment Layer for Charts and Dashboards
+
+> **Install**: `claude plugin install data-visualization-discipline@daymade-skills`
+
+Decides whether a chart should exist and how it should be drawn before any code is written: the one conclusion each chart must support, mean vs. median, whether segments may be aggregated, stacked vs. line, dual axes, color count and cross-chart color identity, and how many columns a table keeps. Medium-agnostic — HTML reports, React/Vue dashboards, native PowerPoint charts, matplotlib/plotly/ECharts/D3.
+
+**Key features:**
+- Five stages (intent → data validity → form → encoding → delivery): the first four end with a handoff check, the fifth is the delivery gate
+- A nine-item delivery gate, including a masked-render self-test and painted-span proportion checks
+- Reviews existing charts ("what is wrong with these charts", "why do the legends disagree")
+
+- [`data-visualization-discipline`](./data-visualization-discipline/SKILL.md) — full instructions. Pairs with `report-with-html`, which owns the report page itself.
+
+---
+
+### **report-with-html** - Evidence-Backed HTML Reports
+
+> **Install**: `claude plugin install report-with-html@daymade-skills`
+
+Produces the reader-facing HTML artifact — report, dashboard, architecture or journey view, data browser, or review workbench — built around the reader's question, with every number traceable and the page verified in a real browser before delivery.
+
+**Key features:**
+- Skeleton chosen by the reader's question (how it works / what to decide / why it happened / which is better / inspect a collection)
+- Decision-card contract, reusable interaction components, and a warm-paper starter template
+- Delivery gate script with a masked (text-free) render, segment cropping for full-page review, and a zero-context independent reader review
+
+- [`report-with-html`](./report-with-html/SKILL.md) — full instructions. Load `data-visualization-discipline` for chart judgment.
+
+**Requirements**: Google Chrome or Chromium; `uv`; Python 3.10+.
 
 ---
 
