@@ -786,7 +786,13 @@ loki_remote_gpg_status() {
     local pj="$1"
     local d="${TMPDIR:-/tmp}/loki-sigcheck.$$"
     mkdir -p "$d" || return 0
-    python3 - "$pj" "$d" <<'PY' 2>/dev/null || { rm -rf "$d"; return 0; }
+    python3 -E - "$pj" "$d" <<'PY' 2>/dev/null || { rm -rf "$d"; return 0; }
+# The cwd is the checkout being verified: drop it from sys.path before any
+# other import, or a committed hashlib.py/json.py could print the verdict.
+# The interpreter runs with -E so PYTHONPATH (an empty component would add
+# the cwd as an absolute path) and a committed sitecustomize.py cannot act
+# before this line.
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, sys, os
 proof = json.load(open(sys.argv[1]))
 d = sys.argv[2]
@@ -825,16 +831,22 @@ loki_remote_attestation_status() {
     local tok
     tok="$(jq -r '.verification.attestation // empty' "$pj" 2>/dev/null)"
     [ -n "$tok" ] || { printf ''; return 0; }
-    python3 - "$pj" "$url" "${_LOKI_SCRIPT_DIR}" <<'PY' 2>/dev/null || printf ''
+    python3 -E - "$pj" "$url" "${_LOKI_SCRIPT_DIR}" <<'PY' 2>/dev/null || printf ''
+# The cwd is the checkout being verified: drop it from sys.path before any
+# other import, or a committed hashlib.py/json.py could print the verdict.
+# The interpreter runs with -E so PYTHONPATH (an empty component would add
+# the cwd as an absolute path) and a committed sitecustomize.py cannot act
+# before this line.
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, sys, hashlib, urllib.request
 sys.path.insert(0, sys.argv[3])
 try:
-    from receipt_jwt import verify_attestation
+    from receipt_jwt import verify_attestation, _CRYPTO_AVAILABLE
 except ImportError:
     sys.exit(1)          # -> "" : cannot check, never a verdict
 proof = json.load(open(sys.argv[1]))
-tok = (proof.get("verification") or {}).get("attestation") or ""
-if not tok:
+tok = (proof.get("verification") or {}).get("attestation")
+if tok is None or tok == "":
     sys.exit(1)
 try:
     with urllib.request.urlopen(
@@ -842,7 +854,28 @@ try:
         jwks = json.loads(r.read())
 except Exception:
     sys.exit(1)          # unreachable JWKS is UNCHECKED, not a failure
-ok, claims = verify_attestation(tok, jwks)
+# A key set that is not {"keys": [{...}, ...]} is a key-set problem: UNCHECKED,
+# never an accusation against the receipt. Checked BEFORE anything below can
+# print "bad", so a bad key set can never read as TAMPERED.
+_keys = jwks.get("keys") if isinstance(jwks, dict) else None
+if not isinstance(_keys, list) or not all(isinstance(k, dict) for k in _keys):
+    sys.exit(1)
+# The receipt's builder controls the token. An attestation that is not a JWT
+# string is a malformed receipt: TAMPERED, decided without any crypto.
+if not isinstance(tok, str):
+    print("bad"); sys.exit(0)
+# Without `cryptography`, verify_attestation returns False and this would print
+# "bad" -- a TAMPERED accusation for a check that never ran. A missing verifier
+# dependency is UNCHECKED. Same guard in loki_proof_attestation_check below.
+if not _CRYPTO_AVAILABLE:
+    sys.exit(1)
+# The key set is known-good here, so any crash inside verification comes from
+# the token: refuse it. Letting it propagate read as UNCHECKED, which let a
+# forger turn TAMPERED into "install python3 cryptography".
+try:
+    ok, claims = verify_attestation(tok, jwks)
+except Exception:
+    print("bad"); sys.exit(0)
 if not ok:
     print("bad"); sys.exit(0)
 # The signature verifying is not enough on its own: it must attest to THIS
@@ -880,19 +913,25 @@ loki_proof_attestation_check() {
     local pj="$1" src="$2"
     [ -n "$src" ] || { printf ''; return 0; }
     command -v python3 >/dev/null 2>&1 || { printf ''; return 0; }
-    python3 - "$pj" "$src" "${_LOKI_SCRIPT_DIR}" <<'PY' 2>/dev/null || printf ''
+    python3 -E - "$pj" "$src" "${_LOKI_SCRIPT_DIR}" <<'PY' 2>/dev/null || printf ''
+# The cwd is the checkout being verified: drop it from sys.path before any
+# other import, or a committed hashlib.py/json.py could print the verdict.
+# The interpreter runs with -E so PYTHONPATH (an empty component would add
+# the cwd as an absolute path) and a committed sitecustomize.py cannot act
+# before this line.
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, sys, os, hashlib, urllib.request
 sys.path.insert(0, sys.argv[3])
 try:
-    from receipt_jwt import verify_attestation
+    from receipt_jwt import verify_attestation, _CRYPTO_AVAILABLE
 except ImportError:
     sys.exit(1)                      # "" : cannot check
 try:
     proof = json.load(open(sys.argv[1]))
 except Exception:
     sys.exit(1)
-tok = (proof.get("verification") or {}).get("attestation") or ""
-if not tok:
+tok = (proof.get("verification") or {}).get("attestation")
+if tok is None or tok == "":
     print("none"); sys.exit(0)       # a FACT about the receipt, not an error
 src = sys.argv[2]
 try:
@@ -907,7 +946,30 @@ try:
             jwks = json.loads(r.read())
 except Exception:
     sys.exit(1)                      # "" : unreachable/unreadable, no verdict
-ok, claims = verify_attestation(tok, jwks)
+# A key set that is not {"keys": [{...}, ...]} is a key-set problem: NOT
+# CHECKED, never an accusation. Checked BEFORE anything below can print "bad",
+# so a bad key set can never read as FAILED. Same order in
+# loki_remote_attestation_status above -- change both.
+_keys = jwks.get("keys") if isinstance(jwks, dict) else None
+if not isinstance(_keys, list) or not all(isinstance(k, dict) for k in _keys):
+    sys.exit(1)                      # "" : cannot check
+# The receipt's builder controls the token. An attestation that is not a JWT
+# string is a malformed receipt: FAILED, decided without any crypto.
+if not isinstance(tok, str):
+    print("bad"); sys.exit(0)
+# receipt_jwt imports without `cryptography`, and verify_attestation then
+# returns False, which would print "bad": a FAILED verdict for a check that
+# never ran. A missing verifier dependency is NOT CHECKED. Same guard in
+# loki_remote_attestation_status above -- change both.
+if not _CRYPTO_AVAILABLE:
+    sys.exit(1)                      # "" : cannot check
+# The key set is known-good here, so any crash inside verification comes from
+# the token: refuse it. Letting it propagate read as NOT CHECKED (exit 2), which
+# let a forger turn FAILED into "could not check".
+try:
+    ok, claims = verify_attestation(tok, jwks)
+except Exception:
+    print("bad"); sys.exit(0)
 if not ok:
     print("bad"); sys.exit(0)
 # A verifying signature is not enough: it must attest to THESE bytes. Recompute
@@ -951,7 +1013,7 @@ loki_remote_verify_receipt() {
     # empty for a local receipt, which simply means no attestation is checked.
     local _attest_url="${2:-}" _attest=""
     _attest="$(loki_remote_attestation_status "$pj" "$_attest_url")"
-    out="$(python3 "$verifier" "$pj" "${TARGET_DIR:-.}" 2>/dev/null)"
+    out="$(python3 -E "$verifier" "$pj" "${TARGET_DIR:-.}" 2>/dev/null)"
     hash_ok="$(printf '%s' "$out" | jq -r '.hash_ok // false' 2>/dev/null)"
     gpg_ok="$(printf '%s' "$out" | jq -r '.gpg_ok | tostring' 2>/dev/null)"
 
@@ -1054,6 +1116,18 @@ loki_remote_verify_receipt() {
         echo "    server whose key is published at ${_attest_url}/.well-known/jwks.json."
         echo "    Verify that server is one you trust."
         echo "    NOT proven: that the code is correct. A receipt records which checks ran."
+        return 0
+    fi
+
+    # The receipt carries an attestation that could not be checked here (JWKS
+    # unreachable, or python cryptography missing). Calling it UNSIGNED would
+    # mislabel a signed receipt and point at the wrong fix. Same policy as the
+    # gpg-unavailable branch above: NOT CHECKED, return 0, provenance unproven.
+    if [ -z "$_attest" ] && jq -e '.verification.attestation // empty' "$pj" >/dev/null 2>&1; then
+        echo -e "  ${YELLOW}NOT CHECKED${NC}: the receipt carries an attestation, but it could not be checked"
+        echo "    against ${_attest_url:-<no url>} (JWKS unreachable, or python cryptography missing)."
+        echo "    Its integrity hash matches. Provenance is unproven here, not disproven."
+        echo "    Install python3 cryptography, or re-run where the build server is reachable."
         return 0
     fi
 
@@ -9019,7 +9093,7 @@ _deploy_receipt_verdict() {
     fi
 
     local out hash_ok gpg_ok signed=0
-    out="$(python3 "$verifier" "$pj" "${TARGET_DIR:-.}" 2>/dev/null || true)"
+    out="$(python3 -E "$verifier" "$pj" "${TARGET_DIR:-.}" 2>/dev/null || true)"
 
     # "The verifier did not RUN" and "the verifier says the hash is bad" are
     # different facts and must not collapse. If they do, a broken python3
@@ -13097,12 +13171,25 @@ _loki_airgap_audit() {
             ;;
         opencode|cline|aider)
             model_host="${OPENAI_BASE_URL:-${OPENROUTER_API_KEY:+https://openrouter.ai}}"
-            if [ -z "$model_host" ] || printf '%s' "${LOKI_OPENCODE_MODEL:-}${LOKI_AIDER_MODEL:-}" | grep -qiE 'ollama|localhost|127\.0\.0\.1|lmstudio'; then
+            # Local ONLY on positive evidence: a model id naming a local runtime.
+            # An unset endpoint is not that evidence -- the opencode catalog
+            # default is an openrouter/ model, so inference still leaves the host.
+            # Judge only the ACTIVE provider's model variable (the one
+            # providers/<provider>.sh reads): another provider's local model
+            # says nothing about where this provider sends inference.
+            local model_var model_id
+            case "$provider" in
+                opencode) model_var="LOKI_OPENCODE_MODEL" model_id="${LOKI_OPENCODE_MODEL:-}" ;;
+                cline)    model_var="LOKI_CLINE_MODEL"    model_id="${LOKI_CLINE_MODEL:-}" ;;
+                aider)    model_var="LOKI_AIDER_MODEL"    model_id="${LOKI_AIDER_MODEL:-}" ;;
+            esac
+            if printf '%s' "$model_id" | grep -qiE 'ollama|localhost|127\.0\.0\.1|lmstudio'; then
                 model_host="local weights"
                 model_required="no"
                 model_note="Local model runtime (Ollama / LM Studio / llama.cpp). No inference egress."
             else
-                model_note="Remote model gateway. Use an ollama/ model id for zero-egress inference."
+                [ -n "$model_host" ] || model_host="remote model provider (no local model configured)"
+                model_note="Remote model gateway. Set $model_var to an ollama/ model id for zero-egress inference."
             fi
             ;;
         *)
@@ -36193,8 +36280,11 @@ cmd_proof() {
             echo "  phases [--json]      Measured phase history from real phase_change"
             echo "                       events; unrecorded boundaries read UNKNOWN"
             echo "  show <id>            Pretty-print .loki/proofs/<id>/proof.json"
-            echo "  verify <id>          Re-check a receipt against the repo (tamper + drift);"
-            echo "                       exit 0 clean, 1 tamper/drift. Verify it yourself."
+            echo "  verify <id>          Re-check a receipt against the repo (tamper + drift)."
+            echo "                       Exit 0 clean, 1 tamper/drift, 2 could not check,"
+            echo "                       64 usage (no id, more than one id, unknown option,"
+            echo "                       -h/--help: verify never exits 0 without a verdict),"
+            echo "                       66 unknown id. Verify it yourself."
             echo "  passport <contract> <id|proof.json> <output.json>"
             echo "                       Bind work from any agent to a portable Outcome Contract"
             echo "                       and independently rechecked Evidence Receipt"
@@ -36204,9 +36294,15 @@ cmd_proof() {
             echo "  --jwks <url|file>    Also check the receipt's attestation against a published"
             echo "                       key set. Accepts a server URL or a local jwks.json, so a"
             echo "                       third party can check WHO produced a receipt with no API"
-            echo "                       token, no gpg key import, and no network."
-            echo "  md <id>              Paste-able Markdown for a PR comment or Slack
-  open <id>            Open .loki/proofs/<id>/index.html in a browser"
+            echo "                       token, no gpg key import, and no network. Exit 1 if the"
+            echo "                       token FAILED or the receipt is unsigned (ABSENT); 2 if"
+            echo "                       NOT CHECKED (key set unreadable or verifier dependency"
+            echo "                       missing); 64 if --jwks has no value or an empty one."
+            echo "                       A 1 is never softened to 2."
+            echo ""
+            echo "More subcommands:"
+            echo "  md <id>              Paste-able Markdown for a PR comment or Slack"
+            echo "  open <id>            Open .loki/proofs/<id>/index.html in a browser"
             echo "  share <id>           Publish the proof page as a GitHub Gist (opt-in)"
             echo ""
             echo "Options for 'share':"
@@ -36412,7 +36508,7 @@ PYEOF
                 echo -e "${RED}Proof Passport tool not found: ${passport_tool}${NC}" >&2
                 exit 3
             fi
-            python3 "$passport_tool" "$contract" "$receipt_path" "$output" "$@"
+            python3 -E "$passport_tool" "$contract" "$receipt_path" "$output" "$@"
             exit $?
             ;;
         chain)
@@ -36435,10 +36531,27 @@ PYEOF
                 echo -e "${RED}python3 unavailable: the chain could not be verified (UNAVAILABLE, not a pass)${NC}" >&2
                 exit 2
             fi
+            # A verifier never exits 0 without a verdict: -h/--help (before any
+            # "--") shows usage on stderr and exits 64, where argparse would
+            # exit 0 with nothing checked. The tool itself keeps its exit-0
+            # --help for direct use (tests/test_tool_exit_contract.py).
+            local _ca
+            for _ca in "$@"; do
+                [ "$_ca" = "--" ] && break
+                # argparse also treats --h/--he/--hel and any short-option
+                # cluster containing h (-hq) as help.
+                case "$_ca" in
+                    -h*|--h|--he|--hel|--help|-[!-]*h*)
+                        python3 -E "$chain_tool" --help >&2 || true
+                        echo "Nothing was checked (exit 64). Full help: loki proof help" >&2
+                        exit 64
+                        ;;
+                esac
+            done
             # `set -e` is active (loki:22) and a FAILED verdict is a NORMAL
             # result here, so a bare call would abort before the status is read.
             local _chain_rc=0
-            python3 "$chain_tool" "$@" || _chain_rc=$?
+            python3 -E "$chain_tool" "$@" || _chain_rc=$?
             exit $_chain_rc
             ;;
         md)
@@ -36495,35 +36608,84 @@ PYEOF
             # so an air-gapped reviewer, handed the receipt and the key set on
             # disk, can still verify -- requiring the network would exclude
             # exactly the reviewer who most needs this.
-            local _pv_human=0 _pv_jwks="" _pv_args=()
-            local _pv_a _pv_want_jwks=0
+            # An EMPTY --jwks value ("--jwks ''", "--jwks=") is a usage error,
+            # sticky across every occurrence. It used to skip the attestation
+            # check and exit 0 on an unsigned receipt, and a later empty
+            # --jwks cancelled an earlier real one.
+            # An UNKNOWN option, or a second positional, is a usage error too:
+            # "--jwk keys.json" and "-jwks keys.json" used to be kept as extra
+            # positionals and ignored, so an unsigned receipt exited 0 as if a
+            # signature had been checked.
+            local _pv_human=0 _pv_jwks="" _pv_jwks_empty=0 _pv_args=()
+            local _pv_a _pv_want_jwks=0 _pv_npos=0 _pv_end_opts=0
             for _pv_a in "$@"; do
+                # After "--" everything is a proof id, so a caller can pass an
+                # id that begins with "-" without it being read as an option.
+                if [ "$_pv_end_opts" -eq 1 ]; then
+                    _pv_args+=("$_pv_a"); _pv_npos=$((_pv_npos + 1)); continue
+                fi
                 if [ "$_pv_want_jwks" -eq 1 ]; then
-                    _pv_jwks="$_pv_a"; _pv_want_jwks=0; continue
+                    _pv_jwks="$_pv_a"; _pv_want_jwks=0
+                    [ -n "$_pv_jwks" ] || _pv_jwks_empty=1
+                    continue
                 fi
                 case "$_pv_a" in
                     --human) _pv_human=1 ;;
+                    --) _pv_end_opts=1 ;;
+                    -h|--help)
+                        # verify never exits 0 without a verdict. The documented
+                        # call is "loki proof verify <id>", so an id taken from
+                        # untrusted content could be "-h"; an exit-0 help would
+                        # turn a provenance gate into a pass. Usage goes to
+                        # stderr with 64; full exit-0 help is "loki proof help".
+                        {
+                            echo "Usage: loki proof verify [--human] [--jwks <url|file>] [--] <id>"
+                            echo "  Exit 0 clean, 1 tamper/drift (or --jwks FAILED/ABSENT), 2 could not check,"
+                            echo "  64 usage (no id, more than one id, unknown option, empty --jwks, -h/--help),"
+                            echo "  66 unknown id. '--' ends options, for an id that starts with '-'."
+                            echo "  Nothing was checked. Full help: loki proof help"
+                        } >&2
+                        exit 64  # usage (docs/exit-codes.md)
+                        ;;
                     --jwks) _pv_want_jwks=1 ;;
-                    --jwks=*) _pv_jwks="${_pv_a#--jwks=}" ;;
-                    *) _pv_args+=("$_pv_a") ;;
+                    --jwks=*)
+                        _pv_jwks="${_pv_a#--jwks=}"
+                        [ -n "$_pv_jwks" ] || _pv_jwks_empty=1
+                        ;;
+                    -*)
+                        echo -e "${RED}Unknown option for 'loki proof verify': '${_pv_a}'.${NC}" >&2
+                        echo "  Valid options: --human, --jwks <url|file>. Nothing was checked." >&2
+                        exit 64  # usage (docs/exit-codes.md)
+                        ;;
+                    *) _pv_args+=("$_pv_a"); _pv_npos=$((_pv_npos + 1)) ;;
                 esac
             done
+            if [ "$_pv_npos" -gt 1 ]; then
+                echo -e "${RED}'loki proof verify' takes one proof id; got ${_pv_npos}: ${_pv_args[*]}${NC}" >&2
+                echo "  Nothing was checked." >&2
+                exit 64  # usage (docs/exit-codes.md)
+            fi
             if [ "$_pv_want_jwks" -eq 1 ]; then
                 echo -e "${RED}--jwks needs a URL or file path.${NC}" >&2
-                exit 2
+                exit 64  # usage (docs/exit-codes.md)
+            fi
+            if [ "$_pv_jwks_empty" -eq 1 ]; then
+                echo -e "${RED}--jwks was given an empty value; pass a URL or file path.${NC}" >&2
+                echo "  Nothing was checked: an empty key set must not read as a skipped check." >&2
+                exit 64  # usage (docs/exit-codes.md)
             fi
             set -- "${_pv_args[@]+"${_pv_args[@]}"}"
 
             local id="${1:-}"
             if [ -z "$id" ]; then
                 echo -e "${RED}Missing proof id.${NC} Use 'loki proof list'."
-                exit 2
+                exit 64  # usage (docs/exit-codes.md); 2 means "could not check"
             fi
             local pj="${proofs_dir}/${id}/proof.json"
             if [ ! -f "$pj" ]; then
                 echo -e "${RED}Proof not found: ${id}${NC}"
                 echo "Use 'loki proof list' to see available proofs."
-                exit 1
+                exit 66  # input missing; 1 is reserved for tamper/drift
             fi
             # The verifier ships beside the generator under autonomy/lib/ (same
             # dir resolution run.sh uses for proof-generator.py).
@@ -36537,11 +36699,17 @@ PYEOF
             # its NORMAL result -- aborts the whole command before the exit
             # status can be read. Without the guard the attestation block below
             # is unreachable on exactly the receipts it exists to check.
+            # No python3 means the verifier cannot run: could not check (2),
+            # never a shell's 127 and never a pass.
+            if ! command -v python3 >/dev/null 2>&1; then
+                echo -e "${YELLOW}NOT CHECKED${NC}: python3 is not on PATH, so the verifier could not run (exit 2)." >&2
+                exit 2
+            fi
             local _pv_rc=0
             if [ "$_pv_human" -eq 1 ]; then
-                python3 "$verifier" --human "$pj" "${TARGET_DIR:-.}" || _pv_rc=$?
+                python3 -E "$verifier" --human "$pj" "${TARGET_DIR:-.}" || _pv_rc=$?
             else
-                python3 "$verifier" "$pj" "${TARGET_DIR:-.}" || _pv_rc=$?
+                python3 -E "$verifier" "$pj" "${TARGET_DIR:-.}" || _pv_rc=$?
             fi
 
             # The attestation check runs AFTER, and can only make the verdict
@@ -36565,16 +36733,25 @@ PYEOF
                         _pv_rc=1
                         ;;
                     none)
+                        # Exit 1: the caller supplied a key set and asked who
+                        # signed this receipt; it is unsigned, so it is NOT
+                        # verified. Exiting 0 here let a stripped signature pass
+                        # any CI step that asked for provenance.
                         echo -e "${YELLOW}attestation: ABSENT -- this receipt carries no attestation.${NC}" >&2
                         echo "  Nothing was checked against ${_pv_jwks}. The receipt may still be" >&2
                         echo "  gpg-signed; this says only that it has no JWKS attestation." >&2
+                        echo "  Not verified: a key set was supplied, but the receipt is unsigned (exit 1)." >&2
+                        _pv_rc=1
                         ;;
                     *)
                         # Unreachable key set, unreadable file, missing python
                         # deps. NOT a verdict: an absent measurement must never
-                        # read as either a pass or an accusation.
-                        echo -e "${YELLOW}attestation: NOT CHECKED -- could not read a key set from ${_pv_jwks}.${NC}" >&2
-                        echo "  This is not a failure of the receipt. Nothing was proven either way." >&2
+                        # read as either a pass or an accusation, so it exits 2
+                        # (could not check). A tamper/drift 1 from the base
+                        # verifier is a finding and is never softened to 2.
+                        echo -e "${YELLOW}attestation: NOT CHECKED -- could not check against ${_pv_jwks} (key set unreadable, or verifier dependency missing).${NC}" >&2
+                        echo "  This is not a failure of the receipt. Nothing was proven either way (exit 2)." >&2
+                        if [ "$_pv_rc" -eq 0 ]; then _pv_rc=2; fi
                         ;;
                 esac
             fi

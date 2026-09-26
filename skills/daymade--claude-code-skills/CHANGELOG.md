@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **tibo-reset-codex** (`tibo-reset-codex` v1.14.6 → v1.15.0): Add an append-only `withdraw` command for forecasts whose dates lack evidence. Withdrawn forecasts remain visible in the journal but leave the pending and follow-up lists. The monitoring route now pursues an unverified reset promise through sources that can distinguish announcement, account arrival, and cause; a promise without a deadline no longer forces a dated prediction.
+
+- **deep-research** (`deep-research` v2.8.0 → v2.9.0): Add a coordinator for parallel provider × mode research, composing existing Skills and agents rather than embedding vendor adapters. Its read-only planner assigns one owner per control surface, keeps active tasks in the same owner queue, and synthesizes by original evidence rather than model agreement. It makes no provider calls or purchases.
+
+- **deep-research** (`deep-research` v2.7.0 → v2.8.0): Add a local multi-provider run contract and CLI that separates provider modes, records original tasks and artifacts, and rejects missing origins, changed run identities, and modified exports. The existing citation registry still owns factual verification.
+
 - **tunnel-doctor** (`tunnel-doctor` v1.15.0 → v1.15.1): Step 2K now counts a venue change (phone hotspot, different WiFi) as a second vantage point — a 2026-09-24 cafe-WiFi blackout of an entire proxy provider's domains and nodes was indistinguishable from a provider block, and switching networks fixed it with zero config change.
 - **claude-migrate-memory-to-doc** (`daymade-claude-code` v3.68.0 → v3.69.0): Add a second goal, retiring a project's auto memory entirely, with its own reference (per-project switch, shared-directory coordination, inventory across every skill repo, one disposition per file, verbatim migration, pointer repointing, a control probe that proves memory stopped loading, and an archive index). `scripts/migrate_verbatim.py` appends memory bodies to their owning documents and checks every line landed; its tests are registered. Three new failure cases. `claude-code-ops-router` now routes requests to turn auto memory off.
 
@@ -31,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **daymade-docs** (v1.18.0 → v1.19.0): Add `docs-router` as the suite's automatic document-work entry. It selects a bundled specialist by input and requested output, resolves the active router's canonical source path to find sibling skills on Claude Code or Codex, then reads the selected full `SKILL.md` and task-required references. Routes cover document-to-Markdown, Markdown-to-PDF, existing Word-to-PDF, DOCX creation and review, PDF-to-HTML including translation with figures, Mermaid PNGs, complex Excel models and macOS automation, photos or unsigned digital documents to scanned PDFs, post-change documentation impact checks, and explicit cleanup.
 
 ### Changed
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.15.1 → v1.16.0): For an unfulfilled reset promise or a timing question, give a sourced event timeline after the current-state conclusion. Distinguish service recovery, the original future-tense promise, account readings, and any completion signal without treating the announcement time as arrival.
+
+- **kimi-use** (`kimi-use` v1.3.2 → v1.4.0): Distinguish Work/Agent plugin queries from Chat Deep Research, document the verified K3 and export routes, and retrieve Work outputs from Kimi's own task folder when no project folder is mounted.
 
 - **kimi-use** (`kimi-use` v1.3.1 → v1.3.2): Route Codex to the currently available CUA or legacy computer plugin. The CUA path pastes Chinese text into Kimi's rich editor and reads back the full prompt and enabled send button before sending.
 
@@ -202,6 +212,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compressed wording so the description stays within the 1024-character frontmatter limit.
 
 ### Fixed
+
+- **tibo-reset-codex** (v1.16.0 → v1.16.1): Refresh the third-party prediction source's current field map and reject a scheduled time that precedes its cited announcement. The post classifier example marks an uninitialized or untimed `No` as unknown and treats the mirror as a candidate pending upstream and time checks; silent resets still require account evidence.
+
+- **tibo-reset-codex** (v1.15.0 → v1.15.1): Align repository entry points and forecast SOPs with conditional date forecasts and the separate withdrawal journal. Remove stale forecast status and copied or derived counts from the touched guidance; convert the monitoring sleep window using the target date's Pacific offset.
 
 - **tunnel-doctor** (`tunnel-doctor` v1.15.1 → v1.15.2): The quick diagnostic compares scheme-specific shell and system-proxy paths before suggesting a host bypass. A failed forced system-proxy probe alone now calls for checking the affected client; the deterministic regression suite is registered in CI.
 

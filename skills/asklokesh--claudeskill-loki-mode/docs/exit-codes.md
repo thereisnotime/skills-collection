@@ -67,6 +67,47 @@ An early draft spec listed `1=BLOCKED, 2=CONCERNS`. That ordering was rejected:
 it is not used anywhere, it has no consumers, and it inverts the
 severity-rises-with-the-code rule that every other command follows.
 
+## `loki proof verify <id>`
+
+Re-checks one Evidence Receipt against the repo (tamper and drift). The same
+codes on the Bun route and the bash route (`LOKI_LEGACY_BASH=1`).
+
+| Code | Meaning |
+|---|---|
+| 0 | Clean: the integrity hash matches and the recorded diff still matches the repo (and, with `--jwks`, the attestation is VERIFIED) |
+| 1 | Tampered or drifted; or, with `--jwks`, the attestation FAILED, or is ABSENT (the receipt is unsigned while a key set was supplied) |
+| 2 | Could not check: the receipt is present but unusable (malformed JSON), the verifier itself is missing, or, with `--jwks`, the attestation is NOT CHECKED (key set unreadable, or a verifier dependency missing) |
+| 64 | Usage error: no proof id, more than one proof id, an unknown option (a mistyped `--jwk` must never skip the check), `--jwks` with no value or an empty one, or `-h`/`--help` (verify never exits 0 without a verdict; full help is `loki proof help`). `--` ends options, so `loki proof verify -- <id>` checks an id that begins with `-` |
+| 66 | Input missing: no `.loki/proofs/<id>/proof.json` for that id |
+
+64 and 66 are not verdicts. They say the question was never asked, so neither
+one is a pass, and neither one accuses the receipt the way 1 does. Before this
+contract a missing id exited 2 and an unknown id exited 1, which made a typo
+look like "could not check" and a wrong id look like a tampered receipt. An
+empty `--jwks` value used to skip the attestation check and exit 0.
+
+`proof verify` ranks 1 above 2: when the receipt fails one check and another
+could not run (a drift finding plus an unreadable `--jwks` key set, say), it
+exits 1, because a definite failure of this one receipt is never softened into
+"could not check". `proof chain` ranks 2 above 1 on
+purpose: it rolls up many stages, and an operator who fixes the named FAILED
+stage and re-runs would see green while still blind on the stage that never
+ran (`tools/verify-chain.py`, rule 4).
+
+## `loki proof chain [workspace]`
+
+Runs the whole verification chain (`tools/verify-chain.py`) and passes its exit
+code through unchanged.
+
+| Code | Meaning |
+|---|---|
+| 0 | Every stage was checked and passed |
+| 1 | A stage FAILED |
+| 2 | A stage could not be evaluated (UNAVAILABLE outranks FAILED) |
+| 3 | Nothing to check anywhere: zero receipts is not a pass |
+| 64 | Usage error: an unknown flag, or `-h`/`--help` (a verifier never exits 0 without a verdict; full help is `loki proof help`) |
+| 66 | The workspace does not exist |
+
 ## `loki ci`
 
 | Code | Meaning |

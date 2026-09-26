@@ -26075,9 +26075,9 @@
       "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
       "path": "obra--superpowers/skills/writing-plans/SKILL.md",
       "remote_path": "skills/writing-plans/SKILL.md",
-      "lines": 193,
-      "words": 1422,
-      "code_blocks": 5,
+      "lines": 205,
+      "words": 1639,
+      "code_blocks": 4,
       "languages": [
         "bash",
         "markdown",
@@ -28857,8 +28857,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/upgrade-stripe/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/upgrade-stripe/SKILL.md",
-      "lines": 197,
-      "words": 1141,
+      "lines": 200,
+      "words": 1225,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -28895,8 +28895,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md",
-      "lines": 358,
-      "words": 2786,
+      "lines": 362,
+      "words": 3153,
       "code_blocks": 12,
       "languages": []
     },
@@ -28905,8 +28905,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 212,
-      "words": 2059,
+      "lines": 215,
+      "words": 2103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -28975,8 +28975,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/upgrade-stripe/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/upgrade-stripe/SKILL.md",
-      "lines": 197,
-      "words": 1141,
+      "lines": 200,
+      "words": 1225,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -29013,8 +29013,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/connect-recommend/SKILL.md",
-      "lines": 358,
-      "words": 2786,
+      "lines": 362,
+      "words": 3153,
       "code_blocks": 12,
       "languages": []
     },
@@ -29023,8 +29023,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/cursor/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/cursor/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 212,
-      "words": 2059,
+      "lines": 215,
+      "words": 2103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -29093,8 +29093,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/upgrade-stripe/SKILL.md",
-      "lines": 197,
-      "words": 1141,
+      "lines": 200,
+      "words": 1225,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -29131,8 +29131,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/connect-recommend/SKILL.md",
-      "lines": 358,
-      "words": 2786,
+      "lines": 362,
+      "words": 3153,
       "code_blocks": 12,
       "languages": []
     },
@@ -29141,8 +29141,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/codex/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/codex/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 212,
-      "words": 2059,
+      "lines": 215,
+      "words": 2103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -29221,8 +29221,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/upgrade-stripe/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/upgrade-stripe/SKILL.md",
-      "lines": 197,
-      "words": 1141,
+      "lines": 200,
+      "words": 1225,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -29259,8 +29259,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/connect-recommend/SKILL.md",
-      "lines": 358,
-      "words": 2786,
+      "lines": 362,
+      "words": 3153,
       "code_blocks": 12,
       "languages": []
     },
@@ -29269,8 +29269,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/claude/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/claude/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 212,
-      "words": 2059,
+      "lines": 215,
+      "words": 2103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -29349,8 +29349,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/upgrade-stripe/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/upgrade-stripe/SKILL.md",
-      "lines": 197,
-      "words": 1141,
+      "lines": 200,
+      "words": 1225,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -29387,8 +29387,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/connect-recommend/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/connect-recommend/SKILL.md",
-      "lines": 358,
-      "words": 2786,
+      "lines": 362,
+      "words": 3153,
       "code_blocks": 12,
       "languages": []
     },
@@ -29397,8 +29397,8 @@
       "description": ">-",
       "path": "stripe--ai/providers/grok/plugin/skills/stripe-apps/SKILL.md",
       "remote_path": "providers/grok/plugin/skills/stripe-apps/SKILL.md",
-      "lines": 212,
-      "words": 2059,
+      "lines": 215,
+      "words": 2103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -29467,8 +29467,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/upgrade-stripe/SKILL.md",
       "remote_path": "skills/upgrade-stripe/SKILL.md",
-      "lines": 197,
-      "words": 1141,
+      "lines": 200,
+      "words": 1225,
       "code_blocks": 9,
       "languages": [
         "bash",
@@ -29505,8 +29505,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/connect-recommend/SKILL.md",
       "remote_path": "skills/connect-recommend/SKILL.md",
-      "lines": 358,
-      "words": 2786,
+      "lines": 362,
+      "words": 3153,
       "code_blocks": 12,
       "languages": []
     },
@@ -29515,8 +29515,8 @@
       "description": ">-",
       "path": "stripe--ai/skills/stripe-apps/SKILL.md",
       "remote_path": "skills/stripe-apps/SKILL.md",
-      "lines": 212,
-      "words": 2059,
+      "lines": 215,
+      "words": 2103,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -33063,7 +33063,7 @@
       "path": "asklokesh--claudeskill-loki-mode/SKILL.md",
       "remote_path": "SKILL.md",
       "lines": 474,
-      "words": 3834,
+      "words": 3846,
       "code_blocks": 7,
       "languages": [
         "bash"
@@ -157156,8 +157156,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 536,
-      "words": 3583,
+      "lines": 554,
+      "words": 3836,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -157356,8 +157356,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 837,
-      "words": 3098,
+      "lines": 856,
+      "words": 3151,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157404,8 +157404,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/kimi-use/SKILL.md",
       "remote_path": "kimi-use/SKILL.md",
-      "lines": 77,
-      "words": 463,
+      "lines": 86,
+      "words": 506,
       "code_blocks": 0,
       "languages": []
     },
@@ -177224,6 +177224,17 @@
       ]
     },
     {
+      "name": "agent-attribution-detection",
+      "description": "",
+      "path": "shaunburdick--skills/specs/001-agent-attribution-detection/spec.md",
+      "remote_path": "specs/001-agent-attribution-detection/spec.md",
+      "lines": 260,
+      "words": 1935,
+      "code_blocks": 0,
+      "languages": [],
+      "version": "\"1.0.0\""
+    },
+    {
       "name": "spec-driven-development",
       "description": "Structured spec-driven development workflow. Load this skill whenever starting a new feature, building a system from scratch, requirements are unclear, or a user asks to \"plan\", \"spec out\", \"design\", ",
       "path": "shaunburdick--skills/skills/spec-driven-development/SKILL.md",
@@ -177281,9 +177292,9 @@
       "description": "Enforces safe git practices for AI coding agents. Defines branch protection rules, commit policies, amend rules, and force-push boundaries. Load this skill at the start of any session where the agent ",
       "path": "shaunburdick--skills/skills/git-safety/SKILL.md",
       "remote_path": "skills/git-safety/SKILL.md",
-      "lines": 525,
-      "words": 2877,
-      "code_blocks": 22,
+      "lines": 362,
+      "words": 1896,
+      "code_blocks": 16,
       "languages": [
         "bash",
         "yaml"
@@ -177322,8 +177333,8 @@
       "description": "\"Load when creating commits, PRs, issues, or comments that need AI attribution. Standardizes the Generated-By trailer format across all surfaces \u2014 commits, PRs, issues, comments, and source code \u2014 for",
       "path": "shaunburdick--skills/skills/ai-attribution/SKILL.md",
       "remote_path": "skills/ai-attribution/SKILL.md",
-      "lines": 247,
-      "words": 1025,
+      "lines": 252,
+      "words": 1065,
       "code_blocks": 10,
       "languages": [
         "bash",

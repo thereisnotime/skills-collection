@@ -6,7 +6,8 @@
 ## 存在哪里、如何执行
 
 在 Skill 目录运行 `scripts/forecast_log.py`，需要 Python 3.10+ 与 macOS/Linux。
-默认文件是 `${XDG_STATE_HOME:-~/.local/state}/tibo-reset-codex/forecasts.jsonl`；
+默认状态目录是 `${XDG_STATE_HOME:-~/.local/state}/tibo-reset-codex/`；其中
+`forecasts.jsonl` 保存预测与核验，`withdrawals.jsonl` 保存撤回，`findings.jsonl` 保存原始读数。
 未设置 `XDG_STATE_HOME` 时解析用户家目录，已设置时使用该环境变量的目录。
 可用全局参数 `--state-dir` 显式选择另一个数据目录，之后查询与追加必须使用同一目录；
 `--no-git` 关闭本地 git 快照（规则见下方 findings 节）。
@@ -25,24 +26,24 @@ uv run python scripts/forecast_log.py summary
 
 ## 每次调用先回看
 
-1. 运行 `summary`，先读 `due_for_followup`（窗口已过期或 24h 内将关闭——阈值即脚本常量
-   `CLOSING_SOON_HOURS`——且尚无定论的
-   pending，带完整 id 可直接喂 review），再读 `pending` 和 `recent_resolved`。`pending`
+1. 运行 `summary`，先读 `due_for_followup`（窗口已过期或即将关闭、尚无定论的 pending；
+   临近关闭阈值以脚本常量 `CLOSING_SOON_HOURS` 为准，完整 id 可直接喂 review），
+   再核对 `withdrawal_conflicts`，然后读 `pending`、`recent_resolved` 和 `recent_withdrawn`。`pending`
    同时含未核验与证据不足的记录；`window_elapsed` 只说明窗口已过，不判输赢。没有历史时
-   按当前证据预测，记录为空不构成错误。接续监测轮用 `handoff` 读取最新完整交接；
+   按当前证据给判断，记录为空不构成错误。接续监测轮用 `handoff` 读取最新完整交接；
    需要其他轮次的原始读数时再读数据目录的 `findings.jsonl` 原始行。
    `findings` 命令只返回摘要（id/invocation/query/endpoints 数），不含 `readings` 与 `notes`。
 2. 按主 Skill 取得本轮本来要查的事件证据，核对它能否回答未决预测。明确只有个人额度的
    查询无需为台账另开一轮全局调查；缺证据的记录继续保留，下次有相关证据再核验。
-   窗口刚过期的未决预测趁观测区间未漂移立即核验：每拖一轮，区间宽一轮（2026-09-24 实测：
-   banked 预测过期 26h 后才查，0→1 只能夹到跨边界区间，本可判 hit 变 unknown；banked 的
-   判别器是 query_usage 的计数变化，不是落地确认帖）。
+   窗口刚过期的未决预测趁观测区间未漂移立即核验；拖延会扩大观测区间，使窗口跨边界。
+   banked 的判别器是 query_usage 的计数变化，不是落地确认帖。
 3. 对可核验的记录追加 `review`。核对**预测发出后首个同类型事件**，不能挑后面恰好命中
    窗口的那次；不能用备用重置兑现全局重置预测，也不能用个人额度回满证明全局发生。
-4. 读最新结果再预测。关注是否持续偏早/偏晚、哪个催化信号有效（预测的 `catalyst_expected`
-   对照回填的 `catalyst_actual`）、窗口是否过宽；结合当前
-   产品规则判断旧结果是否仍可比。用一句话说明本次因此怎样调整窗口/信心/信号权重；
-   不调整也写理由。一次失误不足以归纳固定规律，不能把本来不知道的信息写成当时应知。
+4. 读最新结果，再决定能否给出有依据的日期预测。关注是否持续偏早/偏晚、哪个催化信号有效
+   （预测的 `catalyst_expected` 对照回填的 `catalyst_actual`）、窗口是否过宽；结合当前产品
+   规则判断旧结果是否仍可比。若给日期窗口，说明本次为何调整窗口、信心或信号权重；不调整也
+   写理由。没有可支持的日期时给等待判断，不创建窗口。一次失误不足以归纳固定规律，不能把
+   本来不知道的信息写成当时应知。
 
 ## findings：原始读数层
 
@@ -54,7 +55,7 @@ uv run python scripts/forecast_log.py summary
 
 ```bash
 uv run python scripts/forecast_log.py finding --input /tmp/tibo-finding.json
-uv run python scripts/forecast_log.py findings              # 最近 20 条；--limit N 可调
+uv run python scripts/forecast_log.py findings              # --limit N 可调
 uv run python scripts/forecast_log.py handoff               # 最新完整监测交接；无记录时为 null
 ```
 
@@ -110,11 +111,33 @@ uv run python scripts/forecast_log.py summary
 会自动标为 `revision_of`；必须沿用同一规范原帖 URL，不用不同镜像伪造不同轮次。
 完全相同的输入重试返回原记录。脚本记录真实写入时刻，不为以前的口头预测伪造精确发出时间。
 
-**`pending` 按 `recorded_at` 递增排序，`recent_resolved` 按最新核验排序，两者都不依赖台账的
-文件顺序**（2026-09-16 起为显式保证；此前 `pending` 只靠 JSONL 追加顺序，任何重写、合并或
-按 id 过滤台账的命令都会打乱它）。所以读 `pending` 时**最后一条就是当前有效预测**——它一定
-是同一锚点下的最新 `record`，`revision_of` 链上更早的论据不会因为台账被动过而浮到前面。
-倒序台账上已验证：`summary` 仍报出递增顺序。据此判断，**不要自己按文件位置挑记录**。
+**`pending` 按 `recorded_at` 递增排序，`recent_resolved` 与 `recent_withdrawn` 分别按核验、
+撤回的追加顺序排序。** `pending` 的最后一条只是最近发出且尚未核验或撤回的
+预测；若更新的同锚点预测已撤回，它可能是较早的旧判断。先读 `recent_withdrawn` 和监测交接，
+再决定是否沿用；不要单靠文件位置或 `pending[-1]` 宣称它当前有效。
+
+## 撤回没有依据的预测：withdraw
+
+预测的时间前提被证伪或发现原本缺少依据时，追加撤回记录，不把 `confidence` 改低后继续保留
+同一个无依据窗口，也不编一个替代日期。撤回写入同一 state-dir 的 `withdrawals.jsonl`；
+`forecasts.jsonl` 保持原有 forecast/review 格式，让仍使用旧版脚本的会话继续读账。撤回只改
+新版摘要中的有效状态，不删除最初判断或修改原始读数。
+
+```bash
+uv run python scripts/forecast_log.py withdraw --input /tmp/tibo-withdrawal.json
+uv run python scripts/forecast_log.py summary
+```
+
+输入 JSON 必填 `forecast_id`、`reason`（具体撤回依据）、`lesson`（下一次怎样避免）；如有
+对应 findings，以 `evidence_refs` 挂链。完全相同的输入重试返回原记录；已撤回预测不能再
+`review`，已有 `hit` / `early` / `late` 核验的预测也不能用撤回来掩盖结果。`summary` 将它从
+`pending` 和 `due_for_followup` 移到 `recent_withdrawn`，但 `forecast_count` 仍包含原预测；
+若它是同锚点的首份预测，`cycle_counts` 明列 `withdrawn`，不把撤回算作命中或未知。
+若旧版会话在撤回后仍写入有分数的 `review`，新版 `summary.withdrawal_conflicts` 列出
+每条冲突记录的 ID 与结果；即使后来又写入 `unknown` 或旧版请求早于撤回开始但晚于撤回落盘，
+冲突仍保留。撤回时新版会拒绝已有分数的预测，所以任何共存的有分数 `review` 都需要核对；
+不能从任一客户端的单侧摘要直接定案。
+下一轮从 `summary` 及 `handoff` 读回后才说“已撤回”；交接文字不能代替台账状态。
 
 ## 回填证据：review
 
@@ -155,7 +178,7 @@ uv run python scripts/forecast_log.py summary
 同一事件的多次预测都保留，但 `cycle_counts` 只按同类型同锚点的首份预测
 计数，未知锚点不进该计数。未决项单列；不要把所有调用次数当独立样本，也不要删去失败的
 首份预测、只展示后来改中的版本。结合 `window_hours` 看窗口宽度，不能靠无限放宽刷命中。
+撤回记录在 `recent_withdrawn` 单列，不与 `review` 的事件结果混算。
 
 将 `lesson` 用于下次 `feedback_applied`，完成「预测 → 事件核验 → 调整」闭环。没有已核实
-结果就诚实保持原先低信心，不宣称准确率提高。结构测试和离线回放只验证记录与判读行为；
-首次真实预测到期后的核验仍待未来调用完成。
+结果就诚实保持原先低信心，不宣称准确率提高。结构测试和离线回放只验证记录与判读行为。

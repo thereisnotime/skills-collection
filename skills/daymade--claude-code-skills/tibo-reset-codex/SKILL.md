@@ -62,10 +62,13 @@ description: >-
   定位；没有当轮原始记录时保留「获取 / 解析 / 提炼 / 记录哪一步丢失 = unknown」。不要重复查询
   已知结果来代替诊断，也不要再次核对用户已明确说不用查的 banked reset。用户同时明确要求
   当前账户状态，或当前读数会改变这次诊断时，才并行走账号 SOP；这一分流不阻止明确的实时查询。
+- 用户追问**当前**官宣为何尚未到账、为何还没有执行信号 → 按[监测轮](#监测轮从信息到可行动信号)
+  追查兑现状态和原因；这不是上轮漏报归因，不能只重放旧 findings。
 - 裸调用（没带具体问题，只想知道现在什么情况）→ 组合执行：台账回看 → 公告线（Radar 索引 +
-  独立的 Tibo 主帖时间线 + 有界 reply 发现，按 §1 三腿）+ 故障线（§1）→
+  独立的 Tibo 主帖时间线 + 有界 reply 发现，按 §1 各路径）+ 故障线（§1）→
   本机落地状态（§2 脚本）→ [监测轮的线索决策](#监测轮从信息到可行动信号)与台账回填。
-  按输出合同先给当前重置状态结论，再附下一窗口主判断（走预测路径）；公告线、故障线与
+  按输出合同先给当前重置状态结论，再按预测路径给出下一步时间判断；没有可支持的日期窗口时，
+  给出等待是否值得的判断，不为填满格式调用 `record` 造窗。公告线、故障线与
   本机扫描的每次实际抓取先落 findings 记录，回填时用
   evidence_refs 挂链（见[预测反馈的 findings 节](references/forecast-feedback.md)）。**§2 之后必须再跑一次实时 banked 查询**（`scripts/query_usage.py`，读法与字段表见
   [账号 SOP](references/account-usage.md)）——§2 的 rollout 快照结构上没有备用重置字段，不跑就
@@ -77,7 +80,8 @@ description: >-
   定时循环（如 `/loop`）重复触发时，若距上次检查间隔很短（<10 分钟）且上轮无改判信号，可只跑
   公告线确认无新官宣、跳过 incidents/banked/本机扫描全套；这是降成本的取舍，未查的维度
   仍标 uncovered。间隔正常、台账里的线索到达复查条件，或上轮出现过新信号时仍跑全套。
-  **按时段降频**（与按间隔那条正交，两者叠加）：Tibo 睡眠时段（太平洋 1AM–8AM = 北京 16–23）
+  **按时段降频**（与按间隔那条正交，两者叠加）：Tibo 睡眠时段（`America/Los_Angeles`
+  01:00–08:00；每次按当日时区换算北京时间）
   只跑公告线一个请求确认无新官宣，跳过 incidents/banked/本机扫描全套——官宣型重置从不落在他
   睡眠时段（历史模式，见「Tibo 的时间写法」节），补偿型不依赖他的作息。**降频不能省掉新条目
   的全文判读**：Radar 成功返回比上次已裁决更新的索引项时，先按 §1 读取原帖全文，再决定是否
@@ -85,9 +89,7 @@ description: >-
   正文出现未来承诺；正文中的时间、类型或范围会改变安排；或台账里已有未决承诺到达跟进条件。
   命中任一项就升级回全套，并按承诺的改判条件跟进；都未命中才保留单请求降频。代价要说清：
   睡眠时段万一发生无官宣的静默重置，会延迟到活跃时段才发现——静默重置也是人触发的，历史
-  模式支持睡眠时段不会发生，按可接受处理。（2026-09-18 用户拍板保留正常降频分支；2026-09-24
-首次实战：睡眠时段裸调用因 Tuesday 承诺跟进到期升级全套——到期项从 summary 的
-`due_for_followup` 直接读（见「监测轮」step 1），不用翻 rationale。）
+  模式支持睡眠时段不会发生，按可接受处理。（2026-09-18 用户拍板保留正常降频分支。）
   **正常轮与覆盖自审**：固定检查腿是当前已知来源的起点，不是完整信源表，更不保证「不漏
   新重置」。每轮按下文的线索决策处理新证据、未决问题与反馈；连续无新信号也要在下一次
   正常轮检查是否出现了值得追查的来源、上下文或反证。用户问「有没有漏信号 / 别人怎么预测」
@@ -131,6 +133,9 @@ description: >-
   - 官方明确 all/every → 「官方确认全员重置」。
 - 证据、竞争解释和待核字段放在结论之后。拿不到某账户的 `Next reset` 或 banked 状态时，
   仍先对已知事实下结论，再说明哪一层属性不能确认；禁止以「你检查后自行判断」收尾。
+- 用户追问未兑现的承诺、到账延迟或事件时间线时，结论之后按时间顺序列出会改变判断的节点：
+  故障与恢复（若相关）、官方原帖的承诺时刻与措辞、承诺后的账户读数、后续完成或解释信号。
+  每个节点标明时区、原始来源和它实际证明的范围；缺失的节点保留未知，不拿公告时刻充当到账时刻。
 - 后续核验动作只用于证实/证伪这个结论，不得把它写成让用户代替 agent 做判断的选择题。
 - **未来时间问题要给预测判断。** 有明确预告时先报换算后的官宣窗口；没有时继续分析近期同类
   事件与当前信号，按[预测路径](references/next-reset-forecast.md)给出有依据的主窗口、信心和
@@ -146,7 +151,9 @@ description: >-
 
 1. **接上上轮的问题。** 读 `forecast_log.py summary`，先看 `due_for_followup`（窗口已过期或
    即将关闭、尚无定论的预测——到期跟进项从这里第一眼读，不用翻 rationale；closing_soon 的
-   阈值定义见 forecast-feedback.md），再从同一 state-dir 运行 `forecast_log.py handoff`
+   阈值定义见 forecast-feedback.md）；若有 `withdrawal_conflicts`，先核对冲突的撤回与旧版核验；
+   若有 `recent_withdrawn`，先排除已撤回的旧窗口，再从
+   同一 state-dir 运行 `forecast_log.py handoff`
    读取最新一条 `invocation=monitor` 的完整原始行；`findings` 子命令的紧凑列表不显示
    `notes`，不能用它代替交接正文。`handoff` 返回 `null` 表示尚无监测交接，不能推断此前
    没有值得追的线索。
@@ -160,14 +167,17 @@ description: >-
    文字；同一原帖的镜像和群截图只算一份事实，但群截图作为新的发现路径应保留。先判断
    「这条信息若为真，会改变哪一个关于时间、范围、类型、到账或使用策略的判断」，再决定
    是否追下一跳；不能以 `reset` 等固定关键词或 tracker 标签作语义闸门。
-3. **沿问题扩来源，而非无限抓取。** 已知来源空白、上下文指向别处、或候选会改变行动时，
+3. **沿问题扩来源，而非无限抓取。** 已知来源空白、未来承诺尚无独立兑现证据、用户追问原因、
+   上下文指向别处，或候选会改变行动时，先标明公告、服务恢复、账户到账、影响范围与执行原因
+   哪些已有证据，再列能改变判断的竞争解释。承诺没有截止时间时，本账户暂未变化是待证状态，
+   不是承诺与产品相矛盾；也不能据此断言后端尚未执行或已在其他账户到账。
    从帖子引用、回复对象、官方事故、独立账户观测和用户已授权的社区记录中选最有辨别力的
    下一跳。用户已指出「VIP 1群｜一支烟花社区」是本案有效的补充发现源；正常轮若尚无该群
    的新鲜覆盖，就用现有 `read-wechat-messages` 读取其增量，包含纯图片与语音，随后回原帖
    核验。相关群会随用户反馈和实际信号增减，不把这个群写成永远完整的来源清单。群消息是
    发现与交叉核对渠道，转发次数不是独立证据。每跳写明它要区分的竞争解释；查不到时
-   保留 unknown 与下一次可执行的复查条件。证据已足以决定下一步、
-   或追加来源不会改变判断时停止扩展。
+   保留 unknown 与下一次可执行的复查条件。证据已足以回答用户问的状态或原因，
+   或追加来源不会改变有界结论时停止扩展；平台内部原因无可读证据时明确保留 unknown。
 4. **分层输出并保留行动差异。** 已核实的事件、未来承诺和行动提示可构成信号；含糊回复、
    里程碑或第三方解读先列候选，若会改变当前安排仍及时提示其歧义与补证条件，不升格为
    明文承诺。明确区分 `global`、`banked`、`both`、个人周期和类型未明：`global` 到来前可
@@ -186,9 +196,9 @@ description: >-
 
 ## 查证工作流
 
-### 1. 公告路径：Radar、Tibo 主帖与 reply 是三条覆盖腿
+### 1. 公告路径：Radar、Tibo 主帖与 reply
 
-**正常轮次必须实际尝试三条腿：Radar、Tibo 主帖时间线、下文的有界 reply 发现。** Radar 可能
+**正常轮次必须实际尝试 Radar、Tibo 主帖时间线与下文的有界 reply 发现。** Radar 可能
 完全没有索引一条新的独立主帖；主帖时间线也不含 replies，所以前两条都无新仍不能跳过 reply
 发现。宿主没有可用的已登录 X 通道时，reply 腿的执行结果是 `unknown`，不是静默省略。按时段
 降频的已批准例外仍按入口分流执行：降频轮只查 Radar 时，把 `main_posts` 与 `replies` 都记为
@@ -308,20 +318,18 @@ curl -sS --max-time 20 "https://api.fxtwitter.com/<user>/status/<status-id>" \
 静态抓取只能拿到 meta 与壳，正文内容经 WebSearch 引用。HTML
 `codex-reset.com/tibo` 是 SPA，静态内容可能滞后；只作人类视图。
 
-**codexrunway.com**（`www.codexrunway.com`，2026-09-01 实测静态可抓、无需 JS）同属这一家族，
-但有两个便宜的附加值：给出**带概率的预测窗口**（实测「≥65% 概率、窗口为 PT 当日全天」），
-以及会**主动引用官方故障帖**。预测仍是同族解读，不算独立观测源。
-**预测腿：可抓 `www.codexrunway.com/api/status.json`（2026-09-18 起纳入裸调用轮询）**——静态页
-之外还有这个 JSON 端点，给三个便宜信号：①`events[]` 里每条 completed 事件带 `confidence`
-（09-12 全局重置实测 0.96）；②`Expected next reset` 字段——**它给 `None` 本身就是信息**，连最
-激进的第三方预测器在 Tibo 沉默超窗后都不再外推，比自建窗口更该参考；③`monitor.status`
-自健康。定位说清：它验证的是「多一个独立预测读数」，**不**验证「读它提高了预测准确率」——
-至今没有用它做过 hit/miss 回测的完整周期（台账首次真实预测核验仍待未来调用完成），所以是
-「值得进循环的便宜交叉信号」，不是「已证明提升预测质量」。抓取：`curl` 直连该端点，3 次重试
-（同其他端点，会间歇抖动）。⚠️ **事件完成判定的字段是 `kind=='reset_completed'`，不是
-`status=='completed'`**——按 status 过滤会读到 `completed: 0` 的错答案（2026-09-19 实测）；
-可直接复制的过滤：`[e for e in d['events'] if e.get('kind')=='reset_completed']`，再按
-`announcedAt` 排序取最新。
+**第三方预测腿**：`www.codexrunway.com/api/status.json` 于 2026-09-26 跳转到
+`didcodexreset.com/api/status.json`；每次取回后核对最终 URL、`generatedAt`、
+`lastSuccessfulCheckAt`、`monitor.status` 与当前字段，不假定旧域名或旧字段永久有效。
+当前响应以 `events[]` 的 `kind` 区分 `reset_scheduled` 与 `reset_completed`，没有旧说明中的
+`Expected next reset` 字段。它仍是对 Tibo 等公开信息的同族解读，不是独立账户观测。
+直连 JSON 失败时最多重试 3 次；取最近已完成事件可用
+`[e for e in d['events'] if e.get('kind') == 'reset_completed']`，按 `announcedAt` 排序。
+**预测时间必须回原帖核对**：每条 `reset_scheduled` 比较 `announcedAt`、`effectiveAt` 和
+原帖的时间措辞。2026-09-26 的响应把无时限的将来时承诺标为 `scheduleBasis=explicit`，
+`effectiveAt` 甚至早于原帖 `announcedAt`；生效时间早于来源帖或原帖没有时限时，保留承诺
+待兑现，弃用站点给出的日期。`reset_completed` 也只是站点分类，
+须回原帖找完成措辞或用产品读数核验；按 `status=='completed'` 过滤不是事件判据。
 
 **Radar 索引不到官方故障线——这是公告路径的结构性盲区。** Radar 只索引 @thsottiaux，而
 ChatGPT/Codex 的故障由 **@ChatGPT** 账号和 **status.openai.com** 发布。Tibo 的重置惯例上有
@@ -390,15 +398,15 @@ done
 09-12 的 "reset is also landing by midnight today"）；纯错误率抖动无补偿措辞 → 只记候选。
 `impact: none` 且 <2h 恢复、正文无额度语义的按噪声忽略。
 
-**③ 社区 monitor —— 静默重置下唯一的独立第二眼，纳入常规轮询。** Radar 只索引 @thsottiaux、
-incidents 是 OpenAI 自述；两者都空时，社区实测是能独立发现"静默重置已发生"的通道。每轮和上面
-一起跑（两站同源家族，只作交叉不增独立计数；verdict=No 是正常态，只有变 Yes 才触发静默路径）：
+**③ 社区帖子分类器，纳入常规轮询。** 它跟踪 @thsottiaux 帖子，能提示 Radar 漏掉的帖子或
+不同解读；不能独立发现没有帖子、只有账户额度变化的静默重置。后者走 §3 的账户与社区实测。
+每轮和上面一起跑（两站同源，只作解读交叉不增独立计数；先核成功检查与时间，再读 Yes/No）：
 
 ```bash
-# 社区 reset monitor（独立第二眼，判 verdict）。http!=200 就跳过，不阻塞。
+# 社区帖子分类器（提取候选与检查时刻，按下文判读）。http!=200 就跳过，不阻塞。
 for u in "https://hascodexratelimitreset.today" "https://lidless.app/did-codex-reset-today"; do
   f="/tmp/tibo_c_$(echo "$u"|md5).html"
-  code=$(curl -sS -m 15 -A "Mozilla/5.0" -o "$f" -w '%{http_code}' -L "$u" 2>/dev/null)
+  code=$(curl -sS -m 15 -A "Mozilla/5.0" -o "$f" -w '%{http_code}' -L "$u")
   [ "$code" = "200" ] || { echo "  $u http=$code 跳过"; continue; }
   python3 -c "
 import re,html
@@ -406,12 +414,23 @@ t=open('$f',encoding='utf-8',errors='replace').read()
 txt=re.sub(r'<script.*?</script>|<style.*?</style>','',t,flags=re.S)
 txt=re.sub(r'\s+',' ',html.unescape(re.sub(r'<[^>]+>',' ',txt))).strip()
 m=re.search(r'(No sign.{0,80}|Verdict: (Yes|No))',txt)
-print('  monitor:', (m.group(0) if m else 'verdict 未解析')[:90])"
+mirror='lidless.app' in '$u'
+unready=re.search(r'No classification yet|Awaiting first pass|Waiting for first tracked post',txt,re.I)
+checked=re.search(r'Last checked.{0,70}',txt,re.I)
+if mirror: verdict='unknown: mirror requires upstream and time check'
+elif unready: verdict='unknown: first pass incomplete'
+elif not checked: verdict='unknown: check time unavailable'
+else: verdict='unknown: verify check time'
+print('  monitor:',verdict[:90],'| candidate:',(m.group(0) if m else 'none')[:90],'| check:',(checked.group(0) if checked else 'time unavailable')[:90])"
 done
 ```
 
-`verdict` 变 **Yes**、或 lidless 文案从 "No sign" 变实锤 → 立即走 §3 静默重置路径（用实时 API +
-同时段实测交叉，按证据范围命名，不外推全员）。verdict=No / 解析不到 → 正常态，不动。
+`No classification yet` / `Awaiting first pass`、缺少可核的检查时刻、检查早于本轮承重公告或
+按其时区换算后晚于当前时钟，都记 `unknown`；镜像只显示候选文案，不能替上游补一次成功检查。
+上游检查时刻有效且候选文案变 **Yes**、或 lidless 文案从 "No sign" 变实锤并经上游核对后，
+先找它引用的原帖，再用实时 API 与同时段账户实测核验；有重置官宣按官宣路径判，无官宣而
+账户异常归零才走 §3 静默重置路径，均按证据范围命名，不外推全员。候选 No / 解析不到只表示
+这个帖子分类器未给出阳性，不关闭未兑现的官宣、账户异常或用户正在追问的原因。
 
 ### 2. 本机取证：Codex rollout 快照 = 可脚本化的第一手账户证据
 

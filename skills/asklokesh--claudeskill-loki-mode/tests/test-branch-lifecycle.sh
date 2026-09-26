@@ -112,7 +112,7 @@ _extract_ok=true
 # name so a future move out of range fails loudly here instead of vacuously
 # (an out-of-range _commit_path_looks_secret would be command-not-found at
 # commit time, which the `if` silently treats as "not a secret").
-for fn in setup_agent_branch _commit_scan_secret_file _commit_path_looks_secret commit_session_changes create_session_pr; do
+for fn in setup_agent_branch _loki_snapshot_preexisting _commit_scan_secret_file _commit_path_looks_secret commit_session_changes create_session_pr; do
     grep -q "^${fn}() {" "$BRANCH_LIB" || _extract_ok=false
 done
 if [ "$_extract_ok" = true ]; then
@@ -546,6 +546,455 @@ if [ -z "$porcgf" ] \
     pass "greenfield: untracked source committed (app.js + src/index.js), tree clean"
 else
     fail "greenfield source not captured" "porcelain='$porcgf' committed='$commgf'"
+fi
+
+# =============================================================================
+# Test T-preexisting-untracked (HEADLINE, BACKLOG 15): the user's own untracked
+# files that existed when the branch was minted stay untracked and untouched;
+# only the files the session created are committed. Names carry a space, a
+# newline and a glob character, and the agent creates x.glob, which the
+# pre-existing '*.glob' would match if it were read as a pattern.
+# =============================================================================
+echo "Test T-preexisting-untracked (HEADLINE): user's untracked files not swept into the session commit"
+RPU="$(make_repo tpreuntracked)"
+NLNAME="$(printf 'nl\nname.txt')"
+outpu="$(
+    cd "$RPU" || exit 1
+    source "$PREAMBLE"
+    printf 'mine 1\n' > 'my notes.txt'
+    printf 'mine 2\n' > "$NLNAME"
+    printf 'mine 3\n' > '*.glob'
+    mkdir -p 'dir with space' && printf 'mine 4\n' > 'dir with space/deep.txt'
+    setup_agent_branch >/dev/null 2>&1
+    snap="$( [ -s .loki/state/preexisting-untracked.z ] && echo yes || echo no )"
+    printf 'agent\n' > agent.js
+    printf 'agent glob\n' > x.glob
+    ITERATION_COUNT=1
+    result=0
+    commit_session_changes >/dev/null 2>&1
+    rc=$?
+    in_head=""
+    for p in 'my notes.txt' "$NLNAME" '*.glob' 'dir with space/deep.txt'; do
+        git cat-file -e "HEAD:$p" 2>/dev/null && in_head="${in_head}[$p]"
+    done
+    agent_in=0
+    git cat-file -e HEAD:agent.js 2>/dev/null && agent_in=$((agent_in + 1))
+    git cat-file -e HEAD:x.glob 2>/dev/null && agent_in=$((agent_in + 1))
+    ncommitted="$(git diff --name-only -z HEAD~1 HEAD | tr -cd '\000' | wc -c | tr -d ' ')"
+    nuntracked="$(git ls-files -z --others --exclude-standard | tr -cd '\000' | wc -c | tr -d ' ')"
+    base="$(cat .loki/state/base-branch.txt)"
+    git checkout -q "$base" 2>/dev/null
+    intact=yes
+    [ "$(cat 'my notes.txt' 2>/dev/null)" = "mine 1" ] || intact=no
+    [ "$(cat "$NLNAME" 2>/dev/null)" = "mine 2" ] || intact=no
+    [ "$(cat '*.glob' 2>/dev/null)" = "mine 3" ] || intact=no
+    [ "$(cat 'dir with space/deep.txt' 2>/dev/null)" = "mine 4" ] || intact=no
+    printf 'SNAP=%s RC=%s INHEAD=[%s] AGENT=%s NCOMMITTED=%s NUNTRACKED=%s INTACT=%s' \
+        "$snap" "$rc" "$in_head" "$agent_in" "$ncommitted" "$nuntracked" "$intact"
+)"
+if [ "$outpu" = "SNAP=yes RC=0 INHEAD=[] AGENT=2 NCOMMITTED=2 NUNTRACKED=4 INTACT=yes" ]; then
+    pass "pre-existing untracked files (space, newline, glob char) stay untracked and intact after switching back; only agent.js and x.glob committed"
+else
+    fail "pre-existing untracked files swept into the session commit (or agent work lost)" "got: $outpu"
+fi
+
+# =============================================================================
+# Test T-no-snapshot: a session minted before the snapshot existed has no
+# .loki/state/preexisting-untracked.z. Behave as before (commit the work),
+# never crash.
+# =============================================================================
+echo "Test T-no-snapshot: missing snapshot (older session) -> commit as before, no crash"
+RNSN="$(make_repo tnosnapshot)"
+outnsn="$(
+    set -u -o pipefail
+    cd "$RNSN" || exit 1
+    source "$PREAMBLE"
+    setup_agent_branch >/dev/null 2>&1
+    rm -f .loki/state/preexisting-untracked.z
+    printf 'agent\n' > work.js
+    ITERATION_COUNT=1
+    result=0
+    commit_session_changes >/dev/null 2>&1
+    rc=$?
+    in_head="$(git cat-file -e HEAD:work.js 2>/dev/null && echo yes || echo no)"
+    printf 'RC=%s INHEAD=%s ALIVE' "$rc" "$in_head"
+)"
+if [ "$outnsn" = "RC=0 INHEAD=yes ALIVE" ]; then
+    pass "no snapshot: work committed as before, returned 0"
+else
+    fail "missing snapshot broke the session commit" "got: $outnsn"
+fi
+
+# =============================================================================
+# Test T-exclude-fails-closed: if the unstage of the pre-existing files fails
+# (git < 2.25 has no --pathspec-from-file), commit NOTHING rather than sweep
+# the user's files in; the work stays on disk and the message says why.
+# =============================================================================
+echo "Test T-exclude-fails-closed: unstage failure -> no commit, work preserved, honest message"
+REFC="$(make_repo texcludefails)"
+outefc="$(
+    cd "$REFC" || exit 1
+    source "$PREAMBLE"
+    printf 'mine\n' > usernotes.txt
+    setup_agent_branch >/dev/null 2>&1
+    before="$(git rev-list --count HEAD)"
+    printf 'agent\n' > work.js
+    # Leading '(' on the case pattern: bash 3.2 misparses a bare pattern ')'
+    # inside $( ... ).
+    git() {
+        case " $* " in (*" --pathspec-from-file="*) return 129 ;; esac
+        command git "$@"
+    }
+    ITERATION_COUNT=1
+    result=0
+    msg="$(commit_session_changes 2>&1)"
+    rc=$?
+    unset -f git
+    after="$(git rev-list --count HEAD)"
+    staged="$(git diff --cached --name-only | tr '\n' ' ')"
+    work="$( [ -f work.js ] && [ -f usernotes.txt ] && echo yes || echo no )"
+    honest="$(printf '%s' "$msg" | grep -q 'could not exclude your pre-existing untracked files' && echo yes || echo no)"
+    printf 'RC=%s SAME=%s STAGED=[%s] WORK=%s HONEST=%s' \
+        "$rc" "$( [ "$before" = "$after" ] && echo yes || echo no )" "$staged" "$work" "$honest"
+)"
+if [ "$outefc" = "RC=0 SAME=yes STAGED=[] WORK=yes HONEST=yes" ]; then
+    pass "unstage failure: no commit, index clean, work preserved, honest message"
+else
+    fail "unstage failure did not fail closed" "got: $outefc"
+fi
+
+# =============================================================================
+# Test T-old-git-fails-closed: on git older than 2.18, status rejects
+# --no-renames / --ignored=matching and there is no --pathspec-from-file.
+# The snapshot fails; the session must commit NOTHING (a missing snapshot must
+# not fall back to "sweep everything"), and the user's file must survive a
+# checkout of the base.
+# =============================================================================
+echo "Test T-old-git-fails-closed: snapshot unsupported by git -> no commit, user file survives"
+ROG="$(make_repo toldgit)"
+outog="$(
+    cd "$ROG" || exit 1
+    source "$PREAMBLE"
+    base="$(command git rev-parse --abbrev-ref HEAD)"
+    printf 'my private notes\n' > usernotes.txt
+    # Model git 2.17 for the whole session (leading '(' on case patterns for
+    # bash 3.2 inside $( ... )).
+    git() {
+        case " $* " in
+            (*" status "*"--no-renames"*|*" status "*"--ignored=matching"*) return 129 ;;
+            (*" --pathspec-from-file="*) return 129 ;;
+        esac
+        command git "$@"
+    }
+    setup_agent_branch >/dev/null 2>&1
+    marker="$( [ -f .loki/state/preexisting-untracked.failed ] && echo yes || echo no )"
+    before="$(command git rev-list --count HEAD)"
+    printf 'agent\n' > work.js
+    ITERATION_COUNT=1
+    result=0
+    msg="$(commit_session_changes 2>&1)"
+    unset -f git
+    after="$(git rev-list --count HEAD)"
+    git checkout -q "$base" 2>/dev/null
+    intact="$( [ "$(cat usernotes.txt 2>/dev/null)" = "my private notes" ] && echo yes || echo no )"
+    honest="$(printf '%s' "$msg" | grep -q 'could not record your pre-existing untracked files' && echo yes || echo no)"
+    printf 'MARKER=%s SAME=%s INTACT=%s HONEST=%s' "$marker" \
+        "$( [ "$before" = "$after" ] && echo yes || echo no )" "$intact" "$honest"
+)"
+if [ "$outog" = "MARKER=yes SAME=yes INTACT=yes HONEST=yes" ]; then
+    pass "old git: snapshot failure fails closed, no commit, user file survives the base checkout"
+else
+    fail "old git did not fail closed" "got: $outog"
+fi
+
+# =============================================================================
+# Test T-resume-resnapshot (BACKLOG 57): the user returns to the base branch,
+# makes a file, and resumes. setup_agent_branch checks out the recorded branch;
+# the new file must not be swept into the resumed session's commit (and then
+# deleted from disk by a checkout of the base).
+# =============================================================================
+echo "Test T-resume-resnapshot: a file made between sessions is not swept on the resume path"
+RRS="$(make_repo tresume)"
+outrs="$(
+    cd "$RRS" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    session="$(git rev-parse --abbrev-ref HEAD)"
+    printf 'agent 1\n' > work1.js
+    commit_session_changes >/dev/null 2>&1
+    git checkout -q develop
+    printf 'mine, between sessions\n' > 'between notes.txt'
+    setup_agent_branch >/dev/null 2>&1
+    resumed="$( [ "$(git rev-parse --abbrev-ref HEAD)" = "$session" ] && echo yes || echo no )"
+    printf 'agent 2\n' > work2.js
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e 'HEAD:between notes.txt' 2>/dev/null && echo yes || echo no)"
+    agent="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    git checkout -q develop
+    intact="$( [ "$(cat 'between notes.txt' 2>/dev/null)" = 'mine, between sessions' ] && echo yes || echo no )"
+    printf 'RESUMED=%s INHEAD=%s AGENT=%s INTACT=%s' "$resumed" "$in_head" "$agent" "$intact"
+)"
+if [ "$outrs" = "RESUMED=yes INHEAD=no AGENT=yes INTACT=yes" ]; then
+    pass "resume path: file made between sessions not committed, intact on the base; the session's own work committed"
+else
+    fail "resume path swept a file made between sessions (or lost agent work)" "got: $outrs"
+fi
+
+# =============================================================================
+# Test T-resume-no-overwrite-ignored: the base ignores config.local.json; session
+# 1 un-ignores it and commits its own copy on the session branch. Back on the
+# base, the user writes their real config.local.json (ignored there). Resuming
+# would let git overwrite it (checkout treats ignored files as expendable) and
+# a later checkout of the base would delete it. The resume must be refused, a
+# new session branch minted, and the user's file kept and never committed.
+# Session 2's setup runs in its own bash process: the minted name is
+# loki/session-<epoch>-$$ and $$ is constant inside this subshell.
+# =============================================================================
+echo "Test T-resume-no-overwrite-ignored: a resume never overwrites a gitignored user file"
+RNO="$(make_repo tresumeignored)"
+outno="$(
+    cd "$RNO" || exit 1
+    source "$PREAMBLE"
+    printf 'config.local.json\n' >> .gitignore
+    git add .gitignore && git commit -qm "ignore local config"
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    s1="$(git rev-parse --abbrev-ref HEAD)"
+    printf 'build/\n' > .gitignore
+    printf '{"agent":1}\n' > config.local.json
+    printf 'print(1)\n' > app.py
+    commit_session_changes >/dev/null 2>&1
+    s1_tracks="$( [ "$(git show "$s1:config.local.json" 2>/dev/null)" = '{"agent":1}' ] && echo yes || echo no )"
+    s1_head="$(git rev-parse "$s1")"
+    git checkout -q develop
+    printf '{"user":"my real settings"}\n' > config.local.json
+    base_ignores="$(git check-ignore -q config.local.json && echo yes || echo no)"
+    bash -c '. "$1"; setup_agent_branch' _ "$PREAMBLE" >/dev/null 2>&1
+    s2="$(git rev-parse --abbrev-ref HEAD)"
+    if [[ "$s2" == loki/session-* ]] && [ "$s2" != "$s1" ]; then new=yes; else new=no; fi
+    recorded="$( [ "$(cat .loki/state/agent-branch.txt 2>/dev/null)" = "$s2" ] && echo yes || echo no )"
+    during="$(cat config.local.json 2>/dev/null)"
+    # Session 2 un-ignores it too, so only the snapshot keeps it out of the commit.
+    printf 'build/\n' > .gitignore
+    exposed="$(git check-ignore -q config.local.json && echo no || echo yes)"
+    printf 'print(2)\n' > app2.py
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e HEAD:config.local.json 2>/dev/null && echo yes || echo no)"
+    agent="$(git cat-file -e HEAD:app2.py 2>/dev/null && echo yes || echo no)"
+    s1_same="$( [ "$(git rev-parse "$s1")" = "$s1_head" ] && echo yes || echo no )"
+    git checkout -q develop
+    after="$(cat config.local.json 2>/dev/null || echo MISSING)"
+    printf 'S1TRACKS=%s BASEIGN=%s NEW=%s RECORDED=%s DURING=%s EXPOSED=%s INHEAD=%s AGENT=%s S1SAME=%s AFTER=%s' \
+        "$s1_tracks" "$base_ignores" "$new" "$recorded" "$during" "$exposed" "$in_head" "$agent" "$s1_same" "$after"
+)"
+if [ "$outno" = 'S1TRACKS=yes BASEIGN=yes NEW=yes RECORDED=yes DURING={"user":"my real settings"} EXPOSED=yes INHEAD=no AGENT=yes S1SAME=yes AFTER={"user":"my real settings"}' ]; then
+    pass "resume refused, new session branch minted; the user's ignored config.local.json intact during and after, never committed; session 2's own work committed"
+else
+    fail "a resume overwrote (or lost, or committed) a gitignored user file" "got: $outno"
+fi
+
+# =============================================================================
+# Test T-already-on-loki-resnapshot (BACKLOG 57): the user stays on the session
+# branch, makes a file, and runs again (the already-on-loki path).
+# =============================================================================
+echo "Test T-already-on-loki-resnapshot: a file made between sessions is not swept on the already-on-loki path"
+RAL="$(make_repo talreadyloki)"
+outal="$(
+    cd "$RAL" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    printf 'agent 1\n' > work1.js
+    commit_session_changes >/dev/null 2>&1
+    printf 'mine, between sessions\n' > between.txt
+    setup_agent_branch >/dev/null 2>&1
+    printf 'agent 2\n' > work2.js
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e HEAD:between.txt 2>/dev/null && echo yes || echo no)"
+    agent="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    git checkout -q develop
+    intact="$( [ "$(cat between.txt 2>/dev/null)" = 'mine, between sessions' ] && echo yes || echo no )"
+    printf 'INHEAD=%s AGENT=%s INTACT=%s' "$in_head" "$agent" "$intact"
+)"
+if [ "$outal" = "INHEAD=no AGENT=yes INTACT=yes" ]; then
+    pass "already-on-loki path: file made between sessions not committed, intact on the base; the session's own work committed"
+else
+    fail "already-on-loki path swept a file made between sessions (or lost agent work)" "got: $outal"
+fi
+
+# =============================================================================
+# Test T-interrupt-resume-commits-agent-files (council regression of 4fdf673e):
+# session 1 creates helper.py and test_helper.py and is interrupted, so no
+# session commit runs. The resume union must not adopt those files as the
+# user's: the resumed session, which makes app.py import helper, commits them
+# (the committed tree runs). A file the user made between sessions is still
+# not committed and survives checkout of the base. The two record calls model
+# the post-provider record and cleanup()'s record on the interrupt. The first
+# call runs before any setup, over a leftover snapshot: it must record nothing.
+# =============================================================================
+echo "Test T-interrupt-resume-commits-agent-files: an interrupted session's own files are committed after the resume"
+RIR="$(make_repo tinterrupt)"
+outir="$(
+    cd "$RIR" || exit 1
+    source "$PREAMBLE"
+    printf 'print("app")\n' > app.py
+    git add app.py && git commit -qm "app"
+    printf 'mine, before\n' > before.txt
+    # A snapshot left by an older session; this process has not taken one.
+    mkdir -p .loki/state && : > .loki/state/preexisting-untracked.z
+    _loki_record_session_created >/dev/null 2>&1
+    gated="$( [ -e .loki/state/session-created.z ] && echo no || echo yes )"
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    s1_head="$(git rev-parse HEAD)"
+    printf 'def greet():\n    return "hi"\n' > helper.py
+    _loki_record_session_created >/dev/null 2>&1
+    printf 'import helper\nassert helper.greet() == "hi"\n' > test_helper.py
+    _loki_record_session_created >/dev/null 2>&1
+    record="$(tr '\000' '|' < .loki/state/session-created.z 2>/dev/null)"
+    nocommit="$( [ "$(git rev-parse HEAD)" = "$s1_head" ] && echo yes || echo no )"
+    printf 'mine, between sessions\n' > 'user notes.txt'
+    resume_log="$(setup_agent_branch 2>&1)"
+    carried="$(printf '%s' "$resume_log" | grep -q 'Carried over.*helper.py, test_helper.py' && echo yes || echo no)"
+    printf 'import helper\nprint(helper.greet())\n' > app.py
+    commit_session_changes >/dev/null 2>&1
+    tree="$(git ls-tree -r --name-only HEAD | tr '\n' ' ')"
+    cleared="$( [ -e .loki/state/session-created.z ] && echo no || echo yes )"
+    mkdir -p "$WORKROOT/tinterrupt-tree"
+    runs="$(git archive HEAD | tar -x -C "$WORKROOT/tinterrupt-tree" \
+        && (cd "$WORKROOT/tinterrupt-tree" && python3 -E app.py 2>&1))"
+    git checkout -q develop
+    intact="$( [ "$(cat 'user notes.txt' 2>/dev/null)" = 'mine, between sessions' ] \
+        && [ "$(cat before.txt 2>/dev/null)" = 'mine, before' ] && echo yes || echo no )"
+    printf 'GATED=%s RECORD=[%s] NOCOMMIT=%s CARRIED=%s TREE=[%s] CLEARED=%s RUNS=%s INTACT=%s' \
+        "$gated" "$record" "$nocommit" "$carried" "$tree" "$cleared" "$runs" "$intact"
+)"
+if [ "$outir" = "GATED=yes RECORD=[helper.py|test_helper.py|] NOCOMMIT=yes CARRIED=yes TREE=[.gitignore app.py helper.py seed.txt test_helper.py ] CLEARED=yes RUNS=hi INTACT=yes" ]; then
+    pass "interrupted session's helper.py and test_helper.py committed by the resumed session (the tree runs); user files before and between sessions not committed and intact on the base; record gated, then cleared"
+else
+    fail "an interrupted session's own files were adopted as the user's (or a user file was swept)" "got: $outir"
+fi
+
+# =============================================================================
+# Test T-interrupt-ignored-dir-user-file (council round 5): session 1's agent
+# ignores the user's logs/ directory and is interrupted. The session-created
+# record must not hold the directory entry logs/, or the resume union would
+# refuse to adopt a file the user then creates inside it, and session 2's
+# .gitignore rewrite would sweep that file into the commit (and off the disk
+# on checkout of the base).
+# =============================================================================
+echo "Test T-interrupt-ignored-dir-user-file: a user file made inside an agent-ignored directory survives the resume"
+RID="$(make_repo tintignored)"
+outid="$(
+    cd "$RID" || exit 1
+    source "$PREAMBLE"
+    printf '*.log\n' >> .gitignore
+    git add .gitignore && git commit -qm "ignore logs"
+    mkdir -p logs
+    printf 'readme\n' > logs/readme.txt
+    printf 'log\n' > logs/a.log
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    printf 'logs/\n' >> .gitignore
+    _loki_record_session_created >/dev/null 2>&1
+    _loki_record_session_created >/dev/null 2>&1
+    nodir="$(tr '\000' '\n' < .loki/state/session-created.z 2>/dev/null | grep -qx 'logs/' && echo no || echo yes)"
+    printf 'my notes\n' > logs/notes-2026.txt
+    setup_agent_branch >/dev/null 2>&1
+    printf 'node_modules/\n' > .gitignore
+    commit_session_changes >/dev/null 2>&1
+    inhead="$(git ls-tree -r --name-only HEAD | grep -q '^logs/notes-2026.txt$' && echo yes || echo no)"
+    git checkout -q develop
+    intact="$( [ "$(cat logs/notes-2026.txt 2>/dev/null)" = 'my notes' ] \
+        && [ "$(cat logs/readme.txt 2>/dev/null)" = 'readme' ] && echo yes || echo no )"
+    printf 'NODIR=%s INHEAD=%s INTACT=%s' "$nodir" "$inhead" "$intact"
+)"
+if [ "$outid" = "NODIR=yes INHEAD=no INTACT=yes" ]; then
+    pass "interrupted session's ignore of logs/ does not stop the resume from protecting a user file made inside it"
+else
+    fail "a user file made inside an agent-ignored directory was swept after the resume" "got: $outid"
+fi
+
+# =============================================================================
+# Test T-ignored-not-swept (BACKLOG 58): the agent rewrites .gitignore, exposing
+# the user's ignored files to `git add -A`. None may be committed. The snapshot
+# stays compact (node_modules/ and dist/ are one entry each) and a directory
+# that merely holds ignored files (logs/) is listed file by file, so the
+# agent's new logs/app.json is still committed.
+# =============================================================================
+echo "Test T-ignored-not-swept: gitignored user files survive an agent .gitignore rewrite"
+RIG="$(make_repo tignored)"
+outig="$(
+    cd "$RIG" || exit 1
+    source "$PREAMBLE"
+    mkdir -p node_modules/pkg dist logs
+    printf 'module\n' > node_modules/pkg/index.js
+    printf 'bin\n' > dist/out.bin
+    printf 'log\n' > debug.log
+    printf 'old log\n' > logs/old.log
+    setup_agent_branch >/dev/null 2>&1
+    snap="$(tr '\000' '|' < .loki/state/preexisting-untracked.z 2>/dev/null)"
+    printf 'tmp/\n' > .gitignore
+    printf 'agent\n' > agent.js
+    printf '{}\n' > logs/app.json
+    ITERATION_COUNT=1
+    result=0
+    commit_session_changes >/dev/null 2>&1
+    committed="$(git diff --name-only HEAD~1 HEAD | tr '\n' ' ')"
+    git checkout -q develop
+    intact=yes
+    [ "$(cat node_modules/pkg/index.js 2>/dev/null)" = module ] || intact=no
+    [ "$(cat dist/out.bin 2>/dev/null)" = bin ] || intact=no
+    [ "$(cat debug.log 2>/dev/null)" = log ] || intact=no
+    [ "$(cat logs/old.log 2>/dev/null)" = "old log" ] || intact=no
+    printf 'SNAP=[%s] COMMITTED=[%s] INTACT=%s' "$snap" "$committed" "$intact"
+)"
+if [ "$outig" = "SNAP=[debug.log|dist/|logs/old.log|node_modules/|] COMMITTED=[.gitignore agent.js logs/app.json ] INTACT=yes" ]; then
+    pass "ignored files not committed after a .gitignore rewrite and intact on the base; snapshot has 4 compact entries; agent's logs/app.json committed"
+else
+    fail "gitignored user files swept (or snapshot not compact, or agent work lost)" "got: $outig"
+fi
+
+# =============================================================================
+# Test T-preexisting-modified-listed (BACKLOG 59): the agent edits a file that
+# was already untracked. It is still never committed, but the receipt's diff
+# (workspace_diff) lists it as preexisting_modified; an untouched one stays
+# unlisted. SCRIPT_DIR points at autonomy/ so the hash step finds its helper.
+# =============================================================================
+echo "Test T-preexisting-modified-listed: an agent edit to a pre-existing untracked file is disclosed, not committed"
+RPM="$(make_repo tpremodified)"
+outpm="$(
+    cd "$RPM" || exit 1
+    source "$PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    printf 'mine\n' > notes.txt
+    printf 'keep\n' > keep.txt
+    base="$(git rev-parse HEAD)"
+    setup_agent_branch >/dev/null 2>&1
+    hashes="$( [ -s .loki/state/preexisting-untracked.sha.z ] && echo yes || echo no )"
+    printf 'agent edit\n' >> notes.txt
+    printf 'agent\n' > work.js
+    ITERATION_COUNT=1
+    result=0
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    listed="$(python3 -E -c 'import sys
+sys.path.insert(0, sys.argv[1])
+from workspace_diff import collect_workspace_diff
+stat, _ = collect_workspace_diff(".", sys.argv[2])
+print(",".join("%s:%s" % (f["status"], f["path"]) for f in stat["files"]))' "$PROJECT_DIR/autonomy/lib" "$base" 2>&1)"
+    printf 'HASHES=%s INHEAD=%s LISTED=[%s]' "$hashes" "$in_head" "$listed"
+)"
+if [ "$outpm" = "HASHES=yes INHEAD=no LISTED=[preexisting_modified:notes.txt,modified:work.js]" ]; then
+    pass "edited pre-existing notes.txt not committed but listed as preexisting_modified; untouched keep.txt unlisted"
+else
+    fail "agent edit to a pre-existing untracked file not disclosed (or committed)" "got: $outpm"
 fi
 
 # =============================================================================

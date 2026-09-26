@@ -2678,7 +2678,7 @@ _advance_current_phase() {
     [ -f "$orch" ] || return 0
     # Values are passed via argv (not interpolated into the source) so a phase or
     # path containing quotes can never break or inject into the python.
-    python3 -c "
+    python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, sys
 f, phase = sys.argv[1], sys.argv[2]
 try:
@@ -4377,7 +4377,7 @@ _loki_receipt_facts() {
     local pj="$loki_dir/proofs/$rid/proof.json"
     [ -f "$pj" ] || return 0
     local headline=""
-    headline="$(python3 -c "
+    headline="$(python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
@@ -4999,7 +4999,7 @@ except Exception:
     _LOKI_CS_ASSUMPTIONS_HIGH="$assumptions_high" \
     _LOKI_CS_OUT_FILE="$loki_dir/state/completion.json" \
     _LOKI_CS_LAST_ERROR="$loki_dir/state/LAST_ERROR.json" \
-    python3 -c "
+    python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, tempfile
 out = os.environ['_LOKI_CS_OUT_FILE']
 def i(v):
@@ -5219,7 +5219,7 @@ print_completion_card() {
     # split would collapse adjacent empties). Any failure leaves the card
     # unrendered. Trailing-newline guard: NUL-free, fields are single-line.
     local _fields
-    _fields="$(python3 -c "
+    _fields="$(python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json,sys
 try:
     d=json.load(open(sys.argv[1]))
@@ -5541,7 +5541,8 @@ validate_exec_manifest_result() {
     result_file=$(mktemp "${TARGET_DIR}/.loki/.exec-manifest-result.XXXXXX") || return 1
     LOKI_RESULT_FILE="$result_file" LOKI_RESULT_STREAM="$stream_name" \
       LOKI_RESULT_BASE="$base_sha" LOKI_RESULT_BRANCH="$branch" \
-      LOKI_RESULT_REPO="$TARGET_DIR" python3 <<'PY'
+      LOKI_RESULT_REPO="$TARGET_DIR" python3 -E - <<'PY'
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os, subprocess
 paths = subprocess.check_output(
     ["git", "-C", os.environ["LOKI_RESULT_REPO"], "diff", "--name-only",
@@ -8098,7 +8099,7 @@ generate_proof_of_run() {
         ITERATION_COUNT="${ITERATION_COUNT:-0}" \
         PROVIDER_NAME="$provider" \
         PRD_PATH="${prd_path:-}" \
-        python3 "$gen" \
+        python3 -E "$gen" \
             --loki-dir "$loki_dir" \
             --loki-version "$ver" \
             --provider "$provider" \
@@ -8125,7 +8126,7 @@ generate_proof_of_run() {
     ITERATION_COUNT="${ITERATION_COUNT:-0}" \
     PROVIDER_NAME="$provider" \
     PRD_PATH="${prd_path:-}" \
-    python3 "$gen" \
+    python3 -E "$gen" \
         --loki-dir "$loki_dir" \
         --loki-version "$ver" \
         --provider "$provider" \
@@ -9063,6 +9064,10 @@ setup_agent_branch() {
     # Controlled by LOKI_BRANCH_PROTECTION env var (default: true). Set it to
     # "false" to opt out fully and work on the current branch (back-compat).
     local branch_protection="${LOKI_BRANCH_PROTECTION:-true}"
+    # Set to 1 only once THIS run has a current snapshot (mint or resume
+    # union); _loki_record_session_created records nothing otherwise, since a
+    # leftover or stale snapshot would make it claim a user's file.
+    _LOKI_SNAPSHOT_THIS_RUN=0
 
     if [ "$branch_protection" != "true" ]; then
         log_info "Branch protection disabled (LOKI_BRANCH_PROTECTION=${branch_protection})"
@@ -9097,11 +9102,15 @@ setup_agent_branch() {
 
     # Already on a loki branch (session-* or delegate-*): idempotent reuse, do
     # not nest a branch off a loki branch (LOCK A5/A7).
+    # Both reuse paths add what is untracked now to the pre-existing list (a
+    # file the user made between sessions is theirs), except the files an
+    # unfinished previous session created (_loki_resume_snapshot).
     case "$cur" in
         loki/*)
             log_info "Already on loki branch ${cur}"
             mkdir -p .loki/state 2>/dev/null || true
             printf '%s\n' "$cur" > .loki/state/agent-branch.txt 2>/dev/null || true
+            _loki_resume_snapshot
             return 0
             ;;
     esac
@@ -9112,8 +9121,14 @@ setup_agent_branch() {
     if [ -s .loki/state/agent-branch.txt ]; then
         recorded="$(cat .loki/state/agent-branch.txt 2>/dev/null || true)"
         if [ -n "$recorded" ] && git rev-parse --verify "$recorded" >/dev/null 2>&1; then
-            if git checkout "$recorded" >/dev/null 2>&1; then
+            # --no-overwrite-ignore: git's default checkout silently replaces a
+            # gitignored user file at a path the session branch tracks, and the
+            # file is gone when the user switches back. On conflict the resume
+            # is refused and a fresh session branch (with a fresh snapshot) is
+            # minted below.
+            if git checkout --no-overwrite-ignore "$recorded" >/dev/null 2>&1; then
                 log_info "Resuming on recorded agent branch: ${recorded}"
+                _loki_resume_snapshot
                 return 0
             fi
             log_warn "Recorded agent branch ${recorded} could not be checked out - creating a new one"
@@ -9132,11 +9147,30 @@ setup_agent_branch() {
 
     log_info "Branch protection enabled - creating agent branch: $branch_name (base: $cur)"
 
+    # Record the user's own untracked and gitignored files so
+    # commit_session_changes and the receipt leave them alone.
+    local snap_ok=1 leftover=""
+    if ! _loki_snapshot_or_fail_closed; then
+        snap_ok=0
+        rm -f .loki/state/preexisting-untracked.z .loki/state/preexisting-untracked.sha.z 2>/dev/null
+        log_warn "Could not record pre-existing untracked files; this session will commit nothing (review and commit manually)"
+    fi
+
     # Create and checkout the feature branch
     if ! git checkout -b "$branch_name" 2>/dev/null; then
         log_error "Failed to create agent branch: $branch_name"
         return 1
     fi
+
+    # A new session branch starts with an empty session-created record. Files
+    # an unfinished earlier session left (reached here after a refused resume)
+    # were just snapshotted as pre-existing: kept on disk, never committed.
+    leftover="$(_loki_nul_names .loki/state/session-created.z)"
+    if [ -n "$leftover" ]; then
+        log_warn "Left uncommitted from an earlier unfinished session, now treated as your files: $leftover"
+    fi
+    rm -f .loki/state/session-created.z 2>/dev/null
+    if [ "$snap_ok" = 1 ]; then _LOKI_SNAPSHOT_THIS_RUN=1; fi
 
     # Store the branch name for later use (PR creation, cleanup)
     printf '%s\n' "$branch_name" > .loki/state/agent-branch.txt 2>/dev/null
@@ -9144,6 +9178,180 @@ setup_agent_branch() {
     log_info "Agent branch created: $branch_name"
     audit_log "BRANCH_PROTECTION" "branch=$branch_name"
     echo "$branch_name"
+}
+
+# Snapshot, or fail closed. Any snapshot failure (for example git older than
+# 2.18, whose status lacks --no-renames / --ignored=matching) leaves a marker
+# that makes commit_session_changes commit nothing: a missing snapshot must
+# only ever mean an older session, never "sweep everything".
+_loki_snapshot_or_fail_closed() {
+    if _loki_snapshot_preexisting "$@"; then
+        rm -f .loki/state/preexisting-untracked.failed 2>/dev/null
+        return 0
+    fi
+    mkdir -p .loki/state 2>/dev/null
+    : > .loki/state/preexisting-untracked.failed 2>/dev/null
+    return 1
+}
+
+# _loki_snapshot_preexisting [union]
+# Write .loki/state/preexisting-untracked.z: every path git does not track,
+# untracked and gitignored, repo-wide, NUL-delimited, relative to the repo top.
+# commit_session_changes unstages these and the receipt
+# (autonomy/lib/workspace_diff.py) does not claim them. --ignored=matching lists
+# a directory only when an ignore pattern matches it, so node_modules/ is one
+# "dir/" entry covering its subtree, while logs/ holding only *.log files is
+# listed file by file (a new logs/app.json is still the agent's). "union" keeps
+# the paths already recorded. The sibling .sha.z (content hash per file entry)
+# lets the receipt list a pre-existing file the run changed; it is removed
+# first, so a failed hash step means no detection, never stale hashes. Returns
+# non-zero, leaving any earlier list in place, when git cannot list.
+_loki_snapshot_preexisting() {
+    local snap=".loki/state/preexisting-untracked.z" top="" base="" exclude=""
+    rm -f "${snap%.z}.sha.z" 2>/dev/null
+    top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+    mkdir -p .loki/state 2>/dev/null || return 1
+    # "union" never adds a path listed in session-created.z: those files were
+    # made by a session that did not finish (interrupt, pod loss), so the
+    # session that finishes the work commits them. If the user edits one of
+    # them between sessions it is still the session's file and is committed
+    # with the edit. Recorded entries only block additions; they never remove
+    # a path already in the list.
+    if [ "${1:-}" = union ]; then
+        base="$snap"
+        exclude=".loki/state/session-created.z"
+    fi
+    if ! _loki_untracked_status "$snap.status" \
+       || ! _loki_untracked_merge "$snap.status" "$base" "$exclude" exact "$snap"; then
+        rm -f "$snap.status" "$snap.tmp"
+        return 1
+    fi
+    rm -f "$snap.status"
+    python3 -E "$SCRIPT_DIR/lib/workspace_diff.py" hash-snapshot "$top" "$snap" >/dev/null 2>&1 \
+        || log_warn "Could not hash your pre-existing untracked files; the receipt cannot list the ones this run changes"
+    return 0
+}
+
+# _loki_untracked_status <out>: the one enumeration behind both the snapshot
+# and the session-created record, so the two always agree: raw
+# `git status --porcelain -z` records for the whole repo, .loki excluded.
+# Non-zero, writing nothing, when git cannot list.
+_loki_untracked_status() {
+    local top="" prefix=""
+    top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+    prefix="$(git rev-parse --show-prefix 2>/dev/null)" || return 1
+    git -C "$top" --no-optional-locks status --porcelain -z --no-renames -uall \
+        --ignored=matching --ignore-submodules=all -- ":(exclude,literal)${prefix}.loki" \
+        > "$1" 2>/dev/null && return 0
+    rm -f "$1"
+    return 1
+}
+
+# _loki_untracked_merge <status> <base> <exclude> exact|cover <out>
+# Atomically write <out>: the NUL-delimited paths of <base>, plus every
+# untracked ("??") or ignored ("!!") path in <status> that <exclude> does not
+# hold. With "cover", an <exclude> entry ending in "/" also holds every path
+# below it (workspace_diff._covered). An empty or missing <base> or <exclude>
+# is an empty list; any other read or write failure is non-zero and leaves
+# <out> as it was. Sorted bytewise, like `LC_ALL=C sort -z -u`. One python
+# process: bash 3.2 has no associative arrays, and a bash loop cost 300ms per
+# 6,000 entries on /bin/bash. -E and no cwd on sys.path (D7): the cwd is the
+# agent's repo.
+_loki_untracked_merge() {
+    python3 -E -c 'import sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import os
+status, base, exclude, mode, out = sys.argv[1:6]
+def entries(path, missing_ok=True):
+    try:
+        with open(path, "rb") as fh:
+            return [p for p in fh.read().split(b"\0") if p]
+    except FileNotFoundError:
+        if missing_ok:
+            return []
+        raise
+held = set(entries(exclude)) if exclude else set()
+def covered(path):
+    if path in held:
+        return True
+    cut = path.find(b"/") if mode == "cover" else -1
+    while cut != -1:
+        if path[:cut + 1] in held:
+            return True
+        cut = path.find(b"/", cut + 1)
+    return False
+paths = set(entries(base)) if base else set()
+for rec in entries(status, missing_ok=False):
+    # The session-created record ("cover" mode) never holds a directory entry:
+    # a whole-directory entry (logs/, out/) would stop the resume union from
+    # adopting a file the user later creates inside it, and a .gitignore
+    # rewrite would then sweep that file. Adopting such a directory as
+    # pre-existing fails safe (the agent files inside stay uncommitted).
+    if mode == "cover" and rec.endswith(b"/"):
+        continue
+    if rec[:3] in (b"?? ", b"!! ") and not covered(rec[3:]):
+        paths.add(rec[3:])
+with open(out + ".tmp", "wb") as fh:
+    fh.write(b"".join(p + b"\0" for p in sorted(paths)))
+os.replace(out + ".tmp", out)' "$@" 2>/dev/null
+}
+
+# _loki_record_session_created
+# Union into .loki/state/session-created.z (NUL-delimited, repo-top-relative,
+# atomic) the paths git does not track now that the pre-existing snapshot does
+# not cover: the files this session created. The resume union never adds these
+# to the snapshot, so a session that is interrupted (cleanup) or killed (pod
+# loss: no trap runs, hence the call after every provider turn) still has its
+# own files committed by the session that finishes. commit_session_changes
+# clears the record after a normal commit; a new session branch starts empty.
+# Records nothing unless this run took a current snapshot (a leftover or stale
+# one would make it claim a user's file). On a failure the record is left as it
+# was, never partial, and preexisting-untracked.failed is never touched; the
+# next successful call recomputes everything, so only a failure on the final
+# call before a kill loses paths (those are then treated as the user's: kept on
+# disk, not committed).
+_loki_record_session_created() {
+    local snap=".loki/state/preexisting-untracked.z" out=".loki/state/session-created.z"
+    [ "${_LOKI_SNAPSHOT_THIS_RUN:-0}" = 1 ] || return 0
+    if [ -f "$snap" ] && _loki_untracked_status "$out.status" \
+       && _loki_untracked_merge "$out.status" "$out" "$snap" cover "$out"; then
+        rm -f "$out.status"
+        return 0
+    fi
+    rm -f "$out.status" "$out.tmp" 2>/dev/null
+    log_warn "Could not record the files this session created; if the run stops before the next record, they are treated as yours and left uncommitted"
+    return 1
+}
+
+# _loki_resume_snapshot: the resume paths' union, naming the files carried over
+# from an unfinished previous session (this session's commit includes them).
+_loki_resume_snapshot() {
+    local carried=""
+    if ! _loki_snapshot_or_fail_closed union; then
+        log_warn "Could not add your current untracked files to the pre-existing list; this session will commit nothing (review and commit manually)"
+        return 0
+    fi
+    _LOKI_SNAPSHOT_THIS_RUN=1
+    carried="$(_loki_nul_names .loki/state/session-created.z)"
+    if [ -n "$carried" ]; then
+        log_info "Carried over as this session's work, not adopted as your files (created by the unfinished previous session): $carried"
+    fi
+}
+
+# _loki_nul_names <file>: the entries of a NUL-delimited repo-top-relative list
+# that exist now, comma-separated, the first 20 then "(and N more)".
+_loki_nul_names() {
+    local p top="" n=0 out=""
+    [ -s "$1" ] || return 0
+    top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 0
+    while IFS= read -r -d '' p; do
+        if [ -e "$top/$p" ] || [ -L "$top/$p" ]; then
+            n=$((n + 1))
+            if [ "$n" -le 20 ]; then out="${out}${out:+, }${p}"; fi
+        fi
+    done < "$1"
+    if [ "$n" -gt 20 ]; then out="${out} (and $((n - 20)) more)"; fi
+    printf '%s' "$out"
 }
 
 # RUN-25 iter 21 (Wave D #2): the two secret matchers now live in one sourceable
@@ -9210,8 +9418,37 @@ commit_session_changes() {
         ':!*.key' ':!*.pem' ':!*.p12' ':!*.keystore' \
         ':!id_rsa*' ':!*.token' ':!credentials*' 2>/dev/null || true
 
-    # Nothing staged = clean no-op, never an error.
+    # Unstage exactly the paths recorded as untracked or gitignored when the
+    # session started (setup_agent_branch; a "dir/" entry covers its subtree):
+    # they are the user's, not this session's work, and committing them here
+    # would delete them from disk on a later checkout of the base (an agent
+    # rewrite of .gitignore can expose ignored files to `git add -A`).
+    # Agent-created files stay staged. Skip an empty snapshot: an
+    # empty --pathspec-from-file resets the WHOLE index. No snapshot (older
+    # session): behave as before. If the unstage fails (git < 2.25), commit
+    # nothing rather than sweep the user's files in.
+    if [ -f "$PWD/.loki/state/preexisting-untracked.failed" ]; then
+        git reset -q >/dev/null 2>&1 || true
+        log_warn "Left uncommitted: could not record your pre-existing untracked files at session start (the snapshot needs git 2.18+, excluding them needs 2.25+). Review and commit manually."
+        return 0
+    fi
+    local preexisting="$PWD/.loki/state/preexisting-untracked.z" top=""
+    if [ -s "$preexisting" ]; then
+        if ! { top="$(git rev-parse --show-toplevel 2>/dev/null)" \
+               && git -C "$top" --literal-pathspecs reset -q \
+                      --pathspec-from-file="$preexisting" --pathspec-file-nul >/dev/null 2>&1; }; then
+            git reset -q >/dev/null 2>&1 || true
+            log_warn "Left uncommitted: could not exclude your pre-existing untracked files from the session commit (needs git 2.25+). Review and commit manually."
+            return 0
+        fi
+    fi
+
+    # Nothing staged = clean no-op, never an error. A session that ends here or
+    # commits below ended normally: its session-created record is spent (what
+    # it listed is committed, or was never committable), so the next session
+    # starts clean.
     if git diff --cached --quiet 2>/dev/null; then
+        rm -f .loki/state/session-created.z 2>/dev/null
         return 0
     fi
 
@@ -9253,7 +9490,9 @@ commit_session_changes() {
         return 0
     fi
 
-    git commit -m "Loki Mode session changes (${ITERATION_COUNT:-0} iterations, result=${result:-0})" 2>/dev/null || true
+    if git commit -m "Loki Mode session changes (${ITERATION_COUNT:-0} iterations, result=${result:-0})" 2>/dev/null; then
+        rm -f .loki/state/session-created.z 2>/dev/null
+    fi
     audit_agent_action "git_commit" "Committed session changes" "iterations=${ITERATION_COUNT:-0},result=${result:-0}" || true
     return 0
 }
@@ -10227,7 +10466,8 @@ _loki_supervised_build_result_passes() {
     local result_file="$1"
     ! loki_is_supervised_simple_web && return 0
     [ -s "$result_file" ] || return 1
-    python3 - "$result_file" <<'PYEOF' 2>/dev/null
+    python3 -E - "$result_file" <<'PYEOF' 2>/dev/null
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json
 import sys
 
@@ -10712,7 +10952,8 @@ SAEMPTYEOF
     # not product-specific copy or design opinions.
     local _ui_contract_out="" _ui_contract_rc=0
     _ui_contract_out=$(
-        _LOKI_CHANGED_FILES="$changed_files" python3 - "${TARGET_DIR:-.}" <<'PYEOF' 2>/dev/null
+        _LOKI_CHANGED_FILES="$changed_files" python3 -E - "${TARGET_DIR:-.}" <<'PYEOF' 2>/dev/null
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import os
 import re
 import sys
@@ -10778,8 +11019,14 @@ PYEOF
             [ -f "${TARGET_DIR:-.}/$f" ] || continue
             total_checked=$((total_checked + 1))
             local _py_compile_rc=0
+            # Same check as `python3 -m py_compile` (importlib's source_to_code
+            # is compile(bytes, path, "exec", dont_inherit=True)), but it
+            # writes no __pycache__/*.pyc into the user's repo, where the
+            # session commit would pick it up. -E and the sys.path filter
+            # (D7): the repo under check must not supply modules to the gate.
             LOKI_DEADLINE_IDLE_TIMEOUT=0 _loki_with_deadline "$gate_timeout" \
-                python3 -m py_compile "${TARGET_DIR:-.}/$f" 2>&1 || _py_compile_rc=$?
+                python3 -E -c 'import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]; compile(open(sys.argv[1], "rb").read(), sys.argv[1], "exec", dont_inherit=True)' \
+                "${TARGET_DIR:-.}/$f" 2>&1 || _py_compile_rc=$?
             if [ "$_py_compile_rc" -ne 0 ]; then
                 findings=$((findings + 1))
                 if [ "$_py_compile_rc" -eq 124 ]; then
@@ -11096,7 +11343,7 @@ SECEMPTY
 
     # Run the scanner. exit 0 = no findings, 1 = findings, 2 = bad input.
     local raw rc=0
-    raw=$(python3 "$scanner" "${TARGET_DIR:-.}" --json 2>/dev/null) || rc=$?
+    raw=$(python3 -E "$scanner" "${TARGET_DIR:-.}" --json 2>/dev/null) || rc=$?
     if [ "$rc" -eq 2 ] || [ -z "$raw" ]; then
         cat > "$out_file" << 'SECEMPTY'
 {"rules_version":null,"findings":[],"summary":{"total":0,"by_severity":{}},"skipped":"scanner-error"}
@@ -11110,7 +11357,7 @@ SECEMPTY
     # It prints a final line: ACTIVE_HIGH=<n>\tACTIVE_TOTAL=<n>\tWAIVED=<n>
     # and writes the enriched receipt (findings carry a "waived" bool).
     local verdict
-    verdict=$(_SEC_RAW="$raw" _SEC_WAIVERS="$waivers_file" _SEC_OUT="$out_file" python3 -c '
+    verdict=$(_SEC_RAW="$raw" _SEC_WAIVERS="$waivers_file" _SEC_OUT="$out_file" python3 -E -c 'import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os, sys
 raw = os.environ.get("_SEC_RAW", "")
 waivers_file = os.environ.get("_SEC_WAIVERS", "")
@@ -11610,7 +11857,7 @@ measure_test_coverage() {
                   --coverage.reportsDirectory=.loki/quality/vitest-cov >/dev/null 2>&1) || true
             local f="$target_dir/.loki/quality/vitest-cov/coverage-summary.json"
             if [ -f "$f" ]; then
-                COVERAGE_PCT=$(_LOKI_COV_F="$f" python3 -c "
+                COVERAGE_PCT=$(_LOKI_COV_F="$f" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     d=json.load(open(os.environ['_LOKI_COV_F']))
@@ -11629,7 +11876,7 @@ except Exception:
                   --coverageDirectory=.loki/quality/jest-cov --passWithNoTests >/dev/null 2>&1) || true
             local f="$target_dir/.loki/quality/jest-cov/coverage-summary.json"
             if [ -f "$f" ]; then
-                COVERAGE_PCT=$(_LOKI_COV_F="$f" python3 -c "
+                COVERAGE_PCT=$(_LOKI_COV_F="$f" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     d=json.load(open(os.environ['_LOKI_COV_F']))
@@ -11649,7 +11896,7 @@ except Exception:
                 _loki_run_pytest_with_timeout "$target_dir" \
                     --cov --cov-report="json:$pyc_json" -q >/dev/null 2>&1 || true
                 if [ -f "$pyc_json" ]; then
-                    COVERAGE_PCT=$(_LOKI_COV_F="$pyc_json" python3 -c "
+                    COVERAGE_PCT=$(_LOKI_COV_F="$pyc_json" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     d=json.load(open(os.environ['_LOKI_COV_F']))
@@ -11689,7 +11936,7 @@ except Exception:
                 local out
                 out=$(cd "$target_dir" && timeout "$gate_timeout" cargo llvm-cov --json 2>/dev/null) || true
                 if [ -n "$out" ]; then
-                    COVERAGE_PCT=$(_LOKI_COV_JSON="$out" python3 -c "
+                    COVERAGE_PCT=$(_LOKI_COV_JSON="$out" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     d=json.loads(os.environ['_LOKI_COV_JSON'])
@@ -12412,7 +12659,7 @@ TREOF
         local cov_below=false
         if [ "$COVERAGE_MEASURED" = "true" ] && [ -n "$COVERAGE_PCT" ]; then
             # Float-safe compare via python3 (pct may be e.g. 87.5).
-            if _LOKI_COV_PCT="$COVERAGE_PCT" _LOKI_COV_MIN="$min_coverage" python3 -c "
+            if _LOKI_COV_PCT="$COVERAGE_PCT" _LOKI_COV_MIN="$min_coverage" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import os, sys
 try:
     pct=float(os.environ['_LOKI_COV_PCT']); mn=float(os.environ['_LOKI_COV_MIN'])
@@ -12437,7 +12684,7 @@ sys.exit(0 if pct < mn else 1)
         _LOKI_COV_BLOCKED="$coverage_block" \
         _LOKI_COV_RUNNER="$test_runner" \
         _LOKI_COV_OUT="$quality_dir/coverage.json" \
-        python3 -c "
+        python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, tempfile
 out=os.environ['_LOKI_COV_OUT']
 measured = os.environ.get('_LOKI_COV_MEASURED','false') == 'true'
@@ -12498,7 +12745,7 @@ os.replace(tmp, out)
         _LOKI_COV_BLOCKED="false" \
         _LOKI_COV_RUNNER="$test_runner" \
         _LOKI_COV_OUT="$quality_dir/coverage.json" \
-        python3 -c "
+        python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, tempfile
 out=os.environ['_LOKI_COV_OUT']
 measured = os.environ.get('_LOKI_COV_MEASURED','false') == 'true'
@@ -12531,9 +12778,19 @@ os.replace(tmp, out)
     fi
 
     if [ "$test_passed" = "true" ]; then
-        touch "$quality_dir/unit-tests.pass"
         rm -f "$loki_dir/signals/TESTS_FAILED" 2>/dev/null || true
-        log_info "Test suite gate: $test_runner passed"
+        # BACKLOG 55: the #82 zero-test run exited 0 but proved nothing. It is
+        # inconclusive, so it must not leave the pass marker the receipt reads
+        # as "unit_tests passed" (proof-generator.py _collect_quality_gates).
+        # Still non-blocking (return 0 below) and still not a failure (no
+        # TESTS_FAILED), so the council decides it, per the #82 design.
+        if [ "$_tr_zero_tests" = "true" ]; then
+            rm -f "$quality_dir/unit-tests.pass" 2>/dev/null || true
+            log_warn "Test suite gate: $test_runner ran zero tests -- inconclusive (not passed, not failed)"
+        else
+            touch "$quality_dir/unit-tests.pass"
+            log_info "Test suite gate: $test_runner passed"
+        fi
         # Coverage block is distinct from tests-red: tests passed, but enforced
         # coverage is below threshold. Return nonzero to gate WITHOUT writing the
         # TESTS_FAILED signal or removing unit-tests.pass.
@@ -12767,7 +13024,7 @@ run_doc_quality_gate() {
     local manifest="$project_dir/.loki/docs/docs-manifest.json"
     if [ -f "$manifest" ]; then
         local doc_sha
-        doc_sha=$(python3 -c "import json; print(json.load(open('$manifest')).get('git_sha', ''))" 2>/dev/null)
+        doc_sha=$(python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json; print(json.load(open('$manifest')).get('git_sha', ''))" 2>/dev/null)
         if [ -n "$doc_sha" ]; then
             local behind
             behind=$(git -C "$project_dir" rev-list --count "$doc_sha..HEAD" 2>/dev/null || echo "0")
@@ -13198,7 +13455,7 @@ enforce_lsp_diagnostics() {
     fi
 
     if [ -f "$lsp_file" ]; then
-        verdict=$(_LOKI_LSP_FILE="$lsp_file" python3 -c '
+        verdict=$(_LOKI_LSP_FILE="$lsp_file" python3 -E -c 'import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os, sys
 try:
     with open(os.environ["_LOKI_LSP_FILE"], encoding="utf-8") as handle:
@@ -13537,7 +13794,8 @@ council_verdicts_to_txt_files() {
     local out_dir_env="$review_dir"
     export LOKI_COUNCIL_OUT_DIR="$out_dir_env"
     export LOKI_COUNCIL_VERDICTS_JSON="$verdicts_json"
-    python3 << 'COUNCIL_WRITE'
+    python3 -E - << 'COUNCIL_WRITE'
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json
 import os
 import re
@@ -13626,6 +13884,9 @@ _run_managed_review_council() {
 
     local result_json
     result_json=$(python3 << 'MANAGED_REVIEW' 2>&1
+# Drops the cwd (the agent's repo) from sys.path. No -E here: the
+# LOKI_MANAGED_REVIEW_FAKE_MODULE test hook below is found through PYTHONPATH.
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json
 import os
 import sys
@@ -13724,7 +13985,7 @@ MANAGED_REVIEW
     fi
 
     local status
-    status=$(printf '%s' "$result_json" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('status',''))" 2>/dev/null || echo "")
+    status=$(printf '%s' "$result_json" | python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('status',''))" 2>/dev/null || echo "")
 
     if [ "$status" != "ok" ]; then
         local reason
@@ -16384,7 +16645,8 @@ REVIEW_WAVE_TIMING
     export LOKI_REVIEW_AGG_QSCORE="$quality_score"
     export LOKI_REVIEW_AGG_QMED="$nonblocking_medium"
     export LOKI_REVIEW_AGG_QLOW="$nonblocking_low"
-    python3 << 'AGG_SCRIPT'
+    python3 -E - << 'AGG_SCRIPT'
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os
 result = {
     "review_id": os.environ["LOKI_REVIEW_AGG_ID"],
@@ -16527,7 +16789,8 @@ AGG_SCRIPT
 
         _LOKI_DA_AGG_FILE="$review_dir/$review_id/aggregate.json" \
             _LOKI_DA_STATUS="$da_status" _LOKI_DA_RC="$da_dispatch_rc" \
-            _LOKI_DA_SPECULATIVE="$da_speculative" python3 <<'DA_AGG_PATCH' 2>/dev/null || true
+            _LOKI_DA_SPECULATIVE="$da_speculative" python3 -E - <<'DA_AGG_PATCH' 2>/dev/null || true
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json
 import os
 
@@ -17895,7 +18158,7 @@ is_completed() {
     # Check orchestrator state
     if [ -f ".loki/state/orchestrator.json" ]; then
         if command -v python3 &> /dev/null; then
-            local phase=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase', ''))" 2>/dev/null || echo "")
+            local phase=$(python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase', ''))" 2>/dev/null || echo "")
             # Accept various completion states
             if [ "$phase" = "COMPLETED" ] || [ "$phase" = "complete" ] || [ "$phase" = "finalized" ] || [ "$phase" = "growth-loop" ]; then
                 return 0
@@ -19535,7 +19798,11 @@ load_state() {
         if command -v python3 &> /dev/null; then
             # BUG-ST-006: Validate checkpoint integrity before loading state
             local state_valid
-            state_valid=$(LOKI_STATE_FILE="$state_file" python3 -c "
+            # -E and the sys.path filter (D7): the cwd is the target repo, and a
+            # committed json.py must not decide the loaded iteration count
+            # (a fake non-zero count would skip the iteration-0 evidence drop).
+            state_valid=$(LOKI_STATE_FILE="$state_file" python3 -E -c "
+import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     with open(os.environ['LOKI_STATE_FILE']) as f:
@@ -19561,15 +19828,20 @@ except (json.JSONDecodeError, KeyError, TypeError, OSError):
                 ITERATION_COUNT=0
                 # Back up corrupted state file for diagnosis
                 mv "$state_file" "${state_file}.corrupt.$(date +%s)" 2>/dev/null || true
+                # Starts at iteration 0: drop the previous session's test
+                # evidence, as the iteration-0 block at the end does.
+                rm -f "${TARGET_DIR:-.}/.loki/quality/.test-results.iter" \
+                      "${TARGET_DIR:-.}/.loki/quality/unit-tests.pass" \
+                      "${TARGET_DIR:-.}/.loki/quality/test-results.json" 2>/dev/null || true
                 return
             fi
 
             # Load retry count, iteration count, and status from previous session
             local prev_status
-            prev_status=$(LOKI_STATE_FILE="$state_file" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status', 'unknown'))" 2>/dev/null || echo "unknown")
-            RETRY_COUNT=$(LOKI_STATE_FILE="$state_file" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('retryCount', 0))" 2>/dev/null || echo "0")
+            prev_status=$(LOKI_STATE_FILE="$state_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status', 'unknown'))" 2>/dev/null || echo "unknown")
+            RETRY_COUNT=$(LOKI_STATE_FILE="$state_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('retryCount', 0))" 2>/dev/null || echo "0")
             # BUG-RUN-003: Restore ITERATION_COUNT from persisted state
-            ITERATION_COUNT=$(LOKI_STATE_FILE="$state_file" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('iterationCount', 0))" 2>/dev/null || echo "0")
+            ITERATION_COUNT=$(LOKI_STATE_FILE="$state_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('iterationCount', 0))" 2>/dev/null || echo "0")
 
             # Reset retry count + iteration count if previous session ended in a
             # terminal state. A fresh `loki start` after a terminal run is a NEW
@@ -19629,6 +19901,18 @@ except (json.JSONDecodeError, KeyError, TypeError, OSError):
         fi
     else
         RETRY_COUNT=0
+    fi
+    # A session that starts at iteration 0 has run nothing yet, so a leftover
+    # freshness marker or unit-tests.pass is a previous session's evidence.
+    # Iterations restart at 0, so keeping them would let an old pass:true read
+    # as this iteration's result.
+    if [ "${ITERATION_COUNT:-0}" = "0" ]; then
+        # Same path the writer (enforce_test_coverage) and the freshness
+        # readers use.
+        local _q="${TARGET_DIR:-.}/.loki/quality"
+        # test-results.json too: with the marker gone the receipt's quality
+        # gates fall back to its status, reporting a previous session's run.
+        rm -f "$_q/.test-results.iter" "$_q/unit-tests.pass" "$_q/test-results.json" 2>/dev/null || true
     fi
 }
 
@@ -21909,7 +22193,8 @@ _loki_supervised_completion_gates_pass() {
     local test_iteration="$quality_dir/.test-results.iter"
     if [ ! -s "$test_results" ] || [ ! -s "$test_iteration" ] \
        || [ "$(tr -d '[:space:]' < "$test_iteration" 2>/dev/null)" != "${ITERATION_COUNT:-0}" ] \
-       || ! python3 - "$test_results" <<'PYEOF' 2>/dev/null
+       || ! python3 -E - "$test_results" <<'PYEOF' 2>/dev/null
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json
 import sys
 
@@ -23858,6 +24143,12 @@ if __name__ == "__main__":
         esac
         # v7.5.12: Provider invocation finished (or was killed by trap).
         LOKI_PROVIDER_ACTIVE=0
+
+        # Record the files this session has created so far. A pod loss is a
+        # SIGKILL (no trap runs), so this per-turn record is what lets the
+        # resumed session commit them. One git status; no-op without a
+        # session snapshot.
+        _loki_record_session_created || true
 
         echo ""
         echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -26159,6 +26450,10 @@ cleanup() {
         fi
         # v7.5.12: Kill any running provider pipeline first, before slow cleanup.
         kill_provider_child 2>/dev/null || true
+        # This exit makes no session commit: record the files this session
+        # created (after the provider is gone, so none are added later), so a
+        # resume commits them instead of adopting them as the user's.
+        _loki_record_session_created || true
         rm -f "$loki_dir/STOP" "$loki_dir/PAUSE" "$loki_dir/PAUSED.md" 2>/dev/null
         # UT2-13: Clear cli-provider marker on session end.
         rm -f "$loki_dir/state/cli-provider" 2>/dev/null || true
@@ -26233,6 +26528,8 @@ except (json.JSONDecodeError, OSError): pass
         log_warn "Loki Mode interrupted -- shutting down (double Ctrl+C)"
         # v7.5.12: Kill provider pipeline immediately so we don't wait on it.
         kill_provider_child 2>/dev/null || true
+        # No session commit on this exit either (see the branch above).
+        _loki_record_session_created || true
         # Write STOP signal so any peer processes (dashboard, etc.) also stop.
         mkdir -p "$loki_dir" 2>/dev/null && touch "$loki_dir/STOP" 2>/dev/null || true
         if type app_runner_cleanup &>/dev/null; then
@@ -27102,7 +27399,7 @@ main() {
     local _terminal_status=""
     local _terminal_state_file
     _terminal_state_file="$(_loki_state_file)"
-    _terminal_status=$(LOKI_STATE_FILE="$_terminal_state_file" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status',''))" 2>/dev/null || true)
+    _terminal_status=$(LOKI_STATE_FILE="$_terminal_state_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status',''))" 2>/dev/null || true)
     case "$_terminal_status" in
         deterministic_gates_passed|council_approved|council_force_approved|completion_promise_fulfilled|reuse_already_satisfied)
             if [ "$result" = "0" ]; then
@@ -27163,7 +27460,7 @@ main() {
     # Refresh its durable files against the final HEAD without notifying twice.
     local _completion_file="${TARGET_DIR:-.}/.loki/state/completion.json"
     local _completion_outcome=""
-    _completion_outcome=$(LOKI_COMPLETION_FILE="$_completion_file" python3 -c '
+    _completion_outcome=$(LOKI_COMPLETION_FILE="$_completion_file" python3 -E -c 'import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os
 try:
     value = json.load(open(os.environ["LOKI_COMPLETION_FILE"], encoding="utf-8")).get("outcome", "")
@@ -27288,7 +27585,7 @@ except Exception:
     if [ "${LOKI_DURABLE_STATE:-0}" = "1" ]; then
         local _final_status _final_state_file
         _final_state_file="$(_loki_state_file)"
-        _final_status=$(LOKI_STATE_FILE="$_final_state_file" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status','unknown'))" 2>/dev/null || echo "unknown")
+        _final_status=$(LOKI_STATE_FILE="$_final_state_file" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]; import json, os; print(json.load(open(os.environ['LOKI_STATE_FILE'])).get('status','unknown'))" 2>/dev/null || echo "unknown")
         case "$_final_status" in
             council_approved|council_force_approved|deterministic_gates_passed|completion_promise_fulfilled|paused|interrupted|stopped)
                 result=0 ;;

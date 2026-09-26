@@ -52,6 +52,16 @@ import {
   unanchoredIncludes,
 } from './sync-lockfile.mjs';
 import { refuseFindingsForSource } from './scan-synced-content.mjs';
+import {
+  normalizeRelative,
+  safeFileStatus,
+  safeReadFile,
+  safeReadFileIfExists,
+  safeReadTree,
+  safeRemoveFile,
+  safeWriteFileAtomic,
+  splitSafeRelative,
+} from './safe-fs.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -123,19 +133,83 @@ function logVerbose(message) {
  *
  * Caller must clean up the returned tmpdir.
  */
-function sparseCheckout(repo, sourcePath, branch = 'main', licensePath = 'LICENSE') {
-  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), `sync-${repo.replace('/', '-')}-`));
-  // Authenticated clone bumps rate limits when GITHUB_TOKEN is present.
-  // Format: https://x-access-token:TOKEN@github.com/owner/repo.git
-  const authUrl = process.env.GITHUB_TOKEN
-    ? `https://x-access-token:${process.env.GITHUB_TOKEN}@github.com/${repo}.git`
-    : `https://github.com/${repo}.git`;
+const SAFE_REPO = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
+const SAFE_BRANCH = /^[A-Za-z0-9._/-]+$/;
+// Names the engine owns inside every mirror; upstream may never supply them.
+const RESERVED_MIRROR_FILES = new Set(['.source.json']);
 
-  // Normalize source_path: '' or '.' means "whole repo root". Anything
-  // else is treated as a path prefix. `--no-cone` mode treats patterns
-  // as gitignore-style, so `/*` matches every entry at root recursively.
-  const wholeRepo = !sourcePath || sourcePath === '.' || sourcePath === './';
-  const sparsePatterns = wholeRepo ? ['/*'] : [sourcePath, `/${licensePath.replace(/^\/+/, '')}`];
+function hasGitSegment(rel) {
+  return rel.split('/').some((segment) => segment.toLowerCase() === '.git');
+}
+
+/**
+ * Validate every sources.yaml field that reaches git or the filesystem BEFORE
+ * any clone. Returns normalized values; throws with a clear message otherwise.
+ *   repo         owner/name only (it builds the clone URL and the temp name)
+ *   branch       plain ref characters, never an option, never `..`
+ *   sourceRel    '' for the whole repository, else a validated relative path
+ *                that never names or enters `.git` (which holds clone config)
+ *   licenseRel   a single root LICENSE/COPYING file name
+ *   targetRel    plugins/<category>/<name>
+ */
+export function validateSourceSpec(source, defaultBranch = 'main') {
+  const repo = String(source?.repo ?? '');
+  if (!SAFE_REPO.test(repo) || repo.split('/').some((part) => part === '.' || part === '..')) {
+    throw new Error(`repo "${repo}" must be owner/name`);
+  }
+  const branch = String(source?.branch || defaultBranch || 'main');
+  if (!SAFE_BRANCH.test(branch) || branch.startsWith('-') || branch.includes('..')) {
+    throw new Error(`branch "${branch}" is not a plain ref name`);
+  }
+  const rawSource = source?.source_path;
+  const wholeRepo = !rawSource || rawSource === '.' || rawSource === './';
+  const sourceRel = wholeRepo ? '' : normalizeRelative(rawSource);
+  if (sourceRel && (sourceRel.startsWith('-') || hasGitSegment(sourceRel))) {
+    throw new Error(`source_path "${rawSource}" may not start with "-" or enter .git`);
+  }
+  const licensePath = source?.license_path || 'LICENSE';
+  const licenseRel = normalizeRelative(licensePath);
+  if (licenseRel.includes('/') || !isRootLicenseFile(licenseRel)) {
+    throw new Error(
+      `license_path "${licensePath}" must name a root LICENSE/COPYING file; refusing sync`,
+    );
+  }
+  return { repo, branch, sourceRel, licenseRel, targetRel: mirrorTargetRel(source?.target_path) };
+}
+
+/**
+ * Environment for git that authenticates through an HTTP header instead of
+ * the URL. A token in the URL is written into the clone's .git/config and is
+ * visible in the process list; this keeps it in memory only.
+ */
+function gitEnv() {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+  if (process.env.GITHUB_TOKEN) {
+    const basic = Buffer.from(`x-access-token:${process.env.GITHUB_TOKEN}`).toString('base64');
+    env.GIT_CONFIG_COUNT = '1';
+    env.GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader';
+    env.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${basic}`;
+  }
+  return env;
+}
+
+/**
+ * Sparse-clone a repo into a temp dir and return the local path.
+ * The clone uses --depth=1 --filter=blob:none, then sparse-checkout
+ * restricts blob materialization to the source_path subtree. Result:
+ * ONE git fetch per source, zero REST API calls. Arguments come from
+ * validateSourceSpec, so none can be read as a git option.
+ *
+ * Caller must clean up the returned tmpdir.
+ */
+function sparseCheckout({ repo, branch, sourceRel, licenseRel }) {
+  const tmpdir = fs.mkdtempSync(
+    path.join(os.tmpdir(), `sync-${repo.replace(/[^A-Za-z0-9._-]/g, '-')}-`),
+  );
+  const env = gitEnv();
+  // `--no-cone` patterns are gitignore-style. Anchor with a leading `/` so
+  // only the exact subtree we read (plus the root license) is fetched.
+  const sparsePatterns = sourceRel ? [`/${sourceRel}`, `/${licenseRel}`] : ['/*'];
 
   try {
     execFileSync(
@@ -148,15 +222,18 @@ function sparseCheckout(repo, sourcePath, branch = 'main', licensePath = 'LICENS
         '--branch',
         branch,
         '--quiet',
-        authUrl,
+        '--end-of-options',
+        `https://github.com/${repo}.git`,
         tmpdir,
       ],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
+      { stdio: ['ignore', 'pipe', 'pipe'], env },
     );
 
-    execFileSync('git', ['-C', tmpdir, 'sparse-checkout', 'set', '--no-cone', ...sparsePatterns], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    execFileSync(
+      'git',
+      ['-C', tmpdir, 'sparse-checkout', 'set', '--no-cone', '--end-of-options', ...sparsePatterns],
+      { stdio: ['ignore', 'pipe', 'pipe'], env },
+    );
 
     return tmpdir;
   } catch (err) {
@@ -172,41 +249,179 @@ function sparseCheckout(repo, sourcePath, branch = 'main', licensePath = 'LICENS
 }
 
 /**
- * Walk a directory and return [{ path, content }] for every file.
- * Paths are relative to baseDir.
+ * Read every regular file under `sourcePath` inside a fresh checkout.
+ * Upstream content is hostile by assumption: links and junctions (anywhere,
+ * including a parent of source_path), FIFOs and devices are never followed or
+ * read. They are reported in `skipped` so the run log shows what was ignored.
+ * Paths are relative to sourcePath; bytes are Buffers and modes are kept so
+ * the executable bit survives the mirror.
  */
-function walkFiles(baseDir, relPrefix = '') {
-  const out = [];
-  let entries;
-  try {
-    entries = fs.readdirSync(baseDir, { withFileTypes: true });
-  } catch {
-    return out;
+export function readUpstreamFiles(checkoutDir, sourcePath) {
+  const wholeRepo = !sourcePath || sourcePath === '.' || sourcePath === './';
+  const rel = wholeRepo ? '' : normalizeRelative(sourcePath);
+  if (rel && hasGitSegment(rel)) {
+    throw new Error(`source_path "${sourcePath}" may not enter .git`);
   }
-  for (const ent of entries) {
-    if (ent.name === '.git') continue;
-    const abs = path.join(baseDir, ent.name);
-    const rel = relPrefix ? `${relPrefix}/${ent.name}` : ent.name;
-    if (ent.isDirectory()) {
-      out.push(...walkFiles(abs, rel));
-    } else if (ent.isFile()) {
-      let content;
-      let mode;
-      try {
-        // Read as a Buffer (not utf8) so exact bytes survive the round-trip —
-        // utf8 re-encoding silently corrupts binaries. Capture the upstream
-        // file mode so the executable bit can be restored on write (the
-        // "Check plugin structure" gate requires scripts/*.sh to stay +x).
-        content = fs.readFileSync(abs);
-        mode = fs.statSync(abs).mode;
-      } catch {
-        // Unreadable; skip
-        continue;
-      }
-      out.push({ path: rel, content, mode });
+  return safeReadTree(checkoutDir, rel, { exclude: ['.git'] });
+}
+
+/**
+ * Validate a sources.yaml target_path and return it normalized. Mirrors land
+ * only at plugins/<category>/<name>: a target such as `.github/workflows`
+ * would let upstream bytes become CI configuration, and `plugins/<category>`
+ * would let one upstream overwrite its in-repo neighbours.
+ */
+export function mirrorTargetRel(targetPath) {
+  const rel = normalizeRelative(targetPath);
+  const segments = rel.split('/');
+  if (segments[0] !== 'plugins' || segments.length !== 3) {
+    throw new Error(`target_path "${targetPath}" must be plugins/<category>/<name>`);
+  }
+  return rel;
+}
+
+/**
+ * The engine owns `.source.json` at every mirror root. An upstream file of
+ * that name would let the upstream choose what the next orphan prune deletes,
+ * so a source that ships one is refused.
+ */
+export function assertNoReservedMirrorFiles(files) {
+  const reserved = files.find((file) => RESERVED_MIRROR_FILES.has(file.path.toLowerCase()));
+  if (reserved) {
+    throw new Error(`upstream ships reserved engine file "${reserved.path}"; refusing sync`);
+  }
+}
+
+/**
+ * Return the names of sources whose mirror targets are equal to or nested in
+ * another source's target. Overlapping mirrors could overwrite or prune each
+ * other's files, so those sources are refused.
+ */
+export function findTargetOverlaps(sources) {
+  const targets = [];
+  for (const source of sources) {
+    try {
+      targets.push({ name: source.name, rel: mirrorTargetRel(source.target_path) });
+    } catch {
+      // Invalid targets are reported by the per-source validation.
     }
   }
-  return out;
+  const overlapping = new Set();
+  for (const a of targets) {
+    for (const b of targets) {
+      if (a !== b && (a.rel === b.rel || `${b.rel}/`.startsWith(`${a.rel}/`))) {
+        overlapping.add(a.name);
+        overlapping.add(b.name);
+      }
+    }
+  }
+  return overlapping;
+}
+
+/**
+ * Read the upstream license through the hardened reader. The license path is
+ * a root-level LICENSE/COPYING name; a link, directory or special file there
+ * is refused rather than followed.
+ */
+export function readUpstreamLicense(checkoutDir, licensePath) {
+  const rel = normalizeRelative(licensePath);
+  if (rel.includes('/') || !isRootLicenseFile(rel)) {
+    throw new Error(
+      `license_path "${licensePath}" must name a root LICENSE/COPYING file; refusing sync`,
+    );
+  }
+  let found;
+  try {
+    found = safeReadFileIfExists(checkoutDir, rel);
+  } catch (error) {
+    throw new Error(
+      `upstream license file "${licensePath}" is not a regular file (${error.message}); refusing sync`,
+    );
+  }
+  if (!found) {
+    throw new Error(
+      `upstream license file "${licensePath}" is unavailable; refusing sync rather than distributing bytes without license text`,
+    );
+  }
+  return { path: rel, content: found.content, mode: found.mode };
+}
+
+/**
+ * Write mirrored files under root/targetRel. Every read, comparison and write
+ * goes through safe-fs, so a planted link or special file in the mirror tree
+ * refuses the whole source instead of redirecting a write. Returns changes.
+ */
+export function mirrorFiles({
+  root,
+  targetRel,
+  files,
+  dryRun = false,
+  force = false,
+  report = log,
+}) {
+  const changes = [];
+  for (const file of files) {
+    splitSafeRelative(file.path);
+    const rel = `${targetRel}/${file.path}`;
+    const wantMode = typeof file.mode === 'number' && file.mode & 0o111 ? 0o755 : 0o644;
+    let reason = 'new';
+    let needsUpdate = true;
+    const existing = safeReadFileIfExists(root, rel);
+    if (existing) {
+      needsUpdate = false;
+      // Buffer-to-Buffer compare: exact bytes, binaries included.
+      if (!existing.content.equals(file.content)) {
+        needsUpdate = true;
+        reason = 'modified';
+      } else if (
+        process.platform !== 'win32' &&
+        typeof file.mode === 'number' &&
+        (existing.mode & 0o111) !== (file.mode & 0o111)
+      ) {
+        // Same bytes, different executable bit: self-heal the stale mode.
+        needsUpdate = true;
+        reason = 'mode';
+      }
+    }
+    if (!needsUpdate && !force) continue;
+    if (dryRun) {
+      report(`   📝 Would ${reason === 'new' ? 'create' : 'update'}: ${file.path}`, colors.yellow);
+    } else {
+      // Git's two canonical modes keyed on the upstream executable bit, set
+      // through the descriptor so the result is umask-independent.
+      safeWriteFileAtomic(root, rel, file.content, { mode: wantMode, createParents: true });
+      report(`   ✅ ${reason === 'new' ? 'Created' : 'Updated'}: ${file.path}`, colors.green);
+    }
+    changes.push({ path: file.path, action: reason });
+  }
+  return changes;
+}
+
+/**
+ * Delete files a PRIOR sync owned that upstream has since removed. The prior
+ * manifest is committed, hand-editable data: each entry is validated on its
+ * own, and a traversal, link or special file is refused and reported without
+ * stopping the rest of the prune.
+ */
+export function pruneOrphans({ root, targetRel, priorFiles, ownedFiles, report = log }) {
+  const changes = [];
+  const refused = [];
+  if (!Array.isArray(priorFiles)) return { changes, refused };
+  const ownedSet = new Set(ownedFiles);
+  for (const rel of priorFiles) {
+    if (typeof rel !== 'string' || ownedSet.has(rel)) continue;
+    try {
+      splitSafeRelative(rel);
+      if (safeRemoveFile(root, `${targetRel}/${rel}`)) {
+        report(`   🗑️  Deleted (upstream removed): ${rel}`, colors.yellow);
+        changes.push({ path: rel, action: 'deleted' });
+      }
+    } catch (error) {
+      report(`   ⚠️  Refusing to prune ${JSON.stringify(rel)}: ${error.message}`, colors.red);
+      refused.push({ path: rel, reason: error.message });
+    }
+  }
+  return { changes, refused };
 }
 
 // matchesPattern lives in sync-lockfile.mjs (dependency-free) so the
@@ -219,9 +434,17 @@ export { matchesPattern } from './sync-lockfile.mjs';
  * Malformed or duplicate catalog state fails closed instead of being treated
  * as a missing row that the sync may append around.
  */
-function catalogEntry(pluginName, catalogFile = CATALOG_FILE) {
-  if (!fs.existsSync(catalogFile)) return null;
-  const data = JSON.parse(fs.readFileSync(catalogFile, 'utf8'));
+function catalogLocation(catalogFile, root) {
+  const rel = path.relative(root, catalogFile);
+  if (!rel || path.isAbsolute(rel)) throw new Error(`catalog ${catalogFile} is outside ${root}`);
+  splitSafeRelative(rel);
+  return rel;
+}
+
+function catalogEntry(pluginName, catalogFile = CATALOG_FILE, root = ROOT_DIR) {
+  const found = safeReadFileIfExists(root, catalogLocation(catalogFile, root));
+  if (!found) return null;
+  const data = JSON.parse(found.content.toString('utf8'));
   if (!Array.isArray(data?.plugins)) throw new Error('marketplace catalog has no plugins array');
   const matches = data.plugins.filter((plugin) => plugin?.name === pluginName);
   if (matches.length > 1) throw new Error(`${pluginName}: duplicate marketplace catalog entries`);
@@ -335,28 +558,33 @@ export function safeHttpUrl(value) {
  * Returns true if a plugin.json was created, false if one already existed
  * or dry-run mode.
  */
-function ensurePluginJson(source) {
-  const pluginJsonPath = path.join(ROOT_DIR, source.target_path, '.claude-plugin', 'plugin.json');
+function ensurePluginJson(source, root = ROOT_DIR) {
+  const pluginJsonRel = `${mirrorTargetRel(source.target_path)}/.claude-plugin/plugin.json`;
 
-  if (fs.existsSync(pluginJsonPath)) {
+  // Throws for a planted link or special file: never read or write through it.
+  const current = safeReadFileIfExists(root, pluginJsonRel);
+  if (current) {
     // License metadata is a projection of the reviewed sources.yaml contract.
     // Preserve upstream fields, but never retain a contradictory license claim
     // after the source record has been corrected.
+    let existing;
     try {
-      const existing = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
-      if (source.license && existing.license !== source.license) {
-        if (options.dryRun) {
-          log(`   📋 Would reconcile plugin.json license: ${source.license}`, colors.yellow);
-          return false;
-        }
-        existing.license = source.license;
-        fs.writeFileSync(pluginJsonPath, JSON.stringify(existing, null, 2) + '\n');
-        log(`   📋 Reconciled plugin.json license: ${source.license}`, colors.green);
-        return true;
-      }
+      existing = JSON.parse(current.content.toString('utf8'));
     } catch {
       // Existing malformed manifests are handled by the normal validators;
       // never rewrite an unreadable upstream-owned file during sync.
+      return false;
+    }
+    if (!existing || typeof existing !== 'object' || Array.isArray(existing)) return false;
+    if (source.license && existing.license !== source.license) {
+      if (options.dryRun) {
+        log(`   📋 Would reconcile plugin.json license: ${source.license}`, colors.yellow);
+        return false;
+      }
+      existing.license = source.license;
+      safeWriteFileAtomic(root, pluginJsonRel, JSON.stringify(existing, null, 2) + '\n');
+      log(`   📋 Reconciled plugin.json license: ${source.license}`, colors.green);
+      return true;
     }
     return false;
   }
@@ -381,9 +609,9 @@ function ensurePluginJson(source) {
     ...(source.repo ? { repository: `https://github.com/${source.repo}` } : {}),
   };
 
-  const dir = path.dirname(pluginJsonPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(pluginJsonPath, JSON.stringify(minimalPlugin, null, 2) + '\n');
+  safeWriteFileAtomic(root, pluginJsonRel, JSON.stringify(minimalPlugin, null, 2) + '\n', {
+    createParents: true,
+  });
   log(`   📋 Synthesized .claude-plugin/plugin.json (upstream had none)`, colors.green);
   return true;
 }
@@ -403,10 +631,11 @@ function ensurePluginJson(source) {
  * Returns true if a README was created, false if one already existed
  * or dry-run mode.
  */
-function ensureReadme(source) {
-  const readmePath = path.join(ROOT_DIR, source.target_path, 'README.md');
+function ensureReadme(source, root = ROOT_DIR) {
+  const targetRel = mirrorTargetRel(source.target_path);
+  const readmeRel = `${targetRel}/README.md`;
 
-  if (fs.existsSync(readmePath)) {
+  if (safeFileStatus(root, readmeRel)) {
     return false; // upstream provided one, or earlier sync wrote one
   }
 
@@ -417,10 +646,10 @@ function ensureReadme(source) {
 
   // Try to use the upstream SKILL.md content as the README body if one
   // is present at the plugin root. Falls back to a minimal stub.
-  const skillPath = path.join(ROOT_DIR, source.target_path, 'SKILL.md');
+  const skill = safeReadFileIfExists(root, `${targetRel}/SKILL.md`);
   let body = '';
-  if (fs.existsSync(skillPath)) {
-    body = fs.readFileSync(skillPath, 'utf8');
+  if (skill) {
+    body = skill.content.toString('utf8');
     // Strip the YAML frontmatter (lines between two `---` lines at start)
     body = body.replace(/^---\n[\s\S]*?\n---\n+/, '');
   } else {
@@ -442,9 +671,7 @@ ${body}
 ${source.license ? `  \n**License:** ${source.license}` : ''}
 `;
 
-  const dir = path.dirname(readmePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(readmePath, readme);
+  safeWriteFileAtomic(root, readmeRel, readme, { createParents: true });
   log(`   📋 Synthesized README.md (upstream had none)`, colors.green);
   return true;
 }
@@ -466,18 +693,21 @@ export function ensureCatalogEntry(
   source,
   { root = ROOT_DIR, catalogFile = CATALOG_FILE, dryRun = options.dryRun } = {},
 ) {
-  const existing = catalogEntry(source.name, catalogFile);
+  const existing = catalogEntry(source.name, catalogFile, root);
   const publishable = assertCatalogPublicationParity(source, existing);
   if (existing) {
     return false; // already present, no action
   }
 
   // Pull version + license from the synced plugin.json if available.
-  const pluginJsonPath = path.join(root, source.target_path, '.claude-plugin', 'plugin.json');
+  const pluginJsonFile = safeReadFileIfExists(
+    root,
+    `${mirrorTargetRel(source.target_path)}/.claude-plugin/plugin.json`,
+  );
   let pluginJson = {};
-  if (fs.existsSync(pluginJsonPath)) {
+  if (pluginJsonFile) {
     try {
-      pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
+      pluginJson = JSON.parse(pluginJsonFile.content.toString('utf8'));
     } catch {
       // ignore parse errors; fall back to sources.yaml metadata
     }
@@ -563,7 +793,8 @@ export function ensureCatalogEntry(
   // Insert the entry. Append at the end of the plugins array, before the
   // closing brace. We avoid full JSON.stringify of the whole file because
   // that reformats every existing entry and trips check-catalog-format.
-  const text = fs.readFileSync(catalogFile, 'utf8');
+  const catalogRel = catalogLocation(catalogFile, root);
+  const text = safeReadFile(root, catalogRel).content.toString('utf8');
   const entryJson = JSON.stringify(entry, null, 2)
     .split('\n')
     .map((line, i) => (i === 0 ? `    ${line}` : `    ${line}`))
@@ -584,7 +815,7 @@ export function ensureCatalogEntry(
   // jamming them onto one line as `},    {`, which the catalog-format gate flags.
   const updated = `${before}${lastEntryClose.replace(/}(\s*)$/, '},')}\n${entryJson}${arrayClose}`;
 
-  fs.writeFileSync(catalogFile, updated);
+  safeWriteFileAtomic(root, catalogRel, updated);
   log(`   📋 Added catalog entry: ${source.name}`, colors.green);
   return true;
 }
@@ -633,15 +864,20 @@ async function syncSource(source, config, lock) {
   let tmpdir = null;
 
   try {
-    const licensePath = source.license_path || 'LICENSE';
-    tmpdir = sparseCheckout(source.repo, source.source_path, branch, licensePath);
+    // Validate every field that reaches git or the filesystem before any
+    // network or disk work.
+    const spec = validateSourceSpec(source, branch);
+    const { targetRel, licenseRel } = spec;
+    tmpdir = sparseCheckout(spec);
     logVerbose(`Sparse-cloned ${source.repo}@${branch} → ${tmpdir}`);
 
-    // Walk the sourcePath subtree (or repo root when source_path is '.' / '').
-    const wholeRepo =
-      !source.source_path || source.source_path === '.' || source.source_path === './';
-    const baseDir = wholeRepo ? tmpdir : path.join(tmpdir, source.source_path);
-    const files = walkFiles(baseDir);
+    // Walk the sourcePath subtree (or repo root when source_path is '.' / '')
+    // through the hardened reader: upstream links and special files are
+    // reported and never followed.
+    const { files, skipped } = readUpstreamFiles(tmpdir, spec.sourceRel);
+    for (const skip of skipped) {
+      log(`   ⚠️  Not mirrored (${skip.reason}): ${skip.path}`, colors.yellow);
+    }
 
     if (files.length === 0) {
       log(`   ⚠️  No files found at source path`, colors.yellow);
@@ -690,30 +926,11 @@ async function syncSource(source, config, lock) {
         'missing explicit root LICENSE/COPYING entry in sources.yaml include[]; refusing sync',
       );
     }
-    const licenseSourcePath = path.resolve(tmpdir, licensePath);
-    const checkoutRoot = path.resolve(tmpdir);
-    if (
-      licenseSourcePath === checkoutRoot ||
-      !licenseSourcePath.startsWith(checkoutRoot + path.sep) ||
-      !fs.existsSync(licenseSourcePath) ||
-      !fs.statSync(licenseSourcePath).isFile()
-    ) {
-      throw new Error(
-        `upstream license file "${licensePath}" is unavailable; refusing sync rather than distributing bytes without license text`,
-      );
-    }
-    const licenseName = path.basename(licensePath);
-    if (!isRootLicenseFile(licenseName)) {
-      throw new Error(
-        `license_path "${licensePath}" must name a root LICENSE/COPYING file; refusing sync`,
-      );
-    }
+    // Read through the hardened reader: an upstream LICENSE that is a link
+    // (for example to a runner file) is refused, never followed.
+    const license = readUpstreamLicense(tmpdir, licenseRel);
     if (!filteredFiles.some((file) => isRootLicenseFile(file.path))) {
-      filteredFiles.push({
-        path: licenseName,
-        content: fs.readFileSync(licenseSourcePath),
-        mode: fs.statSync(licenseSourcePath).mode,
-      });
+      filteredFiles.push(license);
     }
     if (!filteredFiles.some((file) => isRootLicenseFile(file.path))) {
       throw new Error('no root LICENSE/COPYING file selected for mirror; refusing sync');
@@ -826,99 +1043,51 @@ async function syncSource(source, config, lock) {
       };
     }
 
-    for (const file of filteredFiles) {
-      const targetPath = path.join(ROOT_DIR, source.target_path, file.path);
-      const targetDir = path.dirname(targetPath);
+    assertNoReservedMirrorFiles(filteredFiles);
 
-      let needsUpdate = false;
-      let reason = 'new';
-
-      if (fs.existsSync(targetPath)) {
-        // Buffer-to-Buffer compare. file.content is now a Buffer; comparing it
-        // against a utf8 string would ALWAYS be unequal, marking every synced
-        // file "modified" on every run (churning all sources + bloating diffs).
-        const existingContent = fs.readFileSync(targetPath);
-        if (!existingContent.equals(file.content)) {
-          needsUpdate = true;
-          reason = 'modified';
-        } else if (
-          typeof file.mode === 'number' &&
-          (fs.statSync(targetPath).mode & 0o111) !== (file.mode & 0o111)
-        ) {
-          // Same content, different executable bit — self-heal a stale mode
-          // (e.g. a script previously synced 0644 while upstream is now 0755).
-          needsUpdate = true;
-          reason = 'mode';
-        }
-      } else {
-        needsUpdate = true;
-      }
-
-      if (needsUpdate || options.force) {
-        if (options.dryRun) {
-          log(`   📝 Would ${reason === 'new' ? 'create' : 'update'}: ${file.path}`, colors.yellow);
-        } else {
-          if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-          }
-          fs.writeFileSync(targetPath, file.content);
-          // Collapse to git's two canonical modes (0755 / 0644) keyed on the
-          // upstream executable bit, so the result is stable across the runner's
-          // and a dev's umask: executable scripts stay 100755 (the structure
-          // gate requires it); everything else is 0644.
-          if (typeof file.mode === 'number') {
-            fs.chmodSync(targetPath, file.mode & 0o111 ? 0o755 : 0o644);
-          }
-          log(`   ✅ ${reason === 'new' ? 'Created' : 'Updated'}: ${file.path}`, colors.green);
-        }
-        changes.push({ path: file.path, action: reason });
-      } else {
-        logVerbose(`Unchanged: ${file.path}`);
+    // Read the PRIOR provenance manifest before writing anything, so the prune
+    // below is driven only by what the engine itself recorded last time.
+    const sourceJsonRel = `${targetRel}/.source.json`;
+    // Throws for a planted link or special file, failing this source closed.
+    const priorSourceFile = options.dryRun ? null : safeReadFileIfExists(ROOT_DIR, sourceJsonRel);
+    let priorSource = null;
+    if (priorSourceFile) {
+      try {
+        priorSource = JSON.parse(priorSourceFile.content.toString('utf8'));
+      } catch {
+        // Unreadable prior manifest: skip the prune rather than guess.
       }
     }
+
+    changes.push(
+      ...mirrorFiles({
+        root: ROOT_DIR,
+        targetRel,
+        files: filteredFiles,
+        dryRun: options.dryRun,
+        force: options.force,
+      }),
+    );
 
     // Owned-file manifest: the exact set of upstream-matched files this sync
     // owns under target_path (NOT the synthesized README/plugin.json, which the
     // engine generates separately). Drives the orphan prune on the next run.
     const ownedFiles = filteredFiles.map((file) => file.path).sort();
-    const sourceJsonPath = path.join(ROOT_DIR, source.target_path, '.source.json');
 
     // Orphan prune: delete files a PRIOR sync owned but upstream has since
     // removed/renamed. Driven off the persisted manifest so the engine only
     // ever deletes files IT previously authored — immune to derived-file or
     // hand-added collisions. Skipped on the first run after this change, when
     // the prior .source.json has no files[] manifest.
-    if (!options.dryRun && fs.existsSync(sourceJsonPath)) {
-      try {
-        const prior = JSON.parse(fs.readFileSync(sourceJsonPath, 'utf8'));
-        if (Array.isArray(prior.files)) {
-          const ownedSet = new Set(ownedFiles);
-          // Containment root for the prune. prior.files comes from the
-          // COMMITTED .source.json — engine-written manifests hold clean
-          // readdir-relative names, but the file on disk is hand-editable, so
-          // treat every entry as untrusted: a `../../scripts/x.py` entry must
-          // never resolve (and delete) outside this source's target_path.
-          const pruneRoot = path.resolve(ROOT_DIR, source.target_path);
-          for (const rel of prior.files) {
-            if (typeof rel !== 'string' || ownedSet.has(rel)) continue;
-            const orphan = path.resolve(pruneRoot, rel);
-            if (orphan !== pruneRoot && !orphan.startsWith(pruneRoot + path.sep)) {
-              log(
-                `   ⚠️  Manifest path escapes ${source.target_path} — refusing to prune: ${rel}`,
-                colors.red,
-              );
-              continue;
-            }
-            if (fs.existsSync(orphan)) {
-              fs.rmSync(orphan);
-              log(`   🗑️  Deleted (upstream removed): ${rel}`, colors.yellow);
-              changes.push({ path: rel, action: 'deleted' });
-            }
-          }
-        }
-      } catch {
-        // Unreadable prior manifest — skip the prune rather than guess.
-      }
+    if (!options.dryRun && priorSource && typeof priorSource === 'object') {
+      changes.push(
+        ...pruneOrphans({
+          root: ROOT_DIR,
+          targetRel,
+          priorFiles: priorSource.files,
+          ownedFiles,
+        }).changes,
+      );
     }
 
     // Synthesize plugin.json + README.md if the upstream sync didn't
@@ -949,17 +1118,15 @@ async function syncSource(source, config, lock) {
     // reviewed source-record correction (for example MIT → AGPL-3.0 after an
     // upstream license check) must update it even when upstream file bytes are
     // unchanged.
-    if (!options.dryRun && fs.existsSync(sourceJsonPath)) {
-      try {
-        const priorSource = JSON.parse(fs.readFileSync(sourceJsonPath, 'utf8'));
-        if (priorSource.license !== source.license) {
-          changes.push({ path: '.source.json', action: 'provenance' });
-        }
-      } catch {
-        // The final write below repairs the engine-owned manifest when this
-        // sync already has changes; an isolated malformed manifest remains a
-        // validator failure rather than an unreviewed overwrite.
-      }
+    // A malformed prior manifest is left for the validators: the final write
+    // below repairs it only when this sync already has changes.
+    if (
+      !options.dryRun &&
+      priorSource &&
+      typeof priorSource === 'object' &&
+      priorSource.license !== source.license
+    ) {
+      changes.push({ path: '.source.json', action: 'provenance' });
     }
 
     // Write provenance only after every generated projection has settled. This
@@ -978,14 +1145,14 @@ async function syncSource(source, config, lock) {
         files_synced: ownedFiles.length,
         files: ownedFiles,
       };
-      fs.writeFileSync(sourceJsonPath, JSON.stringify(sourceJson, null, 2));
+      safeWriteFileAtomic(ROOT_DIR, sourceJsonRel, JSON.stringify(sourceJson, null, 2));
       logVerbose(`Written .source.json`);
 
       // Loud warning if any synced file is git-ignored: the workflow's
       // `git add -A` would silently drop it, producing an incomplete mirror.
       try {
-        const targets = ownedFiles.map((file) => path.join(source.target_path, file));
-        const ignored = execFileSync('git', ['-C', ROOT_DIR, 'check-ignore', ...targets], {
+        const targets = ownedFiles.map((file) => `${targetRel}/${file}`);
+        const ignored = execFileSync('git', ['-C', ROOT_DIR, 'check-ignore', '--', ...targets], {
           stdio: ['ignore', 'pipe', 'ignore'],
         })
           .toString()
@@ -1055,12 +1222,13 @@ async function main() {
     log('DRY RUN MODE - No changes will be made\n', colors.yellow);
   }
 
-  if (!fs.existsSync(SOURCES_FILE)) {
+  const sourcesFile = safeReadFileIfExists(ROOT_DIR, path.basename(SOURCES_FILE));
+  if (!sourcesFile) {
     log(`❌ sources.yaml not found at ${SOURCES_FILE}`, colors.red);
     process.exit(1);
   }
 
-  const sourcesContent = fs.readFileSync(SOURCES_FILE, 'utf8');
+  const sourcesContent = sourcesFile.content.toString('utf8');
   const { sources, config } = yaml.load(sourcesContent);
 
   if (!sources || sources.length === 0) {
@@ -1088,8 +1256,17 @@ async function main() {
     process.exit(1);
   }
 
+  // Overlap is judged across ALL sources, not just the ones selected by
+  // --source, because an unselected neighbour's files are still on disk.
+  const overlapping = findTargetOverlaps(sources);
   const results = [];
   for (const source of sourcesToSync) {
+    if (overlapping.has(source.name)) {
+      const error = `target_path "${source.target_path}" overlaps another source's mirror; refusing sync`;
+      log(`\n📦 Syncing: ${source.name}\n   ❌ Error: ${error}`, colors.red);
+      results.push({ source: source.name, changes: [], error });
+      continue;
+    }
     const result = await syncSource(source, config, lock);
     results.push(result);
   }

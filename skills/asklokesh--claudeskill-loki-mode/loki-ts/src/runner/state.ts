@@ -363,6 +363,22 @@ export async function loadStateForRunner(ctx: LoopRunnerContext): Promise<void> 
   const result = loadState({ lokiDirOverride: ctx.lokiDir });
   ctx.retryCount = result.retryCount;
   ctx.iterationCount = result.iterationCount;
+  // A session starting at iteration 0 has run nothing yet, so a leftover
+  // freshness marker or unit-tests.pass is a previous session's evidence.
+  // Iterations restart at 0; keeping them would let an old pass:true read as
+  // this iteration's result (mirrors bash load_state).
+  if (result.iterationCount === 0) {
+    const quality = join(resolveLokiDir(ctx.lokiDir), "quality");
+    // test-results.json too: with the marker gone the receipt falls back to its
+    // status and would report a previous session's run as this one.
+    for (const f of [".test-results.iter", "unit-tests.pass", "test-results.json"]) {
+      try {
+        unlinkSync(join(quality, f));
+      } catch {
+        // absent is the common case
+      }
+    }
+  }
 }
 
 // --- load_state ------------------------------------------------------------

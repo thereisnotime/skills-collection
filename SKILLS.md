@@ -1,6 +1,6 @@
 # Skills Index
 
-A comprehensive index of all **13,923** named skills across **105** repositories.
+A comprehensive index of all **13,924** named skills across **105** repositories.
 
 [Back to README](README.md)
 
@@ -2230,7 +2230,7 @@ A comprehensive index of all **13,923** named skills across **105** repositories
 | [brainstorming](https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md) | "You MUST use this before any creative work - creating features, building components, adding functio... | [superpowers](https://github.com/obra/superpowers) | obra |  |  | 286 | dot |
 | [dispatching-parallel-agents](https://github.com/obra/superpowers/blob/main/skills/dispatching-parallel-agents/SKILL.md) | Use when facing 2+ independent tasks that can be worked on without shared state or sequential depend... | [superpowers](https://github.com/obra/superpowers) | obra |  |  | 168 | dot, markdown, text |
 | [verification-before-completion](https://github.com/obra/superpowers/blob/main/skills/verification-before-completion/SKILL.md) | Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - req... | [superpowers](https://github.com/obra/superpowers) | obra |  |  | 121 |  |
-| [writing-plans](https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md) | Use when you have a spec or requirements for a multi-step task, before touching code | [superpowers](https://github.com/obra/superpowers) | obra |  |  | 193 | bash, markdown, python |
+| [writing-plans](https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md) | Use when you have a spec or requirements for a multi-step task, before touching code | [superpowers](https://github.com/obra/superpowers) | obra |  |  | 205 | bash, markdown, python |
 | [Getting Started with Skills](https://github.com/obra/superpowers-skills/blob/main/skills/using-skills/SKILL.md) | Skills wiki intro - mandatory workflows, search tool, brainstorming triggers | [superpowers-skills](https://github.com/obra/superpowers-skills) | obra | 4.0.2 |  | 103 |  |
 | [Subagent-Driven Development](https://github.com/obra/superpowers-skills/blob/main/skills/collaboration/subagent-driven-development/SKILL.md) | Execute implementation plan by dispatching fresh subagent for each task, with code review between ta... | [superpowers-skills](https://github.com/obra/superpowers-skills) | obra | 1.1.0 |  | 189 |  |
 | [Finishing a Development Branch](https://github.com/obra/superpowers-skills/blob/main/skills/collaboration/finishing-a-development-branch/SKILL.md) | Complete feature development with structured options for merge, PR, or cleanup | [superpowers-skills](https://github.com/obra/superpowers-skills) | obra | 1.1.0 |  | 203 | bash |
@@ -2453,63 +2453,63 @@ A comprehensive index of all **13,923** named skills across **105** repositories
 | [audit-website](https://github.com/squirrelscan/skills/blob/main/skills/audit-website/SKILL.md) | Audit a website with the squirrelscan CLI and fix the findings in code. Runs SEO, performance, secur... | [skills](https://github.com/squirrelscan/skills) | squirrelscan |  | See LICENSE file in repository | 90 | bash |
 | [squirrelscan](https://github.com/squirrelscan/skills/blob/main/skills/squirrelscan/SKILL.md) | "squirrelscan audits websites for SEO, performance, security, accessibility, content, and structured... | [skills](https://github.com/squirrelscan/skills) | squirrelscan |  | See LICENSE file in repository | 282 | bash |
 | [stripe-pay](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/stripe-pay/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 62 |  |
-| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 197 | bash, html, javascript |
+| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 200 | bash, html, javascript |
 | [stripe-best-practices](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/stripe-best-practices/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 80 |  |
 | [stripe-projects](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/stripe-projects/SKILL.md) | > | [ai](https://github.com/stripe/ai) | stripe |  |  | 175 | bash |
-| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 358 |  |
-| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 212 | bash |
+| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 362 |  |
+| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 215 | bash |
 | [stripe-docs](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/stripe-docs/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 48 | bash |
 | [metronome](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/metronome/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 61 |  |
 | [connect-required-verification-information](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/connect-required-verification-information/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 413 | bash, json, mermaid |
 | [stripe-directory](https://github.com/stripe/ai/blob/main/providers/agent-plugins/plugin/skills/stripe-directory/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 113 | sh |
 | [stripe-pay](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/stripe-pay/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 62 |  |
-| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 197 | bash, html, javascript |
+| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 200 | bash, html, javascript |
 | [stripe-best-practices](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/stripe-best-practices/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 80 |  |
 | [stripe-projects](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/stripe-projects/SKILL.md) | > | [ai](https://github.com/stripe/ai) | stripe |  |  | 175 | bash |
-| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 358 |  |
-| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 212 | bash |
+| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 362 |  |
+| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 215 | bash |
 | [stripe-docs](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/stripe-docs/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 48 | bash |
 | [metronome](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/metronome/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 61 |  |
 | [connect-required-verification-information](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/connect-required-verification-information/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 413 | bash, json, mermaid |
 | [stripe-directory](https://github.com/stripe/ai/blob/main/providers/cursor/plugin/skills/stripe-directory/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 113 | sh |
 | [stripe-pay](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/stripe-pay/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 62 |  |
-| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 197 | bash, html, javascript |
+| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 200 | bash, html, javascript |
 | [stripe-best-practices](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/stripe-best-practices/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 80 |  |
 | [stripe-projects](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/stripe-projects/SKILL.md) | > | [ai](https://github.com/stripe/ai) | stripe |  |  | 175 | bash |
-| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 358 |  |
-| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 212 | bash |
+| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 362 |  |
+| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 215 | bash |
 | [stripe-docs](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/stripe-docs/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 48 | bash |
 | [metronome](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/metronome/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 61 |  |
 | [connect-required-verification-information](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/connect-required-verification-information/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 413 | bash, json, mermaid |
 | [stripe-directory](https://github.com/stripe/ai/blob/main/providers/codex/plugin/skills/stripe-directory/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 113 | sh |
 | [Company Researcher](https://github.com/stripe/ai/blob/main/providers/claude/plugin/agents/company-researcher.md) | "Research a company from its URL or description to infer Stripe Connect integration shape" | [ai](https://github.com/stripe/ai) | stripe |  |  | 117 |  |
 | [stripe-pay](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/stripe-pay/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 62 |  |
-| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 197 | bash, html, javascript |
+| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 200 | bash, html, javascript |
 | [stripe-best-practices](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/stripe-best-practices/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 80 |  |
 | [stripe-projects](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/stripe-projects/SKILL.md) | > | [ai](https://github.com/stripe/ai) | stripe |  |  | 175 | bash |
-| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 358 |  |
-| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 212 | bash |
+| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 362 |  |
+| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 215 | bash |
 | [stripe-docs](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/stripe-docs/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 48 | bash |
 | [metronome](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/metronome/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 61 |  |
 | [connect-required-verification-information](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/connect-required-verification-information/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 413 | bash, json, mermaid |
 | [stripe-directory](https://github.com/stripe/ai/blob/main/providers/claude/plugin/skills/stripe-directory/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 113 | sh |
 | [company-researcher](https://github.com/stripe/ai/blob/main/providers/grok/plugin/agents/company-researcher.md) | "Research a company from its URL or description to infer Stripe Connect integration shape" | [ai](https://github.com/stripe/ai) | stripe |  |  | 122 |  |
 | [stripe-pay](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/stripe-pay/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 62 |  |
-| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 197 | bash, html, javascript |
+| [upgrade-stripe](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 200 | bash, html, javascript |
 | [stripe-best-practices](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/stripe-best-practices/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 80 |  |
 | [stripe-projects](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/stripe-projects/SKILL.md) | > | [ai](https://github.com/stripe/ai) | stripe |  |  | 175 | bash |
-| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 358 |  |
-| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 212 | bash |
+| [connect-recommend](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 362 |  |
+| [stripe-apps](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 215 | bash |
 | [stripe-docs](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/stripe-docs/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 48 | bash |
 | [metronome](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/metronome/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 61 |  |
 | [connect-required-verification-information](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/connect-required-verification-information/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 413 | bash, json, mermaid |
 | [stripe-directory](https://github.com/stripe/ai/blob/main/providers/grok/plugin/skills/stripe-directory/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 113 | sh |
 | [stripe-pay](https://github.com/stripe/ai/blob/main/skills/stripe-pay/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 62 |  |
-| [upgrade-stripe](https://github.com/stripe/ai/blob/main/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 197 | bash, html, javascript |
+| [upgrade-stripe](https://github.com/stripe/ai/blob/main/skills/upgrade-stripe/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 200 | bash, html, javascript |
 | [stripe-best-practices](https://github.com/stripe/ai/blob/main/skills/stripe-best-practices/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 80 |  |
 | [stripe-projects](https://github.com/stripe/ai/blob/main/skills/stripe-projects/SKILL.md) | > | [ai](https://github.com/stripe/ai) | stripe |  |  | 175 | bash |
-| [connect-recommend](https://github.com/stripe/ai/blob/main/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 358 |  |
-| [stripe-apps](https://github.com/stripe/ai/blob/main/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 212 | bash |
+| [connect-recommend](https://github.com/stripe/ai/blob/main/skills/connect-recommend/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 362 |  |
+| [stripe-apps](https://github.com/stripe/ai/blob/main/skills/stripe-apps/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 215 | bash |
 | [stripe-docs](https://github.com/stripe/ai/blob/main/skills/stripe-docs/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 48 | bash |
 | [metronome](https://github.com/stripe/ai/blob/main/skills/metronome/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 61 |  |
 | [connect-required-verification-information](https://github.com/stripe/ai/blob/main/skills/connect-required-verification-information/SKILL.md) | >- | [ai](https://github.com/stripe/ai) | stripe |  |  | 413 | bash, json, mermaid |
@@ -12196,7 +12196,7 @@ A comprehensive index of all **13,923** named skills across **105** repositories
 | [excalidraw-use](https://github.com/daymade/claude-code-skills/blob/main/excalidraw-use/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 179 | bash |
 | [qa-expert](https://github.com/daymade/claude-code-skills/blob/main/qa-expert/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 294 | bash |
 | [tunnel-doctor](https://github.com/daymade/claude-code-skills/blob/main/tunnel-doctor/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 1328 | bash, json, makefile |
-| [deep-research](https://github.com/daymade/claude-code-skills/blob/main/deep-research/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 536 | bash |
+| [deep-research](https://github.com/daymade/claude-code-skills/blob/main/deep-research/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 554 | bash |
 | [github-review-pr](https://github.com/daymade/claude-code-skills/blob/main/github-review-pr/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 513 | bash, text |
 | [ui-designer](https://github.com/daymade/claude-code-skills/blob/main/ui-designer/SKILL.md) | Extract design systems from reference UI images and generate implementation-ready UI design prompts.... | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 192 | bash |
 | [download-gemini-images](https://github.com/daymade/claude-code-skills/blob/main/download-gemini-images/SKILL.md) | Download, export, save, or package images from a Google Gemini conversation/chat/app page, especiall... | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 68 | bash, js |
@@ -12212,11 +12212,11 @@ A comprehensive index of all **13,923** named skills across **105** repositories
 | [meme-creator](https://github.com/daymade/claude-code-skills/blob/main/meme-creator/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 155 | bash |
 | [setup-notifications-via-wecom](https://github.com/daymade/claude-code-skills/blob/main/setup-notifications-via-wecom/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 275 | bash |
 | [ima-copilot](https://github.com/daymade/claude-code-skills/blob/main/ima-copilot/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 188 | bash |
-| [tibo-reset-codex](https://github.com/daymade/claude-code-skills/blob/main/tibo-reset-codex/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 837 | bash, json |
+| [tibo-reset-codex](https://github.com/daymade/claude-code-skills/blob/main/tibo-reset-codex/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 856 | bash, json |
 | [bilibili-source](https://github.com/daymade/claude-code-skills/blob/main/bilibili-source/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 99 | bash, json |
 | [cloudflare-troubleshooting](https://github.com/daymade/claude-code-skills/blob/main/cloudflare-troubleshooting/SKILL.md) | Investigate and resolve Cloudflare configuration issues using API-driven evidence gathering. Use whe... | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 330 | bash |
 | [peer-message](https://github.com/daymade/claude-code-skills/blob/main/peer-message/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 93 |  |
-| [kimi-use](https://github.com/daymade/claude-code-skills/blob/main/kimi-use/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 77 |  |
+| [kimi-use](https://github.com/daymade/claude-code-skills/blob/main/kimi-use/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 86 |  |
 | [fact-checker](https://github.com/daymade/claude-code-skills/blob/main/fact-checker/SKILL.md) | Verifies factual claims in documents using web search and official sources, then proposes correction... | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 297 | markdown, python |
 | [debugging-network-issues](https://github.com/daymade/claude-code-skills/blob/main/debugging-network-issues/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 496 | bash, json |
 | [openclaw](https://github.com/daymade/claude-code-skills/blob/main/openclaw/SKILL.md) | >- | [claude-code-skills](https://github.com/daymade/claude-code-skills) | daymade |  |  | 225 | bash, json |
@@ -13823,14 +13823,15 @@ A comprehensive index of all **13,923** named skills across **105** repositories
 | [Simplification Cascades](https://github.com/mrgoonie/claudekit-skills/blob/main/.claude/skills/problem-solving/simplification-cascades/SKILL.md) | Find one insight that eliminates multiple components - "if this is true, we don't need X, Y, or Z" | [claudekit-skills](https://github.com/mrgoonie/claudekit-skills) | mrgoonie | 1.1.0 |  | 77 |  |
 | [Collision-Zone Thinking](https://github.com/mrgoonie/claudekit-skills/blob/main/.claude/skills/problem-solving/collision-zone-thinking/SKILL.md) | Force unrelated concepts together to discover emergent properties - "What if we treated X like Y?" | [claudekit-skills](https://github.com/mrgoonie/claudekit-skills) | mrgoonie | 1.1.0 |  | 63 |  |
 | [skill-creator](https://github.com/shaunburdick/skills/blob/main/.agents/skills/skill-creator/SKILL.md) | Create new skills, modify and improve existing skills, and measure skill performance. Use when users... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  |  | 486 | bash, json, markdown |
+| [agent-attribution-detection](https://github.com/shaunburdick/skills/blob/main/specs/001-agent-attribution-detection/spec.md) |  | [skills](https://github.com/shaunburdick/skills) | shaunburdick | "1.0.0" |  | 260 |  |
 | [spec-driven-development](https://github.com/shaunburdick/skills/blob/main/skills/spec-driven-development/SKILL.md) | Structured spec-driven development workflow. Load this skill whenever starting a new feature, buildi... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 219 | bash, markdown |
 | [web-component-design](https://github.com/shaunburdick/skills/blob/main/skills/web-component-design/SKILL.md) | Design, build, test, and integrate standards-based custom elements and framework-agnostic Web Compon... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 488 | text, ts |
 | [style](https://github.com/shaunburdick/skills/blob/main/skills/style/SKILL.md) | Set up code style configuration for a project. Installs the right linting and formatting rules based... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 50 |  |
 | [github-actions](https://github.com/shaunburdick/skills/blob/main/skills/github-actions/SKILL.md) | Author secure, maintainable GitHub Actions workflows and CI/CD pipelines. Use when asked to "create ... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 420 | json5, yaml |
-| [git-safety](https://github.com/shaunburdick/skills/blob/main/skills/git-safety/SKILL.md) | Enforces safe git practices for AI coding agents. Defines branch protection rules, commit policies, ... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 525 | bash, yaml |
+| [git-safety](https://github.com/shaunburdick/skills/blob/main/skills/git-safety/SKILL.md) | Enforces safe git practices for AI coding agents. Defines branch protection rules, commit policies, ... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 362 | bash, yaml |
 | [code-quality](https://github.com/shaunburdick/skills/blob/main/skills/code-quality/SKILL.md) | "Enforces non-negotiable code quality standards for AI coding agents. Covers linting rules (no suppr... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 114 | python, typescript |
 | [spec-kit](https://github.com/shaunburdick/skills/blob/main/skills/spec-kit/SKILL.md) | "Practical guide for setting up and using the spec-kit CLI on a project. Covers installation, projec... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 376 | bash |
-| [ai-attribution](https://github.com/shaunburdick/skills/blob/main/skills/ai-attribution/SKILL.md) | "Load when creating commits, PRs, issues, or comments that need AI attribution. Standardizes the Gen... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 247 | bash, javascript, markdown |
+| [ai-attribution](https://github.com/shaunburdick/skills/blob/main/skills/ai-attribution/SKILL.md) | "Load when creating commits, PRs, issues, or comments that need AI attribution. Standardizes the Gen... | [skills](https://github.com/shaunburdick/skills) | shaunburdick |  | MIT | 252 | bash, javascript, markdown |
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd/blob/main/.cursor/skills/i-have-adhd/SKILL.md) | 'Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate sta... | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | ayghri |  | MIT | 143 |  |
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd/blob/main/skills/i-have-adhd/SKILL.md) | 'Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate sta... | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | ayghri |  | MIT | 143 |  |
 | [offensive-osint](https://github.com/SnailSploit/claude-red/blob/main/Skills/recon/offensive-osint/SKILL.md) | "Comprehensive OSINT methodology skill for offensive security, red team intelligence gathering, and ... | [claude-red](https://github.com/SnailSploit/claude-red) | SnailSploit |  |  | 400 |  |
@@ -13932,4 +13933,4 @@ A comprehensive index of all **13,923** named skills across **105** repositories
 
 ---
 
-*Auto-generated — 13,923 skills indexed*
+*Auto-generated — 13,924 skills indexed*

@@ -4,7 +4,7 @@ description: "Load when creating commits, PRs, issues, or comments that need AI 
 license: MIT
 metadata:
   author: shaunburdick
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # AI Attribution
@@ -50,9 +50,14 @@ convention and is parseable via `git log --trailer=Generated-By`.
 
 ### Git Commits
 
-If your environment provides a `prepare-commit-msg` hook that detects
-AI sessions (e.g., via `OPENCODE=1`, `AGENT=1`, or similar env vars),
-the hook handles commits automatically and no manual action is needed.
+If your environment provides the `prepare-commit-msg` hook from the
+git-safety skill, it detects AI sessions via a cross-harness signal matrix
+(`AI_AGENT`, `AGENT`, `CLAUDE_CODE`, `CURSOR_AGENT`, `CODEX_SANDBOX`,
+`GEMINI_CLI`, `AUGMENT_AGENT`, `CLINE_ACTIVE`, ...) and appends the trailer
+automatically — no manual action needed. On harnesses that set no AI marker
+(OpenCode v2), claim the commit by running it through `git-agent-commit` or
+with inline `AI_AGENT=opencode ...` env (see the git-safety skill for the
+full matrix).
 
 Otherwise, append the `Generated-By` trailer to the commit message body:
 

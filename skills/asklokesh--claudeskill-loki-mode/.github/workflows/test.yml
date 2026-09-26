@@ -149,6 +149,76 @@ jobs:
           LOKI_TEST_SHARD: ${{ matrix.shard }}/4
         run: bash tests/run-all-tests.sh
 
+  # The moat suite: nine product properties, each PROVEN or honestly NOT
+  # PROVEN. A release that fails it does not ship (release.yml required-ci
+  # waits for this whole workflow). Its own job, not a shard: the pending list
+  # and the case registry are ratcheted against the reachable release tags, and
+  # the shards' depth-1 checkout
+  # has no tags, so the runner would exit 2 ("could not check") there by design.
+  # The toolchain mirrors shell-tests because the property scripts drive loki
+  # on both routes (Bun and bash) and the signing checks import cryptography.
+  moat-suite:
+    name: Moat suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (full history, so release tags exist for the ratchet)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements-test.txt
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Node.js dependencies
+        run: npm install --no-package-lock
+
+      # Pinned to what release.yml's gate uses, so a Bun release cannot flip
+      # this job alone.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install loki-ts dependencies
+        working-directory: loki-ts
+        run: bun install
+
+      # P7's two route cases parse client paths with the TypeScript AST from
+      # web-app/node_modules/typescript. Without it they FAIL as "prerequisite
+      # missing" and never measure the routes. Measured 2026-09-25: 2s with a
+      # cold npm cache (254 packages).
+      - name: Install web-app dependencies (TypeScript for P7)
+        working-directory: web-app
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # The job's green check means "no rule failed", not "moat proven". The
+      # step summary carries the real count so a reader of the check sees it.
+      - name: Run the moat suite
+        run: |
+          rc=0
+          bash tests/moat/run.sh > "$RUNNER_TEMP/moat.out" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/moat.out"
+          {
+            echo '### Moat suite'
+            echo '```'
+            grep -E '^(P[1-9] |moat:|moat suite:|ratchet:|registry:)' "$RUNNER_TEMP/moat.out" || echo "no summary lines (exit $rc)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
   helm-lint:
     name: Helm lint
     runs-on: ubuntu-latest

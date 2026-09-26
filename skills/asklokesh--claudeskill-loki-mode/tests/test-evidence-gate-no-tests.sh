@@ -201,6 +201,9 @@ r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
 # turn no-tests into a block, while recording it as not-affirmative.
 vd="$(jget "$GATE_DETAILS_FILE" verdict)"
 [ "$vd" = "pass" ] && ok "case1 verdict=pass (gate pass-through preserved; not recorded as affirmative)" || bad "case1 verdict=pass" "got [$vd]"
+# BACKLOG 55: the detail field must not claim a pass the gate did not see.
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ -n "$v" ] && [ "$v" != "true" ] && ok "case1 tests.pass=[$v], not true (no test runner is not a pass)" || bad "case1 tests.pass not true" "got [$v]"
 
 # ===========================================================================
 # Case 2: real runner (jest) + passing tests + real diff -> rc=0 AND details
@@ -219,6 +222,9 @@ v="$(jget "$GATE_DETAILS_FILE" tests ok)"
 [ "$v" = "true" ] && ok "case2 tests.ok=true" || bad "case2 tests.ok=true" "got [$v]"
 v="$(jget "$GATE_DETAILS_FILE" tests runner)"
 [ "$v" = "jest" ] && ok "case2 tests.runner=jest" || bad "case2 tests.runner=jest" "got [$v]"
+# BACKLOG 55 positive control: affirmative evidence still records pass:true.
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ "$v" = "true" ] && ok "case2 tests.pass=true (control: a real green suite)" || bad "case2 tests.pass=true" "got [$v]"
 
 # ===========================================================================
 # Case 3: evidence-gate-details.json is written on a PASS run (audit every run).
@@ -254,6 +260,9 @@ LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1 run_gate "$repo" "$base"
 if [ "$GATE_RC" -eq 0 ]; then ok "case5 rc=0 (still allowed)"; else bad "case5 rc=0" "got rc=$GATE_RC"; fi
 v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
 [ "$v" = "false" ] && ok "case5 tests.inconclusive=false (opt-out reverts to affirmative)" || bad "case5 opt-out reverts" "got [$v]"
+# The opt-out changes the gate, not the fact: no runner ran, so no pass.
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ -n "$v" ] && [ "$v" != "true" ] && ok "case5 tests.pass=[$v], not true (opt-out does not invent a test pass)" || bad "case5 tests.pass not true" "got [$v]"
 
 # ===========================================================================
 # Case 6: missing test-results.json -> rc=0 (pass-through preserved) AND details
@@ -271,6 +280,8 @@ v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
 [ "$v" = "true" ] && ok "case6 tests.inconclusive=true" || bad "case6 tests.inconclusive=true" "got [$v]"
 r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
 [ "$r" = "no_test_results" ] && ok "case6 tests.inconclusive_reason=no_test_results" || bad "case6 reason=no_test_results" "got [$r]"
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ -n "$v" ] && [ "$v" != "true" ] && ok "case6 tests.pass=[$v], not true (no results file is not a pass)" || bad "case6 tests.pass not true" "got [$v]"
 
 # ===========================================================================
 # Case 7: regression guard -- no-tests must NOT be classified as a FAIL. A real
@@ -294,6 +305,8 @@ run_gate "$repo" "$base"
 if [ "$GATE_RC" -eq 1 ]; then ok "case7b rc=1 (genuine red suite still blocks)"; else bad "case7b rc=1" "got rc=$GATE_RC"; fi
 v="$(jget "$GATE_DETAILS_FILE" tests ok)"
 [ "$v" = "false" ] && ok "case7b tests.ok=false (red suite is a fail, distinct from no-tests)" || bad "case7b red is fail" "got [$v]"
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ "$v" = "false" ] && ok "case7b tests.pass=false (a red suite)" || bad "case7b tests.pass=false" "got [$v]"
 
 # ===========================================================================
 # Case 8 (#82): a REAL runner that executed ZERO tests -- node --test on a
@@ -337,6 +350,120 @@ v="$(jget "$GATE_DETAILS_FILE" tests ok)"
 [ "$v" = "true" ] && ok "case8 tests.ok=true (inconclusive != fail; the run is not red)" || bad "case8 tests.ok=true" "got [$v]"
 v="$(jget "$GATE_DETAILS_FILE" tests runner)"
 [ "$v" = "node-test" ] && ok "case8 tests.runner=node-test (real runner label preserved)" || bad "case8 tests.runner=node-test" "got [$v]"
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ -n "$v" ] && [ "$v" != "true" ] && ok "case8 tests.pass=[$v], not true (zero tests executed is not a pass)" || bad "case8 tests.pass not true" "got [$v]"
+
+# ===========================================================================
+# Case 9: a real runner label with NO "pass" key at all. The gate used to read
+# d.get('pass', True), so {"runner":"jest"} counted as affirmative green: an
+# unrecorded outcome read as a pass. It must be INCONCLUSIVE (pass-through, not
+# affirmative). Case 2 is the positive control: the same runner WITH pass:true
+# stays affirmative (tests.inconclusive=false), so this probe is not vacuous.
+# ===========================================================================
+echo "Case 9: real runner, missing pass key -> INCONCLUSIVE (unrecorded outcome is not a pass)"
+repo="$(new_repo case9)"
+base="$(grepo "$repo" rev-parse HEAD)"
+add_real_diff "$repo" feature.txt
+mkdir -p "$repo/.loki/quality"
+printf '%s\n' '{"timestamp":"2026-06-16T00:00:00Z","runner":"jest","summary":"no pass key recorded"}' \
+    > "$repo/.loki/quality/test-results.json"
+LOKI_TEST_PROVENANCE=0 run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 0 ]; then ok "case9 rc=0 (missing key is inconclusive, not a block)"; else bad "case9 rc=0" "got rc=$GATE_RC"; fi
+v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+if [ "$v" = "true" ]; then ok "case9 tests.inconclusive=true (missing pass key is NOT affirmative)"; else bad "case9 tests.inconclusive=true" "got [$v]"; fi
+v="$(jget "$GATE_DETAILS_FILE" tests runner)"
+if [ "$v" = "jest" ]; then ok "case9 tests.runner=jest (the runner label did not route through runner==none)"; else bad "case9 tests.runner=jest" "got [$v]"; fi
+# BACKLOG 38: an unrecorded outcome is not a zero-test run. Case 8 is the
+# control: the #82 zero-test record keeps reason no_tests_executed.
+r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
+if [ "$r" = "no_pass_recorded" ]; then ok "case9 tests.inconclusive_reason=no_pass_recorded (not misnamed no_tests_executed)"; else bad "case9 reason=no_pass_recorded" "got [$r]"; fi
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ -n "$v" ] && [ "$v" != "true" ] && ok "case9 tests.pass=[$v], not true (no pass recorded is not a pass)" || bad "case9 tests.pass not true" "got [$v]"
+
+# ===========================================================================
+# Case 9b: every other non-boolean pass value (null, the string "true", and
+# "inconclusive" WITHOUT the #82 status:no_tests_run) is the same unrecorded
+# outcome: INCONCLUSIVE with reason no_pass_recorded, never affirmative.
+# ===========================================================================
+echo "Case 9b: non-boolean pass values -> INCONCLUSIVE, reason no_pass_recorded"
+n9b=0
+for pv in 'null' '"true"' '"inconclusive"'; do
+    n9b=$((n9b + 1))
+    repo="$(new_repo "case9b-$n9b")"
+    base="$(grepo "$repo" rev-parse HEAD)"
+    add_real_diff "$repo" feature.txt
+    mkdir -p "$repo/.loki/quality"
+    printf '{"runner":"jest","pass":%s,"summary":"non-boolean pass"}\n' "$pv" > "$repo/.loki/quality/test-results.json"
+    LOKI_TEST_PROVENANCE=0 run_gate "$repo" "$base"
+    v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+    r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
+    if [ "$GATE_RC" -eq 0 ] && [ "$v" = "true" ] && [ "$r" = "no_pass_recorded" ]; then
+        ok "case9b pass:$pv -> rc=0, inconclusive, reason no_pass_recorded"
+    else
+        bad "case9b pass:$pv" "rc=$GATE_RC inconclusive=[$v] reason=[$r]"
+    fi
+done
+
+# ===========================================================================
+# Cases 10-11: the sibling readers must agree with the gate on the pass key.
+# _council_convergence_evidence_green read `passed is not False` and the member
+# vote read d.get('pass', True), so {"runner":"jest"} (no pass key) and
+# pass:"inconclusive" read as green there while the gate called them
+# INCONCLUSIVE. Each negative is paired with a pass:true positive control in
+# the same clean project, so a reader that is simply broken cannot pass.
+# ===========================================================================
+# write_tr_raw <dir> <json>: a results file with an arbitrary body.
+write_tr_raw() {
+    mkdir -p "$1/.loki/quality" "$1/.loki/logs" "$1/.loki/queue"
+    printf '%s\n' "$2" > "$1/.loki/quality/test-results.json"
+}
+NOKEY='{"timestamp":"2026-06-16T00:00:00Z","runner":"jest","summary":"no pass key recorded"}'
+GREEN='{"timestamp":"2026-06-16T00:00:00Z","runner":"jest","pass":true,"summary":"42 passed"}'
+INCONC='{"timestamp":"2026-06-16T00:00:00Z","runner":"node-test","pass":"inconclusive","status":"no_tests_run"}'
+
+# converge_rc <dir>: 0 when the convergence probe calls the evidence green.
+converge_rc() {
+    ( cd "$1" || exit 99; TARGET_DIR="$1" _council_convergence_evidence_green )
+    echo $?
+}
+# member_vote <dir> <role>: the first token of the member's vote, evaluated
+# from inside the clean project (the TODO scan reads CWD).
+member_vote() {
+    ( cd "$1" || exit 99
+      TARGET_DIR="$1" ITERATION_COUNT=5 COUNCIL_CONSECUTIVE_NO_CHANGE=0 COUNCIL_MIN_ITERATIONS=3 \
+          council_evaluate_member "$2" "test" | cut -d' ' -f1 )
+}
+
+echo "Case 10: convergence probe -- only a boolean pass:true is green"
+proj="$TMP_ROOT/case10"
+write_tr_raw "$proj" "$GREEN"
+r="$(converge_rc "$proj")"
+if [ "$r" = "0" ]; then ok "case10 control: jest pass:true is convergence-green"; else bad "case10 control green" "got rc=$r"; fi
+write_tr_raw "$proj" "$NOKEY"
+r="$(converge_rc "$proj")"
+if [ "$r" = "1" ]; then ok "case10 missing pass key is NOT convergence-green"; else bad "case10 missing key not green" "got rc=$r"; fi
+write_tr_raw "$proj" "$INCONC"
+r="$(converge_rc "$proj")"
+if [ "$r" = "1" ]; then ok "case10 pass:\"inconclusive\" (zero tests run) is NOT convergence-green"; else bad "case10 inconclusive not green" "got rc=$r"; fi
+
+echo "Case 11: member vote -- a missing pass key is not positive test evidence"
+proj="$TMP_ROOT/case11"
+write_tr_raw "$proj" "$GREEN"
+for role in requirements_verifier test_auditor devils_advocate; do
+    v="$(member_vote "$proj" "$role")"
+    if [ "$v" = "COMPLETE" ]; then ok "case11 control: jest pass:true -> $role COMPLETE"; else bad "case11 control $role" "got [$v]"; fi
+done
+write_tr_raw "$proj" "$NOKEY"
+for role in requirements_verifier test_auditor devils_advocate; do
+    v="$(member_vote "$proj" "$role")"
+    if [ "$v" = "CONTINUE" ]; then ok "case11 missing pass key -> $role CONTINUE"; else bad "case11 missing key $role" "got [$v]"; fi
+done
+reason="$( cd "$proj" && TARGET_DIR="$proj" ITERATION_COUNT=5 COUNCIL_CONSECUTIVE_NO_CHANGE=0 \
+    council_evaluate_member test_auditor "test" )"
+case "$reason" in
+    *inconclusive*) ok "case11 test_auditor names the inconclusive results as the reason" ;;
+    *) bad "case11 test_auditor reason" "got [$reason]" ;;
+esac
 
 # ---------------------------------------------------------------------------
 echo

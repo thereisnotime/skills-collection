@@ -3301,3 +3301,24 @@
 | 8 | LOW | Count Verify | Spec Kit 10c, Superpowers 15s, Matt Pocock 38s, gstack 53s, OpenSpec 0a/12c/12s, BMAD 0a/0c/32s, omc 19a/21c/43s, CE 0a/1c/36s, HumanLayer 6a/27c/0s, GSD 33a — all confirmed | COMPLETE (RECURRING — no change; all confirmed) |
 | 9 | LOW | Workflow | Spec Kit (6-step constitution→implement), ECC (7-step plan→improve), Superpowers (8-step with different step names), Matt Pocock (6-step without setup-matt-pocock-skills), gstack (10-step condensed), BMAD (9-step with bmad-brainstorming and bmad-walkthrough), omc (5-step deepinit→release), CE (6-step ce-pov→promote), GSD (5-step gsd-planner→gsd-roadmapper), HumanLayer (confirmed matching current 8-step) — all workflow changes proposed | ON HOLD (RECURRING — all 1st-consecutive; no workflow changes applied; established baselines kept) |
 | 10 | LOW | Note | shields.io Bash curl blocked (proxy — RECURRING); WebFetch github.com HTML used for ECC star verification; MCP GitHub search_repositories used for all other accessible repos; ECC API blocked 16th+ consecutive run — stars-don't-fall rule applied then updated via HTML | COMPLETE (RECURRING — WebFetch/MCP verification method authoritative) |
+
+---
+
+## [2026-09-26 09:20 AM PKT] Development Workflows Update
+
+| # | Priority | Type | Action | Status |
+|---|----------|------|--------|--------|
+| 1 | HIGH | Star | Update Superpowers ★ 291k → 292k (GitHub MCP: 291,714 > 291,500 midpoint) | COMPLETE (RECURRING — updated README table) |
+| 2 | HIGH | Star | Update Matt Pocock Skills ★ 269k → 270k (GitHub MCP: 269,790 > 269,500 midpoint) | COMPLETE (RECURRING — updated README table) |
+| 3 | HIGH | Star | Update ECC ★ 267k → 268k (WebFetch HTML: GitHub shows "Star 268k"; API blocked 17th+ consecutive run) | COMPLETE (RECURRING — updated README table) |
+| 4 | HIGH | Star | Update oh-my-claudecode ★ 39.3k → 39.4k (GitHub MCP: 39,357 > 39,350 midpoint) | COMPLETE (NEW — updated README table) |
+| 5 | LOW | Star | Spec Kit 138,928 (<139,500 midpoint), gstack 134,223 (<134,500 midpoint), OpenSpec 70,382 (<70,500 midpoint), GSD 64,459 (archived; stars-don't-fall; keep 64.6k), BMAD 53,463 (<53,500 midpoint), CE 25,270 (<25,350 midpoint), HumanLayer 11,608 (<11,650 midpoint) — all no change | COMPLETE (RECURRING — no change; all verified via GitHub MCP) |
+| 6 | LOW | Sort | Sort order after updates: 292k > 270k > 268k > 139k > 134k > 89k(OOS) > 70k > 64.6k > 53k > 39.4k > 25.3k > 11.6k — same relative order | COMPLETE (no re-sort needed) |
+| 7 | LOW | Count | gstack skills 53→54 (Agent 2: 54 root-level directories with SKILL.md; new /deslop-shared-libs skill v1.89.0.0 confirmed in release notes; confidence 0.85) | ON HOLD (NEW — 1st consecutive; keep 53) |
+| 8 | LOW | Count | BMAD skills 32→36 (Agent 2: 30 in skills/ + 6 in web-bundles/; src/bmm-skills/ no longer exists; confidence 0.80) | ON HOLD (NEW — 1st consecutive; repo restructured; keep 32) |
+| 9 | LOW | Count | BMAD agents 0→5 (5 persona skills in skills/ — oscillating pattern continues) | ON HOLD (RECURRING — oscillating; keep 0) |
+| 10 | LOW | Count | oh-my-claudecode commands keep 21 (Agent 2: found 15 .md files in commands/ but reported 0 per task spec; counts-don't-fall; Sep 24 baseline was 21) | INVALID (counts-don't-fall; keep 21) |
+| 11 | LOW | Count | ECC counts frozen (agents 96 vs baseline 68, commands 94 vs baseline 147, skills 292 confirmed; confidence 0.68; API blocked 17th+ run) | ON HOLD (RECURRING — confidence below 0.90; keeping 68a/147c/292s) |
+| 12 | LOW | Count | Spec Kit 10c, Superpowers 0a/0c/15s, Matt Pocock 0a/0c/38s, OpenSpec 0a/12c/12s, HumanLayer 6a/27c/0s, GSD 33a/97c/0s, CE 0a/1c/36s, omc 19a/0c/43s (per task spec) — all confirmed | COMPLETE (RECURRING — no change) |
+| 13 | LOW | Workflow | Superpowers 9-step with verification-before-completion+receiving-code-review (v6.4.2 Sep 25; different from Sep 24's 8-step variant), Matt Pocock 8-step with domain-modeling (different from Sep 25's 6-step), Spec Kit 6-step (same as Sep 25), ECC 7-step generic plan→improve, gstack 10-step condensed (different from Sep 25 variant), BMAD 9-step with bmad-correct-course (different from Sep 25), OpenSpec 10-step no -change suffix (different from Sep 24), GSD 8-step without gsd- prefix, HumanLayer 9-step with create-handoff, CE 10-step with ce-ideate+ce-commit+ce-promote+ce-babysit-pr, omc 6-step with autopilot+ralph — all new or different variants | ON HOLD (RECURRING — all 1st-consecutive of exact variants; no workflow changes applied; established baselines kept) |
+| 14 | LOW | Note | shields.io Bash curl blocked (proxy — RECURRING); GitHub MCP search_repositories authoritative for all 10 accessible repos; ECC API blocked 17th+ consecutive run — WebFetch HTML authoritative for ECC stars | COMPLETE (RECURRING — GitHub MCP + WebFetch method established) |

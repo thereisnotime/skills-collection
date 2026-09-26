@@ -2229,11 +2229,173 @@ test('v2: canonical "As an AI language model" disclaimer fires cutoff-disclaimer
   assert.equal(r.confidence_category, 'high', `expected high confidence on canonical disclaimer, got ${r.confidence_category}`);
 });
 
-test('v2: single-line shell prompt > is NOT stripped as blockquote', () => {
-  // Blockquote strip now requires ≥2 consecutive lines.
-  const text = 'To check the directory:\n\n> ls -la\n\nThen review the output and look for any unexpected files. The team uses this command frequently when debugging deployment issues that involve filesystem permissions.';
+test('#238: single-line blockquote is masked like a multi-line one', () => {
+  const quoted = 'I asked the model about our roadmap and it said:\n\n> We must delve into the landscape and leverage our synergy.\n\nThen I closed the tab and wrote the plan myself.';
+  for (const sourceMode of ['plain', 'rendered-markdown']) {
+    const r = AIDetector.analyzeText(quoted, { sourceMode });
+    assert.equal(r.stats.quotedLines, 1, sourceMode);
+    assert.deepEqual(r.issues.filter((i) => i.type === 'tier1'), [], sourceMode);
+  }
+});
+
+test('#238: double-quoted spans do not score, the same words outside do', () => {
+  const inside = 'She told me, "We must delve into the landscape and leverage our synergy," and then she laughed at her own words for a while.';
+  const curly = 'She told me, “We must delve into the landscape and leverage our synergy,” and then she laughed at her own words for a while.';
+  const outside = 'She told me we must delve into the landscape and leverage our synergy, and then she laughed at her own words for a while.';
+  for (const text of [inside, curly]) {
+    const r = AIDetector.analyzeText(text);
+    assert.equal(r.stats.maskedQuotes, 1);
+    assert.deepEqual(r.issues.filter((i) => i.type === 'tier1'), []);
+  }
+  const two = AIDetector.analyzeText('He said "delve into it" and she said “leverage the synergy” before we left the office for the long weekend.');
+  assert.equal(two.stats.maskedQuotes, 2);
+  assert.deepEqual(two.issues.filter((i) => i.type === 'tier1'), []);
+  const r = AIDetector.analyzeText(outside);
+  assert.equal(r.stats.maskedQuotes, 0);
+  assert.ok(r.issues.some((i) => i.type === 'tier1' && i.text === 'delve'));
+});
+
+test('#238: inch marks, empty quotes and code quotes do not hide prose', () => {
+  const cases = [
+    'A 15" laptop works well, but we must delve into the landscape before buying the 24" monitor for the office.',
+    'She set opt="" and said we must delve into the landscape before "leaving" the office for the day.',
+    'Run `grep -r "test` or review how we delve into the landscape before the "audit" phase starts next week.',
+    'The symbol “ marks a quote, but we must delve into the landscape before “launching” the product next week.',
+  ];
+  for (const text of cases) {
+    const r = AIDetector.analyzeText(text);
+    assert.ok(r.issues.some((i) => i.type === 'tier1' && i.text === 'delve'), text);
+  }
+});
+
+test('#238: comparison lines, CR-only text and early-exit stats', () => {
+  // A line opening with `>=` is prose, not a blockquote.
+  const comparison = 'Requirements:\n\n>=5 items must be in stock before we ship, and the warehouse team must delve into the backlog this quarter.\n\nThat is the policy.';
+  for (const sourceMode of ['plain', 'rendered-markdown']) {
+    const r = AIDetector.analyzeText(comparison, { sourceMode });
+    assert.equal(r.stats.quotedLines, 0, sourceMode);
+    assert.ok(r.issues.some((i) => i.type === 'tier1' && i.text === 'delve'), sourceMode);
+  }
+  // CR-only line endings: the quote must not take the later prose with it.
+  const crOnly = '> We quoted this line from the model.\rLater we delve into the landscape of our own codebase and leverage what the team built.';
+  const cr = AIDetector.analyzeText(crOnly);
+  assert.ok(cr.issues.some((i) => i.type === 'tier1' && i.text === 'delve'));
+  const short = AIDetector.analyzeText('She said "we must delve into the landscape and leverage synergy" today.');
+  assert.equal(short.label, 'Too short');
+  assert.equal(short.stats.maskedQuotes, 1);
+  assert.equal(short.stats.quotedLines, 0);
+});
+
+test('#238: apostrophes are not treated as quotes', () => {
+  const text = "It's the team's plan, and we don't want to delve into someone's rules today, so let's go and ship what's ready.";
   const r = AIDetector.analyzeText(text);
-  assert.equal(r.stats.quotedLines, 0, `single > line should not strip, got quotedLines=${r.stats.quotedLines}`);
+  assert.equal(r.stats.maskedQuotes, 0);
+  assert.ok(r.issues.some((i) => i.type === 'tier1' && i.text === 'delve'));
+});
+
+test('#238: issue offsets still address the source after quote masking', () => {
+  const source = 'He wrote "it is important to note that we delve" and moved on. It is important to note that the system works well and the team shipped it on time.';
+  for (const sourceMode of ['plain', 'rendered-markdown']) {
+    const result = AIDetector.analyzeText(source, { sourceMode });
+    assert.equal(result.stats.maskedQuotes, 1, sourceMode);
+    const fillers = result.issues.filter((i) => i.type === 'filler');
+    assert.deepEqual(fillers.map((i) => i.index), [source.lastIndexOf('It is important')], sourceMode);
+    assertIndexedIssuesSliceExactly(source, result.issues, `quoted span ${sourceMode}`);
+  }
+});
+
+test('#238: CR-only blockquote lines are masked in both modes with source offsets', () => {
+  const quote = '> We must delve into the landscape and leverage our synergy.';
+  const prose = 'It is important to note that the team wrote a careful and ordinary response.';
+  const cases = [
+    `${quote}\r${prose}`,
+    `Then I wrote a careful and ordinary reply.\r${quote}\r${prose}`,
+    `\r${quote}\r${prose}`,
+  ];
+  for (const sourceMode of ['plain', 'rendered-markdown']) {
+    for (const source of cases) {
+      const result = AIDetector.analyzeText(source, { sourceMode });
+      assert.equal(result.stats.quotedLines, 1, sourceMode);
+      assert.deepEqual(result.issues.filter((i) => i.type === 'tier1'), [], sourceMode);
+      const fillers = result.issues.filter((i) => i.type === 'filler');
+      assert.deepEqual(fillers.map((i) => i.index), [source.indexOf('It is important')], sourceMode);
+      assertIndexedIssuesSliceExactly(source, result.issues, `CR-only blockquote ${sourceMode}`);
+    }
+  }
+});
+
+test('#238: escaped quotes stay inside the quoted span', () => {
+  const source = 'We delve first. She said "We must \\"leverage\\" the landscape and our synergy" and then the landscape shifted for real.';
+  for (const sourceMode of ['plain', 'rendered-markdown']) {
+    const result = AIDetector.analyzeText(source, { sourceMode });
+    assert.equal(result.stats.maskedQuotes, 1, sourceMode);
+    const tier1 = result.issues.filter((i) => i.type === 'tier1').map((i) => i.text).sort();
+    assert.deepEqual(tier1, ['delve', 'landscape'], sourceMode);
+    assertIndexedIssuesSliceExactly(source, result.issues, `escaped quote ${sourceMode}`);
+  }
+  const path = AIDetector.analyzeText('He said, "save the landscape file at C:\\Temp\\" before leaving the office for the long weekend.');
+  assert.equal(path.stats.maskedQuotes, 1);
+  assert.deepEqual(path.issues.filter((i) => i.type === 'tier1'), []);
+  const pathThenQuote = AIDetector.analyzeText('Run "C:\\Temp\\" and then delve into "--flag" before the team ships the release next week.');
+  assert.equal(pathThenQuote.stats.maskedQuotes, 2);
+  assert.ok(pathThenQuote.issues.some((i) => i.type === 'tier1' && i.text === 'delve'));
+  const sentence = 'We must delve into the landscape and leverage synergy today. ';
+  const chained = AIDetector.analyzeText(`He explained: "${`\\"${sentence}\\"`.repeat(10)}" and that was all.`);
+  assert.equal(chained.stats.maskedQuotes, 0);
+  assert.ok(chained.issues.some((i) => i.type === 'tier1' && i.text === 'delve'));
+  const emoji = AIDetector.analyzeText(`She wrote: "we must delve into the landscape ${'\u{1F600}'.repeat(230)}" in her message, nothing else notable.`);
+  assert.equal(emoji.stats.maskedQuotes, 1);
+  assert.deepEqual(emoji.issues.filter((i) => i.type === 'tier1'), []);
+});
+
+test('#238: compact blockquotes without a space are masked, comparisons are not', () => {
+  const prose = 'It is important to note that the team wrote a careful and ordinary response.';
+  const cases = [
+    `>We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `Then I wrote a careful and ordinary reply.\r>We must delve into the landscape and leverage our synergy.\r${prose}`,
+    `>*We must delve into the landscape and leverage our synergy.*\n${prose}`,
+    `>[We must delve](https://example.com) into the landscape and leverage our synergy.\n${prose}`,
+    `>>We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `>> We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `>- We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `>+ We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `>* We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `>10. We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `>1. We must delve into the landscape and leverage our synergy.\n${prose}`,
+    `>2) We must delve into the landscape and leverage our synergy.\n${prose}`,
+  ];
+  for (const sourceMode of ['plain', 'rendered-markdown']) {
+    for (const source of cases) {
+      const result = AIDetector.analyzeText(source, { sourceMode });
+      assert.equal(result.stats.quotedLines, 1, sourceMode);
+      assert.deepEqual(result.issues.filter((i) => i.type === 'tier1'), [], sourceMode);
+      const fillers = result.issues.filter((i) => i.type === 'filler');
+      assert.deepEqual(fillers.map((i) => i.index), [source.indexOf('It is important')], sourceMode);
+      assertIndexedIssuesSliceExactly(source, result.issues, `compact blockquote ${sourceMode}`);
+    }
+    for (const line of ['>=5 items', '>5 items', '>-1 items', '>1.5 items', '>2024 items', ">'cause the items"]) {
+      const r = AIDetector.analyzeText(`${line} must be in stock before we ship, and the warehouse team must delve into the backlog this quarter.`, { sourceMode });
+      assert.equal(r.stats.quotedLines, 0, `${line} ${sourceMode}`);
+      assert.ok(r.issues.some((i) => i.type === 'tier1' && i.text === 'delve'), `${line} ${sourceMode}`);
+    }
+  }
+});
+
+test('#238: bypass characters inside quotes raise no normalization flag', () => {
+  const zeroWidth = 'we must del​ve into the lands​cape';
+  const homoglyph = 'we must dеlvе into the lаndscаpe';
+  const roleplay = '*nods* we must delve into it *sighs*';
+  for (const sourceMode of ['plain', 'rendered-markdown']) {
+    for (const span of [zeroWidth, homoglyph, roleplay]) {
+      const source = `She told me, "${span}," and then she laughed at her own words for a while before we left.`;
+      const quoted = AIDetector.analyzeText(source, { sourceMode });
+      assert.equal(quoted.stats.maskedQuotes, 1, `${span} ${sourceMode}`);
+      assert.deepEqual(quoted.issues.filter((i) => i.type === 'normalization-flag' || i.type === 'tier1'), [], `${span} ${sourceMode}`);
+      assertIndexedIssuesSliceExactly(source, quoted.issues, `quoted bypass ${sourceMode}`);
+      const bare = AIDetector.analyzeText(source.replace(/"/g, ''), { sourceMode });
+      assert.ok(bare.issues.some((i) => i.type === 'normalization-flag'), `${span} ${sourceMode}`);
+    }
+  }
 });
 
 test('v2: stats.denseAIVocab and stats.tier1Distinct surface for observability', () => {
