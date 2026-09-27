@@ -8,7 +8,7 @@
 #
 # Usage:
 #   source providers/models.sh
-#   model=$(loki_latest_model claude planning)   # -> claude-opus-4-8
+#   model=$(loki_latest_model claude planning)   # -> claude-opus-5-5
 #
 # Env override order: LOKI_<PROVIDER>_MODEL_<TIER> > LOKI_<PROVIDER>_MODEL > catalog latest.
 

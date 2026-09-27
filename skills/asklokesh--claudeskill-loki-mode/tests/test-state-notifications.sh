@@ -45,8 +45,12 @@ cleanup() {
     echo ""
     echo "Cleaning up..."
     rm -rf "$TEST_DIR"
-    # Kill any background processes
-    pkill -f "loki-test-notifications" 2>/dev/null || true
+    # ponytail: no pkill here. This test never spawns a background process at
+    # all, and the pattern only matched the fixed "loki-test-notifications"
+    # prefix (not the "-$$" suffix in $TEST_DIR), so it was never even scoped
+    # to this run's own directory. Dead defensive code that would have been an
+    # unscoped machine-wide kill-by-substring if it ever matched something
+    # (see docs/v10/DECISIONS.md D14/D15/D16).
 }
 
 trap cleanup EXIT

@@ -2,7 +2,8 @@ import type { RARVPhase } from '../types/api';
 
 interface PhaseVisualizerProps {
   currentPhase: string;
-  iteration: number;
+  // undefined/null until a status reading arrives; rendered as "--", not 0.
+  iteration?: number | null;
 }
 
 const PHASES: { key: RARVPhase; label: string; description: string }[] = [
@@ -24,6 +25,7 @@ function mapPhaseString(phase: string): RARVPhase {
 
 export function PhaseVisualizer({ currentPhase, iteration }: PhaseVisualizerProps) {
   const active = mapPhaseString(currentPhase);
+  const iterationLabel = typeof iteration === 'number' ? iteration : '--';
 
   return (
     <div className="card p-6">
@@ -32,7 +34,7 @@ export function PhaseVisualizer({ currentPhase, iteration }: PhaseVisualizerProp
           RARV Cycle
         </h3>
         <span className="font-mono text-xs text-muted">
-          Iteration {iteration}
+          Iteration {iterationLabel}
         </span>
       </div>
 
@@ -97,7 +99,7 @@ export function PhaseVisualizer({ currentPhase, iteration }: PhaseVisualizerProp
           })}
           {/* Center iteration count */}
           <text x="60" y="64" textAnchor="middle" className="text-lg font-bold font-mono fill-primary">
-            {iteration}
+            {iterationLabel}
           </text>
         </svg>
       </div>

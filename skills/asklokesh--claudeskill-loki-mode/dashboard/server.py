@@ -3082,8 +3082,10 @@ class FleetRunResponse(BaseModel):
     status: str
     running: bool
     phase: str = ""
-    iteration: int = 0
-    cost_usd: float = 0.0
+    # None when no state file recorded an iteration: unknown, never 0.
+    iteration: Optional[int] = None
+    # None when the project recorded no cost: unknown, never $0.00.
+    cost_usd: Optional[float] = None
     started_at: Optional[str] = None
     duration_seconds: Optional[int] = None
     port: Optional[int] = None
@@ -3094,7 +3096,10 @@ class FleetSummaryResponse(BaseModel):
     total_runs: int
     running_runs: int
     stopped_runs: int
-    total_cost_usd: float
+    # Sum of the runs that recorded a cost; None when none did. Partial when
+    # some runs recorded nothing, so the total is a lower bound.
+    total_cost_usd: Optional[float] = None
+    total_cost_partial: bool = False
 
 
 @app.get(
@@ -3163,7 +3168,7 @@ async def get_fleet_run(identifier: str):
         running=running,
         phase=snap.get("phase", ""),
         iteration=snap.get("iteration", 0),
-        cost_usd=snap.get("cost_usd", 0.0),
+        cost_usd=snap.get("cost_usd"),
         started_at=started_at,
         duration_seconds=duration_seconds,
         port=project.get("port"),
@@ -6265,7 +6270,8 @@ async def get_memory_summary():
             if total > 0:
                 summary = {
                     "episodic": {"count": stats.get("episode_count", 0), "latestDate": None},
-                    "semantic": {"patterns": stats.get("pattern_count", 0), "antiPatterns": 0},
+                    # The SQLite stats carry no anti-pattern count: unknown, not 0.
+                    "semantic": {"patterns": stats.get("pattern_count", 0), "antiPatterns": None},
                     "procedural": {"skills": stats.get("skill_count", 0)},
                     "backend": "sqlite",
                 }
@@ -6553,12 +6559,19 @@ async def get_token_economics():
             raw = {}
 
     metrics = raw.get("metrics", {}) if isinstance(raw, dict) else {}
+    if not isinstance(metrics, dict):
+        metrics = {}
     cache_hits = int(metrics.get("cache_hits", 0) or 0)
     cache_misses = int(metrics.get("cache_misses", 0) or 0)
     cache_total = cache_hits + cache_misses
-    hit_rate = round(cache_hits / cache_total, 4) if cache_total > 0 else 0.0
-    discovery_tokens = int(metrics.get("discovery_tokens", 0) or 0)
-    read_tokens = int(metrics.get("read_tokens", 0) or 0)
+    # No lookups means no hit rate, and no economics file means no token
+    # counts: both are null ("--" on the page), never a measured 0.
+    hit_rate = round(cache_hits / cache_total, 4) if cache_total > 0 else None
+    recorded = bool(metrics)
+    discovery_tokens = int(metrics.get("discovery_tokens", 0) or 0) if recorded else None
+    read_tokens = int(metrics.get("read_tokens", 0) or 0) if recorded else None
+    savings = raw.get("savings_percent") if isinstance(raw, dict) else None
+    ratio = raw.get("ratio") if isinstance(raw, dict) else None
 
     # Top-accessed memories: scan episodic + semantic, rank by access_count
     # then importance.
@@ -6626,17 +6639,19 @@ async def get_token_economics():
         "session_id": raw.get("session_id"),
         "discovery_tokens": discovery_tokens,
         "read_tokens": read_tokens,
-        "total_tokens": discovery_tokens + read_tokens,
+        "total_tokens": discovery_tokens + read_tokens if recorded else None,
         "cache_hits": cache_hits,
         "cache_misses": cache_misses,
         "hit_rate": hit_rate,
-        "ratio": raw.get("ratio", 0.0),
-        "savings_percent": raw.get("savings_percent", 0.0),
-        "top_patterns": top_patterns,
+        "ratio": ratio,
+        "savings_percent": savings,
+        # Only memories that were actually retrieved: a list of 0x entries
+        # under "Top retrieved" names memories nobody retrieved.
+        "top_patterns": [p for p in top_patterns if p.get("access_count", 0) > 0],
         # Backward-compat aliases (pre-v7.7.21 camelCase consumers)
         "discoveryTokens": discovery_tokens,
         "readTokens": read_tokens,
-        "savingsPercent": raw.get("savings_percent", 0.0),
+        "savingsPercent": savings,
         "raw": raw,
     }
 
@@ -7067,16 +7082,20 @@ async def get_learning_metrics(
     # because some legacy events/signals stored confidence as a string, which
     # made sum() raise TypeError: unsupported operand type(s) for +: 'int' and 'str'.
     # B-7 fix (v7.6.1): silently skip non-numeric confidence values.
-    def _as_num(v: object) -> float:
+    # An entry with no numeric confidence carries no evidence: it is skipped,
+    # never averaged in as 0.0, and with none at all the average is null.
+    def _as_num(v: object):
+        if isinstance(v, bool):
+            return None
         if isinstance(v, (int, float)):
             return float(v)
         try:
-            return float(v) if v is not None else 0.0
+            return float(v) if v is not None else None
         except (TypeError, ValueError):
-            return 0.0
+            return None
 
-    total_conf = sum(_as_num(e.get("data", {}).get("confidence", 0)) for e in events)
-    total_conf += sum(_as_num(s.get("confidence", 0)) for s in all_signals)
+    confs = [c for c in (_as_num(e.get("data", {}).get("confidence")) for e in events) if c is not None]
+    confs += [c for c in (_as_num(s.get("confidence")) for s in all_signals) if c is not None]
 
     # Load aggregation data from file if available
     aggregation = {
@@ -7100,7 +7119,7 @@ async def get_learning_metrics(
         "totalSignals": total_count,
         "signalsByType": by_type,
         "signalsBySource": by_source,
-        "avgConfidence": round(total_conf / max(total_count, 1), 4),
+        "avgConfidence": round(sum(confs) / len(confs), 4) if confs else None,
         "aggregation": aggregation,
     }
 
@@ -7188,18 +7207,21 @@ async def get_learning_aggregation():
             data = s.get("data", {})
             tool_name = data.get("tool_name", s.get("action", "unknown"))
             if tool_name not in tool_stats:
-                tool_stats[tool_name] = {"count": 0, "total_ms": 0, "successes": 0}
+                tool_stats[tool_name] = {"count": 0, "total_ms": 0, "timed": 0, "successes": 0}
             tool_stats[tool_name]["count"] += 1
-            tool_stats[tool_name]["total_ms"] += data.get("duration_ms", 0)
+            if isinstance(data.get("duration_ms"), (int, float)):
+                tool_stats[tool_name]["total_ms"] += data["duration_ms"]
+                tool_stats[tool_name]["timed"] += 1
             if data.get("success", s.get("outcome") == "success"):
                 tool_stats[tool_name]["successes"] += 1
         result["tool_efficiencies"] = []
         for tname, stats in sorted(tool_stats.items(), key=lambda x: -x[1]["count"]):
-            avg_ms = stats["total_ms"] / stats["count"] if stats["count"] else 0
+            # Average only the calls that recorded a duration; none -> null.
+            avg_ms = stats["total_ms"] / stats["timed"] if stats["timed"] else None
             sr = round(stats["successes"] / stats["count"], 4) if stats["count"] else 0
             result["tool_efficiencies"].append({
                 "tool_name": tname, "efficiency_score": sr,
-                "count": stats["count"], "avg_execution_time_ms": round(avg_ms, 2),
+                "count": stats["count"], "avg_execution_time_ms": round(avg_ms, 2) if avg_ms is not None else None,
                 "success_rate": sr,
             })
 
@@ -7210,7 +7232,8 @@ async def get_learning_aggregation():
             etype = s.get("data", {}).get("error_type", s.get("action", "unknown"))
             error_counts[etype] = error_counts.get(etype, 0) + 1
         result["error_patterns"] = [
-            {"error_type": k, "resolution_rate": 0.0, "frequency": v, "confidence": min(1.0, v / 10)}
+            # Resolution is never measured: null, not a 0% resolution rate.
+            {"error_type": k, "resolution_rate": None, "frequency": v, "confidence": min(1.0, v / 10)}
             for k, v in sorted(error_counts.items(), key=lambda x: -x[1])
         ]
 
@@ -7296,12 +7319,14 @@ def _compute_learning_aggregation() -> dict:
 
                 elif signal_type == "tool_usage":
                     tool_name = data.get("tool_name", "unknown")
-                    duration = data.get("duration_ms", 0)
+                    duration = data.get("duration_ms")
                     success = data.get("success", False)
                     if tool_name not in tool_stats:
-                        tool_stats[tool_name] = {"count": 0, "total_ms": 0, "successes": 0}
+                        tool_stats[tool_name] = {"count": 0, "total_ms": 0, "timed": 0, "successes": 0}
                     tool_stats[tool_name]["count"] += 1
-                    tool_stats[tool_name]["total_ms"] += duration
+                    if isinstance(duration, (int, float)):
+                        tool_stats[tool_name]["total_ms"] += duration
+                        tool_stats[tool_name]["timed"] += 1
                     if success:
                         tool_stats[tool_name]["successes"] += 1
         except Exception:
@@ -7309,17 +7334,18 @@ def _compute_learning_aggregation() -> dict:
 
     # Build structured result
     pref_list = [{"preference_key": k, "preferred_value": k, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(preferences.items(), key=lambda x: -x[1])]
-    error_list = [{"error_type": k, "resolution_rate": 0.0, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(error_patterns.items(), key=lambda x: -x[1])]
-    success_list = [{"pattern_name": k, "avg_duration_seconds": 0, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(success_patterns.items(), key=lambda x: -x[1])]
+    # Resolution rate and pattern duration are never measured: null, not 0.
+    error_list = [{"error_type": k, "resolution_rate": None, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(error_patterns.items(), key=lambda x: -x[1])]
+    success_list = [{"pattern_name": k, "avg_duration_seconds": None, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(success_patterns.items(), key=lambda x: -x[1])]
     tool_list = []
     for tname, stats in sorted(tool_stats.items(), key=lambda x: -x[1]["count"]):
-        avg_ms = stats["total_ms"] / stats["count"] if stats["count"] else 0
+        avg_ms = stats["total_ms"] / stats["timed"] if stats["timed"] else None
         sr = round(stats["successes"] / stats["count"], 4) if stats["count"] else 0
         tool_list.append({
             "tool_name": tname,
             "efficiency_score": sr,
             "count": stats["count"],
-            "avg_execution_time_ms": round(avg_ms, 2),
+            "avg_execution_time_ms": round(avg_ms, 2) if avg_ms is not None else None,
             "success_rate": sr,
         })
 
@@ -7822,7 +7848,7 @@ def _compute_cost_snapshot() -> dict:
     by_phase: dict = {}
     by_model: dict = {}
     budget_limit = None
-    budget_used = 0.0
+    budget_used = None
     budget_remaining = None
     # Did ANY record carry an observed value? Not "was a file present".
     cost_recorded = False
@@ -7842,8 +7868,13 @@ def _compute_cost_snapshot() -> dict:
                 # AttributeError. Skip such files rather than 500 the endpoint.
                 if not isinstance(data, dict):
                     continue
-                if _record_is_measured(data):
+                measured = _record_is_measured(data)
+                if measured:
                     cost_recorded = True
+                # Tokens are measured apart from cost: a record that priced an
+                # iteration but carried no token field says nothing about tokens.
+                tokens_measured = _record_is_measured(
+                    {k: data.get(k) for k in _MEASURED_FIELDS if k != "cost_usd"})
 
                 inp = data.get("input_tokens", 0)
                 out = data.get("output_tokens", 0)
@@ -7865,19 +7896,20 @@ def _compute_cost_snapshot() -> dict:
                     cost = _calculate_model_cost(model, inp, out, cr, cw)
                 estimated_cost += cost
 
-                # Aggregate by phase
-                if phase not in by_phase:
-                    by_phase[phase] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
-                by_phase[phase]["input_tokens"] += inp
-                by_phase[phase]["output_tokens"] += out
-                by_phase[phase]["cost_usd"] += cost
-
-                # Aggregate by model
-                if model not in by_model:
-                    by_model[model] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
-                by_model[model]["input_tokens"] += inp
-                by_model[model]["output_tokens"] += out
-                by_model[model]["cost_usd"] += cost
+                # Aggregate by phase and model. `measured` is tracked per
+                # bucket for the same reason as cost_recorded globally: a phase
+                # whose records all carried nothing reports cost null, never a
+                # summed $0.00 beside phases that were really measured. The
+                # same goes for tokens (`tokens_measured`).
+                for bucket, name in ((by_phase, phase), (by_model, model)):
+                    if name not in bucket:
+                        bucket[name] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0,
+                                        "measured": False, "tokens_measured": False}
+                    bucket[name]["input_tokens"] += inp
+                    bucket[name]["output_tokens"] += out
+                    bucket[name]["cost_usd"] += cost
+                    bucket[name]["measured"] = bucket[name]["measured"] or measured
+                    bucket[name]["tokens_measured"] = bucket[name]["tokens_measured"] or tokens_measured
             except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                 pass
 
@@ -7913,6 +7945,9 @@ def _compute_cost_snapshot() -> dict:
                         by_model[model]["input_tokens"] += inp
                         by_model[model]["output_tokens"] += out
                         by_model[model]["cost_usd"] += cost
+                        # Observed tokens from the tracker (cost_recorded above).
+                        by_model[model]["measured"] = True
+                        by_model[model]["tokens_measured"] = True
             except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                 pass
 
@@ -7926,7 +7961,10 @@ def _compute_cost_snapshot() -> dict:
             if not isinstance(budget_data, dict):
                 budget_data = {}
             budget_limit = budget_data.get("limit")
-            if budget_limit is not None:
+            # Spend against the cap only when something was measured: with
+            # nothing recorded, "used" is unknown, not $0.00, and "remaining"
+            # is unknown, not the whole cap.
+            if budget_limit is not None and cost_recorded:
                 budget_used = estimated_cost
                 budget_remaining = max(0.0, budget_limit - budget_used)
         except (json.JSONDecodeError, KeyError):
@@ -7953,17 +7991,17 @@ def _compute_cost_snapshot() -> dict:
         "estimated_cost_usd": round(estimated_cost, 6) if cost_recorded else None,
         "cost_recorded": cost_recorded,
         "by_phase": {k: {
-            "input_tokens": v["input_tokens"],
-            "output_tokens": v["output_tokens"],
-            "cost_usd": round(v["cost_usd"], 6),
+            "input_tokens": v["input_tokens"] if v.get("tokens_measured") else None,
+            "output_tokens": v["output_tokens"] if v.get("tokens_measured") else None,
+            "cost_usd": round(v["cost_usd"], 6) if v.get("measured") else None,
         } for k, v in by_phase.items()},
         "by_model": {k: {
-            "input_tokens": v["input_tokens"],
-            "output_tokens": v["output_tokens"],
-            "cost_usd": round(v["cost_usd"], 6),
+            "input_tokens": v["input_tokens"] if v.get("tokens_measured") else None,
+            "output_tokens": v["output_tokens"] if v.get("tokens_measured") else None,
+            "cost_usd": round(v["cost_usd"], 6) if v.get("measured") else None,
         } for k, v in by_model.items()},
         "budget_limit": budget_limit,
-        "budget_used": round(budget_used, 6) if budget_limit is not None else None,
+        "budget_used": round(budget_used, 6) if budget_limit is not None and budget_used is not None else None,
         "budget_remaining": round(budget_remaining, 6) if budget_remaining is not None else None,
     }
 
@@ -7977,7 +8015,7 @@ async def get_budget():
 
     # Read budget configuration
     budget_limit = None
-    budget_used = 0.0
+    budget_used = None
     exceeded = False
     exceeded_at = None
 
@@ -7991,7 +8029,7 @@ async def get_budget():
             if not isinstance(budget_data, dict):
                 budget_data = {}
             budget_limit = budget_data.get("limit") or budget_data.get("budget_limit")
-            budget_used = budget_data.get("budget_used", 0.0)
+            budget_used = budget_data.get("budget_used")
             exceeded = budget_data.get("exceeded", False)
             exceeded_at = budget_data.get("exceeded_at")
         except (json.JSONDecodeError, KeyError):
@@ -8022,16 +8060,22 @@ async def get_budget():
 
     # Coerce defensively: a budget.json with a non-numeric budget_used/limit
     # (e.g. "n/a", null, a list) parses as valid JSON but would crash float()
-    # with ValueError/TypeError. Treat non-numeric values as 0.0 / None so the
-    # endpoint returns a clean payload instead of a 500.
-    def _to_float(value, default=0.0):
+    # with ValueError/TypeError. Treat non-numeric values as None (unknown) so
+    # the endpoint returns a clean payload instead of a 500.
+    def _to_float(value, default=None):
         try:
             return float(value)
         except (ValueError, TypeError):
             return default
 
     budget_limit_f = _to_float(budget_limit, None) if budget_limit is not None else None
-    budget_used_f = _to_float(budget_used, 0.0)
+    # A recorded budget.json spend is a reading only when it is a positive
+    # number. bash check_budget_limit writes "budget_used": 0.0 for a run it
+    # measured nothing for, and a bool or non-numeric value is no reading at
+    # all; each of those is unknown, never $0.00 spent.
+    budget_used_f = None if isinstance(budget_used, bool) else _to_float(budget_used, None)
+    if budget_used_f is not None and not budget_used_f > 0:
+        budget_used_f = None
 
     # current_cost must reflect real live spend, not the static budget.json
     # field which only updates when run.sh persists it. The same divergence
@@ -8040,11 +8084,16 @@ async def get_budget():
     # the single source of truth shared with /api/cost/timeline and the WS
     # push); keep budget.json's value only as a fallback when no live spend
     # has been recorded yet.
+    partial = False
     try:
         snapshot = _compute_budget_snapshot(loki_dir)
         live_used = snapshot.get("used")
-        if isinstance(live_used, (int, float)) and live_used > 0:
+        # Live spend wins when positive. A measured live zero stands only when
+        # budget.json holds no positive reading; unmeasured live spend is None
+        # and leaves the recorded fallback (or unknown) in place.
+        if isinstance(live_used, (int, float)) and (live_used > 0 or budget_used_f is None):
             budget_used_f = float(live_used)
+            partial = bool(snapshot.get("partial"))
         if budget_limit_f is None and snapshot.get("limit") is not None:
             budget_limit_f = _to_float(snapshot.get("limit"), None)
     except Exception:
@@ -8053,15 +8102,16 @@ async def get_budget():
         pass
 
     remaining = None
-    if budget_limit_f is not None:
+    if budget_limit_f is not None and budget_used_f is not None:
         remaining = max(0.0, budget_limit_f - budget_used_f)
 
     return {
         "budget_limit": budget_limit_f,
-        "current_cost": round(budget_used_f, 4),
+        "current_cost": round(budget_used_f, 4) if budget_used_f is not None else None,
         "exceeded": exceeded,
         "exceeded_at": exceeded_at,
         "remaining": round(remaining, 4) if remaining is not None else None,
+        "partial": partial,
     }
 
 
@@ -8071,15 +8121,19 @@ async def get_budget():
 _BUDGET_WARN_FRACTION = 0.80
 
 
-def _budget_status(used: float, limit: Optional[float]) -> str:
+def _budget_status(used: Optional[float], limit: Optional[float]) -> str:
     """Classify budget usage. Read-time only; no state mutation.
 
-    Returns one of: "none" (no limit set), "ok" (<80%), "warn" (>=80% and
-    <100%), "exceeded" (>=100%). The warn band is the anti-surprise wedge:
-    the user sees it BEFORE the hard cap pauses the run.
+    Returns one of: "none" (no limit set), "unknown" (a limit is set but no
+    spend was measured), "ok" (<80%), "warn" (>=80% and <100%), "exceeded"
+    (>=100%). The warn band is the anti-surprise wedge: the user sees it
+    BEFORE the hard cap pauses the run. Unknown is never "ok": nothing was
+    measured, so nothing is within budget.
     """
     if limit is None or limit <= 0:
         return "none"
+    if used is None:
+        return "unknown"
     if used >= limit:
         return "exceeded"
     if used >= _BUDGET_WARN_FRACTION * limit:
@@ -8100,11 +8154,18 @@ def _compute_budget_snapshot(loki_dir: _Path) -> dict:
     budget_file = loki_dir / "metrics" / "budget.json"
 
     current_total = 0.0
+    # Same predicate as /api/cost: a present record is not a measurement.
+    cost_recorded = False
+    unmeasured = 0
     if efficiency_dir.exists():
         for eff_file in sorted(efficiency_dir.glob("iteration-*.json")):
             data = _safe_json_read(eff_file, default=None)
             if not isinstance(data, dict):
                 continue
+            if _record_is_measured(data):
+                cost_recorded = True
+            else:
+                unmeasured += 1
             inp = data.get("input_tokens", 0) or 0
             out = data.get("output_tokens", 0) or 0
             # Cache tiers, same as the /api/cost path. This snapshot drives the
@@ -8143,8 +8204,9 @@ def _compute_budget_snapshot(loki_dir: _Path) -> dict:
         except (TypeError, ValueError):
             budget_limit = None
 
-    used = round(current_total, 6)
-    if budget_limit is not None and budget_limit > 0:
+    # Unmeasured spend is null (status "unknown"), never $0.00 / 0.0% used.
+    used = round(current_total, 6) if cost_recorded else None
+    if budget_limit is not None and budget_limit > 0 and used is not None:
         remaining = max(0.0, budget_limit - used)
         percent_used = round((used / budget_limit) * 100, 2)
     else:
@@ -8160,6 +8222,9 @@ def _compute_budget_snapshot(loki_dir: _Path) -> dict:
         "status": status,
         "warn_threshold_percent": int(_BUDGET_WARN_FRACTION * 100),
         "exceeded": status == "exceeded",
+        # Some iterations recorded a cost and some did not: used and
+        # percent_used are lower bounds and remaining an upper bound.
+        "partial": cost_recorded and unmeasured > 0,
     }
 
 
@@ -8194,6 +8259,7 @@ def _compute_cost_timeline() -> dict:
     iterations: list = []
     current_total = 0.0
     cost_recorded = False
+    unmeasured = 0
     if efficiency_dir.exists():
         records = []
         for eff_file in sorted(efficiency_dir.glob("iteration-*.json")):
@@ -8215,8 +8281,11 @@ def _compute_cost_timeline() -> dict:
             # codex run wrote reported total_usd $0.00 with cost_recorded True
             # -- the endpoint asserting the run was FREE. Same predicate as
             # /api/cost so the two cost readers cannot disagree.
-            if _record_is_measured(data):
+            measured = _record_is_measured(data)
+            if measured:
                 cost_recorded = True
+            else:
+                unmeasured += 1
             inp = data.get("input_tokens", 0) or 0
             out = data.get("output_tokens", 0) or 0
             # Cache tiers, same as the /api/cost path. This snapshot drives the
@@ -8239,19 +8308,25 @@ def _compute_cost_timeline() -> dict:
             iterations.append({
                 "iteration": data.get("iteration"),
                 "timestamp": data.get("timestamp"),
-                "model": model,
+                # The "sonnet" default above only picks a price; it is not a
+                # model anyone recorded, so it is never shown as one.
+                "model": model if data.get("model") else None,
                 "phase": data.get("phase", "unknown"),
                 "provider": data.get("provider"),
-                "input_tokens": inp,
-                "output_tokens": out,
-                "cost_usd": round(cost, 6),
-                "cumulative_usd": round(cumulative, 6),
+                # An unmeasured record's tokens are unknown, not 0.
+                "input_tokens": inp if measured else None,
+                "output_tokens": out if measured else None,
+                # An iteration nobody measured has no cost and no point on the
+                # cumulative line (cost.html skips a null point).
+                "cost_usd": round(cost, 6) if measured else None,
+                "cumulative_usd": round(cumulative, 6) if measured else None,
             })
         current_total = cumulative
 
     # --- per-run history: from .loki/proofs/*/proof.json --------------------
     runs: list = []
     project_total = 0.0
+    runs_measured = 0
     proofs_dir = _proofs_dir()
     try:
         entries = sorted(proofs_dir.iterdir())
@@ -8269,6 +8344,7 @@ def _compute_cost_timeline() -> dict:
             try:
                 run_cost_num = float(run_cost)
                 project_total += run_cost_num
+                runs_measured += 1
             except (TypeError, ValueError):
                 run_cost_num = None
         runs.append({
@@ -8293,10 +8369,18 @@ def _compute_cost_timeline() -> dict:
             "iterations": iterations,
             "total_usd": round(current_total, 6) if cost_recorded else None,
             "cost_recorded": cost_recorded,
+            # total_usd sums only the measured iterations when some were not.
+            "partial": cost_recorded and unmeasured > 0,
+            "unmeasured_iterations": unmeasured,
         },
         "runs": runs,
         "runs_count": len(runs),
-        "project_total_usd": round(project_total, 6) if runs else 0.0,
+        # Null unless at least one run recorded a cost: runs that each read
+        # "not recorded" do not add up to a $0.00 project. A measured $0.00 run
+        # still makes it 0.0. When only some runs recorded a cost the sum is a
+        # lower bound, and project_total_partial says so.
+        "project_total_usd": round(project_total, 6) if runs_measured else None,
+        "project_total_partial": 0 < runs_measured < len(runs),
         "budget": budget,
     }
 
@@ -8453,11 +8537,18 @@ _PROVIDER_LABELS = {
 # quoting the standard $3/$15 rate: over-estimating the display is the safe
 # direction (a bill can only come in lower than quoted, never higher). This note
 # tells the user why the quote is conservative during the intro window.
+_UNVERIFIED_RATE_NOTE = (
+    "Unverified placeholder rate, scaled from gpt-5.3; not from OpenAI's pricing page."
+)
 _MODEL_PRICING_NOTES = {
     "sonnet": (
         "Intro pricing: $2 / $10 per MTok through Aug 31 2026. "
         "Estimates use the standard $3 / $15 rate (conservative)."
     ),
+    # See the UNVERIFIED RATES comment on the pricing table: shown, not hidden.
+    "gpt-5.6-sol": _UNVERIFIED_RATE_NOTE,
+    "gpt-5.6-terra": _UNVERIFIED_RATE_NOTE,
+    "gpt-5.6-luna": _UNVERIFIED_RATE_NOTE,
 }
 
 _MODEL_PROVIDERS = {
@@ -8750,21 +8841,24 @@ async def get_context():
     tracking_file = loki_dir / "context" / "tracking.json"
 
     if not tracking_file.exists():
+        # The tracker never ran: every reading is null (the panels show
+        # "unknown"), never a measured 0 / 0.0% / $0.00. The context tracker
+        # always writes updated_at, so a null updated_at also means unmeasured.
         return {
-            "session_id": "",
-            "updated_at": "",
+            "session_id": None,
+            "updated_at": None,
             "current": {
-                "input_tokens": 0, "output_tokens": 0,
-                "cache_read_tokens": 0, "cache_creation_tokens": 0,
-                "total_tokens": 0, "context_window_pct": 0.0,
-                "estimated_cost_usd": 0.0,
+                "input_tokens": None, "output_tokens": None,
+                "cache_read_tokens": None, "cache_creation_tokens": None,
+                "total_tokens": None, "context_window_pct": None,
+                "estimated_cost_usd": None,
             },
             "compactions": [],
             "per_iteration": [],
             "totals": {
-                "total_input": 0, "total_output": 0,
-                "total_cost_usd": 0.0, "compaction_count": 0,
-                "iterations_tracked": 0,
+                "total_input": None, "total_output": None,
+                "total_cost_usd": None, "compaction_count": None,
+                "iterations_tracked": None,
             },
         }
 
@@ -8863,6 +8957,16 @@ async def update_notification_triggers(request: Request):
 @app.post("/api/notifications/{notification_id}/acknowledge", dependencies=[Depends(auth.require_scope("control"))])
 async def acknowledge_notification(notification_id: str):
     """Mark a notification as acknowledged."""
+    return _set_notification_acknowledged(notification_id, True)
+
+
+@app.post("/api/notifications/{notification_id}/unacknowledge", dependencies=[Depends(auth.require_scope("control"))])
+async def unacknowledge_notification(notification_id: str):
+    """Mark a notification as unread again (the notification center's 'mark unread')."""
+    return _set_notification_acknowledged(notification_id, False)
+
+
+def _set_notification_acknowledged(notification_id: str, acknowledged: bool) -> dict:
     loki_dir = _get_loki_dir()
     active_file = loki_dir / "notifications" / "active.json"
 
@@ -8878,7 +8982,7 @@ async def acknowledge_notification(notification_id: str):
     found = False
     for n in notifications:
         if n.get("id") == notification_id:
-            n["acknowledged"] = True
+            n["acknowledged"] = acknowledged
             found = True
             break
 
@@ -10325,18 +10429,6 @@ async def remove_checklist_waiver(item_id: str):
 # Council Hard Gate Endpoint (Phase 4)
 # =============================================================================
 
-_DEFAULT_QUALITY_GATES = [
-    {"name": "Static Analysis", "description": "CodeQL, ESLint/Pylint, type-checker findings on the diff", "status": "pending"},
-    {"name": "Test Suite", "description": "Project test runner pass/fail (red blocks)", "status": "pending"},
-    {"name": "Blind Code Review", "description": "3-reviewer blind review; Critical/High = BLOCK; Medium/Low advisory", "status": "pending"},
-    {"name": "Anti-Sycophancy", "description": "Devil's Advocate re-review on unanimous PASS", "status": "pending"},
-    {"name": "Mock Integrity", "description": "Tautological-assertion and mock-ratio detection", "status": "pending"},
-    {"name": "Test Mutation", "description": "Assertion-churn (test-fitting) detection", "status": "pending"},
-    {"name": "Documentation Coverage", "description": "README presence, docs freshness, API docs for exported symbols", "status": "pending"},
-    {"name": "Magic Modules Debate", "description": "Spec-vs-implementation debate on generated modules", "status": "pending"},
-]
-
-
 @app.get("/api/council/gate", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_gate():
     """Get council hard gate status.
@@ -10354,16 +10446,25 @@ async def get_council_gate():
     gate_file = council_dir / "gate-block.json"
     evidence_file = council_dir / "evidence-block.json"
 
-    # Legacy quality gate (backward-compatible top level).
+    # Legacy quality gate (backward-compatible top level). No per-gate result
+    # was recorded unless the file carries a "gates" list (its only writer,
+    # completion-council.sh, never does): the list is then empty with a reason,
+    # never eight constant "pending" rows that read as a checked state. An
+    # unreadable file is unknown (blocked: null), never "not blocked".
+    no_results = "No per-gate results recorded"
     if gate_file.exists():
         try:
             data = json.loads(gate_file.read_text())
+            if not isinstance(data, dict):
+                raise ValueError("gate file is not an object")
             if "gates" not in data:
-                data["gates"] = _DEFAULT_QUALITY_GATES
-        except (json.JSONDecodeError, IOError):
-            data = {"blocked": False, "gates": _DEFAULT_QUALITY_GATES, "error": "Failed to read gate file"}
+                data["gates"] = []
+                data["gates_reason"] = no_results
+        except (json.JSONDecodeError, IOError, ValueError):
+            data = {"blocked": None, "gates": [], "gates_reason": no_results,
+                    "error": "Failed to read gate file"}
     else:
-        data = {"blocked": False, "gates": _DEFAULT_QUALITY_GATES}
+        data = {"blocked": False, "gates": [], "gates_reason": no_results}
 
     # Verified-completion evidence gate (additive).
     if evidence_file.exists():
@@ -12488,9 +12589,52 @@ async def proofs_summary():
     }
 
 
+def _proof_integrity_check(proof: dict) -> dict:
+    """Recompute a receipt's integrity with the CLI verifier's own checks.
+
+    Runs autonomy/lib/proof-verify.py verify_integrity() (hash, gpg, headline,
+    cost coherence) plus its schema check, loaded from this install, never from
+    the project. The diff is NOT re-derived: that runs git inside the project,
+    which a read route must not do, so drift_checked is always False and the
+    panel names `loki proof verify <id>` for the full check.
+
+    status: verified (every check here ran and passed), tampered (the recorded
+    hash does not match the bytes), failed (a check ran and said no),
+    not_verified (nothing to check against, or the checks could not run).
+    """
+    out = {"status": "not_verified", "hash_ok": None, "gpg_ok": None,
+           "drift_checked": False, "reasons": [],
+           "checked_by": "autonomy/lib/proof-verify.py verify_integrity"}
+    ver = proof.get("verification")
+    if not isinstance(ver, dict) or not ver.get("hash"):
+        out["reasons"] = ["the receipt records no integrity hash, so there is "
+                          "nothing to recompute"]
+        return out
+    try:
+        pv = _build_execution._load_proof_verifier()
+        r = pv.verify_integrity(proof)
+        schema_reason = pv.check_schema_version(proof)
+    except Exception as exc:  # the verifier could not run: say so, never pass
+        out["reasons"] = ["the verifier could not run here: %s" % exc]
+        return out
+    out["hash_ok"] = r.get("hash_ok")
+    out["gpg_ok"] = r.get("gpg_ok")
+    out["reasons"] = list(r.get("reasons") or [])
+    if r.get("hash_ok") is not True:
+        out["status"] = "tampered"
+    elif not r.get("ok"):
+        out["status"] = "failed"
+    elif schema_reason:
+        out["reasons"].append(schema_reason)
+    else:
+        out["status"] = "verified"
+    return out
+
+
 @app.get("/api/proofs/{run_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_proof(run_id: str):
-    """Return the redacted proof.json for one run."""
+    """Return the redacted proof.json for one run, plus integrity_check: the
+    verdict the server computed for it (see _proof_integrity_check)."""
     run_dir = _safe_proof_run_dir(run_id)
     proof_json = run_dir / "proof.json"
     if not proof_json.is_file():
@@ -12498,6 +12642,10 @@ async def get_proof(run_id: str):
     data = _safe_json_read(proof_json, default=None)
     if not isinstance(data, dict):
         raise HTTPException(status_code=500, detail="proof.json unreadable")
+    # Computed on the file's contents BEFORE anything is added to the response;
+    # a to_thread because a gpg signature check shells out to gpg.
+    integrity = await asyncio.to_thread(_proof_integrity_check, dict(data))
+    data["integrity_check"] = integrity
     # Surface the optional PR linkage alongside the proof. The proof.json itself
     # already carries honesty.headline; we only add pr_url so the panel can show
     # "PR #N -> <headline>". Absent pr.json -> pr_url null, never an error.

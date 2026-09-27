@@ -42,6 +42,16 @@ FAIL=0
 ok() { echo "PASS [$1]"; PASS=$((PASS + 1)); }
 bad() { echo "FAIL [$1] $2"; FAIL=$((FAIL + 1)); }
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$TMPROOT/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 # Poisoned data used by the privacy assertions. These must never appear in the
 # stored ErrorEntry or the rendered PAST FAILURES block.
 POISON_PATH="/Users/lokesh/secret-project/handler.py"
@@ -103,6 +113,15 @@ run_connector_a() {
     (
         export LOKI_MANAGED_AGENTS=false LOKI_MANAGED_MEMORY=false
         export LOKI_FAILURE_MEMORY="$knob"
+        # cd into the target BEFORE sourcing run.sh (subshell only, so this
+        # never affects the outer script's CWD): sourcing runs provider
+        # auto-detection, which does `mkdir -p .loki/state && echo ... >
+        # .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT
+        # that writes into the shared checkout and contaminates every later
+        # test in the same shell (same bug class as test-iteration-grace.sh
+        # and test-exit-code-contract.sh). PROJECT_DIR is set explicitly right
+        # after, so this cd does not change what the sourced functions see.
+        cd "$t" || exit 1
         # shellcheck disable=SC1091
         source "$REPO_ROOT/autonomy/run.sh" >/dev/null 2>&1
         # MUST be set AFTER source (run.sh:760 resets TARGET_DIR at source time).
@@ -123,6 +142,9 @@ run_connector_b() {
     (
         export LOKI_MANAGED_AGENTS=false LOKI_MANAGED_MEMORY=false
         export LOKI_FAILURE_MEMORY="$knob"
+        # cd into the target BEFORE sourcing run.sh (subshell only): see the
+        # identical note in run_connector_a above.
+        cd "$t" || exit 1
         # shellcheck disable=SC1091
         source "$REPO_ROOT/autonomy/run.sh" >/dev/null 2>&1
         # Consumed by the sourced retrieve_memory_context, which reads these as
@@ -429,6 +451,22 @@ if echo "$B6" | grep -q "MARKER_NEW1" || echo "$B6" | grep -q "MARKER_NEW2"; the
     bad "t6_two_oldest_sameday_dropped" "an older same-day marker surfaced (within-day ordering bug); out=$B6"
 else
     ok "t6_two_oldest_sameday_dropped"
+fi
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: T1 must show its own provider file did get written.
+# Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
+# would also read as "isolated" -- the check would pass for the wrong reason.
+if [ -f "$T1/.loki/state/provider" ]; then
+    ok "control_provider_autodetect_writes_scratch_dir"
+else
+    bad "control_provider_autodetect_writes_scratch_dir" "no $T1/.loki/state/provider -- would pass vacuously"
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "no_repo_checkout_contamination" "$REPO_ROOT/.loki/state/provider is newer than this run's start"
+else
+    ok "no_repo_checkout_contamination"
 fi
 
 echo ""

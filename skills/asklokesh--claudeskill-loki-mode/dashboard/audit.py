@@ -657,7 +657,8 @@ def verify_all_logs_in_dir(audit_dir) -> dict:
     if not audit_dir.exists():
         return {"valid": True, "files_checked": 0, "files_skipped": 0,
                 "entries_checked": 0, "first_tampered_file": None,
-                "first_tampered_line": None, "genesis_file": None}
+                "first_tampered_line": None, "genesis_file": None,
+                "verified": False, "status": "nothing_checked"}
     # v7.7.15 council fix (Opus 2): rotated files have name shape
     # `audit-YYYY-MM-DD.HHMMSS.jsonl` (from `_rotate_logs_if_needed` at
     # line 167). Lexicographic sort puts `audit-2026-05-04.123456.jsonl`
@@ -689,8 +690,13 @@ def verify_all_logs_in_dir(audit_dir) -> dict:
                 "first_tampered_file": str(log_file),
                 "first_tampered_line": result.get("first_tampered_line"),
                 "genesis_file": genesis_file,
+                "verified": False,
+                "status": "tampered",
             }
         prev_hash = result.get("last_hash", prev_hash)
+    # `valid` means "no break found" and stays True for an empty chain (the
+    # cross-chain verifier reads it). `verified` and `status` say whether
+    # anything was actually checked: zero files checked is not a verified chain.
     return {
         "valid": True,
         "files_checked": files_checked,
@@ -699,6 +705,8 @@ def verify_all_logs_in_dir(audit_dir) -> dict:
         "first_tampered_file": None,
         "first_tampered_line": None,
         "genesis_file": genesis_file,
+        "verified": files_checked > 0,
+        "status": "verified" if files_checked > 0 else "nothing_checked",
     }
 
 

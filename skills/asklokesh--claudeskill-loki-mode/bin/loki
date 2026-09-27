@@ -348,6 +348,18 @@ if [ "${1:-}" = "trust" ]; then
     done
 fi
 
+# `doctor --airgap` (egress audit) lives only in bash (_loki_airgap_audit).
+# The Bun doctor rejected the flag, so the default route had no audit at all.
+# Routed here, flag-anywhere, so the committed dist needs no rebuild and bash
+# stays the single implementation; bash main() fires the one cli_command event.
+if [ "${1:-}" = "doctor" ]; then
+    for _doctor_arg in "${@:2}"; do
+        if [ "$_doctor_arg" = "--airgap" ]; then
+            exec "$BASH_CLI" "$@"
+        fi
+    done
+fi
+
 # CLI consolidation (Phase B): `report kpis` is the canonical form of the
 # Bun-only KPI snapshot. The `report` noun is otherwise bash-owned (every other
 # subcommand -- session/metrics/cost/export/share/dogfood -- routes to bash

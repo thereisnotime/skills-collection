@@ -197,7 +197,7 @@ def attest(proof_path, repo_dir="."):
     axes["drift"] = _tri(
         result.get("diff_drift") is False if result.get("diff_drift") is not None
         else None,
-        _pick(reasons, "drift unverifiable") or
+        _pick(reasons, "could not check drift", "drift unverifiable") or
         "the recorded diff could not be re-derived here",
     )
     if result.get("diff_drift") is True:

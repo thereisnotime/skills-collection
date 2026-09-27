@@ -41,90 +41,6 @@ interface ComplianceDashboardProps {
 }
 
 // ---------------------------------------------------------------------------
-// Sample data
-// ---------------------------------------------------------------------------
-
-function generateSampleItems(): ComplianceItem[] {
-  return [
-    {
-      id: 'c-1',
-      title: 'API Keys Rotated Within 90 Days',
-      description: 'All active API keys should be rotated at least every 90 days to minimize exposure risk.',
-      status: 'warning',
-      category: 'security',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      remediationUrl: '/admin/settings',
-      details: '2 of 3 keys are within 90 days. 1 key (Production CI/CD) is 120 days old.',
-    },
-    {
-      id: 'c-2',
-      title: 'All Users Have MFA Enabled',
-      description: 'Multi-factor authentication should be enabled for all user accounts.',
-      status: 'fail',
-      category: 'access',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      remediationUrl: '/admin/settings',
-      details: '3 of 5 users have MFA enabled. 2 users need to enable MFA.',
-    },
-    {
-      id: 'c-3',
-      title: 'Audit Logging Enabled',
-      description: 'All user actions should be captured in the audit log.',
-      status: 'pass',
-      category: 'audit',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      details: 'Audit logging is active. 1,247 events captured in the last 30 days.',
-    },
-    {
-      id: 'c-4',
-      title: 'Data Retention Policy Set',
-      description: 'A data retention policy must be configured specifying how long logs and data are kept.',
-      status: 'pass',
-      category: 'data',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      details: 'Retention policy: 90 days for logs, 365 days for audit events.',
-    },
-    {
-      id: 'c-5',
-      title: 'Access Review Completed',
-      description: 'User access should be reviewed quarterly to ensure least-privilege principle.',
-      status: 'warning',
-      category: 'access',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      remediationUrl: '/admin',
-      details: 'Last access review was 85 days ago. Due for review within 5 days.',
-    },
-    {
-      id: 'c-6',
-      title: 'Encryption at Rest Enabled',
-      description: 'All stored data including project files and secrets must be encrypted at rest.',
-      status: 'pass',
-      category: 'security',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      details: 'AES-256 encryption enabled for all storage backends.',
-    },
-    {
-      id: 'c-7',
-      title: 'Session Timeout Configured',
-      description: 'User sessions should expire after a configured period of inactivity.',
-      status: 'pass',
-      category: 'security',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      details: 'Session timeout set to 30 minutes of inactivity.',
-    },
-    {
-      id: 'c-8',
-      title: 'Rate Limiting Active',
-      description: 'API rate limiting should be enabled to prevent abuse and ensure fair usage.',
-      status: 'pass',
-      category: 'security',
-      lastChecked: new Date(Date.now() - 3600000).toISOString(),
-      details: 'Rate limit: 100 requests/minute per API key.',
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
 // Status icon
 // ---------------------------------------------------------------------------
 
@@ -214,7 +130,8 @@ export function ComplianceDashboard({
   onRefresh,
   className = '',
 }: ComplianceDashboardProps) {
-  const [items, setItems] = useState<ComplianceItem[]>(externalItems || generateSampleItems());
+  // No sample fallback: with no compliance checks wired there is nothing to score.
+  const [items, setItems] = useState<ComplianceItem[]>(externalItems ?? []);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -222,7 +139,8 @@ export function ComplianceDashboard({
   const passCount = items.filter(i => i.status === 'pass').length;
   const warnCount = items.filter(i => i.status === 'warning').length;
   const failCount = items.filter(i => i.status === 'fail').length;
-  const score = items.length > 0 ? Math.round((passCount / items.length) * 100) : 0;
+  // Zero checks is not a 0% score: there is no score at all.
+  const score = items.length > 0 ? Math.round((passCount / items.length) * 100) : null;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -279,16 +197,27 @@ export function ComplianceDashboard({
           </h3>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={handleRefresh} loading={refreshing}>
-            Refresh
-          </Button>
-          <Button size="sm" variant="secondary" icon={Download} onClick={handleGenerateReport} loading={generating}>
-            Generate Report
-          </Button>
+          {onRefresh && (
+            <Button size="sm" variant="ghost" icon={RefreshCw} onClick={handleRefresh} loading={refreshing}>
+              Refresh
+            </Button>
+          )}
+          {score !== null && (
+            <Button size="sm" variant="secondary" icon={Download} onClick={handleGenerateReport} loading={generating}>
+              Generate Report
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Score overview */}
+      {score === null ? (
+        <div className="card p-6 text-center">
+          <p className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Not connected</p>
+          <p className="text-xs text-[#939084] mt-1">
+            No compliance checks are wired to this server, so there is no score. Nothing here has been checked.
+          </p>
+        </div>
+      ) : (
       <div className="card p-6">
         <div className="flex items-center gap-8">
           <ComplianceGauge score={score} />
@@ -323,6 +252,7 @@ export function ComplianceDashboard({
           </div>
         </div>
       </div>
+      )}
 
       {/* Checklist by category */}
       {categories.map(category => {

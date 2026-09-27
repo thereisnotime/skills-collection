@@ -171,6 +171,10 @@ PAYLOAD=$(doctor_json bash yes)
 assert_json_parses "bash route, fake sentrux:" "$PAYLOAD"
 assert_sentrux_key_present "bash route, fake sentrux:" "$PAYLOAD"
 assert_sentrux_shape "bash route, fake sentrux:" "$PAYLOAD" true
+# Bash-route stderr carries no shell noise: backticks inside the embedded
+# Python once ran 'required' and 'status' as shell commands.
+DJ_ERR="$(env LOKI_LEGACY_BASH=1 bash "$REPO_ROOT/bin/loki" doctor --json 2>&1 >/dev/null)"
+case "$DJ_ERR" in *"command not found"*|*"autonomy/loki: line "*) bad "bash route doctor --json stderr has shell noise: $(printf '%s' "$DJ_ERR" | head -2)" ;; *) ok "bash route doctor --json stderr carries no shell noise" ;; esac
 
 #-------------------------------------------------------------------------------
 # Case 3: sentrux NOT on PATH -- Bun route (only if bun is installed)

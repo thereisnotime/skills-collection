@@ -45,7 +45,10 @@ function GateItem({ item }: { item: ChecklistItem }) {
   );
 }
 
-export function QualityGatesPanel({ checklist, loading }: QualityGatesPanelProps) {
+export function QualityGatesPanel({ checklist: raw, loading }: QualityGatesPanelProps) {
+  // The endpoint returns all-zeros with items: [] when .loki/state/checklist.json
+  // is absent. Zeros are not "0/0 passed"; treat that as no data.
+  const checklist = raw && Array.isArray(raw.items) && raw.items.length > 0 ? raw : null;
   const passedPercent = checklist && checklist.total > 0
     ? (checklist.passed / checklist.total) * 100
     : 0;

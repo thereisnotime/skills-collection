@@ -122,13 +122,13 @@ export function CheckpointTimeline({ sessionId, onRestore }: CheckpointTimelineP
                           {formatTime(cp.timestamp)}
                         </span>
                       )}
-                      {cp.files_changed > 0 && (
+                      {(cp.files_changed ?? 0) > 0 && (
                         <span className="flex items-center gap-1 text-[11px] text-muted">
                           <FileCode2 size={10} />
                           {cp.files_changed} file{cp.files_changed !== 1 ? 's' : ''}
                         </span>
                       )}
-                      {cp.iteration > 0 && (
+                      {(cp.iteration ?? 0) > 0 && (
                         <span className="text-[11px] text-muted">
                           Iter {cp.iteration}
                         </span>

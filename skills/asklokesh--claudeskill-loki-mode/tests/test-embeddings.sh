@@ -39,8 +39,11 @@ log_test() {
 
 cleanup() {
     rm -rf "$TEST_DIR"
-    # Clean up any test processes
-    pkill -f "test-embedding-" 2>/dev/null || true
+    # ponytail: no pkill here. This test never spawns a background process
+    # whose argv contains "test-embedding-" -- it only shells out to python3
+    # synchronously. The line was dead defensive code that matched nothing,
+    # while still being an unscoped machine-wide kill-by-substring if it ever
+    # did (see docs/v10/DECISIONS.md D14/D15/D16).
 }
 trap cleanup EXIT
 

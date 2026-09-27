@@ -324,13 +324,28 @@ finish() {
 # The proof bytes are untouched here, so the attestation itself still verifies
 # (correctly: the signature is genuine). The tree check must still fail the run,
 # with the drift exit code 1 rather than the could-not-check code 2.
-cp -R "$R" "$W/drift" && printf 'edited after sealing\n' >>"$W/drift/a.txt"
-for route in bash bun; do
-    precheck "$route" || continue
-    verify "$route" "drift-$route" "$W/drift" p1 --jwks "$W/keys/jwks.json"
-    [ "$RC" -eq 1 ] || why="$why $route: exit $RC, expected 1 (tree drift);"
-done
-finish P1.different-tree-fails "a tracked file edited after sealing makes verify exit 1 ($ROUTES)"
+#
+# Mirror control (BACKLOG 41): without it, this case cannot tell "sensitive to
+# the edit" from "fails on any relocated copy" (a stale git index after cp -R,
+# say, or the path change itself). $W/nodrift is made the same way as $W/drift
+# -- a plain cp -R of $R, before any edit -- and differs from it in exactly one
+# variable: whether the edit happened. It must verify clean (RC 0, VERIFIED),
+# same bar as the GOOD_BASH/GOOD_BUN positive control above.
+if ! cp -R "$R" "$W/drift" || ! printf 'edited after sealing\n' >>"$W/drift/a.txt" \
+    || ! cp -R "$R" "$W/nodrift"; then
+    why=" fixture: could not build the drift/no-drift copies;"
+else
+    for route in bash bun; do
+        precheck "$route" || continue
+        verify "$route" "drift-$route" "$W/drift" p1 --jwks "$W/keys/jwks.json"
+        [ "$RC" -eq 1 ] || why="$why $route: edited copy exit $RC, expected 1 (tree drift);"
+        verify "$route" "nodrift-$route" "$W/nodrift" p1 --jwks "$W/keys/jwks.json"
+        if [ "$RC" -ne 0 ] || ! verified "nodrift-$route"; then
+            why="$why $route: no-edit control exit $RC (expected 0, VERIFIED) -- an unedited copy must verify clean, or the drift case above is not measuring the edit;"
+        fi
+    done
+fi
+finish P1.different-tree-fails "a tracked file edited after sealing makes verify exit 1, while an unedited copy of the same tree verifies clean ($ROUTES)"
 
 # --- P1.modified-field-fails ----------------------------------------------------------
 # Two forgeries of facts.git.head_sha: one leaves verification.hash stale (the

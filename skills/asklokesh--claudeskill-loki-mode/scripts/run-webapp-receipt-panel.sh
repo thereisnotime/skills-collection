@@ -7,6 +7,10 @@
 #   - a receipt with NO recorded cost  -> must render "unknown", never $0.00
 #   - an ATTESTED receipt              -> must read UNCHECKED in a browser, which
 #                                         cannot evaluate an Ed25519 signature
+#   - an intact unsigned receipt       -> the server's computed check says the
+#                                         hash matches (the positive control)
+#   - a receipt edited after hashing   -> must read TAMPERED, with nothing "proven"
+#   - a receipt with NO hash           -> must read NOT VERIFIED, never proven
 #
 # Serves the BUILT web-app (not the dev server) because the built bundle is what
 # ships; a panel that works under Vite HMR and breaks after minification would
@@ -49,10 +53,17 @@ def write(rid, body):
     body["verification"] = {"hash": h, "algo": "sha256", "scope": "integrity"}
     return d, body, h
 
+# Every body carries schema_version and a coherent cost (usd with tokens): the
+# server runs the CLI verifier's integrity checks on each receipt, and the CLI
+# refuses a receipt with no schema or a cost with no tokens.
+TOK = {"available": True, "input_tokens": 1000, "output_tokens": 50,
+       "cache_read_tokens": 0, "cache_creation_tokens": 0}
+
 # 1. A normal VERIFIED receipt with a cost.
 d, b, _ = write("r-verified", {
+    "schema_version": "1.1",
     "run_id": "r-verified", "generated_at": "2026-08-08T01:00:00Z",
-    "loki_version": "9.17.2", "cost": {"usd": 1.25},
+    "loki_version": "9.17.2", "cost": dict(TOK, usd=1.25),
     "files_changed": {"count": 4},
     "honesty": {"headline": "VERIFIED"},
     "council": {"final_verdict": "PASS"}})
@@ -60,10 +71,29 @@ json.dump(b, open(os.path.join(d, "proof.json"), "w"))
 
 # 2. NO honesty block -> the summary must bucket this as `unknown`.
 d, b, _ = write("r-unknown", {
+    "schema_version": "1.1",
     "run_id": "r-unknown", "generated_at": "2026-08-08T02:00:00Z",
-    "loki_version": "9.17.2", "cost": {"usd": 0.4},
+    "loki_version": "9.17.2", "cost": dict(TOK, usd=0.4),
     "files_changed": {"count": 1}})
 json.dump(b, open(os.path.join(d, "proof.json"), "w"))
+
+# 2b. Edited AFTER hashing: the server's recomputed hash must not match, so the
+#     panel reads TAMPERED. No headline, so the row is found by its run_id.
+d, b, _ = write("r-tampered", {
+    "schema_version": "1.1",
+    "run_id": "r-tampered", "generated_at": "2026-08-08T02:30:00Z",
+    "loki_version": "9.17.2", "cost": dict(TOK, usd=0.4),
+    "files_changed": {"count": 1}})
+b["files_changed"] = {"count": 99}
+json.dump(b, open(os.path.join(d, "proof.json"), "w"))
+
+# 2c. NO integrity hash at all: nothing to recompute, so NOT VERIFIED.
+d = os.path.join(seed, ".loki", "proofs", "r-nohash")
+os.makedirs(d, exist_ok=True)
+json.dump({"schema_version": "1.1", "run_id": "r-nohash",
+           "generated_at": "2026-08-08T02:45:00Z", "loki_version": "9.17.2",
+           "files_changed": {"count": 1}},
+          open(os.path.join(d, "proof.json"), "w"))
 
 # 3. NO cost recorded, and ATTESTED. Drives two assertions: the cost must read
 #    "unknown" rather than a fabricated $0.00, and the signature must read
@@ -74,7 +104,8 @@ json.dump(b, open(os.path.join(d, "proof.json"), "w"))
 # Side effect, stated rather than hidden: this receipt also buckets as
 # `unknown` in the summary, which is CORRECT (no headline means the endpoint
 # cannot prove it was verified) and is what the unknown-bucket assertion reads.
-body = {"run_id": "no-cost-receipt", "generated_at": "2026-08-08T03:00:00Z",
+body = {"schema_version": "1.1",
+        "run_id": "no-cost-receipt", "generated_at": "2026-08-08T03:00:00Z",
         "loki_version": "9.17.2", "files_changed": {"count": 2}}
 h = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 ver = {"hash": h, "algo": "sha256", "scope": "integrity"}
@@ -93,7 +124,7 @@ body["verification"] = ver
 d = os.path.join(seed, ".loki", "proofs", "no-cost-receipt")
 os.makedirs(d, exist_ok=True)
 json.dump(body, open(os.path.join(d, "proof.json"), "w"))
-print("seeded 3 receipts", file=sys.stderr)
+print("seeded 5 receipts", file=sys.stderr)
 PY
 
 cd "$SEED" || exit 2

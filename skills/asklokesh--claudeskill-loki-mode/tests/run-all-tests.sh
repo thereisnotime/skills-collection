@@ -85,8 +85,10 @@ run_test() {
     case "$test_file" in
         *" "*)
             # Command form: the script is the last whitespace-separated token
-            # that looks like a path to a test file.
-            _script_path="$(printf '%s\n' $test_file | grep -E '\.(sh|py)$' | tail -1)"
+            # that looks like a path to a test file. Node suites (.mjs/.js)
+            # count too: with no matching token this grep exits 1, and under
+            # set -e that assignment would end the whole runner.
+            _script_path="$(printf '%s\n' $test_file | grep -E '\.(sh|py|mjs|js)$' | tail -1)"
             ;;
     esac
     if [ -n "$_script_path" ] && [ ! -f "$_script_path" ]; then
@@ -286,6 +288,7 @@ run_test "exposed dashboard bind requires auth (#188)" "$SCRIPT_DIR/test-dashboa
 run_test "per-job receipt attestation (signed JWT + JWKS)" "$SCRIPT_DIR/test-receipt-jwt-attestation.sh"
 run_test "remote receipt attestation verdict (JWKS)" "$SCRIPT_DIR/test-remote-attestation-verdict.sh"
 run_test "proof verify --jwks (third-party offline)" "$SCRIPT_DIR/test-proof-verify-jwks.sh"
+run_test "verify-path python3 hardening (canary verify, proof share/show)" "$SCRIPT_DIR/test-verify-path-shim-hardening.sh"
 run_test "worker autoscaling on queue depth" "$SCRIPT_DIR/test-worker-autoscaling.sh"
 run_test "helm receipt signing (receiver only)" "$SCRIPT_DIR/test-helm-receipt-signing.sh"
 run_test "compose receipt signing (opt-in, default intact)" "$SCRIPT_DIR/test-compose-receipt-signing.sh"
@@ -293,6 +296,7 @@ run_test "head-to-head corpus honesty" "$SCRIPT_DIR/test-headtohead-honesty.sh"
 run_test "receipt metrics exposed to monitoring" "$SCRIPT_DIR/test-receipt-metrics.sh"
 run_test "A/B analysis honesty (tiny-n statistics)" "$SCRIPT_DIR/test-ab-analysis-honesty.sh"
 run_test "webapp receipt panel renders (real browser)" "$SCRIPT_DIR/../scripts/run-webapp-receipt-panel.sh"
+run_test "webapp admin, templates and teams render honestly (real browser)" "$SCRIPT_DIR/../scripts/run-webapp-admin-honesty.sh"
 run_test "local receipt attestation" "$SCRIPT_DIR/test-local-receipt-attestation.sh"
 run_test "Pytest Gate Timeout (Dev6)" "$SCRIPT_DIR/test-pytest-gate-timeout.sh"
 run_test "Go/Cargo Gate Timeout" "$SCRIPT_DIR/test-go-cargo-gate-timeout.sh"
@@ -512,14 +516,23 @@ run_test "Enforcement claims in buyer-facing docs are scoped" "$SCRIPT_DIR/test-
 run_test "loki logs reads the log the runner writes" "$SCRIPT_DIR/test-logs-command.sh"
 run_test "report cost agrees with its own budget state file" "$SCRIPT_DIR/test-report-cost-budget.sh"
 run_test "loki stop is bounded regardless of provider timeout" "$SCRIPT_DIR/test-stop-latency.sh"
+run_test "kill_provider_child never signals outside its own process group" "$SCRIPT_DIR/test-kill-provider-child-scoping.sh"
+run_test "resource monitor reaps its sleep child on shutdown (BACKLOG 22)" "$SCRIPT_DIR/test-resource-monitor-sleep-reaped.sh"
 run_test "audit chain claims match what the chain proves" "$SCRIPT_DIR/test-audit-chain-honesty.sh"
 run_test "audit subsystem Node suites (witness, manifest, crosslink)" "$SCRIPT_DIR/test-audit-js-suites.sh"
+# Moat P7 at the pixel: the real cost components and cost.html render an
+# unmeasured cost as unknown, never $0.00, and a measured zero as $0.00. Node is
+# required, not skipped (as in the audit suites above): no runtime means the
+# suite did not run, which is unmeasured, not clean.
+run_test "dashboard unmeasured cost never renders as zero (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-unmeasured-cost-never-zero.node.test.mjs"
+run_test "dashboard panels render unmeasured as unknown (node --test)" "command -v node >/dev/null 2>&1 || { echo 'node not installed: the suite did not run (unmeasured, not clean)'; exit 1; }; node --test $SCRIPT_DIR/../dashboard-ui/tests/loki-unmeasured-panels-honesty.node.test.mjs"
 run_test "shipped agent roles reach the review pool" "$SCRIPT_DIR/test-agent-types-loaded.sh"
 run_test "policy present but unevaluable refuses fail-closed" "$SCRIPT_DIR/test-policy-node-failclosed.sh"
 run_test "audit entries attribute an actor honestly" "$SCRIPT_DIR/test-audit-actor-attribution.sh"
 run_test "shipped modules have a recorded reachability verdict" "$SCRIPT_DIR/test-no-unreachable-shipped.sh"
 run_test "loki proof chain fronts the buyer verifier" "$SCRIPT_DIR/test-proof-chain-command.sh"
 run_test "workflow RC handlers are reachable under bash -e" "$SCRIPT_DIR/test-workflow-rc-capture.sh"
+run_test "issue-to-PR action and workflow ship, gate and split agent from publish" "$SCRIPT_DIR/test-issue-to-pr-action.sh"
 run_test "model substitutions are visible and attributable" "$SCRIPT_DIR/test-model-substitution-visible.sh"
 run_test "the completion council reports its duration" "$SCRIPT_DIR/test-council-stage-timing.sh"
 run_test "a gate that scanned nothing is not a pass" "$SCRIPT_DIR/test-static-analysis-noop-not-pass.sh"
@@ -613,6 +626,8 @@ run_test "Council Contrarian Transcript Fields" "$SCRIPT_DIR/test-council-contra
 run_test "Bugfix Audit (CLI regressions)" "$SCRIPT_DIR/test-bugfix-audit.sh"
 run_test "CLAUDE.md Walker (project graph layers)" "$SCRIPT_DIR/test-claude-md-walker.sh"
 run_test "CI Command (--fail-on thresholds)" "$SCRIPT_DIR/test-ci-command.sh"
+run_test "CI report body via stdin, not argv (BACKLOG 25)" "$SCRIPT_DIR/test-ci-report-argmax.sh"
+run_test "CI JSON payloads via temp file/stdin, not exported env vars (BACKLOG 25)" "$SCRIPT_DIR/test-ci-json-argmax.sh"
 
 # Batch 7 of the orphaned-suite registration (2026-07-27).
 run_test "Report Command" "$SCRIPT_DIR/test-report-command.sh"
@@ -648,6 +663,18 @@ run_test "Apprunner Dockerfile Exec Wave8" "$SCRIPT_DIR/test-apprunner-dockerfil
 run_test "Assumption Gate Brief Mode" "$SCRIPT_DIR/test-assumption-gate-brief-mode.sh"
 run_test "Auto Wiki" "$SCRIPT_DIR/test-auto-wiki.sh"
 run_test "Backend Floor" "$SCRIPT_DIR/test-backend-floor.sh"
+run_test "Backend Floor port scoping (kill by recorded PID, never by port)" "$SCRIPT_DIR/test-backend-floor-port-scoping.sh"
+run_test "cmd_web_stop/start use a real process identity check (D14/D15 class)" "$SCRIPT_DIR/test-web-stop-scoping.sh"
+run_test "cmd_web_start port-conflict path scoped by identity" "$SCRIPT_DIR/test-web-start-port-scoping.sh"
+run_test "autonomy/verify.sh runtime teardown scoped to LISTEN + ownership" "$SCRIPT_DIR/test-verify-runtime-teardown-scoping.sh"
+run_test "Marketplace action Cleanup step scoped to this job's own loki run" "$SCRIPT_DIR/test-action-yml-cleanup-scoping.sh"
+run_test "Dashboard fresh-repo/evidence harnesses kill only their own recorded PID" "$SCRIPT_DIR/test-dashboard-harness-port-scoping.sh"
+run_test "Dashboard API smoke cleanup kills only its own recorded PID" "$SCRIPT_DIR/test-dashboard-api-smoke-scoping.sh"
+run_test "cleanup-test-processes.sh scoped to LISTEN + this uid, --aggressive gated" "$SCRIPT_DIR/test-cleanup-script-scoping.sh"
+run_test "Runtime Gate port reclaims scoped to LISTEN + cwd ownership" "$SCRIPT_DIR/test-runtime-gate-port-scoping.sh"
+run_test "Bun Parity disk.available_gb tolerance (BACKLOG 26)" "$SCRIPT_DIR/test-bun-parity-disk-tolerance.sh"
+run_test "council_augment_from_managed_memory never falls back to cwd for PROJECT_DIR (BACKLOG 63)" "$SCRIPT_DIR/test-council-augment-managed-memory-project-dir.sh"
+run_test "council_should_stop's shadow-write never falls back to cwd for PROJECT_DIR (BACKLOG 63/127)" "$SCRIPT_DIR/test-council-shadow-write-project-dir.sh"
 run_test "Bench Haschanges" "$SCRIPT_DIR/test-bench-haschanges.sh"
 run_test "Benchmarks Resume Atomic" "$SCRIPT_DIR/test-benchmarks-resume-atomic.sh"
 run_test "Bmad Integration" "$SCRIPT_DIR/test-bmad-integration.sh"
@@ -919,6 +946,7 @@ run_test "a user-installed reviewer takes part in a run" "$SCRIPT_DIR/test-insta
 run_test "skill docs match source (gate flags, providers, tiers, index routing, seam)" "$SCRIPT_DIR/test-skill-doc-accuracy.sh"
 run_test "proof md (paste-able receipt, one renderer)" "$SCRIPT_DIR/test-proof-md.sh"
 run_test "air-gapped read-only path (egress severed)" "$SCRIPT_DIR/test-airgap-commands.sh"
+run_test "doctor --airgap judges OLLAMA_HOST locality from the host, not a substring match" "$SCRIPT_DIR/test-airgap-ollama-host.sh"
 run_test "proof phases CLI/API parity (one reader, two surfaces)" "$SCRIPT_DIR/test_cli_phases_parity.sh"
 run_test "web-app has no orphaned modules (reachable from main.tsx)" "$SCRIPT_DIR/test-web-app-no-orphan-components.sh"
 # The moat runner's self-test builds and tags its own throwaway repos, so it is
@@ -926,6 +954,8 @@ run_test "web-app has no orphaned modules (reachable from main.tsx)" "$SCRIPT_DI
 # registered here: it ratchets against the last release tag, which a depth-1
 # shard checkout does not have. It runs in its own "Moat suite" job instead.
 run_test "the moat runner enforces every ratchet rule" "$SCRIPT_DIR/test-moat-runner.sh"
+run_test "v10-pulse anti-drift status/violation reporter" "$SCRIPT_DIR/test-v10-pulse.sh"
+run_test "v10 drift-audit turn counter (every-6th-turn signal)" "$SCRIPT_DIR/test-v10-drift-audit-counter.sh"
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 
 # Summary

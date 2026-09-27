@@ -748,7 +748,7 @@ env vars. See [Enterprise Identity Roadmap](docs/ENTERPRISE-IDENTITY-ROADMAP.md)
 | 8 quality gates | Yes | No | No | No |
 | Blind code review | Yes | No | No | No |
 | Enterprise auth (OIDC token + scoped RBAC) | Yes | No | Yes | No |
-| Air-gapped deployment | Yes | No | No | No |
+| Air-gapped deployment | Verification and the build pipeline, yes; builds need a model you host ([details](docs/air-gapped.md)) | No | No | No |
 | Docker + CI/CD generation | Yes | No | Yes | No |
 | Source-available (BUSL-1.1) | Yes | No | No | No |
 | Free tier | Source-available | Yes | Yes | Yes |

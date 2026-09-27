@@ -171,6 +171,13 @@ declare -a _FAST_KEEP=(
   # class of bug that prompted the fix. Measured 2s (no provider call: the
   # suite stubs the classifier and pins the non-interactive path).
   "tests/cli/test-quickstart-brownfield.sh"
+  # Guards a severe, live product bug (D14/D15): kill_provider_child ran an
+  # unscoped `pkill -f` on every normal signal-driven session end (a
+  # supervisor signal, double Ctrl+C, Ctrl+C in perpetual mode), killing
+  # unrelated Claude Code sessions on the same machine. A check that guards
+  # the shipped product's own signal-cleanup path must run in the fast tier;
+  # CI has no equivalent.
+  "tests/test-kill-provider-child-scoping.sh"
   # Proves every web-app client path resolves to a real FastAPI route. Ten
   # client calls had drifted onto URLs no route served (/github/runs against a
   # server serving /github/actions/runs), so the CI/CD and deploy panels were
@@ -300,6 +307,14 @@ declare -a _FAST_KEEP=(
   # running build. Neither was reachable by a type check or a stubbed unit
   # test. Measured 25s (boots a server and a browser).
   "webapp receipt panel renders honestly"
+  # Same reasoning again, for the web-app Admin console, Templates page and
+  # Teams page (BACKLOG 97). Each shipped invented rows the moat scanner could
+  # not see until the scanner was widened, and three council rounds in a row
+  # found one more; only a browser against a seeded server proves the real
+  # endpoints reach the pixel and an aborted request renders an error instead
+  # of sample rows. Pinned by hand: a .mjs driven by a runner script is
+  # invisible to the trust-core scan. Boots a server and a browser.
+  "webapp admin console renders honestly"
   "tests/test-verify.sh"
   "tests/test-verify-scope-record.sh"
   "tests/test-verify-setup-recipe.sh"
@@ -434,6 +449,17 @@ declare -a _FAST_KEEP=(
   # The runner's own self-test: proves every ratchet rule still fires, so the
   # gate above cannot go green by checking nothing. Measured ~6s, own repos.
   "tests/test-moat-runner.sh"
+  # Moat P7 at the pixel: the real cost components and cost.html render an
+  # unmeasured cost as unknown and a measured zero as $0.00. Unregistered, its
+  # mocks rotted to a dead response shape and two cases failed unseen. The
+  # moat's P7 static scan cannot see a rendering regression; this can.
+  # Measured 0.1s (node --test, no install, no network).
+  "dashboard unmeasured cost never renders as zero"
+  # Same, for every other shipped panel the P7 sweep fixed: the scanner cannot
+  # see a zero built in one statement and formatted in another (the context
+  # tracker's "0.0% Context Used"), so only rendering the real component pins
+  # it. 26 of 27 cases fail at 61af5915. Measured under 1s (node --test).
+  "dashboard panels render unmeasured as unknown"
   # CLAUDE.md cleanup mandate: sub-second, and the whole point is that it runs
   # on every invocation, not only the slow one.
   "no leftovers from this run"
@@ -1224,6 +1250,7 @@ run_check "tests/test-playwright-verify-as-evidence.sh (playwright pass/fail dis
 run_check "tests/test-enforce-mutation-integrity.sh (mutation-integrity HIGH block)" "bash tests/test-enforce-mutation-integrity.sh 2>&1 | tail -3"
 run_check "tests/test-start-bash-diversion.sh (T3 loop-flip: orchestration flags divert to bash)" "bash tests/test-start-bash-diversion.sh 2>&1 | tail -3"
 run_check "tests/test-checklist-gate-failclosed.sh (council checklist gate fail-closed on corrupt results)" "bash tests/test-checklist-gate-failclosed.sh 2>&1 | tail -3"
+run_check "tests/test-kill-provider-child-scoping.sh (kill_provider_child never signals outside its own process group)" "bash tests/test-kill-provider-child-scoping.sh 2>&1 | tail -3"
 run_check "tests/test-council-aggregate-votes.sh (council completion tally threshold + stdout hygiene)" "bash tests/test-council-aggregate-votes.sh 2>&1 | tail -3"
 run_check "tests/test-checklist-determine-item-status.py (item-status aggregator: inconclusive never verified)" "python3 -m pytest tests/test-checklist-determine-item-status.py -q 2>&1 | tail -3"
 run_check "tests/test-checklist-run-check-arms.py (http_check never True on error + 4 arms)" "python3 -m pytest tests/test-checklist-run-check-arms.py -q 2>&1 | tail -3"
@@ -1663,13 +1690,30 @@ if command -v bun >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
       # the repo, and CI never runs local-ci.sh from an npm install.
       BUN_FROM_SOURCE=1 bash bin/loki $args > "$PARITY_TMP/$label.bun" 2>&1 || true
       if [ "$mode" = "json" ]; then
-        # v7.4.12: also floor the disk.available_gb value because Python
-        # json.dumps emits 58.0 while JS JSON.stringify emits 58 -- same
-        # number, different representation -- and the underlying df read
-        # can drift by 1GB between two near-simultaneous calls.
-        jq -S "if .disk?.available_gb? != null then .disk.available_gb = (.disk.available_gb | floor) else . end" "$PARITY_TMP/$label.bash" > "$PARITY_TMP/$label.bash.s" 2>/dev/null || true
-        jq -S "if .disk?.available_gb? != null then .disk.available_gb = (.disk.available_gb | floor) else . end" "$PARITY_TMP/$label.bun"  > "$PARITY_TMP/$label.bun.s"  2>/dev/null || true
-        if ! diff -q "$PARITY_TMP/$label.bash.s" "$PARITY_TMP/$label.bun.s" >/dev/null 2>&1; then
+        # BACKLOG 26 (matches the BACKLOG-26-DISK-TOLERANCE block in
+        # .github/workflows/bun-parity.yml): a v7.4.12 floor only absorbed
+        # the Python-float-vs-JS-int formatting difference (58.0 vs 58); it
+        # did nothing for a genuine 1GB integer drift between two
+        # near-simultaneous df reads (94 vs 95), which is a real, common
+        # flake here too. Check the two readings are within a small
+        # absolute tolerance, then drop the key from both sides before the
+        # structural diff -- a real divergence (tens of GB off, or present
+        # on only one side) still fails.
+        DISK_TOLERANCE_GB=3
+        bash_disk="$(jq -r ".disk.available_gb // \"null\"" "$PARITY_TMP/$label.bash" 2>/dev/null || echo null)"
+        bun_disk="$(jq -r ".disk.available_gb // \"null\"" "$PARITY_TMP/$label.bun" 2>/dev/null || echo null)"
+        disk_ok=1
+        if [ "$bash_disk" != "null" ] && [ "$bun_disk" != "null" ]; then
+          if ! jq -n --argjson a "$bash_disk" --argjson b "$bun_disk" --argjson tol "$DISK_TOLERANCE_GB" \
+               -e "((\$a - \$b) | if . < 0 then -. else . end) <= \$tol" >/dev/null 2>&1; then
+            disk_ok=0
+          fi
+        elif [ "$bash_disk" != "$bun_disk" ]; then
+          disk_ok=0
+        fi
+        jq -S "if .disk?.available_gb? != null then del(.disk.available_gb) else . end" "$PARITY_TMP/$label.bash" > "$PARITY_TMP/$label.bash.s" 2>/dev/null || true
+        jq -S "if .disk?.available_gb? != null then del(.disk.available_gb) else . end" "$PARITY_TMP/$label.bun"  > "$PARITY_TMP/$label.bun.s"  2>/dev/null || true
+        if [ "$disk_ok" -eq 0 ] || ! diff -q "$PARITY_TMP/$label.bash.s" "$PARITY_TMP/$label.bun.s" >/dev/null 2>&1; then
           echo "DIFF: $label (attempt $ATTEMPT)"
           BAD=$((BAD+1))
           mkdir -p "$FLAKE_DIR" 2>/dev/null || true
@@ -1828,6 +1872,23 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 10c2. Moat P7 at the pixel: an unmeasured cost never renders as $0.00
+# ---------------------------------------------------------------------------
+# dashboard-ui/tests/loki-unmeasured-cost-never-zero.node.test.mjs drives the
+# real cost components and cost.html's own functions. It was registered in no
+# runner, so its waterfall mocks drifted to a response shape the component no
+# longer reads and 2 of 11 cases failed with nobody seeing it. Node is REQUIRED
+# here, not skipped (as in tests/test-audit-js-suites.sh): a missing runtime is
+# an unmeasured result, never a pass. Needs no npm install (relative imports).
+run_check "dashboard unmeasured cost never renders as zero (node --test)" \
+  'command -v node >/dev/null 2>&1 || { echo "node not installed: the suite did not run (unmeasured, not clean)"; exit 1; }; node --test dashboard-ui/tests/loki-unmeasured-cost-never-zero.node.test.mjs 2>&1 | tail -12'
+# The rest of the shipped panels (context tracker, learning, memory, analytics,
+# overview, fleet, council, gates, notifications ...): unmeasured renders as
+# unknown, a failed read as an error, a measured zero as 0.
+run_check "dashboard panels render unmeasured as unknown (node --test)" \
+  'command -v node >/dev/null 2>&1 || { echo "node not installed: the suite did not run (unmeasured, not clean)"; exit 1; }; node --test dashboard-ui/tests/loki-unmeasured-panels-honesty.node.test.mjs 2>&1 | tail -12'
+
+# ---------------------------------------------------------------------------
 # 10d. Dashboard fresh-repo integrated UX harness (v7.18.0)
 # ---------------------------------------------------------------------------
 # The v7.17.x verification ran the dashboard SEEDED + in isolation and shipped a
@@ -1848,9 +1909,12 @@ if [ -n "$_DASH_PY" ] && command -v node >/dev/null 2>&1 \
   # asserts they reach the pixel WITHOUT fabricating an unmeasured cost.
   run_check "dashboard evidence panels render honestly" 'bash scripts/run-dashboard-evidence-panels-harness.sh'
   run_check "webapp receipt panel renders honestly" 'bash scripts/run-webapp-receipt-panel.sh'
+  run_check "webapp admin console renders honestly" 'bash scripts/run-webapp-admin-honesty.sh'
 else
   skip_check "dashboard fresh-repo integrated UX harness" "needs python3.12 + dashboard-ui playwright + chromium"
   skip_check "dashboard evidence panels render honestly" "needs python3.12 + dashboard-ui playwright + chromium"
+  skip_check "webapp receipt panel renders honestly" "needs python3.12 + dashboard-ui playwright + chromium"
+  skip_check "webapp admin console renders honestly" "needs python3.12 + dashboard-ui playwright + chromium"
 fi
 
 # ---------------------------------------------------------------------------

@@ -32,6 +32,7 @@ KNOWN BUG (BUG-DIFFSHA), flagged to the integrator before ship:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shutil
@@ -43,6 +44,16 @@ import unittest
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _GENERATOR = os.path.join(_REPO, "autonomy", "lib", "proof-generator.py")
 _VERIFIER = os.path.join(_REPO, "autonomy", "lib", "proof-verify.py")
+
+
+def _load_verifier_module():
+    """Import proof-verify.py in-process (hyphenated filename, not a normal
+    import) so render_reasons() can be exercised directly on a result dict,
+    the same pattern tests/test-proof-verify-human.sh uses for the CLI."""
+    spec = importlib.util.spec_from_file_location("proof_verify_mod", _VERIFIER)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def _git(proj, *a, check=True):
@@ -182,6 +193,9 @@ class DriftTests(_GitFixtureMixin, unittest.TestCase):
         # Generate a valid proof, then add another commit so the live
         # base..HEAD diff no longer matches the recorded diff. The hash is still
         # valid (we did not touch proof.json), but the FACTS drifted.
+        # GENUINE drift (the tree IS available and DOES show unauthorized
+        # changes) must still exit 1, not 2 -- BACKLOG 31 only reclassifies the
+        # UNVERIFIABLE case (see HonestyTests below), it must not weaken this.
         proj, base, proof_path = self._make_proj_and_proof()
         # Confirm clean before drift.
         rc0, res0 = _run_verifier(proof_path, proj)
@@ -248,7 +262,10 @@ class HonestyTests(_GitFixtureMixin, unittest.TestCase):
     def test_unresolvable_base_ref_does_not_pass(self):
         # A valid (hash-intact) proof whose recorded base_sha does not exist in
         # the repo: drift is unverifiable. The verifier must NOT pass -- it
-        # reports diff_drift None, ok False, with a base-ref reason.
+        # reports diff_drift None, ok False, with a base-ref reason. This is an
+        # INABILITY TO MEASURE, not evidence of tampering, so it exits 2
+        # (could not check) per docs/exit-codes.md, not 1 (failed/tampered).
+        # BACKLOG 31.
         proj, base, proof_path = self._make_proj_and_proof()
         proof = _load_json(proof_path)
         # Rewrite base_sha to a non-existent (but well-formed) sha, then re-sign
@@ -258,16 +275,24 @@ class HonestyTests(_GitFixtureMixin, unittest.TestCase):
         with open(proof_path, "w") as f:
             json.dump(proof, f, indent=2)
         rc, res = _run_verifier(proof_path, proj)
-        self.assertEqual(rc, 1, "unverifiable base must not pass: %s" % res)
+        self.assertEqual(rc, 2, "unverifiable base must exit 2, not 1: %s" % res)
         self.assertFalse(res["ok"])
         self.assertTrue(res["hash_ok"], "hash should still verify after resign")
         self.assertIsNone(res["diff_drift"])
         self.assertIn("base ref", res["reason"])
+        self.assertIn("could not check", res["reason"])
+        self.assertNotIn("tamper", res["reason"])
+        for r in res["reasons"]:
+            self.assertNotIn("tamper", r)
+        mod = _load_verifier_module()
+        rendered = mod.render_reasons(res)
+        self.assertTrue(rendered.startswith("COULD NOT CHECK"))
+        self.assertNotIn("tamper", rendered)
 
     def test_missing_base_sha_does_not_pass(self):
         # A v1.0-style proof with no recorded base_sha: drift cannot be
         # re-derived. Re-sign after stripping so only the missing-base path is
-        # exercised (not a hash failure).
+        # exercised (not a hash failure). Unmeasurable, not tampered: exit 2.
         proj, base, proof_path = self._make_proj_and_proof()
         proof = _load_json(proof_path)
         proof["facts"]["git"]["base_sha"] = ""
@@ -275,20 +300,92 @@ class HonestyTests(_GitFixtureMixin, unittest.TestCase):
         with open(proof_path, "w") as f:
             json.dump(proof, f, indent=2)
         rc, res = _run_verifier(proof_path, proj)
-        self.assertEqual(rc, 1)
+        self.assertEqual(rc, 2)
         self.assertFalse(res["ok"])
         self.assertIsNone(res["diff_drift"])
         self.assertIn("base ref", res["reason"])
+        self.assertIn("could not check", res["reason"])
+        self.assertNotIn("tamper", res["reason"])
+        for r in res["reasons"]:
+            self.assertNotIn("tamper", r)
 
     def test_non_git_repo_dir_does_not_pass(self):
-        # Point the verifier at a non-git dir: drift unverifiable, not a pass.
+        # Point the verifier at a non-git dir: drift unverifiable, not a pass,
+        # and not a tamper finding either -- exit 2 (could not check).
         proj, base, proof_path = self._make_proj_and_proof()
         nongit = os.path.join(self.tmp, "nongit")
         os.makedirs(nongit)
         rc, res = _run_verifier(proof_path, nongit)
-        self.assertEqual(rc, 1)
+        self.assertEqual(rc, 2)
         self.assertFalse(res["ok"])
         self.assertIsNone(res["diff_drift"])
+        self.assertIn("could not check", res["reason"])
+        self.assertNotIn("tamper", res["reason"])
+        for r in res["reasons"]:
+            self.assertNotIn("tamper", r)
+        mod = _load_verifier_module()
+        rendered = mod.render_reasons(res)
+        self.assertTrue(rendered.startswith("COULD NOT CHECK"))
+        self.assertNotIn("tamper", rendered)
+        self.assertIn("could not check", res["reason"])
+        self.assertNotIn("tamper", res["reason"])
+
+    def test_genuine_tree_drift_with_unresolvable_base_still_exits_1(self):
+        # A second laundering control: the recorded base_sha is unresolvable
+        # (diff drift genuinely CANNOT be checked), but the workspace tree WAS
+        # recorded and the working tree has since been altered -- a real,
+        # measurable unauthorized change via the tree check. "could not check
+        # diff drift" must not rescue this into exit 2: tree_drift True still
+        # forces exit 1. This is the "tree available, shows unauthorized
+        # changes, drift check unverifiable" case BACKLOG 31 says must not be
+        # weakened.
+        proj, base, proof_path = self._make_proj_and_proof()
+        proof = _load_json(proof_path)
+        self.assertTrue(proof["facts"]["git"].get("tree_sha256"),
+                         "fixture must record a tree digest for this test")
+        proof["facts"]["git"]["base_sha"] = "0" * 40
+        proof = _resign(proof)
+        with open(proof_path, "w") as f:
+            json.dump(proof, f, indent=2)
+
+        # Real tamper: alter the working tree after the receipt was generated.
+        with open(os.path.join(proj, "a.txt"), "w") as f:
+            f.write("an unauthorized edit the receipt never saw\n")
+
+        rc, res = _run_verifier(proof_path, proj)
+        self.assertEqual(
+            rc, 1,
+            "genuine tree drift must not be laundered into exit 2 just "
+            "because the base_sha diff check is separately unverifiable: %s"
+            % res)
+        self.assertFalse(res["ok"])
+        self.assertTrue(res["hash_ok"])
+        self.assertIsNone(res["diff_drift"], "diff drift is genuinely unverifiable here")
+        self.assertIs(res["tree_drift"], True)
+
+    def test_genuine_tamper_with_unverifiable_repo_still_exits_1(self):
+        # Laundering control (BACKLOG 31): a proof with a REAL hash mismatch
+        # (tampered) must exit 1 even when pointed at a repo_dir where drift
+        # also cannot be checked. "could not check drift" must never rescue an
+        # otherwise-failed check into exit 2 -- the allowlist in
+        # drift_unverifiable() requires hash_ok True first.
+        proj, base, proof_path = self._make_proj_and_proof()
+        proof = _load_json(proof_path)
+        original_hash = proof["verification"]["hash"]
+        proof.setdefault("cost", {})["usd"] = 99999.99
+        self.assertEqual(proof["verification"]["hash"], original_hash)
+        with open(proof_path, "w") as f:
+            json.dump(proof, f, indent=2)
+        nongit = os.path.join(self.tmp, "nongit-launder")
+        os.makedirs(nongit)
+        rc, res = _run_verifier(proof_path, nongit)
+        self.assertEqual(
+            rc, 1,
+            "a genuinely tampered proof must not be laundered into exit 2 "
+            "just because repo_dir also cannot check drift: %s" % res)
+        self.assertFalse(res["ok"])
+        self.assertFalse(res["hash_ok"])
+        self.assertIn("hash mismatch", res["reason"])
 
     def test_missing_proof_file_exits_2(self):
         rc, res = _run_verifier(os.path.join(self.tmp, "nope.json"), self.tmp)

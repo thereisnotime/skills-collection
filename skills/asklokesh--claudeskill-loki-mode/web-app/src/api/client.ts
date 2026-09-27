@@ -57,10 +57,13 @@ export interface StartSessionRequest {
 }
 
 export interface PlanResult {
-  complexity: string;
+  // null when the plan output did not state it; parsed is false when nothing
+  // in the output was recognised.
+  complexity: string | null;
   cost_estimate: string;
-  iterations: number;
+  iterations: number | null;
   phases: string[];
+  parsed?: boolean;
   output_text: string;
   returncode: number;
 }
@@ -83,10 +86,11 @@ export interface ProviderInfo {
 }
 
 export interface MetricsResult {
-  iterations: number;
-  quality_gate_pass_rate: number;
+  // null when the metrics text did not carry the value (never a measured 0).
+  iterations: number | null;
+  quality_gate_pass_rate: number | null;
   time_elapsed: string;
-  tokens_used: number;
+  tokens_used: number | null;
   output_text?: string;
   [key: string]: unknown;
 }
@@ -159,6 +163,16 @@ export interface ProofDetail extends ProofSummary {
   honesty?: { headline?: string | null };
   council?: { final_verdict?: string | null };
   cost?: { usd?: number | null };
+  // Added by the server, not part of proof.json: the verdict it COMPUTED by
+  // running the CLI verifier's integrity checks (dashboard/server.py
+  // _proof_integrity_check). The diff is never re-derived there.
+  integrity_check?: {
+    status: 'verified' | 'tampered' | 'failed' | 'not_verified';
+    hash_ok?: boolean | null;
+    gpg_ok?: boolean | 'n/a' | null;
+    drift_checked?: boolean;
+    reasons?: string[];
+  };
 }
 
 // Mirrors GET /api/proofs/summary. `unknown` is a first-class bucket, not a
@@ -477,11 +491,15 @@ export const api = {
         cost_recorded: boolean;
       };
       runs: Array<{ run_id?: string; cost_usd?: number | null; timestamp?: string | null }>;
-      runs_count: number;
-      project_total_usd: number;
+      // null when the reader is unavailable (a partial install), never 0.
+      runs_count: number | null;
+      // null when no run recorded a cost; partial when only some did.
+      project_total_usd: number | null;
+      project_total_partial: boolean;
       budget: {
         limit: number | null;
-        used: number;
+        // null when a cap is set but no spend was measured (status "unknown").
+        used: number | null;
         remaining: number | null;
         percent_used: number | null;
         status: string;
@@ -563,7 +581,8 @@ export const api = {
     ),
 
   fixGitHubIssue: (sessionId: string, number: number) =>
-    fetchJSON<{ branch: string; pr_url: string; pr_number: number; task_id: string }>(
+    // The fix runs in the background; the server returns only the task handle.
+    fetchJSON<{ task_id: string; status: string; message?: string }>(
       `/sessions/${encodeURIComponent(sessionId)}/github/issues/${number}/fix`,
       { method: 'POST' }
     ),

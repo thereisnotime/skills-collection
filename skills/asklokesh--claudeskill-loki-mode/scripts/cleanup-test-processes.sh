@@ -13,14 +13,17 @@
 # started under this workspace is reported whether or not we recognise it.
 #
 # FAIL-SAFE DIRECTION. Killing the wrong process is worse than leaving one
-# behind, so the name-independent sweep REPORTS by default and only kills with
-# --aggressive. The known-name sweep kills outright, because those names are
-# ours by construction.
+# behind, so every sweep below REPORTS by default and only kills with
+# --aggressive (D14/D15/D16: even a name that is "ours by construction" can
+# coincidentally match another user's process on a shared machine, or an
+# operator's own live dashboard on the shared port, so nothing here kills
+# unconditionally any more; every pgrep/pkill is also scoped to this user's
+# own uid).
 #
 # Usage:
-#   scripts/cleanup-test-processes.sh              # kill known, report unknown
-#   scripts/cleanup-test-processes.sh --aggressive # also kill orphaned CPU hogs
-#   scripts/cleanup-test-processes.sh --dry-run    # report only, kill nothing
+#   scripts/cleanup-test-processes.sh              # report everything found
+#   scripts/cleanup-test-processes.sh --aggressive # kill everything found (this user's own processes only)
+#   scripts/cleanup-test-processes.sh --dry-run    # same as default: report only, kill nothing
 
 set -uo pipefail
 
@@ -35,38 +38,54 @@ esac
 killed=0
 found_unknown=0
 
+# ponytail: -u "$(id -u)" on every pgrep/pkill below scopes matching to THIS
+# user's own processes. "mutation-probe"/"loki-run-"/"loadgen" are ours by
+# construction, but on a shared machine another user could coincidentally run
+# something matching the same substring; -u makes that impossible to hit
+# (D14/D15/D16 class). This is a manual, explicitly-invoked dev tool (lower
+# risk than something firing automatically on session end), but the known-name
+# kills and the port-57374 sweep are moved behind --aggressive anyway: this
+# script's own design already treats "report by default, kill only with
+# --aggressive" as the safe default for anything not 100% certain to be ours,
+# and a live port-57374 holder could be the operator's own real dashboard.
+MY_UID="$(id -u)"
+
 _kill() {
     local pat="$1" label="$2" n
-    n="$(pgrep -f "$pat" 2>/dev/null | wc -l | tr -d ' ')"
+    n="$(pgrep -u "$MY_UID" -f "$pat" 2>/dev/null | wc -l | tr -d ' ')"
     [ "${n:-0}" -eq 0 ] && return 0
-    if [ "$MODE" = "dry" ]; then
-        echo "  WOULD KILL: $n x $label"
+    if [ "$MODE" != "aggressive" ]; then
+        echo "  FOUND (not killed): $n x $label -- re-run with --aggressive to kill"
     else
-        pkill -9 -f "$pat" 2>/dev/null || true
+        pkill -9 -u "$MY_UID" -f "$pat" 2>/dev/null || true
         echo "  killed: $n x $label"
         killed=$((killed + n))
     fi
 }
 
-echo "== known test/build leftovers =="
-# Names this project spawns by construction. Safe to kill unconditionally.
+echo "== known test/build leftovers (report by default; --aggressive to kill) =="
 _kill "mutation-probe"  "mutation-probe"
 _kill "loki-run-"       "loki-run-*"
 _kill "loadgen"         "loadgen (the 2026-08-01 runaway)"
 
-# Ports this project binds.
+# Ports this project binds. Scoped to PIDs owned by this user before any kill
+# decision, and gated behind --aggressive: an unscoped `lsof -ti:PORT | xargs
+# kill` would kill whoever else holds the port, including the operator's own
+# live dashboard.
 # SC2043: the list is deliberately one element today. Kept as a loop because
 # the body is port-generic and a second port is added by extending this list,
 # not by restructuring the block. Silencing rather than rewriting keeps the
 # extension point obvious.
 # shellcheck disable=SC2043
 for port in 57374; do
-    pids="$(lsof -ti:"$port" 2>/dev/null || true)"
+    pids="$(lsof -ti:"$port" -sTCP:LISTEN 2>/dev/null || true)"
     if [ -n "$pids" ]; then
-        if [ "$MODE" = "dry" ]; then
-            echo "  WOULD FREE: port $port ($(echo "$pids" | wc -l | tr -d ' ') pid(s))"
+        if [ "$MODE" != "aggressive" ]; then
+            echo "  FOUND (not freed): port $port -- re-run with --aggressive to free"
         else
-            echo "$pids" | xargs kill -9 2>/dev/null || true
+            for p in $pids; do
+                [ "$(ps -o uid= -p "$p" 2>/dev/null | tr -d ' ')" = "$MY_UID" ] && kill -9 "$p" 2>/dev/null || true
+            done
             echo "  freed: port $port"
         fi
     fi
@@ -115,7 +134,7 @@ done
 echo ""
 echo "== verify =="
 for pat in mutation-probe loki-run- loadgen; do
-    n="$(pgrep -f "$pat" 2>/dev/null | wc -l | tr -d ' ')"
+    n="$(pgrep -u "$MY_UID" -f "$pat" 2>/dev/null | wc -l | tr -d ' ')"
     printf '  %-16s %s\n' "$pat" "$([ "${n:-0}" -eq 0 ] && echo clean || echo "STILL RUNNING: $n")"
 done
 echo ""

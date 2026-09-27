@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Iterator, Optional
 import hashlib
 
+from .api_runs import _efficiency_module
+
 
 # Registry file location
 REGISTRY_DIR = Path.home() / ".loki" / "dashboard"
@@ -686,13 +688,14 @@ def _read_project_run_snapshot(path: str) -> dict:
         .loki/context/tracking.json fallback (totals.total_cost_usd)
 
     Returns a dict with phase, iteration, cost_usd, started_at, and ended_at
-    (best-effort; missing values default to None/0). Never raises: any file
-    problem degrades the affected field to its default.
+    (best-effort; missing values default to None). iteration and cost_usd are
+    None, never 0 / 0.0, when nothing recorded them. Never raises: any file problem degrades the
+    affected field to its default.
     """
     snap = {
         "phase": "",
-        "iteration": 0,
-        "cost_usd": 0.0,
+        "iteration": None,
+        "cost_usd": None,
         "started_at": None,
         "ended_at": None,
     }
@@ -708,8 +711,8 @@ def _read_project_run_snapshot(path: str) -> dict:
             if isinstance(state, dict):
                 _p = state.get("phase", "")
                 snap["phase"] = _p if isinstance(_p, str) else ""
-                _i = state.get("iteration", 0)
-                snap["iteration"] = _i if isinstance(_i, int) else 0
+                _i = state.get("iteration")
+                snap["iteration"] = _i if isinstance(_i, int) and not isinstance(_i, bool) else None
         except (json.JSONDecodeError, OSError, ValueError):
             pass
 
@@ -727,6 +730,15 @@ def _read_project_run_snapshot(path: str) -> dict:
             pass
 
     # Cost: sum per-iteration efficiency files; fall back to context tracking.
+    # A present record is not a measurement: only a record that carried an
+    # observed value (the canonical record_is_measured, the same predicate as
+    # dashboard/server.py _record_is_measured) and a numeric cost counts, so an
+    # all-zero or field-less record, or the 0.0 a fresh tracking.json is seeded
+    # with, reads as unknown instead of $0.00. A measured $0.00 stays 0.0.
+    # ponytail: a measured record with tokens but no cost_usd adds nothing (the
+    # fleet does not price tokens); price it here if unpriced records appear.
+    eff_mod = _efficiency_module()
+    measured = eff_mod.record_is_measured if eff_mod is not None else (lambda _rec: False)
     cost = 0.0
     found_cost = False
     eff_dir = loki_dir / "metrics" / "efficiency"
@@ -738,7 +750,7 @@ def _read_project_run_snapshot(path: str) -> dict:
                     if not isinstance(data, dict):
                         continue
                     c = data.get("cost_usd")
-                    if isinstance(c, (int, float)):
+                    if isinstance(c, (int, float)) and not isinstance(c, bool) and measured(data):
                         cost += float(c)
                         found_cost = True
                 except (json.JSONDecodeError, OSError, ValueError):
@@ -754,11 +766,15 @@ def _read_project_run_snapshot(path: str) -> dict:
                     totals = ctx.get("totals", {})
                     if isinstance(totals, dict):
                         tc = totals.get("total_cost_usd")
-                        if isinstance(tc, (int, float)):
+                        if isinstance(tc, (int, float)) and not isinstance(tc, bool) and measured({
+                                "cost_usd": tc,
+                                "input_tokens": totals.get("total_input"),
+                                "output_tokens": totals.get("total_output")}):
                             cost = float(tc)
+                            found_cost = True
             except (json.JSONDecodeError, OSError, ValueError):
                 pass
-    snap["cost_usd"] = round(cost, 6)
+    snap["cost_usd"] = round(cost, 6) if found_cost else None
     return snap
 
 
@@ -836,7 +852,7 @@ def get_fleet_runs(include_inactive: bool = True) -> list[dict]:
             "running": running,
             "phase": snap.get("phase", ""),
             "iteration": snap.get("iteration", 0),
-            "cost_usd": snap.get("cost_usd", 0.0),
+            "cost_usd": snap.get("cost_usd"),
             "started_at": started_at,
             "duration_seconds": duration_seconds,
             "port": p.get("port"),
@@ -862,16 +878,22 @@ def get_fleet_summary(include_inactive: bool = True) -> dict:
     Returns counts (total / running / stopped) and a summed cost across all
     registered projects. v1 polls the shared metadata store (see
     get_fleet_runs); not a controller. Never raises.
+
+    total_cost_usd sums only runs that recorded a cost and is None when none
+    did; total_cost_partial is True when some runs recorded no cost, so the
+    total is a lower bound, not the whole bill.
     """
     runs = get_fleet_runs(include_inactive=include_inactive)
     total = len(runs)
     running = sum(1 for r in runs if r.get("running"))
-    total_cost = round(sum(float(r.get("cost_usd") or 0.0) for r in runs), 6)
+    costs = [float(r["cost_usd"]) for r in runs
+             if isinstance(r.get("cost_usd"), (int, float)) and not isinstance(r.get("cost_usd"), bool)]
     return {
         "total_runs": total,
         "running_runs": running,
         "stopped_runs": total - running,
-        "total_cost_usd": total_cost,
+        "total_cost_usd": round(sum(costs), 6) if costs else None,
+        "total_cost_partial": 0 < len(costs) < total,
     }
 
 

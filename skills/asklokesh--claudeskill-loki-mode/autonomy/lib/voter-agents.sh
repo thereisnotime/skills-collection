@@ -309,6 +309,13 @@ loki_council_dispatch_agents() {
     # 3. Invoke claude (only when the SDK path did not already produce a response).
     # Guard against absent binary or non-zero exit.
     if [ "$_va_sdk_done" != "1" ]; then
+    # Only the provider the operator chose may see a prompt (V10 P5): with any
+    # other provider this falls back to the heuristic council. Policy (and the
+    # LOKI_ALLOW_CLAUDE_SIDECALLS=1 opt-in) lives in providers/loader.sh.
+    # ponytail: upgrade path is a provider-neutral structured dispatch.
+    type loki_claude_sidecall_allowed >/dev/null 2>&1 \
+        || . "${__LOKI_VA_REPO_ROOT}/providers/loader.sh" 2>/dev/null
+    loki_claude_sidecall_allowed 2>/dev/null || return 1
     command -v claude >/dev/null 2>&1 || return 1
 
     # caveman HARD-SUPPRESS (parsed output, v7.41.0): the response is parsed for

@@ -457,6 +457,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # an agent runs in this job (Rule of Two)
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -641,6 +643,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           LOKI_SDK_LOOP: "1"
           LOKI_MAX_ITERATIONS: "2"
+          LOKI_DELEGATE_PR: "0"
         run: |
           set -uo pipefail
           # A trivially-completable one-file spec so the loop terminates fast+cheap.

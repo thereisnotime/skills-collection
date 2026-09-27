@@ -2,19 +2,21 @@ export interface StatusResponse {
   running: boolean;
   paused: boolean;
   phase: string;
-  iteration: number;
-  complexity: string;
+  // null when no state file recorded it (web-app/server.py sends null, never
+  // an invented 0 / "standard" / 10-iteration cap / $0.00).
+  iteration: number | null;
+  complexity: string | null;
   mode: string;
   provider: string;
   current_task: string;
-  pending_tasks: number;
-  running_agents: number;
+  pending_tasks: number | null;
+  running_agents: number | null;
   uptime: number;
   version: string;
   pid: string;
   projectDir?: string;
-  max_iterations?: number;
-  cost?: number;
+  max_iterations?: number | null;
+  cost?: number | null;
   start_time?: number;
   // Present whenever the loki process has exited (web-app/server.py:3025-3026).
   // The server has always returned these; the type just never declared them.
@@ -88,8 +90,9 @@ export interface Checkpoint {
   id: string;
   timestamp: string;
   description: string;
-  iteration: number;
-  files_changed: number;
+  // null when the checkpoint recorded no count (never shown as 0).
+  iteration: number | null;
+  files_changed: number | null;
   is_current: boolean;
 }
 
@@ -168,8 +171,9 @@ export interface TemplateMetadata {
   description: string;
   category: string;
   tech_stack: string[];
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  build_time: string;
+  // null when the server has no entry for the template (never a default).
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | null;
+  build_time: string | null;
   gradient: string;
 }
 

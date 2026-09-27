@@ -31,7 +31,7 @@ pass() { printf 'CASE %s PASS %s\n' "$1" "$2"; }
 fail() { printf 'CASE %s FAIL %s\n' "$1" "$2"; }
 note() { printf '%s\n' "$*" >&2; }
 
-ALL_CASES="P6.same-path-and-history P6.user-files-intact P6.change-landed-in-place P6.proof-produced-and-verifies P6.no-gate-artifacts-committed P6.untracked-not-swept P6.resume-does-not-sweep P6.ignored-files-not-swept P6.preexisting-edit-disclosed P6.resume-keeps-ignored-user-file P6.resume-after-interrupt-commits-agent-files"
+ALL_CASES="P6.same-path-and-history P6.user-files-intact P6.change-landed-in-place P6.proof-produced-and-verifies P6.no-gate-artifacts-committed P6.untracked-not-swept P6.resume-does-not-sweep P6.ignored-files-not-swept P6.preexisting-edit-disclosed P6.resume-keeps-ignored-user-file P6.resume-after-interrupt-commits-agent-files P6.agent-self-commit-does-not-lose-user-file"
 
 # Caller-inherited knobs that would test something other than the default a
 # user gets. Unset so the run exercises the shipped defaults.
@@ -216,9 +216,21 @@ elif [ "$kind" = build ] && [ "${MOAT_STUB_MODE:-}" = intr2 ]; then
     printf 'import helper\nprint(helper.greet())\n' > app.py
     mkdir -p .loki/signals
     printf 'app.py uses helper\n' > .loki/signals/COMPLETION_REQUESTED
+elif [ "$kind" = build ] && [ "${MOAT_STUB_MODE:-}" = selfcommit ]; then
+    # Fourth fixture: un-ignore everything and commit it all itself, the
+    # user's untracked and ignored files included; record the commit.
+    printf 'build/\n' > .gitignore
+    printf 'def bye():\n    return "bye"\n' > feature.py
+    git add -A && git commit -qm "agent checkpoint" \
+        && git rev-parse HEAD > "${MOAT_STUB_LOG%.log}.agent-commit"
+    mkdir -p .loki/signals
+    printf 'added feature.py\n' > .loki/signals/COMPLETION_REQUESTED
 elif [ "$kind" = build ]; then
     grep -q 'def mul' calc.py 2>/dev/null \
         || printf 'def mul(a, b):\n    return a * b\n' >> calc.py
+    # A unittest-style test (pytest and unittest both run it) that imports
+    # calc, so the test gate has a suite to run inside the repo.
+    printf 'import unittest\n\nfrom calc import add, mul\n\n\nclass CalcTest(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n\n    def test_mul(self):\n        self.assertEqual(mul(2, 3), 6)\n' > test_calc.py
     mkdir -p .loki/signals
     printf 'added mul() to calc.py\n' > .loki/signals/COMPLETION_REQUESTED
 fi
@@ -484,13 +496,24 @@ fi
 # ============================================================================
 # P6.no-gate-artifacts-committed
 # ============================================================================
-# The static-analysis gate syntax-checks the changed calc.py inside the user's
-# repo. It must leave no bytecode there, so none can land in the session commit.
+# The static-analysis gate syntax-checks the changed calc.py, and the test gate
+# runs the agent's test_calc.py (which imports calc), both inside the user's
+# repo, whose .gitignore does not ignore __pycache__. Neither may leave
+# bytecode there, so none can land in the session commit.
 id=P6.no-gate-artifacts-committed
 why="$VACUOUS"
 # Positive control: the gate ran and checked at least one file this run.
 grep -Eq 'Static analysis: ([1-9][0-9]* files checked|[0-9]+ issue\(s\) in [1-9][0-9]* files)' "$T/log/run.out" \
     || why="${why}vacuous: the static-analysis gate never checked a file (no 'Static analysis: N files' line with N >= 1); "
+# Positive control: the test gate ran a Python suite that passed (so it
+# imported calc and test_calc). Read before session 2 overwrites the file.
+tg="$(python3 -E -c 'import json, sys
+d = json.load(open(sys.argv[1]))
+print(d.get("runner"), d.get("status"))' "$W/.loki/quality/test-results.json" 2>/dev/null)"
+case "$tg" in
+    "pytest verified"|"unittest verified") ;;
+    *) why="${why}vacuous: the test gate did not run a passing Python suite (test-results.json runner/status: '${tg:-absent}'); " ;;
+esac
 g ls-tree -r --name-only HEAD > "$T/log/head-tree-gate.txt" 2>/dev/null
 grep -qx 'calc.py' "$T/log/head-tree-gate.txt" \
     || why="${why}positive control failed: HEAD tree listing does not show calc.py; "
@@ -499,7 +522,7 @@ committed_bc="$(grep -E '(^|/)__pycache__/|\.py[co]$' "$T/log/head-tree-gate.txt
 disk_bc="$(cd "$W" && find . \( -path ./.git -o -path ./.loki \) -prune -o \( -name __pycache__ -o -name '*.py[co]' \) -print | tr '\n' ' ')"
 [ -z "$disk_bc" ] || why="${why}bytecode written into the repo: $disk_bc; "
 if [ -z "$why" ]; then
-    pass "$id" "the static-analysis gate checked the changed files and left no __pycache__ or .pyc in the repo or in the commit on $CUR_BRANCH"
+    pass "$id" "the static-analysis gate checked the changed files and the test gate ran a passing ${tg%% *} suite, and neither left __pycache__ or .pyc in the repo or in the commit on $CUR_BRANCH"
 else
     fail "$id" "$why"
 fi
@@ -953,6 +976,151 @@ fi
 why="${why}${I_REC_WHY:-}"
 if [ -z "$why" ]; then
     pass "$id" "an interrupted session's helper.py and test_helper.py were committed on $I2_BRANCH by the resumed session (the committed tree runs) and listed in its receipt, which verifies on bun and bash routes; the user's file made after the interrupt was not committed and survives checkout of main"
+else
+    fail "$id" "$why"
+fi
+
+# ============================================================================
+# P6.agent-self-commit-does-not-lose-user-file (fourth fixture, one session)
+# ============================================================================
+# The agent rewrites .gitignore and runs `git add -A && git commit` itself, so
+# the user's untracked NOTES.local.txt, ignored config.local.json and ignored
+# logs/run.log land on the session branch, and a checkout of main would delete
+# them. The session commit must take them off the branch tip (they stay on
+# disk), warn naming them, keep the agent's own file, and a checkout of main
+# must leave all three byte-identical.
+id=P6.agent-self-commit-does-not-lose-user-file
+why=""
+S="$T/self/repo"
+gs() { git -C "$S" "$@"; }
+SENTINEL4="moat-p6-self-commit-$$-${RANDOM}${RANDOM}"
+SELF_FILES="NOTES.local.txt config.local.json logs/run.log"
+{
+    mkdir -p "$S" && git init -q "$S" \
+    && gs symbolic-ref HEAD refs/heads/main \
+    && gs config user.email moat@example.invalid \
+    && gs config user.name "moat p6" \
+    && gs config commit.gpgsign false \
+    && printf 'def hello():\n    return "hi"\n' > "$S/main.py" \
+    && printf '*.local.json\nlogs/\n' > "$S/.gitignore" \
+    && gs add main.py .gitignore && gs commit -qm "c1: app, ignore local files" \
+    && printf 'self-commit notes\n%s\n' "$SENTINEL4" > "$S/NOTES.local.txt" \
+    && printf '{"user":"%s"}\n' "$SENTINEL4" > "$S/config.local.json" \
+    && mkdir -p "$S/logs" && printf 'log %s\n' "$SENTINEL4" > "$S/logs/run.log"
+} >"$T/log/self-fixture.log" 2>&1 || why="fourth fixture setup failed: $(tr '\n' ' ' < "$T/log/self-fixture.log" | cut -c1-200); "
+mkdir -p "$T/self/before"
+for f in $SELF_FILES; do
+    cat "$S/$f" > "$T/self/before/${f//\//_}" 2>/dev/null || why="${why}fixture did not create $f; "
+done
+SELF_LOG="$T/log/self-stub.log"
+: > "$SELF_LOG"
+if [ -z "$why" ]; then
+    run_pipeline self "$SELF_LOG" selfcommit "$S"
+    rc=$?
+    echo "INFO P6 self-commit session run.sh rc=$rc"
+    kill_leftovers
+    [ "$(awk -F'\t' '$1 == "build" {n++} END {print n + 0}' "$SELF_LOG")" -ge 1 ] \
+        || why="${why}vacuous: the self-commit session never reached the provider build step (run.sh rc=$rc); "
+    SELF_BRANCH="$(gs symbolic-ref --short -q HEAD 2>/dev/null || echo DETACHED)"
+    case "$SELF_BRANCH" in loki/session-*) ;; *) why="${why}not on a minted session branch ($SELF_BRANCH); " ;; esac
+    # Vacuity guard: the agent's own commit really holds the user's files.
+    AGENT_SHA="$(cat "$T/log/self-stub.agent-commit" 2>/dev/null)"
+    if [ -z "$AGENT_SHA" ]; then
+        why="${why}vacuous: the stub's own git commit did not happen; "
+    else
+        for f in $SELF_FILES; do
+            gs show "$AGENT_SHA:$f" 2>/dev/null | grep -qF "$SENTINEL4" \
+                || why="${why}vacuous: the agent's commit does not hold $f; "
+        done
+    fi
+    gs ls-tree -r --name-only HEAD > "$T/log/self-head-tree.txt" 2>/dev/null
+    grep -qx 'feature.py' "$T/log/self-head-tree.txt" \
+        || why="${why}the agent's feature.py is not on the branch tip; "
+    for f in $SELF_FILES; do
+        grep -qxF "$f" "$T/log/self-head-tree.txt" && why="${why}$f is still on the branch tip ($SELF_BRANCH); "
+        cmp -s "$S/$f" "$T/self/before/${f//\//_}" || why="${why}$f is gone or changed on disk after the run; "
+    done
+    cat "$T/log/self.out" "$T/log/self.err" > "$T/log/self-all.txt" 2>/dev/null
+    warned="$(grep 'The agent committed your pre-existing' "$T/log/self-all.txt" | head -n 1)"
+    if [ -z "$warned" ]; then
+        why="${why}no warning naming the files the agent committed; "
+    else
+        for f in $SELF_FILES; do
+            case "$warned" in *"$f"*) ;; *) why="${why}the warning does not name $f; " ;; esac
+        done
+        case "$warned" in *"do not push"*) ;; *) why="${why}the warning does not say the branch history still holds them; " ;; esac
+    fi
+    if gs checkout -q main 2>"$T/log/self-checkout.err"; then
+        for f in $SELF_FILES; do
+            cmp -s "$S/$f" "$T/self/before/${f//\//_}" || why="${why}$f is gone or changed after checkout of main; "
+        done
+    else
+        why="${why}could not switch back to main: $(head -c 160 "$T/log/self-checkout.err" | tr '\n' ' '); "
+    fi
+fi
+# Stale-base leg (fifth fixture, one session): .loki/state still names the
+# base and session branch of an earlier session run from feature/x, both since
+# deleted. The session minted from main must record main as its base, so the
+# agent's own commit of the user's untracked PRECIOUS.txt comes off the tip and
+# a checkout of main keeps it.
+B="$T/stalebase/repo"
+gb() { git -C "$B" "$@"; }
+SENTINEL5="moat-p6-stale-base-$$-${RANDOM}${RANDOM}"
+{
+    mkdir -p "$B" && git init -q "$B" \
+    && gb symbolic-ref HEAD refs/heads/main \
+    && gb config user.email moat@example.invalid \
+    && gb config user.name "moat p6" \
+    && gb config commit.gpgsign false \
+    && printf 'def hello():\n    return "hi"\n' > "$B/main.py" \
+    && gb add main.py && gb commit -qm "c1: app" \
+    && gb branch feature/x \
+    && mkdir -p "$B/.loki/state" && printf '*\n' > "$B/.loki/.gitignore" \
+    && printf 'feature/x\n' > "$B/.loki/state/base-branch.txt" \
+    && printf 'loki/session-1-1\n' > "$B/.loki/state/agent-branch.txt" \
+    && gb branch -q -D feature/x \
+    && printf 'precious\n%s\n' "$SENTINEL5" > "$B/PRECIOUS.txt" \
+    && cp "$B/PRECIOUS.txt" "$T/stalebase/PRECIOUS.before"
+} >"$T/log/stale-fixture.log" 2>&1 || why="${why}stale-base fixture setup failed: $(tr '\n' ' ' < "$T/log/stale-fixture.log" | cut -c1-200); "
+# Vacuity guards: the base recorded before the run is stale and unresolvable.
+[ "$(cat "$B/.loki/state/base-branch.txt" 2>/dev/null)" = feature/x ] \
+    || why="${why}vacuous: the stale-base fixture does not record feature/x as the base; "
+gb rev-parse --verify -q feature/x >/dev/null 2>&1 \
+    && why="${why}vacuous: feature/x still resolves in the stale-base fixture; "
+STALE_LOG="$T/log/stale-stub.log"
+: > "$STALE_LOG"
+if [ -z "$why" ]; then
+    run_pipeline stalebase "$STALE_LOG" selfcommit "$B"
+    rc=$?
+    echo "INFO P6 stale-base session run.sh rc=$rc"
+    kill_leftovers
+    [ "$(awk -F'\t' '$1 == "build" {n++} END {print n + 0}' "$STALE_LOG")" -ge 1 ] \
+        || why="${why}vacuous: the stale-base session never reached the provider build step (run.sh rc=$rc); "
+    STALE_BRANCH="$(gb symbolic-ref --short -q HEAD 2>/dev/null || echo DETACHED)"
+    case "$STALE_BRANCH" in loki/session-*) ;; *) why="${why}stale-base: not on a minted session branch ($STALE_BRANCH); " ;; esac
+    STALE_SHA="$(cat "$T/log/stale-stub.agent-commit" 2>/dev/null)"
+    if [ -z "$STALE_SHA" ]; then
+        why="${why}vacuous: the stale-base stub's own git commit did not happen; "
+    else
+        gb show "$STALE_SHA:PRECIOUS.txt" 2>/dev/null | grep -qF "$SENTINEL5" \
+            || why="${why}vacuous: the stale-base agent commit does not hold PRECIOUS.txt; "
+    fi
+    [ "$(cat "$B/.loki/state/base-branch.txt" 2>/dev/null)" = main ] \
+        || why="${why}stale-base: the mint from main recorded base '$(cat "$B/.loki/state/base-branch.txt" 2>/dev/null)'; "
+    gb ls-tree -r --name-only HEAD > "$T/log/stale-head-tree.txt" 2>/dev/null
+    grep -qx 'feature.py' "$T/log/stale-head-tree.txt" \
+        || why="${why}stale-base: the agent's feature.py is not on the branch tip; "
+    grep -qx 'PRECIOUS.txt' "$T/log/stale-head-tree.txt" \
+        && why="${why}stale-base: PRECIOUS.txt is still on the branch tip ($STALE_BRANCH); "
+    if gb checkout -q main 2>"$T/log/stale-checkout.err"; then
+        cmp -s "$B/PRECIOUS.txt" "$T/stalebase/PRECIOUS.before" \
+            || why="${why}stale-base: PRECIOUS.txt is gone or changed after checkout of main; "
+    else
+        why="${why}stale-base: could not switch back to main: $(head -c 160 "$T/log/stale-checkout.err" | tr '\n' ' '); "
+    fi
+fi
+if [ -z "$why" ]; then
+    pass "$id" "the agent's own git add -A commit put the user's untracked and ignored files on $SELF_BRANCH; the session took them off the branch tip (feature.py kept), warned naming them, and all three are byte-identical after checkout of main; with a base left by an earlier session from a deleted feature/x, the mint recorded main and the user's PRECIOUS.txt came off the tip of $STALE_BRANCH and is byte-identical after checkout of main"
 else
     fail "$id" "$why"
 fi

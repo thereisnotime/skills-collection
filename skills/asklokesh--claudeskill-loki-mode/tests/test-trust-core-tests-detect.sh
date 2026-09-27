@@ -374,12 +374,12 @@ probe_case "the model allowlist actually gates" \
 # correctness when a provider releases mid-window.
 probe_case "no tier points at a superseded flagship" \
     "providers/model_catalog.json" \
-    '"latest_planning": "claude-opus-5"' '"latest_planning": "claude-opus-4-8"' \
+    '"latest_planning": "claude-opus-5-5"' '"latest_planning": "claude-opus-5"' \
     bash tests/test-model-catalog-current-flagship.sh
 
 probe_case "a cli alias cannot drift from its tier" \
     "providers/model_catalog.json" \
-    '"opus": "claude-opus-5"' '"opus": "claude-opus-4-8"' \
+    '"opus": "claude-opus-5-5"' '"opus": "claude-opus-5"' \
     bash tests/test-model-catalog-current-flagship.sh
 
 # The review-council cap. Shrinking a council must never manufacture an

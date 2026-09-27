@@ -117,6 +117,12 @@ provider_get_tier_param() {
     esac
 }
 
+# Commit hygiene, the sentence providers/claude.sh (and the Bun
+# AUTONOMY_OVERRIDE_TEXT) puts in Claude's system prompt. opencode takes no
+# system prompt here, so it leads every prompt the functions below send
+# (BACKLOG 74: an agent's own `git add -A` commits the user's files).
+PROVIDER_COMMIT_HYGIENE='Commit hygiene still applies: git checkpoints are LOCAL only. Never push or force-push. Stage files by explicit path, never `git add -A` or `git add .`, and never commit secrets, credentials, .env files, or untracked files you did not author this session.'
+
 # provider_invoke <prompt> -- run one non-interactive turn.
 provider_invoke() {
     # CONTRACT: prompt is $1, and EXTRA ARGS MUST PASS THROUGH. The first cut of
@@ -130,6 +136,7 @@ provider_invoke() {
     local prompt="$1"
     shift
     [ -n "$prompt" ] || return 1
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
     command -v opencode >/dev/null 2>&1 || return 127
     opencode run --auto --model "$PROVIDER_MODEL_DEVELOPMENT" "$prompt" "$@"
 }
@@ -143,6 +150,7 @@ provider_invoke_with_tier() {
     shift 2
     [ -n "$tier" ] || tier="development"
     [ -n "$prompt" ] || return 1
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
     command -v opencode >/dev/null 2>&1 || return 127
     local model
     model="$(provider_get_tier_param "$tier")"
@@ -153,6 +161,7 @@ provider_invoke_with_tier() {
 provider_invoke_argv() {
     local tier="${1:-development}"
     local prompt="${2:-}"
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
     local model
     model="$(provider_get_tier_param "$tier")"
     _LOKI_INVOKE_ARGV=(opencode run --auto --model "$model" "$prompt")

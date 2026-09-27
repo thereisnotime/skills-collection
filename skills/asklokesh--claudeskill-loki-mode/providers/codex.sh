@@ -209,9 +209,16 @@ _codex_model_flag() {
     return 0
 }
 
+# Commit hygiene, the sentence providers/claude.sh (and the Bun
+# AUTONOMY_OVERRIDE_TEXT) puts in Claude's system prompt. Codex takes no
+# system prompt here, so it leads every prompt the functions below send
+# (BACKLOG 74: an agent's own `git add -A` commits the user's files).
+PROVIDER_COMMIT_HYGIENE='Commit hygiene still applies: git checkpoints are LOCAL only. Never push or force-push. Stage files by explicit path, never `git add -A` or `git add .`, and never commit secrets, credentials, .env files, or untracked files you did not author this session.'
+
 provider_invoke() {
     local prompt="$1"
     shift
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
     local model_flag=()
     while IFS= read -r _mf; do
         [ -n "$_mf" ] && model_flag+=("$_mf")
@@ -302,6 +309,7 @@ provider_invoke_with_tier() {
     local tier="$1"
     local prompt="$2"
     shift 2
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
     local effort
     effort=$(resolve_model_for_tier "$tier")
 
@@ -360,6 +368,7 @@ provider_invoke_with_tier() {
 provider_invoke_argv() {
     local tier="${1:-development}"
     local prompt="${2:-}"
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
 
     # DO NOT pass provider_get_tier_param to --model. For Codex that function
     # returns an EFFORT LEVEL (xhigh/high/low), not a model name -- the note at

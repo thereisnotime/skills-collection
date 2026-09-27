@@ -186,7 +186,9 @@ class CostTimelineTests(unittest.TestCase):
         with _ForceLokiDir(self.tmp):
             d = _client().get("/api/cost/timeline").json()
         self.assertIsNone(d["runs"][0]["cost_usd"])
-        self.assertEqual(d["project_total_usd"], 0.0)
+        # A run that recorded no cost adds up to an unknown total, not $0.00.
+        self.assertIsNone(d["project_total_usd"])
+        self.assertFalse(d["project_total_partial"])
 
     # ---------- budget thresholds ------------------------------------------
 

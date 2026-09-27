@@ -894,6 +894,10 @@ async def verify_audit_integrity():
 
     return {
         "valid": aggregate["valid"],
+        # verified/status: whether anything was checked (valid stays True for
+        # an empty chain); see audit.verify_all_logs_in_dir.
+        "verified": aggregate["verified"],
+        "status": aggregate["status"],
         "files_checked": aggregate["files_checked"],
         "files_skipped": aggregate.get("files_skipped", 0),
         "entries_checked": aggregate.get("entries_checked", 0),

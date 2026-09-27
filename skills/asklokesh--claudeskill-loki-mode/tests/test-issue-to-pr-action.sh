@@ -42,16 +42,16 @@ for f in "$ACT" "$WF"; do
 done
 
 # 3. BOTH must be in files[], or an npm user receives no trigger.
-MISSING=""
-python3 - "$ACT" "$WF" <<'PY' > /tmp/loki_files_check.txt 2>/dev/null
+FILES_CHECK="$(python3 - "$ACT" "$WF" <<'PY' 2>&1
 import json, sys
 files = json.load(open("package.json"))["files"]
 for path in sys.argv[1:]:
     ok = any(path == f or (f.endswith("/") and path.startswith(f)) for f in files)
     print("%s %s" % ("OK" if ok else "MISSING", path))
 PY
-if grep -q '^MISSING' /tmp/loki_files_check.txt 2>/dev/null; then
-    fail "not in package.json files[]: $(grep '^MISSING' /tmp/loki_files_check.txt | awk '{print $2}' | tr '\n' ' ')"
+)"
+if [ "$(printf '%s\n' "$FILES_CHECK" | grep -c '^OK ')" -ne 2 ]; then
+    fail "not in package.json files[]: $(printf '%s\n' "$FILES_CHECK" | grep -v '^OK ' | tr '\n' ' ')"
 else
     pass "both the action and the workflow are in package.json files[]"
 fi
@@ -77,12 +77,29 @@ else
     fail "no per-issue concurrency group; two agents could race on one issue"
 fi
 
-# 7. The action must report the PR url it ACTUALLY opened, read from state
-#    rather than re-derived.
-if grep -q 'pr-url.txt' "$ACT" && grep -q 'pr_url' "$ACT"; then
-    pass "the action reports the PR url from persisted state"
+# 7. Rule of Two (moat P9): the agent never holds the push. The action and the
+#    workflow's agent job run Loki with LOKI_DELEGATE_PR '0' and hand over a
+#    patch; the workflow's publish job, which runs no agent, opens the PR.
+#    tests/moat/p9-rule-of-two.sh proves the split structurally; this pins the
+#    use case: a PR is still opened, by the job that holds the token.
+if python3 - "$ACT" "$WF" <<'PY' 2>/dev/null
+import sys, yaml
+act = yaml.safe_load(open(sys.argv[1]))
+wf = yaml.safe_load(open(sys.argv[2]))
+run = [s for s in act["runs"]["steps"] if "loki start" in str(s.get("run", ""))]
+assert run and all(str((s.get("env") or {}).get("LOKI_DELEGATE_PR")) == "0" for s in run)
+assert "patch" in act["outputs"]
+agent, publish = wf["jobs"]["agent"], wf["jobs"]["publish"]
+steps = lambda j: "\n".join(str(s.get("run", "")) for s in j["steps"])
+assert "loki start" in steps(agent) and "LOKI_DELEGATE_PR: '0'" in open(sys.argv[2]).read()
+assert "write" not in agent["permissions"].values()
+assert publish["needs"] == "agent" and "loki start" not in steps(publish)
+assert "gh pr create" in steps(publish) and publish["permissions"]["pull-requests"] == "write"
+PY
+then
+    pass "the agent phase never pushes; a separate publish job without an agent opens the PR"
 else
-    fail "the action does not read the persisted PR url"
+    fail "the agent step can push or open the PR, or no job opens the PR"
 fi
 
 # 8. That state file must actually be written by the runtime, or assertion 7

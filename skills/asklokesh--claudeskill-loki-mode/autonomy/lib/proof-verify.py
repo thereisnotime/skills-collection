@@ -59,7 +59,10 @@ Schema compatibility:
 CLI:
     python3 autonomy/lib/proof-verify.py <proof.json> [repo_dir]
   Prints the JSON result. Exit 0 if ok, 1 on tamper / drift / bad signature,
-  2 on a usage / load error (missing file, malformed JSON).
+  2 on a usage / load error (missing file, malformed JSON) OR when every check
+  that ran passed but drift could not be re-derived (not a git tree, no
+  base_sha, an unresolvable base ref) -- an inability to measure drift is not
+  evidence of tampering, so it must not share exit 1 with a genuine failure.
 """
 
 import hashlib
@@ -791,9 +794,10 @@ def verify(proof_path, repo_dir="."):
     if not _is_git_repo(repo_dir):
         result["diff_drift"] = None
         if not result["reason"]:
-            result["reason"] = "repo_dir is not a git work tree; drift unverifiable"
+            result["reason"] = ("could not check drift: repo_dir is not a git "
+                                "work tree; drift unverifiable")
         result["reasons"].append(
-            "drift unverifiable: %r is not a git work tree, so the recorded "
+            "could not check drift: %r is not a git work tree, so the recorded "
             "diff cannot be re-derived (re-run from the repository the receipt "
             "was generated in)" % repo_dir)
     elif not base_sha:
@@ -801,19 +805,22 @@ def verify(proof_path, repo_dir="."):
         # so the diff cannot be re-derived. Report honestly, do NOT pass.
         result["diff_drift"] = None
         if not result["reason"]:
-            result["reason"] = "base ref unresolvable (no recorded base_sha; drift unverifiable)"
+            result["reason"] = ("could not check drift: base ref unresolvable "
+                                "(no recorded base_sha; drift unverifiable)")
         result["reasons"].append(
-            "drift unverifiable: the receipt records no base_sha, so there is "
-            "no starting point to re-derive the diff from (schema v1.0 receipt)")
+            "could not check drift: the receipt records no base_sha, so there "
+            "is no starting point to re-derive the diff from (schema v1.0 "
+            "receipt)")
     elif not _rev_resolvable(repo_dir, base_sha):
         result["diff_drift"] = None
         if not result["reason"]:
-            result["reason"] = ("base ref unresolvable (%s not found in repo; "
-                                "drift unverifiable)" % base_sha)
+            result["reason"] = ("could not check drift: base ref unresolvable "
+                                "(%s not found in repo; drift unverifiable)"
+                                % base_sha)
         result["reasons"].append(
-            "drift unverifiable: recorded base ref %s is not present in this "
-            "repository (fetch the branch, or verify against the repo the "
-            "receipt was generated in)" % base_sha)
+            "could not check drift: recorded base ref %s is not present in "
+            "this repository (fetch the branch, or verify against the repo "
+            "the receipt was generated in)" % base_sha)
     else:
         # Drift answers "does this receipt still describe the CURRENT branch
         # state". A receipt is for verifying the work as it stands now, so we
@@ -829,10 +836,11 @@ def verify(proof_path, repo_dir="."):
         if current_stat is None:
             result["diff_drift"] = None
             if not result["reason"]:
-                result["reason"] = "git diff could not be computed; drift unverifiable"
+                result["reason"] = ("could not check drift: git diff could not "
+                                    "be computed; drift unverifiable")
             result["reasons"].append(
-                "drift unverifiable: git diff %s..HEAD could not be computed"
-                % base_sha)
+                "could not check drift: git diff %s..HEAD could not be "
+                "computed" % base_sha)
         else:
             drift = False
             if recorded_stat is not None:
@@ -846,12 +854,13 @@ def verify(proof_path, repo_dir="."):
                 # compare against -- cannot confirm the facts match.
                 result["diff_drift"] = None
                 if not result["reason"]:
-                    result["reason"] = ("no recorded diff stat to compare; "
-                                        "drift unverifiable")
+                    result["reason"] = ("could not check drift: no recorded "
+                                        "diff stat to compare; drift "
+                                        "unverifiable")
                 result["reasons"].append(
-                    "drift unverifiable: the repository diff was re-derived, "
-                    "but the receipt recorded no diff stat to compare it "
-                    "against")
+                    "could not check drift: the repository diff was "
+                    "re-derived, but the receipt recorded no diff stat to "
+                    "compare it against")
 
             # diff_sha256: a stronger content check than the counts. Only when
             # the receipt recorded one (v1.1).
@@ -945,13 +954,70 @@ def verify(proof_path, repo_dir="."):
 # CLI shim (mirrors dashboard/audit.py _unified_cli style)
 # ---------------------------------------------------------------------------
 
+def drift_unverifiable(result):
+    """True iff every check that ran passed and drift alone could not be
+    re-derived (not a git tree, no base_sha, an unresolvable base ref, or the
+    diff/tree could not be recomputed) -- the exit-2 "could not check" case
+    from docs/exit-codes.md, distinct from a genuine tamper/drift failure.
+
+    Fail-safe direction: this is an ALLOWLIST, not a check on `diff_drift is
+    None` alone. `diff_drift` (and `tree_drift`) can be None for reasons OTHER
+    than "unmeasurable" -- e.g. an early return on a missing/mismatched
+    integrity hash never reaches the drift block at all, leaving diff_drift at
+    its initial None while the receipt is genuinely tampered. Requiring every
+    OTHER check to have passed before honoring a None here keeps a real
+    failure from being laundered into "could not check". Any check added
+    later that is not explicitly listed here defaults to exit 1, never 2.
+
+    Known ceiling (not a new regression): this allowlist only covers a
+    genuinely unmeasurable check. A forger who re-hashes the receipt after
+    stripping base_sha, tree_sha256, and the diff stat produces a receipt
+    that passes hash_ok and every other listed check, then reaches this
+    function with the same unresolvable-drift signature as an honest
+    outside-the-repo verification -- so it also exits 2 ("could not check"),
+    not 1 ("failed"). `ok` stays False either way, so nothing here reports
+    VERIFIED; the ceiling is only that a deliberately stripped receipt and an
+    honestly unverifiable one are not distinguished from each other.
+    """
+    if result.get("ok"):
+        return False
+    if not result.get("hash_ok"):
+        return False
+    if result.get("gpg_ok") not in (True, "n/a"):
+        return False
+    if result.get("headline_consistent") is False:
+        return False
+    if result.get("cost_coherent") is False:
+        return False
+    if result.get("schema_supported") is not True:
+        return False
+    if result.get("diff_drift") is True:
+        return False
+    if result.get("tree_drift") is True:
+        return False
+    # tree_drift is None also means "no tree was recorded to check" (not
+    # applicable), which is not itself a reason to report exit 2 -- only count
+    # it as unmeasured when a tree digest was actually recorded.
+    tree_unmeasured = (
+        bool(result.get("tree_recheck", {}).get("recorded"))
+        and result.get("tree_drift") is None
+    )
+    return result.get("diff_drift") is None or tree_unmeasured
+
+
 def render_reasons(result):
     """Render a verdict as human-readable lines.
 
     The JSON report is the machine surface; this is the one a person reads.
     A passing receipt renders the verdict alone -- never a fabricated reason.
     """
-    lines = ["VERIFIED" if result.get("ok") else "FAILED"]
+    if result.get("ok"):
+        header = "VERIFIED"
+    elif drift_unverifiable(result):
+        header = "COULD NOT CHECK"
+    else:
+        header = "FAILED"
+    lines = [header]
     for reason in (result.get("reasons") or []):
         lines.append("  - %s" % reason)
     return "\n".join(lines)
@@ -984,7 +1050,13 @@ def _cli(argv=None):
         print(json.dumps({"ok": False, "error": "verify failed: %s" % exc}))
         return 2
     print(render_reasons(result) if human else json.dumps(result, indent=2))
-    return 0 if result.get("ok") else 1
+    if result.get("ok"):
+        return 0
+    if drift_unverifiable(result):
+        # An inability to measure drift is not evidence of tampering (BACKLOG
+        # 31 / docs/exit-codes.md: 2 = could not check, never 1 = failed).
+        return 2
+    return 1
 
 
 if __name__ == "__main__":

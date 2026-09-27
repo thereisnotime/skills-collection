@@ -1,13 +1,41 @@
 import type { PlanResult } from '../api/client';
 
+// The server nulls a field loki plan did not state and sets parsed: false when
+// nothing in the output was recognised. Never show an invented default.
+type Plan = Omit<PlanResult, 'complexity' | 'iterations'> & {
+  complexity: string | null;
+  iterations: number | null;
+  parsed?: boolean;
+};
+
 interface PlanModalProps {
-  plan: PlanResult | null;
+  plan: Plan | null;
+  error?: string | null;
   loading: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function PlanModal({ plan, loading, onConfirm, onCancel }: PlanModalProps) {
+const show = (v: string | number | null | undefined) => (v == null || v === '' ? '--' : v);
+
+export function PlanModal({ plan, error, loading, onConfirm, onCancel }: PlanModalProps) {
+  const actions = (
+    <div className="flex gap-3 justify-end">
+      <button
+        onClick={onCancel}
+        className="px-4 py-2 text-sm font-medium text-muted hover:text-ink transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onConfirm}
+        className="px-5 py-2 rounded-card text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-all shadow-button"
+      >
+        Start Build
+      </button>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="card w-full max-w-lg mx-4 p-6 rounded-card shadow-card-hover">
@@ -32,6 +60,13 @@ export function PlanModal({ plan, loading, onConfirm, onCancel }: PlanModalProps
               </button>
             </div>
           </div>
+        ) : error ? (
+          <>
+            <div className="mb-4 px-3 py-2 rounded-btn bg-danger/10 border border-danger/20 text-danger text-xs">
+              Could not run loki plan: {error}
+            </div>
+            {actions}
+          </>
         ) : plan ? (
           <>
             {plan.returncode !== 0 && (
@@ -39,28 +74,35 @@ export function PlanModal({ plan, loading, onConfirm, onCancel }: PlanModalProps
                 loki plan exited with code {plan.returncode} - showing partial results
               </div>
             )}
+            {plan.parsed === false && (
+              <div className="mb-4 px-3 py-2 rounded-btn bg-warning/10 border border-warning/20 text-warning text-xs">
+                {plan.output_text
+                  ? 'The estimate could not be parsed from loki plan output. Raw output is shown below.'
+                  : 'The estimate could not be parsed: loki plan produced no output.'}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="card rounded-card p-3">
                 <div className="text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-1">Complexity</div>
-                <div className="text-base font-bold text-ink capitalize">{plan.complexity}</div>
+                <div className="text-base font-bold text-ink capitalize">{show(plan.complexity)}</div>
               </div>
               <div className="card rounded-card p-3">
                 <div className="text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-1">Est. Cost</div>
-                <div className="text-base font-bold text-ink">{plan.cost_estimate}</div>
+                <div className="text-base font-bold text-ink">{show(plan.cost_estimate)}</div>
               </div>
               <div className="card rounded-card p-3">
                 <div className="text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-1">Iterations</div>
-                <div className="text-base font-bold text-ink">{plan.iterations}</div>
+                <div className="text-base font-bold text-ink">{show(plan.iterations)}</div>
               </div>
               <div className="card rounded-card p-3">
                 <div className="text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-1">Phases</div>
-                <div className="text-xs text-ink capitalize">{plan.phases.join(', ')}</div>
+                <div className="text-xs text-ink capitalize">{plan.phases?.length ? plan.phases.join(', ') : '--'}</div>
               </div>
             </div>
 
             {plan.output_text && (
-              <details className="mb-4">
+              <details className="mb-4" open={plan.parsed === false}>
                 <summary className="text-xs text-muted cursor-pointer hover:text-ink transition-colors">
                   Raw output
                 </summary>
@@ -70,23 +112,13 @@ export function PlanModal({ plan, loading, onConfirm, onCancel }: PlanModalProps
               </details>
             )}
 
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={onCancel}
-                className="px-4 py-2 text-sm font-medium text-muted hover:text-ink transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={onConfirm}
-                className="px-5 py-2 rounded-card text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-all shadow-button"
-              >
-                Start Build
-              </button>
-            </div>
+            {actions}
           </>
         ) : (
-          <div className="text-sm text-muted py-4">No plan data available.</div>
+          <>
+            <div className="text-sm text-muted py-4">No plan data available.</div>
+            {actions}
+          </>
         )}
       </div>
     </div>

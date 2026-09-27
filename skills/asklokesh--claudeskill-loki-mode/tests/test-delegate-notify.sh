@@ -36,6 +36,16 @@ fi
 WORK="$(mktemp -d /tmp/loki-test-delegate-XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$WORK/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 # Stub desktop-notification binaries. They record the FULL argv so the test can
 # assert on the body content (osascript gets the AppleScript string; notify-send
 # gets title + body args). Both are placed first on PATH.
@@ -54,6 +64,14 @@ exit 0
 EOF
 chmod +x "$STUB_BIN/osascript" "$STUB_BIN/notify-send"
 export PATH="$STUB_BIN:$PATH"
+
+# cd into the scratch dir BEFORE sourcing run.sh -- sourcing runs provider
+# auto-detection, which does `mkdir -p .loki/state && echo ... >
+# .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT that
+# writes into the shared checkout and contaminates every later test in the
+# same shell (same bug class as test-iteration-grace.sh and
+# test-exit-code-contract.sh).
+cd "$WORK" || exit 1
 
 # shellcheck disable=SC1090
 . "$RUN_SH"
@@ -299,6 +317,22 @@ if grep -q 'loki/delegate-' "$RUN_SH"; then
     ok "wiring: LOKI_DELEGATE_BRANCH isolation present"
 else
     bad "wiring: LOKI_DELEGATE_BRANCH isolation missing"
+fi
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: WORK must show its own provider file did get written.
+# Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
+# would also read as "isolated" -- the check would pass for the wrong reason.
+if [ -f "$WORK/.loki/state/provider" ]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    bad "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
 fi
 
 echo ""

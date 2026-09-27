@@ -39,8 +39,8 @@ export class LokiSessionControl extends LokiElement {
       connected: false,
       version: null,
       uptime: 0,
-      activeAgents: 0,
-      pendingTasks: 0,
+      activeAgents: null,
+      pendingTasks: null,
     };
     // Mid-flight model switching state.
     this._model = {
@@ -134,6 +134,8 @@ export class LokiSessionControl extends LokiElement {
       if (api !== this._api) return;
       this._status.connected = false;
       this._status.mode = 'offline';
+      this._status.activeAgents = null;
+      this._status.pendingTasks = null;
       this.render();
     }
   }
@@ -147,8 +149,8 @@ export class LokiSessionControl extends LokiElement {
       mode: status.status || 'running',
       version: status.version,
       uptime: status.uptime_seconds || 0,
-      activeAgents: status.running_agents || 0,
-      pendingTasks: status.pending_tasks || 0,
+      activeAgents: status.running_agents ?? null,
+      pendingTasks: status.pending_tasks ?? null,
       phase: status.phase,
       iteration: status.iteration,
       complexity: status.complexity,
@@ -926,11 +928,11 @@ export class LokiSessionControl extends LokiElement {
 
         <div class="stats-row">
           <div class="stat-item">
-            <div class="stat-value">${this._status.activeAgents}</div>
+            <div class="stat-value">${this._escapeHtml(this._status.activeAgents ?? '--')}</div>
             <div class="stat-label">Agents running</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">${this._status.pendingTasks}</div>
+            <div class="stat-value">${this._escapeHtml(this._status.pendingTasks ?? '--')}</div>
             <div class="stat-label">Tasks queued</div>
           </div>
         </div>

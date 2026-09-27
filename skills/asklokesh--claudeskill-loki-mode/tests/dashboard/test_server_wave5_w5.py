@@ -17,7 +17,8 @@ Covers four CONFIRMED findings:
 
   L2 -- get_budget (/api/budget) ran float(budget_limit) - float(budget_used)
         AFTER its try/except ended, so a budget.json with a non-numeric
-        budget_used (e.g. "n/a") 500'd. Fix coerces non-numeric values to 0.0.
+        budget_used (e.g. "n/a") 500'd. Fix coerces non-numeric values to
+        unknown (None; P7: an unmeasured spend is never 0.0).
         Test: budget_used="n/a" -> 200 with a sane payload.
 
   M2 -- ConnectionManager.broadcast did sequential `await send_json` with no
@@ -200,9 +201,11 @@ class BudgetNonNumericTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.text)
         d = resp.json()
         self.assertEqual(d["budget_limit"], 100.0)
-        # Non-numeric used coerced to 0.0 -> full limit remaining.
-        self.assertEqual(d["current_cost"], 0.0)
-        self.assertEqual(d["remaining"], 100.0)
+        # A non-numeric used is no reading and nothing was measured, so spend
+        # and remaining are unknown (null), never $0.00 spent with the whole
+        # cap left (P7; tests/dashboard/test_budget_unmeasured_null.py).
+        self.assertIsNone(d["current_cost"])
+        self.assertIsNone(d["remaining"])
 
     def test_non_numeric_limit_returns_200(self):
         self._write_budget({"limit": ["not", "a", "number"], "budget_used": 5.0})

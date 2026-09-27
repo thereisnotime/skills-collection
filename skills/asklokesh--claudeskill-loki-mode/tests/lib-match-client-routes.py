@@ -1,6 +1,9 @@
 import json, re, subprocess, sys, os
 
-REPO = "/Users/lokesh/git/lokimode-anthropic"
+# REPO is resolved from this script's own location, never hardcoded to the
+# main checkout: run from a worktree, this must import THAT worktree's
+# server.py, not main's.
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEBAPP = os.path.join(REPO, "web-app")
 
 # --- server side: READ THE ROUTE TABLE, never regex source text -------------
@@ -59,6 +62,7 @@ for c in client["calls"]:
     elif c["method"] not in have and "WS" not in have:
         drift.append((c["line"], c["method"], full, f"route exists but methods={sorted(have)}"))
 
+print(f"  repo root: {REPO}")
 print(f"  client calls checked: {client['captured']}   server /api routes: {len(server_set)}")
 if drift:
     print(f"\n  DRIFT ({len(drift)}):")

@@ -106,7 +106,9 @@ export class LokiQualityScore extends LokiElement {
 
       if (historyResult.status === 'fulfilled') {
         const histData = historyResult.value;
-        this._history = Array.isArray(histData) ? histData.slice(-10) : (histData.scores || []).slice(-10);
+        // Server returns newest first: take the newest 10, oldest-to-newest for the trend line.
+        const list = Array.isArray(histData) ? histData : (histData?.scores || []);
+        this._history = list.filter(e => (typeof e === 'number' ? e : e?.score) != null).slice(0, 10).reverse();
       }
     } catch (err) {
       if (api !== this._api) return;
@@ -169,7 +171,7 @@ export class LokiQualityScore extends LokiElement {
 
   _renderSparkline(scores) {
     if (!scores || scores.length < 2) return '';
-    const values = scores.map(s => typeof s === 'number' ? s : (s.score || 0));
+    const values = scores.map(s => typeof s === 'number' ? s : s.score);
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min || 1;
@@ -610,7 +612,8 @@ export class LokiQualityScore extends LokiElement {
     }
 
     const d = this._data || {};
-    const score = d.score != null ? Math.round(d.score) : 0;
+    // Non-null here: _loadData keeps _data null when no score was reported.
+    const score = Math.round(d.score);
     const { grade, color: gradeColor } = this._getGrade(score);
     const categories = d.categories || {};
     const findings = d.findings || {};
@@ -624,15 +627,16 @@ export class LokiQualityScore extends LokiElement {
     };
 
     const categoriesHtml = categoryNames.map(name => {
-      const val = categories[name] != null ? Math.round(categories[name]) : 0;
+      // A category the scan did not report is "--" with no bar, not 0.
+      const val = categories[name] != null ? Math.round(categories[name]) : null;
       const barColor = val >= 80 ? 'var(--loki-success)' : val >= 60 ? 'var(--loki-warning)' : 'var(--loki-error)';
       return `
         <div class="category-item">
           <span class="category-name">${categoryLabels[name] || name}</span>
           <div class="progress-bar">
-            <div class="progress-fill" style="width:${val}%;background:${barColor};"></div>
+            ${val != null ? `<div class="progress-fill" style="width:${val}%;background:${barColor};"></div>` : ''}
           </div>
-          <span class="category-score">${val}</span>
+          <span class="category-score">${val != null ? val : '--'}</span>
         </div>
       `;
     }).join('');

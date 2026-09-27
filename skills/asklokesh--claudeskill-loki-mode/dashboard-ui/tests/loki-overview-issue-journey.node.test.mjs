@@ -84,7 +84,7 @@ describe('overview issue-to-PR journey', () => {
     el.render();
     const out = el.shadowRoot.innerHTML;
     assert.match(out, /38s to proposed solution/);
-    assert.match(out, /Plan only, not a verified patch/);
+    assert.match(out, /Plan only, no code change yet/);
     assert.match(out, /VERIFIED WITH GAPS/);
     assert.match(out, /2 recorded gaps/);
     assert.match(out, /href="https:\/\/github\.com\/owner\/repo\/pull\/43"/);

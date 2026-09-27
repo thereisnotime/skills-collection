@@ -31,10 +31,12 @@ export function PRDInput({ onSubmit, running, error, provider: providerProp, onP
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [templateLoadError, setTemplateLoadError] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
   const [planResult, setPlanResult] = useState<PlanResult | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
 
   // Load templates from backend (no hardcoded fallback -- show warning on failure)
@@ -89,13 +91,15 @@ export function PRDInput({ onSubmit, running, error, provider: providerProp, onP
   // so no need to warn on page reload -- content is preserved automatically.
 
   const handleTemplateSelect = useCallback(async (filename: string, name: string) => {
-    setSelectedTemplate(name);
     setShowTemplates(false);
     try {
       const result = await api.getTemplateContent(filename);
       setPrd(result.content);
-    } catch {
-      setPrd(`# ${name}\n\n## Overview\n\nDescribe your project here...\n\n## Features\n\n- Feature 1\n- Feature 2\n- Feature 3\n\n## Technical Requirements\n\n- Requirement 1\n- Requirement 2\n`);
+      setSelectedTemplate(name);
+      setTemplateError(null);
+    } catch (err) {
+      // Leave the textarea as it was: a generic skeleton is not this template.
+      setTemplateError(`Could not load template "${name}": ${err instanceof Error ? err.message : 'request failed'}`);
     }
   }, []);
 
@@ -103,19 +107,13 @@ export function PRDInput({ onSubmit, running, error, provider: providerProp, onP
     if (!prd.trim() || planLoading) return;
     setPlanLoading(true);
     setPlanResult(null);
+    setPlanError(null);
     setShowPlanModal(true);
     try {
       const result = await api.planSession(prd, provider);
       setPlanResult(result);
-    } catch {
-      setPlanResult({
-        complexity: 'unknown',
-        cost_estimate: 'N/A',
-        iterations: 0,
-        phases: [],
-        output_text: 'Failed to run loki plan. The CLI may not be available.',
-        returncode: 1,
-      });
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'request failed');
     } finally {
       setPlanLoading(false);
     }
@@ -137,6 +135,7 @@ export function PRDInput({ onSubmit, running, error, provider: providerProp, onP
     {showPlanModal && (
       <PlanModal
         plan={planResult}
+        error={planError}
         loading={planLoading}
         onConfirm={handleSubmit}
         onCancel={() => setShowPlanModal(false)}
@@ -210,6 +209,12 @@ export function PRDInput({ onSubmit, running, error, provider: providerProp, onP
           Type a path or leave blank to auto-create under ~/purple-lab-projects/
         </p>
       </div>
+
+      {templateError && (
+        <div className="mt-3 px-3 py-2 rounded-btn bg-danger/10 border border-danger/20 text-danger text-xs font-medium">
+          {templateError}
+        </div>
+      )}
 
       {/* Error display */}
       {error && (

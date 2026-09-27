@@ -20,6 +20,16 @@ trap test_cleanup EXIT
 ok() { PASS=$((PASS + 1)); printf 'PASS: %s\n' "$1"; }
 bad() { FAIL=$((FAIL + 1)); printf 'FAIL: %s\n' "$1"; }
 
+# Marker for the isolation check at the bottom: anything at ROOT's provider
+# file OLDER than this predates this test run and is not ours to blame
+# (another suite in the same shared checkout may legitimately write it). The
+# 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$TMPROOT/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 mkdir -p "$FAKE_BIN"
 cat > "$FAKE_BIN/claude" <<'FAKE_CLAUDE'
 #!/usr/bin/env bash
@@ -315,6 +325,14 @@ esac
 FAKE_CLAUDE
 chmod +x "$FAKE_BIN/claude"
 export PATH="$FAKE_BIN:$PATH"
+
+# cd into TMPROOT BEFORE sourcing run.sh -- sourcing runs provider
+# auto-detection, which does `mkdir -p .loki/state && echo ... >
+# .loki/state/provider` relative to CWD -- if CWD is still $ROOT that writes
+# into the shared checkout and contaminates every later test in the same
+# shell (same bug class as test-iteration-grace.sh and
+# test-exit-code-contract.sh).
+cd "$TMPROOT" || exit 1
 
 # shellcheck source=/dev/null
 source "$RUN_SH" 2>/dev/null || true
@@ -1809,6 +1827,22 @@ then
     ok "non-supervised review behavior remains compatible"
 else
     bad "general review path changed or failed"
+fi
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: TMPROOT must show its own provider file did get written.
+# Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
+# would also read as "isolated" -- the check would pass for the wrong reason.
+if [ -f "$TMPROOT/.loki/state/provider" ]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    bad "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [ "$ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
 fi
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

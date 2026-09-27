@@ -119,7 +119,7 @@ make_git_target() {
 TA="$TMPROOT/veto"; make_git_target "$TA"
 # test-results clean so check 1 does not confound; the TODO density (check 3)
 # is what drives the override.
-printf '{"runner":"none","pass":true}' > "$TA/.loki/quality/test-results.json"
+printf '{"runner":"none","pass":"inconclusive"}' > "$TA/.loki/quality/test-results.json"
 for n in 1 2 3 4 5; do
     printf 'const x = 1; // TODO: real blocking work item %s\n' "$n" > "$TA/file$n.ts"
 done
@@ -164,7 +164,7 @@ fi
 #   override, so completion still stops (the fix must not over-veto).
 # =====================================================================
 TB="$TMPROOT/clean"; make_git_target "$TB"
-printf '{"runner":"none","pass":true}' > "$TB/.loki/quality/test-results.json"
+printf '{"runner":"none","pass":"inconclusive"}' > "$TB/.loki/quality/test-results.json"
 
 RAW_B64_B="$(capture_da_raw_b64 "$TB")"
 RAW_B="$(printf '%s' "$RAW_B64_B" | base64 --decode 2>/dev/null || printf '%s' "$RAW_B64_B" | base64 -d 2>/dev/null)"

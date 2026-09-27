@@ -42,6 +42,13 @@ VERIFY_SH="$SCRIPT_DIR/../autonomy/verify.sh"
 PASS=0
 FAIL=0
 TMP_ROOT="$(mktemp -d -t loki-runtime-gate-tests.XXXXXX)"
+# Resolved (symlink-free) form for cwd-ownership comparisons below. On macOS,
+# `mktemp -t` returns a path under /var/folders/... but the kernel's real path
+# (what `pwd -P` inside a process, and what `lsof -d cwd` reports) is under
+# /private/var/folders/... -- comparing against the raw mktemp path would
+# never match a real process's reported cwd and silently defeat every
+# ownership check below.
+TMP_ROOT_REAL="$(cd "$TMP_ROOT" && pwd -P)"
 
 cleanup() {
     rm -rf "$TMP_ROOT" 2>/dev/null || true
@@ -58,20 +65,81 @@ _timeout_bin() {
     elif command -v gtimeout >/dev/null 2>&1; then echo "gtimeout"; fi
 }
 
-# Pick a free-ish, per-run port to avoid colliding with a server left over from
-# a previous run (or the real dashboard). Derived from the PID so the two boot
-# cases never share a port. Also proactively reclaim it if something is holding
-# it, so the test is hermetic.
+# Does pid's cwd resolve under THIS suite's own TMP_ROOT? The only reliable
+# proof of ownership available here: every fixture repo this suite boots an
+# app in lives under TMP_ROOT (run_verify does `cd "$repo"` before exec, and
+# case I's raw verify.sh invocation does the same), so a process whose cwd is
+# NOT under it cannot be a server this suite itself started -- regardless of
+# what port it happens to be listening on. Path-prefix match with a trailing
+# slash so ".../loki-runtime-gate-tests.ABC" cannot match a sibling
+# "...ABCDEF" mktemp dir from a concurrent run.
+_pid_cwd_is_ours() {
+    local pid="$1" cwd=""
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    if [ -r "/proc/$pid/cwd" ]; then
+        cwd="$(cd "/proc/$pid/cwd" 2>/dev/null && pwd -P || true)"
+    else
+        cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+    fi
+    [ -n "$cwd" ] || return 1
+    case "$cwd/" in
+        "$TMP_ROOT_REAL"/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Reclaim a port ONLY from a holder this suite provably started (cwd resolves
+# under TMP_ROOT). Never kills a foreign process merely because it happens to
+# be listening on the same port number -- D14/D15/D16 class: this suite ran
+# `lsof -ti tcp:$port` (no -sTCP:LISTEN, no ownership check) and unconditionally
+# SIGKILL'd every PID it returned, which could hit a developer's own npm/vite
+# dev server on the exact ports (3000, 5173) this suite hardcodes, or a client
+# process merely holding an outbound connection whose remote port matched.
+#
+# Returns 0 once the port is free (or was already free). Returns 1 if a
+# foreign (non-ours) holder remains after the bounded wait -- callers should
+# _skip the case rather than proceed, since this suite cannot prove the port
+# is available for its own use.
+_reap_own_port() {
+    local port="$1" waited=0
+    while [ "$waited" -lt 10 ]; do
+        local holders foreign=0
+        holders="$(lsof -ti tcp:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+        [ -z "$holders" ] && return 0
+        local p
+        for p in $holders; do
+            if _pid_cwd_is_ours "$p"; then
+                kill -9 "$p" 2>/dev/null || true
+            else
+                foreign=1
+            fi
+        done
+        if [ "$foreign" -eq 1 ]; then
+            return 1
+        fi
+        sleep 1; waited=$((waited + 1))
+    done
+    lsof -ti tcp:"$port" -sTCP:LISTEN 2>/dev/null | grep -q . && return 1
+    return 0
+}
+
+# Pick a free-ish, per-run port. NEVER kills to make room: the port is already
+# randomized, so on the rare collision this retries with a different random
+# port instead (bounded), which needs no ownership proof at all.
 _free_port() {
     local base="$1"   # small offset so A and B differ
-    local port=$(( 20000 + (RANDOM % 20000) + base ))
-    if command -v lsof >/dev/null 2>&1; then
-        local holders
-        holders="$(lsof -ti tcp:"$port" 2>/dev/null || true)"
-        [ -n "$holders" ] && printf '%s\n' "$holders" | while IFS= read -r p; do
-            [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
-        done
-    fi
+    local tries=0 port
+    while [ "$tries" -lt 20 ]; do
+        port=$(( 20000 + (RANDOM % 20000) + base ))
+        if command -v lsof >/dev/null 2>&1; then
+            if ! lsof -ti tcp:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+                echo "$port"; return 0
+            fi
+        else
+            echo "$port"; return 0
+        fi
+        tries=$((tries + 1))
+    done
     echo "$port"
 }
 
@@ -381,23 +449,7 @@ fi
 # unusual port (59999) when PORT is unset, so a pass PROVES the gate set PORT to
 # the detected default (npm -> 3000), not that the app happened to bind 3000.
 # ---------------------------------------------------------------------------
-if [ "$HAVE_NODE" = "true" ] && [ -n "$TIMEOUT_BIN" ]; then
-    # Reclaim the default port the gate will probe for an npm app (3000), in case
-    # a leftover server holds it, so the test is hermetic. Kill any holder, then
-    # WAIT (bounded) until the port is actually free before booting -- a residual
-    # server from a rapidly preceding run would otherwise answer the probe on a
-    # dead app or block our own bind, flaking the case.
-    if command -v lsof >/dev/null 2>&1; then
-        _d=0
-        while [ "$_d" -lt 10 ]; do
-            _holders="$(lsof -ti tcp:3000 2>/dev/null || true)"
-            [ -z "$_holders" ] && break
-            printf '%s\n' "$_holders" | while IFS= read -r p; do
-                [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
-            done
-            sleep 1; _d=$((_d + 1))
-        done
-    fi
+if [ "$HAVE_NODE" = "true" ] && [ -n "$TIMEOUT_BIN" ] && command -v lsof >/dev/null 2>&1 && _reap_own_port 3000; then
     REPO_D="$TMP_ROOT/case-d"
     init_repo "$REPO_D"
     # Server binds process.env.PORT; if PORT is UNSET it uses 59999 (a port the
@@ -430,14 +482,12 @@ JSON
         _no "case D: default-port status was '$STATUS_D' (expected pass; PORT export broken?)"
     fi
 
-    # Reclaim 3000 after the case so nothing lingers for other suites.
-    if command -v lsof >/dev/null 2>&1; then
-        lsof -ti tcp:3000 2>/dev/null | while IFS= read -r p; do
-            [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
-        done
-    fi
+    # Reclaim 3000 after the case so nothing lingers for other suites. Ownership-
+    # checked: this suite's own server.js above is the only thing that could be
+    # holding it with a cwd under TMP_ROOT.
+    _reap_own_port 3000 || true
 else
-    _skip "case D: needs node + a timeout binary"
+    _skip "case D: needs node + a timeout binary + lsof, or port 3000 is held by a process this suite did not start"
 fi
 
 # ---------------------------------------------------------------------------
@@ -593,23 +643,17 @@ fi
 # guard). Mirrors case D's discipline in reverse (D proves PORT export; H proves
 # boot-log scrape).
 # ---------------------------------------------------------------------------
-if [ "$HAVE_NODE" = "true" ] && [ -n "$TIMEOUT_BIN" ]; then
+_H_PORTS_FREE=true
+if [ "$HAVE_NODE" = "true" ] && [ -n "$TIMEOUT_BIN" ] && command -v lsof >/dev/null 2>&1; then
     # Hermeticity: reclaim BOTH 3000 (the guessed default -- must find nothing so
     # a revert is caught) and 5173 (the real bound port -- a stray holder would
-    # green a broken app or block our bind) before booting.
-    if command -v lsof >/dev/null 2>&1; then
-        for _hp in 3000 5173; do
-            _h=0
-            while [ "$_h" -lt 10 ]; do
-                _holders="$(lsof -ti tcp:"$_hp" 2>/dev/null || true)"
-                [ -z "$_holders" ] && break
-                printf '%s\n' "$_holders" | while IFS= read -r p; do
-                    [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
-                done
-                sleep 1; _h=$((_h + 1))
-            done
-        done
-    fi
+    # green a broken app or block our bind) before booting. Ownership-checked:
+    # never kill a holder whose cwd is not under this suite's own TMP_ROOT.
+    for _hp in 3000 5173; do
+        _reap_own_port "$_hp" || _H_PORTS_FREE=false
+    done
+fi
+if [ "$HAVE_NODE" = "true" ] && [ -n "$TIMEOUT_BIN" ] && [ "$_H_PORTS_FREE" = true ]; then
     REPO_H="$TMP_ROOT/case-h"
     init_repo "$REPO_H"
     # A vite-like server: IGNORES process.env.PORT, always binds 5173, and prints
@@ -683,13 +727,11 @@ PYEOF
     esac
 
     # Reclaim both ports after the case so nothing lingers for other suites.
-    if command -v lsof >/dev/null 2>&1; then
-        for _hp in 3000 5173; do
-            lsof -ti tcp:"$_hp" 2>/dev/null | while IFS= read -r p; do
-                [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
-            done
-        done
-    fi
+    for _hp in 3000 5173; do
+        _reap_own_port "$_hp" || true
+    done
+elif [ "$_H_PORTS_FREE" != true ]; then
+    _skip "case H: port 3000 or 5173 is held by a process this suite did not start"
 else
     _skip "case H: needs node + a timeout binary (node=$HAVE_NODE timeout=${TIMEOUT_BIN:-none})"
 fi
@@ -716,22 +758,22 @@ fi
 # -- this case isolates the teardown half of the fix. lsof is load-bearing (it IS
 # the leak check) so this case additionally requires lsof.
 # ---------------------------------------------------------------------------
-DAEMON_PORT=41717   # non-detected bound port, distinct from case H's 3000/5173
+# Non-detected bound port, distinct from case H's 3000/5173. Randomized (not a
+# fixed literal): a fixed port collides with a concurrent run of this same
+# suite in another worktree/CI shard, which this repo's own local-ci.sh
+# sharding runs concurrently by design.
+DAEMON_PORT=$(( 44000 + (RANDOM % 3000) ))
+_I_PORTS_FREE=true
 if [ "$HAVE_NODE" = "true" ] && [ -n "$TIMEOUT_BIN" ] && command -v lsof >/dev/null 2>&1; then
     # Hermeticity: reclaim BOTH the guessed default 3000 and the daemon port so a
     # stray holder cannot green a broken teardown (or block the daemon's bind).
+    # Ownership-checked via _reap_own_port; a foreign holder skips the case
+    # rather than being killed.
     for _ip in 3000 "$DAEMON_PORT"; do
-        _ih=0
-        while [ "$_ih" -lt 10 ]; do
-            _iholders="$(lsof -ti tcp:"$_ip" 2>/dev/null || true)"
-            [ -z "$_iholders" ] && break
-            printf '%s\n' "$_iholders" | while IFS= read -r p; do
-                [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
-            done
-            sleep 1; _ih=$((_ih + 1))
-        done
+        _reap_own_port "$_ip" || _I_PORTS_FREE=false
     done
-
+fi
+if [ "$HAVE_NODE" = "true" ] && [ -n "$TIMEOUT_BIN" ] && command -v lsof >/dev/null 2>&1 && [ "$_I_PORTS_FREE" = true ]; then
     REPO_I="$TMP_ROOT/case-i"
     init_repo "$REPO_I"
     # Launcher: print the banner for DAEMON_PORT (lands in boot.log -> scraper
@@ -785,9 +827,12 @@ JSON
 
     # Give any orphan a beat to settle, then check the daemon port. On the fixed
     # code teardown reclaimed the scraped $DAEMON_PORT -> no holder. On the pre-fix
-    # code the detached daemon still holds it -> non-empty (LEAK).
+    # code the detached daemon still holds it -> non-empty (LEAK). -sTCP:LISTEN
+    # here too: an unfiltered lsof would also match a CLIENT with an established
+    # connection whose remote port happens to equal DAEMON_PORT, false-failing
+    # this assertion on a coincidence unrelated to the teardown fix.
     sleep 1
-    LEAK_I="$(lsof -ti tcp:"$DAEMON_PORT" 2>/dev/null || true)"
+    LEAK_I="$(lsof -ti tcp:"$DAEMON_PORT" -sTCP:LISTEN 2>/dev/null || true)"
     if [ -z "$LEAK_I" ]; then
         _ok "case I: teardown reclaimed the daemonized non-detected port $DAEMON_PORT (no orphan leaked)"
     else
@@ -796,10 +841,10 @@ JSON
 
     # Reclaim both ports after the case so nothing lingers for other suites.
     for _ip in 3000 "$DAEMON_PORT"; do
-        lsof -ti tcp:"$_ip" 2>/dev/null | while IFS= read -r p; do
-            [ -n "$p" ] && kill -9 "$p" 2>/dev/null || true
-        done
+        _reap_own_port "$_ip" || true
     done
+elif [ "$_I_PORTS_FREE" != true ]; then
+    _skip "case I: port 3000 or $DAEMON_PORT is held by a process this suite did not start"
 else
     _skip "case I: needs node + a timeout binary + lsof (node=$HAVE_NODE timeout=${TIMEOUT_BIN:-none} lsof=$(command -v lsof >/dev/null 2>&1 && echo yes || echo no))"
 fi

@@ -87,8 +87,10 @@ Confirmed by reading source, not assumed:
   NOT `verification-results.json`.** Written by `enforce_test_coverage`
   (run.sh:6220-6396), shape:
   `{"timestamp","runner","pass":true|false,"min_coverage","summary"}`, with the
-  special **no-suite** case `{"runner":"none","pass":true,"summary":"No test
-  runner detected"}` (run.sh:6373-6379). `enforce_test_coverage` runs earlier in
+  special **no-suite** case `{"runner":"none","pass":"inconclusive","summary":"No
+  test runner detected"}` (`pass` is the string `"inconclusive"`, never the
+  boolean `true`, for this case; see D20 in `docs/v10/DECISIONS.md`).
+  `enforce_test_coverage` runs earlier in
   the same iteration (run.sh:12231, gated by `PHASE_UNIT_TESTS`, default true),
   before the council check (run.sh:12382), so this file is reasonably fresh.
   (See Section 3 deviation note for why we do NOT use verification-results.json
@@ -312,8 +314,8 @@ bypass the evidence gate entirely.
 | Greenfield first run: only untracked new files (no commit/stage yet) | nonzero (untracked) | any non-red | PASS | new files are real work; counted via `git ls-files --others --exclude-standard` |
 | Fabricated "done", nothing built (not even untracked) | empty | any | **BLOCK** | nothing shipped anywhere |
 | Real changes but tests red | nonzero | runner=X, pass=false | **BLOCK** | a runner ran and failed |
-| Docs-only change, no test suite | nonzero (docs files) | runner=none, pass=true | PASS | nonzero diff; no suite to fail |
-| Project with no test suite, real code | nonzero | runner=none, pass=true | PASS | code shipped; tests not expected |
+| Docs-only change, no test suite | nonzero (docs files) | runner=none, pass="inconclusive" | PASS | nonzero diff; no suite to fail |
+| Project with no test suite, real code | nonzero | runner=none, pass="inconclusive" | PASS | code shipped; tests not expected |
 | No git repo | inconclusive | any non-red | PASS | cannot prove fabrication |
 | Empty/missing run-start SHA (new repo, zero commits) | inconclusive | any non-red | PASS | never had a baseline |
 | test-results.json missing/unparseable | nonzero | inconclusive | PASS | mirror "no file = no gate" |
@@ -380,7 +382,7 @@ function directly. Cases:
 3. **Real diff + red tests -> blocked.** `runner=pytest,pass=false` => returns 1;
    `reason: tests_red`.
 4. **No-test project -> not falsely blocked.** Real diff,
-   `runner=none,pass=true` => returns 0.
+   `runner=none,pass="inconclusive"` => returns 0.
 5. **No git repo -> not falsely blocked.** Run in a non-git dir => returns 0.
 6. **Knob off -> behaves as before.** `LOKI_EVIDENCE_GATE=0` with an empty diff =>
    returns 0 and writes NO file.

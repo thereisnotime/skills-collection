@@ -17,6 +17,8 @@ const GATE_STATUS_CONFIG = {
   fail:    { color: 'var(--loki-red, #ef4444)',    bg: 'var(--loki-red-muted, rgba(239, 68, 68, 0.15))',    label: 'FAIL' },
   pending: { color: 'var(--loki-yellow, #eab308)', bg: 'var(--loki-yellow-muted, rgba(234, 179, 8, 0.15))', label: 'PENDING' },
 };
+/** Style for a gate row with no status or one this panel does not know. */
+const GATE_STATUS_NEUTRAL = { color: 'var(--loki-text-muted, #939084)', bg: 'var(--loki-bg-tertiary, #ECEAE3)' };
 
 /**
  * Format a timestamp to a short human-readable string.
@@ -24,7 +26,7 @@ const GATE_STATUS_CONFIG = {
  * @returns {string} Formatted time
  */
 export function formatGateTime(timestamp) {
-  if (!timestamp) return 'Never';
+  if (!timestamp) return 'Not recorded';
   try {
     const d = new Date(timestamp);
     return d.toLocaleString([], {
@@ -41,16 +43,18 @@ export function formatGateTime(timestamp) {
 /**
  * Summarize gate statuses into counts.
  * @param {Array} gates - Array of gate objects with status field
- * @returns {{pass: number, fail: number, pending: number, total: number}}
+ * A row with no status (or an unknown one) is "not evaluated", never counted as pending.
+ * @returns {{pass: number, fail: number, pending: number, notEvaluated: number, total: number}}
  */
 export function summarizeGates(gates) {
-  if (!gates || gates.length === 0) return { pass: 0, fail: 0, pending: 0, total: 0 };
-  const result = { pass: 0, fail: 0, pending: 0, total: gates.length };
+  if (!gates || gates.length === 0) return { pass: 0, fail: 0, pending: 0, notEvaluated: 0, total: 0 };
+  const result = { pass: 0, fail: 0, pending: 0, notEvaluated: 0, total: gates.length };
   for (const gate of gates) {
-    const status = (gate.status || 'pending').toLowerCase();
+    const status = (gate.status || '').toLowerCase();
     if (status === 'pass') result.pass++;
     else if (status === 'fail') result.fail++;
-    else result.pending++;
+    else if (status === 'pending') result.pending++;
+    else result.notEvaluated++;
   }
   return result;
 }
@@ -68,7 +72,8 @@ export class LokiQualityGates extends LokiElement {
 
   constructor() {
     super();
-    this._loading = false;
+    // true until the first load settles, so first paint is "Loading", not "No gate results".
+    this._loading = true;
     this._error = null;
     this._api = null;
     this._gates = [];
@@ -533,11 +538,17 @@ export class LokiQualityGates extends LokiElement {
     let content;
     if (this._loading && gates.length === 0) {
       content = '<div class="loading">Loading quality gates...</div>';
+    } else if (gates.length === 0 && this._error) {
+      content = `
+        <div class="es">
+          <div class="es-icon">${gateIcon}</div>
+          <div class="es-title">Could not read gate results</div>
+        </div>`;
     } else if (gates.length === 0) {
       content = `
         <div class="es">
           <div class="es-icon">${gateIcon}</div>
-          <div class="es-title">No gate results yet</div>
+          <div class="es-title">No gate results recorded yet</div>
           <div class="es-desc">Quality gates run automatically during each build step. Run a scan now, or start a session with <code>loki start ./prd.md</code>.</div>
           <button class="es-cta" id="gates-scan-btn" ${this._scanning ? 'disabled' : ''}>
             ${this._scanning ? '<span class="es-spinner"></span> Scanning...' : 'Run quality scan'}
@@ -545,13 +556,14 @@ export class LokiQualityGates extends LokiElement {
         </div>`;
     } else {
       const cards = gates.map(gate => {
-        const status = (gate.status || 'pending').toLowerCase();
-        const cfg = GATE_STATUS_CONFIG[status] || GATE_STATUS_CONFIG.pending;
+        const status = (gate.status || '').toLowerCase();
+        const cfg = GATE_STATUS_CONFIG[status]
+          || { ...GATE_STATUS_NEUTRAL, label: status ? status.toUpperCase() : 'NOT EVALUATED' };
         return `
-          <div class="gate-card status-${status}">
+          <div class="gate-card status-${this._escapeHtml(status || 'none')}">
             <div class="gate-header">
               <span class="gate-name">${this._escapeHtml(gate.name || 'Unnamed Gate')}</span>
-              <span class="gate-badge" style="background: ${cfg.bg}; color: ${cfg.color};">${cfg.label}</span>
+              <span class="gate-badge" style="background: ${cfg.bg}; color: ${cfg.color};">${this._escapeHtml(cfg.label)}</span>
             </div>
             ${gate.description ? `<div class="gate-description">${this._escapeHtml(gate.description)}</div>` : ''}
             <div class="gate-meta">Last checked: ${formatGateTime(gate.last_checked || gate.lastChecked)}</div>
@@ -605,6 +617,7 @@ export class LokiQualityGates extends LokiElement {
           <span class="summary-dot" style="background: var(--loki-yellow, #eab308)"></span>
           ${summary.pending} Pending
         </span>
+        ${summary.notEvaluated ? `<span class="summary-item">${summary.notEvaluated} Not evaluated</span>` : ''}
       </div>
     ` : '';
 

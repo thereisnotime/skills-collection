@@ -20,6 +20,28 @@ for command in git python3 npm; do
     fi
 done
 
+SOURCE_CWD="$(mktemp -d "${TMPDIR:-/tmp}/loki-review-lock-cwd.XXXXXX")"
+trap 'rm -rf "$SOURCE_CWD"' EXIT
+
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$SOURCE_CWD/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
+# cd into a dedicated scratch dir BEFORE sourcing run.sh -- sourcing runs
+# provider auto-detection, which does `mkdir -p .loki/state && echo ... >
+# .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT that
+# writes into the shared checkout and contaminates every later test in the
+# same shell (same bug class as test-iteration-grace.sh and
+# test-exit-code-contract.sh). Use a dedicated directory rather than one of the
+# FIXTURE_* git repos below: those are under review by the tests themselves,
+# and a stray .loki there could change what the reviewer sees.
+cd "$SOURCE_CWD" || exit 1
 # shellcheck source=/dev/null
 source "$RUN_SH" 2>/dev/null || true
 if ! type run_code_review >/dev/null 2>&1; then
@@ -40,7 +62,7 @@ STUB_BIN="$(mktemp -d "${TMPDIR:-/tmp}/loki-review-lock-stubs.XXXXXX")"
 FIXTURE_ONE="$(mktemp -d "${TMPDIR:-/tmp}/loki-review-lock-c1.XXXXXX")"
 FIXTURE_TWO="$(mktemp -d "${TMPDIR:-/tmp}/loki-review-lock-c2.XXXXXX")"
 FIXTURE_THREE="$(mktemp -d "${TMPDIR:-/tmp}/loki-review-lock-c3.XXXXXX")"
-trap 'rm -rf "$STUB_BIN" "$FIXTURE_ONE" "$FIXTURE_TWO" "$FIXTURE_THREE"' EXIT
+trap 'rm -rf "$STUB_BIN" "$FIXTURE_ONE" "$FIXTURE_TWO" "$FIXTURE_THREE" "$SOURCE_CWD"' EXIT
 export REVIEW_CALLS_FILE="$STUB_BIN/review-calls.txt"
 export NPM_ARGS_FILE="$STUB_BIN/npm-args.txt"
 : > "$REVIEW_CALLS_FILE"
@@ -243,6 +265,23 @@ case_compact_lock_context
 case_explicit_oversize_rejection
 case_explicit_prompt_rejection
 bash -n "$RUN_SH" && ok "run.sh syntax is valid" || bad "run.sh syntax is invalid"
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: SOURCE_CWD must show its own provider file did get
+# written. Without this, disabling the mkdir entirely (or the probe silently
+# no-op-ing) would also read as "isolated" -- the check would pass for the
+# wrong reason.
+if [ -f "$SOURCE_CWD/.loki/state/provider" ]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    bad "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
+fi
 
 printf '\nTotal: %s  Passed: %s  Failed: %s\n' "$((PASS + FAIL))" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

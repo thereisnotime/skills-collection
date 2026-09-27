@@ -10,6 +10,7 @@
 
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient } from '../core/loki-api-client.js';
+import { formatDuration } from '../core/loki-unified-styles.js';
 
 /** @type {Array<{id: string, label: string, hours: number}>} Available time range filter options */
 const TIME_RANGES = [
@@ -130,14 +131,15 @@ export class LokiLearningDashboard extends LokiElement {
       const [metricsRes, trendsRes, signalsRes] = await Promise.all([
         api.getLearningMetrics(params).catch(() => null),
         api.getLearningTrends(params).catch(() => null),
-        api.getLearningSignals({ ...params, limit: 50 }).catch(() => []),
+        api.getLearningSignals({ ...params, limit: 50 }).catch(() => null),
       ]);
 
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
       this._metrics = metricsRes;
       this._trends = trendsRes;
-      this._signals = signalsRes || [];
+      // null = the read failed, which must not render as "No recent signals".
+      this._signals = signalsRes;
     } catch (error) {
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
@@ -186,17 +188,28 @@ export class LokiLearningDashboard extends LokiElement {
     this.render();
   }
 
-  _formatNumber(num) {
+  // Absent or non-numeric was never measured: "--", never 0. A measured 0 stays 0.
+  _num(v) {
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  _formatNumber(value) {
+    const num = this._num(value);
+    if (num == null) return '--';
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num?.toString() || '0';
+    return String(num);
   }
 
-  _formatPercent(num) {
-    return (num * 100).toFixed(1) + '%';
+  _formatPercent(value) {
+    const num = this._num(value);
+    return num == null ? '--' : (num * 100).toFixed(1) + '%';
   }
 
-  _formatDuration(seconds) {
+  _formatDuration(value) {
+    const seconds = this._num(value);
+    if (seconds == null) return '--';
     if (seconds < 60) return seconds.toFixed(0) + 's';
     if (seconds < 3600) return (seconds / 60).toFixed(1) + 'm';
     return (seconds / 3600).toFixed(1) + 'h';
@@ -260,13 +273,15 @@ export class LokiLearningDashboard extends LokiElement {
     }
 
     const { totalSignals, signalsByType, signalsBySource, aggregation } = this._metrics;
+    // The server averages to 0.0 over zero signals; that is not a reading.
+    const avgConfidence = totalSignals > 0 ? this._num(this._metrics.avgConfidence) : null;
 
     return `
       <div class="summary-cards">
         <div class="summary-card">
           <div class="summary-card-header">
             <span class="summary-card-title">Total Signals</span>
-            <span class="summary-card-count">${this._formatNumber(totalSignals || 0)}</span>
+            <span class="summary-card-count">${this._formatNumber(totalSignals)}</span>
           </div>
           <div class="summary-card-detail">Learning signals collected</div>
           <div class="signal-breakdown">
@@ -325,12 +340,12 @@ export class LokiLearningDashboard extends LokiElement {
           <div class="summary-card-header">
             <span class="summary-card-title">Avg Confidence</span>
             <span class="summary-card-count confidence-high">
-              ${this._formatPercent(this._metrics.avgConfidence || 0)}
+              ${this._formatPercent(avgConfidence)}
             </span>
           </div>
           <div class="summary-card-detail">Signal reliability</div>
           <div class="confidence-bar">
-            <div class="confidence-fill" style="width: ${(this._metrics.avgConfidence || 0) * 100}%"></div>
+            <div class="confidence-fill" style="width: ${avgConfidence == null ? 0 : avgConfidence * 100}%"></div>
           </div>
         </div>
       </div>
@@ -433,7 +448,7 @@ export class LokiLearningDashboard extends LokiElement {
               <div class="list-item error-item" data-type="error_pattern" data-id="${this._escapeHtml(e.error_type)}" tabindex="0" role="listitem">
                 <div class="item-main">
                   <span class="item-key">${this._escapeHtml(e.error_type)}</span>
-                  <span class="resolution-rate ${e.resolution_rate > 0.5 ? 'good' : 'poor'}">${this._formatPercent(e.resolution_rate)} resolved</span>
+                  <span class="resolution-rate ${e.resolution_rate == null ? '' : e.resolution_rate > 0.5 ? 'good' : 'poor'}">${this._formatPercent(e.resolution_rate)} resolved</span>
                 </div>
                 <div class="item-meta">
                   <span class="item-freq">${e.frequency}x</span>
@@ -482,7 +497,7 @@ export class LokiLearningDashboard extends LokiElement {
                 </div>
                 <div class="item-meta">
                   <span class="success-rate ${t.success_rate > 0.8 ? 'good' : ''}">${this._formatPercent(t.success_rate)}</span>
-                  <span class="item-time">${Number(t.avg_execution_time_ms ?? 0).toFixed(0)}ms</span>
+                  <span class="item-time">${formatDuration(t.avg_execution_time_ms)}</span>
                 </div>
               </div>
             `).join('') || '<div class="list-empty">No tool data found</div>'}
@@ -493,7 +508,10 @@ export class LokiLearningDashboard extends LokiElement {
   }
 
   _renderRecentSignals() {
-    if (!this._signals || this._signals.length === 0) {
+    if (!Array.isArray(this._signals)) {
+      return '<div class="signals-empty">Could not load signals</div>';
+    }
+    if (this._signals.length === 0) {
       return '<div class="signals-empty">No recent signals</div>';
     }
 
@@ -623,7 +641,7 @@ export class LokiLearningDashboard extends LokiElement {
           </div>
           <div class="detail-row">
             <span class="detail-label">Usage Count</span>
-            <span class="detail-value">${item.usage_count}</span>
+            <span class="detail-value">${this._formatNumber(item.count ?? item.usage_count)}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Success Rate</span>
@@ -631,7 +649,7 @@ export class LokiLearningDashboard extends LokiElement {
           </div>
           <div class="detail-row">
             <span class="detail-label">Avg Execution Time</span>
-            <span class="detail-value">${Number(item.avg_execution_time_ms ?? 0).toFixed(0)}ms</span>
+            <span class="detail-value">${formatDuration(item.avg_execution_time_ms)}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Total Tokens</span>

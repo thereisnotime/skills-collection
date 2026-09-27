@@ -611,6 +611,11 @@ outnsn="$(
     source "$PREAMBLE"
     setup_agent_branch >/dev/null 2>&1
     rm -f .loki/state/preexisting-untracked.z
+    # This models a session minted before the snapshot feature existed (no
+    # file was ever written for it), not a file of this same session vanishing
+    # out from under it (BACKLOG 70 tampering, covered separately below): drop
+    # the in-memory seal a real never-snapshotted session would never have set.
+    _LOKI_SNAPSHOT_SEAL=""
     printf 'agent\n' > work.js
     ITERATION_COUNT=1
     result=0
@@ -639,8 +644,8 @@ outefc="$(
     setup_agent_branch >/dev/null 2>&1
     before="$(git rev-list --count HEAD)"
     printf 'agent\n' > work.js
-    # Leading '(' on the case pattern: bash 3.2 misparses a bare pattern ')'
-    # inside $( ... ).
+    # Leading open paren on the case pattern: bash 3.2 misparses a bare
+    # pattern close paren inside $( ... ).
     git() {
         case " $* " in (*" --pathspec-from-file="*) return 129 ;; esac
         command git "$@"
@@ -677,15 +682,23 @@ outog="$(
     source "$PREAMBLE"
     base="$(command git rev-parse --abbrev-ref HEAD)"
     printf 'my private notes\n' > usernotes.txt
-    # Model git 2.17 for the whole session (leading '(' on case patterns for
-    # bash 3.2 inside $( ... )).
-    git() {
-        case " $* " in
-            (*" status "*"--no-renames"*|*" status "*"--ignored=matching"*) return 129 ;;
-            (*" --pathspec-from-file="*) return 129 ;;
-        esac
-        command git "$@"
-    }
+    # BACKLOG 129: _loki_untracked_status now resolves git via
+    # _loki_snapshot_git_tool to an ABSOLUTE path, so a shell function named
+    # git no longer shadows it there (that unscoped-shadow closure is the
+    # whole point of the fix). Model git 2.17 with a standalone fake git
+    # SCRIPT instead, and shadow the resolver function (an ordinary bash
+    # function call, not an absolute-path exec) to hand it out. Leading open
+    # paren on case patterns for bash 3.2 inside dollar-paren.
+    cat > fakegit.sh <<FAKEGIT
+#!/bin/sh
+case " \$* " in
+    (*" status "*"--no-renames"*|*" status "*"--ignored=matching"*) exit 129 ;;
+    (*" --pathspec-from-file="*) exit 129 ;;
+esac
+exec $(command -v git) "\$@"
+FAKEGIT
+    chmod +x fakegit.sh
+    _loki_snapshot_git_tool() { printf "%s\n" "$PWD/fakegit.sh"; }
     setup_agent_branch >/dev/null 2>&1
     marker="$( [ -f .loki/state/preexisting-untracked.failed ] && echo yes || echo no )"
     before="$(command git rev-list --count HEAD)"
@@ -693,7 +706,7 @@ outog="$(
     ITERATION_COUNT=1
     result=0
     msg="$(commit_session_changes 2>&1)"
-    unset -f git
+    unset -f _loki_snapshot_git_tool
     after="$(git rev-list --count HEAD)"
     git checkout -q "$base" 2>/dev/null
     intact="$( [ "$(cat usernotes.txt 2>/dev/null)" = "my private notes" ] && echo yes || echo no )"
@@ -772,18 +785,29 @@ outno="$(
     git checkout -q develop
     printf '{"user":"my real settings"}\n' > config.local.json
     base_ignores="$(git check-ignore -q config.local.json && echo yes || echo no)"
-    bash -c '. "$1"; setup_agent_branch' _ "$PREAMBLE" >/dev/null 2>&1
-    s2="$(git rev-parse --abbrev-ref HEAD)"
+    # BACKLOG 70: the seal of setup_agent_branch lives in the memory of THIS
+    # process (_LOKI_SNAPSHOT_SEAL), so commit_session_changes of session 2
+    # must run in the SAME bash -c as its setup_agent_branch, exactly as a real
+    # re-invoked `loki start` process would -- one process per session, start
+    # to finish. Running the commit in the outer subshell would compare the
+    # files of session 2 against the seal of session 1 (or no seal at all) and
+    # misreport tampering.
+    s2out="$(bash -c '. "$1"; setup_agent_branch >/dev/null 2>&1
+        printf "%s\n" "$(git rev-parse --abbrev-ref HEAD)"
+        cat config.local.json 2>/dev/null
+        printf "build/\n" > .gitignore
+        git check-ignore -q config.local.json && echo no || echo yes
+        printf "print(2)\n" > app2.py
+        commit_session_changes >/dev/null 2>&1
+        git cat-file -e HEAD:config.local.json 2>/dev/null && echo yes || echo no
+        git cat-file -e HEAD:app2.py 2>/dev/null && echo yes || echo no' _ "$PREAMBLE")"
+    s2="$(printf '%s\n' "$s2out" | sed -n '1p')"
+    during="$(printf '%s\n' "$s2out" | sed -n '2p')"
+    exposed="$(printf '%s\n' "$s2out" | sed -n '3p')"
+    in_head="$(printf '%s\n' "$s2out" | sed -n '4p')"
+    agent="$(printf '%s\n' "$s2out" | sed -n '5p')"
     if [[ "$s2" == loki/session-* ]] && [ "$s2" != "$s1" ]; then new=yes; else new=no; fi
     recorded="$( [ "$(cat .loki/state/agent-branch.txt 2>/dev/null)" = "$s2" ] && echo yes || echo no )"
-    during="$(cat config.local.json 2>/dev/null)"
-    # Session 2 un-ignores it too, so only the snapshot keeps it out of the commit.
-    printf 'build/\n' > .gitignore
-    exposed="$(git check-ignore -q config.local.json && echo no || echo yes)"
-    printf 'print(2)\n' > app2.py
-    commit_session_changes >/dev/null 2>&1
-    in_head="$(git cat-file -e HEAD:config.local.json 2>/dev/null && echo yes || echo no)"
-    agent="$(git cat-file -e HEAD:app2.py 2>/dev/null && echo yes || echo no)"
     s1_same="$( [ "$(git rev-parse "$s1")" = "$s1_head" ] && echo yes || echo no )"
     git checkout -q develop
     after="$(cat config.local.json 2>/dev/null || echo MISSING)"
@@ -859,7 +883,15 @@ outir="$(
     record="$(tr '\000' '|' < .loki/state/session-created.z 2>/dev/null)"
     nocommit="$( [ "$(git rev-parse HEAD)" = "$s1_head" ] && echo yes || echo no )"
     printf 'mine, between sessions\n' > 'user notes.txt'
-    resume_log="$(setup_agent_branch 2>&1)"
+    # BACKLOG 70: the seal of setup_agent_branch is a variable in THIS shell
+    # (_LOKI_SNAPSHOT_SEAL); `resume_log="$(setup_agent_branch ...)"` would run
+    # it in a forked command-substitution subshell, whose variable changes
+    # never reach back here (a real re-invoked process has no such split: one
+    # process runs setup and the later commit). Redirect to a file instead so
+    # setup_agent_branch runs in THIS shell and its seal update sticks.
+    setup_agent_branch > .loki/state/.test-resume-log 2>&1
+    resume_log="$(cat .loki/state/.test-resume-log 2>/dev/null)"
+    rm -f .loki/state/.test-resume-log
     carried="$(printf '%s' "$resume_log" | grep -q 'Carried over.*helper.py, test_helper.py' && echo yes || echo no)"
     printf 'import helper\nprint(helper.greet())\n' > app.py
     commit_session_changes >/dev/null 2>&1
@@ -998,6 +1030,501 @@ else
 fi
 
 # =============================================================================
+# Test T-snapshot-hash-deleted-disclosed (BACKLOG 70): an agent process deletes
+# preexisting-untracked.sha.z between setup and commit, to blind
+# workspace_diff._preexisting_untracked's mismatch check and suppress
+# preexisting_modified disclosure of its own edit. Before the fix this was
+# silent: no warning, no failed marker, and the edited pre-existing file was
+# simply never listed (RED, reproduced against a copy of run.sh with the
+# BACKLOG-70 guard calls stripped, below). After the fix, deleting the sealed
+# hash file is detected as tampering: the session commits nothing, and a
+# warning names it. Disclosure, not silent prevention, is the bar BACKLOG 70
+# asks for -- the guard cannot stop the deletion, only refuse to pretend it
+# did not happen.
+# =============================================================================
+echo "Test T-snapshot-hash-deleted-disclosed: an agent deleting the hash file mid-session is disclosed, not silently ignored"
+RHD="$(make_repo thashdeleted)"
+outhd="$(
+    cd "$RHD" || exit 1
+    source "$PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    printf 'mine\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    hashes_before="$( [ -s .loki/state/preexisting-untracked.sha.z ] && echo yes || echo no )"
+    # The tamper: an agent (or anything it spawns) deletes the sha file this
+    # session already sealed in memory.
+    rm -f .loki/state/preexisting-untracked.sha.z
+    printf 'agent edit\n' >> notes.txt
+    printf 'agent\n' > work.js
+    ITERATION_COUNT=1
+    result=0
+    msg="$(commit_session_changes 2>&1)"
+    rc=$?
+    in_head_notes="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    in_head_work="$(git cat-file -e HEAD:work.js 2>/dev/null && echo yes || echo no)"
+    disclosed="$(printf '%s' "$msg" | grep -qi 'tamper' && echo yes || echo no)"
+    marker="$( [ -f .loki/state/preexisting-untracked.failed ] && echo yes || echo no )"
+    printf 'HASHESBEFORE=%s RC=%s INHEADNOTES=%s INHEADWORK=%s DISCLOSED=%s MARKER=%s' \
+        "$hashes_before" "$rc" "$in_head_notes" "$in_head_work" "$disclosed" "$marker"
+)"
+if [ "$outhd" = "HASHESBEFORE=yes RC=0 INHEADNOTES=no INHEADWORK=no DISCLOSED=yes MARKER=yes" ]; then
+    pass "hash file deleted mid-session: disclosed by name, session commits nothing (agent's own work.js also withheld, fail-closed), failed marker set"
+else
+    fail "deleting the hash file was not disclosed (or the session still committed)" "got: $outhd"
+fi
+
+# RED proof: with the BACKLOG-70 guard calls removed from a COPY of run.sh (the
+# real lib is never touched), the identical scenario must silently keep
+# committing and never mention tampering -- proving the assertion above is not
+# vacuous. A fresh bash process re-extracts the mutated copy so no sourced-once
+# guard hides the mutation.
+RED_RUN_SH="$WORKROOT/run-nobacklog70.sh"
+sed -e '/_loki_snapshot_seal$/d' \
+    -e '/BACKLOG-70-SEAL-CHECK$/d' \
+    -e '/_loki_snapshot_verify || return 1$/d' \
+    -e '/_loki_snapshot_verify || true$/d' \
+    -e '/if ! _loki_snapshot_verify; then/,/^    fi$/d' \
+    "$RUN_SH" > "$RED_RUN_SH"
+RED_LIB="$WORKROOT/red-branch-lib.sh"
+awk '
+    /^setup_agent_branch\(\) \{/ { p=1 }
+    p { print }
+    p && /^create_session_pr\(\) \{/ { f=1 }
+    f && /^}/ { exit }
+' "$RED_RUN_SH" > "$RED_LIB"
+if [ -f "$_SECRET_LIB" ]; then
+    printf '\n' >> "$RED_LIB"
+    cat "$_SECRET_LIB" >> "$RED_LIB"
+fi
+# Non-vacuity for the mutation itself: all five call sites (not the function
+# DEFINITIONS, which stay behind as harmless dead code) must be gone from the
+# extracted block, or this "RED" run would just re-prove the fixed behavior.
+# grep -c always prints a count and exits 1 on zero matches, so it is never
+# combined with `|| echo`, which would print a second, misleading line.
+red_removed="$(grep -c '^    _loki_snapshot_seal$\|BACKLOG-70-SEAL-CHECK\|_loki_snapshot_verify || return 1\|_loki_snapshot_verify || true\|if ! _loki_snapshot_verify; then' "$RED_LIB")"
+RED_PREAMBLE="$WORKROOT/red-preamble.sh"
+sed "s#$BRANCH_LIB#$RED_LIB#" "$PREAMBLE" > "$RED_PREAMBLE" 2>/dev/null \
+    || cp "$PREAMBLE" "$RED_PREAMBLE"
+# The mutated preamble still needs to source the RED lib, not the real one.
+cat > "$RED_PREAMBLE" <<EOF
+log_info()  { echo "INFO: \$*"; }
+log_warn()  { echo "WARN: \$*"; }
+log_error() { echo "ERROR: \$*"; }
+audit_log() { return 0; }
+audit_agent_action() { return 0; }
+source "$ADVISORY_LIB"
+source "$RED_LIB"
+EOF
+RHDR="$(make_repo thashdeletedred)"
+outhdr="$(
+    cd "$RHDR" || exit 1
+    source "$RED_PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    printf 'mine\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    rm -f .loki/state/preexisting-untracked.sha.z
+    printf 'agent edit\n' >> notes.txt
+    printf 'agent\n' > work.js
+    ITERATION_COUNT=1
+    result=0
+    msg="$(commit_session_changes 2>&1)"
+    rc=$?
+    in_head_notes="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    in_head_work="$(git cat-file -e HEAD:work.js 2>/dev/null && echo yes || echo no)"
+    disclosed="$(printf '%s' "$msg" | grep -qi 'tamper' && echo yes || echo no)"
+    printf 'RC=%s INHEADNOTES=%s INHEADWORK=%s DISCLOSED=%s' "$rc" "$in_head_notes" "$in_head_work" "$disclosed"
+)"
+if [ "$red_removed" = 0 ] && [ "$outhdr" = "RC=0 INHEADNOTES=no INHEADWORK=yes DISCLOSED=no" ]; then
+    pass "RED confirmed: without the BACKLOG-70 guard, the deleted hash file goes undisclosed and the agent's work.js is committed with no warning (non-vacuous)"
+else
+    fail "RED reproduction did not show the pre-fix silent-degrade behavior" "red_removed=$red_removed got: $outhdr"
+fi
+
+# =============================================================================
+# Test T-snapshot-hash-fake-awk-on-path (BACKLOG-70 rework): a same-UID agent
+# places a fake `awk` in a directory prepended to PATH that unconditionally
+# prints a well-formed but STALE 64-hex-char digest, then edits a sealed
+# snapshot file. The pre-rework digest computation piped the real hash tool's
+# output through `awk '{print $1}'` resolved via a bare PATH lookup, so the
+# fake awk would intercept that pipe and the stale digest would still "match"
+# the seal -- reintroducing the exact same-UID PATH-hijack bypass class the
+# shasum/sha256sum switch was written to close, just moved one command over.
+# The rework drops awk entirely (shell parameter expansion + explicit hex
+# validation instead), so this must go undetected -> caught: verify must now
+# report a mismatch even though the fake awk's output is well-formed, and the
+# fake awk must never actually run.
+# =============================================================================
+echo "Test T-snapshot-hash-fake-awk-on-path (BACKLOG-70 rework): a fake awk ahead on PATH cannot forge the seal"
+EVILBIN="$WORKROOT/evil-awk-bin"
+mkdir -p "$EVILBIN"
+cat > "$EVILBIN/awk" <<'EOF'
+#!/bin/sh
+# Fake awk: prove it ran, then always print ONLY a well-formed (exactly 64
+# lowercase hex chars, all "a" so the count is trivially verifiable) stale
+# digest -- no trailing filename field, matching what a REAL `awk '{print $1}'`
+# would have extracted from a real `sha256sum`/`shasum` line (the fake tool
+# forges the field-extraction result directly, since it never looks at stdin).
+touch "$(dirname "$0")/.awk-ran"
+printf '%s\n' "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+EOF
+chmod +x "$EVILBIN/awk"
+RFA="$(make_repo tfakeawk)"
+outfa="$(
+    cd "$RFA" || exit 1
+    source "$PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    # Run the SEAL under the same poisoned PATH the RED reproduction uses, so
+    # this GREEN case differs from RED only in the code under test (awk
+    # present vs. absent), not in which half of the run saw a clean PATH.
+    PATH="$EVILBIN:$PATH" setup_agent_branch >/dev/null 2>&1
+    # Positive control: the poisoned PATH really does shadow the real awk.
+    resolved_awk="$(PATH="$EVILBIN:$PATH" command -v awk)"
+    seal_after_setup="$( [ -n "$_LOKI_SNAPSHOT_SEAL" ] && echo yes || echo no )"
+    # Whether the SNAPSHOT WRITE path (not just the digest read path) shells
+    # out to awk is a separate question from what this test asserts; report
+    # it rather than assume it, then reset the marker so AWKRAN below reflects
+    # only the _loki_snapshot_digest call.
+    awk_ran_during_setup="$( [ -f "$EVILBIN/.awk-ran" ] && echo yes || echo no )"
+    rm -f "$EVILBIN/.awk-ran"
+    # Tamper AFTER sealing, same shape as the edit-after-seal scenario in
+    # T-snapshot-hash-deleted-disclosed.
+    printf 'agent edit\n' >> .loki/state/preexisting-untracked.z 2>/dev/null || true
+    live="$(PATH="$EVILBIN:$PATH" _loki_snapshot_digest)"
+    awk_ran="$( [ -f "$EVILBIN/.awk-ran" ] && echo yes || echo no )"
+    match="$( [ "$live" = "$_LOKI_SNAPSHOT_SEAL" ] && echo yes || echo no )"
+    printf 'RESOLVEDEVIL=%s SEALAFTERSETUP=%s AWKDURINGSETUP=%s AWKRAN=%s MATCH=%s' \
+        "$( [ "$resolved_awk" = "$EVILBIN/awk" ] && echo yes || echo no )" \
+        "$seal_after_setup" "$awk_ran_during_setup" "$awk_ran" "$match"
+)"
+if [ "$outfa" = "RESOLVEDEVIL=yes SEALAFTERSETUP=yes AWKDURINGSETUP=no AWKRAN=no MATCH=no" ]; then
+    pass "fake awk on PATH (confirmed shadowing the real one) never ran during setup or the digest read; the post-seal edit is correctly detected as a mismatch"
+else
+    fail "a fake awk on PATH was not neutralized (ran, sealing failed, or the tampered digest still matched the seal)" "got: $outfa"
+fi
+
+# RED proof: putting `| awk '{print $1}'` back into a COPY of _loki_snapshot_digest
+# must reproduce the bypass -- the fake awk's stale output is then trusted as
+# the live digest, so an edit made after sealing goes undetected (MATCH=yes).
+RED_AWK_LIB="$WORKROOT/red-awk-lib.sh"
+sed "s/h=\"\${h%% \*}\"/h=\"\$(printf '%s' \"\$h\" | awk '{print \$1}')\"/" "$BRANCH_LIB" > "$RED_AWK_LIB"
+# Anchor on the exact substituted CODE line (printf '%s' "$h" | awk ...), not
+# a bare "awk '{print $1}'" substring: run.sh's own comment describing this
+# reviewer finding quotes that same substring in prose, so a looser grep would
+# count that unrelated comment line as if the mutation had been applied twice.
+red_awk_present="$(grep -c 'h="\$(printf .%s. "\$h" | awk' "$RED_AWK_LIB")"
+RED_AWK_PREAMBLE="$WORKROOT/red-awk-preamble.sh"
+sed "s#$BRANCH_LIB#$RED_AWK_LIB#" "$PREAMBLE" > "$RED_AWK_PREAMBLE" 2>/dev/null || cp "$PREAMBLE" "$RED_AWK_PREAMBLE"
+cat > "$RED_AWK_PREAMBLE" <<EOF
+log_info()  { echo "INFO: \$*"; }
+log_warn()  { echo "WARN: \$*"; }
+log_error() { echo "ERROR: \$*"; }
+audit_log() { return 0; }
+audit_agent_action() { return 0; }
+source "$ADVISORY_LIB"
+source "$RED_AWK_LIB"
+EOF
+RFAR="$(make_repo tfakeawkred)"
+outfar="$(
+    cd "$RFAR" || exit 1
+    source "$RED_AWK_PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    # The PATH must ALREADY be poisoned at seal time too: a real cached/stale
+    # digest bypass means the fake awk of the agent emits the SAME fixed string
+    # on every call, so the seal itself (computed through the same fake awk) and
+    # a later live re-check (also through the fake awk) agree with each other
+    # -- while never reflecting the real, tampered content of the file.
+    PATH="$EVILBIN:$PATH" setup_agent_branch >/dev/null 2>&1
+    printf 'agent edit\n' >> .loki/state/preexisting-untracked.z 2>/dev/null || true
+    live="$(PATH="$EVILBIN:$PATH" _loki_snapshot_digest)"
+    awk_ran="$( [ -f "$EVILBIN/.awk-ran" ] && echo yes || echo no )"
+    match="$( [ "$live" = "$_LOKI_SNAPSHOT_SEAL" ] && echo yes || echo no )"
+    printf 'AWKRAN=%s MATCH=%s' "$awk_ran" "$match"
+)"
+if [ "$red_awk_present" -ge 1 ] && [ "$outfar" = "AWKRAN=yes MATCH=yes" ]; then
+    pass "RED confirmed: re-introducing the awk pipe lets the fake awk run and its stale output pass as a match (non-vacuous)"
+else
+    fail "RED reproduction did not show the pre-fix awk-bypass behavior" "red_awk_present=$red_awk_present got: $outfar"
+fi
+rm -f "$EVILBIN/.awk-ran"
+
+# =============================================================================
+# Test T-snapshot-tampered-audit-digests (BACKLOG 130(a)): the SNAPSHOT_TAMPERED
+# audit line must carry both the sealed digest and the live digest, not just
+# the generic "changed after being sealed" message. Without both values an
+# operator reading the audit log after the fact cannot tell a genuine content
+# tamper apart from a flaky hash-tool failure that happened to produce a
+# different digest. Deterministic, real-looking 64-hex-char fixture digests
+# (all "1" for sealed, all "2" for live) are used so the assertion checks
+# actual content, not merely "some hex string appears".
+# =============================================================================
+echo "Test T-snapshot-tampered-audit-digests (BACKLOG 130(a)): SNAPSHOT_TAMPERED audit line carries both digest values"
+SEALED_FIXTURE="1111111111111111111111111111111111111111111111111111111111111111"
+SEALED_FIXTURE="${SEALED_FIXTURE:0:64}"
+LIVE_FIXTURE="2222222222222222222222222222222222222222222222222222222222222222"
+LIVE_FIXTURE="${LIVE_FIXTURE:0:64}"
+RTD="$(make_repo tsnaptamperaudit)"
+outtd="$(
+    cd "$RTD" || exit 1
+    AUDIT_CAPTURE=""
+    log_info()  { echo "INFO: $*"; }
+    log_warn()  { echo "WARN: $*"; }
+    log_error() { echo "ERROR: $*"; }
+    audit_log() { AUDIT_CAPTURE="$1 $2"; }
+    audit_agent_action() { return 0; }
+    # shellcheck disable=SC1090
+    source "$ADVISORY_LIB"
+    # shellcheck disable=SC1090
+    source "$BRANCH_LIB"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    _LOKI_SNAPSHOT_SEAL="$SEALED_FIXTURE"
+    _LOKI_SNAPSHOT_THIS_RUN=1
+    _loki_snapshot_digest() { printf '%s' "$LIVE_FIXTURE"; }
+    result=0
+    _loki_snapshot_verify >/dev/null 2>&1 || result=1
+    seal_cleared="$( [ -z "$_LOKI_SNAPSHOT_SEAL" ] && echo yes || echo no )"
+    run_cleared="$( [ "$_LOKI_SNAPSHOT_THIS_RUN" = 0 ] && echo yes || echo no )"
+    marker="$( [ -f .loki/state/preexisting-untracked.failed ] && echo yes || echo no )"
+    has_sealed="$(printf '%s' "$AUDIT_CAPTURE" | grep -qF "$SEALED_FIXTURE" && echo yes || echo no)"
+    has_live="$(printf '%s' "$AUDIT_CAPTURE" | grep -qF "$LIVE_FIXTURE" && echo yes || echo no)"
+    printf 'RESULT=%s SEALCLEARED=%s RUNCLEARED=%s MARKER=%s HASSEALED=%s HASLIVE=%s' \
+        "$result" "$seal_cleared" "$run_cleared" "$marker" "$has_sealed" "$has_live"
+)"
+if [ "$outtd" = "RESULT=1 SEALCLEARED=yes RUNCLEARED=yes MARKER=yes HASSEALED=yes HASLIVE=yes" ]; then
+    pass "SNAPSHOT_TAMPERED audit line includes both the sealed and live digest values; fail-closed behavior (return 1, seal cleared, marker written) unchanged"
+else
+    fail "SNAPSHOT_TAMPERED audit line is missing one or both digest values, or fail-closed behavior regressed" "got: $outtd"
+fi
+
+# RED proof: the pre-fix audit line (generic message only, no digest values)
+# must NOT contain either fixture digest -- proving the assertion above is
+# non-vacuous and actually depends on the new digest text, not on some other
+# coincidental match.
+RED_NODIGEST_LIB="$WORKROOT/red-nodigest-lib.sh"
+sed 's/audit_log "SNAPSHOT_TAMPERED" "preexisting-untracked\.z or \.sha\.z changed after being sealed: live=\$live,sealed=\$_LOKI_SNAPSHOT_SEAL"/audit_log "SNAPSHOT_TAMPERED" "preexisting-untracked.z or .sha.z changed after being sealed"/' \
+    "$BRANCH_LIB" > "$RED_NODIGEST_LIB"
+red_nodigest_reverted="$(grep -c 'audit_log "SNAPSHOT_TAMPERED" "preexisting-untracked\.z or \.sha\.z changed after being sealed"$' "$RED_NODIGEST_LIB")"
+RTDR="$(make_repo tsnaptamperauditred)"
+outtdr="$(
+    cd "$RTDR" || exit 1
+    AUDIT_CAPTURE=""
+    log_info()  { echo "INFO: $*"; }
+    log_warn()  { echo "WARN: $*"; }
+    log_error() { echo "ERROR: $*"; }
+    audit_log() { AUDIT_CAPTURE="$1 $2"; }
+    audit_agent_action() { return 0; }
+    # shellcheck disable=SC1090
+    source "$ADVISORY_LIB"
+    # shellcheck disable=SC1090
+    source "$RED_NODIGEST_LIB"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    _LOKI_SNAPSHOT_SEAL="$SEALED_FIXTURE"
+    _LOKI_SNAPSHOT_THIS_RUN=1
+    _loki_snapshot_digest() { printf '%s' "$LIVE_FIXTURE"; }
+    _loki_snapshot_verify >/dev/null 2>&1 || true
+    has_sealed="$(printf '%s' "$AUDIT_CAPTURE" | grep -qF "$SEALED_FIXTURE" && echo yes || echo no)"
+    has_live="$(printf '%s' "$AUDIT_CAPTURE" | grep -qF "$LIVE_FIXTURE" && echo yes || echo no)"
+    printf 'HASSEALED=%s HASLIVE=%s' "$has_sealed" "$has_live"
+)"
+if [ "$red_nodigest_reverted" -ge 1 ] && [ "$outtdr" = "HASSEALED=no HASLIVE=no" ]; then
+    pass "RED confirmed: reverting to the generic audit message drops both digest values (non-vacuous)"
+else
+    fail "RED reproduction did not show the pre-fix generic-message-only behavior" "red_nodigest_reverted=$red_nodigest_reverted got: $outtdr"
+fi
+
+# =============================================================================
+# Test T-snapshot-seal-fails-closed (BACKLOG-70 rework): a hash tool that
+# resolves and exits 0 but prints a GARBAGE, non-hex-or-wrong-length result
+# (a real BusyBox/coreutils variant's `SHA256 (x) = ...` format, or any other
+# tool that answers to the name but doesn't behave like sha256sum/shasum) must
+# be caught by _loki_snapshot_digest's OWN validation ("?" is real, exercised
+# code -- this is NOT the same as overriding _loki_snapshot_digest itself,
+# which would give the seal-check propagation line permanent coverage but
+# leave the validation logic (${h%% *}, the 64-hex check, the `|| h=""` exit-
+# status catch) completely untested; deleting any of those must still pass 48
+# tests without this one). An unresolvable tool (no sha256sum/shasum anywhere)
+# is a DIFFERENT, harmless case verified separately: it falls back to the
+# python3 -I -S path (BACKLOG 131(b)), which still computes a real digest.
+# Before this rework,
+# sealing "? ?" directly left _LOKI_SNAPSHOT_SEAL="? ?" and
+# _LOKI_SNAPSHOT_THIS_RUN=1: a later verify would recompute the same "? ?"
+# (same lying tool) and see a MATCH, never disarming the guard it should have
+# refused to arm in the first place. The fix fails the whole snapshot closed
+# AT SEAL TIME instead.
+# =============================================================================
+echo "Test T-snapshot-seal-fails-closed (BACKLOG-70 rework): a hash tool that exits 0 with a garbage result fails the snapshot closed at seal time, not silently"
+FAKETOOLDIR="$WORKROOT/faketool"
+mkdir -p "$FAKETOOLDIR"
+cat > "$FAKETOOLDIR/sha256sum" <<'EOF'
+#!/bin/sh
+# A real tool answering to this name but NOT behaving like GNU sha256sum:
+# exits 0, and the "digest" field is exactly 64 characters (so it passes the
+# LENGTH check and specifically exercises the hex-alphabet validation), but
+# every character is "z" -- not valid hex. Simulates a BusyBox/alternate
+# coreutils build, or any tool coincidentally on this name, that the
+# fixed-path resolver still finds and trusts by name alone.
+printf '%s\n' "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz  x"
+EOF
+chmod +x "$FAKETOOLDIR/sha256sum"
+RSF="$(make_repo tsealfail)"
+outsf="$(
+    cd "$RSF" || exit 1
+    source "$PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    # Deterministic, root-safe failure injection (chmod 000 is a no-op for
+    # root, which CI may run as): resolve to a tool that exits 0 but lies
+    # about the digest format, exercising the REAL validation in
+    # _loki_snapshot_digest rather than bypassing it.
+    _loki_snapshot_hash_tool() { printf '%s\n' "$FAKETOOLDIR/sha256sum"; }
+    printf 'mine\n' > notes.txt
+    ok=1
+    _loki_snapshot_or_fail_closed >/dev/null 2>&1 || ok=0
+    sealed="$( [ -n "$_LOKI_SNAPSHOT_SEAL" ] && echo yes || echo no )"
+    failed_marker="$( [ -f .loki/state/preexisting-untracked.failed ] && echo yes || echo no )"
+    printf 'OK=%s SEALED=%s FAILEDMARKER=%s' "$ok" "$sealed" "$failed_marker"
+)"
+if [ "$outsf" = "OK=0 SEALED=no FAILEDMARKER=yes" ]; then
+    pass "hash tool exits 0 with a garbage result: snapshot fails closed at seal time (not sealed, failed marker set), never silently armed on garbage"
+else
+    fail "a garbage-but-successful hash tool result did not fail the snapshot closed" "got: $outsf"
+fi
+
+# Mutation check A: deleting the hex-validation's "?" assignment must make
+# this test FAIL -- confirms the assertion depends on the validation itself,
+# not merely on the seal-check propagation line proven by mutation check B.
+RED_NOVALIDATE_LIB="$WORKROOT/red-novalidate-lib.sh"
+sed 's/\*\[!0123456789abcdef\]\*) h="?" ;;/*) : ;;/' "$BRANCH_LIB" > "$RED_NOVALIDATE_LIB"
+red_novalidate_removed="$(grep -c 'h="?" ;;' "$RED_NOVALIDATE_LIB")"
+RED_NOVALIDATE_PREAMBLE="$WORKROOT/red-novalidate-preamble.sh"
+cat > "$RED_NOVALIDATE_PREAMBLE" <<EOF
+log_info()  { echo "INFO: \$*"; }
+log_warn()  { echo "WARN: \$*"; }
+log_error() { echo "ERROR: \$*"; }
+audit_log() { return 0; }
+audit_agent_action() { return 0; }
+source "$ADVISORY_LIB"
+source "$RED_NOVALIDATE_LIB"
+EOF
+RSFNV="$(make_repo tsealfailnovalidate)"
+outsfnv="$(
+    cd "$RSFNV" || exit 1
+    source "$RED_NOVALIDATE_PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    _loki_snapshot_hash_tool() { printf '%s\n' "$FAKETOOLDIR/sha256sum"; }
+    printf 'mine\n' > notes.txt
+    ok=1
+    _loki_snapshot_or_fail_closed >/dev/null 2>&1 || ok=0
+    printf 'OK=%s' "$ok"
+)"
+if [ "$red_novalidate_removed" = 0 ] && [ "$outsfnv" = "OK=1" ]; then
+    pass "RED confirmed: removing the hex-format validation lets a garbage-but-successful tool result silently seal and commit (non-vacuous)"
+else
+    fail "RED reproduction did not show the pre-validation garbage-passthrough behavior" "red_novalidate_removed=$red_novalidate_removed got: $outsfnv"
+fi
+
+# =============================================================================
+# T-snapshot-seal-exit-status: the reviewer's other named finding was that
+# piping the hash tool's output through awk hid a nonzero exit from that tool
+# behind awk's own exit status (`cmd | awk ...` reports awk's rc, not cmd's).
+# The fix captures to a plain variable (`h="$("$tool" ... )" || h=""`) so a
+# failing tool's exit status is checked directly. Prove it: a tool that prints
+# a perfectly well-formed 64-hex digest on stdout but exits 1 (a real-world
+# shape: disk I/O error after a partial read, or the tool killed mid-write)
+# must NOT have that output trusted, even though the STRING would pass every
+# other validation.
+# =============================================================================
+echo "Test T-snapshot-seal-exit-status (BACKLOG-70 rework): a hash tool that exits 1 fails the snapshot closed even with well-formed stdout"
+EXITFAILDIGEST="$(printf '%064d' 0 | tr 0 a)"
+cat > "$FAKETOOLDIR/sha256sum-exitfail" <<EOF
+#!/bin/sh
+printf '%s\n' "$EXITFAILDIGEST  x"
+exit 1
+EOF
+chmod +x "$FAKETOOLDIR/sha256sum-exitfail"
+RSFE="$(make_repo tsealexitfail)"
+outsfe="$(
+    cd "$RSFE" || exit 1
+    source "$PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    _loki_snapshot_hash_tool() { printf '%s\n' "$FAKETOOLDIR/sha256sum-exitfail"; }
+    printf 'mine\n' > notes.txt
+    ok=1
+    _loki_snapshot_or_fail_closed >/dev/null 2>&1 || ok=0
+    printf 'OK=%s' "$ok"
+)"
+if [ "$outsfe" = "OK=0" ]; then
+    pass "hash tool exits 1 with well-formed stdout: its output is not trusted, snapshot fails closed"
+else
+    fail "a hash tool's nonzero exit was not caught (well-formed stdout was trusted anyway)" "got: $outsfe"
+fi
+
+# Mutation check: deleting BOTH `|| h=""` exit-status catches (the shasum
+# branch and the generic branch) must make this test FAIL (non-vacuous) --
+# confirms the assertion depends on the exit-status check, not incidentally on
+# validation that a well-formed 64-hex string would pass anyway.
+RED_EXITSTATUS_LIB="$WORKROOT/red-exitstatus-lib.sh"
+sed 's/ || h="" ;;/ ;;/' "$BRANCH_LIB" > "$RED_EXITSTATUS_LIB"
+red_exitstatus_removed="$(grep -c '|| h="" ;;' "$RED_EXITSTATUS_LIB")"
+RED_EXITSTATUS_PREAMBLE="$WORKROOT/red-exitstatus-preamble.sh"
+cat > "$RED_EXITSTATUS_PREAMBLE" <<EOF
+log_info()  { echo "INFO: \$*"; }
+log_warn()  { echo "WARN: \$*"; }
+log_error() { echo "ERROR: \$*"; }
+audit_log() { return 0; }
+audit_agent_action() { return 0; }
+source "$ADVISORY_LIB"
+source "$RED_EXITSTATUS_LIB"
+EOF
+RSFER="$(make_repo tsealexitfailred)"
+outsfer="$(
+    cd "$RSFER" || exit 1
+    source "$RED_EXITSTATUS_PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    _loki_snapshot_hash_tool() { printf '%s\n' "$FAKETOOLDIR/sha256sum-exitfail"; }
+    printf 'mine\n' > notes.txt
+    ok=1
+    _loki_snapshot_or_fail_closed >/dev/null 2>&1 || ok=0
+    printf 'OK=%s' "$ok"
+)"
+if [ "$red_exitstatus_removed" = 0 ] && [ "$outsfer" = "OK=1" ]; then
+    pass "RED confirmed: removing the exit-status catch lets a failing tool's well-formed-looking stdout silently seal and commit (non-vacuous)"
+else
+    fail "RED reproduction did not show the pre-fix exit-status-ignored behavior" "red_exitstatus_removed=$red_exitstatus_removed got: $outsfer"
+fi
+
+# Mutation check B: deleting the BACKLOG-70-SEAL-CHECK propagation line must
+# make this test FAIL (non-vacuous) -- confirms the assertion above also
+# depends on that line, not on validation alone.
+RED_SEALCHECK_LIB="$WORKROOT/red-sealcheck-lib.sh"
+sed '/BACKLOG-70-SEAL-CHECK$/d' "$BRANCH_LIB" > "$RED_SEALCHECK_LIB"
+red_sealcheck_removed="$(grep -c 'BACKLOG-70-SEAL-CHECK' "$RED_SEALCHECK_LIB")"
+RED_SEALCHECK_PREAMBLE="$WORKROOT/red-sealcheck-preamble.sh"
+cat > "$RED_SEALCHECK_PREAMBLE" <<EOF
+log_info()  { echo "INFO: \$*"; }
+log_warn()  { echo "WARN: \$*"; }
+log_error() { echo "ERROR: \$*"; }
+audit_log() { return 0; }
+audit_agent_action() { return 0; }
+source "$ADVISORY_LIB"
+source "$RED_SEALCHECK_LIB"
+EOF
+RSFR="$(make_repo tsealfailred)"
+outsfr="$(
+    cd "$RSFR" || exit 1
+    source "$RED_SEALCHECK_PREAMBLE"
+    SCRIPT_DIR="$PROJECT_DIR/autonomy"
+    _loki_snapshot_hash_tool() { printf '%s\n' "$FAKETOOLDIR/sha256sum"; }
+    printf 'mine\n' > notes.txt
+    ok=1
+    _loki_snapshot_or_fail_closed >/dev/null 2>&1 || ok=0
+    printf 'OK=%s' "$ok"
+)"
+if [ "$red_sealcheck_removed" = 0 ] && [ "$outsfr" = "OK=1" ]; then
+    pass "RED confirmed: removing the seal-check propagation line lets an unsealable snapshot silently report success (non-vacuous)"
+else
+    fail "RED reproduction did not show the pre-fix seal-check-removed behavior" "red_sealcheck_removed=$red_sealcheck_removed got: $outsfr"
+fi
+
+# =============================================================================
 # Test T-secret-abort (HEADLINE): brownfield repo with an UN-gitignored secret
 # in an INNOCUOUSLY-NAMED file (config.js -- the path globs do NOT match it, so
 # the SCAN is provably the only thing that can catch it) + a normal source
@@ -1014,8 +1541,8 @@ outsa="$(
     before="$(git rev-list --count HEAD)"
     # A normal source change (must be preserved).
     echo "function feat(){return 1}" > feature.js
-    # A secret in a file the path-globs do NOT match. Tier-1 'sk-' pattern (no
-    # deny filter), >=20 [A-Za-z0-9], so it is a definite scanner finding.
+    # A secret in a file the path-globs do NOT match. Tier-1 sk- prefix pattern
+    # (no deny filter), >=20 [A-Za-z0-9], so it is a definite scanner finding.
     printf '%s\n' 'const KEY="sk-AbCdEf0123456789AbCdEfGh"' > config.js
     ITERATION_COUNT=1
     result=0
@@ -1291,6 +1818,906 @@ else
 fi
 
 # =============================================================================
+# Test T-opt-out-leftover-branch (BACKLOG 90): the user stays on a leftover
+# session branch, makes a file, and runs again with LOKI_BRANCH_PROTECTION=false.
+# Setup takes no snapshot on the opt-out, so the earlier session's snapshot is
+# stale: committing with it would sweep the new file in, and a checkout of the
+# base would delete it. The opt-out must commit nothing and leave the index
+# alone. The second run is its own process, like a real `loki start`.
+# =============================================================================
+echo "Test T-opt-out-leftover-branch (BACKLOG 90): opt-out on a leftover session branch commits nothing"
+ROO="$(make_repo toptoutleftover)"
+outoo="$(
+    cd "$ROO" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    s1="$(git rev-parse --abbrev-ref HEAD)"
+    printf 'print(1)\n' > app.py
+    commit_session_changes >/dev/null 2>&1
+    s1_commit="$(git cat-file -e HEAD:app.py 2>/dev/null && echo yes || echo no)"
+    s1_head="$(git rev-parse HEAD)"
+    printf 'mine\n' > later.txt
+    msg="$(LOKI_BRANCH_PROTECTION=false bash -c '. "$1"; ITERATION_COUNT=1; result=0; setup_agent_branch; commit_session_changes' _ "$PREAMBLE" 2>&1)"
+    case "$s1" in (loki/session-*) leftover=yes ;; (*) leftover=no ;; esac
+    same="$( [ "$(git rev-parse HEAD)" = "$s1_head" ] && echo yes || echo no )"
+    in_head="$(git cat-file -e HEAD:later.txt 2>/dev/null && echo yes || echo no)"
+    staged="$(git diff --cached --name-only | tr '\n' ' ')"
+    said="$(printf '%s' "$msg" | grep -q 'no session commit' && echo yes || echo no)"
+    git checkout -q develop 2>/dev/null
+    after="$(cat later.txt 2>/dev/null || echo MISSING)"
+    printf 'LEFTOVER=%s S1COMMIT=%s SAME=%s INHEAD=%s STAGED=[%s] SAID=%s AFTER=%s' \
+        "$leftover" "$s1_commit" "$same" "$in_head" "$staged" "$said" "$after"
+)"
+if [ "$outoo" = "LEFTOVER=yes S1COMMIT=yes SAME=yes INHEAD=no STAGED=[] SAID=yes AFTER=mine" ]; then
+    pass "opt-out on a leftover session branch: no commit, index untouched, the user's new file survives the base checkout"
+else
+    fail "opt-out on a leftover session branch committed with a stale snapshot (or lost the user's file)" "got: $outoo"
+fi
+
+# =============================================================================
+# Test T-agent-self-commit (BACKLOG 74): the agent rewrites .gitignore and runs
+# `git add -A && git commit` itself, putting the user's untracked usernotes.txt
+# and ignored debug.log and dist/app.js (a "dist/" snapshot entry covers the
+# file) on the session branch. The session commit must take them out of the
+# branch tip (they stay on disk), name them, say the history still holds them,
+# and record them; a checkout of the base must not delete them.
+# =============================================================================
+echo "Test T-agent-self-commit (BACKLOG 74): user files the agent committed are removed from the branch tip, kept on disk"
+RSC="$(make_repo tselfcommit)"
+outsc="$(
+    cd "$RSC" || exit 1
+    source "$PREAMBLE"
+    printf 'my notes\n' > usernotes.txt
+    printf 'debug\n' > debug.log
+    mkdir -p dist && printf 'built\n' > dist/app.js
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    printf 'build/\n' > .gitignore
+    printf 'print(1)\n' > work.py
+    git add -A && git commit -qm "agent checkpoint"
+    swept="$(git ls-tree -r --name-only HEAD | grep -cxE 'usernotes\.txt|debug\.log|dist/app\.js')"
+    msg="$(commit_session_changes 2>&1)"
+    kept="$(git ls-tree -r --name-only HEAD | grep -xE 'usernotes\.txt|debug\.log|dist/app\.js' | tr '\n' ' ')"
+    agent="$(git cat-file -e HEAD:work.py 2>/dev/null && echo yes || echo no)"
+    named="$(printf '%s' "$msg" | grep 'usernotes.txt' | grep 'debug.log' | grep -q 'dist/app.js' && echo yes || echo no)"
+    history="$(printf '%s' "$msg" | grep -q 'do not push' && echo yes || echo no)"
+    rec="$(tr '\000' ' ' 2>/dev/null < .loki/state/agent-committed-user-files.z)"
+    git checkout -q develop 2>/dev/null
+    intact="$( [ "$(cat usernotes.txt 2>/dev/null)" = "my notes" ] && [ "$(cat debug.log 2>/dev/null)" = "debug" ] \
+        && [ "$(cat dist/app.js 2>/dev/null)" = "built" ] && echo yes || echo no )"
+    printf 'SWEPT=%s KEPT=[%s] AGENT=%s NAMED=%s HISTORY=%s REC=[%s] INTACT=%s' \
+        "$swept" "$kept" "$agent" "$named" "$history" "$rec" "$intact"
+)"
+if [ "$outsc" = "SWEPT=3 KEPT=[] AGENT=yes NAMED=yes HISTORY=yes REC=[debug.log dist/app.js usernotes.txt ] INTACT=yes" ]; then
+    pass "agent self-commit: user files out of the branch tip, named, recorded, intact after the base checkout; agent work kept"
+else
+    fail "agent self-commit left user files on the branch tip (or lost them)" "got: $outsc"
+fi
+
+# =============================================================================
+# Test T-agent-self-commit-secret-abort (BACKLOG 74): the agent self-commits
+# the user's untracked .env, then leaves a new secret-bearing config.js. The
+# secret scan aborts the session commit; the user's .env must still come off
+# the branch tip (an abort that restored it would let a base checkout delete
+# it), and the agent's secret must not be committed.
+# =============================================================================
+echo "Test T-agent-self-commit-secret-abort (BACKLOG 74): a secret abort never puts the user's .env back on the branch"
+RSS="$(make_repo tselfcommitsecret)"
+outss="$(
+    cd "$RSS" || exit 1
+    source "$PREAMBLE"
+    printf 'API_TOKEN=mine\n' > .env
+    ITERATION_COUNT=1
+    result=0
+    setup_agent_branch >/dev/null 2>&1
+    printf 'print(1)\n' > work.py
+    git add -A && git commit -qm "agent checkpoint"
+    swept="$(git cat-file -e HEAD:.env 2>/dev/null && echo yes || echo no)"
+    printf '%s\n' 'const KEY="sk-AbCdEf0123456789AbCdEfGh"' > config.js
+    msg="$(commit_session_changes 2>&1)"
+    env_in_head="$(git cat-file -e HEAD:.env 2>/dev/null && echo yes || echo no)"
+    secret_in_head="$(git cat-file -e HEAD:config.js 2>/dev/null && echo yes || echo no)"
+    aborted="$(printf '%s' "$msg" | grep -q 'possible secret detected in config.js' && echo yes || echo no)"
+    git checkout -q develop 2>/dev/null
+    intact="$( [ "$(cat .env 2>/dev/null)" = "API_TOKEN=mine" ] && echo yes || echo no )"
+    printf 'SWEPT=%s ENVINHEAD=%s SECRETINHEAD=%s ABORTED=%s INTACT=%s' \
+        "$swept" "$env_in_head" "$secret_in_head" "$aborted" "$intact"
+)"
+if [ "$outss" = "SWEPT=yes ENVINHEAD=no SECRETINHEAD=no ABORTED=yes INTACT=yes" ]; then
+    pass "secret abort: the user's .env is off the branch tip and survives the base checkout; the agent's secret not committed"
+else
+    fail "a secret abort left the user's .env on the branch (or committed the secret)" "got: $outss"
+fi
+
+# =============================================================================
+# Test T-stale-base-agent-self-commit (council S): session 1 runs from
+# feature/x, so base-branch.txt says feature/x. The user goes back to develop
+# and deletes feature/x and session 1's branch, then makes precious.txt. Session
+# 2 is minted from develop and its agent runs `git add -A && git commit`. A base
+# kept from session 1 made the untrack step warn and commit on that tip anyway,
+# and a checkout of develop then deleted precious.txt. Every mint must record
+# its own base and start commit; a resume (here from feature/z) keeps both.
+# =============================================================================
+echo "Test T-stale-base-agent-self-commit (council S): a base left by an earlier session never lets a base checkout delete a user file"
+RSB="$(make_repo tstalebase)"
+outsb="$(
+    cd "$RSB" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    git checkout -q -b feature/x
+    setup_agent_branch >/dev/null 2>&1
+    s1="$(git rev-parse --abbrev-ref HEAD)"
+    printf 'agent 1\n' > work1.js
+    commit_session_changes >/dev/null 2>&1
+    stale="$(cat .loki/state/base-branch.txt 2>/dev/null)"
+    git checkout -q develop
+    git branch -q -D feature/x "$s1"
+    printf 'precious\n' > precious.txt
+    setup_agent_branch >/dev/null 2>&1
+    base2="$(cat .loki/state/base-branch.txt 2>/dev/null)"
+    start2="$(cat .loki/state/session-start-sha 2>/dev/null)"
+    start_ok="$( [ "$start2" = "$(git rev-parse develop)" ] && echo yes || echo no )"
+    printf 'print(2)\n' > work2.py
+    git add -A && git commit -qm "agent checkpoint"
+    swept="$(git cat-file -e HEAD:precious.txt 2>/dev/null && echo yes || echo no)"
+    msg="$(commit_session_changes 2>&1)"
+    in_head="$(git cat-file -e HEAD:precious.txt 2>/dev/null && echo yes || echo no)"
+    agent="$(git cat-file -e HEAD:work2.py 2>/dev/null && echo yes || echo no)"
+    named="$(printf '%s' "$msg" | grep 'The agent committed your pre-existing' | grep -q 'precious.txt' && echo yes || echo no)"
+    s2="$(git rev-parse --abbrev-ref HEAD)"
+    git checkout -q develop 2>/dev/null
+    intact="$( [ "$(cat precious.txt 2>/dev/null)" = precious ] && echo yes || echo no )"
+    git checkout -q -b feature/z
+    setup_agent_branch >/dev/null 2>&1
+    resumed="$( [ "$(git rev-parse --abbrev-ref HEAD)" = "$s2" ] && echo yes || echo no )"
+    kept="$( [ "$(cat .loki/state/base-branch.txt 2>/dev/null)" = develop ] \
+        && [ "$(cat .loki/state/session-start-sha 2>/dev/null)" = "$start2" ] && echo yes || echo no )"
+    printf 'STALE=%s BASE2=%s START2=%s SWEPT=%s INHEAD=%s AGENT=%s NAMED=%s INTACT=%s RESUMED=%s KEPT=%s' \
+        "$stale" "$base2" "$start_ok" "$swept" "$in_head" "$agent" "$named" "$intact" "$resumed" "$kept"
+)"
+if [ "$outsb" = "STALE=feature/x BASE2=develop START2=yes SWEPT=yes INHEAD=no AGENT=yes NAMED=yes INTACT=yes RESUMED=yes KEPT=yes" ]; then
+    pass "stale base: the mint recorded develop and its start commit; precious.txt off the tip, named, intact after the develop checkout; a resume kept both"
+else
+    fail "a base left by an earlier session let the agent's commit of a user file through (or a resume rewrote the base)" "got: $outsb"
+fi
+
+# Base branch deleted after the mint: the recorded start commit is the fork.
+echo "Test T-stale-base-start-sha-fallback: base branch gone mid-session -> the recorded start commit still finds the swept file"
+RSF="$(make_repo tstalebasestart)"
+outsf="$(
+    cd "$RSF" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    git checkout -q -b feature/y
+    printf 'precious\n' > precious.txt
+    setup_agent_branch >/dev/null 2>&1
+    start="$(git rev-parse feature/y)"
+    git branch -q -D feature/y
+    printf 'print(1)\n' > work.py
+    git add -A && git commit -qm "agent checkpoint"
+    swept="$(git cat-file -e HEAD:precious.txt 2>/dev/null && echo yes || echo no)"
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e HEAD:precious.txt 2>/dev/null && echo yes || echo no)"
+    agent="$(git cat-file -e HEAD:work.py 2>/dev/null && echo yes || echo no)"
+    git checkout -q --detach "$start" 2>/dev/null
+    intact="$( [ "$(cat precious.txt 2>/dev/null)" = precious ] && echo yes || echo no )"
+    printf 'SWEPT=%s INHEAD=%s AGENT=%s INTACT=%s' "$swept" "$in_head" "$agent" "$intact"
+)"
+if [ "$outsf" = "SWEPT=yes INHEAD=no AGENT=yes INTACT=yes" ]; then
+    pass "start-sha fallback: precious.txt off the tip and intact after a checkout of the fork; the agent's work kept"
+else
+    fail "with the base branch gone, the agent's commit of a user file stayed on the tip (or lost it)" "got: $outsf"
+fi
+
+# Neither the base nor a start commit resolves (a session an older Loki minted):
+# no session commit on a tip that may hold user files, and the strong warning.
+echo "Test T-stale-base-fails-closed: no base and no start commit -> no session commit, strong warning, files on disk"
+RSX="$(make_repo tstalebaseclosed)"
+outsx="$(
+    cd "$RSX" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    git checkout -q -b feature/w
+    printf 'precious\n' > precious.txt
+    setup_agent_branch >/dev/null 2>&1
+    git branch -q -D feature/w
+    rm -f .loki/state/session-start-sha
+    printf 'print(1)\n' > work.py
+    git add -A && git commit -qm "agent checkpoint"
+    agent_head="$(git rev-parse HEAD)"
+    printf 'print(2)\n' > later.py
+    msg="$(commit_session_changes 2>&1)"
+    same="$( [ "$(git rev-parse HEAD)" = "$agent_head" ] && echo yes || echo no )"
+    ondisk="$( [ "$(cat precious.txt 2>/dev/null)" = precious ] && [ -f later.py ] && echo yes || echo no )"
+    warned="$(printf '%s' "$msg" | grep 'git rm --cached' | grep -q 'no session commit' && echo yes || echo no)"
+    printf 'SAME=%s ONDISK=%s WARNED=%s' "$same" "$ondisk" "$warned"
+)"
+if [ "$outsx" = "SAME=yes ONDISK=yes WARNED=yes" ]; then
+    pass "unresolvable fork: no session commit, the git rm --cached warning, precious.txt and the work on disk"
+else
+    fail "with no base and no start commit, the session committed on a tip that may hold user files (or said nothing)" "got: $outsx"
+fi
+
+# The check itself fails (here the coverage step): same fail-closed contract.
+echo "Test T-untrack-check-fails-closed: a failed check -> no session commit, strong warning"
+RSK="$(make_repo tuntrackcheckfail)"
+outsk="$(
+    cd "$RSK" || exit 1
+    source "$PREAMBLE"
+    _loki_covered_paths() { return 1; }
+    ITERATION_COUNT=1
+    result=0
+    printf 'precious\n' > precious.txt
+    setup_agent_branch >/dev/null 2>&1
+    printf 'print(1)\n' > work.py
+    git add -A && git commit -qm "agent checkpoint"
+    agent_head="$(git rev-parse HEAD)"
+    printf 'print(2)\n' > later.py
+    msg="$(commit_session_changes 2>&1)"
+    same="$( [ "$(git rev-parse HEAD)" = "$agent_head" ] && echo yes || echo no )"
+    warned="$(printf '%s' "$msg" | grep 'git rm --cached' | grep -q 'no session commit' && echo yes || echo no)"
+    printf 'SAME=%s WARNED=%s' "$same" "$warned"
+)"
+if [ "$outsk" = "SAME=yes WARNED=yes" ]; then
+    pass "failed check: no session commit and the git rm --cached warning"
+else
+    fail "a failed untrack check still let the session commit" "got: $outsk"
+fi
+
+# Greenfield: the branch is minted unborn. The base is the branch name, not the
+# literal HEAD, and the empty tree is the fork, so a user file the agent commits
+# comes off the tip.
+echo "Test T-greenfield-agent-self-commit: unborn mint -> base named, the user's file off the tip"
+RGS="$WORKROOT/tgreenselfcommit"
+mkdir -p "$RGS"
+outgs="$(
+    cd "$RGS" || exit 1
+    git init -q
+    git config user.email "test@loki.local"
+    git config user.name "Loki Test"
+    git config commit.gpgsign false
+    git checkout -q -b develop
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'mine\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    base="$(tr '\n' ' ' < .loki/state/base-branch.txt 2>/dev/null)"
+    printf 'print(1)\n' > app.py
+    git add -A && git commit -qm "agent checkpoint"
+    swept="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    agent="$(git cat-file -e HEAD:app.py 2>/dev/null && echo yes || echo no)"
+    ondisk="$( [ "$(cat notes.txt 2>/dev/null)" = mine ] && echo yes || echo no )"
+    printf 'BASE=[%s] SWEPT=%s INHEAD=%s AGENT=%s ONDISK=%s' "$base" "$swept" "$in_head" "$agent" "$ondisk"
+)"
+if [ "$outgs" = "BASE=[develop ] SWEPT=yes INHEAD=no AGENT=yes ONDISK=yes" ]; then
+    pass "greenfield: base-branch.txt names develop; notes.txt off the tip and on disk; the agent's app.py kept"
+else
+    fail "greenfield mint recorded a bad base or left the user's file on the tip" "got: $outgs"
+fi
+
+# Greenfield where the agent commits nothing itself: the branch is still unborn
+# at the untrack step, which has nothing to check, so the session commit runs.
+echo "Test T-greenfield-preexisting-unborn: unborn branch at session end -> session commit made, user file left out"
+RGU="$WORKROOT/tgreenunborn"
+mkdir -p "$RGU"
+outgu="$(
+    cd "$RGU" || exit 1
+    git init -q
+    git config user.email "test@loki.local"
+    git config user.name "Loki Test"
+    git config commit.gpgsign false
+    git checkout -q -b develop
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'mine\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    printf 'print(1)\n' > app.py
+    commit_session_changes >/dev/null 2>&1
+    agent="$(git cat-file -e HEAD:app.py 2>/dev/null && echo yes || echo no)"
+    in_head="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    printf 'AGENT=%s INHEAD=%s' "$agent" "$in_head"
+)"
+if [ "$outgu" = "AGENT=yes INHEAD=no" ]; then
+    pass "greenfield, unborn at session end: app.py committed, the user's notes.txt not"
+else
+    fail "greenfield session with a pre-existing user file made no session commit (or swept the file)" "got: $outgu"
+fi
+
+# =============================================================================
+# BACKLOG 68 REWORK: distinguish "the USER tracked notes.txt between sessions"
+# (prune from the resume union, no false blame -- the ORIGINAL bug) from "the
+# AGENT itself tracked notes.txt DURING this session, then got killed" (must
+# NOT be pruned -- flows into the existing, correct
+# _loki_untrack_agent_committed_user_files disclosure -- the REGRESSION a
+# naive "prune anything git ls-files --cached now shows" fix would introduce).
+#
+# Test T68-user-commit-between-sessions (the ORIGINAL bug, still fixed): session
+# 1 ends normally (commit_session_changes runs, advancing the tracked-since
+# anchor). Still on the session branch (a normal session end never checks out
+# the base), the USER `git add`s+commits notes.txt (a file session 1 had
+# snapshotted as pre-existing) themselves; then the base is checked out and
+# session 2 resumes. notes.txt is now tracked, dated strictly AFTER the anchor
+# session 1 left, so the resume union prunes it: no false "the agent committed
+# your file" warning, and it stays exactly where the user's own commit put it.
+# =============================================================================
+echo "Test T68-user-commit-between-sessions: a file the USER tracked between sessions is pruned from the union, no false blame"
+R68U="$(make_repo t68usercommit)"
+out68u="$(
+    cd "$R68U" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    session="$(git rev-parse --abbrev-ref HEAD)"
+    printf 'agent 1\n' > work1.js
+    commit_session_changes >/dev/null 2>&1
+    git add notes.txt && git commit -qm "user: track my own notes"
+    user_head="$(git rev-parse HEAD)"
+    git checkout -q develop
+    # BACKLOG 70: run setup_agent_branch in THIS shell, not a command-
+    # substitution subshell, so its _LOKI_SNAPSHOT_SEAL update sticks (see
+    # the T-interrupt-resume-commits-agent-files comment above for why).
+    setup_agent_branch > .loki/state/.test-resume-log 2>&1
+    resume_log="$(cat .loki/state/.test-resume-log 2>/dev/null)"
+    rm -f .loki/state/.test-resume-log
+    resumed="$( [ "$(git rev-parse --abbrev-ref HEAD)" = "$session" ] && echo yes || echo no )"
+    blamed="$(printf '%s' "$resume_log" | grep -qi 'agent committed' && echo yes || echo no)"
+    printf 'agent 2\n' > work2.js
+    msg="$(commit_session_changes 2>&1)"
+    false_blame="$(printf '%s' "$msg" | grep -qi 'agent committed your pre-existing' && echo yes || echo no)"
+    still_tracked="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    unchanged="$( [ "$(git rev-parse "${user_head}^{tree}:notes.txt" 2>/dev/null)" = "$(git rev-parse HEAD:notes.txt 2>/dev/null)" ] && echo yes || echo no )"
+    agent="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    printf 'RESUMED=%s BLAMED=%s FALSEBLAME=%s TRACKED=%s UNCHANGED=%s AGENT=%s' \
+        "$resumed" "$blamed" "$false_blame" "$still_tracked" "$unchanged" "$agent"
+)"
+if [ "$out68u" = "RESUMED=yes BLAMED=no FALSEBLAME=no TRACKED=yes UNCHANGED=yes AGENT=yes" ]; then
+    pass "user's between-session commit of notes.txt pruned from the union: no false agent-blame, file untouched, session 2's own work committed"
+else
+    fail "a user commit between sessions was wrongly blamed on the agent (original BACKLOG 68 bug reappeared)" "got: $out68u"
+fi
+
+# =============================================================================
+# Test T68-user-commit-after-kill (a-kill variant): same as above, but session 1
+# is killed after ONE completed turn instead of ending normally -- turn begins
+# (in-flight marker set), work happens, the per-turn record runs (advancing the
+# anchor, clearing the marker), and the process dies with NO session commit.
+# The anchor from the per-turn record must be enough: the user's later commit
+# is still provably after it, so it is still pruned on resume.
+# =============================================================================
+echo "Test T68-user-commit-after-kill: the per-turn anchor (not just session-end) is enough to prune a user's between-session commit"
+R68K="$(make_repo t68userkill)"
+out68k="$(
+    cd "$R68K" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    # Model one provider turn: mark in-flight, do work, record (which advances
+    # the anchor and clears the marker) -- mirroring the real call site.
+    : > .loki/state/turn-in-flight
+    printf 'agent 1\n' > work1.js
+    git add work1.js && git commit -qm "agent turn 1"
+    _loki_record_session_created >/dev/null 2>&1
+    # Killed here: no commit_session_changes call at all. Still on the session
+    # branch (a completed turn never checks out the base) when the USER tracks
+    # notes.txt themselves.
+    git add notes.txt && git commit -qm "user: track my own notes"
+    git checkout -q develop
+    # BACKLOG 70: run setup_agent_branch in THIS shell, not a command-
+    # substitution subshell, so its _LOKI_SNAPSHOT_SEAL update sticks (see
+    # the T-interrupt-resume-commits-agent-files comment above for why).
+    setup_agent_branch > .loki/state/.test-resume-log 2>&1
+    resume_log="$(cat .loki/state/.test-resume-log 2>/dev/null)"
+    rm -f .loki/state/.test-resume-log
+    blamed="$(printf '%s' "$resume_log" | grep -qi 'agent committed' && echo yes || echo no)"
+    printf 'agent 2\n' > work2.js
+    msg="$(commit_session_changes 2>&1)"
+    false_blame="$(printf '%s' "$msg" | grep -qi 'agent committed your pre-existing' && echo yes || echo no)"
+    still_tracked="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    agent1="$(git cat-file -e HEAD:work1.js 2>/dev/null && echo yes || echo no)"
+    agent2="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    printf 'BLAMED=%s FALSEBLAME=%s TRACKED=%s AGENT1=%s AGENT2=%s' \
+        "$blamed" "$false_blame" "$still_tracked" "$agent1" "$agent2"
+)"
+if [ "$out68k" = "BLAMED=no FALSEBLAME=no TRACKED=yes AGENT1=yes AGENT2=yes" ]; then
+    pass "per-turn anchor (session 1 killed after one completed turn, no session-end commit) still prunes the user's later commit correctly"
+else
+    fail "a per-turn anchor was not enough to prune a user's between-session commit" "got: $out68k"
+fi
+
+# =============================================================================
+# Test T68-agent-commits-then-killed (the REGRESSION, reviewer scenario 1): a
+# provider turn begins (marker set), the agent commits notes.txt (a pre-existing
+# file) ITSELF during the turn, and the process is killed before the per-turn
+# record ever runs -- so the anchor is never advanced past the turn that did
+# it, and the in-flight marker is never cleared. On resume, notes.txt must NOT
+# be silently pruned from the union: it must flow into
+# _loki_untrack_agent_committed_user_files's existing disclosure (warn, removed
+# from the branch tip, kept on disk).
+# =============================================================================
+echo "Test T68-agent-commits-then-killed: agent's own commit of a pre-existing file mid-turn is disclosed, never silently pruned"
+R68A="$(make_repo t68agentcommit)"
+out68a="$(
+    cd "$R68A" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    # Turn begins (marker set, mirroring the real invocation site), the agent
+    # commits the pre-existing file itself, then the process is killed: no
+    # _loki_record_session_created call, no commit_session_changes call.
+    : > .loki/state/turn-in-flight
+    git add notes.txt && git commit -qm "agent checkpoint (includes pre-existing notes.txt)"
+    git checkout -q develop
+    # BACKLOG 70: run setup_agent_branch in THIS shell, not a command-
+    # substitution subshell, so its _LOKI_SNAPSHOT_SEAL update sticks (see
+    # the T-interrupt-resume-commits-agent-files comment above for why).
+    setup_agent_branch > .loki/state/.test-resume-log 2>&1
+    resume_log="$(cat .loki/state/.test-resume-log 2>/dev/null)"
+    rm -f .loki/state/.test-resume-log
+    printf 'agent 2\n' > work2.js
+    msg="$(commit_session_changes 2>&1)"
+    disclosed="$(printf '%s' "$msg" | grep 'agent committed your pre-existing' | grep -q 'notes.txt' && echo yes || echo no)"
+    warned_history="$(printf '%s' "$msg" | grep -q 'do not push' && echo yes || echo no)"
+    off_tip="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    on_disk="$( [ "$(cat notes.txt 2>/dev/null)" = 'my notes' ] && echo yes || echo no )"
+    rec="$(tr '\000' ' ' 2>/dev/null < .loki/state/agent-committed-user-files.z)"
+    agent2="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    printf 'DISCLOSED=%s HISTORY=%s OFFTIP=%s ONDISK=%s REC=[%s] AGENT2=%s' \
+        "$disclosed" "$warned_history" "$off_tip" "$on_disk" "$rec" "$agent2"
+)"
+if [ "$out68a" = "DISCLOSED=yes HISTORY=yes OFFTIP=no ONDISK=yes REC=[notes.txt ] AGENT2=yes" ]; then
+    pass "agent's mid-turn commit of a pre-existing file survives a kill and is correctly disclosed (removed from tip, kept on disk), not silently pruned"
+else
+    fail "REGRESSION: the agent's own commit of a pre-existing file was silently pruned (undisclosed) instead of flowing to the untrack/disclosure path" "got: $out68a"
+fi
+
+# =============================================================================
+# Test T68-agent-commits-completed-turn-then-killed (reviewer scenario 1, most
+# common timing): unlike T68-agent-commits-then-killed above (killed mid-turn,
+# BEFORE the per-turn record), here the turn's own commit AND its
+# _loki_record_session_created call both complete -- so the anchor legitimately
+# advances PAST the agent's own commit of notes.txt, and the in-flight marker
+# is cleared -- and THEN the process is killed with no further turns and no
+# session-end commit. This is the case the anchor mechanism must not
+# mis-handle: an anchor exists, no marker blocks it, and the agent's commit of
+# notes.txt sits strictly BEFORE that anchor. If the anchor were ever seeded
+# from something other than the actual recorded HEAD (e.g. session-start-sha),
+# this is the scenario that would silently launder the agent's commit as "the
+# user's between-session commit" and prune it -- proving the anchor's VALUE,
+# not just the marker's presence, is load-bearing. Resume is modeled on the
+# already-on-loki path (a real pod-loss restart resumes on the same branch,
+# not via a base checkout), per _loki_resume_snapshot.
+# =============================================================================
+echo "Test T68-agent-commits-completed-turn-then-killed: a completed turn's own commit is disclosed even though its anchor legitimately advanced past it"
+R68C="$(make_repo t68agentcommitcompleted)"
+out68c="$(
+    cd "$R68C" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    # Turn begins, agent commits the pre-existing file itself, turn completes
+    # normally (record runs: anchor advances PAST this commit, marker clears).
+    : > .loki/state/turn-in-flight
+    git add notes.txt && git commit -qm "agent checkpoint (includes pre-existing notes.txt)"
+    _loki_record_session_created >/dev/null 2>&1
+    anchor_past_commit="$( [ "$(cat .loki/state/tracked-since.sha 2>/dev/null)" = "$(git rev-parse HEAD)" ] && echo yes || echo no )"
+    # Killed here: no further turn, no commit_session_changes call. Resume on
+    # the already-on-loki path (the real pod-loss restart: same branch).
+    # BACKLOG 70: run setup_agent_branch in THIS shell, not a command-
+    # substitution subshell, so its _LOKI_SNAPSHOT_SEAL update sticks (see
+    # the T-interrupt-resume-commits-agent-files comment above for why).
+    setup_agent_branch > .loki/state/.test-resume-log 2>&1
+    resume_log="$(cat .loki/state/.test-resume-log 2>/dev/null)"
+    rm -f .loki/state/.test-resume-log
+    printf 'agent 2\n' > work2.js
+    msg="$(commit_session_changes 2>&1)"
+    disclosed="$(printf '%s' "$msg" | grep 'agent committed your pre-existing' | grep -q 'notes.txt' && echo yes || echo no)"
+    off_tip="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    on_disk="$( [ "$(cat notes.txt 2>/dev/null)" = 'my notes' ] && echo yes || echo no )"
+    agent2="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    printf 'ANCHORPASTCOMMIT=%s DISCLOSED=%s OFFTIP=%s ONDISK=%s AGENT2=%s' \
+        "$anchor_past_commit" "$disclosed" "$off_tip" "$on_disk" "$agent2"
+)"
+if [ "$out68c" = "ANCHORPASTCOMMIT=yes DISCLOSED=yes OFFTIP=no ONDISK=yes AGENT2=yes" ]; then
+    pass "a completed turn's own commit of a pre-existing file is still disclosed, even with a legitimately-advanced anchor sitting after it"
+else
+    fail "REGRESSION: the anchor's position (not just the marker) failed to protect the agent's own completed-turn commit" "got: $out68c"
+fi
+
+# =============================================================================
+# Test T68-agent-stages-then-killed (the REGRESSION, reviewer scenario 2): same
+# as above but the agent only STAGES notes.txt (git add, no commit) before being
+# killed. notes.txt never reaches any commit, so it is never in HEAD and the
+# disclosure path (which diffs committed history) has nothing to report -- but
+# it must end up unstaged and on disk, never swept into the NEXT session's
+# commit as if it were the session's own new work.
+# =============================================================================
+echo "Test T68-agent-stages-then-killed: agent staging (no commit) a pre-existing file mid-turn never gets swept into a later session commit"
+R68S="$(make_repo t68agentstage)"
+out68s="$(
+    cd "$R68S" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    : > .loki/state/turn-in-flight
+    git add notes.txt
+    staged_before="$(git diff --cached --name-only | grep -qx notes.txt && echo yes || echo no)"
+    # Killed here: no commit at all, no record call, no session commit.
+    git checkout -q develop
+    setup_agent_branch >/dev/null 2>&1
+    printf 'agent 2\n' > work2.js
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    still_staged="$(git diff --cached --name-only | grep -qx notes.txt && echo yes || echo no)"
+    on_disk="$( [ "$(cat notes.txt 2>/dev/null)" = 'my notes' ] && echo yes || echo no )"
+    agent2="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    printf 'STAGEDBEFORE=%s INHEAD=%s STILLSTAGED=%s ONDISK=%s AGENT2=%s' \
+        "$staged_before" "$in_head" "$still_staged" "$on_disk" "$agent2"
+)"
+if [ "$out68s" = "STAGEDBEFORE=yes INHEAD=no STILLSTAGED=no ONDISK=yes AGENT2=yes" ]; then
+    pass "agent's mid-turn staging-only of a pre-existing file: never committed, unstaged, kept on disk, session 2's own work committed"
+else
+    fail "REGRESSION: agent staging-only of a pre-existing file was swept into the next session commit (or lost)" "got: $out68s"
+fi
+
+# =============================================================================
+# Test T68-agent-stages-completed-turn-then-killed: the staging counterpart of
+# T68-agent-commits-completed-turn-then-killed above. A turn STAGES (never
+# commits) the pre-existing file, then completes normally: the per-turn record
+# runs, which legitimately advances the anchor to the current HEAD and clears
+# the in-flight marker -- even though notes.txt is still sitting staged,
+# untouched by that record call (_loki_record_session_created only tracks what
+# git does not track; a staged-but-uncommitted file is invisible to it either
+# way). The process is then killed with no further turn and no session-end
+# commit. Resume must still leave notes.txt out of HEAD, unstaged, and on disk:
+# the anchor-based diff (_loki_tracked_by_user_since_anchor) is COMMIT-based
+# (git diff <anchor> HEAD), so a path that was only ever staged, never
+# committed, can never appear in it regardless of the anchor's position or the
+# marker's state -- this is what actually separates staging from committing,
+# as distinct from the in-flight-marker check (which independently also covers
+# this case, since the marker from this turn was never cleared... except here
+# it WAS cleared, by design, to isolate the diff-shape guarantee from the
+# marker guarantee). Resume is modeled on the already-on-loki path.
+# =============================================================================
+echo "Test T68-agent-stages-completed-turn-then-killed: a completed turn's own staging-only never gets swept in, independent of the marker"
+R68SC="$(make_repo t68agentstagecompleted)"
+out68sc="$(
+    cd "$R68SC" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    # Turn begins, agent STAGES the pre-existing file only (no commit), turn
+    # completes normally (record runs: anchor advances to HEAD, marker clears
+    # -- HEAD has NOT moved, since nothing was committed).
+    : > .loki/state/turn-in-flight
+    git add notes.txt
+    _loki_record_session_created >/dev/null 2>&1
+    anchor_exists="$( [ -s .loki/state/tracked-since.sha ] && echo yes || echo no )"
+    # Killed here: no further turn, no commit_session_changes call. Resume on
+    # the already-on-loki path (the real pod-loss restart: same branch).
+    setup_agent_branch >/dev/null 2>&1
+    printf 'agent 2\n' > work2.js
+    commit_session_changes >/dev/null 2>&1
+    in_head="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    still_staged="$(git diff --cached --name-only | grep -qx notes.txt && echo yes || echo no)"
+    on_disk="$( [ "$(cat notes.txt 2>/dev/null)" = 'my notes' ] && echo yes || echo no )"
+    agent2="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    printf 'ANCHOREXISTS=%s INHEAD=%s STILLSTAGED=%s ONDISK=%s AGENT2=%s' \
+        "$anchor_exists" "$in_head" "$still_staged" "$on_disk" "$agent2"
+)"
+if [ "$out68sc" = "ANCHOREXISTS=yes INHEAD=no STILLSTAGED=no ONDISK=yes AGENT2=yes" ]; then
+    pass "a completed turn's own staging-only of a pre-existing file stays out of HEAD and unstaged, even with a legitimately-advanced anchor"
+else
+    fail "REGRESSION: a completed turn's staging-only of a pre-existing file was swept in despite a legitimately-advanced anchor" "got: $out68sc"
+fi
+
+# =============================================================================
+# Test T68-agent-commits-midturn-after-earlier-record (the REGRESSION,
+# reviewer's "b1-midturn" refinement): session 1 completes ONE turn normally
+# (record runs, anchor advances, marker clears), THEN a SECOND turn begins
+# (marker set again), the agent commits notes.txt during that second turn, and
+# the process is killed before the second turn's own record call. If the fix
+# incorrectly used only "was notes.txt tracked at session start" as its signal
+# (rather than the in-flight marker + anchor), the presence of an EARLIER valid
+# anchor could be mistaken for proof the second turn's commit is safe to prune.
+# It must not be: the marker set at the second turn's start must block pruning
+# regardless of the first turn's already-advanced anchor.
+# =============================================================================
+echo "Test T68-agent-commits-midturn-after-earlier-record: a later turn's mid-turn commit is not laundered by an earlier turn's anchor"
+R68M="$(make_repo t68midturn)"
+out68m="$(
+    cd "$R68M" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    # Turn 1: begins, does unrelated work, completes normally (record runs).
+    : > .loki/state/turn-in-flight
+    printf 'agent 1\n' > work1.js
+    git add work1.js && git commit -qm "agent turn 1"
+    _loki_record_session_created >/dev/null 2>&1
+    anchor_after_t1="$(cat .loki/state/tracked-since.sha 2>/dev/null)"
+    # Turn 2: begins (marker set again), agent commits the pre-existing file,
+    # then killed before the record call for this turn.
+    : > .loki/state/turn-in-flight
+    git add notes.txt && git commit -qm "agent turn 2 (includes pre-existing notes.txt)"
+    git checkout -q develop
+    # BACKLOG 70: run setup_agent_branch in THIS shell, not a command-
+    # substitution subshell, so its _LOKI_SNAPSHOT_SEAL update sticks (see
+    # the T-interrupt-resume-commits-agent-files comment above for why).
+    setup_agent_branch > .loki/state/.test-resume-log 2>&1
+    resume_log="$(cat .loki/state/.test-resume-log 2>/dev/null)"
+    rm -f .loki/state/.test-resume-log
+    printf 'agent 3\n' > work3.js
+    msg="$(commit_session_changes 2>&1)"
+    disclosed="$(printf '%s' "$msg" | grep 'agent committed your pre-existing' | grep -q 'notes.txt' && echo yes || echo no)"
+    off_tip="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    on_disk="$( [ "$(cat notes.txt 2>/dev/null)" = 'my notes' ] && echo yes || echo no )"
+    turn1_kept="$(git cat-file -e HEAD:work1.js 2>/dev/null && echo yes || echo no)"
+    agent3="$(git cat-file -e HEAD:work3.js 2>/dev/null && echo yes || echo no)"
+    printf 'ANCHORT1=%s DISCLOSED=%s OFFTIP=%s ONDISK=%s TURN1KEPT=%s AGENT3=%s' \
+        "$([ -n "$anchor_after_t1" ] && echo yes || echo no)" "$disclosed" "$off_tip" "$on_disk" "$turn1_kept" "$agent3"
+)"
+if [ "$out68m" = "ANCHORT1=yes DISCLOSED=yes OFFTIP=no ONDISK=yes TURN1KEPT=yes AGENT3=yes" ]; then
+    pass "an earlier turn's already-advanced anchor never launders a LATER turn's mid-turn commit; still disclosed and off the tip"
+else
+    fail "REGRESSION: an earlier anchor let a later turn's mid-turn commit through unnoticed" "got: $out68m"
+fi
+
+# =============================================================================
+# Test T68-anchor-write-failure-keeps-marker (second-reviewer regression): a
+# STALE anchor is already on disk from an earlier turn, a turn is in flight,
+# and the agent commits a pre-existing file mid-turn -- then the anchor .tmp
+# write is forced to fail (a directory pre-created at the exact .tmp path, an
+# ordinary transient-fs-hiccup shape: disk full, permission issue, a stray
+# leftover, a concurrent writer). _loki_advance_tracked_since_anchor must
+# leave .loki/state/turn-in-flight SET when the write did not land: clearing
+# it anyway would decouple the stale anchor from the marker and let the next
+# check "prove" the mid-turn commit is safe to prune with zero disclosure --
+# exactly the fail-unsafe hole the whole T68 rework exists to close. Calls the
+# real call site (_loki_record_session_created), not the anchor function
+# directly, so the exact production code path is exercised.
+# =============================================================================
+echo "Test T68-anchor-write-failure-keeps-marker: a failed anchor write leaves turn-in-flight SET, mid-turn commit stays disclosed not pruned"
+R68W="$(make_repo t68anchorwritefail)"
+out68w="$(
+    cd "$R68W" || exit 1
+    source "$PREAMBLE"
+    ITERATION_COUNT=1
+    result=0
+    printf 'my notes\n' > notes.txt
+    setup_agent_branch >/dev/null 2>&1
+    # Seed a STALE anchor (the session mint commit, already behind).
+    stale_anchor="$(git rev-parse HEAD)"
+    mkdir -p .loki/state
+    printf '%s\n' "$stale_anchor" > .loki/state/tracked-since.sha
+    : > .loki/state/turn-in-flight
+    # Agent commits the pre-existing file mid-turn.
+    git add notes.txt && git commit -qm "agent checkpoint (includes pre-existing notes.txt)"
+    # Force the anchor .tmp write to fail: pre-create a directory at the exact
+    # .tmp path _loki_advance_tracked_since_anchor writes to.
+    mkdir -p .loki/state/tracked-since.sha.tmp
+    # Real call site: _loki_record_session_created calls
+    # _loki_advance_tracked_since_anchor internally.
+    _LOKI_SNAPSHOT_THIS_RUN=1 _loki_record_session_created >/dev/null 2>&1
+    marker_kept="$([ -f .loki/state/turn-in-flight ] && echo yes || echo no)"
+    anchor_unchanged="$([ "$(cat .loki/state/tracked-since.sha 2>/dev/null)" = "$stale_anchor" ] && echo yes || echo no)"
+    rmdir .loki/state/tracked-since.sha.tmp 2>/dev/null || true
+    git checkout -q develop
+    # BACKLOG 70: run setup_agent_branch in THIS shell, not a command-
+    # substitution subshell, so its _LOKI_SNAPSHOT_SEAL update sticks (see
+    # the T-interrupt-resume-commits-agent-files comment above for why).
+    setup_agent_branch > .loki/state/.test-resume-log 2>&1
+    resume_log="$(cat .loki/state/.test-resume-log 2>/dev/null)"
+    rm -f .loki/state/.test-resume-log
+    printf 'agent 2\n' > work2.js
+    msg="$(commit_session_changes 2>&1)"
+    disclosed="$(printf '%s' "$msg" | grep 'agent committed your pre-existing' | grep -q 'notes.txt' && echo yes || echo no)"
+    off_tip="$(git cat-file -e HEAD:notes.txt 2>/dev/null && echo yes || echo no)"
+    on_disk="$( [ "$(cat notes.txt 2>/dev/null)" = 'my notes' ] && echo yes || echo no )"
+    agent2="$(git cat-file -e HEAD:work2.js 2>/dev/null && echo yes || echo no)"
+    printf 'MARKERKEPT=%s ANCHORUNCHANGED=%s DISCLOSED=%s OFFTIP=%s ONDISK=%s AGENT2=%s' \
+        "$marker_kept" "$anchor_unchanged" "$disclosed" "$off_tip" "$on_disk" "$agent2"
+)"
+if [ "$out68w" = "MARKERKEPT=yes ANCHORUNCHANGED=yes DISCLOSED=yes OFFTIP=no ONDISK=yes AGENT2=yes" ]; then
+    pass "a failed anchor write leaves turn-in-flight set; the stale anchor never launders the mid-turn commit, still disclosed and off the tip"
+else
+    fail "REGRESSION: a failed anchor write cleared turn-in-flight anyway, letting the stale anchor prune a mid-turn commit silently" "got: $out68w"
+fi
+
+# =============================================================================
+# MUTATION CHECK (non-vacuity proof for the BACKLOG 68 rework): remove the
+# in-flight-marker check from _loki_tracked_by_user_since_anchor in a COPY of
+# BRANCH_LIB (so the anchor alone, without the marker, gates pruning) and
+# re-run T68-agent-commits-midturn-after-earlier-record's exact repro against
+# that mutated copy. That scenario (not the plain agent-commits-then-killed
+# one) is the one that actually exercises the marker: it has a REAL prior
+# anchor recorded (from turn 1's normal completion), so with the marker check
+# removed, the anchor alone is (wrongly) enough to let notes.txt's mid-turn
+# commit be pruned. The plain agent-commits-then-killed scenario has NO anchor
+# at all yet, so its repro would stay green under this mutation for an
+# unrelated reason (the "no anchor" guard) and prove nothing about the marker.
+# The mutated version must now FAIL (silently prune notes.txt), proving the
+# marker check is load-bearing, not vacuous.
+# =============================================================================
+echo "Mutation check: drop the in-flight-marker check -> T68-agent-commits-midturn-after-earlier-record must FAIL"
+MUT_BRANCH_LIB="$WORKROOT/branch-lib.mutated.sh"
+cp "$BRANCH_LIB" "$MUT_BRANCH_LIB"
+sed -i.bak "/\[ -f \.loki\/state\/turn-in-flight \] && return 1/d" "$MUT_BRANCH_LIB" && rm -f "$MUT_BRANCH_LIB.bak"
+if grep -q 'turn-in-flight.*&&.*return 1' "$MUT_BRANCH_LIB"; then
+    fail "mutation did not remove the in-flight-marker check (sed pattern drift)"
+else
+    R68MUT="$(make_repo t68mutation)"
+    mut_out="$(
+        cd "$R68MUT" || exit 1
+        log_info()  { echo "INFO: $*"; }
+        log_warn()  { echo "WARN: $*"; }
+        log_error() { echo "ERROR: $*"; }
+        audit_log() { return 0; }
+        audit_agent_action() { return 0; }
+        # shellcheck disable=SC1090
+        source "$MUT_BRANCH_LIB"
+        ITERATION_COUNT=1
+        result=0
+        printf 'my notes\n' > notes.txt
+        setup_agent_branch >/dev/null 2>&1
+        # Turn 1: begins, does unrelated work, completes normally (record runs,
+        # advancing the anchor) -- this is the anchor the mutation exploits.
+        : > .loki/state/turn-in-flight
+        printf 'agent 1\n' > work1.js
+        git add work1.js && git commit -qm "agent turn 1"
+        _loki_record_session_created >/dev/null 2>&1
+        # Turn 2: begins (marker set again), agent commits the pre-existing
+        # file, then killed before the record call for this turn.
+        : > .loki/state/turn-in-flight
+        git add notes.txt && git commit -qm "agent turn 2 (includes pre-existing notes.txt)"
+        git checkout -q develop
+        setup_agent_branch >/dev/null 2>&1
+        printf 'agent 3\n' > work3.js
+        msg="$(commit_session_changes 2>&1)"
+        printf '%s' "$msg" | grep -q 'agent committed your pre-existing' && echo DISCLOSED || echo SILENT
+    )"
+    if [ "$mut_out" = "SILENT" ]; then
+        pass "mutation detected: removing the in-flight-marker check silently prunes a later turn's mid-turn commit via an earlier turn's anchor (T68 is non-vacuous)"
+    else
+        fail "MUTATION NOT DETECTED: agent's mid-turn commit still disclosed without the marker check (T68 marker check is vacuous!)" "got: $mut_out"
+    fi
+fi
+
+# =============================================================================
+# MUTATION CHECK (non-vacuity proof for the ORIGINAL BACKLOG 68 bug fix).
+# Remove the anchor-based pruning entirely (force
+# _loki_tracked_by_user_since_anchor to always fail) in a COPY of BRANCH_LIB and
+# re-run T68-user-commit-between-sessions's exact repro. The mutated version
+# must now FAIL (false-blame the user's own commit), proving the anchor-prune
+# path itself is load-bearing for the original bug, not vacuous.
+# =============================================================================
+echo "Mutation check: disable anchor-based pruning entirely -> T68-user-commit-between-sessions must FAIL"
+MUT_BRANCH_LIB2="$WORKROOT/branch-lib.mutated2.sh"
+cp "$BRANCH_LIB" "$MUT_BRANCH_LIB2"
+sed -i.bak "s/^_loki_tracked_by_user_since_anchor() {/_loki_tracked_by_user_since_anchor() { return 1; #/" "$MUT_BRANCH_LIB2" && rm -f "$MUT_BRANCH_LIB2.bak"
+if ! grep -q '^_loki_tracked_by_user_since_anchor() { return 1; #' "$MUT_BRANCH_LIB2"; then
+    fail "mutation did not disable anchor-based pruning (sed pattern drift)"
+else
+    R68MUT2="$(make_repo t68mutation2)"
+    mut_out2="$(
+        cd "$R68MUT2" || exit 1
+        log_info()  { echo "INFO: $*"; }
+        log_warn()  { echo "WARN: $*"; }
+        log_error() { echo "ERROR: $*"; }
+        audit_log() { return 0; }
+        audit_agent_action() { return 0; }
+        # shellcheck disable=SC1090
+        source "$MUT_BRANCH_LIB2"
+        ITERATION_COUNT=1
+        result=0
+        printf 'my notes\n' > notes.txt
+        setup_agent_branch >/dev/null 2>&1
+        session="$(git rev-parse --abbrev-ref HEAD)"
+        printf 'agent 1\n' > work1.js
+        commit_session_changes >/dev/null 2>&1
+        git checkout -q "$session"
+        git add notes.txt && git commit -qm "user: track my own notes"
+        git checkout -q develop
+        setup_agent_branch >/dev/null 2>&1
+        printf 'agent 2\n' > work2.js
+        msg="$(commit_session_changes 2>&1)"
+        printf '%s' "$msg" | grep -q 'agent committed your pre-existing' && echo FALSEBLAME || echo CLEAN
+    )"
+    if [ "$mut_out2" = "FALSEBLAME" ]; then
+        pass "mutation detected: disabling anchor-based pruning brings back the original false-blame bug (T68-user-commit-between-sessions is non-vacuous)"
+    else
+        fail "MUTATION NOT DETECTED: original bug's false-blame did not reappear when anchor pruning was disabled (test is vacuous!)" "got: $mut_out2"
+    fi
+fi
+
+# =============================================================================
+# MUTATION CHECK (non-vacuity proof for T68-agent-commits-completed-turn-then-
+# killed): seed the anchor from the recorded session-start commit instead of
+# the actual HEAD at record time -- exactly the mistake the mint-path comment
+# warns against ("never seed the anchor from session-start-sha"). With this
+# seeding, start..HEAD still contains the agent's OWN first commit (it was made
+# after session start), so the anchor would wrongly treat that commit's added
+# paths as "the user's between-session work" and prune notes.txt. Re-run
+# T68-agent-commits-completed-turn-then-killed's exact repro against this
+# mutated copy; it must now FAIL (silently prune notes.txt instead of
+# disclosing it), proving the anchor's VALUE (not just the marker's presence)
+# is load-bearing.
+# =============================================================================
+echo "Mutation check: seed the anchor from session-start-sha instead of HEAD -> T68-agent-commits-completed-turn-then-killed must FAIL"
+MUT_BRANCH_LIB3="$WORKROOT/branch-lib.mutated3.sh"
+cp "$BRANCH_LIB" "$MUT_BRANCH_LIB3"
+python3 - "$MUT_BRANCH_LIB3" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+with open(path) as fh:
+    src = fh.read()
+old = '''_loki_advance_tracked_since_anchor() {
+    local sha=""
+    sha="$(git rev-parse --verify -q HEAD 2>/dev/null)" || true'''
+new = '''_loki_advance_tracked_since_anchor() {
+    local sha=""
+    sha="$(cat .loki/state/session-start-sha 2>/dev/null)" || true'''
+if old not in src:
+    sys.exit(1)
+with open(path, "w") as fh:
+    fh.write(src.replace(old, new, 1))
+PYEOF
+if [ $? -ne 0 ]; then
+    fail "mutation did not seed the anchor from session-start-sha (source pattern drift)"
+else
+    R68MUT3="$(make_repo t68mutation3)"
+    mut_out3="$(
+        cd "$R68MUT3" || exit 1
+        log_info()  { echo "INFO: $*"; }
+        log_warn()  { echo "WARN: $*"; }
+        log_error() { echo "ERROR: $*"; }
+        audit_log() { return 0; }
+        audit_agent_action() { return 0; }
+        # shellcheck disable=SC1090
+        source "$MUT_BRANCH_LIB3"
+        ITERATION_COUNT=1
+        result=0
+        printf 'my notes\n' > notes.txt
+        setup_agent_branch >/dev/null 2>&1
+        : > .loki/state/turn-in-flight
+        git add notes.txt && git commit -qm "agent checkpoint (includes pre-existing notes.txt)"
+        _loki_record_session_created >/dev/null 2>&1
+        setup_agent_branch >/dev/null 2>&1
+        printf 'agent 2\n' > work2.js
+        msg="$(commit_session_changes 2>&1)"
+        printf '%s' "$msg" | grep -q 'agent committed your pre-existing' && echo DISCLOSED || echo SILENT
+    )"
+    if [ "$mut_out3" = "SILENT" ]; then
+        pass "mutation detected: seeding the anchor from session-start-sha silently prunes the agent's own completed-turn commit (T68 is non-vacuous)"
+    else
+        fail "MUTATION NOT DETECTED: agent's completed-turn commit still disclosed with a session-start-sha-seeded anchor (T68 anchor-value check is vacuous!)" "got: $mut_out3"
+    fi
+fi
+
+# =============================================================================
 # MUTATION CHECK (non-vacuity proof for T-nested-secret-file).
 # Disable ONLY _commit_path_looks_secret (the path heuristic) AFTER sourcing
 # BRANCH_LIB, leaving the content scan intact, re-run the SAME nested-secret
@@ -1350,6 +2777,261 @@ if [ "${mut_secret_out:-0}" -ge 1 ] 2>/dev/null; then
     pass "mutation detected: with the scan disabled, config.js IS committed (T-secret-abort is non-vacuous)"
 else
     fail "MUTATION NOT DETECTED: config.js not committed even with the scan disabled (T-secret-abort is vacuous!)" "grep_count=$mut_secret_out"
+fi
+
+# =============================================================================
+# Test T-snapshot-digest-pth-fallback (BACKLOG 131(b)): _loki_snapshot_digest's
+# python3 fallback (used only when neither sha256sum nor shasum resolves
+# anywhere on PATH) must route through _loki_snapshot_py_tool and run with
+# -I -S, not a bare `python3 -I`. A reviewer reproduced, on a sibling function
+# in this same tamper-detection system, that a .pth file planted in a
+# same-UID-writable site-packages directory still fires under `python3 -I`
+# alone: -I implies -s (skip USER site-packages) but does not skip the
+# resolved interpreter's OWN site-packages directory, which on a
+# Homebrew-installed python3 is itself user-writable. Only -I -S (also skip
+# ALL site-packages, including the interpreter's own) closes it.
+#
+# Fixture: a throwaway venv created under WORKROOT (never a shared/system
+# site-packages -- this environment runs many concurrent agents sharing some
+# system Python locations, and a leaked .pth there would affect every one of
+# them). Under -I, site.py still adds a venv's OWN site-packages (only user
+# site is skipped); -S removes it too, same shape as the real Homebrew gap.
+# A .pth "import module" planted in the venv's site-packages overrides
+# builtins.print to always emit a fixed, well-formed, STALE two-field digest.
+# Forging the digest (not silencing it) matches the real attack shape already
+# proven for the awk bypass earlier in this file: an empty/failed digest only
+# fails the seal closed (a DoS), but a forged, well-formed, CONSISTENT stale
+# digest seals cleanly and then matches itself again after a real edit,
+# hiding the tamper. The fallback's python output is never hex-validated by
+# the caller (that validation lives only on the sha256sum/shasum path above),
+# so a well-formed-looking forged string is trusted as-is.
+#
+# Non-vacuity: a positive control proves the plant fires under -I alone and
+# is inert under -I -S on THIS interpreter before any PASS/FAIL is trusted. A
+# RED run against a sed'd copy of _loki_snapshot_digest (restored to bare
+# `python3 -I`) must reproduce the bypass. A second mutation that removes only
+# the -S flag (keeping the _loki_snapshot_py_tool routing) must ALSO
+# reproduce the bypass, proving -S specifically -- not just the routing -- is
+# load-bearing. The fixed code must resist both.
+# =============================================================================
+echo "Test T-snapshot-digest-pth-fallback (BACKLOG 131(b)): python3 fallback closes the .pth hijack via _loki_snapshot_py_tool (-I -S)"
+
+PTHVENV="$WORKROOT/pthvenv"
+_pth_venv_ok=1
+python3 -m venv --without-pip "$PTHVENV" >/dev/null 2>&1 || _pth_venv_ok=0
+PTHVENV_PY="$PTHVENV/bin/python3"
+[ "$_pth_venv_ok" = 1 ] && [ -x "$PTHVENV_PY" ] || _pth_venv_ok=0
+
+if [ "$_pth_venv_ok" != 1 ]; then
+    fail "SKIP: could not create a throwaway venv (python3 -m venv unavailable) -- T-snapshot-digest-pth-fallback did not run"
+else
+    PTH_SITE_PKGS="$("$PTHVENV_PY" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])' 2>/dev/null)"
+    if [ -z "$PTH_SITE_PKGS" ] || [ ! -d "$PTH_SITE_PKGS" ]; then
+        fail "SKIP: could not resolve the throwaway venv's site-packages dir -- T-snapshot-digest-pth-fallback did not run"
+    else
+        PTH_FILE="$PTH_SITE_PKGS/zzz_loki_s34.pth"
+        PTH_MOD="$PTH_SITE_PKGS/zzz_loki_s34.py"
+        STALE_DIGEST="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        printf 'import zzz_loki_s34\n' > "$PTH_FILE"
+        {
+            printf 'import builtins\n'
+            printf '_real_print = builtins.print\n'
+            printf 'def _forged_print(*a, **k):\n'
+            printf '    _real_print(%s)\n' "'$STALE_DIGEST'"
+            printf 'builtins.print = _forged_print\n'
+        } > "$PTH_MOD"
+
+        # Positive controls, run BEFORE trusting any result below.
+        ctrl_i_only="$("$PTHVENV_PY" -I -c 'print("real")' 2>/dev/null)"
+        ctrl_i_s="$("$PTHVENV_PY" -I -S -c 'print("real")' 2>/dev/null)"
+
+        # Drives _loki_snapshot_digest through the venv python with both hash
+        # tools forced unavailable. Args: <label> <digest-lib-to-source>
+        # Prints CALLED=<yes/no> MATCH=<yes/no>: CALLED proves
+        # _loki_snapshot_py_tool was actually invoked (so a fix using a bare,
+        # unresolved python3 -I -S would not get credit); MATCH=yes means the
+        # digest computed before a real file edit equals the digest computed
+        # after it -- the tamper went undetected (the bypass signature).
+        #
+        # A RED/mutation lib drops the _loki_snapshot_py_tool routing and
+        # falls back to a bare, unresolved `python3`, which trusts whatever is
+        # first on PATH -- the same PATH-hijack shape already proven for the
+        # fake-awk-on-PATH test above. The second arg, when non-empty, is
+        # prepended to PATH so that bare `python3` resolves to the poisoned
+        # venv interpreter instead of the real system one, reproducing that
+        # exact attacker positioning; the GREEN (fixed) case never needs this,
+        # since it calls the stubbed _loki_snapshot_py_tool directly and
+        # ignores PATH entirely.
+        _run_pth_case() {
+            local lib="$1" path_prefix="${2:-}" repo
+            repo="$WORKROOT/tpth-$(basename "$lib" .sh)"
+            mkdir -p "$repo"
+            (
+                cd "$repo" || exit 1
+                log_info()  { :; }
+                log_warn()  { :; }
+                log_error() { :; }
+                audit_log() { return 0; }
+                audit_agent_action() { return 0; }
+                # shellcheck disable=SC1090
+                source "$ADVISORY_LIB"
+                # shellcheck disable=SC1090
+                source "$lib"
+                SCRIPT_DIR="$PROJECT_DIR/autonomy"
+                _loki_snapshot_hash_tool() { return 1; }
+                called_marker="$repo/.pytool-called"
+                rm -f "$called_marker"
+                _loki_snapshot_py_tool() { : > "$called_marker"; printf '%s\n' "$PTHVENV_PY"; }
+                [ -n "$path_prefix" ] && PATH="$path_prefix:$PATH"
+                mkdir -p .loki/state
+                printf 'pre-existing\n' > .loki/state/preexisting-untracked.z
+                printf 'pre-existing-sha\n' > .loki/state/preexisting-untracked.sha.z
+                sealed="$(_loki_snapshot_digest)"
+                called="$( [ -f "$called_marker" ] && echo yes || echo no )"
+                printf 'agent edit\n' >> .loki/state/preexisting-untracked.z
+                live="$(_loki_snapshot_digest)"
+                match="$( [ "$live" = "$sealed" ] && echo yes || echo no )"
+                printf 'CALLED=%s MATCH=%s' "$called" "$match"
+            )
+        }
+
+        if [ "$ctrl_i_only" != "$STALE_DIGEST" ] || [ "$ctrl_i_s" != "real" ]; then
+            fail "SKIP: fixture did not reproduce the .pth gap on this interpreter (ctrl_i_only=$ctrl_i_only ctrl_i_s=$ctrl_i_s) -- cannot trust the cases below"
+        else
+            # GREEN: current (fixed) BRANCH_LIB. -I -S means the .pth never
+            # fires, so both seal and live compute the REAL sha256 of the file
+            # at that moment -- they legitimately differ after the edit.
+            green_out="$(_run_pth_case "$BRANCH_LIB")"
+            if [ "$green_out" = "CALLED=yes MATCH=no" ]; then
+                pass "fixed fallback: routes through _loki_snapshot_py_tool (confirmed called) and -I -S keeps the .pth inert, so a real post-seal edit is correctly detected as a mismatch"
+            else
+                fail "fixed fallback did not behave as expected" "got: $green_out"
+            fi
+
+            # RED: restore the pre-fix shape (bare python3 -I, no resolver) by
+            # replacing, in a copy of BRANCH_LIB, ONLY the two exact lines the
+            # real fix touched: the resolve line becomes a no-op assignment
+            # (pytool unused by the bare invocation below it, but kept defined
+            # so `local pytool=""` above it is unaffected) and the invocation
+            # line drops "$pytool" -I -S for a bare python3 -I. This mutates
+            # the SAME two lines the fix introduced, so it cannot also match
+            # inside _loki_untracked_merge / _loki_covered_paths, which never
+            # contain "|| return 1" on their pytool line.
+            RED_PTH_LIB="$WORKROOT/red-pth-lib.sh"
+            sed -e 's/pytool="\$(_loki_snapshot_py_tool)" || return 1/pytool=""/' \
+                -e 's/"\$pytool" -I -S -c/python3 -I -c/' \
+                "$BRANCH_LIB" > "$RED_PTH_LIB"
+            red_digest_range="$(awk '/^_loki_snapshot_digest\(\) \{/{p=1} p{print} p&&/^}/{exit}' "$RED_PTH_LIB")"
+            red_bare_present="$(printf '%s\n' "$red_digest_range" | grep -c 'python3 -I -c')"
+            red_pytool_gone="$(printf '%s\n' "$red_digest_range" | grep -c '_loki_snapshot_py_tool)" || return 1')"
+            if [ "$red_bare_present" -ge 1 ] && [ "$red_pytool_gone" = 0 ]; then
+                red_out="$(_run_pth_case "$RED_PTH_LIB" "$PTHVENV/bin")"
+                if [ "$red_out" = "CALLED=no MATCH=yes" ]; then
+                    pass "RED confirmed: reverting to a bare python3 -I fallback lets the .pth hijack forge a stable stale digest, so a real post-seal edit is NOT detected (non-vacuous)"
+                else
+                    fail "RED reproduction did not show the pre-fix .pth-bypass behavior" "got: $red_out"
+                fi
+            else
+                fail "RED fixture setup failed (sed/awk pattern drift): could not produce a bare-python3-I copy of _loki_snapshot_digest" \
+                    "bare_present=$red_bare_present pytool_gone=$red_pytool_gone"
+            fi
+
+            # Mutation: keep the _loki_snapshot_py_tool routing, drop ONLY the
+            # -S flag. Must ALSO reproduce the bypass -- proves -S specifically
+            # (not just the routing) is the load-bearing fix for BACKLOG 131(b).
+            MUT_NOS_LIB="$WORKROOT/mut-nos-lib.sh"
+            sed 's/"\$pytool" -I -S -c/"$pytool" -I -c/' "$BRANCH_LIB" > "$MUT_NOS_LIB"
+            mut_nos_range="$(awk '/^_loki_snapshot_digest\(\) \{/{p=1} p{print} p&&/^}/{exit}' "$MUT_NOS_LIB")"
+            mut_nos_present="$(printf '%s\n' "$mut_nos_range" | grep -c '"\$pytool" -I -c')"
+            mut_nos_still_routes="$(printf '%s\n' "$mut_nos_range" | grep -c '_loki_snapshot_py_tool')"
+            if [ "$mut_nos_present" -ge 1 ] && [ "$mut_nos_still_routes" -ge 1 ]; then
+                mut_nos_out="$(_run_pth_case "$MUT_NOS_LIB")"
+                if [ "$mut_nos_out" = "CALLED=yes MATCH=yes" ]; then
+                    pass "mutation detected: dropping only -S (keeping the resolver routing) reopens the .pth hijack -- -S is the load-bearing flag, not just the routing (non-vacuous)"
+                else
+                    fail "MUTATION NOT DETECTED: dropping -S alone did not reopen the bypass" "got: $mut_nos_out"
+                fi
+            else
+                fail "mutation fixture setup failed (sed pattern drift): could not produce a -S-dropped copy of _loki_snapshot_digest" \
+                    "present=$mut_nos_present still_routes=$mut_nos_still_routes"
+            fi
+
+            # Legitimate case (no attacker): both hash tools genuinely
+            # unavailable, no .pth planted anywhere, the REAL system python3
+            # used (not the venv). The fixed fallback's digest must be
+            # byte-identical to (a) what the unfixed code would have produced
+            # in this same non-adversarial case, and (b) an independent oracle
+            # (sha256sum/shasum computed outside the function under test),
+            # including the "-" absent-file sentinel.
+            LEGIT_REPO="$WORKROOT/tpth-legit"
+            mkdir -p "$LEGIT_REPO"
+            printf 'pre-existing\n' > "$LEGIT_REPO/a.z"
+            oracle_tool=""
+            for c in sha256sum shasum; do
+                command -v "$c" >/dev/null 2>&1 && { oracle_tool="$c"; break; }
+            done
+            if [ -n "$oracle_tool" ]; then
+                if [ "$oracle_tool" = "shasum" ]; then
+                    oracle_hash="$(shasum -a 256 -- "$LEGIT_REPO/a.z" | awk '{print $1}')"
+                else
+                    oracle_hash="$(sha256sum -- "$LEGIT_REPO/a.z" | awk '{print $1}')"
+                fi
+            else
+                oracle_hash=""
+            fi
+            legit_out="$(
+                cd "$LEGIT_REPO" || exit 1
+                log_info()  { :; }
+                log_warn()  { :; }
+                log_error() { :; }
+                audit_log() { return 0; }
+                audit_agent_action() { return 0; }
+                # shellcheck disable=SC1090
+                source "$ADVISORY_LIB"
+                # shellcheck disable=SC1090
+                source "$BRANCH_LIB"
+                SCRIPT_DIR="$PROJECT_DIR/autonomy"
+                _loki_snapshot_hash_tool() { return 1; }
+                mkdir -p .loki/state
+                cp a.z .loki/state/preexisting-untracked.z
+                _loki_snapshot_digest
+            )"
+            legit_out_unfixed="$(
+                cd "$LEGIT_REPO" || exit 1
+                log_info()  { :; }
+                log_warn()  { :; }
+                log_error() { :; }
+                audit_log() { return 0; }
+                audit_agent_action() { return 0; }
+                # shellcheck disable=SC1090
+                source "$ADVISORY_LIB"
+                # shellcheck disable=SC1090
+                source "$RED_PTH_LIB"
+                SCRIPT_DIR="$PROJECT_DIR/autonomy"
+                _loki_snapshot_hash_tool() { return 1; }
+                mkdir -p .loki/state
+                cp a.z .loki/state/preexisting-untracked.z
+                _loki_snapshot_digest
+            )"
+            legit_expected="$oracle_hash -"
+            if [ -z "$oracle_tool" ]; then
+                fail "SKIP: no sha256sum/shasum available on this host to build an independent oracle -- legitimate-case parity not checked"
+            elif [ "$legit_out" = "$legit_expected" ] && [ "$legit_out" = "$legit_out_unfixed" ]; then
+                pass "legitimate case (no attacker, both hash tools genuinely unavailable): fixed fallback's digest matches an independent sha256 oracle AND is byte-identical to the pre-fix fallback's output"
+            else
+                fail "legitimate-case digest mismatch" "fixed=$legit_out unfixed=$legit_out_unfixed oracle_expected=$legit_expected"
+            fi
+        fi
+
+        rm -f "$PTH_FILE" "$PTH_MOD"
+        _pth_leftover=""
+        for _f in "$PTH_SITE_PKGS"/zzz_loki_s34*; do
+            [ -e "$_f" ] && _pth_leftover="$_pth_leftover $_f"
+        done
+        if [ -n "$_pth_leftover" ]; then
+            fail "leftover .pth/module found in the throwaway venv's site-packages after cleanup" "$_pth_leftover"
+        fi
+    fi
 fi
 
 # =============================================================================

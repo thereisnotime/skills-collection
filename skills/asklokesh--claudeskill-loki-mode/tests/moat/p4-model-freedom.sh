@@ -38,10 +38,12 @@
 #   floor   small   small small   small
 #   routed  high    medium medium small
 #
-# Pass bar: on EACH route, each setup must be delivered at every step by at
-# least one documented spelling. A spelling that silently resolves to another
-# model (for example small -> sonnet without LOKI_ALLOW_HAIKU) is a reported
-# finding: it is named in the case line and on stderr, even on PASS.
+# Pass bar: on EACH route, EVERY documented spelling below must dispatch its
+# intended model at every step. A spelling that silently resolves to another
+# model (for example small -> sonnet without LOKI_ALLOW_HAIKU) fails the case;
+# it is not enough for some other spelling of the same setup to work (BACKLOG
+# 45: a documented spelling silently sending the wrong model must fail, not
+# just get a note).
 # Documented spellings exercised:
 #   T1 top     LOKI_SESSION_MODEL=high (generic vocabulary, "latest model in the class")
 #   T2 top     LOKI_SESSION_MODEL=opus (vendor alias pin)
@@ -345,32 +347,14 @@ case_three_setups() {
     case " $bash_bad " in *" T2-opus "*|*" F2-small-allow-haiku "*)
         echo "FAIL|bash harness control failed: LOKI_SESSION_MODEL=opus or small+LOKI_ALLOW_HAIKU=true did not dispatch its setup"; return 0 ;; esac
     case " $bun_bad " in *" F2-small-allow-haiku "*) echo "FAIL|Bun harness control failed: --session-model small + LOKI_ALLOW_HAIKU=true did not dispatch $floor at every step"; return 0 ;; esac
-    local bash_missing bun_missing silent
-    bash_missing="$(setups_without_spelling "$bash_bad")"
-    bun_missing="$(setups_without_spelling "$bun_bad")"
-    silent="bash[${bash_bad:-none}] bun[${bun_bad:-none}]"
-    if [ -z "$bash_missing" ] && [ -z "$bun_missing" ]; then
-        echo "PASS|every setup has a working documented spelling on both routes (top=$top mid=$mid floor=$floor); spellings that still mis-resolve silently: $silent"
+    # Pass bar (BACKLOG 45): every documented spelling must dispatch its
+    # intended model at every step, on both routes. A spelling that silently
+    # resolves to a different model is a failure, not a note alongside a PASS.
+    if [ -z "$bash_bad" ] && [ -z "$bun_bad" ]; then
+        echo "PASS|every documented spelling dispatches its intended model at every step, on both routes (top=$top mid=$mid floor=$floor)"
     else
-        echo "FAIL|no working documented spelling for: bash[${bash_missing:-none}] bun[${bun_missing:-none}]; spellings that mis-resolve silently: $silent (per-step detail on stderr)"
+        echo "FAIL|documented spelling silently dispatched the wrong model: bash[${bash_bad:-none}] bun[${bun_bad:-none}] (per-step detail on stderr)"
     fi
-}
-
-# The pass bar: each setup needs at least one documented spelling that delivers
-# it at every step, on each route. A spelling that silently mis-resolves while
-# another spelling works is reported (stderr, reason) but does not fail the
-# case on its own. Echo the setups with no working spelling.
-setups_without_spelling() {  # $1 space-separated failing spelling names
-    local setup name s ok missing=""
-    for setup in top floor routed; do
-        ok=""
-        while IFS='|' read -r name s _; do
-            [ "$s" = "$setup" ] || continue
-            case " $1 " in *" $name "*) ;; *) ok=1 ;; esac
-        done <<< "$SPELLINGS"
-        [ -n "$ok" ] || missing="$missing $setup"
-    done
-    printf '%s\n' "${missing# }"
 }
 
 # ---------------------------------------------------------------------------

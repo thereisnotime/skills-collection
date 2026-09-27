@@ -37,7 +37,7 @@ export class LokiChecklistViewer extends LokiElement {
     this._api = null;
     this._pollInterval = null;
     this._checklist = null;
-    this._waivers = [];
+    this._waivers = null;
     this._expandedCategories = new Set();
     this._lastDataHash = null;
   }
@@ -105,7 +105,9 @@ export class LokiChecklistViewer extends LokiElement {
       if (dataHash === this._lastDataHash) return;
       this._lastDataHash = dataHash;
       this._checklist = data;
-      this._waivers = (waiverData && waiverData.waivers) ? waiverData.waivers.filter(w => w.active) : [];
+      // null = waivers could not be read (request failed or server reported an error), not "0 waived".
+      this._waivers = (waiverData && !waiverData.error && Array.isArray(waiverData.waivers))
+        ? waiverData.waivers.filter(w => w.active) : null;
       this._error = null;
       this.render();
     } catch (err) {
@@ -117,11 +119,11 @@ export class LokiChecklistViewer extends LokiElement {
   }
 
   _isItemWaived(itemId) {
-    return this._waivers.some(w => w.item_id === itemId);
+    return (this._waivers || []).some(w => w.item_id === itemId);
   }
 
   _getWaiverForItem(itemId) {
-    return this._waivers.find(w => w.item_id === itemId) || null;
+    return (this._waivers || []).find(w => w.item_id === itemId) || null;
   }
 
   async _waiveItem(itemId) {
@@ -436,10 +438,13 @@ export class LokiChecklistViewer extends LokiElement {
 
   _renderGateBanner() {
     const unwaivedCritical = this._getUnwaivedCriticalFailures();
+    if (unwaivedCritical.length > 0 && !this._waivers) {
+      return `<div class="gate-banner gate-blocked">COUNCIL GATE: UNKNOWN - ${unwaivedCritical.length} critical item${unwaivedCritical.length !== 1 ? 's' : ''} failing, waivers could not be read</div>`;
+    }
     if (unwaivedCritical.length > 0) {
       return `<div class="gate-banner gate-blocked">COUNCIL GATE: BLOCKED - ${unwaivedCritical.length} critical item${unwaivedCritical.length !== 1 ? 's' : ''} must be verified or waived before completion</div>`;
     }
-    return '<div class="gate-banner gate-passed">COUNCIL GATE: PASSED - No blocking critical failures</div>';
+    return '<div class="gate-banner gate-passed">COUNCIL GATE: NOT BLOCKED - no critical item is failing</div>';
   }
 
   render() {
@@ -468,12 +473,12 @@ export class LokiChecklistViewer extends LokiElement {
 
   _renderBadges(summary) {
     if (!summary) return '';
-    const waivedCount = this._waivers.length;
+    const waivedCount = this._waivers ? this._waivers.length : null;
     return `
       <div class="summary-badges">
         ${summary.verified ? `<span class="badge badge-verified">${summary.verified} verified</span>` : ''}
         ${summary.failing ? `<span class="badge badge-failing">${summary.failing} failing</span>` : ''}
-        ${waivedCount ? `<span class="badge badge-waived">${waivedCount} waived</span>` : ''}
+        ${waivedCount == null ? '<span class="badge badge-waived">waivers unknown</span>' : waivedCount ? `<span class="badge badge-waived">${waivedCount} waived</span>` : ''}
         ${summary.pending ? `<span class="badge badge-pending">${summary.pending} pending</span>` : ''}
       </div>
     `;
@@ -490,7 +495,7 @@ export class LokiChecklistViewer extends LokiElement {
           <div class="progress-failing" style="width: ${pctFailing}%"></div>
         </div>
         <div class="progress-label">
-          <span>${summary.verified}/${summary.total} verified | ${summary.failing || 0} failing | ${this._waivers.length} waived | ${summary.pending || 0} pending</span>
+          <span>${summary.verified}/${summary.total} verified | ${summary.failing ?? '--'} failing | ${this._waivers ? `${this._waivers.length} waived` : 'waivers unknown'} | ${summary.pending ?? '--'} pending</span>
           <span>${Math.round(pctVerified)}%</span>
         </div>
       </div>

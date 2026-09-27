@@ -50,6 +50,35 @@ export function buildAuditQuery(filters) {
 }
 
 /**
+ * The verify banner's verdict, from what the server computed. VALID only for
+ * a chain it checked (valid === true with files checked); TAMPERED only for a
+ * chain it found broken (valid === false). Zero files checked, a failed
+ * request, or a body with no verdict is NOT VERIFIED: nothing was checked.
+ * @param {Object} r - /api/v2/audit/verify body, or {requestError}
+ * @returns {{kind: 'valid'|'invalid'|'unchecked', text: string}}
+ */
+export function auditVerifyVerdict(r) {
+  if (!r || r.requestError) {
+    return { kind: 'unchecked', text: `[NOT VERIFIED] Could not check the audit chain: ${(r && r.requestError) || 'no response'}` };
+  }
+  const files = typeof r.files_checked === 'number' ? r.files_checked : null;
+  if (r.valid === false) {
+    const where = r.first_tampered_file
+      ? ` at ${String(r.first_tampered_file).split('/').pop()}${r.first_tampered_line ? ` line ${r.first_tampered_line}` : ''}`
+      : '';
+    return { kind: 'invalid', text: `[TAMPERED] Audit chain broken${where}.` };
+  }
+  if (r.valid === true && files !== null && files > 0) {
+    const entries = typeof r.entries_checked === 'number' ? `, ${r.entries_checked} entries` : '';
+    return { kind: 'valid', text: `[VALID] Audit chain integrity verified (${files} file${files === 1 ? '' : 's'}${entries}).` };
+  }
+  if (r.valid === true && files === 0) {
+    return { kind: 'unchecked', text: '[NOT VERIFIED] Nothing was checked: no audit log file carries integrity hashes yet.' };
+  }
+  return { kind: 'unchecked', text: '[NOT VERIFIED] The server returned no verdict.' };
+}
+
+/**
  * @class LokiAuditViewer
  * @extends LokiElement
  * @property {string} api-url - API base URL
@@ -166,7 +195,8 @@ export class LokiAuditViewer extends LokiElement {
     } catch (err) {
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
-      this._verifyResult = { valid: false, error: err.message };
+      // A failed request checked nothing: it is NOT VERIFIED, never TAMPERED.
+      this._verifyResult = { requestError: err.message };
     } finally {
       this._verifying = false;
     }
@@ -309,6 +339,12 @@ export class LokiAuditViewer extends LokiElement {
         background: var(--loki-red-muted, rgba(239, 68, 68, 0.15));
         color: var(--loki-red, #ef4444);
         border: 1px solid var(--loki-red-muted, rgba(239, 68, 68, 0.15));
+      }
+
+      .verify-unchecked {
+        background: var(--loki-yellow-muted, rgba(234, 179, 8, 0.15));
+        color: var(--loki-yellow, #eab308);
+        border: 1px solid var(--loki-yellow-muted, rgba(234, 179, 8, 0.15));
       }
 
       .audit-table-wrapper {
@@ -459,10 +495,10 @@ export class LokiAuditViewer extends LokiElement {
 
     let verifyHtml = '';
     if (this._verifyResult) {
-      const isValid = this._verifyResult.valid !== false;
+      const v = auditVerifyVerdict(this._verifyResult);
       verifyHtml = `
-        <div class="verify-result ${isValid ? 'verify-valid' : 'verify-invalid'}">
-          ${isValid ? '[VALID] Audit chain integrity verified.' : `[TAMPERED] ${this._escapeHtml(this._verifyResult.error || 'Integrity check failed.')}`}
+        <div class="verify-result verify-${v.kind}">
+          ${this._escapeHtml(v.text)}
         </div>
       `;
     }

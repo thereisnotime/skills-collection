@@ -131,6 +131,9 @@ export class LokiAppStatus extends LokiElement {
       if (api !== this._api) return;
       if (!this._error) {
         this._error = `Failed to load app status: ${err.message}`;
+        // A failed read is unknown, not the last status and not "Not Started".
+        this._status = null;
+        this._lastDataHash = null;
         this.render();
       }
     }
@@ -396,7 +399,8 @@ export class LokiAppStatus extends LokiElement {
     if (!s) return;
 
     const st = this._status;
-    const isActive = st && st.status && st.status !== 'not_initialized';
+    const status = st?.status || 'unknown';
+    const isActive = !!STATUS_CONFIG[status] && status !== 'not_initialized' && status !== 'unknown';
 
     s.innerHTML = `
       <style>${this.getBaseStyles()}${this._getStyles()}</style>
@@ -410,7 +414,7 @@ export class LokiAppStatus extends LokiElement {
         </div>
         ${isActive ? this._renderStatusCard(st) : ''}
         ${isActive && this._logs.length > 0 ? this._renderLogs() : ''}
-        ${!isActive ? this._renderEmpty() : ''}
+        ${!isActive ? this._renderEmpty(status) : ''}
         ${this._error ? `<div class="error-banner">${this._escapeHtml(this._error)}</div>` : ''}
       </div>
     `;
@@ -419,8 +423,8 @@ export class LokiAppStatus extends LokiElement {
   }
 
   _renderStatusBadge(st) {
-    const status = st?.status || 'not_initialized';
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.not_initialized;
+    const status = st?.status || 'unknown';
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.unknown;
     return `
       <span class="status-badge" style="background: color-mix(in srgb, ${cfg.color} 15%, transparent); color: ${cfg.color}">
         <span class="status-dot ${cfg.pulse ? 'pulse' : ''}" style="background: ${cfg.color}"></span>
@@ -506,7 +510,10 @@ export class LokiAppStatus extends LokiElement {
     `;
   }
 
-  _renderEmpty() {
+  _renderEmpty(status) {
+    if (status !== 'not_initialized') {
+      return '<div class="empty-state"><p>App status unknown</p></div>';
+    }
     return `
       <div class="empty-state">
         <p>App not running yet</p>

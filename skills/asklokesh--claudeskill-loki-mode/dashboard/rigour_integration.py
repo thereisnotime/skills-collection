@@ -245,32 +245,36 @@ class RigourIntegration:
             for sev in findings:
                 findings[sev] = int(_extract_num(raw_findings, sev, 0))
 
-        # Extract category scores
+        # Extract category scores. A category Rigour did not report is None
+        # (the panel shows "--"), never a scored 0.
         raw_categories = raw.get("categories", raw.get("scores", {}))
+        if not isinstance(raw_categories, dict):
+            raw_categories = {}
         categories = {
-            "security": _extract_num(raw_categories, "security", 0),
-            "code_quality": _extract_num(raw_categories, "code_quality", _extract_num(raw_categories, "codeQuality", 0)),
-            "compliance": _extract_num(raw_categories, "compliance", 0),
-            "best_practices": _extract_num(raw_categories, "best_practices", _extract_num(raw_categories, "bestPractices", 0)),
+            "security": _extract_num(raw_categories, "security", None),
+            "code_quality": _extract_num(raw_categories, "code_quality", _extract_num(raw_categories, "codeQuality", None)),
+            "compliance": _extract_num(raw_categories, "compliance", None),
+            "best_practices": _extract_num(raw_categories, "best_practices", _extract_num(raw_categories, "bestPractices", None)),
         }
 
-        # Compute overall score
+        # Compute overall score: the reported one, else the average of the
+        # categories that were reported, else None (no score, no grade).
         raw_score = raw.get("score", raw.get("overall_score"))
+        score = None
         if raw_score is not None:
             try:
                 score = float(raw_score)
             except (ValueError, TypeError):
-                score = 0.0
+                score = None
         else:
-            # Average of non-zero categories
-            non_zero = [v for v in categories.values() if v > 0]
-            score = round(sum(non_zero) / len(non_zero), 1) if non_zero else 0.0
+            reported = [v for v in categories.values() if v is not None]
+            score = round(sum(reported) / len(reported), 1) if reported else None
 
         result: dict[str, Any] = {
             "available": True,
-            "score": round(score, 1),
+            "score": round(score, 1) if score is not None else None,
             "max_score": 100,
-            "grade": _score_to_grade(score),
+            "grade": _score_to_grade(score) if score is not None else None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "preset": preset,
             "findings": findings,
@@ -301,8 +305,9 @@ class RigourIntegration:
             "grade": None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "preset": preset,
-            "findings": {"critical": 0, "major": 0, "minor": 0, "info": 0},
-            "categories": {"security": 0, "code_quality": 0, "compliance": 0, "best_practices": 0},
+            # Nothing was scanned: no counts and no category scores.
+            "findings": {"critical": None, "major": None, "minor": None, "info": None},
+            "categories": {"security": None, "code_quality": None, "compliance": None, "best_practices": None},
             "reason": reason,
         }
 
@@ -325,9 +330,12 @@ class RigourIntegration:
         }
 
 
-def _extract_num(d: dict, key: str, default: float = 0) -> float:
-    """Safely extract a numeric value from a dict."""
+def _extract_num(d: dict, key: str, default: Optional[float] = 0) -> Optional[float]:
+    """Safely extract a numeric value from a dict; `default` when absent or not numeric."""
+    v = d.get(key)
+    if v is None or isinstance(v, bool):
+        return default
     try:
-        return float(d.get(key, default))
+        return float(v)
     except (ValueError, TypeError):
         return default

@@ -27,9 +27,13 @@ describe("parseStartArgs (Bun start flag subset)", () => {
   });
 
   it("supported flags map to RunnerOpts", () => {
+    // Capture env writes: --session-model exports LOKI_SESSION_MODEL, which must
+    // not leak into other test files sharing this process.
     const r = parseStartArgs(
       ["./prd.md", "--max-iterations", "5", "--budget-limit", "2.50", "--provider", "claude", "--session-model", "development"],
       collect,
+      () => {},
+      () => {},
     );
     expect(typeof r).not.toBe("number");
     const opts = r as Exclude<typeof r, number>;
@@ -135,10 +139,27 @@ describe("parseStartArgs (Bun start flag subset)", () => {
     expect(errors.join("")).toContain("unknown --provider 'opencode'");
   });
 
-  it("unknown --session-model -> exit 2", () => {
+  it("unknown --session-model -> exit 2, and nothing is exported", () => {
     errs.length = 0;
-    expect(parseStartArgs(["./prd.md", "--session-model", "turbo"], collect)).toBe(2);
+    const env: Record<string, string> = {};
+    expect(parseStartArgs(["./prd.md", "--session-model", "turbo"], collect, () => {}, (k, v) => (env[k] = v))).toBe(2);
     expect(errs.join("")).toContain("unknown --session-model");
+    expect(env["LOKI_SESSION_MODEL"]).toBeUndefined();
+  });
+
+  // Moat P4: the top-only setting is `--session-model opus`. It was rejected
+  // here although run.sh accepts every Claude alias as a session pin.
+  it("accepts the run.sh session-pin aliases and exports LOKI_SESSION_MODEL like run.sh", () => {
+    for (const [given, pinned] of [
+      ["opus", "opus"], ["sonnet", "sonnet"], ["haiku", "haiku"], ["fable", "fable"],
+      ["high", "planning"], ["small", "fast"], ["development", "development"],
+    ] as const) {
+      const env: Record<string, string> = {};
+      const r = parseStartArgs(["./prd.md", "--session-model", given], collect, () => {}, (k, v) => (env[k] = v));
+      expect(typeof r).not.toBe("number");
+      expect((r as Exclude<typeof r, number>).sessionModel).toBe(pinned);
+      expect(env["LOKI_SESSION_MODEL"]).toBe(pinned);
+    }
   });
 
   it("zero / negative numeric values fall back to undefined (not passed through)", () => {

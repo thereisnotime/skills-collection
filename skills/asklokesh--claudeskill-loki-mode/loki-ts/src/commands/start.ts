@@ -57,12 +57,15 @@ const BOOL_ENV_FLAGS = new Map<string, [string, string]>([
 const NOOP_BOOL_FLAGS = new Set(["--yes", "-y", "--no-plan", "--no-mirofish", "--no-dashboard"]);
 
 const VALID_PROVIDERS = new Set(["claude", "codex", "cline", "aider"]);
-const VALID_TIERS = new Set(["planning", "development", "fast"]);
+// The session-pin values run.sh's LOKI_SESSION_MODEL case accepts: the three
+// tier names plus the Claude aliases (opus is the top-only setting; bash
+// dispatches it as opus, not as the sonnet-defaulted planning tier).
+const VALID_TIERS = new Set(["planning", "development", "fast", "opus", "sonnet", "haiku", "fable"]);
 
 // Generic capability tiers: small|medium|high -> the canonical tier names.
 // Callers ask for a CLASS of model and each provider supplies its own latest
-// model in that class, so no user has to name a vendor model. Translation, not
-// a widened allowlist, so every downstream consumer keeps seeing three values.
+// model in that class, so no user has to name a vendor model. Translated, so
+// downstream consumers only ever see the canonical names in VALID_TIERS.
 const GENERIC_TIERS: Record<string, string> = {
   small: "fast",
   medium: "development",
@@ -100,7 +103,7 @@ export interface ParsedStartOpts {
 
 const START_USAGE =
   "usage: loki start <spec> [--max-iterations N] [--max-retries N] [--budget-limit USD]\n" +
-  "                        [--provider claude|codex|cline|aider] [--session-model small|medium|high]\n" +
+  "                        [--provider claude|codex|cline|aider] [--session-model small|medium|high|opus|sonnet|haiku]\n" +
   "                        [--completion-promise TEXT] [--base-wait S] [--max-wait S]\n" +
   "                        [--prd FILE | --brief TEXT] [--simple|--complex] [--allow-haiku]\n" +
   "                        [--regen-prd] [--skip-memory]\n" +
@@ -189,18 +192,20 @@ export function parseStartArgs(
     return 2;
   }
   // Generic capability vocabulary (small|medium|high) is translated onto the
-  // canonical tier names before validation, so this route accepts it without
-  // VALID_TIERS -- or anything downstream of sessionModel -- widening. Mirrors
-  // loki_tier_alias() in providers/models.sh and run.sh's entry-point case.
+  // canonical tier names before validation. Mirrors loki_tier_alias() in
+  // providers/models.sh and run.sh's entry-point case.
   const tierRaw = GENERIC_TIERS[argVal(args, "--session-model") ?? ""]
     ?? argVal(args, "--session-model");
   if (tierRaw && !VALID_TIERS.has(tierRaw)) {
     err(
       `start: unknown --session-model '${tierRaw}' ` +
-        `(small|medium|high, or planning|development|fast)\n`,
+        `(small|medium|high, planning|development|fast, or opus|sonnet|haiku|fable)\n`,
     );
     return 2;
   }
+  // Export the pin the way run.sh does (translated, e.g. high -> planning), so
+  // the provider's opus pin and every child process read the same value.
+  if (tierRaw) applyEnv("LOKI_SESSION_MODEL", tierRaw);
 
   // --budget is an alias of --budget-limit (bash divergence closed).
   const budget = posNum(argVal(args, "--budget-limit") ?? argVal(args, "--budget"));

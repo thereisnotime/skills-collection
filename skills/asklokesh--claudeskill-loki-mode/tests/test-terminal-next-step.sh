@@ -29,6 +29,16 @@ echo "TEST: terminal outcomes name the next step"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/loki-nextstep-XXXXXX")"
 trap 'rm -rf "$SCRATCH"' EXIT
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$SCRATCH/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 summary_for() {
     local _oc="$1" dir="$SCRATCH/$1"
     rm -rf "$dir"; mkdir -p "$dir/.loki/metrics/efficiency"
@@ -48,8 +58,14 @@ summary_for() {
         printf '{"iteration":%d,"model":"sonnet","duration_ms":300000,"cost_usd":1.2,"status":"failed"}\n' \
             "$i" > "$dir/.loki/metrics/efficiency/iteration-$i.json"
     done
-    bash -c "source '$RUN_SH' 2>/dev/null
-             cd '$dir'; TARGET_DIR=.; export TARGET_DIR
+    # cd into "$dir" BEFORE sourcing run.sh -- sourcing runs provider
+    # auto-detection, which does `mkdir -p .loki/state && echo ... >
+    # .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT that
+    # writes into the shared checkout and contaminates every later test in the
+    # same shell (same bug class as test-iteration-grace.sh and
+    # test-exit-code-contract.sh).
+    bash -c "cd '$dir' && source '$RUN_SH' 2>/dev/null
+             TARGET_DIR=.; export TARGET_DIR
              SCRIPT_DIR='$REPO_ROOT/autonomy'
              ITERATION_COUNT=3; MAX_ITERATIONS=3
              NOTIFICATIONS_ENABLED=false build_completion_summary $_oc" >/dev/null 2>&1
@@ -149,6 +165,24 @@ for _g in static_analysis mock_integrity mutation_integrity; do
            "recorded [$_got]; a terminal that writes no COMPLETION.txt tells a --bg user nothing"
     fi
 done
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: a summary_for() scratch dir must show its own provider
+# file did get written. Without this, disabling the mkdir entirely (or the
+# probe silently no-op-ing) would also read as "isolated" -- the check would
+# pass for the wrong reason.
+if [[ -f "$SCRATCH/max_iterations/.loki/state/provider" ]]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    ko "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [[ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]]; then
+    ko "sourcing run.sh left no .loki/state/provider in the repo checkout" \
+       "$REPO_ROOT/.loki/state/provider is newer than this run's start"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
+fi
 
 echo ""
 echo "  Passed:     $passed"

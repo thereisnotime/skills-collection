@@ -20,9 +20,14 @@ PY="${LOKI_DASH_PY:-python3.12}"
 FRESH=""
 SERVER_PID=""
 
+# ponytail: cleanup kills ONLY $SERVER_PID (the process this script itself
+# started, recorded by its own $!). A `lsof -ti:"$PORT" | xargs kill -9` here
+# would kill whoever else is listening on that port, including a concurrent
+# worktree/CI shard's own harness run or a developer's real dev server on the
+# same port (D14/D15/D16 class: a port-derived PID must be one this run
+# recorded itself, never re-derived by lookup at kill time).
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
-  lsof -ti:"$PORT" 2>/dev/null | xargs kill -9 2>/dev/null
   [ -n "$FRESH" ] && [ -d "$FRESH" ] && /bin/rm -rf "$FRESH" 2>/dev/null
 }
 trap cleanup EXIT
@@ -31,8 +36,14 @@ trap cleanup EXIT
 FRESH="$(mktemp -d "${TMPDIR:-/tmp}/loki-harness-XXXXXX")" || { echo "mktemp failed"; exit 2; }
 ( cd "$FRESH" && git init -q 2>/dev/null; printf '# fresh harness repo\n' > README.md )
 
-# 2. Boot the server pointed at the fresh repo's .loki.
-lsof -ti:"$PORT" 2>/dev/null | xargs kill -9 2>/dev/null
+# 2. Boot the server pointed at the fresh repo's .loki. Refuse if the port is
+# already busy rather than killing whoever holds it -- a concurrent
+# worktree/CI shard can be running this same harness (or a real dev server) on
+# the default port. Set LOKI_DASH_HARNESS_PORT to a free port instead.
+if lsof -ti:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "port ${PORT} is already in use; set LOKI_DASH_HARNESS_PORT to a free port" >&2
+  exit 2
+fi
 LOKI_DIR="$FRESH/.loki" "$PY" -m uvicorn dashboard.server:app \
   --host 127.0.0.1 --port "$PORT" --log-level warning >/dev/null 2>&1 &
 SERVER_PID=$!

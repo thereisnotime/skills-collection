@@ -29,7 +29,7 @@ const src=require('fs').readFileSync('$SRC','utf8');
 const m=src.match(/window\.loadLearnings = function \(\) \{[\s\S]*?\n    \};/);
 if(!m){console.error('EXTRACT_FAILED');process.exit(2);}
 const el={'learnings-panel':{style:{}},'learnings-list':{innerHTML:''}};
-global.document={getElementById:(id)=>el[id]};
+global.document={getElementById:(id)=>el[id],createElement:()=>({set textContent(v){this.innerHTML=String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');},innerHTML:''})};
 global.fetch=()=>Promise.resolve({ok:true,json:()=>Promise.resolve($1)});
 global.window=global;
 new Function('global', m[0]).call(global, global); global.loadLearnings();
@@ -74,6 +74,18 @@ _out="$(_render '{"learnings":[{"timestamp":null,"iteration":null,"trigger":null
 printf '%s' "$_out" | grep -q "not recorded" \
   && ok "an absent root cause reads 'not recorded', not blank" \
   || bad "an absent root cause was hidden or invented: $_out"
+
+# --- 4b. Record text is ESCAPED before it reaches innerHTML ----------------
+# A learning's trigger, root cause, fix and prevention text are written from
+# agent and reviewer output, so they are untrusted text going into innerHTML.
+_xss="$(_render '{"learnings":[{"timestamp":"<b>t</b>","iteration":"<i>2</i>","trigger":"<svg onload=alert(1)>","rootCause":"<img src=x onerror=alert(2)>","fix":"<script>alert(3)</script>","preventInFuture":"<a href=javascript:alert(4)>x</a>"}]}')"
+if printf '%s' "$_xss" | grep -qE '<(svg|img|script|a|b|i)[ >]'; then
+    bad "learning text reached innerHTML unescaped: $_xss"
+elif printf '%s' "$_xss" | grep -q 'onerror=alert(2)'; then
+    ok "hostile learning text is escaped and still shown"
+else
+    bad "hostile learning text was dropped instead of escaped: $_xss"
+fi
 
 # --- 5. Shipped bundle (grep -a + positive control) ------------------------
 _ctl="$(grep -ac "Inter" "$SHIPPED" 2>/dev/null || echo 0)"

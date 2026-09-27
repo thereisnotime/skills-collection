@@ -219,8 +219,8 @@ export default function SettingsPage() {
   const [providerPriority, setProviderPriority] = useState<string[]>(() =>
     loadSetting('providerPriority', ['claude', 'codex', 'gemini', 'cline', 'aider'])
   );
-  const [testingProvider, setTestingProvider] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, 'success' | 'error'>>({});
+  const [settingDefault, setSettingDefault] = useState<string | null>(null);
+  const [defaultResults, setDefaultResults] = useState<Record<string, { ok: boolean; message: string }>>({});
 
   // -- Accessibility settings state --
   const [highContrast, setHighContrast] = useState(() => loadSetting('highContrast', false));
@@ -324,12 +324,13 @@ export default function SettingsPage() {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Provider test connection
+  // Set default provider (writes ~/.loki/config.json on the server; this does
+  // not test a connection)
   // -------------------------------------------------------------------------
 
-  const handleTestConnection = useCallback(async (providerId: string) => {
-    setTestingProvider(providerId);
-    setTestResults((prev) => {
+  const handleSetDefault = useCallback(async (providerId: string) => {
+    setSettingDefault(providerId);
+    setDefaultResults((prev) => {
       const next = { ...prev };
       delete next[providerId];
       return next;
@@ -338,15 +339,19 @@ export default function SettingsPage() {
     try {
       await api.setProvider(providerId);
       const info = await api.getCurrentProvider();
-      if (info.provider === providerId) {
-        setTestResults((prev) => ({ ...prev, [providerId]: 'success' }));
-      } else {
-        setTestResults((prev) => ({ ...prev, [providerId]: 'error' }));
-      }
-    } catch {
-      setTestResults((prev) => ({ ...prev, [providerId]: 'error' }));
+      setDefaultResults((prev) => ({
+        ...prev,
+        [providerId]: info.provider === providerId
+          ? { ok: true, message: 'Set as default in ~/.loki/config.json' }
+          : { ok: false, message: `Server reports default is still ${info.provider}` },
+      }));
+    } catch (err) {
+      setDefaultResults((prev) => ({
+        ...prev,
+        [providerId]: { ok: false, message: err instanceof Error ? err.message : 'Could not set default' },
+      }));
     } finally {
-      setTestingProvider(null);
+      setSettingDefault(null);
     }
   }, []);
 
@@ -804,23 +809,24 @@ greet("world");`}</pre>
                 <div className="flex items-center gap-3 mt-2">
                   <button
                     type="button"
-                    onClick={() => handleTestConnection(prov.id)}
-                    disabled={testingProvider !== null}
+                    onClick={() => handleSetDefault(prov.id)}
+                    disabled={settingDefault !== null}
+                    title="Writes the default provider to ~/.loki/config.json. Does not test a connection."
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[#553DE9] text-[#553DE9] hover:bg-[#E8E4FD] rounded-lg transition-colors disabled:opacity-50"
                   >
-                    {testingProvider === prov.id ? (
+                    {settingDefault === prov.id ? (
                       <Loader2 size={12} className="animate-spin" />
                     ) : null}
-                    Test Connection
+                    Set as default (~/.loki/config.json)
                   </button>
-                  {testResults[prov.id] === 'success' && (
+                  {defaultResults[prov.id]?.ok === true && (
                     <span className="inline-flex items-center gap-1 text-xs text-[#059669]">
-                      <Check size={12} /> Connected
+                      <Check size={12} /> {defaultResults[prov.id].message}
                     </span>
                   )}
-                  {testResults[prov.id] === 'error' && (
-                    <span className="inline-flex items-center gap-1 text-xs text-[#C45B5B]">
-                      <AlertCircle size={12} /> Connection failed
+                  {defaultResults[prov.id]?.ok === false && (
+                    <span className="inline-flex items-center gap-1 text-xs text-[#C45B5B] break-all">
+                      <AlertCircle size={12} className="flex-shrink-0" /> {defaultResults[prov.id].message}
                     </span>
                   )}
                 </div>
@@ -831,8 +837,9 @@ greet("world");`}</pre>
 
         <div className="mt-4 p-3 rounded-lg bg-[#FAF9F6] border border-[#ECEAE3]">
           <p className="text-xs text-[#6B6960]">
-            Priority order determines the fallback chain. If the primary provider fails, the next one in order will be used.
-            Use the Up/Down buttons to reorder.
+            The order, API keys and models on this page are saved in this browser only; builds do not read them.
+            Provider failover is configured with <code>loki failover --chain</code>. "Set as default" is the only
+            action here that writes to the server (the provider field in ~/.loki/config.json).
           </p>
         </div>
       </div>
@@ -1096,6 +1103,11 @@ greet("world");`}</pre>
             {activeCategory === 'accessibility' && 'Adjust accessibility and assistive technology options'}
             {activeCategory === 'about' && 'Version information and useful links'}
           </p>
+          {activeCategory !== 'shortcuts' && activeCategory !== 'about' && (
+            <p className="mb-6 -mt-3 px-3 py-2 rounded-lg bg-[#FAF9F6] border border-[#ECEAE3] text-xs text-[#6B6960]">
+              Saved in this browser only. Builds and the server do not read these settings.
+            </p>
+          )}
           {renderContent()}
         </div>
       </main>

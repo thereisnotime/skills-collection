@@ -101,7 +101,7 @@ function InviteForm({
     <form onSubmit={handleSubmit} className="border border-[#ECEAE3] dark:border-[#2A2A30] rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-[#201515] dark:text-[#E8E6E3]">
-          Invite Member
+          Add Member
         </h4>
         <button
           type="button"
@@ -140,7 +140,7 @@ function InviteForm({
       </div>
 
       <Button type="submit" size="sm" icon={UserPlus} disabled={!email.trim()}>
-        Send Invite
+        Add Member
       </Button>
     </form>
   );
@@ -197,7 +197,7 @@ export function TeamPanel({
         </div>
         {!showInvite && onInviteMember && (
           <Button size="sm" variant="secondary" icon={UserPlus} onClick={() => setShowInvite(true)}>
-            Invite
+            Add Member
           </Button>
         )}
       </div>
@@ -267,31 +267,6 @@ export function TeamPanel({
               )}
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Project sharing settings */}
-      {team && (
-        <div className="mt-6 pt-4 border-t border-[#ECEAE3] dark:border-[#2A2A30]">
-          <h4 className="text-xs font-semibold text-[#201515] dark:text-[#E8E6E3] uppercase tracking-wider mb-3">
-            Project Sharing
-          </h4>
-          <div className="space-y-2">
-            <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#F8F4F0] dark:hover:bg-[#222228] cursor-pointer transition-colors">
-              <input type="checkbox" defaultChecked className="rounded border-[#ECEAE3] text-[#553DE9] focus:ring-[#553DE9]" />
-              <div>
-                <p className="text-sm text-[#201515] dark:text-[#E8E6E3]">Allow editors to share projects</p>
-                <p className="text-xs text-[#939084]">Editors can invite new viewers</p>
-              </div>
-            </label>
-            <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#F8F4F0] dark:hover:bg-[#222228] cursor-pointer transition-colors">
-              <input type="checkbox" className="rounded border-[#ECEAE3] text-[#553DE9] focus:ring-[#553DE9]" />
-              <div>
-                <p className="text-sm text-[#201515] dark:text-[#E8E6E3]">Public link sharing</p>
-                <p className="text-xs text-[#939084]">Anyone with the link can view</p>
-              </div>
-            </label>
-          </div>
         </div>
       )}
     </div>

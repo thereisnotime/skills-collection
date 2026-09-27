@@ -6,11 +6,25 @@ interface MetricsPanelProps {
   visible: boolean;
 }
 
+// `loki metrics --json` nests these (autonomy/loki cmd_metrics); the flat keys
+// only come from the server's text fallback.
+type LokiMetricsJson = {
+  agent_activity?: { total_iterations?: unknown };
+  tokens?: { total?: unknown };
+};
+
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
 export function MetricsPanel({ visible }: MetricsPanelProps) {
   const fetchMetrics = useCallback(() => api.getMetrics(), []);
   const { data: metrics, loading } = usePolling(fetchMetrics, 15000, visible);
 
   if (!visible) return null;
+
+  const nested = metrics as LokiMetricsJson | null;
+  const iterations = num(nested?.agent_activity?.total_iterations) ?? num(metrics?.iterations);
+  // tokens.total sums absent per-iteration counts as 0, so 0 means not recorded.
+  const tokens = num(nested?.tokens?.total) ?? num(metrics?.tokens_used);
 
   return (
     <div className="card p-4 rounded-card">
@@ -27,7 +41,7 @@ export function MetricsPanel({ visible }: MetricsPanelProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="card rounded-card p-3">
             <div className="text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-1">Iterations</div>
-            <div className="text-xl font-bold text-ink">{metrics.iterations ?? 0}</div>
+            <div className="text-xl font-bold text-ink">{iterations ?? 'N/A'}</div>
           </div>
           <div className="card rounded-card p-3">
             <div className="text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-1">Gate Pass Rate</div>
@@ -40,7 +54,7 @@ export function MetricsPanel({ visible }: MetricsPanelProps) {
           <div className="card rounded-card p-3">
             <div className="text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-1">Tokens Used</div>
             <div className="text-xl font-bold text-ink">
-              {(metrics.tokens_used ?? 0).toLocaleString()}
+              {tokens !== null && tokens > 0 ? tokens.toLocaleString() : 'N/A'}
             </div>
           </div>
           <div className="card rounded-card p-3">

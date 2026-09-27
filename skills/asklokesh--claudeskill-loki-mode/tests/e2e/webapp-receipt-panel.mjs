@@ -209,6 +209,70 @@ async function main() {
       'fixture missing or the row label changed');
   }
 
+  // --- 6b. The verdict is the server's COMPUTED check, never a guess --------
+  // BACKLOG 113: the panel said "internally consistent with its own integrity
+  // hash" for every receipt, including one with no hash, and could never say
+  // tampered. Each row is scoped to its own element (the row's root div), so a
+  // sentence from another expanded row cannot satisfy or break an assertion.
+  const expandRow = async (re) => {
+    const found = await page.evaluate((src) => {
+      const rx = new RegExp(src, 'i');
+      const b = Array.from(document.querySelectorAll('button')).find((x) => rx.test(x.innerText));
+      if (!b) return false;
+      if (b.getAttribute('aria-expanded') !== 'true') b.click();
+      return true;
+    }, re.source);
+    if (!found) return null;
+    try {
+      await page.waitForFunction((src) => {
+        const rx = new RegExp(src, 'i');
+        const b = Array.from(document.querySelectorAll('button')).find((x) => rx.test(x.innerText));
+        const t = b && b.parentElement ? b.parentElement.innerText : '';
+        return /Not proven:|Could not load this receipt/.test(t);
+      }, re.source, { timeout: 10000 });
+    } catch { /* fall through: the text below says what rendered */ }
+    return page.evaluate((src) => {
+      const rx = new RegExp(src, 'i');
+      const b = Array.from(document.querySelectorAll('button')).find((x) => rx.test(x.innerText));
+      return b && b.parentElement ? b.parentElement.innerText : '';
+    }, re.source);
+  };
+  // An affirmative "Proven:" is any Proven line that does not start "Nothing".
+  const affirms = (t) => /Proven:\s*(?!Nothing)\S/.test(t.replace(/Not proven:/g, ''));
+
+  const intact = await expandRow(/Recorded: VERIFIED/);
+  record('an intact unsigned receipt shows the server-computed hash match (positive control)',
+    intact !== null && /Unsigned/i.test(intact) && /recomputed the integrity hash and it matches/i.test(intact),
+    (intact || 'row not found').replace(/\s+/g, ' ').slice(-260));
+  const edited = await expandRow(/r-tampered/);
+  record('a receipt edited after hashing reads Tampered and proves nothing',
+    edited !== null && /Tampered/i.test(edited) && !affirms(edited),
+    (edited || 'row not found').replace(/\s+/g, ' ').slice(-260));
+  // The attested row, scoped to itself. innerText returns the badge label
+  // uppercased, so test 6's case-sensitive /\bVerified\b/ can never match;
+  // this one requires the unevaluated signature to read Not checked.
+  const attested = await page.evaluate(async () => {
+    try {
+      const r = await fetch('/lab/api/proofs/no-cost-receipt');
+      const d = r.ok ? await r.json() : null;
+      return Boolean(d && d.verification && d.verification.attestation);
+    } catch { return false; }
+  });
+  if (attested) {
+    const att = await expandRow(/no-cost-receipt/);
+    record('an attested receipt reads Not checked (the signature is not evaluated here)',
+      att !== null && /Not checked/i.test(att) && !/^\s*Verified\s*$/im.test(att),
+      (att || 'row not found').replace(/\s+/g, ' ').slice(-200));
+  } else {
+    record('an attested receipt reads Not checked (the signature is not evaluated here)', false,
+      'prerequisite missing: the attested fixture was not seeded (python cryptography absent), so this was not measured');
+  }
+  const nohash = await expandRow(/r-nohash/);
+  record('a receipt with no hash reads Not verified here, proves nothing, and names the command',
+    nohash !== null && /Not verified here/i.test(nohash) && !affirms(nohash)
+      && /loki proof verify r-nohash/.test(nohash),
+    (nohash || 'row not found').replace(/\s+/g, ' ').slice(-260));
+
   // --- 7. No uncaught page errors ------------------------------------------
   // A panel can render its shell and still throw while fetching, which leaves a
   // permanently-empty section that looks like "no data".

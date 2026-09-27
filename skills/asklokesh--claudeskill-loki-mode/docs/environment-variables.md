@@ -42,6 +42,7 @@ interact and why hitting one is a failure rather than a success.
 | `LOKI_MAX_TIER` | unlimited | Caps model tier, so a run cannot escalate past what you are willing to pay for. |
 | `LOKI_MODEL_OVERRIDE` | unset | Overrides the resolved model outright. |
 | `LOKI_TIER` | `oss` | **Not a model setting.** The open-core licensing seam. Leave it unset. |
+| `LOKI_ALLOW_CLAUDE_SIDECALLS` | unset | `1` (exactly) lets PRD enrichment, done recognition, the council voters, the USAGE.md refresh and the quickstart intent check prompt the `claude` CLI under a non-claude provider; `loki doctor --airgap` then reports that as required egress to Anthropic. |
 
 ### Picking a model without naming one
 
@@ -133,6 +134,7 @@ banners you might expect. These variables control the remaining `[INFO]` and
 |---|---|---|
 | `LOKI_DURABLE_STATE` | `0` | `1` enables durable state **and** the richer process-exit contract that lets Kubernetes distinguish a deterministic failure from a crash. See [exit codes](./exit-codes.md). |
 | `LOKI_SDK_LOOP` | unset | Routes the run through the Bun/TypeScript runner instead of bash. Both implement the same exit contract. |
+| `LOKI_ALLOW_AGENT_GITHUB_TOKEN` | unset | By default `GH_TOKEN`, `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN`, and `GITHUB_ENTERPRISE_TOKEN` are withheld from agent sessions. The two routes differ: on the bash route (`autonomy/run.sh`) the withheld tokens are re-granted only for Loki's own trusted calls, namely the `gh()` CLI wrapper, the `_loki_net` helper used by the optional local-PR path in `on_run_complete()`, the session-end `create_session_pr` call, and `autonomy/lib/proof-check.sh`'s network probe. On the Bun route (`loki-ts/src/runner/github_token.ts`'s `withholdGithubTokens()`) the tokens are dropped from the process outright, with no re-grant and no push/PR step of its own. Exactly `1` lets the agent inherit the tokens as before, on either route; that is a Rule of Two exposure, and a one-line stderr warning is printed. |
 
 `LOKI_DURABLE_STATE=1` is the one to set in a Job or task definition. Without
 it every failure collapses to exit 1 and the platform cannot tell "re-running

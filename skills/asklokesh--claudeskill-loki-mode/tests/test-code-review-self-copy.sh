@@ -8,6 +8,16 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TMP_ROOT="$(mktemp -d /tmp/loki-review-self-copy-XXXXXX)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$TMP_ROOT/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 TEMP_RUN="$TMP_ROOT/loki-run-live.sh"
 FAKE_BIN="$TMP_ROOT/bin"
 REVIEW_OUT="$TMP_ROOT/review.txt"
@@ -38,6 +48,13 @@ if ! (
     export LOKI_TEST_CALLS="$CALLS_OUT"
     export PATH="$FAKE_BIN:$PATH"
     export PROVIDER_NAME=claude
+    # cd into the scratch dir BEFORE sourcing the self-copy: sourcing runs
+    # provider auto-detection, which does `mkdir -p .loki/state && echo ... >
+    # .loki/state/provider` relative to CWD -- if CWD is still the repo root
+    # that writes into the shared checkout and contaminates every later test
+    # in the same shell (same bug class as test-iteration-grace.sh and
+    # test-exit-code-contract.sh).
+    cd "$TMP_ROOT" || exit 1
     # shellcheck source=/dev/null
     source "$TEMP_RUN"
     loki_claude_flag_supported() { [ "${1:-}" = "--json-schema" ]; }
@@ -70,3 +87,32 @@ grep -q '\[High\] authorization bypass' "$REVIEW_OUT" || {
 
 echo "PASS: live self-copy used source-checkout schema and rematerializer"
 echo "PASS: contradictory PASS plus High normalized to blocking FAIL"
+
+# --- isolation: sourcing the self-copy must never touch the shared checkout -
+# Mirrors the regression check added for the identical bug in
+# tests/test-iteration-grace.sh and tests/test-exit-code-contract.sh.
+#
+# Compare against PROBE_START (touched before the source call), not mere
+# existence: another suite sharing this checkout may legitimately write its
+# own provider file, and blaming this test for that is a false alarm. `-nt`
+# is false when the repo file is absent, so one comparison covers "never
+# existed" and "pre-existing and untouched" alike.
+#
+# Positive control: TMP_ROOT must show its own provider file did get written.
+# Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
+# would also read as "isolated" -- the check would pass for the wrong reason.
+if [ -f "$TMP_ROOT/.loki/state/provider" ]; then
+    echo "PASS: control: sourcing the self-copy still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    echo "FAIL: control: sourcing the self-copy still exercises provider auto-detection (writes to its own scratch dir)"
+    echo "  no $TMP_ROOT/.loki/state/provider -- the isolation check below would pass vacuously if this write stopped happening"
+    exit 1
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    echo "FAIL: sourcing the self-copy left no .loki/state/provider in the repo checkout"
+    echo "  $REPO_ROOT/.loki/state/provider is newer than this run's start -- this probe is contaminating the shared checkout"
+    exit 1
+else
+    echo "PASS: sourcing the self-copy left no .loki/state/provider in the repo checkout"
+fi

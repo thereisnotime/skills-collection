@@ -235,6 +235,19 @@ import json; p=json.load(open('$R/.loki/proofs/g1/proof.json'))
 p['verification'].pop('attestation', None)
 json.dump(p, open('$R/.loki/proofs/g1strip/proof.json', 'w'))" 2>/dev/null
 
+# g1tamper: the body is edited and the hash is left STALE (not recomputed),
+# a genuine hash mismatch -- hash_ok: false. Distinct from section 2b's
+# "rehash" fixture, which recomputes the hash so hash_ok stays true; that one
+# exists to prove a rewritten hash still fails on the SIGNATURE. This one is
+# for BACKLOG 49's TAMPERED label: it must fire only on a real hash mismatch,
+# never merely because base_rc != 0 (drift is base_rc != 0 too, and must stay
+# FAILED, not TAMPERED).
+mkdir -p "$R/.loki/proofs/g1tamper"
+python3 -c "
+import json; p=json.load(open('$R/.loki/proofs/g1/proof.json'))
+p['facts']['git']['head_sha'] = '0' * 40
+json.dump(p, open('$R/.loki/proofs/g1tamper/proof.json', 'w'))" 2>/dev/null
+
 # _rc <repo> <args...>: exit code of `loki proof verify`, stderr in $W/rc.err
 _rc() {
   local repo="$1"; shift
@@ -244,6 +257,18 @@ _rc() {
 }
 _expect() {  # <want> <got> <label>
   if [ "$2" = "$1" ]; then ok "$3 (exit $2)"; else bad "$3: exit $2, want $1"; fi
+}
+
+# <file> <field>: read one field out of a verify-command JSON report.
+_json_field() {
+  python3 -c "
+import json, sys
+try:
+    doc = json.load(open(sys.argv[1]))
+except Exception:
+    print('<unparseable>'); sys.exit(0)
+print(doc.get(sys.argv[2], '<absent>'))
+" "$1" "$2"
 }
 
 # The control that makes every code below attributable to the attestation rule.
@@ -297,6 +322,7 @@ forms = {
     "g1hdr": b([1]) + "." + b({"receipt_sha256": "x"}) + "." + b("sig"),
     "g1dict": {"alg": "EdDSA", "kid": "k"},
     "g1num": 7,
+    "g1boolfalse": False,
 }
 for name, att in forms.items():
     q = json.loads(json.dumps(p))
@@ -328,6 +354,21 @@ if ! PATH="$NOCRYPTO_PATH" python3 -E -c "import cryptography" 2>/dev/null; then
   else
     bad "a dict attestation without cryptography: exit $_rcs, want 1 with attestation: FAILED"
   fi
+fi
+
+# --- 9b. BACKLOG 39: `attestation: false` is ABSENT, never FAILED -----------
+# `false` is the JSON value a broken client or a hand-edited receipt uses to
+# say "not attested" -- it is not a JWT string, but it is also not the
+# malformed-on-inspection shape the section-9 forms are (a header decoding to
+# [1], a dict, a bare number all imply a check was ATTEMPTED and failed). A
+# `false` reads exactly like a missing field: nothing was ever attested, so it
+# must fall into the same ABSENT bucket a stripped/omitted field uses, exit 1
+# (a key set was supplied and the receipt is unsigned), never FAILED.
+_expect 1 "$(_rc "$R" g1boolfalse --jwks "$W/gjwks.json")" "attestation: false reads ABSENT (1), not FAILED"
+grep -q "attestation: ABSENT" "$W/rc.err" \
+  || bad "attestation: false did not render ABSENT ($(grep "attestation:" "$W/rc.err" | head -1))"
+if grep -q "attestation: FAILED" "$W/rc.err"; then
+  bad "attestation: false was reported as FAILED -- a receipt with no attestation is not tampering"
 fi
 
 # The Bun entry point (bin/loki) delegates any flagged verify to this bash
@@ -368,6 +409,19 @@ for _ks in ks-dict ks-list ks-entry; do
     bad "a malformed key set ($_ks) was reported as FAILED"
   fi
 done
+
+# --- 10b. BACKLOG 39: an EMPTY key set is NOT CHECKED, never FAILED ----------
+# {"keys": []} is a well-shaped key set (a JSON list of objects, vacuously
+# true) so it slipped past the section-10 shape guard and fell all the way
+# through to verify_attestation, which found no matching kid and printed
+# "bad" -- FAILED (exit 1), reading as tampering. An empty keyset is an
+# inability to check (nothing was published to check against), the same fact
+# as a malformed key set, not evidence against the receipt.
+printf '%s' '{"keys": []}' >"$W/ks-empty.json"
+_expect 2 "$(_rc "$R" g1 --jwks "$W/ks-empty.json")" "an empty key set ({\"keys\": []}) is NOT CHECKED"
+if grep -q "attestation: FAILED" "$W/rc.err"; then
+  bad "an empty key set was reported as FAILED -- an inability to check read as tampering"
+fi
 
 # --- 11. A mistyped flag is a usage error, not a skipped check ---------------
 # "--jwk keys.json" and "-jwks keys.json" used to be read as extra positionals
@@ -459,6 +513,64 @@ else
   [ ! -d "$S/__pycache__" ] || bad "shadow checkout gained __pycache__/: a shadow module was imported"
 fi
 
+# --- 13b. S-14 shadow checkout: the JSON/human PATCH step must resist it too --
+# Section 13 proves the ATTESTATION check (loki_proof_attestation_check) is
+# immune to a checkout that ships its own hashlib.py/json.py. BACKLOG 49 added
+# a SECOND python3 invocation after that check -- the one that rewrites
+# ok/verdict onto stdout -- and it runs from the same invocation cwd. A shadow
+# json.py that raises (or lies) during that rewrite must not silently fall
+# back to the base verifier's own possibly-stale "ok" via the `|| printf
+# '%s\n' "$_pv_out"` escape hatch.
+#
+# The shadow json.py must be committed BEFORE the receipt is generated (same
+# rule as section 13's s1/s1strip): swapping it in afterward would itself be
+# workspace-tree drift and produce exit 1 for the wrong reason, masking
+# whether the patch step's own sys.path strip holds.
+{
+  gs rm -q hashlib.py json.py \
+    && cat >"$S/json.py" <<'SHADOW14'
+open("shadow14.ran", "a").write("ran\n")
+raise ImportError("shadow json.py must never load for the S-14 patch step")
+SHADOW14
+  gs add json.py && gs commit -qm "shadow json.py raises (S-14)" \
+    && _sbase14="$(gs rev-parse HEAD~1)"
+} >/dev/null 2>&1
+(cd "$S" && _LOKI_RUN_START_SHA="${_sbase14:-}" LOKI_RECEIPT_SIGNING_KEY_FILE="$W/s.pem" \
+  python3 "$REPO_ROOT/autonomy/lib/proof-generator.py" --loki-dir "$S/.loki" \
+  --out-dir "$S/.loki/proofs/s1hostile" --run-id s1hostile --quiet) >/dev/null 2>&1
+mkdir -p "$S/.loki/proofs/s1hostilestrip"
+python3 -c "
+import json; p=json.load(open('$S/.loki/proofs/s1hostile/proof.json'))
+p['verification'].pop('attestation', None)
+json.dump(p, open('$S/.loki/proofs/s1hostilestrip/proof.json', 'w'))" 2>/dev/null
+if [ ! -f "$S/.loki/proofs/s1hostile/proof.json" ]; then
+  bad "harness: S-14 hostile-json.py fixture produced no receipt; shadow-patch case inconclusive"
+else
+  rm -f "$S/shadow14.ran"
+  (cd "$S" && PYTHONDONTWRITEBYTECODE=1 LOKI_DIR="$S/.loki" TARGET_DIR="$S" \
+    bash "$LOKI_BIN" proof verify s1hostilestrip --jwks "$W/gjwks.json" \
+    >"$W/s14_shadow.json" 2>"$W/rc.err")
+  _s14_rc=$?
+  if [ -f "$S/shadow14.ran" ]; then
+    bad "S-14 shadow checkout: the planted json.py loaded during the patch step -- sys.path strip failed"
+  else
+    ok "S-14 shadow checkout: the planted json.py never loaded during the patch step"
+  fi
+  if [ "$_s14_rc" = 1 ]; then
+    ok "S-14 shadow checkout: verify still exits 1 (ABSENT) with a hostile json.py in the cwd"
+  else
+    bad "S-14 shadow checkout: exit $_s14_rc, want 1 -- a raising shadow json.py changed the outcome"
+  fi
+  _s14_ok="$(_json_field "$W/s14_shadow.json" ok)"
+  _s14_verdict="$(_json_field "$W/s14_shadow.json" verdict)"
+  if [ "$_s14_ok" = "False" ] && [ "$_s14_verdict" = "ABSENT" ]; then
+    ok "S-14 shadow checkout: ok=false and verdict=ABSENT survive a hostile cwd json.py"
+  else
+    bad "S-14 shadow checkout: ok=$_s14_ok verdict=$_s14_verdict, want ok=False verdict=ABSENT -- the shadow module (or the || printf fallback) leaked the stale base-check opinion"
+  fi
+  [ ! -f "$S/shadow14.ran" ] || bad "S-14 shadow checkout: the planted json.py loaded at some point during the run"
+fi
+
 # Same attack through the ENVIRONMENT: an empty PYTHONPATH component (what
 # "export PYTHONPATH=x:$PYTHONPATH" leaves when it was unset) puts the cwd on
 # sys.path as an absolute path, and a committed sitecustomize.py runs during
@@ -516,6 +628,246 @@ else
     _expect 1 "$(_rc_env "$REPO_ROOT/bin/loki" proof verify e1tamper)" "bun entry point, hostile PYTHONPATH: tampered exits 1 (unflagged Bun verifier)"
   fi
   [ ! -s "$W/sitecustomize.ran" ] || bad "a committed sitecustomize.py ran inside a verifier"
+fi
+
+# --- 14. BACKLOG 49: stdout JSON must agree with the exit code ---------------
+# On ABSENT (exit 1) and NOT CHECKED (exit 2) the base verifier's OWN JSON
+# report -- computed before the attestation check ever runs -- can still be a
+# clean "ok": true, because the base check only re-hashes and re-diffs; it
+# never sees the attestation. A consumer reading stdout alone (never the exit
+# code) would misread a stripped signature, or an unreadable key set, as a
+# pass. Fixed by patching ok/verdict onto the JSON after the exit code is
+# final, so the two can never disagree again by construction.
+#
+# A malformed proof.json for the rc=2 row: the base verifier itself cannot
+# even compute hash_ok there (ProofLoadError), so this also pins that a
+# verifier-side error never gets labelled TAMPERED.
+mkdir -p "$W/.loki/proofs/malformed"
+printf 'not json at all {{{' >"$W/.loki/proofs/malformed/proof.json"
+
+# <label> <repo> <id> <jwks-or-empty> <want-exit>
+# For each row: run it, then assert the invariant BACKLOG 49 is about --
+# ok/verdict must agree with the exit code that same run produced, never a
+# stale opinion from the base hash/drift check alone.
+_row() {
+  local label="$1" repo="$2" id="$3" jwks="$4" want="$5" runner="${6:-bash}" rc ok_val verdict
+  if [ "$runner" = "bun" ]; then
+    LOKI_DIR="$repo/.loki" TARGET_DIR="$repo" "$REPO_ROOT/bin/loki" proof verify "$id" \
+      --jwks "$jwks" >"$W/row.json" 2>"$W/row.err"
+  elif [ -n "$jwks" ]; then
+    LOKI_DIR="$repo/.loki" TARGET_DIR="$repo" bash "$LOKI_BIN" proof verify "$id" \
+      --jwks "$jwks" >"$W/row.json" 2>"$W/row.err"
+  else
+    LOKI_DIR="$repo/.loki" TARGET_DIR="$repo" bash "$LOKI_BIN" proof verify "$id" \
+      >"$W/row.json" 2>"$W/row.err"
+  fi
+  rc=$?
+  if [ "$rc" != "$want" ]; then
+    bad "$label: harness exit $rc, want $want -- row inconclusive"
+    return
+  fi
+  ok_val="$(_json_field "$W/row.json" ok)"
+  verdict="$(_json_field "$W/row.json" verdict)"
+  case "$want" in
+    0)
+      if [ "$ok_val" = "True" ]; then ok "$label: ok=true at exit 0"
+      else bad "$label: ok=$ok_val at exit 0, want True"; fi
+      ;;
+    *)
+      if [ "$ok_val" = "False" ]; then ok "$label: ok=false at exit $want (not the stale base-check true)"
+      else bad "$label: ok=$ok_val at exit $want, want False -- stdout still contradicts the exit code"; fi
+      ;;
+  esac
+  # verdict is required (never skipped) on every --jwks row: a regression
+  # that stopped emitting the field must fail here, not silently pass because
+  # there was nothing to compare. 0 must read VERIFIED, 2 must read NOT
+  # CHECKED (never an accusation), and 1 must read neither of those two words
+  # (it is a real finding, named specifically per row below).
+  if [ -n "$jwks" ]; then
+    case "$want" in
+      0)
+        if [ "$verdict" = "VERIFIED" ]; then ok "$label: verdict=VERIFIED at exit 0"
+        else bad "$label: verdict=$verdict at exit 0, want VERIFIED"; fi
+        ;;
+      2)
+        if [ "$verdict" = "NOT CHECKED" ]; then ok "$label: verdict='NOT CHECKED' at exit 2"
+        else bad "$label: verdict=$verdict at exit 2, want 'NOT CHECKED' -- exit 2 must never accuse"; fi
+        ;;
+      1)
+        if [ "$verdict" != "VERIFIED" ] && [ "$verdict" != "NOT CHECKED" ] && [ "$verdict" != "<absent>" ]; then
+          ok "$label: verdict='$verdict' at exit 1 (a real finding, not VERIFIED or NOT CHECKED)"
+        else
+          bad "$label: verdict=$verdict at exit 1 -- exit 1 must never read as a pass, as unmeasured, or carry no verdict at all"
+        fi
+        ;;
+    esac
+  fi
+}
+
+_row "VERIFIED"                       "$R"          g1        "$W/gjwks.json"  0
+_row "FAILED (wrong key set)"         "$R"          g1        "$W/evil.json"   1
+_row "ABSENT (stripped signature)"    "$R"          g1strip   "$W/gjwks.json"  1
+_row "NOT CHECKED (missing key set)"  "$R"          g1        "$W/missing.json" 2
+_row "malformed key set"              "$R"          g1        "$W/ks-dict.json" 2
+_row "drift + NOT CHECKED"            "$W/drifted"  g1        "$W/missing.json" 1
+_row "malformed proof.json + --jwks"  "$W"          malformed "$W/gjwks.json"  2
+_row "malformed proof.json, no --jwks" "$W"         malformed ""               2
+_row "TAMPERED (hash mismatch)"       "$R"          g1tamper  "$W/gjwks.json"  1
+# _row's want=1 branch only asserts "not VERIFIED/NOT CHECKED/absent" -- it
+# would not catch a base_rc != 0 case being mislabelled FAILED when it should
+# be TAMPERED (or the reverse). Pin the exact word here, BEFORE any later
+# _row call overwrites $W/row.json: a real hash mismatch is TAMPERED, a wrong
+# key set on an otherwise-good receipt is ALSO TAMPERED (attestation failed
+# against known-good bytes), and the two must not be confused with each
+# other's mechanism.
+_tamper_verdict="$(_json_field "$W/row.json" verdict)"
+if [ "$_tamper_verdict" = "TAMPERED" ]; then
+  ok "TAMPERED (hash mismatch): verdict is exactly TAMPERED, not FAILED -- a real integrity failure must not be downgraded"
+else
+  bad "TAMPERED (hash mismatch): verdict is '$_tamper_verdict', want exactly TAMPERED"
+fi
+if [ "$HAVE_BUN" -eq 1 ]; then
+  _row "bun entry point: ABSENT (stripped signature)" "$R" g1strip "$W/gjwks.json" 1 bun
+fi
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1 --jwks "$W/evil.json" \
+  >"$W/wrongkeys_row.json" 2>/dev/null
+_wrongkeys_verdict="$(_json_field "$W/wrongkeys_row.json" verdict)"
+if [ "$_wrongkeys_verdict" = "TAMPERED" ]; then
+  ok "FAILED (wrong key set): verdict is exactly TAMPERED (bad signature against known-good bytes)"
+else
+  bad "FAILED (wrong key set): verdict is '$_wrongkeys_verdict', want exactly TAMPERED"
+fi
+
+# S-08/BACKLOG 39 x S-14/BACKLOG 49 composability: S-08 changed WHICH exit
+# code/label an empty keyset or attestation:false produces; S-14 patches
+# stdout's ok/verdict to agree with whatever exit code the run actually
+# produced. These two rows pin that the composition is not just assumed --
+# both of S-08's relabeled cases must ALSO carry a stdout verdict that agrees
+# with their (S-08-corrected) exit code, not a stale opinion from either fix
+# alone.
+_row "empty keyset (BACKLOG 39) reads NOT CHECKED (BACKLOG 49)" "$R" g1 "$W/ks-empty.json" 2
+_row "attestation:false (BACKLOG 39) reads ABSENT (BACKLOG 49)" "$R" g1boolfalse "$W/gjwks.json" 1
+# _row's want=1 branch only asserts "not VERIFIED/NOT CHECKED/absent" -- it
+# would not catch a regression to the PRE-S-08 "bad" (TAMPERED) verdict for
+# attestation:false, since TAMPERED also satisfies that same loose check.
+# Pin the exact word: $W/row.json still holds the last _row call's output.
+_verdict_boolfalse="$(_json_field "$W/row.json" verdict)"
+if [ "$_verdict_boolfalse" = "ABSENT" ]; then
+  ok "attestation:false verdict is exactly ABSENT, not TAMPERED (pre-S-08 regression guard)"
+else
+  bad "attestation:false verdict is '$_verdict_boolfalse', want exactly ABSENT -- pre-S-08 'bad'/TAMPERED regression"
+fi
+
+# The drift row is the one that would have caught the label bug on its own:
+# drift is not tampering, and an earlier draft of this fix (rc==1 with a
+# clean attestation treated as always TAMPERED) mislabelled it. Pinned
+# directly to the exact word, not only "neither VERIFIED nor NOT CHECKED".
+LOKI_DIR="$W/drifted/.loki" TARGET_DIR="$W/drifted" bash "$LOKI_BIN" proof verify g1 \
+  --jwks "$W/missing.json" >"$W/drift_row.json" 2>/dev/null
+_drift_verdict="$(_json_field "$W/drift_row.json" verdict)"
+if [ "$_drift_verdict" = "FAILED" ]; then
+  ok "drift + NOT CHECKED: verdict is FAILED, not TAMPERED (drift is not a tamper finding)"
+else
+  bad "drift + NOT CHECKED: verdict is '$_drift_verdict', want FAILED -- drift was mislabelled or the field is missing"
+fi
+
+# --- 14b. S-14 REWORK: drift (base_rc != 0, hash_ok True) + a WRONG-KEY
+# attestation (a real signature failure, not merely absent/unreadable) must
+# still read TAMPERED. This is the exact combination the 1/2 CONCERN found
+# missing: the base_rc != 0 branch used to consult ONLY hash_ok, so a drifted
+# tree checked against an unrelated key (attestation: FAILED) read FAILED
+# instead of TAMPERED -- the receipt's signature genuinely does not check out,
+# which is a tamper finding, not merely "drift, nothing more to say."
+LOKI_DIR="$W/drifted/.loki" TARGET_DIR="$W/drifted" bash "$LOKI_BIN" proof verify g1 \
+  --jwks "$W/evil.json" >"$W/drift_badkey_row.json" 2>"$W/rc.err"
+_drift_badkey_rc=$?
+_drift_badkey_verdict="$(_json_field "$W/drift_badkey_row.json" verdict)"
+if [ "$_drift_badkey_rc" = 1 ] && grep -q "attestation: FAILED" "$W/rc.err"; then
+  if [ "$_drift_badkey_verdict" = "TAMPERED" ]; then
+    ok "drift + wrong-key attestation: verdict is TAMPERED, not FAILED -- a real signature failure must not be downgraded just because the tree also drifted"
+  else
+    bad "drift + wrong-key attestation: verdict is '$_drift_badkey_verdict', want exactly TAMPERED (a genuine bad-signature finding was reported as mere drift)"
+  fi
+else
+  bad "harness: drift + evil.json did not produce the expected exit 1 / attestation: FAILED setup (exit $_drift_badkey_rc); drift+bad-signature case inconclusive"
+fi
+
+# --- 14c. Guard against double-counting: hash_ok False AND attestation
+# FAILED together (a tampered receipt ALSO checked against the wrong key)
+# must still read exactly TAMPERED once, never a different label and never
+# a crash from the `or` somehow firing twice.
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1tamper \
+  --jwks "$W/evil.json" >"$W/tamper_badkey_row.json" 2>"$W/rc.err"
+_tamper_badkey_rc=$?
+_tamper_badkey_verdict="$(_json_field "$W/tamper_badkey_row.json" verdict)"
+if [ "$_tamper_badkey_rc" = 1 ] && [ "$_tamper_badkey_verdict" = "TAMPERED" ]; then
+  ok "hash_ok False AND attestation FAILED together: verdict is exactly TAMPERED (no double-counting)"
+else
+  bad "hash_ok False AND attestation FAILED together: exit $_tamper_badkey_rc verdict='$_tamper_badkey_verdict', want exit 1 verdict TAMPERED"
+fi
+
+# A stdout-only consumer (parses JSON, never looks at $?) reading "ok" must
+# now see the correct outcome for the two BACKLOG 49 cases specifically.
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1strip \
+  --jwks "$W/gjwks.json" >"$W/absent_final.json" 2>/dev/null
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1 \
+  --jwks "$W/missing.json" >"$W/notchecked_final.json" 2>/dev/null
+if [ "$(_json_field "$W/absent_final.json" ok)" = "False" ] \
+   && [ "$(_json_field "$W/notchecked_final.json" ok)" = "False" ]; then
+  ok "a stdout-only consumer reads the correct outcome for ABSENT and NOT CHECKED"
+else
+  bad "a stdout-only consumer would still misread at least one case as a pass"
+fi
+
+# Unflagged output (no --jwks) is untouched: same fields, no "verdict"/
+# "attestation" added, matching what the Bun route (proof.ts verifyProof)
+# still passes through unmodified.
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1 \
+  >"$W/unflagged.json" 2>/dev/null
+if [ "$(_json_field "$W/unflagged.json" verdict)" = "<absent>" ] \
+   && [ "$(_json_field "$W/unflagged.json" ok)" = "True" ]; then
+  ok "unflagged verify (no --jwks) carries no verdict field -- unchanged on both routes"
+else
+  bad "unflagged verify gained a verdict field or lost ok -- diverges from the Bun route"
+fi
+
+# stdout must stay valid JSON (test 7's rule) even after the patch, across
+# every row this section produced.
+if python3 -c "
+import json, glob
+for f in ['absent_final.json','notchecked_final.json','unflagged.json','drift_row.json']:
+    json.load(open('$W/' + f))
+" 2>/dev/null; then
+  ok "patched stdout remains valid JSON across every BACKLOG 49 row"
+else
+  bad "patched stdout is not valid JSON -- machine consumers would break"
+fi
+
+# --human's header must agree with the exit code too, the same invariant as
+# the JSON verdict field, since --human bypasses the JSON branch entirely.
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1strip --human \
+  --jwks "$W/gjwks.json" >"$W/absent_human.txt" 2>/dev/null
+_absent_human_header="$(head -1 "$W/absent_human.txt")"
+if [ "$_absent_human_header" = "FAILED" ]; then
+  ok "--human header reads FAILED (not VERIFIED) for an ABSENT (exit 1) receipt"
+else
+  bad "--human header is '$_absent_human_header', want FAILED -- a stripped signature would still print VERIFIED to a human reader"
+fi
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1 --human \
+  --jwks "$W/missing.json" >"$W/notchecked_human.txt" 2>/dev/null
+_notchecked_human_header="$(head -1 "$W/notchecked_human.txt")"
+if [ "$_notchecked_human_header" = "COULD NOT CHECK" ]; then
+  ok "--human header reads COULD NOT CHECK for a NOT CHECKED (exit 2) key set"
+else
+  bad "--human header is '$_notchecked_human_header', want COULD NOT CHECK"
+fi
+LOKI_DIR="$R/.loki" TARGET_DIR="$R" bash "$LOKI_BIN" proof verify g1 --human \
+  --jwks "$W/gjwks.json" >"$W/verified_human.txt" 2>/dev/null
+_verified_human_header="$(head -1 "$W/verified_human.txt")"
+if [ "$_verified_human_header" = "VERIFIED" ]; then
+  ok "--human header still reads VERIFIED at exit 0"
+else
+  bad "--human header is '$_verified_human_header', want VERIFIED"
 fi
 
 # The remote copy of the check carries the same dependency guard (the two copies
@@ -580,6 +932,47 @@ if command -v jq >/dev/null 2>&1; then
     ok "remote render: a dict attestation is TAMPERED without cryptography too"
   else
     bad "remote render: dict attestation without cryptography returned $_rr, want 1 TAMPERED ($(head -1 "$W/render.out"))"
+  fi
+
+  # --- BACKLOG 39, remote route: an EMPTY key set is NOT CHECKED ------------
+  # {"keys": []} is well-shaped (a list of objects, vacuously) so it slipped
+  # past the shape guard in loki_remote_attestation_status and fell through to
+  # verify_attestation, which found no matching kid and printed "bad" -- the
+  # CONSUMER (loki_remote_verify_receipt) then rendered TAMPERED for an
+  # inability to check, not evidence against the receipt.
+  mkdir -p "$W/srv-empty/.well-known"
+  printf '%s' '{"keys": []}' >"$W/srv-empty/.well-known/jwks.json"
+  _r_empty="$(_LOKI_SCRIPT_DIR="$REPO_ROOT/autonomy" bash -c "
+    source '$W/remote.sh'; loki_remote_attestation_status '$R/.loki/proofs/g1/proof.json' 'file://$W/srv-empty'")"
+  if [ -z "$_r_empty" ]; then
+    ok "remote check: an empty key set yields no verdict (not 'bad')"
+  else
+    bad "remote check: an empty key set produced '$_r_empty', want '' (NOT CHECKED)"
+  fi
+  _render_srv() {  # <id> <srv-dir> -> return code; output in $W/render.out
+    _LOKI_SCRIPT_DIR="$REPO_ROOT/autonomy" bash -c "
+      source '$W/remote.sh'; loki_remote_verify_receipt '$R/.loki/proofs/$1/proof.json' 'file://$2'" \
+      >"$W/render.out" 2>&1
+    echo "$?"
+  }
+  _rr="$(_render_srv g1 "$W/srv-empty")"
+  if grep -q "NOT CHECKED" "$W/render.out" && ! grep -qE "TAMPERED|FAILED" "$W/render.out"; then
+    ok "remote render: an empty key set is NOT CHECKED, never TAMPERED (return $_rr)"
+  else
+    bad "remote render: empty key set returned $_rr ($(head -1 "$W/render.out")), want NOT CHECKED"
+  fi
+
+  # --- BACKLOG 39, remote route: attestation: false reads consistently -----
+  # jq's `// empty` already treats JSON false as missing, short-circuiting
+  # loki_remote_attestation_status to '' before Python runs -- so the render
+  # falls through to the same UNSIGNED branch a genuinely absent attestation
+  # takes. Measured through the CONSUMER so a future change to either copy is
+  # caught here, matching the local route's g1boolfalse case in section 9b.
+  _rr="$(_render_srv g1boolfalse "$W/srv")"
+  if grep -q "UNSIGNED" "$W/render.out" && ! grep -qE "TAMPERED|FAILED" "$W/render.out"; then
+    ok "remote render: attestation: false reads UNSIGNED, never TAMPERED (return $_rr)"
+  else
+    bad "remote render: attestation: false returned $_rr ($(head -1 "$W/render.out")), want UNSIGNED"
   fi
 else
   echo "  SKIP: jq not installed -- remote dependency guard not measured"

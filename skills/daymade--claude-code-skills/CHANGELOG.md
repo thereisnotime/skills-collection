@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **tibo-reset-codex** (`tibo-reset-codex` v1.16.2 → v1.17.0): Report low-usage anchor advances as unattributed leads when a second reset would fall below the scanner's 20-point drop threshold. Historical `--as-of` scans now exclude later snapshots. Account guidance keeps natural and additional resets as separate events and keeps current balance out of landing evidence until its cause is established. Its offline tests now run in CI.
+
+- **git-safety-net** (`git-safety-net` v1.22.0 → v1.22.1): Troubleshooting entry for the diverged-but-familiar branch: `git cherry <upstream> <branch>` returning all `-` means every local-only commit is patch-identical to one already upstream (typical cause: committing against a stale remote-tracking ref, after which the same change was re-made and pushed), so the branch can be fast-forwarded; any `+` remains an ordinary divergence.
+
+- **deep-research** (`deep-research` v2.10.1 → v2.11.0): Hand an exact user-named seed to each isolated provider and reject wrong-document findings during synthesis. Preserve the submitted session URL while recording an evidenced persistent URL for task resumption. Harvest visible HTML citations without browser assets, prefer verified sources in prior-study search, and append catalog revisions when a study gains sources or claims. Store a portable catalog path in each new study and verify catalog continuity before relinking older absolute paths.
+
+- **kimi-use** (`kimi-use` v1.4.0 → v1.5.0): Check per-interface credits before an autonomous Work task; defer when unapproved charges cannot be gated. Preserve separate raw returns for each failed or retried call, and inspect complete exported data before repeating a query. Record the observed fund-data plugin coverage and its account-specific cost limit.
+
+- **deep-research** (`deep-research` v2.10.0 → v2.10.1): Check metered subtools before handing a research lane to an autonomous Work agent. An existing account does not authorize unbounded credit use; defer a lane when unapproved calls cannot be gated, and preserve actual usage in its raw task record.
+
+- **deep-research** (`deep-research` v2.9.0 → v2.10.0): Create a durable study for every research run, including direct-source and single-provider work. The new research-asset CLI records prior-study decisions, source originals and leads, source-bound claims, and a searchable project catalog; final checks reject missing study files, unrecorded report/provider URLs and broken source snapshots. Provider dispatch remains with the installed specialist Skills.
+
 - **tibo-reset-codex** (`tibo-reset-codex` v1.14.6 → v1.15.0): Add an append-only `withdraw` command for forecasts whose dates lack evidence. Withdrawn forecasts remain visible in the journal but leave the pending and follow-up lists. The monitoring route now pursues an unverified reset promise through sources that can distinguish announcement, account arrival, and cause; a promise without a deadline no longer forces a dated prediction.
 
 - **deep-research** (`deep-research` v2.8.0 → v2.9.0): Add a coordinator for parallel provider × mode research, composing existing Skills and agents rather than embedding vendor adapters. Its read-only planner assigns one owner per control surface, keeps active tasks in the same owner queue, and synthesizes by original evidence rather than model agreement. It makes no provider calls or purchases.
@@ -212,6 +224,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compressed wording so the description stays within the 1024-character frontmatter limit.
 
 ### Fixed
+
+- **tibo-reset-codex** (`tibo-reset-codex` v1.17.0 → v1.17.1): Label zeroings by observed anchor shape instead of calling every non-clean window a backjump, and remove full/underfull cause hints already implied by the displayed usage. Align the account, forecast, and repository routes with anonymous-snapshot attribution; remove derived historical counts from the touched guidance.
+
+- **deep-research** (`deep-research` v2.11.0 → v2.11.1) and **kimi-use** (`kimi-use` v1.5.0 → v1.5.1): Make catalog-migration commands directly executable, route maintainers to the owning research contracts, and remove hand-maintained headings and repeated cost totals from the touched Kimi references.
+
+- **tibo-reset-codex** (v1.16.1 → v1.16.2): Remove a count-based claim that missing the official fault feed loses half of reset signals; the source categories do not establish their frequency. The Skill keeps the incident-search step and distinguishes a post classifier from account evidence.
 
 - **tibo-reset-codex** (v1.16.0 → v1.16.1): Refresh the third-party prediction source's current field map and reject a scheduled time that precedes its cited announcement. The post classifier example marks an uninitialized or untimed `No` as unknown and treats the mirror as a candidate pending upstream and time checks; silent resets still require account evidence.
 

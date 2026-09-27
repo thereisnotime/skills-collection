@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  CircleDot, Search, RefreshCw, ArrowLeft, ExternalLink,
+  CircleDot, Search, RefreshCw, ArrowLeft,
   Tag, MessageSquare, User, Loader2, CheckCircle2, AlertCircle,
-  GitPullRequest, Wand2, RotateCcw, CircleOff,
+  Wand2, RotateCcw,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { Button } from './ui/Button';
@@ -10,7 +10,8 @@ import { Skeleton } from './ui/Skeleton';
 import type { GitHubIssue } from '../types/api';
 type GitHubIssueDetail = GitHubIssue & { assignees: any[]; comments_data: any[] };
 type GitHubIssueLabel = { name: string; color: string };
-type GitHubFixResult = { branch: string; pr_url: string; pr_number: number; task_id: string };
+// The fix endpoint only starts a background task; it returns the task id, not a PR.
+type GitHubFixStarted = { task_id: string };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,45 +23,22 @@ interface GitHubIssuesPanelProps {
 
 type IssueStateFilter = 'open' | 'closed' | 'all';
 
-type FixStatus =
-  | 'idle'
-  | 'creating-branch'
-  | 'analyzing'
-  | 'writing-fix'
-  | 'running-tests'
-  | 'creating-pr'
-  | 'success'
-  | 'error';
+type FixStatus = 'idle' | 'starting' | 'started' | 'error';
 
 interface FixState {
   status: FixStatus;
-  result?: GitHubFixResult;
+  result?: GitHubFixStarted;
   error?: string;
 }
-
-const FIX_STEP_LABELS: Record<string, string> = {
-  'creating-branch': 'Creating branch...',
-  analyzing: 'Analyzing issue...',
-  'writing-fix': 'Writing fix...',
-  'running-tests': 'Running tests...',
-  'creating-pr': 'Creating PR...',
-};
-
-const FIX_STEPS: FixStatus[] = [
-  'creating-branch',
-  'analyzing',
-  'writing-fix',
-  'running-tests',
-  'creating-pr',
-];
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string | undefined): string {
   const now = Date.now();
-  const then = new Date(dateStr).getTime();
+  const then = new Date(dateStr ?? '').getTime();
+  if (!Number.isFinite(then)) return '';
   const diffMs = now - then;
   const seconds = Math.floor(diffMs / 1000);
   const minutes = Math.floor(seconds / 60);
@@ -268,84 +246,43 @@ function IssueCard({
 function FixProgress({ fixState, onRetry }: { fixState: FixState; onRetry: () => void }) {
   if (fixState.status === 'idle') return null;
 
-  if (fixState.status === 'success' && fixState.result) {
+  if (fixState.status === 'starting') {
     return (
-      <div className="rounded-card border border-success/30 bg-success/5 p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-success">
+      <div className="flex items-center gap-2 text-xs text-primary">
+        <Loader2 size={14} className="animate-spin" />
+        Starting fix...
+      </div>
+    );
+  }
+
+  // No retry here: a second click would start a duplicate branch and PR.
+  if (fixState.status === 'started' && fixState.result) {
+    return (
+      <div className="rounded-card border border-primary/20 bg-primary/5 p-4 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-primary">
           <CheckCircle2 size={16} />
-          Pull request created
+          Fix started
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <GitPullRequest size={14} className="text-success" />
-          <span className="font-mono">
-            PR #{fixState.result.pr_number}
-          </span>
-          <span className="text-secondary">on branch</span>
-          <span className="font-mono bg-hover px-1.5 py-0.5 rounded-btn">
-            {fixState.result.branch}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={fixState.result.pr_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-          >
-            <ExternalLink size={12} />
-            View on GitHub
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  if (fixState.status === 'error') {
-    return (
-      <div className="rounded-card border border-danger/30 bg-danger/5 p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-danger">
-          <AlertCircle size={16} />
-          Fix failed
-        </div>
-        <p className="text-xs text-muted font-mono bg-danger/5 border border-danger/10 rounded px-2 py-1.5">
-          {fixState.error || 'Unknown error'}
+        <p className="text-xs text-muted">
+          Task <span className="font-mono">{fixState.result.task_id}</span> is running in the background
+          (up to 10 minutes). If it succeeds, its pull request appears in the PRs tab.
         </p>
-        <Button variant="secondary" size="sm" icon={RotateCcw} onClick={onRetry}>
-          Retry
-        </Button>
       </div>
     );
   }
 
-  // In-progress states
-  const currentIdx = FIX_STEPS.indexOf(fixState.status);
   return (
-    <div className="rounded-card border border-primary/20 bg-primary/5 p-4 space-y-2">
-      {FIX_STEPS.map((step, idx) => {
-        const isActive = idx === currentIdx;
-        const isDone = idx < currentIdx;
-        return (
-          <div
-            key={step}
-            className={`flex items-center gap-2 text-xs ${
-              isDone
-                ? 'text-success'
-                : isActive
-                  ? 'text-primary font-medium'
-                  : 'text-muted'
-            }`}
-          >
-            {isDone ? (
-              <CheckCircle2 size={14} />
-            ) : isActive ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <CircleOff size={14} className="opacity-40" />
-            )}
-            {FIX_STEP_LABELS[step]}
-          </div>
-        );
-      })}
+    <div className="rounded-card border border-danger/30 bg-danger/5 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-danger">
+        <AlertCircle size={16} />
+        Could not start fix
+      </div>
+      <p className="text-xs text-muted font-mono bg-danger/5 border border-danger/10 rounded px-2 py-1.5">
+        {fixState.error || 'Unknown error'}
+      </p>
+      <Button variant="secondary" size="sm" icon={RotateCcw} onClick={onRetry}>
+        Retry
+      </Button>
     </div>
   );
 }
@@ -393,25 +330,11 @@ function IssueDetailView({
   }, [sessionId, issueNumber]);
 
   const handleFix = useCallback(async () => {
-    const steps: FixStatus[] = ['creating-branch', 'analyzing', 'writing-fix', 'running-tests', 'creating-pr'];
-    let stepIdx = 0;
-
-    setFixState({ status: steps[0] });
-
-    // Advance the visual progress every 2s while the request is pending
-    const timer = setInterval(() => {
-      stepIdx++;
-      if (stepIdx < steps.length) {
-        setFixState({ status: steps[stepIdx] });
-      }
-    }, 2000);
-
+    setFixState({ status: 'starting' });
     try {
-      const result = await api.fixGitHubIssue(sessionId, issueNumber);
-      clearInterval(timer);
-      setFixState({ status: 'success', result });
+      const result: GitHubFixStarted = await api.fixGitHubIssue(sessionId, issueNumber);
+      setFixState({ status: 'started', result });
     } catch (err) {
-      clearInterval(timer);
       setFixState({
         status: 'error',
         error: err instanceof Error ? err.message : 'Fix failed',
@@ -483,7 +406,7 @@ function IssueDetailView({
             <AuthorAvatar login={detail.author.login} />
             {detail.author.login}
           </span>
-          <span>{timeAgo(detail.createdAt)}</span>
+          {detail.createdAt && <span>{timeAgo(detail.createdAt)}</span>}
         </div>
         {detail.assignees.length > 0 && (
           <div className="flex items-center gap-1.5 mt-2 ml-6 text-[11px] text-muted">

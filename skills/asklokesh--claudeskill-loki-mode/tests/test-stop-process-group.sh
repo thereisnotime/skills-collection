@@ -18,6 +18,13 @@ bad() { FAIL=$((FAIL+1)); echo "FAIL: $1"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
+# ponytail: per-run token ($PGTEST_TAG) folded into every "loki-<tag>" prefix
+# below and into the pkill/rm patterns that sweep them. A bare "loki-pgtest"
+# prefix would match a concurrent run of this SAME suite in another
+# worktree/CI shard (this repo runs exactly that topology), and
+# "pkill -f loki-pgtest" would then SIGKILL that other run's fixtures
+# (D14/D15/D16 class).
+PGTEST_TAG="pgtest-$$-${RANDOM}-$(date +%s 2>/dev/null || echo 0)"
 
 # session-leader launcher available? (setsid binary, else perl, else python3)
 SESS=""
@@ -72,13 +79,13 @@ $PY -c "import ast; ast.parse(open('$REPO_ROOT/dashboard/server.py').read())" \
   && ok "dashboard/server.py parses" || bad "server.py syntax error"
 
 # --- A: group-kill reaps a SIGTERM-ignoring child ----------------------------
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/loki-pgtest-XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/loki-${PGTEST_TAG}-XXXXXX")
 # Make the terminal cleanup (pkill + temp-dir removal) unconditional: if the
 # script is interrupted before reaching the end, the EXIT/INT/TERM trap still
-# prunes every loki-pgtest-* sandbox so none leak onto disk.
+# prunes every loki-${PGTEST_TAG}-* sandbox so none leak onto disk.
 pgtest_cleanup() {
-    pkill -f "loki-pgtest" 2>/dev/null || true
-    rm -rf "${TMPDIR:-/tmp}"/loki-pgtest-* 2>/dev/null || true
+    pkill -f "loki-${PGTEST_TAG}" 2>/dev/null || true
+    rm -rf "${TMPDIR:-/tmp}"/loki-${PGTEST_TAG}-* 2>/dev/null || true
 }
 trap 'pgtest_cleanup' EXIT INT TERM
 cat > "$WORK/orch.sh" <<'EOF'
@@ -127,7 +134,7 @@ if [ -n "$LEADER" ]; then
 else
     bad "could not launch session-leader orchestrator (SESS=$SESS)"
 fi
-rm -rf "$WORK"; pkill -f "loki-pgtest" 2>/dev/null || true
+rm -rf "$WORK"; pkill -f "loki-${PGTEST_TAG}" 2>/dev/null || true
 
 # --- B+C: dashboard endpoint group-kill + sentinel sweep, project-scoped -----
 # Run the Python E2E via a temp FILE executed directly (no `$(... | tail)`
@@ -135,8 +142,8 @@ rm -rf "$WORK"; pkill -f "loki-pgtest" 2>/dev/null || true
 # process-group churn under load that can race-kill the deliberately-isolated
 # other-project fake. The product is correct (verified: the python logic run
 # directly never touches the other project); only the bash wrapper was flaky.
-_EP_PY=$(mktemp "${TMPDIR:-/tmp}/loki-pgtest-ep-XXXXXX.py")
-_EP_OUT=$(mktemp "${TMPDIR:-/tmp}/loki-pgtest-ep-XXXXXX.out")
+_EP_PY=$(mktemp "${TMPDIR:-/tmp}/loki-${PGTEST_TAG}-ep-XXXXXX.py")
+_EP_OUT=$(mktemp "${TMPDIR:-/tmp}/loki-${PGTEST_TAG}-ep-XXXXXX.out")
 cat > "$_EP_PY" <<'PYEOF'
 import sys, os, tempfile, subprocess, time, shutil, signal
 sys.path.insert(0, '.')
@@ -251,7 +258,7 @@ PYEOF
 # (sourced from run.sh) against a real SIGTERM-ignoring in-group survivor, the
 # orchestrator itself, and a FOREIGN run (separate .loki, separate group).
 if command -v perl >/dev/null 2>&1; then
-    FWORK=$(mktemp -d "${TMPDIR:-/tmp}/loki-pgtest-reap-XXXXXX")
+    FWORK=$(mktemp -d "${TMPDIR:-/tmp}/loki-${PGTEST_TAG}-reap-XXXXXX")
     mkdir -p "$FWORK/.loki/pids"
     cat > "$FWORK/leader.sh" <<LEADEOF
 #!/usr/bin/env bash
@@ -315,8 +322,8 @@ else
     ok "no em dashes in changed files"
 fi
 
-pkill -f "loki-pgtest" 2>/dev/null || true
-rm -rf "${TMPDIR:-/tmp}"/loki-pgtest-* 2>/dev/null || true
+pkill -f "loki-${PGTEST_TAG}" 2>/dev/null || true
+rm -rf "${TMPDIR:-/tmp}"/loki-${PGTEST_TAG}-* 2>/dev/null || true
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

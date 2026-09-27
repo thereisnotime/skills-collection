@@ -97,12 +97,7 @@ export { LokiFleet } from './components/loki-fleet.js';
 export { LokiAuditViewer } from './components/loki-audit-viewer.js';
 export { LokiApiKeys } from './components/loki-api-keys.js';
 export { LokiTenantSwitcher } from './components/loki-tenant-switcher.js';
-export { LokiActivityStream } from './components/loki-activity-stream.js';
-export { LokiProviderHealth } from './components/loki-provider-health.js';
-export { LokiPipelineView } from './components/loki-pipeline-view.js';
-export { LokiMemoryGraph } from './components/loki-memory-graph.js';
 export { LokiCostWaterfall } from './components/loki-cost-waterfall.js';
-export { LokiAgentLeaderboard } from './components/loki-agent-leaderboard.js';
 export { LokiManagedMemoryPanel } from './components/loki-managed-memory-panel.js';
 export { LokiEscalations } from './components/loki-escalations.js';
 export { LokiCouncilTranscripts } from './components/loki-council-transcripts.js';
@@ -171,12 +166,7 @@ const componentModules = [
   './components/loki-audit-viewer.js',
   './components/loki-api-keys.js',
   './components/loki-tenant-switcher.js',
-  './components/loki-activity-stream.js',
-  './components/loki-provider-health.js',
-  './components/loki-pipeline-view.js',
-  './components/loki-memory-graph.js',
   './components/loki-cost-waterfall.js',
-  './components/loki-agent-leaderboard.js',
   './components/loki-managed-memory-panel.js',
   './components/loki-wiki-browser.js',
   './components/loki-spec-panel.js',

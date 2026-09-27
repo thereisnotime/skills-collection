@@ -40,6 +40,15 @@ _PROOF_CHECK_SH=1
 # Best-effort timeout wrapper so a hung network call cannot stall the caller.
 # Mirrors the run.sh _loki_net idiom. Never fatal.
 _proof_check_net() {
+    # run.sh withholds GitHub tokens from agent sessions (Rule of Two); this is
+    # one of Loki's own trusted calls, so it takes them back for the command.
+    if declare -f _loki_with_github_tokens >/dev/null 2>&1; then
+        _loki_with_github_tokens _proof_check_net_timed "$@"
+    else
+        _proof_check_net_timed "$@"
+    fi
+}
+_proof_check_net_timed() {
     if command -v timeout >/dev/null 2>&1; then
         timeout 30 "$@"
     else

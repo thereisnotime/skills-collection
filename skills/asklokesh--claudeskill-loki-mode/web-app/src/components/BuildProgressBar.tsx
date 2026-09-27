@@ -10,9 +10,9 @@ import { LoadingMessages } from './LoadingMessages';
 
 interface BuildProgressBarProps {
   phase: string;       // 'planning' | 'building' | 'testing' | 'reviewing' | 'complete' | 'idle'
-  iteration: number;
-  maxIterations: number;
-  cost: number;        // dollars spent
+  iteration: number | null;     // null when the server has not reported one
+  maxIterations: number | null; // null when no iteration cap is configured
+  cost: number | null; // dollars spent; null when no cost was recorded
   startTime: number;   // timestamp when build started
   isRunning: boolean;
 }
@@ -26,7 +26,7 @@ const phases = [
 ];
 
 export function BuildProgressBar({ phase, iteration, maxIterations, cost, startTime, isRunning }: BuildProgressBarProps) {
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState<number | null>(null);
   const [prevPhase, setPrevPhase] = useState(phase);
   const [transitioning, setTransitioning] = useState(false);
 
@@ -53,12 +53,14 @@ export function BuildProgressBar({ phase, iteration, maxIterations, cost, startT
   if (!isRunning && phase === 'idle') return null;
 
   const currentPhaseIndex = phases.findIndex(p => p.id === phase);
-  const progress = maxIterations > 0 ? Math.min((iteration / maxIterations) * 100, 100) : 0;
+  const progress = iteration !== null && maxIterations ? Math.min((iteration / maxIterations) * 100, 100) : 0;
 
-  // ETA: average time per iteration * remaining iterations
-  const avgTimePerIter = iteration > 0 ? elapsed / iteration : 60;
-  const remainingIters = Math.max(0, maxIterations - iteration);
-  const eta = Math.ceil(avgTimePerIter * remainingIters);
+  // Time to reach the iteration cap at the measured pace. The cap is an upper
+  // bound, not a forecast, so it is labelled as such and hidden until both an
+  // iteration and a cap are known.
+  const eta = elapsed !== null && iteration && maxIterations
+    ? Math.ceil((elapsed / iteration) * Math.max(0, maxIterations - iteration))
+    : null;
 
   const formatTime = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;
@@ -132,16 +134,16 @@ export function BuildProgressBar({ phase, iteration, maxIterations, cost, startT
         <div className="flex items-center gap-3 text-muted">
           <span className="flex items-center gap-1">
             <Zap size={12} />
-            Iter {iteration}/{maxIterations}
+            Iter {iteration ?? '--'}{maxIterations ? `/${maxIterations}` : ''}
           </span>
           <span className="flex items-center gap-1">
             <Clock size={12} />
-            {formatTime(elapsed)}
-            {isRunning && eta > 0 && <span className="text-muted/60">({formatTime(eta)} left)</span>}
+            {elapsed === null ? '--' : formatTime(elapsed)}
+            {isRunning && eta !== null && eta > 0 && <span className="text-muted/60">(est. {formatTime(eta)} to iteration cap)</span>}
           </span>
           <span className="flex items-center gap-1">
             <DollarSign size={12} />
-            ${cost.toFixed(2)}
+            {cost !== null ? `$${cost.toFixed(2)}` : 'not recorded'}
           </span>
         </div>
       </div>

@@ -10,12 +10,16 @@ import { api, type ProofSummary, type ProofDetail, type ProofsSummary } from '..
  * output-verification command -- so the one thing nobody else has was visible
  * only to people using the terminal.
  *
- * THE HONESTY RULE THIS PANEL FOLLOWS. Four provenance states, never collapsed:
+ * THE HONESTY RULE THIS PANEL FOLLOWS. Every state comes from a verdict the
+ * SERVER COMPUTED (integrity_check on GET /api/proofs/<id>, which runs the CLI
+ * verifier's integrity checks), never from what the receipt merely carries:
  *
- *   VERIFIED    integrity holds AND provenance is proven
- *   UNSIGNED    integrity holds, provenance is NOT proven
- *   UNCHECKED   a signature exists but could not be evaluated here
- *   TAMPERED    the recorded hash does not match the contents
+ *   VERIFIED      the hash was recomputed and matches AND the gpg signature verified
+ *   UNSIGNED      the hash was recomputed and matches, no signature to check
+ *   UNCHECKED     the hash matches, a signature exists but was not evaluated here
+ *   TAMPERED      the recomputed hash does not match the contents
+ *   FAILED        a check ran and said no (bad signature, self-contradiction)
+ *   NOT VERIFIED  nothing was checked here (no hash, or no server verdict)
  *
  * Collapsing UNCHECKED into UNSIGNED would understate what exists; collapsing
  * UNSIGNED into VERIFIED would claim proof we do not have. Both are the same
@@ -24,7 +28,7 @@ import { api, type ProofSummary, type ProofDetail, type ProofsSummary } from '..
  * distrust is worse than none, because it still gets cited.
  */
 
-type Provenance = 'verified' | 'unsigned' | 'unchecked' | 'tampered';
+type Provenance = 'verified' | 'unsigned' | 'unchecked' | 'tampered' | 'failed' | 'not_verified';
 
 const PROVENANCE: Record<Provenance, {
   badge: string; dot: string; label: string; proven: string; notProven: string;
@@ -33,45 +37,64 @@ const PROVENANCE: Record<Provenance, {
     badge: 'bg-success/10 text-success border-success/20',
     dot: 'bg-success',
     label: 'Verified',
-    proven: 'These receipt bytes are unaltered, and they were signed by the holder of the signing key.',
-    notProven: 'That the code is correct. A receipt records which checks ran, not that the result is right.',
+    proven: 'The server recomputed the integrity hash and it matches, and the gpg signature verified against its keyring.',
+    notProven: 'That the code is correct, or that the recorded diff still matches your repo. A receipt records which checks ran, not that the result is right.',
   },
   unsigned: {
     badge: 'bg-warning/10 text-warning border-warning/20',
     dot: 'bg-warning',
     label: 'Unsigned',
-    proven: 'The receipt is internally consistent with its own integrity hash.',
+    proven: 'The server recomputed the integrity hash and it matches these receipt bytes.',
     notProven: 'Who produced it. An unsigned receipt is forgeable: whoever controls the builder can rewrite the facts and recompute the hash.',
   },
   unchecked: {
     badge: 'bg-warning/10 text-warning border-warning/20',
     dot: 'bg-warning',
     label: 'Not checked',
-    proven: 'The integrity hash matches, so nothing is wrong with the contents.',
+    proven: 'The server recomputed the integrity hash and it matches.',
     notProven: 'Provenance. A signature is present but was not evaluated here, which is not the same as a bad signature.',
   },
   tampered: {
     badge: 'bg-danger/10 text-danger border-danger/20',
     dot: 'bg-danger',
     label: 'Tampered',
-    proven: 'Nothing. The recorded hash does not match the contents.',
+    proven: 'Nothing. The server recomputed the integrity hash and it does not match the contents.',
     notProven: 'Anything at all. This receipt was edited after it was written. Do not trust this build.',
+  },
+  failed: {
+    badge: 'bg-danger/10 text-danger border-danger/20',
+    dot: 'bg-danger',
+    label: 'Failed verification',
+    proven: 'Nothing. A verification check ran on the server and said no.',
+    notProven: 'Anything the receipt claims. Read the reason below.',
+  },
+  not_verified: {
+    badge: 'border-muted/20 text-muted',
+    dot: 'bg-muted/40',
+    label: 'Not verified here',
+    proven: 'Nothing. No verification result was computed for this receipt here.',
+    notProven: 'Integrity or provenance. Run the command below to check it yourself.',
   },
 };
 
 /**
- * Classify provenance from what the receipt actually carries.
+ * Map the server's computed integrity_check onto a provenance state.
  *
- * Deliberately NOT a full cryptographic verification: the browser cannot check
- * a gpg signature, and claiming to have done so would be the exact dishonesty
- * this panel exists to prevent. A present-but-unevaluated signature is reported
- * as UNCHECKED, with the CLI named as the way to actually verify it.
+ * The browser recomputes nothing and evaluates no signature, so every positive
+ * state here needs the server's `status: 'verified'` behind it. No result (an
+ * older server, a receipt with no hash) is NOT VERIFIED, never a pass.
  */
 function classify(detail: ProofDetail | null): Provenance {
+  const check = detail?.integrity_check;
   const v = detail?.verification;
-  if (!v || !v.hash) return 'unsigned';
-  // A signature of either kind is present but not evaluated in-browser.
-  if (v.attestation || v.gpg_signature) return 'unchecked';
+  if (!check) return 'not_verified';
+  if (check.status === 'tampered') return 'tampered';
+  if (check.status === 'failed') return 'failed';
+  if (check.status !== 'verified') return 'not_verified';
+  if (check.gpg_ok === true) return 'verified';
+  // A signature is present but was not evaluated (a JWKS attestation always;
+  // a gpg signature when gpg is absent on the server).
+  if (v?.attestation || v?.gpg_signature) return 'unchecked';
   return 'unsigned';
 }
 
@@ -176,12 +199,14 @@ function ReceiptRow({ proof }: { proof: ProofSummary }) {
         aria-expanded={open}
       >
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${detail ? prov.dot : 'bg-muted/40'}`} />
+        {/* Recorded values, labelled as such: the computed verdict is the
+            badge inside, fetched when the row opens. */}
         <span className="text-sm font-medium flex-1 truncate">
-          {proof.headline || proof.run_id}
+          {proof.headline ? `Recorded: ${proof.headline}` : proof.run_id}
         </span>
         {proof.final_verdict && (
           <span className="text-xs font-mono uppercase tracking-wider flex-shrink-0 text-muted">
-            {proof.final_verdict}
+            council {proof.final_verdict}
           </span>
         )}
         <span className="text-muted text-xs flex-shrink-0">{open ? '−' : '+'}</span>
@@ -222,7 +247,7 @@ function ReceiptRow({ proof }: { proof: ProofSummary }) {
                   }
                 />
                 {detail.verification?.hash && (
-                  <Field label="Integrity hash" value={detail.verification.hash} />
+                  <Field label="Recorded hash" value={detail.verification.hash} />
                 )}
               </div>
 
@@ -236,19 +261,20 @@ function ReceiptRow({ proof }: { proof: ProofSummary }) {
                 <p className="text-xs opacity-80">
                   <span className="font-semibold">Not proven: </span>{prov.notProven}
                 </p>
+                {(detail.integrity_check?.reasons || []).slice(0, 2).map((r) => (
+                  <p key={r} className="text-xs opacity-80 mt-1">{r}</p>
+                ))}
               </div>
 
-              {/* The browser cannot evaluate a signature, so it names the
-                  command that can rather than implying it already did. */}
-              {(detail.verification?.attestation || detail.verification?.gpg_signature) && (
-                <p className="text-xs text-muted">
-                  Verify it yourself:{' '}
-                  <code className="font-mono">
-                    loki proof verify {detail.run_id}
-                    {detail.verification?.attestation ? ' --jwks <url|file>' : ''}
-                  </code>
-                </p>
-              )}
+              {/* Always named: the server never re-derives the diff, and the
+                  browser evaluates no signature. The CLI does both. */}
+              <p className="text-xs text-muted">
+                Verify it yourself (also re-derives the diff against your repo):{' '}
+                <code className="font-mono">
+                  loki proof verify {detail.run_id}
+                  {detail.verification?.attestation ? ' --jwks <url|file>' : ''}
+                </code>
+              </p>
 
               {proof.pr_url && (
                 <a

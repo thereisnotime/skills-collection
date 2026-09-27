@@ -108,8 +108,10 @@ cosign initialize --mirror <your-tuf-mirror> --root <your-root.json>
 ```
 
 Then transfer `loki-image-bundle/` and verify with `cosign verify --local-image
-./loki-image-bundle`. See `loki doctor --airgap` for the full host inventory
-the engine itself needs at runtime.
+./loki-image-bundle`. See `LOKI_LEGACY_BASH=1 loki doctor --airgap` for the
+full host inventory the engine itself needs at runtime (the default Bun route
+does not yet accept the `--airgap` flag, tracked as
+`P5.airgap-audit-default-route`).
 
 ## If verification fails
 

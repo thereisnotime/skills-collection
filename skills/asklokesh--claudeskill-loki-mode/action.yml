@@ -242,6 +242,16 @@ runs:
         LOKI_COUNCIL_ENABLED: 'false'
         LOKI_SKIP_PREREQS: 'true'
         LOKI_AUTO_CONFIRM: ${{ inputs.auto_confirm }}
+        # Rule of Two: the PRD carries PR text, so the agent never pushes or
+        # opens a PR from this step. Post or push from a later step.
+        LOKI_DELEGATE_PR: '0'
+        # Explicitly blanked: overrides any token the caller's workflow set at
+        # job level (composite-action steps inherit that unless a step
+        # overrides it). This step must not be able to read a write token.
+        GH_TOKEN: ''
+        GITHUB_TOKEN: ''
+        GH_ENTERPRISE_TOKEN: ''
+        GITHUB_ENTERPRISE_TOKEN: ''
       run: |
         PRD_FILE="${{ steps.review-prd.outputs.prd_file }}"
         OUTPUT_FILE="${RUNNER_TEMP}/loki-review-output.txt"
@@ -276,6 +286,16 @@ runs:
         LOKI_COUNCIL_ENABLED: 'false'
         LOKI_SKIP_PREREQS: 'true'
         LOKI_AUTO_CONFIRM: ${{ inputs.auto_confirm }}
+        # Rule of Two: the PRD carries PR text, so the agent never pushes or
+        # opens a PR from this step. Post or push from a later step.
+        LOKI_DELEGATE_PR: '0'
+        # Explicitly blanked: overrides any token the caller's workflow set at
+        # job level (composite-action steps inherit that unless a step
+        # overrides it). This step must not be able to read a write token.
+        GH_TOKEN: ''
+        GITHUB_TOKEN: ''
+        GH_ENTERPRISE_TOKEN: ''
+        GITHUB_ENTERPRISE_TOKEN: ''
       run: |
         OUTPUT_FILE="${RUNNER_TEMP}/loki-fix-output.txt"
         PRD_FILE="${{ inputs.prd_file }}"
@@ -309,6 +329,16 @@ runs:
         LOKI_COUNCIL_ENABLED: 'false'
         LOKI_SKIP_PREREQS: 'true'
         LOKI_AUTO_CONFIRM: ${{ inputs.auto_confirm }}
+        # Rule of Two: the PRD carries PR text, so the agent never pushes or
+        # opens a PR from this step. Post or push from a later step.
+        LOKI_DELEGATE_PR: '0'
+        # Explicitly blanked: overrides any token the caller's workflow set at
+        # job level (composite-action steps inherit that unless a step
+        # overrides it). This step must not be able to read a write token.
+        GH_TOKEN: ''
+        GITHUB_TOKEN: ''
+        GH_ENTERPRISE_TOKEN: ''
+        GITHUB_ENTERPRISE_TOKEN: ''
       run: |
         OUTPUT_FILE="${RUNNER_TEMP}/loki-test-output.txt"
         PRD_FILE="${{ inputs.prd_file }}"
@@ -384,8 +414,16 @@ runs:
       if: always()
       shell: bash
       run: |
-        # Kill any lingering loki processes
-        pkill -f "loki-run-" 2>/dev/null || true
+        # Stop only the loki run THIS job's workspace owns. `loki stop` with
+        # no arguments is folder-scoped to the current directory's .loki
+        # (autonomy/loki cmd_stop), which is exactly this job's checkout. A
+        # bare `pkill -f "loki-run-"` matches ANY process on the runner whose
+        # argv contains that substring, machine-wide -- on a persistent
+        # self-hosted runner host running several jobs, that kills another
+        # job's live loki run too (see docs/v10/DECISIONS.md D14/D15/D16).
+        # `loki stop --all` is the documented machine-wide escape hatch and is
+        # deliberately NOT used here.
+        loki stop 2>/dev/null || true
         # Clean temp files
         rm -rf "${RUNNER_TEMP}/pr-"*.diff "${RUNNER_TEMP}/review-prd-"*.md \
                "${RUNNER_TEMP}/loki-"*-output.txt "${RUNNER_TEMP}/pr-comment.md" \

@@ -1,5 +1,4 @@
 import { ROICalculator } from '../components/ROICalculator';
-import { TestimonialCard, TESTIMONIALS } from '../components/TestimonialCard';
 
 interface ComparisonRow {
   feature: string;
@@ -191,18 +190,6 @@ export default function ComparePage() {
                 <h3 className="text-base font-bold text-[#36342E] mb-1">{card.title}</h3>
                 <p className="text-sm text-[#6B6960]">{card.description}</p>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Testimonials */}
-        <div className="mt-12">
-          <h2 className="text-xl font-bold text-[#36342E] mb-6">
-            What developers are saying
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {TESTIMONIALS.map((t) => (
-              <TestimonialCard key={t.name} {...t} />
             ))}
           </div>
         </div>

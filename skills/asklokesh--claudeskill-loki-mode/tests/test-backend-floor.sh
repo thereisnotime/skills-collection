@@ -20,7 +20,16 @@ fail() { echo "FAIL: $1"; FAIL=$((FAIL+1)); }
 command -v node >/dev/null 2>&1 || { echo "SKIP: node not available"; exit 0; }
 [ -f "$GEN" ] || { echo "FAIL: generate.mjs missing"; exit 1; }
 
-DEMO="$(mktemp -d)"; trap 'rm -rf "$DEMO"; pkill -f "$DEMO/server/index.mjs" 2>/dev/null || true' EXIT
+# Round 4: the prior trap used `pkill -f "$DEMO/server/index.mjs"`, but the
+# server is actually launched below as `node index.mjs` with cwd $DEMO/server
+# (a relative argv, no path prefix) -- the pattern never matched the real
+# process, so the server leaked on any signal or abnormal exit before
+# reaching the explicit `kill "$SRV"` at the bottom of this script. Fixed to
+# kill the exact recorded PID ($SRV, set once the server is launched); guarded
+# with ${SRV:-} since this trap is installed before SRV exists and several
+# early-exit paths (generate failure, npm install SKIP) fire it under set -u
+# while SRV is still unset.
+DEMO="$(mktemp -d)"; trap 'rm -rf "$DEMO"; [ -n "${SRV:-}" ] && kill "$SRV" 2>/dev/null || true' EXIT
 
 # Generate the real backend from templates (throwaway resource, no PRD).
 node "$GEN" "$DEMO" note title:string body:string >/dev/null 2>&1 \
@@ -36,11 +45,29 @@ if ! npm install --silent --no-audit --no-fund >/dev/null 2>&1; then
   echo "RESULT: $PASS passed, $FAIL failed"; [ "$FAIL" -eq 0 ]; exit
 fi
 
-# Pick a free-ish high port and make sure nothing lingers on it. PORT must be
-# passed inline to the node process (a bare `PORT=x` shell var is NOT inherited
-# by the backgrounded node child; the server would fall back to :3000).
-APP_PORT=8971
-pkill -f "index.mjs" 2>/dev/null || true
+# Pick a free-ish high port. PORT must be passed inline to the node process
+# (a bare `PORT=x` shell var is NOT inherited by the backgrounded node child;
+# the server would fall back to :3000).
+#
+# THE BUG THIS REPLACES (D14): `pkill -f "index.mjs"` matches the argv
+# substring of EVERY process on the machine, not just this test's own server
+# -- including an unrelated process from a different project or a concurrent
+# test run that happens to mention index.mjs. Confirmed by starting a decoy
+# process with that substring in its argv and watching `pkill -f "index.mjs"`
+# kill it.
+#
+# ROUND 3: the D14 fix (`lsof -ti tcp:$APP_PORT -sTCP:LISTEN | kill`) scoped to
+# -sTCP:LISTEN but still had no OWNERSHIP check -- it killed whoever held the
+# fixed port 8971, verified or not, which could hit an unrelated process on a
+# shared machine (D14/D15/D16 class). Proving "this is a stale copy of MY
+# prior run" is not actually possible here: the previous run's mktemp DEMO
+# directory is already gone by the time this run starts, so any argv/cwd
+# match would just be another pattern kill wearing a different disguise. The
+# fix instead removes the need to reclaim at all: this generated backend
+# already honors PORT (set inline below, same as before), so a genuinely
+# randomized high port makes a real collision with anything else on this
+# machine astronomically unlikely, and there is nothing left to kill.
+APP_PORT=$(( 20000 + (RANDOM % 20000) ))
 PORT="$APP_PORT" node index.mjs >"$DEMO/backend-floor.log" 2>&1 &
 SRV=$!
 PORT="$APP_PORT"

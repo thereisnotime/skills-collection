@@ -167,9 +167,17 @@ export class LokiMigrationDashboard extends LokiElement {
 
   _renderFeatureStats(features) {
     if (!features) return '';
-    const passing = features.passing || 0;
-    const total = features.total || 0;
-    const pct = total > 0 ? Math.round((passing / total) * 100) : 0;
+    const total = features.total;
+    const passing = features.passing;
+    if (!total || passing == null) {
+      return `
+      <div class="stat-card">
+        <div class="stat-header">Feature Tracking</div>
+        <div class="stat-pct">No features recorded</div>
+      </div>
+    `;
+    }
+    const pct = Math.round((passing / total) * 100);
     const barColor = pct >= 80 ? 'var(--loki-success)' : pct >= 50 ? 'var(--loki-warning)' : 'var(--loki-error)';
     return `
       <div class="stat-card">
@@ -185,13 +193,22 @@ export class LokiMigrationDashboard extends LokiElement {
 
   _renderStepProgress(steps) {
     if (!steps) return '';
-    const current = steps.current || 0;
-    const total = steps.total || 0;
-    const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+    const total = steps.total;
+    // steps.current is a 1-based cursor (next step), not a done count.
+    const done = steps.completed;
+    if (!total || done == null) {
+      return `
+      <div class="stat-card">
+        <div class="stat-header">Step Progress</div>
+        <div class="stat-pct">No plan recorded</div>
+      </div>
+    `;
+    }
+    const pct = Math.round((done / total) * 100);
     return `
       <div class="stat-card">
         <div class="stat-header">Step Progress</div>
-        <div class="stat-value">${current} / ${total}</div>
+        <div class="stat-value">${done} / ${total}</div>
         <div class="stat-pct">${pct}% complete</div>
         <div class="progress-bar">
           <div class="progress-fill" style="width:${pct}%;background:var(--loki-accent);"></div>
@@ -599,7 +616,7 @@ export class LokiMigrationDashboard extends LokiElement {
       const migId = this._escapeHtml(m.migration_id || m.id || '--');
       const source = this._escapeHtml(m.source || '--');
       const target = this._escapeHtml(m.target || '--');
-      const currentPhase = m.current_phase || m.phase || 'understand';
+      const currentPhase = m.current_phase || m.phase || 'unknown';
       const completedPhases = m.completed_phases || [];
 
       this.shadowRoot.innerHTML = `

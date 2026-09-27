@@ -2,17 +2,17 @@ import { useEffect, useState, useRef } from 'react';
 
 interface StatItem {
   label: string;
-  value: number;
-  suffix?: string;
+  // null when the public API did not answer: shown as "--", never as 0.
+  value: number | null;
 }
 
-function AnimatedStat({ label, value, suffix = '' }: StatItem) {
+function AnimatedStat({ label, value }: StatItem) {
   const [displayed, setDisplayed] = useState(0);
   const animatedRef = useRef(false);
   const elementRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (animatedRef.current) return;
+    if (animatedRef.current || value === null) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -25,7 +25,7 @@ function AnimatedStat({ label, value, suffix = '' }: StatItem) {
             const elapsed = now - startTime;
             const progress = Math.min(elapsed / duration, 1);
             const eased = 1 - Math.pow(1 - progress, 3);
-            setDisplayed(Math.round(value * eased));
+            setDisplayed(Math.round(value! * eased));
             if (progress < 1) requestAnimationFrame(animate);
           }
 
@@ -42,7 +42,7 @@ function AnimatedStat({ label, value, suffix = '' }: StatItem) {
   return (
     <div ref={elementRef} className="text-center">
       <div className="text-2xl font-bold text-[#36342E] dark:text-[#E8E6E3] tabular-nums">
-        {displayed.toLocaleString()}{suffix}
+        {value === null ? <span title="Not available right now">--</span> : displayed.toLocaleString()}
       </div>
       <div className="text-xs text-[#6B6960] dark:text-[#8A8880] mt-1">{label}</div>
     </div>
@@ -52,71 +52,66 @@ function AnimatedStat({ label, value, suffix = '' }: StatItem) {
 const GITHUB_REPO = 'asklokesh/loki-mode';
 const NPM_PACKAGE = 'loki-mode';
 
+interface Counts {
+  stars: number | null;
+  forks: number | null;
+  contributors: number | null;
+  downloads: number | null;
+}
+
+const UNKNOWN: Counts = { stars: null, forks: null, contributors: null, downloads: null };
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
 export function OpenSourceStats() {
-  const [stats, setStats] = useState<StatItem[]>([
-    { label: 'GitHub Stars', value: 0 },
-    { label: 'Forks', value: 0 },
-    { label: 'Contributors', value: 0 },
-    { label: 'npm Downloads', value: 0, suffix: '+' },
-  ]);
+  const [counts, setCounts] = useState<Counts>(UNKNOWN);
 
   useEffect(() => {
-    // Fetch real GitHub stats
+    // Live GitHub and npm counts. Anything these APIs do not answer (offline,
+    // rate limited) stays null and renders "--".
     const fetchStats = async () => {
+      const [repoRes, contributorsRes, npmRes] = await Promise.allSettled([
+        fetch(`https://api.github.com/repos/${GITHUB_REPO}`),
+        fetch(`https://api.github.com/repos/${GITHUB_REPO}/contributors?per_page=1&anon=true`, { method: 'HEAD' }),
+        fetch(`https://api.npmjs.org/downloads/point/last-month/${NPM_PACKAGE}`),
+      ]);
+      const next: Counts = { ...UNKNOWN };
       try {
-        const [repoRes, contributorsRes, npmRes] = await Promise.allSettled([
-          fetch(`https://api.github.com/repos/${GITHUB_REPO}`),
-          fetch(`https://api.github.com/repos/${GITHUB_REPO}/contributors?per_page=1&anon=true`, { method: 'HEAD' }),
-          fetch(`https://api.npmjs.org/downloads/point/last-month/${NPM_PACKAGE}`),
-        ]);
-
-        let stars = 0;
-        let forks = 0;
-        let contributors = 0;
-        let downloads = 0;
-
-        // GitHub repo data (stars + forks)
         if (repoRes.status === 'fulfilled' && repoRes.value.ok) {
           const data = await repoRes.value.json();
-          stars = data.stargazers_count || 0;
-          forks = data.forks_count || 0;
+          next.stars = num(data.stargazers_count);
+          next.forks = num(data.forks_count);
         }
-
-        // Contributors count from Link header pagination
-        if (contributorsRes.status === 'fulfilled') {
-          const link = contributorsRes.value.headers.get('Link') || '';
-          const match = link.match(/page=(\d+)>; rel="last"/);
+        if (contributorsRes.status === 'fulfilled' && contributorsRes.value.ok) {
+          // Link header pagination with per_page=1 gives the count directly.
+          const match = (contributorsRes.value.headers.get('Link') || '').match(/page=(\d+)>; rel="last"/);
           if (match) {
-            contributors = parseInt(match[1], 10);
+            next.contributors = parseInt(match[1], 10);
           } else {
-            // Fallback: fetch actual list
             const contribRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contributors?per_page=100&anon=true`);
             if (contribRes.ok) {
               const contribs = await contribRes.json();
-              contributors = Array.isArray(contribs) ? contribs.length : 0;
+              next.contributors = Array.isArray(contribs) ? contribs.length : null;
             }
           }
         }
-
-        // npm downloads
         if (npmRes.status === 'fulfilled' && npmRes.value.ok) {
-          const data = await npmRes.value.json();
-          downloads = data.downloads || 0;
+          next.downloads = num((await npmRes.value.json()).downloads);
         }
-
-        setStats([
-          { label: 'GitHub Stars', value: stars },
-          { label: 'Forks', value: forks },
-          { label: 'Contributors', value: contributors },
-          { label: 'npm Downloads', value: downloads, suffix: '+' },
-        ]);
       } catch {
-        // On any error, leave at 0 -- better than fake numbers
+        // Keep whatever was read; the rest stays "--".
       }
+      setCounts(next);
     };
 
     fetchStats();
   }, []);
+
+  const stats: StatItem[] = [
+    { label: 'GitHub Stars', value: counts.stars },
+    { label: 'Forks', value: counts.forks },
+    { label: 'Contributors', value: counts.contributors },
+    { label: 'npm downloads (30 days)', value: counts.downloads },
+  ];
 
   return (
     <div className="py-8 border-t border-[#ECEAE3] dark:border-[#2A2A30]">

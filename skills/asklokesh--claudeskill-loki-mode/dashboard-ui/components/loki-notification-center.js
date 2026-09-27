@@ -49,8 +49,10 @@ export class LokiNotificationCenter extends LokiElement {
     super();
     this._notifications = [];
     this._triggers = [];
-    this._summary = {};
+    // null until a successful load; cleared on failure so counts read unknown, not 0.
+    this._summary = null;
     this._connected = false;
+    this._loadFailed = false;
     this._activeTab = 'feed';
     this._categoryFilter = 'all';
     this._panelOpen = true;
@@ -89,13 +91,22 @@ export class LokiNotificationCenter extends LokiElement {
       if (resp.ok) {
         const data = await resp.json();
         this._notifications = data.notifications || [];
-        this._summary = data.summary || {};
+        this._summary = data.summary || null;
         this._connected = true;
+        this._loadFailed = false;
+      } else {
+        this._markLoadFailed();
       }
     } catch {
-      this._connected = false;
+      this._markLoadFailed();
     }
     this.render();
+  }
+
+  _markLoadFailed() {
+    this._connected = false;
+    this._loadFailed = true;
+    this._summary = null;
   }
 
   async _loadTriggers() {
@@ -323,10 +334,10 @@ export class LokiNotificationCenter extends LokiElement {
   // -- Render helpers --
 
   _renderBellIcon() {
-    const unread = this._summary.unacknowledged || 0;
+    const unread = this._summary?.unacknowledged;
     return `
       <div class="bell-container">
-        <button class="bell-icon" title="${unread} unread notifications">
+        <button class="bell-icon" title="${unread != null ? `${unread} unread notifications` : 'Unread count unknown'}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
@@ -338,9 +349,10 @@ export class LokiNotificationCenter extends LokiElement {
   }
 
   _renderSummaryBar() {
-    const total = this._summary.total || 0;
-    const unack = this._summary.unacknowledged || 0;
-    const critical = this._summary.critical || 0;
+    const show = (v) => (v == null ? '--' : v);
+    const total = show(this._summary?.total);
+    const unack = this._summary?.unacknowledged;
+    const critical = show(this._summary?.critical);
 
     return `
       <div class="summary-row">
@@ -351,7 +363,7 @@ export class LokiNotificationCenter extends LokiElement {
           </div>
           <div class="summary-card">
             <div class="card-label">Unread</div>
-            <div class="card-value">${unack}</div>
+            <div class="card-value">${show(unack)}</div>
           </div>
           <div class="summary-card">
             <div class="card-label">Critical</div>
@@ -387,6 +399,9 @@ export class LokiNotificationCenter extends LokiElement {
       filtered = filtered.filter(n => this._getCategory(n) === this._categoryFilter);
     }
 
+    if (!this._connected) {
+      return '<div class="empty-state">Notifications not loaded</div>';
+    }
     if (filtered.length === 0) {
       return '<div class="empty-state">No notifications</div>';
     }
@@ -895,7 +910,7 @@ export class LokiNotificationCenter extends LokiElement {
       <div class="notif-container">
         ${this._renderBellIcon()}
 
-        ${!this._connected ? '<div class="offline-notice">Connecting to notifications API...</div>' : ''}
+        ${!this._connected ? `<div class="offline-notice">${this._loadFailed ? 'Could not reach notifications API, retrying...' : 'Connecting to notifications API...'}</div>` : ''}
 
         ${this._panelOpen ? `
           <!-- Tabs -->

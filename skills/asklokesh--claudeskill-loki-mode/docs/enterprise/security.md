@@ -334,11 +334,11 @@ All Loki Mode data is stored locally on the machine running the system:
 | Policy files | `.loki/policies.yaml` or `.loki/policies.json` |
 | Configuration | `.loki/config.yaml` or `.loki/config.json` |
 
-No data is transmitted to external services unless explicitly configured (OTEL endpoint, integration webhooks, syslog forwarding).
+Beyond model inference (required unless you run a local-weights provider), anonymous telemetry (on by default for individual interactive installs, auto-off in CI, non-interactive and `LOKI_ENTERPRISE=true` / `LOKI_AIRGAP=true` contexts) and a daily update check, no data is transmitted to external services unless explicitly configured (OTEL endpoint, integration webhooks, syslog forwarding). `loki doctor --airgap` prints the egress inventory for the current configuration.
 
 ### Provider Restrictions
 
-The data residency controller restricts which AI providers can be used based on region:
+The data residency controller (`src/audit/residency.js`, configured in `.loki/residency.json`) answers whether a provider is allowed by a region or air-gapped policy. It is a library check: `loki start` does not consult it today, so setting `air_gapped: true` does not by itself stop a run from calling a hosted provider. Use `loki doctor --airgap` and network policy to enforce that.
 
 ```javascript
 const audit = require('./src/audit');
@@ -351,17 +351,14 @@ const allowed = audit.checkProvider('anthropic', 'us');  // true/false
 const airGapped = audit.isAirGapped();
 ```
 
-Configure via `.loki/config.yaml`:
+Configure via `.loki/residency.json` (the file `residency.js` reads):
 
-```yaml
-residency:
-  allowed_providers:
-    - anthropic
-    - openai
-  allowed_regions:
-    - us
-    - eu
-  air_gapped: false
+```json
+{
+  "allowed_providers": ["anthropic", "openai"],
+  "allowed_regions": ["us", "eu"],
+  "air_gapped": false
+}
 ```
 
 ## Policy Engine Security

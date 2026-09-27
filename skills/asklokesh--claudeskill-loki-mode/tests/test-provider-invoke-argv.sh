@@ -76,9 +76,11 @@ for p in claude codex opencode; do
 done
 
 # ---- PROMPT --------------------------------------------------------------
-# A multi-word prompt must survive as ONE argv element, not be word-split.
-got="$(runb ". $PROVIDERS/opencode.sh >/dev/null 2>&1; provider_invoke_argv development 'two words here'; printf '%s' \"\${_LOKI_INVOKE_ARGV[\${#_LOKI_INVOKE_ARGV[@]}-1]}\"")"
-if [ "$got" = "two words here" ]; then
+# A multi-word prompt must survive as ONE argv element, not be word-split. The
+# provider leads it with its commit-hygiene line and a blank line (BACKLOG 74),
+# in the same element.
+got="$(runb ". $PROVIDERS/opencode.sh >/dev/null 2>&1; provider_invoke_argv development 'two words here'; last=\"\${_LOKI_INVOKE_ARGV[\${#_LOKI_INVOKE_ARGV[@]}-1]}\"; if [ -n \"\$PROVIDER_COMMIT_HYGIENE\" ] && [ \"\$last\" = \"\$PROVIDER_COMMIT_HYGIENE\"\$'\\n\\n''two words here' ]; then printf 'INTACT'; else printf '%s' \"\$last\"; fi")"
+if [ "$got" = "INTACT" ]; then
     ok "a multi-word prompt survives as a single argv element"
 else
     bad "prompt was mangled to '$got'"

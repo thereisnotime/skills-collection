@@ -183,7 +183,18 @@ export function claudeFlagSupported(flag: string, helpText?: string): boolean {
 export async function ensureClaudeHelpCache(): Promise<void> {
   if (_claudeHelpCache !== null) return;
   try {
-    const proc = Bun.spawn(["claude", "--help"], { stdout: "pipe", stderr: "pipe" });
+    // Rule of Two (moat P9): Bun.spawn without an explicit `env` uses Bun's own
+    // env snapshot taken at process startup, NOT the live process.env -- so a
+    // `delete process.env["GH_TOKEN"]` done earlier (withholdGithubTokens() in
+    // autonomous.ts) would never reach this spawn and the token would leak to
+    // this literal `claude` invocation. Pass a fresh copy explicitly, matching
+    // the convention every other claude/agent spawn in this codebase already
+    // uses (shell.ts run(), voter_agents.ts, bash_delegate.ts).
+    const proc = Bun.spawn(["claude", "--help"], {
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env },
+    });
     const text = await new Response(proc.stdout).text();
     await proc.exited;
     _claudeHelpCache = text || "";

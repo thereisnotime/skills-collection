@@ -41,58 +41,6 @@ interface UserManagementProps {
 }
 
 // ---------------------------------------------------------------------------
-// Sample data
-// ---------------------------------------------------------------------------
-
-const SAMPLE_USERS: ManagedUser[] = [
-  {
-    id: 'u-1',
-    name: 'Alex Chen',
-    email: 'alex@company.com',
-    role: 'admin',
-    status: 'active',
-    lastActive: new Date(Date.now() - 300000).toISOString(),
-    joinedAt: new Date(Date.now() - 180 * 86400000).toISOString(),
-  },
-  {
-    id: 'u-2',
-    name: 'Sarah Johnson',
-    email: 'sarah@company.com',
-    role: 'editor',
-    status: 'active',
-    lastActive: new Date(Date.now() - 3600000).toISOString(),
-    joinedAt: new Date(Date.now() - 90 * 86400000).toISOString(),
-  },
-  {
-    id: 'u-3',
-    name: 'Mike Davis',
-    email: 'mike@company.com',
-    role: 'editor',
-    status: 'active',
-    lastActive: new Date(Date.now() - 86400000).toISOString(),
-    joinedAt: new Date(Date.now() - 60 * 86400000).toISOString(),
-  },
-  {
-    id: 'u-4',
-    name: 'Emily Park',
-    email: 'emily@company.com',
-    role: 'viewer',
-    status: 'inactive',
-    lastActive: new Date(Date.now() - 30 * 86400000).toISOString(),
-    joinedAt: new Date(Date.now() - 120 * 86400000).toISOString(),
-  },
-  {
-    id: 'u-5',
-    name: 'Jordan Lee',
-    email: 'jordan@company.com',
-    role: 'editor',
-    status: 'invited',
-    lastActive: null,
-    joinedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-];
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -292,7 +240,8 @@ export function UserManagement({
   onInviteUser,
   className = '',
 }: UserManagementProps) {
-  const [users, setUsers] = useState<ManagedUser[]>(externalUsers || SAMPLE_USERS);
+  // No sample fallback: without a user directory there are no rows to show.
+  const [users, setUsers] = useState<ManagedUser[]>(externalUsers ?? []);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
   const [inviting, setInviting] = useState(false);
@@ -311,7 +260,8 @@ export function UserManagement({
 
   const handleInvite = useCallback(
     async (email: string, role: UserRole) => {
-      if (onInviteUser) await onInviteUser(email, role);
+      if (!onInviteUser) return;
+      await onInviteUser(email, role);
       const newUser: ManagedUser = {
         id: `u-${Date.now()}`,
         name: email.split('@')[0],
@@ -327,9 +277,12 @@ export function UserManagement({
     [onInviteUser]
   );
 
+  // Each change is applied locally only after a wired handler persisted it; a
+  // local-only edit would show a role or status nothing recorded.
   const handleChangeRole = useCallback(
     async (userId: string, role: UserRole) => {
-      if (onChangeRole) await onChangeRole(userId, role);
+      if (!onChangeRole) return;
+      await onChangeRole(userId, role);
       setUsers(prev => prev.map(u => (u.id === userId ? { ...u, role } : u)));
     },
     [onChangeRole]
@@ -338,9 +291,9 @@ export function UserManagement({
   const handleToggleStatus = useCallback(
     async (userId: string) => {
       const user = users.find(u => u.id === userId);
-      if (!user) return;
+      if (!user || !onToggleStatus) return;
       const newActive = user.status !== 'active';
-      if (onToggleStatus) await onToggleStatus(userId, newActive);
+      await onToggleStatus(userId, newActive);
       setUsers(prev =>
         prev.map(u =>
           u.id === userId ? { ...u, status: newActive ? 'active' : 'inactive' } : u
@@ -349,6 +302,25 @@ export function UserManagement({
     },
     [users, onToggleStatus]
   );
+
+  if (!externalUsers) {
+    return (
+      <div className={`space-y-4 ${className}`}>
+        <div className="flex items-center gap-2">
+          <Users size={18} className="text-[#553DE9]" />
+          <h3 className="text-sm font-semibold text-[#201515] dark:text-[#E8E6E3] uppercase tracking-wider">
+            User Management
+          </h3>
+        </div>
+        <div className="border border-[#ECEAE3] dark:border-[#2A2A30] rounded-lg px-4 py-8 text-center">
+          <p className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Not connected</p>
+          <p className="text-xs text-[#939084] mt-1">
+            This server has no user directory, so no users are listed. Team membership is managed on the Teams page.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -361,7 +333,7 @@ export function UserManagement({
           </h3>
           <span className="text-xs text-[#939084]">{users.length} users</span>
         </div>
-        {!inviting && (
+        {!inviting && onInviteUser && (
           <Button size="sm" variant="secondary" icon={UserPlus} onClick={() => setInviting(true)}>
             Invite User
           </Button>

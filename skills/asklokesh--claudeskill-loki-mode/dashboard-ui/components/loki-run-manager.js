@@ -40,16 +40,22 @@ const RUN_STATUS_CONFIG = {
   unknown:   { color: 'var(--loki-text-muted, #939084)', bg: 'var(--loki-bg-tertiary, #ECEAE3)',                   label: 'Unknown' },
 };
 
+/** Statuses of a run that is still executing, so "now" is a real end bound. */
+const LIVE_RUN_STATUSES = new Set(['running', 'in_progress', 'active', 'building', 'bootstrap']);
+
 /**
  * Format a duration from milliseconds or compute from start/end timestamps.
+ * A row with no end time only gets a growing "now - start" when it is live;
+ * a finished run whose end was never recorded renders "--".
  * @param {number|null} durationMs - Duration in ms, or null
  * @param {string|null} startedAt - ISO start timestamp
  * @param {string|null} endedAt - ISO end timestamp
+ * @param {boolean} [isLive] - run is still executing
  * @returns {string}
  */
-export function formatRunDuration(durationMs, startedAt, endedAt) {
+export function formatRunDuration(durationMs, startedAt, endedAt, isLive = false) {
   let ms = durationMs;
-  if (ms == null && startedAt) {
+  if (ms == null && startedAt && (endedAt || isLive)) {
     const start = new Date(startedAt).getTime();
     const end = endedAt ? new Date(endedAt).getTime() : Date.now();
     ms = end - start;
@@ -555,17 +561,18 @@ export class LokiRunManager extends LokiElement {
       content = `<div class="empty-state" role="status" aria-live="polite">No runs found.${why}${src}</div>`;
     } else {
       const rows = runs.map(run => {
-        const status = (run.status || 'pending').toLowerCase();
-        const cfg = RUN_STATUS_CONFIG[status] || RUN_STATUS_CONFIG.pending;
+        const status = (run.status || 'unknown').toLowerCase();
+        // An unmapped status keeps its own label in the unknown style; never "Pending".
+        const cfg = RUN_STATUS_CONFIG[status] || { ...RUN_STATUS_CONFIG.unknown, label: run.status };
         const isRunning = status === 'running';
         const canReplay = status === 'completed' || status === 'failed' || status === 'cancelled';
-        const duration = formatRunDuration(run.duration_ms, run.started_at, run.ended_at);
+        const duration = formatRunDuration(run.duration_ms, run.started_at, run.ended_at, LIVE_RUN_STATUSES.has(status));
 
         return `
           <tr>
             <td><span class="run-id">#${run.id}</span></td>
             <td>${this._escapeHtml(run.project_name || run.project || (run.project_id ? `Project #${run.project_id}` : '--'))}</td>
-            <td><span class="status-badge" style="background: ${cfg.bg}; color: ${cfg.color};">${cfg.label}</span></td>
+            <td><span class="status-badge" style="background: ${cfg.bg}; color: ${cfg.color};">${this._escapeHtml(cfg.label)}</span></td>
             <td>${this._escapeHtml(run.trigger || run.trigger_type || '--')}</td>
             <td>${formatRunTime(run.started_at)}</td>
             <td>${duration}</td>

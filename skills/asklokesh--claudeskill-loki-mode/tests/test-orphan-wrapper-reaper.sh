@@ -41,9 +41,16 @@ cleanup() {
         kill "$pid" 2>/dev/null || true
         kill -9 "$pid" 2>/dev/null || true
     done
-    # COMPOSED-3 spawns a node child that reparents to init; reap it explicitly
-    # by its unique marker (fixed-string, survives reparent).
-    pkill -9 -f 'loki92_composed3_marker' 2>/dev/null || true
+    # COMPOSED-3 spawns a node child that reparents to init; reap it by its
+    # own recorded PID (wrap3-child.pid), never by a pattern match. A
+    # pkill -f fallback here would be exactly the bug class this file
+    # exists to prevent: a static or empty pattern can match a concurrent
+    # run's own processes, or, if ever empty, everything this user owns.
+    if [ -f "$TEST_DIR/.loki/wrap3-child.pid" ]; then
+        local _wrap3_child
+        _wrap3_child=$(cat "$TEST_DIR/.loki/wrap3-child.pid" 2>/dev/null || true)
+        [ -n "$_wrap3_child" ] && kill -9 "$_wrap3_child" 2>/dev/null || true
+    fi
     rm -rf "$TEST_DIR"
 }
 trap cleanup EXIT
@@ -232,16 +239,24 @@ rm -f "$PID_REGISTRY_DIR/$ACTIVE2.json"
 log_test "COMPOSED-3: idle orphan WITH live engine (node) child is SPARED"
 if command -v node >/dev/null 2>&1; then
     # The wrapper must be the PARENT of a node child (has_live_child does
-    # `pgrep -P <wrapper>`). Background a subshell that spawns a node child (a
-    # busy-loop with a UNIQUE marker so we can reap it by fixed-string match) and
-    # waits on it. The subshell's pid is the wrapper.
-    NODE_MARKER="loki92_composed3_marker"
+    # `pgrep -P <wrapper>`). Background a subshell that spawns a node child and
+    # waits on it. The subshell's pid is the wrapper. The node child writes its
+    # OWN pid ($CH) to a pidfile immediately after backgrounding -- never
+    # derived from a pattern match against argv -- so it can be reaped by exact
+    # PID both here and from the top-level EXIT trap (which cannot rely on
+    # $NODE_MARKER-style variables: it is installed before this block runs, so
+    # under `set -u` referencing a var this block might never set would abort
+    # the trap itself; a `pkill -f` fallback there is exactly the class of bug
+    # this file exists to prevent -- an empty or prefix-colliding pattern can
+    # match a concurrent run's own processes or, if ever empty, everything this
+    # user owns).
     # Redirect fds on BOTH the inner node and the outer bash -c so neither holds
     # this script's stdout/stderr open (else a `$()`/pipe harness hangs on EOF).
-    bash -c 'node -e "const m=process.argv[1]; setInterval(()=>{},1e9)" '"$NODE_MARKER"' >/dev/null 2>&1 & CH=$!; echo $$ > '"$TEST_DIR/.loki/wrap3.pid"'; wait $CH' >/dev/null 2>&1 &
+    bash -c 'node -e "setInterval(()=>{},1e9)" >/dev/null 2>&1 & CH=$!; echo $CH > '"$TEST_DIR/.loki/wrap3-child.pid"'; echo $$ > '"$TEST_DIR/.loki/wrap3.pid"'; wait $CH' >/dev/null 2>&1 &
     WRAP3_BG=$!
     sleep 0.6
     WRAP3=$(cat "$TEST_DIR/.loki/wrap3.pid" 2>/dev/null || echo "$WRAP3_BG")
+    WRAP3_CHILD=$(cat "$TEST_DIR/.loki/wrap3-child.pid" 2>/dev/null || true)
     DEADP=$(dead_pid "$WRAP3")
     cat > "$PID_REGISTRY_DIR/$WRAP3.json" << EOF
 {"pid":$WRAP3,"label":"loki-wrapper","started":"2026-01-01T00:00:00Z","ppid":$DEADP,"kind":"wrapper","extra":""}
@@ -257,8 +272,9 @@ EOF
     pkill -P "$WRAP3" 2>/dev/null || true
     kill -9 "$WRAP3" 2>/dev/null || true
     rm -f "$PID_REGISTRY_DIR/$WRAP3.json" "$TEST_DIR/.loki/wrap3.pid"
-    # Reap the marked node child by fixed-string (survives reparent-to-init).
-    pkill -9 -f "$NODE_MARKER" 2>/dev/null || true
+    # Reap the node child by its own recorded PID (never a pattern match).
+    [ -n "$WRAP3_CHILD" ] && kill -9 "$WRAP3_CHILD" 2>/dev/null || true
+    rm -f "$TEST_DIR/.loki/wrap3-child.pid"
 else
     log_pass "node unavailable -- COMPOSED-3 skipped (engine-child filter untested here)"
 fi

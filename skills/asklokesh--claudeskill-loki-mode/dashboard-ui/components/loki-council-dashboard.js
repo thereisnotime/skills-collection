@@ -43,9 +43,10 @@ export class LokiCouncilDashboard extends LokiElement {
 
     // Data
     this._councilState = null;
-    this._verdicts = [];
+    // null = not loaded yet or the last fetch failed; rendered as unknown, never as 0.
+    this._verdicts = null;
     this._convergence = [];
-    this._agents = [];
+    this._agents = null;
     this._selectedAgent = null;
     this._lastDataHash = null;
   }
@@ -114,16 +115,12 @@ export class LokiCouncilDashboard extends LokiElement {
       ]);
       if (api !== this._api) return;
 
-      if (councilState.status === 'fulfilled') this._councilState = councilState.value;
-      if (verdicts.status === 'fulfilled') {
-        this._verdicts = verdicts.value.verdicts || [];
-      }
+      this._councilState = councilState.status === 'fulfilled' ? councilState.value : null;
+      this._verdicts = verdicts.status === 'fulfilled' ? (verdicts.value?.verdicts || []) : null;
       if (convergence.status === 'fulfilled') {
         this._convergence = convergence.value.dataPoints || [];
       }
-      if (agents.status === 'fulfilled') {
-        this._agents = Array.isArray(agents.value) ? agents.value : [];
-      }
+      this._agents = agents.status === 'fulfilled' && Array.isArray(agents.value) ? agents.value : null;
 
       this._error = null;
     } catch (err) {
@@ -219,9 +216,9 @@ export class LokiCouncilDashboard extends LokiElement {
         <div class="council-header">
           <div class="header-left">
             <h2 class="title">Completion Council</h2>
-            ${this._councilState?.enabled !== false
+            ${this._councilState?.enabled === true
               ? `<span class="badge badge-active">Active</span>`
-              : `<span class="badge badge-inactive">Disabled</span>`
+              : `<span class="badge badge-inactive">${this._councilState?.enabled === false ? 'Disabled' : 'Unknown'}</span>`
             }
           </div>
           <button class="btn btn-primary" id="force-review-btn">
@@ -279,19 +276,21 @@ export class LokiCouncilDashboard extends LokiElement {
 
   _renderOverview() {
     const state = this._councilState || {};
-    const noChange = state.consecutive_no_change || 0;
-    const doneSignals = state.done_signals || 0;
-    const totalVotes = state.total_votes || 0;
-    const approveVotes = state.approve_votes || 0;
-    const lastVerdict = this._verdicts.length > 0 ? this._verdicts[this._verdicts.length - 1] : null;
-    const agentCount = this._agents.filter(a => a.alive).length;
+    const show = (v) => (v == null ? '--' : v);
+    const noChange = state.consecutive_no_change;
+    const doneSignals = state.done_signals;
+    const totalVotes = show(state.total_votes);
+    const approveVotes = show(state.approve_votes);
+    const lastVerdict = this._verdicts?.length > 0 ? this._verdicts[this._verdicts.length - 1] : null;
+    const agents = this._agents;
+    const statusLabel = state.enabled === true ? 'Monitoring' : state.enabled === false ? 'Disabled' : 'Unknown';
 
     return `
       <div class="overview-grid">
         <div class="stat-card">
           <div class="stat-label">Council Status</div>
-          <div class="stat-value ${state.enabled !== false ? 'text-green' : 'text-muted'}">
-            ${state.enabled !== false ? 'Monitoring' : 'Disabled'}
+          <div class="stat-value ${state.enabled === true ? 'text-green' : 'text-muted'}">
+            ${statusLabel}
           </div>
         </div>
         <div class="stat-card">
@@ -301,23 +300,23 @@ export class LokiCouncilDashboard extends LokiElement {
         </div>
         <div class="stat-card">
           <div class="stat-label">Stagnation Streak</div>
-          <div class="stat-value ${noChange >= 3 ? 'text-warn' : ''}">${noChange}</div>
+          <div class="stat-value ${noChange >= 3 ? 'text-warn' : ''}">${show(noChange)}</div>
           <div class="stat-sub">consecutive no-change</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Done Signals</div>
-          <div class="stat-value ${doneSignals >= 2 ? 'text-green' : ''}">${doneSignals}</div>
+          <div class="stat-value ${doneSignals >= 2 ? 'text-green' : ''}">${show(doneSignals)}</div>
           <div class="stat-sub">from agent output</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Active Agents</div>
-          <div class="stat-value">${agentCount}</div>
-          <div class="stat-sub">of ${this._agents.length} total</div>
+          <div class="stat-value">${agents ? agents.filter(a => a.alive).length : '--'}</div>
+          <div class="stat-sub">${agents ? `of ${agents.length} total` : 'agent list unavailable'}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Last Verdict</div>
           <div class="stat-value ${lastVerdict?.result === 'APPROVED' ? 'text-green' : 'text-muted'}">
-            ${lastVerdict ? lastVerdict.result : 'None'}
+            ${lastVerdict ? lastVerdict.result : (this._verdicts ? 'None' : '--')}
           </div>
           ${lastVerdict ? `<div class="stat-sub">iteration ${lastVerdict.iteration}</div>` : ''}
         </div>
@@ -356,8 +355,12 @@ export class LokiCouncilDashboard extends LokiElement {
   }
 
   _renderDecisions() {
+    if (!this._verdicts) {
+      return '<div class="empty-state">Review decisions unavailable.</div>';
+    }
     if (this._verdicts.length === 0) {
-      return `<div class="empty-state">No review decisions yet. The council checks for completion every ${this._councilState?.check_interval || 5} build steps.</div>`;
+      const every = this._councilState?.check_interval;
+      return `<div class="empty-state">No review decisions yet. The council checks for completion ${every != null ? `every ${every} build steps` : 'periodically'}.</div>`;
     }
 
     return `
@@ -423,6 +426,9 @@ export class LokiCouncilDashboard extends LokiElement {
   }
 
   _renderAgents() {
+    if (!this._agents) {
+      return '<div class="empty-state">Agent list unavailable.</div>';
+    }
     if (this._agents.length === 0) {
       return '<div class="empty-state">No agents registered.</div>';
     }
@@ -472,7 +478,7 @@ export class LokiCouncilDashboard extends LokiElement {
       if (!s) return;
       s.querySelectorAll('.agent-card[data-agent-index]').forEach(card => {
         const idx = parseInt(card.dataset.agentIndex, 10);
-        const agent = this._agents[idx];
+        const agent = this._agents?.[idx];
         if (!agent) return;
         card.addEventListener('click', () => this._selectAgent(agent));
         card.querySelectorAll('[data-action]').forEach(btn => {

@@ -41,57 +41,19 @@ export interface UsageAnalyticsData {
   peakHours: number[][]; // 7x24 matrix (days x hours)
 }
 
+// Every field is optional: a series no endpoint measures is absent and renders
+// "Not recorded". There is no sample fallback.
 interface UsageAnalyticsProps {
-  data?: UsageAnalyticsData;
+  data?: Partial<UsageAnalyticsData>;
   className?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Sample data
-// ---------------------------------------------------------------------------
-
-function generateSampleData(): UsageAnalyticsData {
-  const now = Date.now();
-  const day = 86400000;
-  const tokenUsage: TokenUsagePoint[] = Array.from({ length: 30 }, (_, i) => ({
-    date: new Date(now - (29 - i) * day).toISOString().split('T')[0],
-    tokens: Math.floor(Math.random() * 500000) + 100000,
-  }));
-
-  const costBreakdown: CostBreakdown[] = [
-    { provider: 'Claude', cost: 124.50, percentage: 62, color: '#553DE9' },
-    { provider: 'Codex', cost: 48.30, percentage: 24, color: '#1FC5A8' },
-    { provider: 'Gemini', cost: 28.20, percentage: 14, color: '#F59E0B' },
-  ];
-
-  const templateUsage: TemplateUsage[] = [
-    { name: 'SaaS App', count: 45 },
-    { name: 'CLI Tool', count: 32 },
-    { name: 'Discord Bot', count: 28 },
-    { name: 'REST API', count: 21 },
-    { name: 'Chrome Extension', count: 14 },
-  ];
-
-  // Generate peak hours data (7 days x 24 hours)
-  const peakHours: number[][] = Array.from({ length: 7 }, () =>
-    Array.from({ length: 24 }, (_, h) => {
-      // Simulate higher usage during work hours
-      if (h >= 9 && h <= 17) return Math.floor(Math.random() * 80) + 20;
-      if (h >= 18 && h <= 22) return Math.floor(Math.random() * 40) + 10;
-      return Math.floor(Math.random() * 15);
-    })
+function NotRecorded({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-sm text-[#939084] py-4">
+      <span className="font-medium text-[#6B6960]">Not recorded.</span> {children}
+    </p>
   );
-
-  return {
-    tokenUsage,
-    costBreakdown,
-    buildSuccessRate: 87,
-    totalBuilds: 342,
-    successfulBuilds: 298,
-    failedBuilds: 44,
-    templateUsage,
-    peakHours,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -290,7 +252,7 @@ function CostDonutChart({ data }: { data: CostBreakdown[] }) {
           Total
         </text>
         <text x={center} y={center + 12} textAnchor="middle" className="text-sm fill-[#36342E] dark:fill-[#E8E6E3] font-semibold">
-          ${total.toFixed(0)}
+          ${total.toFixed(2)}
         </text>
       </svg>
 
@@ -374,8 +336,8 @@ function PeakHoursHeatmap({ data }: { data: number[][] }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function UsageAnalytics({ data: externalData, className = '' }: UsageAnalyticsProps) {
-  const data = externalData || generateSampleData();
+export function UsageAnalytics({ data = {}, className = '' }: UsageAnalyticsProps) {
+  const hasAny = Object.values(data).some(v => v != null);
 
   const handleExport = useCallback(() => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -387,6 +349,8 @@ export function UsageAnalytics({ data: externalData, className = '' }: UsageAnal
     URL.revokeObjectURL(url);
   }, [data]);
 
+  const rate = data.buildSuccessRate;
+
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
@@ -397,9 +361,11 @@ export function UsageAnalytics({ data: externalData, className = '' }: UsageAnal
             Usage Analytics
           </h3>
         </div>
-        <Button size="sm" variant="ghost" icon={Download} onClick={handleExport}>
-          Export
-        </Button>
+        {hasAny && (
+          <Button size="sm" variant="ghost" icon={Download} onClick={handleExport}>
+            Export
+          </Button>
+        )}
       </div>
 
       {/* Token Usage Over Time */}
@@ -408,7 +374,9 @@ export function UsageAnalytics({ data: externalData, className = '' }: UsageAnal
           <TrendingUp size={14} className="text-[#553DE9]" />
           <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Token Usage (30 Days)</h4>
         </div>
-        <TokenLineChart data={data.tokenUsage} />
+        {data.tokenUsage?.length
+          ? <TokenLineChart data={data.tokenUsage} />
+          : <NotRecorded>No endpoint on this server reports daily token usage.</NotRecorded>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -416,9 +384,11 @@ export function UsageAnalytics({ data: externalData, className = '' }: UsageAnal
         <div className="card p-4">
           <div className="flex items-center gap-2 mb-3">
             <PieChart size={14} className="text-[#553DE9]" />
-            <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Cost by Provider</h4>
+            <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Cost by Model</h4>
           </div>
-          <CostDonutChart data={data.costBreakdown} />
+          {data.costBreakdown?.length
+            ? <CostDonutChart data={data.costBreakdown} />
+            : <NotRecorded>No run on this project has recorded a cost yet.</NotRecorded>}
         </div>
 
         {/* Build Success Rate */}
@@ -428,47 +398,55 @@ export function UsageAnalytics({ data: externalData, className = '' }: UsageAnal
             <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Build Success Rate</h4>
           </div>
 
-          <div className="flex items-center gap-4 mb-4">
-            <span className="text-3xl font-bold text-[#36342E] dark:text-[#E8E6E3]">
-              {data.buildSuccessRate}%
-            </span>
-            <div className="text-xs text-[#939084]">
-              <div>{data.successfulBuilds} passed</div>
-              <div>{data.failedBuilds} failed</div>
-              <div>{data.totalBuilds} total</div>
-            </div>
-          </div>
+          {rate != null ? (
+            <>
+              <div className="flex items-center gap-4 mb-4">
+                <span className="text-3xl font-bold text-[#36342E] dark:text-[#E8E6E3]">
+                  {rate}%
+                </span>
+                <div className="text-xs text-[#939084]">
+                  <div>{data.successfulBuilds} passed</div>
+                  <div>{data.failedBuilds} failed</div>
+                  <div>{data.totalBuilds} total</div>
+                </div>
+              </div>
 
-          {/* Progress bar */}
-          <div className="h-3 bg-[#F8F4F0] dark:bg-[#1A1A1E] rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${data.buildSuccessRate}%`,
-                background: data.buildSuccessRate >= 80
-                  ? '#1FC5A8'
-                  : data.buildSuccessRate >= 60
-                  ? '#F59E0B'
-                  : '#C45B5B',
-              }}
-            />
-          </div>
+              {/* Progress bar */}
+              <div className="h-3 bg-[#F8F4F0] dark:bg-[#1A1A1E] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${rate}%`,
+                    background: rate >= 80 ? '#1FC5A8' : rate >= 60 ? '#F59E0B' : '#C45B5B',
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            <NotRecorded>
+              Build outcomes are not tracked here. Verified outcomes appear as Evidence Receipts on the Metrics page.
+            </NotRecorded>
+          )}
 
           {/* Most Used Templates */}
           <div className="mt-6">
             <h4 className="text-xs font-medium text-[#939084] uppercase tracking-wider mb-2">
               Top Templates
             </h4>
-            <div className="space-y-2">
-              {data.templateUsage.slice(0, 5).map((t, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <span className="text-sm text-[#36342E] dark:text-[#E8E6E3]">
-                    {i + 1}. {t.name}
-                  </span>
-                  <span className="text-xs font-mono text-[#939084]">{t.count} builds</span>
-                </div>
-              ))}
-            </div>
+            {data.templateUsage?.length ? (
+              <div className="space-y-2">
+                {data.templateUsage.slice(0, 5).map((t, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-sm text-[#36342E] dark:text-[#E8E6E3]">
+                      {i + 1}. {t.name}
+                    </span>
+                    <span className="text-xs font-mono text-[#939084]">{t.count} builds</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <NotRecorded>Template usage is not recorded.</NotRecorded>
+            )}
           </div>
         </div>
       </div>
@@ -479,8 +457,11 @@ export function UsageAnalytics({ data: externalData, className = '' }: UsageAnal
           <Clock size={14} className="text-[#553DE9]" />
           <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Peak Usage Hours</h4>
         </div>
-        <PeakHoursHeatmap data={data.peakHours} />
+        {data.peakHours?.length
+          ? <PeakHoursHeatmap data={data.peakHours} />
+          : <NotRecorded>Build start times are not aggregated by hour on this server.</NotRecorded>}
       </div>
     </div>
   );
 }
+

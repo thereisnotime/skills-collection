@@ -1689,14 +1689,26 @@ verify_gate_runtime() {
     local boot_log="$artifact_dir/boot.log"
 
     # Boot the app in the background, bounded by the timeout wrapper. The whole
-    # process group is killed on teardown. Env is inherited (no secrets injected).
-    # PORT is exported to the resolved port so 12-factor apps (node, many python
-    # frameworks) listen where the probe looks; apps that hardcode a port ignore
-    # it harmlessly. This keeps boot-port and probe-port consistent.
+    # process group is killed on teardown. Env is inherited (no secrets injected)
+    # PLUS one new marker: LOKI_VERIFY_RUN_TOKEN, a per-run random value used
+    # ONLY as an ownership proof at teardown (see _verify_runtime_teardown) --
+    # it identifies "a process this exact verify run launched" even after a
+    # setsid()'d daemon detaches into its own session/process group, which
+    # defeats every pgid/ppid-based check (round-4 council finding: v7.109.0's
+    # daemonize-leak fixture uses child_process.spawn({detached:true}), and no
+    # pgid/ppid arm can ever match a setsid'd process). Environment variables
+    # survive setsid() and fork()/spawn() regardless of process-group changes,
+    # so this closes exactly the gap those checks cannot. PORT is exported to
+    # the resolved port so 12-factor apps (node, many python frameworks) listen
+    # where the probe looks; apps that hardcode a port ignore it harmlessly.
+    # This keeps boot-port and probe-port consistent.
+    local run_token=""
+    run_token="verify-$$-${RANDOM}-${RANDOM}-$(date +%s 2>/dev/null || echo 0)"
     local app_pid=""
     (
         cd "$tree" || exit 127
         export PORT="$port"
+        export LOKI_VERIFY_RUN_TOKEN="$run_token"
         exec "$timeout_bin" "$boot_timeout" sh -c "$method"
     ) >"$boot_log" 2>&1 &
     app_pid=$!
@@ -1769,7 +1781,7 @@ verify_gate_runtime() {
     # Reclaim BOTH the detected port and the actually-bound port (scraped from the
     # boot log) so a server that daemonized onto a different port than we guessed
     # does not leak. scraped_port may be empty (no banner) -- teardown handles it.
-    _verify_runtime_teardown "$app_pid" "$port" "$scraped_port"
+    _verify_runtime_teardown "$app_pid" "$port" "$scraped_port" "$run_token"
 
     # Interpret the result.
     if [ "$answered" != "true" ]; then
@@ -1907,8 +1919,34 @@ SMOKE_SCRIPT
 
 # Teardown: terminate the boot launcher and any process still holding the port.
 # Bounded and best effort; never blocks the gate.
+# Does pid's environment carry LOKI_VERIFY_RUN_TOKEN=<tok> exactly? Portable
+# ownership proof that survives setsid() (see the fourth arm below for why
+# pgid/ppid checks cannot). Fails CLOSED: an empty token, an unreadable
+# environment, or any ambiguity returns "no match" -- never a false positive
+# that would authorize a kill. Checked directly (not assumed) on this
+# codebase's target platforms: Linux via /proc/<pid>/environ (NUL-separated,
+# same-uid readable); macOS/BSD via `ps -E -ww -o command=` (the `-E` flag
+# specifically requests the environment block; `-e` on BSD ps means "all
+# processes" and shows nothing extra -- do not confuse the two).
+_verify_runtime_pid_has_token() {
+    local pid="$1" tok="$2"
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    [ -n "$tok" ] || return 1
+    if [ -r "/proc/$pid/environ" ]; then
+        tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -qxF "LOKI_VERIFY_RUN_TOKEN=$tok"
+        return $?
+    fi
+    if command -v ps >/dev/null 2>&1; then
+        case " $(ps -E -ww -o command= -p "$pid" 2>/dev/null) " in
+            *" LOKI_VERIFY_RUN_TOKEN=$tok "*) return 0 ;;
+            *) return 1 ;;
+        esac
+    fi
+    return 1
+}
+
 _verify_runtime_teardown() {
-    local app_pid="$1" port="$2" scraped_port="${3:-}"
+    local app_pid="$1" port="$2" scraped_port="${3:-}" run_token="${4:-}"
     if [ -n "$app_pid" ]; then
         # Best: kill the launcher's whole process GROUP so a server it spawned in
         # a subshell (e.g. `vite &`) dies too. GUARDED against self-suicide: in a
@@ -1943,6 +1981,22 @@ _verify_runtime_teardown() {
     # Reclaim BOTH the detected port and the actually-bound (scraped) port from
     # any orphan that outlived the launcher -- a daemonized server that bound a
     # different port than we guessed would otherwise leak. Bounded, best effort.
+    #
+    # SCOPING (D14/D15/D16 class): `lsof -ti tcp:$port` alone, with no
+    # -sTCP:LISTEN filter, matches EVERY socket referencing that port number,
+    # including a CLIENT with an established connection whose remote port
+    # happens to be $port (e.g. a browser tab open to localhost:$port) -- that
+    # process gets SIGKILL'd even though it never bound anything. And with no
+    # ownership check at all, ANY process (this run's or not) listening on the
+    # reused port gets killed. Fixed to (1) filter to LISTEN sockets only, and
+    # (2) verify each candidate is actually part of THIS launcher's tree before
+    # killing it: its pgid matches $child_pgid (the group this teardown just
+    # tried to signal above), or its direct parent is $app_pid. A holder that
+    # matches neither is left alone -- this run never bound that port, so it
+    # never reclaims it. Trade-off: a server that called setsid() into a fresh
+    # session AND was reparented away from app_pid (neither condition holds)
+    # will leak here; failing closed on an unverified kill is the safer
+    # direction (see docs/v10/DECISIONS.md D14/D15/D16).
     if command -v lsof >/dev/null 2>&1; then
         # Build a unique, non-empty port list (scraped only if it differs).
         local _ports="$port"
@@ -1951,10 +2005,62 @@ _verify_runtime_teardown() {
         for _rp in $_ports; do
             [ -z "$_rp" ] && continue
             local holders
-            holders="$(lsof -ti tcp:"$_rp" 2>/dev/null || true)"
+            holders="$(lsof -ti tcp:"$_rp" -sTCP:LISTEN 2>/dev/null || true)"
             if [ -n "$holders" ]; then
                 printf '%s\n' "$holders" | while IFS= read -r pid; do
-                    [ -n "$pid" ] && kill -9 "$pid" 2>/dev/null || true
+                    [ -z "$pid" ] && continue
+                    local _h_pgid="" _h_ppid=""
+                    _h_pgid="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ' || true)"
+                    _h_ppid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ' || true)"
+                    # THIRD ARM (council round 2, REJECT reproduced and fixed):
+                    # GNU `timeout` (this codebase's launcher, verify.sh:1699)
+                    # makes ITSELF the process-group leader, so the group's
+                    # pgid equals timeout's own pid, which equals app_pid (the
+                    # subshell execs straight into timeout with no fork). If
+                    # the launched command daemonizes -- forks a server and
+                    # the parent (timeout, then sh -c) exits -- by teardown
+                    # time: child_pgid is EMPTY (timeout already exited, so
+                    # `ps -o pgid= -p "$app_pid"` finds nothing); the orphan's
+                    # ppid is 1, not app_pid; but its pgid is STILL app_pid,
+                    # the value it inherited when timeout created the group.
+                    # Neither of the two arms above can ever match this case,
+                    # so the classic "daemonized" leak this function's own
+                    # comments describe was never reclaimed. Reproduced
+                    # directly: own daemon listener LEAKED pre-this-arm,
+                    # reclaimed after. Safe as an ownership proof, not a
+                    # loosening: a process group's pgid cannot be reassigned
+                    # to an unrelated group while any member of the original
+                    # group (here, the orphan itself, still alive and
+                    # reporting this exact pgid) still exists -- POSIX pgid
+                    # reuse is blocked until the whole group is empty.
+                    # FOURTH ARM (council round 4, 2 of 4 reviewers REJECTed
+                    # with an identical reproduction; verified independently
+                    # before applying): a process launched via
+                    # child_process.spawn({detached:true}) (Node's setsid()
+                    # wrapper) becomes its OWN session and process group
+                    # leader -- its pgid equals its OWN pid, not app_pid or
+                    # child_pgid, and its ppid is 1. None of the three arms
+                    # above can ever match that shape, which is exactly
+                    # test-runtime-gate.sh case I's fixture (the v7.109.0
+                    # daemonize-leak regression test) and a real pattern many
+                    # servers use to daemonize. Environment variables survive
+                    # setsid()/fork()/exec() regardless of process-group
+                    # changes, so LOKI_VERIFY_RUN_TOKEN (exported into the
+                    # launched app's env at boot, see the launch site above)
+                    # is checked here as a portability-verified ownership
+                    # proof (see _verify_runtime_pid_has_token; confirmed
+                    # directly on macOS with `ps -E -ww`, not assumed).
+                    # Residual, disclosed gap: a daemon that scrubs its own
+                    # environment (env -i, some process supervisors) before
+                    # detaching still leaks -- no ownership proof survives
+                    # that, and failing closed on an unverified kill remains
+                    # the safer direction.
+                    if { [ -n "$child_pgid" ] && [ -n "$_h_pgid" ] && [ "$_h_pgid" = "$child_pgid" ]; } \
+                       || { [ -n "$app_pid" ] && [ -n "$_h_ppid" ] && [ "$_h_ppid" = "$app_pid" ]; } \
+                       || { [ -n "$app_pid" ] && [ -n "$_h_pgid" ] && [ "$_h_pgid" = "$app_pid" ]; } \
+                       || _verify_runtime_pid_has_token "$pid" "$run_token"; then
+                        kill -9 "$pid" 2>/dev/null || true
+                    fi
                 done
             fi
         done

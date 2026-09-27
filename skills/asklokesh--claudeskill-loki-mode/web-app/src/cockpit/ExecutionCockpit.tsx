@@ -200,7 +200,7 @@ export function ExecutionCockpit({ sessionId, onClose }: Props) {
                   phase={s.phase}
                   view={s.view}
                   isLive={s.isLive}
-                  iteration={s.status?.iteration}
+                  iteration={s.status?.iteration ?? undefined}
                 />
               </div>
               <div className={panel}>

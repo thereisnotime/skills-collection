@@ -14,13 +14,8 @@ const messagesByContext: Record<string, string[]> = {
     'Running quality checks...',
     'Almost there...',
   ],
-  build: [
-    'Setting things up...',
-    'Installing dependencies...',
-    'Compiling your project...',
-    'Running the build pipeline...',
-    'Finishing touches...',
-  ],
+  // The build context cannot see what the engine is doing, so it claims nothing.
+  build: ['Working...'],
   deploy: [
     'Preparing containers...',
     'Pushing to the cloud...',
@@ -43,6 +38,7 @@ export function LoadingMessages({ context = 'general', className = '' }: Loading
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
+    if (messages.length < 2) return;
     const interval = setInterval(() => {
       setFading(true);
       setTimeout(() => {

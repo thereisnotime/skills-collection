@@ -126,14 +126,16 @@ agent_log="$TMP/agent.log"
 iter_output="$TMP/iteration.log"
 exit_code=0
 run_real_dispatch_case >/dev/null
-if [ "$exit_code" -eq 0 ] && python3 - "$TMP/argv.json" "$prompt" <<'PY'
+# The provider leads the prompt with its commit-hygiene line (BACKLOG 74); the
+# caller's prompt follows it byte for byte, in the same single argv element.
+if [ "$exit_code" -eq 0 ] && python3 - "$TMP/argv.json" "$prompt" "${PROVIDER_COMMIT_HYGIENE:-}" <<'PY'
 import json, sys
 actual = json.load(open(sys.argv[1], encoding="utf-8"))
-expected = ["run", "--auto", "--model", "fixture/model-v1", sys.argv[2]]
-raise SystemExit(0 if actual == expected else 1)
+expected = ["run", "--auto", "--model", "fixture/model-v1", sys.argv[3] + "\n\n" + sys.argv[2]]
+raise SystemExit(0 if sys.argv[3] and actual == expected else 1)
 PY
 then
-    ok "real main-loop arm preserves exact prompt, --auto, and model argv"
+    ok "real main-loop arm preserves exact prompt (after the commit-hygiene line), --auto, and model argv"
 else
     bad "real main-loop arm changed opencode argv or returned $exit_code"
 fi

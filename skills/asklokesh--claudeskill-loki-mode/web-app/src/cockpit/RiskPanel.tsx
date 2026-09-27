@@ -128,8 +128,8 @@ export function RiskPanel({
                     {cp.description}
                   </p>
                   <p className="text-small text-muted-accessible dark:text-dark-muted">
-                    {cp.timestamp || 'no timestamp'} - iteration {cp.iteration} -{' '}
-                    {cp.files_changed} file(s)
+                    {cp.timestamp || 'no timestamp'} - iteration {cp.iteration ?? '--'} -{' '}
+                    {cp.files_changed ?? '--'} file(s)
                   </p>
                 </div>
                 <button
@@ -171,7 +171,7 @@ export function RiskPanel({
           </p>
           <p className="mt-1 text-small text-secondary dark:text-dark-ink">
             This overwrites files in the project directory with the snapshot
-            taken at iteration {confirming.iteration}. Changes made since then
+            taken at iteration {confirming.iteration ?? '--'}. Changes made since then
             and not checkpointed are lost.
           </p>
           <div className="mt-3 flex gap-2">

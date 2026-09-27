@@ -763,6 +763,13 @@ _qs_detect_brownfield() {
 : "${LOKI_QUICKSTART_CLASSIFY_TIMEOUT:=15}"
 _qs_classify_invoke() {
     local prompt="$1"
+    # Only the provider the operator chose may see a prompt (V10 P5): with any
+    # other provider the offline keyword ranking is used. Policy (and the
+    # LOKI_ALLOW_CLAUDE_SIDECALLS=1 opt-in) lives in providers/loader.sh.
+    # ponytail: upgrade path is routing this call through provider_invoke_argv.
+    type loki_claude_sidecall_allowed >/dev/null 2>&1 \
+        || . "$(dirname "${BASH_SOURCE[0]}")/../providers/loader.sh" 2>/dev/null
+    loki_claude_sidecall_allowed 2>/dev/null || return 1
     command -v claude >/dev/null 2>&1 || return 1
     local rc=0 out=""
     local to=""

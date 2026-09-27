@@ -25,6 +25,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 let tmp: string;
 let stubPath: string;
@@ -72,22 +73,26 @@ function makeCall(overrides: Partial<ProviderInvocation> = {}): ProviderInvocati
   };
 }
 
+// Env that changes which model a claude call dispatches.
+const MODEL_ENV_KEYS = [
+  "LOKI_ALLOW_HAIKU", "LOKI_MAX_TIER", "LOKI_HOST_GUARD", "LOKI_SESSION_MODEL",
+  "LOKI_LEGACY_TIER_SWITCHING", "LOKI_TIER_ROUTING", "LOKI_COMPLEXITY",
+  "LOKI_CLAUDE_MODEL_PLANNING", "LOKI_CLAUDE_MODEL_DEVELOPMENT", "LOKI_CLAUDE_MODEL_FAST",
+  "LOKI_MODEL_PLANNING", "LOKI_MODEL_DEVELOPMENT", "LOKI_MODEL_FAST",
+];
+
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), "loki-providers-test-"));
   stubPath = join(tmp, "claude-stub");
   outputPath = join(tmp, "iter", "captured.log");
   process.env["LOKI_CLAUDE_CLI"] = stubPath;
   // Wipe tier/maxTier env so tests start from a clean slate.
-  delete process.env["LOKI_ALLOW_HAIKU"];
-  delete process.env["LOKI_MAX_TIER"];
-  delete process.env["LOKI_HOST_GUARD"];
+  for (const k of MODEL_ENV_KEYS) delete process.env[k];
 });
 
 afterEach(() => {
   delete process.env["LOKI_CLAUDE_CLI"];
-  delete process.env["LOKI_ALLOW_HAIKU"];
-  delete process.env["LOKI_MAX_TIER"];
-  delete process.env["LOKI_HOST_GUARD"];
+  for (const k of MODEL_ENV_KEYS) delete process.env[k];
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -571,6 +576,84 @@ describe("claudeProvider invocation", () => {
     await p.invoke(makeCall({ tier: "fast" }));
     const argv = readArgv(argvLog);
     expect(argv).toContain("haiku");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Claude model resolution: per-tier env pins and the opus session pin (moat P4).
+// Before this, the Bun route ignored LOKI_CLAUDE_MODEL_* / LOKI_MODEL_* and
+// dispatched sonnet for an opus-pinned session; bash honored both.
+// ---------------------------------------------------------------------------
+
+describe("claude model resolution (per-tier pins, opus session pin)", () => {
+  // Dispatch one call under exactly `env` (model env reset first) and return
+  // the --model value the stub CLI received.
+  async function dispatched(call: Partial<ProviderInvocation>, env: Record<string, string> = {}): Promise<string> {
+    for (const k of MODEL_ENV_KEYS) delete process.env[k];
+    for (const [k, v] of Object.entries(env)) process.env[k] = v;
+    const argvLog = writeStub();
+    await claudeProvider().invoke(makeCall(call));
+    const argv = readArgv(argvLog);
+    return argv[argv.indexOf("--model") + 1] ?? "NO-MODEL";
+  }
+
+  it("per-tier LOKI_CLAUDE_MODEL_* pins reach dispatch, fast pin beats the haiku gate", async () => {
+    const env = { LOKI_CLAUDE_MODEL_PLANNING: "opus", LOKI_CLAUDE_MODEL_DEVELOPMENT: "claude-sonnet-5", LOKI_CLAUDE_MODEL_FAST: "haiku" };
+    expect(await dispatched({ tier: "planning" }, env)).toBe("opus");
+    expect(await dispatched({ tier: "development" }, env)).toBe("claude-sonnet-5");
+    expect(await dispatched({ tier: "fast" }, env)).toBe("haiku");
+    expect(await dispatched({ tier: "fast" })).toBe("sonnet");
+  });
+
+  it("LOKI_CLAUDE_MODEL_<TIER> beats LOKI_MODEL_<TIER>, and an empty value counts as unset", async () => {
+    expect(await dispatched({ tier: "planning" }, { LOKI_MODEL_PLANNING: "opus" })).toBe("opus");
+    expect(await dispatched({ tier: "planning" }, { LOKI_MODEL_PLANNING: "opus", LOKI_CLAUDE_MODEL_PLANNING: "claude-opus-5-5" })).toBe("claude-opus-5-5");
+    expect(await dispatched({ tier: "planning" }, { LOKI_MODEL_PLANNING: "opus", LOKI_CLAUDE_MODEL_PLANNING: "" })).toBe("opus");
+    expect(await dispatched({ tier: "development" }, { LOKI_MODEL_DEVELOPMENT: "" })).toBe("sonnet");
+  });
+
+  it("matches bash resolve_model_for_tier for per-tier pins and ceilings", async () => {
+    const claudeSh = join(import.meta.dir, "..", "..", "..", "providers", "claude.sh");
+    const matrix: Array<Record<string, string>> = [
+      {},
+      { LOKI_CLAUDE_MODEL_PLANNING: "opus", LOKI_CLAUDE_MODEL_FAST: "haiku" },
+      { LOKI_MODEL_DEVELOPMENT: "claude-sonnet-5", LOKI_MAX_TIER: "sonnet" },
+      { LOKI_CLAUDE_MODEL_PLANNING: "opus", LOKI_MAX_TIER: "sonnet", LOKI_CLAUDE_MODEL_DEVELOPMENT: "claude-sonnet-5" },
+      { LOKI_CLAUDE_MODEL_FAST: "haiku", LOKI_MAX_TIER: "haiku" },
+      { LOKI_ALLOW_HAIKU: "true" },
+    ];
+    for (const env of matrix) {
+      for (const tier of ["planning", "development", "fast"]) {
+        const bun = await dispatched({ tier }, env);
+        const bash = execFileSync("bash", ["-c", `. "${claudeSh}" >/dev/null 2>&1; resolve_model_for_tier "${tier}"`], {
+          env: { HOME: process.env["HOME"] ?? "/tmp", PATH: process.env["PATH"] ?? "", ...env },
+        }).toString().trim();
+        expect(`${tier} ${JSON.stringify(env)} -> ${bun}`).toBe(`${tier} ${JSON.stringify(env)} -> ${bash}`);
+      }
+    }
+  });
+
+  it("an opus session pin dispatches opus on the main loop (trim + lowercase, like run.sh)", async () => {
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { LOKI_SESSION_MODEL: "opus" })).toBe("opus");
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { LOKI_SESSION_MODEL: " OPUS " })).toBe("opus");
+    // Complexity routing does not touch the pin.
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { LOKI_SESSION_MODEL: "opus", LOKI_TIER_ROUTING: "1", LOKI_COMPLEXITY: "simple" })).toBe("opus");
+  });
+
+  it("the opus pin stays inside LOKI_MAX_TIER, clamped at the planning level", async () => {
+    const pin = { LOKI_SESSION_MODEL: "opus" };
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { ...pin, LOKI_MAX_TIER: "sonnet" })).toBe("sonnet");
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { ...pin, LOKI_MAX_TIER: "Haiku" })).toBe("sonnet");
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { ...pin, LOKI_MAX_TIER: "haiku", LOKI_ALLOW_HAIKU: "true" })).toBe("haiku");
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { ...pin, LOKI_MAX_TIER: "opus" })).toBe("opus");
+  });
+
+  it("the opus pin does not apply to subcalls, legacy tier switching, or a tier the router moved", async () => {
+    const pin = { LOKI_SESSION_MODEL: "opus" };
+    expect(await dispatched({ tier: "planning" }, pin)).toBe("sonnet");
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { ...pin, LOKI_LEGACY_TIER_SWITCHING: "true" })).toBe("sonnet");
+    expect(await dispatched({ tier: "development", mainLoop: true }, pin)).toBe("sonnet");
+    expect(await dispatched({ tier: "planning", mainLoop: true }, { LOKI_SESSION_MODEL: "sonnet" })).toBe("sonnet");
   });
 });
 

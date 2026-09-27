@@ -54,7 +54,9 @@ interface Props {
 
 export function RunMetrics({ status, isLive, elapsedSeconds, timeToFirstSignal }: Props) {
   const iteration = status?.iteration ?? 0;
-  const cost = status?.cost ?? 0;
+  // /api/session/status reports cost 0 when the state file had no cost field,
+  // so only a positive number is a reading; anything else is unmeasured.
+  const cost = typeof status?.cost === 'number' && status.cost > 0 ? status.cost : null;
 
   return (
     <section aria-label="Run metrics" className="p-4 sm:p-5">
@@ -95,11 +97,11 @@ export function RunMetrics({ status, isLive, elapsedSeconds, timeToFirstSignal }
         <Metric
           icon={DollarSign}
           label="Cost"
-          value={cost > 0 ? `$${cost.toFixed(2)}` : '--'}
+          value={cost !== null ? `$${cost.toFixed(2)}` : '--'}
           // A zero here means "the state file had no cost field", not "this run
           // was free". Rendering $0.00 would assert something we did not read.
-          note={cost > 0 ? undefined : 'Not recorded'}
-          muted={cost <= 0}
+          note={cost !== null ? undefined : 'Not recorded'}
+          muted={cost === null}
         />
       </dl>
     </section>

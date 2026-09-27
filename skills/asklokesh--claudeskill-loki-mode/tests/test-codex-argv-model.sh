@@ -97,6 +97,13 @@ _argv_for() {  # $1 = provider, $2 = tier
     # any line-oriented extraction -- which silently hid both the --model flag
     # and the prompt. Emit each element on its own record with a stable prefix.
     for _a in \"\${_LOKI_INVOKE_ARGV[@]}\"; do printf 'ELEM=%s\n' \"\$_a\"; done
+    # The prompt element: the caller's prompt, led by the provider's
+    # commit-hygiene line and a blank line on every provider but claude, which
+    # carries that line in its system prompt (BACKLOG 74).
+    _want='do a thing'
+    [ '$1' = claude ] || _want=\"\${PROVIDER_COMMIT_HYGIENE:-MISSING}\"\$'\\n\\n''do a thing'
+    for _a in \"\${_LOKI_INVOKE_ARGV[@]}\"; do [ \"\$_a\" = \"\$_want\" ] && printf 'PROMPT=intact\n'; done
+    printf 'HYGIENE=%s\n' \"\${PROVIDER_COMMIT_HYGIENE:-}\"
     # Expected model comes from resolve_model_for_tier -- the provider's OWN
     # full resolver (base + tier routing + LOKI_MAX_TIER clamp), which is what
     # provider_invoke uses. Comparing against the raw provider_get_tier_param
@@ -150,7 +157,7 @@ for spec in "claude|claude|--model" "opencode|opencode|--model" "aider|aider|--m
 
   # The prompt must survive into argv as its OWN element, or every check above
   # passes against an argv that would invoke the CLI with no work to do.
-  printf '%s\n' "$out" | grep -qxF 'ELEM=do a thing' \
+  printf '%s\n' "$out" | grep -qx 'PROMPT=intact' \
     && ok "$p: prompt is present in argv" \
     || bad "$p: prompt missing from argv"
 done
@@ -232,6 +239,25 @@ for p in aider cline; do
     bad "$p: no marker -- argv never reached the CLI through timeout"
   fi
   rm -rf "$tmp"
+done
+
+echo
+echo "T6 -- every other provider leads its prompt with claude.sh's commit-hygiene sentence"
+# BACKLOG 74: only claude carried "never git add -A" (in its system prompt), so
+# an agent on another provider committed the user's files with its own
+# `git add -A`. The sentence must match claude.sh byte for byte.
+claude_hyg="$(grep -o 'Commit hygiene still applies:.*this session\.' "$REPO_ROOT/providers/claude.sh" | head -1)"
+[ -n "$claude_hyg" ] || bad "could not read the hygiene sentence from providers/claude.sh"
+for p in codex opencode aider cline; do
+  out=$(_argv_for "$p" development)
+  printf '%s\n' "$out" | grep -qx 'PROMPT=intact' \
+    && ok "$p: the prompt element is the hygiene line, a blank line, then the prompt" \
+    || bad "$p: the prompt element does not lead with the commit-hygiene line"
+  if [ -n "$claude_hyg" ] && printf '%s\n' "$out" | grep -qxF "HYGIENE=$claude_hyg"; then
+    ok "$p: the hygiene sentence is byte-identical to providers/claude.sh"
+  else
+    bad "$p: the hygiene sentence is missing or differs from providers/claude.sh"
+  fi
 done
 
 echo

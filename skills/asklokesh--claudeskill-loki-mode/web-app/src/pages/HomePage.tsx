@@ -19,11 +19,9 @@ import { MetricsPanel } from '../components/MetricsPanel';
 import { SessionHistory } from '../components/SessionHistory';
 import { TrustedBy } from '../components/TrustedBy';
 import { HowItWorks } from '../components/HowItWorks';
-import { TemplateShowcase } from '../components/TemplateShowcase';
 import { BenefitCards } from '../components/BenefitCards';
 import { Footer } from '../components/Footer';
 import { OpenSourceStats } from '../components/OpenSourceStats';
-import { NewsletterSignup } from '../components/NewsletterSignup';
 import { Celebration } from '../components/Celebration';
 import { WarmEmptyState } from '../components/WarmEmptyState';
 import type { StatusResponse, Agent, LogEntry } from '../types/api';
@@ -47,6 +45,7 @@ function getTimeGreeting(): string {
 export default function HomePage() {
   const navigate = useNavigate();
   const [startError, setStartError] = useState<string | null>(null);
+  const [stopError, setStopError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(() => sessionStorage.getItem('pl_running') === '1');
   const [isPaused, setIsPaused] = useState(false);
   const [currentPrd, setCurrentPrd] = useState<string | null>(() => sessionStorage.getItem('pl_prd'));
@@ -199,6 +198,7 @@ export default function HomePage() {
   // Full PRD start handler (used by advanced PRDInput)
   const handleStartBuild = useCallback(async (prd: string, provider: string, projectDir?: string, mode?: string) => {
     setStartError(null);
+    setStopError(null);
     setWasRunning(false);
     setShowReport(false);
     setActiveTab('terminal');
@@ -212,6 +212,7 @@ export default function HomePage() {
   }, []);
 
   const handleStopBuild = useCallback(async () => {
+    setStopError(null);
     try {
       const result = await api.stopSession();
       if (result.stopped) {
@@ -222,10 +223,11 @@ export default function HomePage() {
         setWsAgents(null);
         setWsLogs(null);
       }
-    } catch {
-      setIsRunning(false);
-      setIsPaused(false);
-      setCurrentPrd(null);
+    } catch (e) {
+      // The stop request failed, so the build may still be running: keep the
+      // running view (and its sessionStorage) and say so.
+      setStopError(`Could not stop the build: ${e instanceof Error ? e.message : 'request failed'}`);
+      return;
     }
     sessionStorage.removeItem('pl_running');
     sessionStorage.removeItem('pl_prd');
@@ -410,13 +412,10 @@ export default function HomePage() {
             {/* 2. How It Works */}
             <HowItWorks />
 
-            {/* 3. Template Showcase */}
-            <TemplateShowcase />
-
-            {/* 4. Why Loki Mode (Benefit Cards) */}
+            {/* 3. Why Loki Mode (Benefit Cards) */}
             <BenefitCards />
 
-            {/* 5. Call to Action */}
+            {/* 4. Call to Action */}
             <section className="w-full max-w-3xl mx-auto py-16">
               <div className="rounded-2xl bg-gradient-to-br from-[#553DE9]/5 via-[#553DE9]/10 to-[#1FC5A8]/5 border border-[#553DE9]/15 p-10 text-center">
                 <h2 className="font-heading text-h2 text-[#36342E] mb-3">
@@ -445,10 +444,7 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* 6. Newsletter Signup */}
-            <NewsletterSignup />
-
-            {/* 7. Source-Available Stats */}
+            {/* 5. Source-Available Stats */}
             <OpenSourceStats />
           </div>
         ) : (
@@ -457,6 +453,11 @@ export default function HomePage() {
               <ControlBar status={status} prdSummary={prdSummary} onStop={handleStopBuild}
                 onPause={handlePause} onResume={handleResume} isPaused={isPaused} />
             </ErrorBoundary>
+            {stopError && (
+              <div role="alert" className="mt-3 px-4 py-2.5 rounded-xl bg-[#C45B5B]/10 border border-[#C45B5B]/20 text-[#C45B5B] text-sm font-medium">
+                {stopError}
+              </div>
+            )}
 
             <div className="mt-4">
               <ErrorBoundary name="StatusOverview">
@@ -467,7 +468,7 @@ export default function HomePage() {
             <div className="mt-4 grid grid-cols-12 gap-6" style={{ height: 'calc(100vh - 340px)', minHeight: '400px' }}>
               <div className="col-span-3 flex flex-col gap-6">
                 <ErrorBoundary name="PhaseVisualizer">
-                  <PhaseVisualizer currentPhase={status?.phase || 'idle'} iteration={status?.iteration || 0} />
+                  <PhaseVisualizer currentPhase={status?.phase || 'idle'} iteration={status?.iteration} />
                 </ErrorBoundary>
               </div>
 

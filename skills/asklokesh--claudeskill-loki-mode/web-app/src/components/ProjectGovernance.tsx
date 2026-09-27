@@ -66,60 +66,6 @@ interface ProjectGovernanceProps {
 }
 
 // ---------------------------------------------------------------------------
-// Sample data
-// ---------------------------------------------------------------------------
-
-const SAMPLE_PENDING: PendingProject[] = [
-  {
-    id: 'proj-1',
-    name: 'Customer Portal v2',
-    submittedBy: 'sarah@company.com',
-    template: 'SaaS App',
-    provider: 'Claude',
-    estimatedCost: 12.50,
-    estimatedIterations: 15,
-    submittedAt: new Date(Date.now() - 3600000).toISOString(),
-    description: 'Complete redesign of the customer-facing portal with new billing integration.',
-    status: 'pending',
-  },
-  {
-    id: 'proj-2',
-    name: 'Internal CLI Tools',
-    submittedBy: 'mike@company.com',
-    template: 'CLI Tool',
-    provider: 'Claude',
-    estimatedCost: 4.20,
-    estimatedIterations: 8,
-    submittedAt: new Date(Date.now() - 7200000).toISOString(),
-    description: 'Set of internal CLI tools for deployment automation.',
-    status: 'pending',
-  },
-  {
-    id: 'proj-3',
-    name: 'Analytics Dashboard',
-    submittedBy: 'jordan@company.com',
-    template: 'SaaS App',
-    provider: 'Codex',
-    estimatedCost: 8.90,
-    estimatedIterations: 12,
-    submittedAt: new Date(Date.now() - 14400000).toISOString(),
-    description: 'Real-time analytics dashboard for product metrics.',
-    status: 'pending',
-  },
-];
-
-const SAMPLE_BUDGETS: BudgetConfig[] = [
-  { projectId: 'p-1', projectName: 'Main Platform', budgetLimit: 100, budgetUsed: 67.40, alertThreshold: 80 },
-  { projectId: 'p-2', projectName: 'Mobile App', budgetLimit: 50, budgetUsed: 12.30, alertThreshold: 75 },
-  { projectId: 'p-3', projectName: 'Data Pipeline', budgetLimit: 30, budgetUsed: 28.50, alertThreshold: 90 },
-];
-
-const SAMPLE_TEMPLATES: string[] = [
-  'SaaS App', 'CLI Tool', 'REST API', 'Discord Bot', 'Chrome Extension',
-  'Mobile App', 'Data Pipeline', 'Landing Page', 'Docs Site',
-];
-
-// ---------------------------------------------------------------------------
 // Approval Card
 // ---------------------------------------------------------------------------
 
@@ -295,98 +241,44 @@ function BudgetControls({ configs }: { configs: BudgetConfig[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Template Restrictions
+// Main Component
 // ---------------------------------------------------------------------------
 
-function TemplateRestrictionsPanel({
-  allTemplates,
-}: {
-  allTemplates: string[];
-}) {
-  const [restrictions, setRestrictions] = useState<Record<string, Set<string>>>({
-    'Engineering': new Set(['SaaS App', 'CLI Tool', 'REST API', 'Data Pipeline']),
-    'Design': new Set(['SaaS App', 'Landing Page', 'Mobile App']),
-    'Marketing': new Set(['Landing Page', 'Docs Site']),
-  });
-
-  const teams = Object.keys(restrictions);
-
-  const toggleTemplate = (team: string, template: string) => {
-    setRestrictions(prev => {
-      const next = { ...prev };
-      const set = new Set(next[team]);
-      if (set.has(template)) {
-        set.delete(template);
-      } else {
-        set.add(template);
-      }
-      next[team] = set;
-      return next;
-    });
-  };
-
+function NotConnected({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border border-[#ECEAE3] dark:border-[#2A2A30] rounded-lg overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-[#F8F4F0] dark:bg-[#222228]">
-            <th className="text-left px-3 py-2 text-xs font-medium text-[#6B6960]">Template</th>
-            {teams.map(team => (
-              <th key={team} className="text-center px-3 py-2 text-xs font-medium text-[#6B6960]">
-                {team}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {allTemplates.map(template => (
-            <tr
-              key={template}
-              className="border-t border-[#ECEAE3] dark:border-[#2A2A30] hover:bg-[#F8F4F0] dark:hover:bg-[#222228] transition-colors"
-            >
-              <td className="px-3 py-2 text-[#201515] dark:text-[#E8E6E3]">
-                {template}
-              </td>
-              {teams.map(team => (
-                <td key={team} className="text-center px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={restrictions[team]?.has(template) || false}
-                    onChange={() => toggleTemplate(team, template)}
-                    className="rounded border-[#ECEAE3] text-[#553DE9] focus:ring-[#553DE9]"
-                  />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="text-center py-8">
+      <Shield size={24} className="mx-auto text-[#939084] mb-2" />
+      <p className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Not connected</p>
+      <p className="text-xs text-[#939084] mt-1">{children}</p>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main Component
-// ---------------------------------------------------------------------------
-
 export function ProjectGovernance({
   pendingProjects: externalProjects,
   budgetConfigs: externalBudgets,
+  onApproveProject,
+  onRejectProject,
   className = '',
 }: ProjectGovernanceProps) {
-  const [projects, setProjects] = useState<PendingProject[]>(externalProjects || SAMPLE_PENDING);
-  const [budgets] = useState<BudgetConfig[]>(externalBudgets || SAMPLE_BUDGETS);
+  // No sample fallbacks: an unwired section says so instead of inventing rows.
+  const [projects, setProjects] = useState<PendingProject[]>(externalProjects ?? []);
   const [activeTab, setActiveTab] = useState<'approvals' | 'budgets' | 'templates'>('approvals');
 
   const pendingCount = projects.filter(p => p.status === 'pending').length;
 
-  const handleApprove = useCallback((id: string, _comment: string) => {
+  // A decision is shown only after a wired handler recorded it.
+  const handleApprove = useCallback(async (id: string, comment: string) => {
+    if (!onApproveProject) return;
+    await onApproveProject(id, comment);
     setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'approved' as const } : p));
-  }, []);
+  }, [onApproveProject]);
 
-  const handleReject = useCallback((id: string, _comment: string) => {
+  const handleReject = useCallback(async (id: string, comment: string) => {
+    if (!onRejectProject) return;
+    await onRejectProject(id, comment);
     setProjects(prev => prev.map(p => p.id === id ? { ...p, status: 'rejected' as const } : p));
-  }, []);
+  }, [onRejectProject]);
 
   const tabs = [
     { id: 'approvals' as const, label: 'Approvals', icon: Check, count: pendingCount },
@@ -428,7 +320,13 @@ export function ProjectGovernance({
       </div>
 
       {/* Content */}
-      {activeTab === 'approvals' && (
+      {activeTab === 'approvals' && !externalProjects && (
+        <NotConnected>
+          No project approval workflow is wired to this server, so nothing is waiting and nothing has been reviewed.
+        </NotConnected>
+      )}
+
+      {activeTab === 'approvals' && externalProjects && (
         <div className="space-y-3">
           {projects.filter(p => p.status === 'pending').length === 0 ? (
             <div className="text-center py-8">
@@ -451,12 +349,18 @@ export function ProjectGovernance({
         </div>
       )}
 
-      {activeTab === 'budgets' && (
-        <BudgetControls configs={budgets} />
-      )}
+      {activeTab === 'budgets' && (externalBudgets ? (
+        <BudgetControls configs={externalBudgets} />
+      ) : (
+        <NotConnected>
+          No per-project budgets are served here. A run&apos;s spend cap is set with LOKI_BUDGET_LIMIT and shown on the Metrics page.
+        </NotConnected>
+      ))}
 
       {activeTab === 'templates' && (
-        <TemplateRestrictionsPanel allTemplates={SAMPLE_TEMPLATES} />
+        <NotConnected>
+          Template restrictions are not stored or enforced by this server, so none are shown.
+        </NotConnected>
       )}
     </div>
   );

@@ -17,6 +17,7 @@
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient } from '../core/loki-api-client.js';
 import { registerPoll } from '../core/loki-poll-registry.js';
+import { formatUSD } from '../core/loki-unified-styles.js';
 
 /** @type {Object<string, {color: string, bg: string, label: string}>} */
 const FLEET_STATUS_CONFIG = {
@@ -44,13 +45,13 @@ export function formatFleetDuration(seconds) {
 }
 
 /**
- * Format a USD cost for display.
+ * Format a USD cost for display. A cost nobody recorded reads "unknown", never
+ * "$0.00": a zero claims the build was free. A measured 0 still reads "$0.00".
  * @param {number|null} cost
  * @returns {string}
  */
 export function formatFleetCost(cost) {
-  if (cost == null || isNaN(cost)) return '$0.00';
-  return `$${Number(cost).toFixed(2)}`;
+  return formatUSD(cost);
 }
 
 /**
@@ -391,6 +392,9 @@ export class LokiFleet extends LokiElement {
   _renderSummary() {
     const s = this._summary;
     if (!s) return '';
+    // The server sums run costs; a run with no recorded cost adds nothing, so
+    // the total is a lower bound and says so rather than reading as complete.
+    const partial = this._runs.some(r => r.cost_usd == null) && s.total_cost_usd != null ? ' (partial)' : '';
     return `
       <div class="summary-cards">
         <div class="summary-card">
@@ -407,7 +411,7 @@ export class LokiFleet extends LokiElement {
         </div>
         <div class="summary-card">
           <div class="summary-label">Total Cost</div>
-          <div class="summary-value">${formatFleetCost(s.total_cost_usd)}</div>
+          <div class="summary-value">${formatFleetCost(s.total_cost_usd)}${partial}</div>
         </div>
       </div>
     `;
@@ -449,7 +453,7 @@ export class LokiFleet extends LokiElement {
         const cfg = FLEET_STATUS_CONFIG[status] || FLEET_STATUS_CONFIG.unknown;
         const canCancel = run.running === true;
         const duration = formatFleetDuration(run.duration_seconds);
-        const iter = (run.iteration != null) ? run.iteration : 0;
+        const iter = (run.iteration != null) ? this._escapeHtml(String(run.iteration)) : '--';
         const phase = run.phase ? this._escapeHtml(run.phase) : '--';
 
         return `

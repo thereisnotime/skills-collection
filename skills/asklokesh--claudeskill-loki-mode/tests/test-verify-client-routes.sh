@@ -103,6 +103,24 @@ else
     exit 1
 fi
 
+# WORKTREE GUARD. The extractor must resolve its own repo root from its own
+# location, never a hardcoded main-checkout path and never the temp WORK dir.
+# Run from a worktree, this must equal THIS worktree, not main's.
+EXTRACT_ROOT="$(python3 -c "
+import json
+try:
+    print(json.load(open('$PATHS_JSON')).get('repoRoot', ''))
+except Exception:
+    print('')
+" 2>/dev/null)"
+if [ "$EXTRACT_ROOT" = "$REPO_ROOT" ]; then
+    pass "extractor resolved the repo root it was run from ($EXTRACT_ROOT)"
+else
+    fail "extractor resolved '$EXTRACT_ROOT' but this run is checking '$REPO_ROOT' -- wrong tree"
+    echo "  $PASS passed, $FAIL failed"
+    exit 1
+fi
+
 # --- Match against the REAL route table ------------------------------------
 MATCH_OUT="$WORK/match.txt"
 MATCH_RC=0
@@ -117,6 +135,14 @@ case "$MATCH_RC" in
     2) fail "the guard refused to report: a fatal rule fired (see above)" ;;
     *) fail "the matcher exited $MATCH_RC unexpectedly" ;;
 esac
+
+# WORKTREE GUARD. The matcher must have imported server.py from this same
+# repo root, never a hardcoded main-checkout path.
+if grep -aqF "repo root: $REPO_ROOT" "$MATCH_OUT"; then
+    pass "matcher resolved the repo root it was run from ($REPO_ROOT)"
+else
+    fail "matcher did not report repo root '$REPO_ROOT' -- wrong tree (see output above)"
+fi
 
 # --- The route table itself must be non-empty. A server that exposed zero
 # --- /api routes would make "no drift" trivially true.

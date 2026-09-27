@@ -476,6 +476,9 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.13
+          # Rule of Two: this job holds a write token or publish secret, so it
+          # never restores a cache an issue-triggered job could have written.
+          no-cache: true
 
       - name: Probe for `bun audit` subcommand
         id: probe

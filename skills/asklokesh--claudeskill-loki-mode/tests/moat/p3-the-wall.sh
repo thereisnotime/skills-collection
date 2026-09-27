@@ -14,6 +14,49 @@ set -uo pipefail
 #       emit PRD_CHECKLIST_INIT ("Create .loki/checklist/checklist.json from the
 #       PRD ... verification checks ...").
 #
+#       Two text-based detectors run against the SAME real captured prompt on
+#       both routes: the original exact-phrase check (PRD_CHECKLIST_INIT, the
+#       "create/write/... .loki/checklist/" verb+path pattern, and the
+#       "verification checks (file_exists" schema phrase), plus a second,
+#       broader signature detector (verb + "checklist.json" regardless of
+#       path phrasing, a literal `"verification": [` JSON array near
+#       checklist-authoring context, and the `(file_exists, ...command)`
+#       type-enum shape) added under BACKLOG 40, reworked once under S-09 to
+#       fix two findings a split quorum review raised.
+#
+#       The second detector closes a real gap the first one has: it still
+#       fires if PRD_CHECKLIST_INIT is renamed and reworded, as long as the
+#       replacement text still names checklist.json or the verification
+#       schema shape. Its verb/checklist.json gap is character-distance
+#       bounded ACROSS THE WHOLE PROMPT, not per source line: the detector
+#       strips carriage returns, then joins the captured text's lines with a
+#       real newline at each blank-line paragraph break (so unrelated
+#       paragraphs are not silently merged into one matchable run, and grep's
+#       own per-line matching enforces the boundary with no ". "-join trick
+#       that a trailing period could defeat) before running the
+#       character-distance patterns, so an
+#       instruction that an LLM wrapped across lines is judged by character
+#       distance the same way a single-line instruction is, instead of being
+#       missed purely because grep's default matching is per line. Two
+#       disclosed ceilings from that join: (1) two unrelated lines can still
+#       coincidentally satisfy the character-distance budget once joined, for
+#       example a markdown heading immediately followed by an unrelated
+#       bullet mentioning checklist.json with no terminal period between
+#       them - a real but narrow risk, not eliminated by this fix; (2) the
+#       verification-array-literal signature additionally now requires
+#       "checklist" to also appear within the same character-distance budget
+#       of the array, so an unrelated JSON `"verification": [` array (for
+#       example one explicitly prohibited: "do not touch verification: []
+#       in ci-config.json") does not by itself fire the signature - but the
+#       narrowed check is still blind to negation: an instruction that says
+#       NOT to touch a checklist's verification array, if "checklist" also
+#       appears nearby, still fires it. BOTH detectors remain purely
+#       textual: neither runs, stubs, or simulates an implementer session,
+#       so neither can catch a model that goes off-script and authors checks
+#       despite a clean prompt. That ceiling is real; closing it would
+#       require executing or faithfully stubbing an implementer agent, which
+#       is not fast/deterministic enough for this moat suite.
+#
 #   P3.check-author-context-excludes-implementation
 #       The check-authoring step's input contains the spec and none of the
 #       repo's implementation files.
@@ -170,6 +213,90 @@ detect_check_authoring() {  # <file>
     printf '%s' "${hits# }"
 }
 
+# Broader signature detector (BACKLOG 40; reworked under S-09, round 2).
+# Independent of detect_check_authoring above and never substituted for it:
+# this only ADDS coverage. It matches check-authoring signatures that survive
+# a rename of PRD_CHECKLIST_INIT and a reword of its instruction text: any
+# authoring verb near "checklist.json" (the "([^.]|\.[^[:space:]]){0,160}"
+# gap crosses a dotted path such as ".loki/checklist/checklist.json" without
+# stopping at the first dot, but still stops at a ". " sentence break inside
+# a paragraph, or at a real line break where the joined text puts a
+# paragraph boundary), a
+# literal JSON "verification": [ array that also has "checklist" within the
+# same gap budget, or the "(file_exists, ...command)" type-enum shape.
+#
+# grep's default matching is per line: a verb and "checklist.json" on
+# separate source lines are invisible to a character-distance pattern no
+# matter how close together they are, because the regex engine never sees
+# past the line boundary. Real LLM-authored prose wraps constantly, so a
+# character-budget claim that silently stops at every line break is far
+# narrower than it looks. To make the character-distance behavior in the
+# comment above true in practice, this detector runs the three patterns
+# against a JOINED copy of the file: a mid-paragraph line wrap (a newline
+# with no blank line around it) becomes a single space, so a wrapped
+# sentence still reads as one line for grep. A blank line (a paragraph
+# break) becomes a REAL newline in the joined output instead - not a fake
+# ". " marker - so grep's own per-line matching enforces the paragraph
+# boundary for free. Round 1 used ". " for this, but a paragraph that
+# already ends in a period then joined to "..", and the gap pattern's
+# "\.[^[:space:]]" branch treats two periods in a row as a non-terminating
+# character and lets the match cross the paragraph boundary anyway - the
+# opposite of the intended fix. A real newline has no such edge case: the
+# paragraph break is a genuine line break in the joined text, not an in-line
+# character sequence a regex can slip through. Carriage returns are also
+# stripped from each line before the blank-line test runs, because a CRLF
+# blank line's raw content is the single character "\r", not the empty
+# string - without stripping first, awk's own "$0==\"\"" test never
+# recognizes it as blank, so the line joins with a plain space instead of a
+# real newline and the paragraph break is silently erased, letting a match
+# cross a genuine CRLF paragraph boundary it should have stopped at (a false
+# positive, the same class of bug the round-1 fix ". " join produced, just
+# reached through CRLF instead of a trailing period).
+# Only the joined copy is matched here; detect_check_authoring above is
+# untouched and still line-oriented.
+#
+# Disclosed ceilings, not fixed here:
+#   - the join can still coincidentally satisfy the character budget for two
+#     unrelated lines joined by a mid-paragraph wrap (no blank line between
+#     them), for example a markdown heading directly followed on the next
+#     line by an unrelated bullet that mentions checklist.json - only a
+#     blank-line paragraph break stops a match, a bare line wrap does not
+#     (that is the gap this detector exists to close);
+#   - the verification-array-literal signature requires "checklist" nearby
+#     to avoid firing on an unrelated JSON "verification": [ array (for
+#     example one explicitly prohibited: "do not touch verification: [] in
+#     ci-config.json"), but it is still blind to negation - a sentence that
+#     says NOT to touch a checklist's verification array still fires it;
+#   - the type-enum signature requires file_exists to appear before command
+#     inside the parens, in that order, so a verification-type list in a
+#     different order or spelled out prose would still slip it.
+# Measured against the real captured prompts on both routes (see
+# case_prompt_no_check_authoring): today's PRD_CHECKLIST_INIT text fires the
+# verb and type-enum signatures on both cold prompts, and all three
+# signatures are silent on both warm prompts, which carry no checklist text
+# at all in this fixture.
+detect_check_authoring_signatures() {  # <file>
+    local f="$1" hits="" j
+    j="$f.joined"
+    # ponytail: awk avoids a pipe into grep -q, which would take a SIGPIPE
+    # (set -o pipefail) on the first match and silently swallow the hit.
+    # A blank line emits a real newline (grep then enforces the paragraph
+    # boundary itself); any other line join is a plain space, so a
+    # mid-paragraph wrap still reads as one line. \r is stripped first so a
+    # CRLF-terminated wrap joins the same way an LF-terminated one does.
+    awk 'BEGIN{first=1} { gsub(/\r/, ""); if (!first && $0=="") printf "\n"; else if (!first) printf " "; printf "%s", $0; first=0 }' "$f" > "$j"
+    grep -Eqi '(create|write|generate|author|produce|emit|draft|populate|update|edit)([^.]|\.[^[:space:]]){0,160}checklist\.json' "$j" \
+        && hits="$hits verb-checklist.json"
+    if grep -Eq '"verification"[[:space:]]*:[[:space:]]*\[' "$j" \
+        && grep -Eqi 'checklist([^.]|\.[^[:space:]]){0,160}"verification"[[:space:]]*:[[:space:]]*\[|"verification"[[:space:]]*:[[:space:]]*\[([^.]|\.[^[:space:]]){0,160}checklist' "$j"; then
+        hits="$hits verification-array-literal"
+    fi
+    grep -Eqi '\(file_exists,[^)]*command\)' "$j" && hits="$hits verification-type-enum"
+    rm -f "$j"
+    [ -n "$hits" ] || return 1
+    printf '%s' "${hits# }"
+}
+
 BP_BASH_STATE=""   # measured by case 1, reused as evidence by case 2
 
 case_prompt_no_check_authoring() {
@@ -180,6 +307,141 @@ case_prompt_no_check_authoring() {
     if ! detect_check_authoring "$MOAT_TMP/known-bad.txt" >/dev/null; then
         nok "detector positive control failed: a known check-authoring line was not flagged"
         return
+    fi
+    # Sanity: the new signature detector also flags the known-bad line (it is
+    # additive coverage, not a replacement for the phrase check above).
+    if ! detect_check_authoring_signatures "$MOAT_TMP/known-bad.txt" >/dev/null; then
+        nok "signature-detector positive control failed: a known check-authoring line was not flagged"
+        return
+    fi
+
+    # S-09 rework fixture 1: line-boundary blind spot. The verb and
+    # "checklist.json" sit on separate source lines, well within the 160-char
+    # budget once joined (a few dozen chars), the way real LLM-wrapped prose
+    # commonly reads. Before the join fix this was invisible to grep's
+    # per-line matching; after it, the joined text must be judged purely by
+    # character distance, so it must match.
+    printf 'Create the full set of checklist entries for review\nchecklist.json holds the final results.\n' \
+        > "$MOAT_TMP/line-split.txt"
+    if ! detect_check_authoring_signatures "$MOAT_TMP/line-split.txt" >/dev/null; then
+        nok "S-09 regression: verb and checklist.json on separate lines (within budget once joined) went undetected - the line-boundary gap is back"
+    fi
+
+    # S-09 rework fixture 2: the same verb/target pair, but split by a
+    # blank-line paragraph break, which now becomes a real newline in the
+    # joined output and stops the match on its own regardless of character
+    # count (the pair is also written far enough apart to stay out of
+    # budget even if the paragraph break did not apply). Proves the join
+    # does not turn every cross-line pair into a false positive.
+    printf 'Create a comprehensive glossary of terms for the onboarding guide so that new engineers understand every acronym used across the platform before their first week begins in earnest and nothing is left ambiguous for long.\n\nchecklist.json is unrelated and lives elsewhere in a totally different subsystem that this paragraph never discusses at all.\n' \
+        > "$MOAT_TMP/line-split-far.txt"
+    if hits="$(detect_check_authoring_signatures "$MOAT_TMP/line-split-far.txt")"; then
+        case " $hits " in
+            *' verb-checklist.json '*)
+                nok "S-09 regression: joining lines created a false positive across an unrelated paragraph break, well outside the 160-char budget (hits: $hits)" ;;
+        esac
+    fi
+
+    # S-09 rework fixture 3: the disclosed false-positive vector. An
+    # unrelated, explicitly-prohibited JSON "verification": [ array with no
+    # checklist-authoring context nearby must not fire the signature.
+    printf 'Do not touch "verification": [] in ci-config.json; that array belongs to a different system.\n' \
+        > "$MOAT_TMP/unrelated-verification-array.txt"
+    if hits="$(detect_check_authoring_signatures "$MOAT_TMP/unrelated-verification-array.txt")"; then
+        case " $hits " in
+            *' verification-array-literal '*)
+                nok "S-09 regression: an unrelated verification array with no checklist context fired verification-array-literal (hits: $hits)" ;;
+        esac
+    fi
+    # Positive control for fixture 3's narrowing: the SAME array literal DOES
+    # fire once checklist-authoring context is nearby, so the fix narrows
+    # rather than disables the signature.
+    printf 'Populate the checklist definitions with a "verification": [{"type": "file_exists"}] array for each item.\n' \
+        > "$MOAT_TMP/checklist-verification-array.txt"
+    hits="$(detect_check_authoring_signatures "$MOAT_TMP/checklist-verification-array.txt")" || hits=""
+    case " $hits " in
+        *' verification-array-literal '*) ;;
+        *) nok "S-09 regression: verification-array-literal no longer fires even WITH checklist context nearby (over-narrowed, hits: ${hits:-none})" ;;
+    esac
+
+    # S-09 rework round 2 fixture: the round-1 fix's own regression. A
+    # paragraph that already ends in a period, a blank line, then an
+    # unrelated paragraph mentioning checklist.json. Round 1 joined the
+    # blank line to ". ", which after an existing trailing period produced
+    # "..", and the gap pattern's "\.[^[:space:]]" branch treated the double
+    # period as a non-terminating character and matched straight through the
+    # paragraph boundary. These are two separate sentences about different
+    # things and must not match.
+    printf 'Update the README.\n\nchecklist.json is unrelated.\n' \
+        > "$MOAT_TMP/double-period-paragraph.txt"
+    if hits="$(detect_check_authoring_signatures "$MOAT_TMP/double-period-paragraph.txt")"; then
+        case " $hits " in
+            *' verb-checklist.json '*)
+                nok "S-09 round 2 regression: a period-ending sentence followed by a blank-line paragraph break and unrelated checklist.json text matched (double-period gap-tolerance bypass, hits: $hits)" ;;
+        esac
+    fi
+
+    # S-09 rework round 2 fixture: multiple consecutive blank lines between
+    # paragraphs must still stop a match (each blank line becomes its own
+    # real newline in the joined output; several in a row are still just
+    # several newlines, which grep still treats as line boundaries).
+    printf 'Update the README.\n\n\n\nchecklist.json is unrelated.\n' \
+        > "$MOAT_TMP/multi-blank-paragraph.txt"
+    if hits="$(detect_check_authoring_signatures "$MOAT_TMP/multi-blank-paragraph.txt")"; then
+        case " $hits " in
+            *' verb-checklist.json '*)
+                nok "S-09 round 2 regression: multiple consecutive blank lines between paragraphs still matched across the boundary (hits: $hits)" ;;
+        esac
+    fi
+
+    # S-09 rework round 2 fixture: a paragraph that does NOT end in a period
+    # before the blank line. A blank line is treated as a paragraph break
+    # regardless of the preceding line's trailing punctuation - the boundary
+    # is structural (a real newline in the joined output), not dependent on
+    # sentence-final punctuation, so this must not match either. Anything
+    # else would mean an incomplete sentence joins more permissively than a
+    # complete one, which has no principled justification.
+    printf 'Update the README\n\nchecklist.json is unrelated.\n' \
+        > "$MOAT_TMP/no-period-before-blank.txt"
+    if hits="$(detect_check_authoring_signatures "$MOAT_TMP/no-period-before-blank.txt")"; then
+        case " $hits " in
+            *' verb-checklist.json '*)
+                nok "S-09 round 2 regression: a paragraph break not preceded by a period still matched across the boundary (hits: $hits)" ;;
+        esac
+    fi
+
+    # S-09 rework round 2 fixture: CRLF line endings. A verb and
+    # checklist.json wrapped across two CRLF-terminated lines (no blank line
+    # between them - a plain wrap) must still match, the same as the LF
+    # case above. This holds with or without CR-stripping (the grep gap
+    # pattern's own "[^.]" already matches a bare "\r"), so this fixture alone
+    # does not prove the strip is load-bearing - it only guards that CRLF
+    # text does not regress the ORIGINAL line-wrap fix from round 1.
+    printf 'Create the full set of checklist entries for review\r\nchecklist.json holds the final results.\r\n' \
+        > "$MOAT_TMP/crlf-wrap.txt"
+    if ! detect_check_authoring_signatures "$MOAT_TMP/crlf-wrap.txt" >/dev/null; then
+        nok "S-09 round 2 regression: CRLF-terminated line wrap (verb and checklist.json on adjacent \\r\\n lines) went undetected"
+    fi
+
+    # S-09 rework round 2 fixture: the actual CR defect the strip fixes. A
+    # CRLF blank line between two CRLF-terminated paragraphs (no trailing
+    # period on the first line, so this is the same "no terminal period"
+    # shape as the no-period-before-blank fixture above, but over "\r\n\r\n")
+    # is a false POSITIVE, not a false negative: without stripping "\r"
+    # first, awk sees that "blank" line's content as the single character
+    # "\r", not the empty string, so its own blank-line test ($0=="") never
+    # fires, the line is joined with a plain space instead of a real
+    # newline, and the paragraph break is silently erased - letting the
+    # match cross a real paragraph boundary the LF case would have stopped.
+    # Stripping "\r" first makes a CRLF blank line read as truly empty, so
+    # it is recognized as a paragraph break exactly like an LF blank line.
+    printf 'Update the README\r\n\r\nchecklist.json is unrelated.\r\n' \
+        > "$MOAT_TMP/crlf-paragraph.txt"
+    if hits="$(detect_check_authoring_signatures "$MOAT_TMP/crlf-paragraph.txt")"; then
+        case " $hits " in
+            *' verb-checklist.json '*)
+                nok "S-09 round 2 regression: a CRLF blank line was not recognized as a paragraph break, letting the match cross a real CRLF paragraph boundary (hits: $hits)" ;;
+        esac
     fi
 
     for route in bash ts; do
@@ -209,6 +471,59 @@ case_prompt_no_check_authoring() {
             [ "$route" = "bash" ] && BP_BASH_STATE="yes ($hits)"
         else
             [ "$route" = "bash" ] && BP_BASH_STATE="no"
+        fi
+
+        # New-signature arm (BACKLOG 40), independent of the phrase check
+        # above, testing the SAME property (the prompt must carry no
+        # check-authoring instruction): same negative control (warm must stay
+        # clean) and the SAME polarity as the phrase check (a hit on the real
+        # cold prompt is a FAILURE, not a pass condition - the property is
+        # "carries no check-authoring", so once check authoring is actually
+        # removed from the builders, both detectors must go quiet together).
+        if hits="$(detect_check_authoring_signatures "$warm.out")"; then
+            nok "$route route: signature detector over-matches (hits with checklist present: $hits)"
+        fi
+        if hits="$(detect_check_authoring_signatures "$cold.out")"; then
+            nok "$route route: implementer prompt instructs check authoring (signatures: $hits)"
+        fi
+
+        # RED self-test: prove the signature detector catches what the phrase
+        # detector misses, using a prompt derived from the SAME real cold
+        # prompt captured above (not a toy string). Rename PRD_CHECKLIST_INIT
+        # and reword its instruction so none of the three phrase-check
+        # patterns match, while it still tells the implementer to author
+        # checklist.json with a verification schema - the exact gap BACKLOG 40
+        # names. If the exact PRD_CHECKLIST_INIT line is no longer present to
+        # rewrite (for example after the M2 fix lands and removes it), fall
+        # back to appending the reworded instruction to a copy of cold, so
+        # this arm always runs and never silently no-ops; it is testing the
+        # detectors' text-matching behavior, not asserting anything about
+        # what the builder currently emits.
+        local reworded="$MOAT_TMP/reworded-$route.out" reworded_line
+        reworded_line='PRD_CHECKS_BOOTSTRAP: Produce .loki/checklist/checklist.json from the PRD by emitting a JSON object with categories and items; each item needs id, title, description, priority, and a "verification": [{"type": ...}] array (file_exists, command). Re-checked every 5 iterations.'
+        sed -E 's/PRD_CHECKLIST_INIT: Create \.loki\/checklist\/checklist\.json from the PRD\. Extract requirements into categories with items\. Each item needs: id, title, description, priority \(critical\|major\|minor\), and verification checks \(file_exists, file_contains, tests_pass, grep_codebase, command\)\. This checklist will be auto-verified every [0-9]+ iterations\./'"$(printf '%s' "$reworded_line" | sed -e 's/[\/&]/\\&/g')"'/' \
+            "$cold.out" > "$reworded"
+        if diff -q "$cold.out" "$reworded" >/dev/null 2>&1; then
+            cp "$cold.out" "$reworded"
+            printf '%s\n' "$reworded_line" >> "$reworded"
+        fi
+        if detect_check_authoring "$reworded" >/dev/null; then
+            nok "$route route: RED fixture setup invalid - the reworded prompt was still flagged by the phrase detector"
+        elif hits="$(detect_check_authoring_signatures "$reworded")"; then
+            case " $hits " in
+                *' verb-checklist.json '*) ;;
+                *) nok "$route route: RED fixture missed the verb-checklist.json signature (hits: $hits)" ;;
+            esac
+            case " $hits " in
+                *' verification-array-literal '*) ;;
+                *) nok "$route route: RED fixture missed the verification-array-literal signature (hits: $hits)" ;;
+            esac
+            case " $hits " in
+                *' verification-type-enum '*) ;;
+                *) nok "$route route: RED fixture missed the verification-type-enum signature (hits: $hits)" ;;
+            esac
+        else
+            nok "$route route: signature detector failed to catch a reworded check-authoring instruction the phrase check misses (RED case not closed)"
         fi
         log "$route prompt: $(wc -c < "$cold.out" | tr -d ' ') bytes"
     done

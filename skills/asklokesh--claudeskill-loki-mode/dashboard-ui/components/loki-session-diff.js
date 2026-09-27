@@ -331,15 +331,16 @@ export class LokiSessionDiff extends LokiElement {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             <span class="diff-title">Session Resume</span>
           </div>
-          <div class="empty-state">Nothing to compare yet. Changes will show here after your first build.</div>
+          <div class="empty-state">Could not load session diff: ${this._escapeHtml(this._error)}</div>
         </div>
       `;
       return;
     }
 
     const d = this._data || {};
-    const period = this._escapeHtml(d.period || '--');
-    const counts = d.counts || {};
+    // Server sends since / period_hours / summary; period / counts are older names.
+    const period = this._escapeHtml(d.period || (d.period_hours != null ? `Last ${d.period_hours}h` : '--'));
+    const counts = d.summary || d.counts || {};
     // Before the first build iteration the server has no counts to report, so
     // a grid of bare "--" cells reads like a broken panel. Detect the
     // genuinely-empty case (no count field present at all) and show a single

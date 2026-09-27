@@ -2,10 +2,18 @@
 // A regex over this file produced BOTH a false positive (/sessions "missing"
 // while 58 such routes exist) and a false negative (missed the /github/runs
 // drift). The AST removes both failure modes.
-import ts from '/Users/lokesh/git/lokimode-anthropic/web-app/node_modules/typescript/lib/typescript.js';
+//
+// REPO_ROOT is resolved from this script's own location, never hardcoded to
+// the main checkout: run from a worktree, this must read THAT worktree's
+// client.ts, not main's.
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const FILE = '/Users/lokesh/git/lokimode-anthropic/web-app/src/api/client.ts';
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ts = (await import(path.join(REPO_ROOT, 'web-app/node_modules/typescript/lib/typescript.js'))).default;
+
+const FILE = path.join(REPO_ROOT, 'web-app/src/api/client.ts');
 const src = fs.readFileSync(FILE, 'utf8');
 const sf = ts.createSourceFile(FILE, src, ts.ScriptTarget.Latest, true);
 const out = [];
@@ -52,4 +60,7 @@ function visit(node) {
   ts.forEachChild(node, visit);
 }
 visit(sf);
-console.log(JSON.stringify({captured: out.length, unresolved, calls: out}, null, 1));
+// repoRoot is echoed so a caller (or the shell test) can assert this ran
+// against the tree it meant to check, never a copy's own directory or a
+// hardcoded main checkout.
+console.log(JSON.stringify({captured: out.length, unresolved, calls: out, repoRoot: REPO_ROOT}, null, 1));

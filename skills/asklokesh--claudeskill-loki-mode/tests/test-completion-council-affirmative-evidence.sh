@@ -16,10 +16,17 @@
 # so it cannot drift from production behavior. It proves both directions:
 #   1. empty .loki/ (no evidence)            -> every member votes CONTINUE
 #   2. real passing test suite, clean tree   -> every member votes COMPLETE
-#   3. no-runner project (runner:none)       -> req_verifier + devils_advocate
+#   3. no-runner project (runner:none, pass:true) -> req_verifier + devils_advocate
 #                                               COMPLETE, test_auditor CONTINUE
 #                                               (2-of-3, legit no-test completion
-#                                               preserved)
+#                                               preserved). NOTE: this pass:true
+#                                               shape is SYNTHETIC, not what any
+#                                               writer produces -- Case 9 below
+#                                               pins the REAL no-test-tooling
+#                                               shape run.sh's enforce_test_coverage
+#                                               actually writes (pass:"inconclusive"
+#                                               the string, status:"not_run"),
+#                                               which must resolve identically.
 #   4. red structured test results           -> every member votes CONTINUE
 
 set -uo pipefail
@@ -133,10 +140,16 @@ cdx "$ORIG_DIR"
 
 # ---------------------------------------------------------------------------
 # Case 3: no test runner (runner:none, pass:true) -- a legit project with no
-# test suite. The completion route writes this exact JSON. test_auditor needs a
-# REAL suite so it stays CONTINUE; the other two get positive base evidence and
-# vote COMPLETE -> 2-of-3 still clears the threshold. Legit no-test completion
-# is preserved.
+# test suite. NOTE (corrected, BACKLOG 33 rework #2): this exact JSON
+# (pass AS A BOOLEAN true) is a SYNTHETIC fixture, not what any writer actually
+# produces -- an earlier version of this comment claimed "the completion route
+# writes this exact JSON", which review found false. run.sh's
+# enforce_test_coverage (the real no-runner writer) always writes
+# pass:"inconclusive" (a string) with status:"not_run"; Case 9 below pins that
+# real shape. Both shapes must resolve identically: test_auditor needs a REAL
+# suite so it stays CONTINUE; the other two get positive base evidence and vote
+# COMPLETE -> 2-of-3 still clears the threshold. Legit no-test completion is
+# preserved.
 # ---------------------------------------------------------------------------
 echo
 echo "=== Case 3: no-runner project -> 2-of-3 COMPLETE (no-test completion) ==="
@@ -236,6 +249,52 @@ printf '%s\n' '[]' > "$P8/.loki/queue/in-progress.json"
 TARGET_DIR="$P8"
 cdx "$P8"
 assert_vote "all-empty: requirements_verifier" requirements_verifier COMPLETE
+cdx "$ORIG_DIR"
+
+# ---------------------------------------------------------------------------
+# Case 9 (BACKLOG 33 REWORK #2, S-07): the REAL no-test-tooling shape, exactly
+# as run.sh's enforce_test_coverage writes it for a project with no test
+# tooling (verified by reading autonomy/run.sh:12691-12692): runner:"none",
+# pass:"inconclusive" -- the STRING, never a boolean true -- status:"not_run".
+# Case 3 above (runner:none, pass:true) uses a hand-invented shape no writer
+# actually produces; this case pins the real one. Must resolve IDENTICALLY to
+# Case 3: 2-of-3 COMPLETE (requirements_verifier + devils_advocate COMPLETE,
+# test_auditor CONTINUE). A prior (unmerged) rework narrowed the runner=='none'
+# sentinel to require a recorded boolean pass:true, which this real shape never
+# carries, and dropped this to 0-of-3 CONTINUE -- verified by running this
+# exact case against that commit (ea82739b), where it fails.
+# ---------------------------------------------------------------------------
+echo
+echo "=== Case 9 (BACKLOG 33 rework #2): REAL no-test-tooling shape -> 2-of-3 COMPLETE (same as Case 3) ==="
+P9=$(make_project); register_cleanup "$P9"
+write_test_results "$P9" '{"timestamp":"2026-09-26T00:00:00Z","runner":"none","pass":"inconclusive","summary":"Verification gap: no runnable tests detected","command":null,"exit_code":null,"status":"not_run","passed_count":null,"failed_count":null,"verification_gap":"source_without_tests"}'
+# shellcheck disable=SC2034  # consumed by the sourced council_evaluate_member
+TARGET_DIR="$P9"
+cdx "$P9"
+assert_vote "real-no-tooling: requirements_verifier" requirements_verifier COMPLETE
+assert_vote "real-no-tooling: test_auditor"          test_auditor          CONTINUE
+assert_vote "real-no-tooling: devils_advocate"       devils_advocate       COMPLETE
+cdx "$ORIG_DIR"
+
+# ---------------------------------------------------------------------------
+# Case 10 (BACKLOG 33): the exploit shape -- a REAL runner ran and executed
+# ZERO tests, but the record ALSO carries runner:"none" (defaulted/omitted).
+# status=='no_tests_run' must still win and keep every member at CONTINUE, even
+# though runner=='none' is present in the same record. This is the ordering bug
+# the original BACKLOG 33 fix closed in council_evaluate_member; pinned here
+# alongside Case 9 so the two real/exploit shapes cannot be confused for one
+# another by a future edit.
+# ---------------------------------------------------------------------------
+echo
+echo "=== Case 10 (BACKLOG 33): zero-test exploit shape (status:no_tests_run, runner omitted) -> all CONTINUE ==="
+P10=$(make_project); register_cleanup "$P10"
+write_test_results "$P10" '{"timestamp":"2026-09-26T00:00:00Z","pass":"inconclusive","status":"no_tests_run","summary":"0 tests"}'
+# shellcheck disable=SC2034  # consumed by the sourced council_evaluate_member
+TARGET_DIR="$P10"
+cdx "$P10"
+assert_vote "zero-test-exploit: requirements_verifier" requirements_verifier CONTINUE
+assert_vote "zero-test-exploit: test_auditor"          test_auditor          CONTINUE
+assert_vote "zero-test-exploit: devils_advocate"       devils_advocate       CONTINUE
 cdx "$ORIG_DIR"
 
 echo

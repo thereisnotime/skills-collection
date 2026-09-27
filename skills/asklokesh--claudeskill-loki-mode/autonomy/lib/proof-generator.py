@@ -319,6 +319,32 @@ def _is_exogenous(gate):
     return _gate_provenance(gate.get("name")) == "exogenous"
 
 
+def _test_results_fresh(quality_dir):
+    """BACKLOG 82: the gates' freshness rule (ensure_completion_test_evidence,
+    Bun testResultsFresh). enforce_test_coverage writes unit-tests.pass and
+    test-results.json together with .test-results.iter; they are this
+    iteration's evidence only when that marker holds this iteration's number.
+    Both loop callers always pass the iteration as ITERATION_COUNT (run.sh
+    generate_proof_of_run, Bun runner/proof.ts); a set but empty value is not
+    fresh.
+    ponytail: ITERATION_COUNT absent altogether means a hand run outside any
+    loop, with no iteration to compare against, so the pre-82 reading applies
+    there (Bun's gate calls that stale). Tighten when a caller exists that
+    omits it."""
+    raw = os.environ.get("ITERATION_COUNT")
+    if raw is None:
+        return True
+    iteration = raw.strip()
+    if not iteration:
+        return False
+    try:
+        with open(os.path.join(quality_dir, ".test-results.iter"), "r",
+                  encoding="utf-8") as handle:
+            return handle.read(64).strip() == iteration
+    except OSError:
+        return False
+
+
 def _collect_quality_gates(loki_dir):
     gates_raw = _read_json(
         os.path.join(loki_dir, "state", "quality-gates.json"), default=None
@@ -351,6 +377,8 @@ def _collect_quality_gates(loki_dir):
     # never an LLM opinion. Only fills gates the aggregate did not already cover.
     if not gates:
         quality_dir = os.path.join(loki_dir, "quality")
+        tests_json = os.path.join(quality_dir, "test-results.json")
+        tests_fresh = _test_results_fresh(quality_dir)
         seen = set()
         # (gate name in proof, marker/result filename stem under quality/)
         markers = [
@@ -361,7 +389,12 @@ def _collect_quality_gates(loki_dir):
             pass_marker = os.path.join(quality_dir, stem + ".pass")
             result_json = os.path.join(quality_dir, stem + ".json")
             status = None
-            if os.path.exists(pass_marker):
+            if gate_name == "unit_tests" and not tests_fresh:
+                # BACKLOG 82: a test result another iteration wrote is not
+                # this iteration's evidence, pass or fail. Name the gap.
+                if any(os.path.exists(p) for p in (pass_marker, result_json, tests_json)):
+                    status = "not_run"
+            elif os.path.exists(pass_marker):
                 status = "passed"
             elif os.path.exists(result_json):
                 rj = _read_json(result_json, default=None)
@@ -390,10 +423,8 @@ def _collect_quality_gates(loki_dir):
                     passed += 1
         # test-results.json carries the suite outcome even when no .pass marker
         # (e.g. {status:"verified"} = tests ran and passed).
-        if "unit_tests" not in seen:
-            tr = _read_json(
-                os.path.join(quality_dir, "test-results.json"), default=None
-            )
+        if "unit_tests" not in seen and tests_fresh:
+            tr = _read_json(tests_json, default=None)
             if isinstance(tr, dict):
                 st = str(tr.get("status") or "")
                 if st in ("verified", "pass", "passed"):

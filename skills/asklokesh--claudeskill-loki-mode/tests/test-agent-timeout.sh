@@ -24,8 +24,12 @@ log_test() { echo -e "${YELLOW}[TEST]${NC} $1"; }
 
 cleanup() {
     rm -rf "$TEST_DIR"
-    # Kill any test processes
-    pkill -f "test-long-running" 2>/dev/null || true
+    # ponytail: no pkill here. This test never spawns a process whose argv
+    # contains "test-long-running" -- the line was dead defensive code that
+    # matched nothing this test launches, while still being an unscoped
+    # machine-wide kill-by-substring if it ever DID match something (see
+    # docs/v10/DECISIONS.md D14/D15/D16). Every background process this test
+    # starts is reaped by its own recorded PID (see Test 5 below).
 }
 trap cleanup EXIT
 

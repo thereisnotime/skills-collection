@@ -45,12 +45,20 @@ TMPDIR="$(mktemp -d -t loki-dash-smoke-XXXXXX)"
 LOG="$TMPDIR/dashboard.log"
 # shellcheck disable=SC2329 # invoked via trap
 cleanup() {
-    # Kill anything listening on PORT that we may have spawned.
-    if command -v lsof >/dev/null 2>&1; then
-        pids=$(lsof -ti:"$PORT" 2>/dev/null || true)
-        if [ -n "$pids" ]; then
-            # shellcheck disable=SC2086
-            kill -9 $pids 2>/dev/null || true
+    # Kill ONLY the PID this script itself recorded at spawn ($TMPDIR/dash.pid,
+    # written below). The prior cleanup re-derived a PID from the port via
+    # unfiltered `lsof -ti:"$PORT"` (no -sTCP:LISTEN, no ownership check) and
+    # killed EVERY match -- port 57374 is the real default dashboard port, so
+    # this could SIGKILL a client mid-connection or an unrelated process that
+    # bound the port after this script's own server died (D14/D15/D16 class).
+    # The startup-time skip-if-busy check does not cover either case: it only
+    # runs once, before this script's own server exists.
+    if [ -f "$TMPDIR/dash.pid" ]; then
+        dash_pid="$(cat "$TMPDIR/dash.pid" 2>/dev/null || true)"
+        if [ -n "$dash_pid" ]; then
+            kill "$dash_pid" 2>/dev/null || true
+            sleep 0.3
+            kill -9 "$dash_pid" 2>/dev/null || true
         fi
     fi
     rm -rf "$TMPDIR" 2>/dev/null || true

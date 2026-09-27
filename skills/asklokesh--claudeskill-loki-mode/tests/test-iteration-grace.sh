@@ -35,11 +35,30 @@ echo "TEST: evidence-aware iteration cap"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/loki-grace-XXXXXX")"
 trap 'rm -rf "$SCRATCH"' EXIT
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it,
+# e.g. one that runs `loki provider show` against the repo as its project).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$SCRATCH/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 # NOTE: TARGET_DIR must be assigned AFTER sourcing run.sh -- sourcing sets it,
 # so exporting it beforehand is silently overwritten (that cost a debug cycle).
+#
+# NOTE: cd into the probe's own scratch dir BEFORE sourcing run.sh. Sourcing
+# runs provider auto-detection, which does `mkdir -p .loki/state && echo ...
+# > .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT that
+# writes into the shared checkout and contaminates every later test in the
+# same shell (provider file beats LOKI_PROVIDER/default on the next `loki`
+# invocation). $dir already has its own .loki/state from mk(), so cd there
+# first and any such side-effect write lands in the scratch dir instead.
 probe() {
     local dir="$1" extra="${2:-}"
-    bash -c "source '$REPO_ROOT/autonomy/run.sh' 2>/dev/null
+    bash -c "cd '$dir' && source '$REPO_ROOT/autonomy/run.sh' 2>/dev/null
              TARGET_DIR='$dir'; ITERATION_COUNT=5; MAX_ITERATIONS=5; $extra
              if check_max_iterations; then echo STOP; else echo \"CONTINUE:\$MAX_ITERATIONS\"; fi" \
         2>/dev/null | tail -1
@@ -106,7 +125,8 @@ d="$(mk optout "done")"
 
 # --- 7. below the cap nothing changes -----------------------------------------
 d="$(mk below "done")"
-out="$(bash -c "source '$REPO_ROOT/autonomy/run.sh' 2>/dev/null
+# Same isolation as probe(): cd into the scratch dir before sourcing run.sh.
+out="$(bash -c "cd '$d' && source '$REPO_ROOT/autonomy/run.sh' 2>/dev/null
                 TARGET_DIR='$d'; ITERATION_COUNT=2; MAX_ITERATIONS=5
                 if check_max_iterations; then echo STOP; else echo \"CONTINUE:\$MAX_ITERATIONS\"; fi" \
         2>/dev/null | tail -1)"
@@ -114,6 +134,38 @@ if [[ "$out" == "CONTINUE:5" ]]; then
     ok "below the cap the ceiling is untouched (no silent inflation)"
 else
     ko "below the cap the ceiling is untouched (no silent inflation)" "got: $out"
+fi
+
+# --- 8. isolation: sourcing run.sh must never touch the shared checkout -------
+# This is the regression check for the CWD-contamination bug: probe() used to
+# source run.sh while CWD was still $REPO_ROOT, so provider auto-detection's
+# `mkdir -p .loki/state && echo ... > .loki/state/provider` landed in the repo
+# checkout and poisoned every later test in the same CI shell (that stale file
+# outranks LOKI_PROVIDER/default on the next `loki` invocation).
+#
+# Compare against PROBE_START (touched before case 1), not mere existence:
+# another suite sharing this checkout may legitimately write its own provider
+# file (e.g. one that runs `loki provider show` against the repo itself), and
+# blaming this test for that is a false alarm. `-nt` is false when the repo
+# file is absent, so one comparison covers "never existed" and "pre-existing
+# and untouched" alike; it only fires on a file THIS run's probes created.
+#
+# Positive control: the LAST probe's own scratch dir must show its provider
+# file did get written. Without this, disabling the mkdir entirely (or a
+# probe silently no-op-ing) would also read as "isolated" -- the check would
+# pass for the wrong reason.
+if [[ -f "$d/.loki/state/provider" ]]; then
+    ok "control: probing still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    ko "control: probing still exercises provider auto-detection (writes to its own scratch dir)" \
+       "no $d/.loki/state/provider -- check 8 would pass vacuously if this write stopped happening"
+fi
+
+if [[ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]]; then
+    ko "sourcing run.sh in probes left no .loki/state/provider in the repo checkout" \
+       "$REPO_ROOT/.loki/state/provider is newer than this run's start -- a probe is contaminating the shared checkout"
+else
+    ok "sourcing run.sh in probes left no .loki/state/provider in the repo checkout"
 fi
 
 echo ""

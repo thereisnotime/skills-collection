@@ -27,7 +27,26 @@ FAIL=0
 ok()  { printf 'PASS: %s\n' "$1"; PASS=$((PASS+1)); }
 bad() { printf 'FAIL: %s\n' "$1"; FAIL=$((FAIL+1)); }
 
-# Source the engine once in this shell (helpers become callable).
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/loki-mergeability-XXXXXX")"
+trap 'rm -rf "$SCRATCH"' EXIT
+
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$SCRATCH/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
+# Source the engine once in this shell (helpers become callable). cd into the
+# scratch dir BEFORE sourcing: sourcing runs provider auto-detection, which
+# does `mkdir -p .loki/state && echo ... > .loki/state/provider` relative to
+# CWD -- if CWD is still $REPO_ROOT that writes into the shared checkout and
+# contaminates every later test in the same shell (same bug class as
+# test-iteration-grace.sh and test-exit-code-contract.sh).
+cd "$SCRATCH" || exit 1
 # shellcheck disable=SC1090
 source "$RUN_SH" >/dev/null 2>&1
 
@@ -106,6 +125,22 @@ if [ "$(score false 0 0)" -gt "$(score true 0 0)" ]; then
     ok "score discriminates mergeable(100) > unmergeable-blocker(0)"
 else
     bad "score does not discriminate"
+fi
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: SCRATCH must show its own provider file did get written.
+# Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
+# would also read as "isolated" -- the check would pass for the wrong reason.
+if [ -f "$SCRATCH/.loki/state/provider" ]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    bad "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
 fi
 
 echo

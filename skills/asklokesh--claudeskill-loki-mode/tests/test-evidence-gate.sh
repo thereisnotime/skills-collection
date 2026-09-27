@@ -195,6 +195,24 @@ except Exception:
 " 2>/dev/null
 }
 
+# Read checks.tests.pass from evidence-block.json as a stable label:
+# "true" / "false" / "inconclusive" / "" (file absent or field absent).
+# BACKLOG 61: this must be a computed, inconclusive-aware value, never a raw
+# pass-through of the test-results.json boolean.
+block_tests_pass() {
+    local f="$1"
+    [ -f "$f" ] || { printf ''; return; }
+    _F="$f" python3 -c "
+import json, os
+try:
+    with open(os.environ['_F']) as fh:
+        v = json.load(fh)['checks']['tests']['pass']
+    print(str(v).lower() if isinstance(v, bool) else v)
+except Exception:
+    print('')
+" 2>/dev/null
+}
+
 # ===========================================================================
 # Case 1: nonzero diff (committed since baseline) + green tests -> PASS (rc 0)
 # ===========================================================================
@@ -675,6 +693,70 @@ if [ "$GATE_RC" -eq 0 ]; then ok "case23 rc=0 (unreachable base does NOT false-b
 inc_reason="$(block_reason "$INC23")"
 [ "$inc_reason" = "base_unreachable" ] && ok "case23 evidence-inconclusive.json reason=base_unreachable" \
     || bad "case23 inconclusive reason=base_unreachable" "got [$inc_reason]"
+
+# ===========================================================================
+# Case 24 (BACKLOG 61): evidence-block.json's checks.tests.pass must be an
+# honest, inconclusive-aware value, never a raw pass-through of $test_pass
+# (which defaults to "true" and stays "true" for every inconclusive outcome).
+# Each sub-case blocks on the DIFF axis (empty_diff), not the test axis, so
+# any confusion between "which axis blocked" and "what tests.pass says" shows
+# up directly in the written file.
+# ===========================================================================
+echo "Case 24 (BACKLOG 61): evidence-block.json checks.tests.pass is inconclusive-aware"
+
+# 24a: no test-results.json at all (test_inconclusive, reason=no_test_results)
+# blocked by empty_diff -> pass must read "inconclusive", not the raw default "true".
+repo="$(new_repo case24a)"
+base="$(grepo "$repo" rev-parse HEAD)"
+run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 1 ]; then ok "case24a rc=1 (blocked)"; else bad "case24a rc=1" "got rc=$GATE_RC"; fi
+r="$(block_reason "$GATE_BLOCK_FILE")"
+[ "$r" = "empty_diff" ] && ok "case24a reason=empty_diff" || bad "case24a reason=empty_diff" "got [$r]"
+tp="$(block_tests_pass "$GATE_BLOCK_FILE")"
+[ "$tp" = "inconclusive" ] && ok "case24a checks.tests.pass=inconclusive (no test-results.json)" \
+    || bad "case24a checks.tests.pass=inconclusive" "got [$tp]"
+
+# 24b: runner=none (test_inconclusive, reason=no_test_runner) blocked by
+# empty_diff -> pass must read "inconclusive", not the raw recorded "true".
+repo="$(new_repo case24b)"
+base="$(grepo "$repo" rev-parse HEAD)"
+write_test_results "$repo" none true
+run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 1 ]; then ok "case24b rc=1 (blocked)"; else bad "case24b rc=1" "got rc=$GATE_RC"; fi
+tp="$(block_tests_pass "$GATE_BLOCK_FILE")"
+[ "$tp" = "inconclusive" ] && ok "case24b checks.tests.pass=inconclusive (runner=none)" \
+    || bad "case24b checks.tests.pass=inconclusive" "got [$tp]"
+
+# 24c: real diff + red tests (test_fails=true) -> pass must read false (the
+# already-correct tests_red path must not regress).
+repo="$(new_repo case24c)"
+base="$(grepo "$repo" rev-parse HEAD)"
+printf 'broken\n' > "$repo/broken.txt"
+grepo "$repo" add broken.txt >/dev/null
+grepo "$repo" commit -q --no-gpg-sign --no-verify -m "broken" 2>/dev/null
+write_test_results "$repo" jest false
+run_gate "$repo" "$base"
+tp="$(block_tests_pass "$GATE_BLOCK_FILE")"
+[ "$tp" = "false" ] && ok "case24c checks.tests.pass=false (red tests)" \
+    || bad "case24c checks.tests.pass=false" "got [$tp]"
+
+# 24d (positive control): empty diff (blocks on a DIFFERENT axis) + genuinely
+# affirmative green tests -> pass must read true, not unconditionally
+# "inconclusive". Without this control a hardcoded "inconclusive" would pass
+# 24a-24c. LOKI_TEST_PROVENANCE=0 keeps the provenance re-check (a separate
+# feature) from downgrading this fixture's runner="jest" signal, isolating
+# the field under test.
+repo="$(new_repo case24d)"
+base="$(grepo "$repo" rev-parse HEAD)"
+write_test_results "$repo" jest true
+LOKI_TEST_PROVENANCE=0 run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 1 ]; then ok "case24d rc=1 (blocked on empty_diff)"; else bad "case24d rc=1" "got rc=$GATE_RC"; fi
+r="$(block_reason "$GATE_BLOCK_FILE")"
+[ "$r" = "empty_diff" ] && ok "case24d reason=empty_diff (blocked by a different axis)" \
+    || bad "case24d reason=empty_diff" "got [$r]"
+tp="$(block_tests_pass "$GATE_BLOCK_FILE")"
+[ "$tp" = "true" ] && ok "case24d checks.tests.pass=true (affirmative green, positive control)" \
+    || bad "case24d checks.tests.pass=true" "got [$tp]"
 
 # ===========================================================================
 # Case 21 (v7.28.0): consumer side -- build_completion_summary RENDERS the

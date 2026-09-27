@@ -144,8 +144,10 @@ done
 # ===========================================
 sect "opencode argv keeps prompt and model alongside --auto"
 argv="$(resolve_argv opencode development)"
+# The prompt element ends with the caller's prompt; the provider leads it with
+# its commit-hygiene line and a blank line (BACKLOG 74), hence [[:space:]].
 case " $argv " in
-    *" PROMPT_TEXT "*) ok "argv still carries the prompt positionally" ;;
+    *[[:space:]]"PROMPT_TEXT "*) ok "argv still carries the prompt positionally" ;;
     *)                 bad "argv lost the prompt: $argv" ;;
 esac
 case " $argv " in

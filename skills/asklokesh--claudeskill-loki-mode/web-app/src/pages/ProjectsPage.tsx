@@ -4,7 +4,6 @@ import { Search, Plus, MoreVertical, Trash2, FolderOpen, Copy, ExternalLink, XCi
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { ProjectHealth } from '../components/ProjectHealth';
 import { api, MOUNT_BASE } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
@@ -310,14 +309,10 @@ function ProjectCard({
 
       <div className="flex items-center justify-between mb-2 pr-6">
         <span className="text-xs text-[#6B6960]">{dateStr}</span>
+        {/* A health grade used to sit here, computed from a hardcoded 72%
+            coverage, zero lint errors and complexity 25 on every card. None
+            of it was measured, so no grade is shown. */}
         <div className="flex items-center gap-2">
-          <ProjectHealth
-            testCoverage={72}
-            lintErrors={0}
-            buildSuccessRate={normalizeStatus(session.status) === 'completed' ? 1.0 : 0.8}
-            codeComplexity={25}
-            badge
-          />
           <Badge status={statusToBadge(session.status)}>{STATUS_LABELS[session.status] || session.status}</Badge>
         </div>
       </div>

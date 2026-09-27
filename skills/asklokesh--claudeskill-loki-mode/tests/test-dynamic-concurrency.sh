@@ -39,6 +39,24 @@ fi
 WORK="$(mktemp -d /tmp/loki-test-dynconc-XXXXXX)"
 trap 'cd / 2>/dev/null; rm -rf "$WORK"' EXIT
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$WORK/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
+# cd into the scratch dir BEFORE sourcing run.sh -- sourcing runs provider
+# auto-detection, which does `mkdir -p .loki/state && echo ... >
+# .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT that
+# writes into the shared checkout and contaminates every later test in the
+# same shell (same bug class as test-iteration-grace.sh and
+# test-exit-code-contract.sh).
+cd "$WORK" || exit 1
+
 # Source the runner. The self-copy block and its EXIT trap are gated on
 # BASH_SOURCE==$0 / LOKI_RUNNING_FROM_TEMP and stay inert when sourced.
 # shellcheck disable=SC1090
@@ -53,6 +71,7 @@ log_header() { :; }
 
 # Pin the base caps so the assertions are deterministic regardless of any
 # ambient LOKI_* env from the caller.
+# shellcheck disable=SC2034 # consumed by the sourced effective_session_cap()
 MAX_PARALLEL_SESSIONS=3
 
 # Build a fresh workdir with a fake .loki/state/resources.json and cd into it.
@@ -269,12 +288,15 @@ test_never_below_one() {
 # Test 12: Custom thresholds via env. CPU 70 with CPU threshold 60 -> halved.
 # -------------------------------------------------------------------
 test_custom_threshold() {
+    # shellcheck disable=SC2034 # consumed by the sourced effective_session_cap()
     DYNAMIC_CONCURRENCY=1
+    # shellcheck disable=SC2034
     MAX_PARALLEL_SESSIONS_CEILING=4
     CONCURRENCY_CPU_THRESHOLD=60
     make_resources 70 10 ok || { bad "Test 12 setup" "cd failed"; return; }
     local got
     got=$(effective_session_cap)
+    # shellcheck disable=SC2034
     CONCURRENCY_CPU_THRESHOLD=85  # restore default for later cases
     if [ "$got" = "2" ]; then
         ok "Test 12: custom CPU threshold 60 with 70% usage halves 4 -> 2"
@@ -296,6 +318,22 @@ test_garbage_resources
 test_never_exceeds_ceiling
 test_never_below_one
 test_custom_threshold
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: WORK must show its own provider file did get written.
+# Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
+# would also read as "isolated" -- the check would pass for the wrong reason.
+if [ -f "$WORK/.loki/state/provider" ]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    bad "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
+fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

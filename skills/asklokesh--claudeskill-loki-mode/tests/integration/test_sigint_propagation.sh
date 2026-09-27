@@ -26,36 +26,35 @@ test_kill_provider_child() {
     local name="kill_provider_child reaps direct child within ~2s"
     # Launch a subshell that sources only the function definition so we can
     # exercise it in isolation without booting the full runner.
+    #
+    # v7.7.5+/D15: this used to hand-copy a v7.5.12-era stub of the function
+    # inline. That stub still ran the bare, unscoped
+    #   pkill -TERM -f "^${proc}( |$)"
+    # for proc in claude/codex/aider/cline -- the exact machine-wide
+    # kill-by-substring bug fixed in autonomy/run.sh's real kill_provider_child
+    # (see docs/v10/DECISIONS.md D14/D15/D16). A hand-copied stub cannot track
+    # a fix made to the real function, and running this test would have sent a
+    # real, unscoped SIGTERM to every "claude"/"codex"/"aider"/"cline" process
+    # on the machine, including live, unrelated sessions. Fixed to extract the
+    # REAL function body from autonomy/run.sh via awk (same technique as
+    # tests/test-kill-provider-child-scoping.sh), so this test always
+    # exercises whatever run.sh actually ships and can never drift back into
+    # reintroducing the bug it is meant to catch.
+    local run_sh="$REPO_ROOT/autonomy/run.sh"
+    local fn_body
+    fn_body="$(awk '/^kill_provider_child\(\) \{/,/^\}/' "$run_sh")"
+    if [ -z "$fn_body" ]; then
+        bad "$name" "could not extract kill_provider_child() from $run_sh"
+        return
+    fi
     local script
     script=$(mktemp -t loki-sigint-XXXXXX.sh)
-    cat > "$script" <<'EOF'
-# Minimal stub of the helper from autonomy/run.sh v7.5.12.
-LOKI_PROVIDER_ACTIVE=0
-kill_provider_child() {
-    local killed=0
-    if pkill -TERM -P $$ 2>/dev/null; then
-        killed=1
-    fi
-    local proc
-    # v7.5.18: gemini removed from provider set.
-    for proc in claude codex aider cline; do
-        pkill -TERM -f "^${proc}( |$)" 2>/dev/null && killed=1
-    done
-    local i=0
-    while [ $i -lt 20 ]; do
-        if ! pgrep -P $$ >/dev/null 2>&1; then
-            break
-        fi
-        sleep 0.1
-        i=$((i + 1))
-    done
-    if pgrep -P $$ >/dev/null 2>&1; then
-        pkill -KILL -P $$ 2>/dev/null || true
-        killed=1
-    fi
-    LOKI_PROVIDER_ACTIVE=0
-    [ $killed -eq 1 ] && return 0 || return 1
-}
+    {
+        echo "# Real kill_provider_child(), extracted from autonomy/run.sh."
+        echo "LOKI_PROVIDER_ACTIVE=0"
+        printf '%s\n' "$fn_body"
+    } > "$script"
+    cat >> "$script" <<'EOF'
 
 # Spawn a long-running child (mock provider).
 sleep 60 &

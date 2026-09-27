@@ -73,11 +73,17 @@ export class LokiContextTracker extends LokiElement {
         if (api !== this._api) return;
         this._data = data;
         this._connected = true;
+        this._loadError = null;
+      } else {
+        if (api !== this._api) return;
+        this._connected = false;
+        this._loadError = `Context API unavailable (HTTP ${resp.status})`;
       }
     } catch {
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
       this._connected = false;
+      this._loadError = 'Context API unreachable';
     }
     this.render();
   }
@@ -159,21 +165,26 @@ export class LokiContextTracker extends LokiElement {
   }
 
   _renderGaugeTab() {
-    const current = this._data?.current || {};
-    const totals = this._data?.totals || {};
-    const pct = current.context_window_pct || 0;
+    // The real writer always stamps updated_at; the server's no-tracking.json
+    // reply has a null (older servers: "") updated_at. Unmeasured renders
+    // unknown, not 0.
+    const measured = !!this._data?.updated_at;
+    const current = (measured && this._data.current) || {};
+    const totals = (measured && this._data.totals) || {};
+    const pct = typeof current.context_window_pct === 'number' ? current.context_window_pct : null;
+    const pctText = pct == null ? 'unknown' : pct.toFixed(1) + '%';
     const gaugeColor = this._getGaugeColor(pct);
     const colorClass = this._getGaugeColorClass(pct);
 
-    // SVG circular gauge parameters
+    // SVG circular gauge parameters (empty ring when unmeasured)
     const radius = 70;
     const circumference = 2 * Math.PI * radius;
-    const dashOffset = circumference - (pct / 100) * circumference;
+    const dashOffset = pct == null ? circumference : circumference - (pct / 100) * circumference;
 
     return `
       <div class="gauge-tab">
         <div class="gauge-container">
-          <svg class="gauge-svg" viewBox="0 0 180 180" aria-label="Context window usage: ${pct.toFixed(1)}%">
+          <svg class="gauge-svg" viewBox="0 0 180 180" aria-label="Context window usage: ${pctText}">
             <circle
               class="gauge-bg"
               cx="90" cy="90" r="${radius}"
@@ -195,7 +206,7 @@ export class LokiContextTracker extends LokiElement {
             <text class="gauge-pct" x="90" y="85" text-anchor="middle"
                   fill="var(--loki-text-primary)" font-size="28" font-weight="600"
                   font-family="'JetBrains Mono', monospace">
-              ${pct.toFixed(1)}%
+              ${pctText}
             </text>
             <text class="gauge-label" x="90" y="108" text-anchor="middle"
                   fill="var(--loki-text-muted)" font-size="11">
@@ -216,11 +227,11 @@ export class LokiContextTracker extends LokiElement {
           </div>
           <div class="summary-card">
             <div class="card-label">Compactions</div>
-            <div class="card-value">${totals.compaction_count || 0}</div>
+            <div class="card-value">${totals.compaction_count ?? '--'}</div>
           </div>
           <div class="summary-card">
             <div class="card-label">Iterations Tracked</div>
-            <div class="card-value">${totals.iterations_tracked || 0}</div>
+            <div class="card-value">${totals.iterations_tracked ?? '--'}</div>
           </div>
         </div>
 
@@ -758,7 +769,7 @@ export class LokiContextTracker extends LokiElement {
 
       <div class="context-container">
         ${!this._connected ? `
-          <div class="offline-notice">Connecting to context API...</div>
+          <div class="offline-notice">${this._escapeHTML(this._loadError || 'Connecting to context API...')}</div>
         ` : ''}
 
         <div class="tabs">

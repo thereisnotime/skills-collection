@@ -31,6 +31,16 @@ echo "TEST: recorded exit codes match the failure contract"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/loki-exitc-XXXXXX")"
 trap 'rm -rf "$SCRATCH"' EXIT
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$SCRATCH/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 # Statuses the bash ENT-3 arm treats as DETERMINISTIC FAILURES. Re-running the
 # same inputs fails the same way; a human needs to look.
 FAILURE_TERMINALS="failed max_iterations_reached max_retries_exceeded budget_exceeded max_duration_reached policy_blocked inconclusive_spec_contradiction force_stopped gate_stuck_static_analysis gate_stuck_mock_integrity gate_stuck_mutation_integrity"
@@ -65,9 +75,15 @@ done
 # --- 2. the specific regression, executed -----------------------------------
 # save_state is source-able, so this asserts the persisted FIELD rather than
 # the literal in the source.
+#
+# cd into the scratch dir BEFORE sourcing run.sh: sourcing runs provider
+# auto-detection, which does `mkdir -p .loki/state && echo ... >
+# .loki/state/provider` relative to CWD -- if CWD is still REPO_ROOT that
+# writes into the shared checkout and contaminates every later test in the
+# same shell. $d already exists (mkdir -p below), so cd there first.
 d="$SCRATCH/exec"; mkdir -p "$d"
-bash -c "source '$RUN_SH' 2>/dev/null
-         cd '$d'; TARGET_DIR=.; export TARGET_DIR
+bash -c "cd '$d'; source '$RUN_SH' 2>/dev/null
+         TARGET_DIR=.; export TARGET_DIR
          save_state 0 'inconclusive_spec_contradiction' 20" >/dev/null 2>&1
 recorded="$(python3 -c "
 import json,sys
@@ -83,9 +99,10 @@ fi
 
 # --- 3. a clean stop must still record 0 ------------------------------------
 # The fix must not have flipped success into failure.
+# Same isolation as case 2: cd into the scratch dir before sourcing run.sh.
 d2="$SCRATCH/clean"; mkdir -p "$d2"
-bash -c "source '$RUN_SH' 2>/dev/null
-         cd '$d2'; TARGET_DIR=.; export TARGET_DIR
+bash -c "cd '$d2'; source '$RUN_SH' 2>/dev/null
+         TARGET_DIR=.; export TARGET_DIR
          save_state 0 'council_approved' 0" >/dev/null 2>&1
 clean="$(python3 -c "
 import json
@@ -114,6 +131,35 @@ TS
         || ko "the TS route agrees" "TS says $ts_code, bash records 20"
 else
     echo "  SKIP: bun unavailable"
+fi
+
+# --- 5. isolation: sourcing run.sh must never touch the shared checkout -----
+# Mirrors the regression check added for the identical bug in
+# tests/test-iteration-grace.sh (case 8 there).
+#
+# Compare against PROBE_START (touched before case 1), not mere existence:
+# another suite sharing this checkout may legitimately write its own provider
+# file, and blaming this test for that is a false alarm. `-nt` is false when
+# the repo file is absent, so one comparison covers "never existed" and
+# "pre-existing and untouched" alike; it only fires on a file THIS run's
+# probes created or modified.
+#
+# Positive control: case 2's scratch dir must show its own provider file did
+# get written. Without this, disabling the mkdir entirely (or a probe
+# silently no-op-ing) would also read as "isolated" -- the check would pass
+# for the wrong reason.
+if [[ -f "$d/.loki/state/provider" ]]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    ko "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)" \
+       "no $d/.loki/state/provider -- case 5 would pass vacuously if this write stopped happening"
+fi
+
+if [[ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]]; then
+    ko "sourcing run.sh left no .loki/state/provider in the repo checkout" \
+       "$REPO_ROOT/.loki/state/provider is newer than this run's start -- a probe is contaminating the shared checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
 fi
 
 echo ""

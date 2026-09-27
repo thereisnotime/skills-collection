@@ -107,6 +107,12 @@ provider_version() {
     cline --version 2>/dev/null | head -1
 }
 
+# Commit hygiene, the sentence providers/claude.sh (and the Bun
+# AUTONOMY_OVERRIDE_TEXT) puts in Claude's system prompt. Cline takes no
+# system prompt here, so it leads every prompt the functions below send
+# (BACKLOG 74: an agent's own `git add -A` commits the user's files).
+PROVIDER_COMMIT_HYGIENE='Commit hygiene still applies: git checkpoints are LOCAL only. Never push or force-push. Stage files by explicit path, never `git add -A` or `git add .`, and never commit secrets, credentials, .env files, or untracked files you did not author this session.'
+
 # Invocation function
 # Uses -y (YOLO) for autonomous mode, positional prompt
 # BUG-PROV-009 fix: build model flag as array to prevent word-splitting on model
@@ -114,6 +120,7 @@ provider_version() {
 provider_invoke() {
     local prompt="$1"
     shift
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
     local model="${LOKI_CLINE_MODEL:-}"
     local model_args=()
     [[ -n "$model" ]] && model_args=("-m" "$model")
@@ -148,6 +155,7 @@ resolve_model_for_tier() {
 provider_invoke_argv() {
     local tier="${1:-development}"
     local prompt="${2:-}"
+    prompt="$PROVIDER_COMMIT_HYGIENE"$'\n\n'"$prompt"
     local model
     model="$(provider_get_tier_param "$tier" 2>/dev/null || printf '%s' "")"
     _LOKI_INVOKE_ARGV=(cline -y)

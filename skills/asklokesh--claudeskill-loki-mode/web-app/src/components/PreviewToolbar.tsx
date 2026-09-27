@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   ZoomIn, ZoomOut, Maximize2, Minimize2,
   Copy, Check, Camera, RotateCw,
@@ -8,7 +8,6 @@ import { DeviceFrameSelector, useDeviceFrame } from './DeviceFrameSelector';
 import type { DeviceType } from './DeviceFrameSelector';
 
 // C26: Zoom controls (75%, 100%, 125%)
-// C27: QR code generator (SVG inline)
 // C28: Screenshot button
 // C29: Preview URL copy button with toast
 // C30: Full-screen preview mode
@@ -51,69 +50,6 @@ export function ZoomControls({
         </button>
       ))}
     </div>
-  );
-}
-
-// C27: Minimal QR code as SVG
-// Generates a simple visual representation since full QR encoding is complex
-function QRCodeSVG({ data, size = 80 }: { data: string; size?: number }) {
-  // Simple hash-based pattern for visual QR representation
-  const cells = 11;
-  const cellSize = size / cells;
-  const grid: boolean[][] = [];
-
-  // Generate deterministic pattern from URL
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    hash = ((hash << 5) - hash + data.charCodeAt(i)) | 0;
-  }
-
-  for (let y = 0; y < cells; y++) {
-    grid[y] = [];
-    for (let x = 0; x < cells; x++) {
-      // Finder patterns (3 corners)
-      const isFinderTL = x < 3 && y < 3;
-      const isFinderTR = x >= cells - 3 && y < 3;
-      const isFinderBL = x < 3 && y >= cells - 3;
-      const isFinderBorder = (isFinderTL || isFinderTR || isFinderBL) && (
-        x === 0 || y === 0 || x === 2 || y === 2 ||
-        x === cells - 1 || y === cells - 1 || x === cells - 3 || y === cells - 3
-      );
-      const isFinderCenter = (
-        (x === 1 && y === 1) ||
-        (x === cells - 2 && y === 1) ||
-        (x === 1 && y === cells - 2)
-      );
-
-      if (isFinderBorder || isFinderCenter) {
-        grid[y][x] = true;
-      } else if (isFinderTL || isFinderTR || isFinderBL) {
-        grid[y][x] = false;
-      } else {
-        // Data area - deterministic pattern
-        const seed = (hash + x * 17 + y * 31) & 0xFFFF;
-        grid[y][x] = seed % 3 !== 0;
-      }
-    }
-  }
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="bg-white rounded p-1">
-      {grid.map((row, y) =>
-        row.map((cell, x) =>
-          cell ? (
-            <rect
-              key={`${x}-${y}`}
-              x={x * cellSize}
-              y={y * cellSize}
-              width={cellSize}
-              height={cellSize}
-              fill="#201515"
-            />
-          ) : null
-        )
-      )}
-    </svg>
   );
 }
 
@@ -297,41 +233,6 @@ export function PreviewSkeleton() {
   );
 }
 
-// QR code popover
-export function QRCodeButton({ url }: { url: string }) {
-  const [showQR, setShowQR] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showQR) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setShowQR(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showQR]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setShowQR(prev => !prev)}
-        className="p-1.5 rounded text-muted hover:text-ink hover:bg-hover transition-colors text-[10px] font-semibold"
-        title="Show QR code"
-      >
-        QR
-      </button>
-      {showQR && (
-        <div className="absolute top-full right-0 mt-1 z-30 bg-card border border-border rounded-btn shadow-lg p-3">
-          <QRCodeSVG data={url} size={100} />
-          <p className="text-[10px] text-muted text-center mt-2 max-w-[100px] truncate">{url}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // Main enhanced toolbar that wraps the existing preview toolbar elements
 export function PreviewToolbar({ previewUrl, onRefresh, isFullscreen, onToggleFullscreen, children }: PreviewToolbarProps) {
   return (
@@ -341,7 +242,6 @@ export function PreviewToolbar({ previewUrl, onRefresh, isFullscreen, onToggleFu
         <RefreshButton onClick={onRefresh} />
         <CopyUrlButton url={previewUrl} />
         <ScreenshotButton />
-        <QRCodeButton url={previewUrl} />
         <FullscreenButton isFullscreen={isFullscreen} onToggle={onToggleFullscreen} />
       </div>
     </div>

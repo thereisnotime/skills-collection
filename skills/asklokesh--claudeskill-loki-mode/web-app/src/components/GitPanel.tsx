@@ -33,9 +33,9 @@ interface GitPanelProps {
 // Badge count cache (30-second TTL)
 // ---------------------------------------------------------------------------
 
+// Only the actions badge: issues/PRs were fetched with limit 1, so their
+// "count" could never exceed 1. actions = in-progress runs among the last 5.
 interface BadgeCounts {
-  issues: number;
-  prs: number;
   actions: number;
   fetchedAt: number;
 }
@@ -609,22 +609,21 @@ export function GitPanel({ sessionId }: GitPanelProps) {
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [remoteInfo, setRemoteInfo] = useState<RemoteInfo | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({
-    issues: 0,
-    prs: 0,
     actions: 0,
     fetchedAt: 0,
   });
   const badgeFetchRef = useRef(false);
 
-  // Check if project has a GitHub remote
+  // Remote evidence: a remote-tracking branch (origin/...) from git/branches.
+  // If that call fails the answer is unknown (remoteInfo null); the GitHub tabs
+  // then stay enabled and their own endpoints report "No GitHub remote found".
   const checkRemote = useCallback(async () => {
     setRemoteLoading(true);
     try {
-      const info = await api.getStatus();
-      setRemoteInfo({ has_remote: true, repo: '', owner: '' });
+      const branches = await api.git.branches(sessionId);
+      setRemoteInfo({ has_remote: branches.some((b) => b.remote) });
     } catch {
-      // If the endpoint fails, assume no remote -- degrade gracefully
-      setRemoteInfo({ has_remote: false });
+      setRemoteInfo(null);
     }
     setRemoteLoading(false);
   }, [sessionId]);
@@ -641,24 +640,12 @@ export function GitPanel({ sessionId }: GitPanelProps) {
     if (badgeFetchRef.current) return;
     badgeFetchRef.current = true;
 
-    try {
-      const [issues, prs, runs] = await Promise.allSettled([
-        api.getGitHubIssues(sessionId, 'open', 1),
-        api.getGitHubPRs(sessionId, 'open', 1),
-        api.getWorkflowRuns(sessionId, 5),
-      ]);
-
-      setBadgeCounts({
-        issues: issues.status === 'fulfilled' ? (issues.value as any[]).length : 0,
-        prs: prs.status === 'fulfilled' ? (prs.value as any[]).length : 0,
-        actions: runs.status === 'fulfilled'
-          ? (runs.value as any[]).filter((r: any) => r.status === 'in_progress').length
-          : 0,
-        fetchedAt: Date.now(),
-      });
-    } catch {
-      // Non-critical -- badge counts just stay at 0
-    }
+    // A failed fetch leaves no badge (0 is never rendered).
+    const runs = await api.getWorkflowRuns(sessionId, 5).catch(() => null);
+    setBadgeCounts({
+      actions: runs ? runs.filter((r) => r.status === 'in_progress').length : 0,
+      fetchedAt: Date.now(),
+    });
     badgeFetchRef.current = false;
   }, [sessionId, remoteInfo?.has_remote, badgeCounts.fetchedAt]);
 
@@ -687,8 +674,8 @@ export function GitPanel({ sessionId }: GitPanelProps) {
     );
   }
 
-  // Determine whether GitHub tabs should be shown
-  const hasRemote = remoteInfo?.has_remote ?? false;
+  // Determine whether GitHub tabs should be shown (unknown -> let them try)
+  const hasRemote = remoteInfo?.has_remote ?? true;
 
   // Top tab definitions
   const tabs: Array<{
@@ -699,8 +686,8 @@ export function GitPanel({ sessionId }: GitPanelProps) {
     requiresRemote: boolean;
   }> = [
     { id: 'changes', label: 'Changes', icon: FileCode2, requiresRemote: false },
-    { id: 'issues', label: 'Issues', icon: CircleDot, count: badgeCounts.issues, requiresRemote: true },
-    { id: 'prs', label: 'PRs', icon: GitPullRequest, count: badgeCounts.prs, requiresRemote: true },
+    { id: 'issues', label: 'Issues', icon: CircleDot, requiresRemote: true },
+    { id: 'prs', label: 'PRs', icon: GitPullRequest, requiresRemote: true },
     { id: 'actions', label: 'Actions', icon: Play, count: badgeCounts.actions, requiresRemote: true },
   ];
 

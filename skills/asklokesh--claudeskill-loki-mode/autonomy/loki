@@ -778,6 +778,30 @@ loki_remote_fetch_receipt() {
 # UNSIGNED there would be a false statement about the receipt (it IS signed),
 # and saying VERIFIED would be a false statement about this machine (it checked
 # nothing). It gets its own line and never claims verification.
+# Resolve a tool name to an absolute path, rejecting any PATH entry that is
+# not itself absolute. A bare "" component in PATH (what "export PATH=x:$PATH"
+# on an unset variable leaves, or an accidental "PATH=":$PATH"") is treated by
+# the shell as the current directory, and so is "."; but ANY other relative
+# entry (a bare "bin", "./tools", "../x") resolves against the verifier's cwd
+# just as unsafely, so all of them are rejected the same way, not just those
+# two literal strings. An unscoped `command -v python3`/`gpg`/`git` on a verify
+# path can otherwise resolve to a committed shim sitting in the checkout being
+# verified. Prints nothing (never a relative name) when no real binary is on
+# a real (absolute) PATH entry, so callers fail closed the same way
+# `command -v` failing does.
+loki_verify_tool_path() {
+    local name="$1" dir
+    local IFS=:
+    for dir in $PATH; do
+        case "$dir" in
+            /*) ;;
+            *) continue ;;
+        esac
+        [ -x "$dir/$name" ] && [ ! -d "$dir/$name" ] && { printf '%s\n' "$dir/$name"; return 0; }
+    done
+    return 1
+}
+
 # Ask gpg WHY a signature failed. Echoes "nopubkey" when the signing key is
 # absent (uncheckable), "" otherwise (a genuinely bad signature, or we could
 # not tell). Fails toward "" so an unclear answer keeps the loud TAMPERED
@@ -829,6 +853,12 @@ loki_remote_attestation_status() {
     [ -n "$url" ] || { printf ''; return 0; }
     command -v python3 >/dev/null 2>&1 || { printf ''; return 0; }
     local tok
+    # jq's `//` treats JSON false the same as null/missing, which is exactly
+    # the semantics wanted here: `attestation: false` reads as "no attestation
+    # present" (UNSIGNED/absent), not as a malformed token. Kept as a bash-level
+    # short circuit for the unreachable-JWKS-avoidance case; the Python copy
+    # below carries the same `is False` guard so the two never diverge if this
+    # jq pre-filter is ever removed.
     tok="$(jq -r '.verification.attestation // empty' "$pj" 2>/dev/null)"
     [ -n "$tok" ] || { printf ''; return 0; }
     python3 -E - "$pj" "$url" "${_LOKI_SCRIPT_DIR}" <<'PY' 2>/dev/null || printf ''
@@ -846,7 +876,11 @@ except ImportError:
     sys.exit(1)          # -> "" : cannot check, never a verdict
 proof = json.load(open(sys.argv[1]))
 tok = (proof.get("verification") or {}).get("attestation")
-if tok is None or tok == "":
+# `attestation: false` is "no attestation present", the same fact as a missing
+# or empty-string field -- never a malformed token. `is False` only, never
+# `== False`, because `0 == False` in Python and a numeric attestation field
+# is a different (still malformed) shape that must still read as TAMPERED.
+if tok is None or tok == "" or tok is False:
     sys.exit(1)
 try:
     with urllib.request.urlopen(
@@ -854,14 +888,17 @@ try:
         jwks = json.loads(r.read())
 except Exception:
     sys.exit(1)          # unreachable JWKS is UNCHECKED, not a failure
-# A key set that is not {"keys": [{...}, ...]} is a key-set problem: UNCHECKED,
-# never an accusation against the receipt. Checked BEFORE anything below can
-# print "bad", so a bad key set can never read as TAMPERED.
+# A key set that is not {"keys": [{...}, ...]} -- INCLUDING an empty list -- is
+# a key-set problem: UNCHECKED, never an accusation against the receipt. An
+# empty keyset is an inability to check (no key was published to check
+# against), not evidence of tampering. Checked BEFORE anything below can print
+# "bad", so a bad or empty key set can never read as TAMPERED.
 _keys = jwks.get("keys") if isinstance(jwks, dict) else None
-if not isinstance(_keys, list) or not all(isinstance(k, dict) for k in _keys):
+if not isinstance(_keys, list) or not _keys or not all(isinstance(k, dict) for k in _keys):
     sys.exit(1)
 # The receipt's builder controls the token. An attestation that is not a JWT
-# string is a malformed receipt: TAMPERED, decided without any crypto.
+# string (and not the "no attestation" `false` handled above) is a malformed
+# receipt: TAMPERED, decided without any crypto.
 if not isinstance(tok, str):
     print("bad"); sys.exit(0)
 # Without `cryptography`, verify_attestation returns False and this would print
@@ -931,7 +968,12 @@ try:
 except Exception:
     sys.exit(1)
 tok = (proof.get("verification") or {}).get("attestation")
-if tok is None or tok == "":
+# `attestation: false` is "no attestation present", the same fact as a missing
+# or empty-string field -- never a malformed token. `is False` only, never
+# `== False`, because `0 == False` in Python and a numeric attestation field
+# is a different (still malformed) shape that must still read as FAILED. Same
+# guard in loki_remote_attestation_status above -- change both.
+if tok is None or tok == "" or tok is False:
     print("none"); sys.exit(0)       # a FACT about the receipt, not an error
 src = sys.argv[2]
 try:
@@ -946,15 +988,18 @@ try:
             jwks = json.loads(r.read())
 except Exception:
     sys.exit(1)                      # "" : unreachable/unreadable, no verdict
-# A key set that is not {"keys": [{...}, ...]} is a key-set problem: NOT
-# CHECKED, never an accusation. Checked BEFORE anything below can print "bad",
-# so a bad key set can never read as FAILED. Same order in
-# loki_remote_attestation_status above -- change both.
+# A key set that is not {"keys": [{...}, ...]} -- INCLUDING an empty list -- is
+# a key-set problem: NOT CHECKED, never an accusation. An empty keyset is an
+# inability to check (no key was published to check against), not evidence of
+# tampering. Checked BEFORE anything below can print "bad", so a bad or empty
+# key set can never read as FAILED. Same order in loki_remote_attestation_status
+# above -- change both.
 _keys = jwks.get("keys") if isinstance(jwks, dict) else None
-if not isinstance(_keys, list) or not all(isinstance(k, dict) for k in _keys):
+if not isinstance(_keys, list) or not _keys or not all(isinstance(k, dict) for k in _keys):
     sys.exit(1)                      # "" : cannot check
 # The receipt's builder controls the token. An attestation that is not a JWT
-# string is a malformed receipt: FAILED, decided without any crypto.
+# string (and not the "no attestation" `false` handled above) is a malformed
+# receipt: FAILED, decided without any crypto.
 if not isinstance(tok, str):
     print("bad"); sys.exit(0)
 # receipt_jwt imports without `cryptography`, and verify_attestation then
@@ -7773,6 +7818,59 @@ PURPLE_LAB_DEFAULT_HOST="127.0.0.1"
 PURPLE_LAB_STATE_DIR="${HOME}/.loki/purple-lab"
 PURPLE_LAB_PID_FILE="${PURPLE_LAB_STATE_DIR}/purple-lab.pid"
 
+# Is this pid positively identified as THIS installation's Purple Lab server
+# (cmd_web_start launches exactly `$DASHBOARD_PYTHON $SKILL_DIR/web-app/server.py`
+# at :8078), rather than a recycled pid, a decoy that merely mentions the path
+# in an argument, or another installation's server.py at a different SKILL_DIR?
+#
+# A substring match on the path is NOT identity: `vim server.py`, `tail -f
+# server.py`, or `grep server.py x` in the exact web-app dir would all pass a
+# naive `case "$cmd" in *server.py*)`. This instead tokenizes the full command
+# line and requires: (1) argv[0] is an (optionally path-qualified) python
+# interpreter -- covers "python3", "/usr/bin/python3.12", and the macOS
+# Python.app framework binary; (2) argv[1] is EXACTLY this installation's
+# absolute web-app/server.py path, not a substring of it; (3) the process is
+# owned by this user (SKILL_DIR is frequently a shared global install path, so
+# uid alone rules out a same-path process started by someone else).
+# Fails closed: an absent/unreadable `ps` result, or anything this cannot
+# positively parse, returns "not a match" -- never signal on ambiguity.
+_loki_pid_looks_like_purplelab() {
+    local _p="$1" _cmd _want _my_uid _p_uid
+    case "$_p" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$_p" -gt 1 ] 2>/dev/null || return 1
+    _want="${SKILL_DIR}/web-app/server.py"
+    [ -f "$_want" ] || return 1
+    _cmd="$(ps -o command= -p "$_p" 2>/dev/null)"
+    [ -n "$_cmd" ] || return 1
+    _my_uid="$(id -u 2>/dev/null)" || return 1
+    _p_uid="$(ps -o uid= -p "$_p" 2>/dev/null | tr -d ' ')"
+    [ -n "$_p_uid" ] && [ "$_p_uid" = "$_my_uid" ] || return 1
+    # Tokenize without glob expansion or command substitution (bash 3.2 safe):
+    # `set -f` in this function's own subshell-free scope would leak, so do it
+    # in a nested subshell and echo the verdict back.
+    (
+        set -f
+        # shellcheck disable=SC2086
+        set -- $_cmd
+        argv0="${1:-}"
+        argv1="${2:-}"
+        # Match the BASENAME only. The prior "*/[Pp]ython*|[Pp]ython*" glob
+        # matched the WHOLE string against "any chars, then /, then
+        # python-substring, then any chars" -- not "the final path segment
+        # starts with python" -- so /opt/python-tools/bin/tail passed. Not
+        # currently exploitable on its own (argv1 exact-match + uid still
+        # gate it), but tightened per council review: a real interpreter's
+        # basename must itself start with [Pp]ython, e.g. "python3",
+        # "python3.12", or a full path ending in one of those.
+        case "${argv0##*/}" in
+            [Pp]ython*) ;;
+            *) exit 1 ;;
+        esac
+        [ "$argv1" = "$_want" ] || exit 1
+        exit 0
+    )
+}
+
 cmd_web() {
     local subcommand="${1:-start}"
 
@@ -8044,25 +8142,35 @@ cmd_web_start() {
         fi
     fi
 
-    # Check if port is already in use -- try to clean up orphaned processes
+    # Check if port is already in use -- try to clean up orphaned processes.
+    # Only kill it if it is positively identified as THIS installation's own
+    # Purple Lab server (never a bare "it's listening on our port" guess): an
+    # unrelated process bound to the same port, or another installation's
+    # server, must never be signaled.
     if lsof -i:"$port" -sTCP:LISTEN &> /dev/null; then
         local blocking_pid
         blocking_pid=$(lsof -ti:"$port" -sTCP:LISTEN 2>/dev/null | head -1)
         if [ -n "$blocking_pid" ]; then
-            echo -e "${YELLOW}Port $port in use by PID $blocking_pid -- stopping it...${NC}"
-            kill "$blocking_pid" 2>/dev/null
-            sleep 1
-            if kill -0 "$blocking_pid" 2>/dev/null; then
-                kill -9 "$blocking_pid" 2>/dev/null
+            if _loki_pid_looks_like_purplelab "$blocking_pid"; then
+                echo -e "${YELLOW}Port $port in use by PID $blocking_pid -- stopping it...${NC}"
+                kill "$blocking_pid" 2>/dev/null
                 sleep 1
-            fi
-            # Verify port is now free
-            if lsof -i:"$port" -sTCP:LISTEN &> /dev/null; then
-                echo -e "${RED}Error: Could not free port $port${NC}"
-                echo "Use --port to specify a different port, or manually kill the process."
+                if kill -0 "$blocking_pid" 2>/dev/null; then
+                    kill -9 "$blocking_pid" 2>/dev/null
+                    sleep 1
+                fi
+                # Verify port is now free
+                if lsof -i:"$port" -sTCP:LISTEN &> /dev/null; then
+                    echo -e "${RED}Error: Could not free port $port${NC}"
+                    echo "Use --port to specify a different port, or manually kill the process."
+                    exit 1
+                fi
+                echo -e "${GREEN}Port $port freed.${NC}"
+            else
+                echo -e "${RED}Error: Port $port is in use by PID $blocking_pid, which is not this installation's Purple Lab server.${NC}"
+                echo "Use --port to specify a different port, or manually stop that process."
                 exit 1
             fi
-            echo -e "${GREEN}Port $port freed.${NC}"
         fi
     fi
 
@@ -8149,7 +8257,11 @@ cmd_web_stop() {
     curl -s --max-time 3 -X POST "http://127.0.0.1:${port}/api/session/stop" >/dev/null 2>&1 || true
     sleep 1
 
-    # Try PID file first (check global location, then local)
+    # Try PID file first (check global location, then local). Identity is
+    # verified with _loki_pid_looks_like_purplelab (anchored interpreter +
+    # exact server_py path + uid match), not a loose comm-name substring: a
+    # decoy or another installation's process merely named "python" would
+    # otherwise pass the old check.
     local pid_file="$PURPLE_LAB_PID_FILE"
     if [ ! -f "$pid_file" ]; then
         pid_file="${LOKI_DIR}/purple-lab/purple-lab.pid"
@@ -8158,10 +8270,7 @@ cmd_web_stop() {
         local pid
         pid=$(cat "$pid_file" 2>/dev/null)
         if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            # Verify the PID belongs to a Purple Lab/Python process (PID recycling guard)
-            local pid_cmd
-            pid_cmd=$(ps -p "$pid" -o comm= 2>/dev/null || true)
-            if [[ "$pid_cmd" == *python* ]] || [[ "$pid_cmd" == *uvicorn* ]] || [[ "$pid_cmd" == *Purple* ]]; then
+            if _loki_pid_looks_like_purplelab "$pid"; then
                 kill "$pid" 2>/dev/null
                 sleep 1
                 if kill -0 "$pid" 2>/dev/null; then
@@ -8170,33 +8279,46 @@ cmd_web_stop() {
                 echo -e "${GREEN}Purple Lab stopped (PID: $pid)${NC}"
                 stopped=true
             else
-                echo -e "${YELLOW}PID $pid is not a Purple Lab process (found: $pid_cmd), skipping${NC}"
+                echo -e "${YELLOW}PID $pid is not this installation's Purple Lab process, skipping${NC}"
             fi
         fi
         rm -f "$PURPLE_LAB_PID_FILE"
     fi
 
-    # Also kill any process on the port (catches orphans without PID file)
+    # Also kill any process on the port (catches orphans without PID file).
+    # Same identity check as above: a port/pattern-derived PID must be
+    # positively identified as OURS before it is signaled (D14/D15/D16 class).
     local port_pid
     port_pid=$(lsof -ti:"$port" -sTCP:LISTEN 2>/dev/null | head -1 || true)
     if [ -n "$port_pid" ]; then
-        kill "$port_pid" 2>/dev/null
-        sleep 1
-        if kill -0 "$port_pid" 2>/dev/null; then
-            kill -9 "$port_pid" 2>/dev/null
+        if _loki_pid_looks_like_purplelab "$port_pid"; then
+            kill "$port_pid" 2>/dev/null
+            sleep 1
+            if kill -0 "$port_pid" 2>/dev/null; then
+                kill -9 "$port_pid" 2>/dev/null
+            fi
+            if [ "$stopped" = false ]; then
+                echo -e "${GREEN}Purple Lab stopped (orphan PID: $port_pid on port $port)${NC}"
+            fi
+            stopped=true
+        else
+            echo -e "${YELLOW}Port $port is held by a process that is not this installation's Purple Lab server, leaving it alone${NC}"
         fi
-        if [ "$stopped" = false ]; then
-            echo -e "${GREEN}Purple Lab stopped (orphan PID: $port_pid on port $port)${NC}"
-        fi
-        stopped=true
     fi
 
-    # Also kill any orphan web-app/server.py processes (catches processes from other CWDs)
+    # Also kill any orphan web-app/server.py processes (catches processes from
+    # other CWDs). pgrep -f only ENUMERATES candidates by argv substring; each
+    # candidate must then pass _loki_pid_looks_like_purplelab before being
+    # killed. (The previous cwd-equality check here was dead in practice --
+    # server.py never calls chdir, so its cwd is whatever launched it, not the
+    # web-app dir -- and even when it matched, cwd alone is not identity: an
+    # unrelated python process merely launched FROM that directory would also
+    # pass. argv identity via the shared helper covers both gaps.)
     local orphan_pids
     orphan_pids=$(pgrep -f "web-app/server.py" 2>/dev/null || true)
     if [ -n "$orphan_pids" ]; then
         for opid in $orphan_pids; do
-            if kill -0 "$opid" 2>/dev/null; then
+            if kill -0 "$opid" 2>/dev/null && _loki_pid_looks_like_purplelab "$opid"; then
                 kill "$opid" 2>/dev/null
                 sleep 1
                 if kill -0 "$opid" 2>/dev/null; then
@@ -8240,33 +8362,28 @@ cmd_web_stop() {
         rm -f "$pids_file" 2>/dev/null || true
     fi
 
-    # Companion cleanup: stop the dashboard server that the web UI runs
-    # alongside. Scoped to the dashboard, NOT to every loki process: the
-    # documented intent of "loki web stop" is to stop the Purple Lab web UI
-    # session, not to reap unrelated builds.
-
-    # Kill any dashboard server (by process name and by port)
-    local dash_port="${LOKI_DASHBOARD_PORT:-57374}"
-    local dash_pids
-    dash_pids=$(pgrep -f "dashboard.server\|dashboard/server" 2>/dev/null || true)
-    if [ -n "$dash_pids" ]; then
-        for dpid in $dash_pids; do
-            kill "$dpid" 2>/dev/null || true
-        done
-        sleep 1
-        for dpid in $dash_pids; do
-            kill -0 "$dpid" 2>/dev/null && kill -9 "$dpid" 2>/dev/null || true
-        done
-        echo "Loki Dashboard stopped"
-    fi
-    # Also kill by port in case pgrep missed it
-    local dash_port_pid
-    dash_port_pid=$(lsof -ti:"$dash_port" -sTCP:LISTEN 2>/dev/null | head -1 || true)
-    if [ -n "$dash_port_pid" ]; then
-        kill "$dash_port_pid" 2>/dev/null || true
-        sleep 1
-        kill -0 "$dash_port_pid" 2>/dev/null && kill -9 "$dash_port_pid" 2>/dev/null || true
-    fi
+    # Companion cleanup: the dashboard server that the web UI runs alongside
+    # is already stopped by cmd_dashboard_stop, called before this function by
+    # cmd_web()'s "stop" case -- that path is PID-file-authoritative and is the
+    # single source of truth for "our" dashboard. KNOWN GAP: cmd_dashboard_stop
+    # (this file) verifies only liveness (`kill -0`), not process identity --
+    # unlike autonomy/run.sh's loki_mark_project_stopped_and_maybe_kill_shared_dashboard,
+    # which additionally calls _loki_pid_looks_like_dashboard to guard against a
+    # recycled PID now naming something else. That hardening is not ported
+    # here; out of scope for this fix, noted for a follow-up.
+    #
+    # A former dashboard-argv pgrep/port sweep here was DELETED rather than
+    # hardened: any identity check reachable from argv alone (anchoring on
+    # "-m dashboard.server", the module form cmd_dashboard_start launches) can
+    # only prove "this is A loki dashboard process", never "this is the
+    # dashboard THIS session started" -- a dashboard launched from a different
+    # worktree, a different SKILL_DIR, or a concurrent CI shard passes that
+    # check identically. Re-killing "a" dashboard here duplicates
+    # cmd_dashboard_stop's job with a strictly weaker identity guarantee and
+    # was, before this fix, actually vacuous (the case-statement re-tested the
+    # exact same substrings pgrep had already matched on, and the SIGKILL pass
+    # walked the raw unfiltered pgrep list with no check at all) -- see
+    # docs/v10/DECISIONS.md D14/D15/D16.
 
     # FIX-563 (v7.30.0): do NOT blanket-kill loki-run-* orchestrators here.
     # The prior unscoped `pgrep -f "loki-run-..."` reaped EVERY orchestrator on
@@ -13158,16 +13275,27 @@ _loki_airgap_audit() {
 
     # Provider inference endpoint: the one egress that is genuinely required,
     # unless the active provider serves weights locally.
-    local provider="${LOKI_PROVIDER:-claude}"
+    # Judge the provider `loki start` would use, with cmd_start's precedence:
+    # the project's saved choice (.loki/state/provider, `loki provider set`)
+    # wins over LOKI_PROVIDER. Reading only the env var reported a saved claude
+    # project as air-gap ready. A --provider flag at start time is not visible
+    # here; with nothing set, run.sh may auto-detect another installed CLI.
+    local provider="" provider_src="$LOKI_DIR/state/provider"
+    [ -f "$LOKI_DIR/state/provider" ] && provider=$(cat "$LOKI_DIR/state/provider" 2>/dev/null)
+    if [ -z "$provider" ]; then
+        provider_src="LOKI_PROVIDER"
+        provider="${LOKI_PROVIDER:-}"
+        [ -n "$provider" ] || { provider="claude"; provider_src="default"; }
+    fi
     local model_host="" model_required="yes" model_note=""
     case "$provider" in
         claude)
             model_host="${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
-            model_note="Claude Code inference. Set ANTHROPIC_BASE_URL to an in-network gateway, or switch to a local-weights provider."
+            model_note="Claude Code inference. An in-network gateway (ANTHROPIC_BASE_URL) keeps it inside your network but is still counted as required egress here; only a local-weights provider clears it."
             ;;
         codex)
             model_host="${OPENAI_BASE_URL:-https://api.openai.com}"
-            model_note="Codex inference. Point at an in-network gateway or switch provider."
+            model_note="Codex inference. An in-network gateway (OPENAI_BASE_URL) is still counted as required egress here; only a local-weights provider clears it."
             ;;
         opencode|cline|aider)
             model_host="${OPENAI_BASE_URL:-${OPENROUTER_API_KEY:+https://openrouter.ai}}"
@@ -13183,10 +13311,35 @@ _loki_airgap_audit() {
                 cline)    model_var="LOKI_CLINE_MODEL"    model_id="${LOKI_CLINE_MODEL:-}" ;;
                 aider)    model_var="LOKI_AIDER_MODEL"    model_id="${LOKI_AIDER_MODEL:-}" ;;
             esac
-            if printf '%s' "$model_id" | grep -qiE 'ollama|localhost|127\.0\.0\.1|lmstudio'; then
-                model_host="local weights"
-                model_required="no"
-                model_note="Local model runtime (Ollama / LM Studio / llama.cpp). No inference egress."
+            # An Ollama cloud model (tag ending ":cloud" or "-cloud") runs on
+            # ollama.com through the local daemon (docs.ollama.com/cloud), so
+            # naming ollama is not evidence of local inference regardless of
+            # OLLAMA_HOST.
+            if printf '%s' "$model_id" | grep -qiE '[:-]cloud$'; then
+                model_host="https://ollama.com (Ollama cloud model $model_id)"
+                model_note="Ollama cloud models run on ollama.com. Set $model_var to a local ollama/ model id (no :cloud or -cloud tag)."
+            elif printf '%s' "$model_id" | grep -qiE 'ollama|localhost|127\.0\.0\.1|lmstudio'; then
+                # A bare "ollama"/"lmstudio" in the model id is only local
+                # evidence when the tool actually talks to this host. Ollama
+                # honors OLLAMA_HOST to redirect its client at a remote
+                # server, so a substring match on the model id alone is
+                # forgeable: OLLAMA_HOST=https://remote.example.com with
+                # model id "ollama/..." would egress to that remote host
+                # while still reading as local. Parse OLLAMA_HOST's actual
+                # host and only trust the substring when no override is set
+                # or the override itself points at loopback.
+                local ollama_host_local=1
+                if [ -n "${OLLAMA_HOST:-}" ] && ! loki_remote_is_local_host "$OLLAMA_HOST"; then
+                    ollama_host_local=0
+                fi
+                if [ "$ollama_host_local" = "1" ]; then
+                    model_host="local weights"
+                    model_required="no"
+                    model_note="Local model runtime named by $model_var=$model_id. Judged from the model id (and OLLAMA_HOST when set): the endpoint set in the opencode, cline or aider config is not read, so confirm it is on this host or inside your network."
+                else
+                    model_host="$OLLAMA_HOST"
+                    model_note="OLLAMA_HOST points at a remote host; inference leaves it. Unset OLLAMA_HOST or point it at loopback for zero-egress inference."
+                fi
             else
                 [ -n "$model_host" ] || model_host="remote model provider (no local model configured)"
                 model_note="Remote model gateway. Set $model_var to an ollama/ model id for zero-egress inference."
@@ -13198,15 +13351,35 @@ _loki_airgap_audit() {
             ;;
     esac
 
+    # LOKI_ALLOW_CLAUDE_SIDECALLS=1 lets engine side-calls prompt the claude
+    # CLI under another provider: inference to Anthropic whatever the model.
+    # Same policy helper the side-call sites use (providers/loader.sh).
+    local sidecall_required="no" sidecall_host="${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
+    type loki_claude_sidecall_allowed >/dev/null 2>&1 \
+        || . "$_LOKI_SCRIPT_DIR/../providers/loader.sh" 2>/dev/null
+    if [ "$provider" != "claude" ] && command -v claude >/dev/null 2>&1 \
+       && loki_claude_sidecall_allowed "$provider" 2>/dev/null; then
+        sidecall_required="yes"
+    fi
+    local blocked="$model_required"
+    [ "$sidecall_required" = "yes" ] && blocked="yes"
+
     # Optional egress, each individually disableable.
+    # Telemetry: the same gate main() used to send this command's own event.
+    # It is ON by default for an individual interactive install, so a
+    # hardcoded "off" misreported the one egress this audit itself triggers.
     local tel_state="off"
-    [ "${LOKI_TELEMETRY:-}" = "on" ] && tel_state="on"
+    if declare -f _loki_telemetry_enabled >/dev/null 2>&1 && _loki_telemetry_enabled; then
+        tel_state="on"
+    fi
+    local tel_host="${LOKI_POSTHOG_HOST:-https://us.i.posthog.com}"
     local upd_state="on"
     [ "${LOKI_NO_UPDATE_CHECK:-0}" = "1" ] && upd_state="off"
 
     if [ "$as_json" = "true" ]; then
-        _AG_PROV="$provider" _AG_HOST="$model_host" _AG_REQ="$model_required" \
-        _AG_NOTE="$model_note" _AG_TEL="$tel_state" _AG_UPD="$upd_state" \
+        _AG_PROV="$provider" _AG_PSRC="$provider_src" _AG_HOST="$model_host" _AG_REQ="$model_required" \
+        _AG_NOTE="$model_note" _AG_TEL="$tel_state" _AG_TELHOST="$tel_host" _AG_UPD="$upd_state" \
+        _AG_SC="$sidecall_required" _AG_SCHOST="$sidecall_host" \
         python3 -c '
 import json, os
 req = os.environ["_AG_REQ"] == "yes"
@@ -13214,14 +13387,14 @@ egress = [{
     "name": "model_inference",
     "host": os.environ["_AG_HOST"],
     "required": req,
-    "disable": "use a local-weights provider (ollama/, lmstudio/) or an in-network gateway",
+    "disable": "use a local-weights provider (opencode, cline or aider with a local ollama/ or lmstudio/ model id)",
     "note": os.environ["_AG_NOTE"],
 }, {
     "name": "telemetry",
-    "host": "telemetry endpoint",
+    "host": os.environ["_AG_TELHOST"],
     "required": False,
     "enabled": os.environ["_AG_TEL"] == "on",
-    "disable": "loki telemetry off (already the default)",
+    "disable": "loki telemetry off, DO_NOT_TRACK=1, or LOKI_AIRGAP=true (on by default for interactive installs; auto-off in CI)",
 }, {
     "name": "update_check",
     "host": "registry.npmjs.org",
@@ -13229,21 +13402,39 @@ egress = [{
     "enabled": os.environ["_AG_UPD"] == "on",
     "disable": "export LOKI_NO_UPDATE_CHECK=1",
 }]
+if os.environ["_AG_SC"] == "yes":
+    egress.append({
+        "name": "claude_sidecalls",
+        "host": os.environ["_AG_SCHOST"],
+        "required": True,
+        "disable": "unset LOKI_ALLOW_CLAUDE_SIDECALLS",
+        "note": "LOKI_ALLOW_CLAUDE_SIDECALLS=1 lets engine steps prompt the claude CLI under this provider",
+    })
 blockers = [e for e in egress if e.get("required")]
 print(json.dumps({
     "provider": os.environ["_AG_PROV"],
+    "provider_source": os.environ["_AG_PSRC"],
     "airgap_ready": not blockers,
     "required_egress": [e["name"] for e in blockers],
     "egress": egress,
+    "not_audited": [{
+        "name": "package_installs",
+        "note": "app runner (npm, pip, docker) for the built app, dashboard venv (PyPI), quality-gate npx for tools not installed locally; pre-install or mirror them, a failed npx fetch fails that gate",
+        "disable": "LOKI_APP_RUNNER=false, LOKI_DASHBOARD=false",
+    }, {
+        "name": "delegate_pr",
+        "note": "git push and gh pr create to your remote after a successful run, when gh is installed",
+        "disable": "LOKI_DELEGATE_PR=0",
+    }],
 }, indent=2))
 '
-        [ "$model_required" = "yes" ] && return 1
+        [ "$blocked" = "yes" ] && return 1
         return 0
     fi
 
     echo -e "${BOLD}Network egress audit${NC}"
     echo ""
-    echo "  Active provider: $provider"
+    echo "  Active provider: $provider (from $provider_src)"
     echo ""
     echo -e "${BOLD}Egress points${NC}"
     if [ "$model_required" = "yes" ]; then
@@ -13252,13 +13443,33 @@ print(json.dumps({
         echo -e "  ${GREEN}none${NC}      model inference -> $model_host"
     fi
     echo "            $model_note"
-    echo -e "  optional  telemetry           [$tel_state]  disable: loki telemetry off (default off)"
+    if [ "$sidecall_required" = "yes" ]; then
+        echo -e "  ${YELLOW}REQUIRED${NC}  claude side-calls -> $sidecall_host"
+        echo "            LOKI_ALLOW_CLAUDE_SIDECALLS=1 lets engine steps prompt the claude CLI under $provider."
+    fi
+    echo -e "  optional  telemetry           [$tel_state]  -> $tel_host"
+    echo "            disable: loki telemetry off, DO_NOT_TRACK=1, or LOKI_AIRGAP=true (on by default for interactive installs)"
     echo -e "  optional  update check        [$upd_state]  disable: export LOKI_NO_UPDATE_CHECK=1"
     echo ""
+    echo -e "${BOLD}Not audited here${NC} (depends on the project; see docs/air-gapped.md)"
+    echo "  package installs  app runner (npm, pip, docker), dashboard venv (PyPI), quality-gate"
+    echo "                    npx for tools not installed locally. Pre-install or mirror them;"
+    echo "                    a failed npx fetch fails that gate."
+    echo "                    disable: LOKI_APP_RUNNER=false, LOKI_DASHBOARD=false"
+    echo "  delegate PR       git push and gh pr create to your remote after a successful run,"
+    echo "                    when gh is installed. disable: LOKI_DELEGATE_PR=0"
+    echo ""
+    if [ "$sidecall_required" = "yes" ] && [ "$model_required" != "yes" ]; then
+        echo -e "${YELLOW}Not air-gap ready in this configuration.${NC}"
+        echo "  One required egress remains: claude side-calls."
+        echo "  To close it: unset LOKI_ALLOW_CLAUDE_SIDECALLS"
+        return 1
+    fi
     if [ "$model_required" = "yes" ]; then
         echo -e "${YELLOW}Not air-gap ready in this configuration.${NC}"
         echo "  One required egress remains: model inference."
-        echo "  To close it, serve the model in-network:"
+        [ "$sidecall_required" = "yes" ] && echo "  (Also unset LOKI_ALLOW_CLAUDE_SIDECALLS: claude side-calls are required egress too.)"
+        echo "  To close it, serve the model locally:"
         echo "    loki provider set opencode"
         echo "    export LOKI_OPENCODE_MODEL=ollama/qwen2.5-coder"
         echo ""
@@ -13291,9 +13502,10 @@ cmd_doctor() {
                 echo ""
                 echo "Options:"
                 echo "  --json    Output machine-readable JSON"
-                echo "  --airgap  Audit network egress: list every host this engine"
-                echo "            can contact, whether it is REQUIRED or optional,"
-                echo "            and how to disable it. Exits non-zero if any"
+                echo "  --airgap  Audit network egress: model inference, telemetry and"
+                echo "            the update check, whether each is REQUIRED or optional,"
+                echo "            and how to disable it; names what it does not audit"
+                echo "            (package installs, delegate PR). Exits non-zero if any"
                 echo "            required egress remains."
                 echo ""
                 echo "Checks: node, python3, jq, git, curl, bash version,"
@@ -14337,9 +14549,9 @@ for _sk_name, _sk_rel, _sk_id in _SKILL_ENTRIES:
         # islink is true for a DANGLING link (lstat-based), which is exactly
         # the broken case the text path reports. fail only for the effective
         # provider; otherwise warn, matching the text path badge for badge.
-        # `required` stays 'required' in both arms: an absent link has always
+        # 'required' stays 'required' in both arms: an absent link has always
         # been warn+required, so the warn arm introduces no new shape, and a
-        # consumer keys on `status`.
+        # consumer keys on 'status'.
         _sk_blocking = bool(_sk_selected) and _sk_id == _sk_selected
         skills.append({'name': _sk_name, 'path': _sk_json_path,
                        'status': 'fail' if _sk_blocking else 'warn',
@@ -33249,6 +33461,21 @@ cmd_canary() {
         echo "loki outcomes canary: installed tool is unavailable: $tool_name" >&2
         return 2
     fi
+    if [ "$subcommand" = "verify" ]; then
+        # D7: this is a verify path. -E stops PYTHONPATH (an empty component
+        # would add the cwd as an absolute path) and a committed
+        # sitecustomize.py from acting before the tool runs. python3 is
+        # resolved to an absolute path first so an empty PATH component (or a
+        # relative one) cannot let a committed python3 shim in the checkout
+        # being verified answer in its place.
+        local py3
+        py3="$(loki_verify_tool_path python3)" || {
+            echo "loki outcomes canary verify: python3 is unavailable" >&2
+            return 2
+        }
+        "$py3" -E "$tool" "$@"
+        return $?
+    fi
     python3 "$tool" "$@"
 }
 
@@ -33785,11 +34012,19 @@ except Exception:
     # --- Test suggestions ---
     local test_suggestions=""
     if [ "$ci_test_suggest" = true ] && [ -n "$changed_files" ]; then
-        export LOKI_CI_CHANGED_FILES="$changed_files"
-        test_suggestions=$(python3 << 'TEST_SUGGEST_PY'
+        # Changed-file list goes through a temp file, read as sys.argv[1], not
+        # through an exported env var: an exported string counts toward the
+        # same execve() size ceiling as argv (plus, on Linux, its own 128 KiB
+        # per-string cap), so a PR touching enough files can crash this
+        # heredoc invocation with "Argument list too long" (exit 126) exactly
+        # like an oversized argv element would.
+        local _ci_changed_tmp
+        _ci_changed_tmp=$(mktemp "${TMPDIR:-/tmp}/loki-ci-changed-XXXXXX")
+        printf '%s' "$changed_files" >"$_ci_changed_tmp"
+        test_suggestions=$(python3 - "$_ci_changed_tmp" << 'TEST_SUGGEST_PY'
 import sys, os
 
-changed = os.environ.get("LOKI_CI_CHANGED_FILES", "").strip().split("\n")
+changed = open(sys.argv[1]).read().strip().split("\n")
 suggestions = []
 
 for f in changed:
@@ -33848,6 +34083,7 @@ import json
 print(json.dumps(suggestions))
 TEST_SUGGEST_PY
         )
+        rm -f "$_ci_changed_tmp"
     fi
 
     # --- Tally findings ---
@@ -33886,22 +34122,34 @@ TEST_SUGGEST_PY
     file_count=$(echo "$changed_files" | grep -c '.' 2>/dev/null || echo 0)
 
     if [ "$ci_format" = "json" ]; then
-        # JSON output via python for proper escaping
-        export LOKI_CI_JSON_FINDINGS=""
+        # JSON output via python for proper escaping.
+        #
+        # Findings and test suggestions go through temp files, read as
+        # sys.argv[1]/[2], not through exported env vars: an exported string
+        # counts toward the same execve() size ceiling as argv (plus, on
+        # Linux, its own 128 KiB per-string cap), so a large enough diff --
+        # meaning enough findings, not necessarily a byte-huge diff -- crashed
+        # this exact heredoc with "Argument list too long" (exit 126) before
+        # this fix (BACKLOG 25). META and COUNTS stay as env vars: both are a
+        # handful of fixed-width fields, bounded regardless of diff size.
+        local _ci_findings_tmp _ci_tests_tmp
+        _ci_findings_tmp=$(mktemp "${TMPDIR:-/tmp}/loki-ci-findings-XXXXXX")
+        _ci_tests_tmp=$(mktemp "${TMPDIR:-/tmp}/loki-ci-tests-XXXXXX")
+        : >"$_ci_findings_tmp"
         for f in "${findings[@]+"${findings[@]}"}"; do
-            LOKI_CI_JSON_FINDINGS+="${f}"$'\n'
+            printf '%s\n' "$f" >>"$_ci_findings_tmp"
         done
+        printf '%s' "${test_suggestions:-[]}" >"$_ci_tests_tmp"
         export LOKI_CI_JSON_META="ci_env=${ci_env}|pr=${ci_pr_number}|ts=${report_timestamp}|files=${file_count}|exit=${exit_code}"
         export LOKI_CI_JSON_COUNTS="critical=${count_critical}|high=${count_high}|medium=${count_medium}|low=${count_low}|info=${count_info}|total=${count_total}"
-        export LOKI_CI_JSON_TESTS="${test_suggestions:-[]}"
 
-        python3 << 'CI_JSON_OUT'
-import json, os
+        python3 - "$_ci_findings_tmp" "$_ci_tests_tmp" << 'CI_JSON_OUT'
+import json, os, sys
 
-findings_raw = os.environ.get("LOKI_CI_JSON_FINDINGS", "").strip().split("\n")
+findings_raw = open(sys.argv[1]).read().strip().split("\n")
 meta_raw = os.environ.get("LOKI_CI_JSON_META", "")
 counts_raw = os.environ.get("LOKI_CI_JSON_COUNTS", "")
-tests_raw = os.environ.get("LOKI_CI_JSON_TESTS", "[]")
+tests_raw = open(sys.argv[2]).read().strip() or "[]"
 
 meta = dict(item.split("=", 1) for item in meta_raw.split("|") if "=" in item)
 counts = dict(item.split("=", 1) for item in counts_raw.split("|") if "=" in item)
@@ -33948,7 +34196,8 @@ if tests:
 
 print(json.dumps(report, indent=2))
 CI_JSON_OUT
-        unset LOKI_CI_JSON_FINDINGS LOKI_CI_JSON_META LOKI_CI_JSON_COUNTS LOKI_CI_JSON_TESTS
+        rm -f "$_ci_findings_tmp" "$_ci_tests_tmp"
+        unset LOKI_CI_JSON_META LOKI_CI_JSON_COUNTS
 
     elif [ "$ci_format" = "github" ]; then
         # GitHub-flavored markdown for PR comments
@@ -33997,10 +34246,11 @@ CI_JSON_OUT
         if [ -n "${test_suggestions:-}" ] && [ "$test_suggestions" != "[]" ]; then
             echo "### Test Suggestions"
             echo ""
-            export LOKI_CI_TEST_SUGG="${test_suggestions}"
-            python3 -c "
-import json, os
-tests = json.loads(os.environ.get('LOKI_CI_TEST_SUGG', '[]'))
+            # Piped on stdin, not through an exported env var (BACKLOG 25):
+            # an exported string shares argv's execve() size ceiling.
+            printf '%s' "$test_suggestions" | python3 -c "
+import json, sys
+tests = json.loads(sys.stdin.read() or '[]')
 for t in tests:
     print(f\"- **{t['file']}**: {t['hint']} ({t['framework']})\")
     print(f\"  - Suggested: \`{t['test_file']}\`\")
@@ -34066,15 +34316,15 @@ for t in tests:
         if [ "$ci_test_suggest" = true ] && [ -n "${test_suggestions:-}" ] && [ "$test_suggestions" != "[]" ]; then
             echo ""
             echo -e "${BOLD}Test Suggestions${NC}"
-            export LOKI_CI_TEST_SUGG="${test_suggestions}"
-            python3 -c "
-import json, os
-tests = json.loads(os.environ.get('LOKI_CI_TEST_SUGG', '[]'))
+            # Piped on stdin, not through an exported env var (BACKLOG 25):
+            # an exported string shares argv's execve() size ceiling.
+            printf '%s' "$test_suggestions" | python3 -c "
+import json, sys
+tests = json.loads(sys.stdin.read() or '[]')
 for t in tests:
     print(f\"  {t['file']} -> {t['test_file']} ({t['framework']})\")
     print(f\"    {t['hint']}\")
 " 2>/dev/null || true
-            unset LOKI_CI_TEST_SUGG
         fi
 
         if [ "$exit_code" -eq 0 ]; then
@@ -34094,7 +34344,10 @@ for t in tests:
             # Generate GitHub-format report for comment
             local comment_body
             comment_body=$("$0" ci --pr --format github 2>/dev/null || echo "Loki CI report generation failed.")
-            gh pr comment "$ci_pr_number" --body "$comment_body" 2>/dev/null && \
+            # Body goes through stdin (--body-file -), never as an argv element:
+            # a large diff produces a large findings list, and a report body
+            # passed via --body overflows ARG_MAX (exit 126) instead of posting.
+            printf '%s' "$comment_body" | gh pr comment "$ci_pr_number" --body-file - 2>/dev/null && \
                 echo -e "${GREEN}Posted review comment to PR #$ci_pr_number${NC}" >&2 || \
                 echo -e "${YELLOW}Warning: Failed to post PR comment${NC}" >&2
         else
@@ -36466,7 +36719,23 @@ PYEOF
             if command -v jq &>/dev/null; then
                 jq . "$pj"
             else
-                LOKI_PROOF_JSON="$pj" python3 -c "import json,os; print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))"
+                # D7: this is a verify-adjacent read of proof.json. -E stops
+                # PYTHONPATH/sitecustomize.py from acting before this line, and
+                # python3 is resolved to an absolute path first so an empty
+                # PATH component cannot let a committed python3 shim in the
+                # checkout answer instead of the real interpreter. The cwd is
+                # dropped from sys.path before the real json/os import, so a
+                # committed json.py/os.py cannot answer either.
+                local _show_py3
+                _show_py3="$(loki_verify_tool_path python3)" || {
+                    echo -e "${RED}python3 is unavailable${NC}" >&2
+                    exit 2
+                }
+                LOKI_PROOF_JSON="$pj" "$_show_py3" -E -c "
+import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
+import json, os
+print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))
+"
             fi
             exit 0
             ;;
@@ -36705,18 +36974,28 @@ PYEOF
                 echo -e "${YELLOW}NOT CHECKED${NC}: python3 is not on PATH, so the verifier could not run (exit 2)." >&2
                 exit 2
             fi
-            local _pv_rc=0
+            local _pv_rc=0 _pv_out="" _pv_base_rc=0
+            # Captured, not printed directly, so that --jwks (below) can patch
+            # it: BACKLOG 49 -- when --jwks later downgrades _pv_rc to 1
+            # (ABSENT) or 2 (NOT CHECKED), this output's own "ok: true"/
+            # VERIFIED header from the base hash/drift check must not still be
+            # the last word on stdout. Unflagged (no --jwks), this is printed
+            # byte-for-byte as the base verifier produced it, same as the Bun
+            # route (proof.ts verifyProof) -- ok already agrees with the exit
+            # code there, so there is nothing to patch.
             if [ "$_pv_human" -eq 1 ]; then
-                python3 -E "$verifier" --human "$pj" "${TARGET_DIR:-.}" || _pv_rc=$?
+                _pv_out="$(python3 -E "$verifier" --human "$pj" "${TARGET_DIR:-.}")" || _pv_rc=$?
             else
-                python3 -E "$verifier" "$pj" "${TARGET_DIR:-.}" || _pv_rc=$?
+                _pv_out="$(python3 -E "$verifier" "$pj" "${TARGET_DIR:-.}")" || _pv_rc=$?
             fi
+            _pv_base_rc="$_pv_rc"
 
             # The attestation check runs AFTER, and can only make the verdict
             # worse, never better. A valid attestation does not excuse a failed
             # integrity hash: the signature proves who produced the bytes, not
             # that the bytes are internally consistent. Folding the two together
             # would let a signed-but-tampered receipt exit 0.
+            local _pv_attestation_field="n/a"
             if [ -n "$_pv_jwks" ]; then
                 local _pv_att
                 _pv_att="$(loki_proof_attestation_check "$pj" "$_pv_jwks")"
@@ -36725,12 +37004,14 @@ PYEOF
                         echo "attestation: VERIFIED against ${_pv_jwks}" >&2
                         echo "  Proven: these bytes were signed by the holder of a key in that set." >&2
                         echo "  NOT proven: that the code is correct. A receipt records which checks ran." >&2
+                        _pv_attestation_field="VERIFIED"
                         ;;
                     bad)
                         echo -e "${RED}attestation: FAILED -- the token does not cover these bytes.${NC}" >&2
                         echo "  Either the receipt was altered after signing, or the attestation" >&2
                         echo "  belongs to a different run. Do not trust this receipt." >&2
                         _pv_rc=1
+                        _pv_attestation_field="FAILED"
                         ;;
                     none)
                         # Exit 1: the caller supplied a key set and asked who
@@ -36742,6 +37023,7 @@ PYEOF
                         echo "  gpg-signed; this says only that it has no JWKS attestation." >&2
                         echo "  Not verified: a key set was supplied, but the receipt is unsigned (exit 1)." >&2
                         _pv_rc=1
+                        _pv_attestation_field="ABSENT"
                         ;;
                     *)
                         # Unreachable key set, unreadable file, missing python
@@ -36752,8 +37034,125 @@ PYEOF
                         echo -e "${YELLOW}attestation: NOT CHECKED -- could not check against ${_pv_jwks} (key set unreadable, or verifier dependency missing).${NC}" >&2
                         echo "  This is not a failure of the receipt. Nothing was proven either way (exit 2)." >&2
                         if [ "$_pv_rc" -eq 0 ]; then _pv_rc=2; fi
+                        _pv_attestation_field="NOT CHECKED"
                         ;;
                 esac
+            fi
+            # Only patch when --jwks put a THIRD input (the attestation) into
+            # the verdict. With no --jwks, ok/the header already agree with the
+            # exit code (both come straight from the base verifier), and
+            # output is printed byte-for-byte: unflagged output is identical
+            # to before this change, on both the bash and Bun routes.
+            if [ -n "$_pv_jwks" ]; then
+                # Rewrite the base verifier's output so ok/verdict (JSON) or
+                # the header line (--human) always agree with $_pv_rc, the
+                # exit code this command actually returns. verdict reads
+                # doc["hash_ok"] (the parsed JSON) AND the attestation field
+                # together: hash_ok False is TAMPERED, and a bad signature
+                # against otherwise-good bytes is ALSO TAMPERED (the token
+                # proves the bytes came from an untrusted source, which is the
+                # same class of finding as a rewritten hash); diff_drift True
+                # (or unverifiable, e.g. wrong TARGET_DIR) is drift, NOT
+                # tampering -- loki_remote_verify_receipt draws the same line
+                # -- so drift with an otherwise-valid or absent attestation
+                # must stay FAILED, never TAMPERED.
+                # -E plus the explicit sys.path strip BEFORE importing
+                # json/os: PYTHONPATH and a committed sitecustomize.py must
+                # not run here, same guard as the attestation check above
+                # (loki_proof_attestation_check). The strip runs first so a
+                # shadow json.py planted in the invocation cwd cannot
+                # intercept this import either.
+                _V_BASE_RC="$_pv_base_rc" _V_RC="$_pv_rc" _V_ATTESTATION="$_pv_attestation_field" _V_HUMAN="$_pv_human" python3 -E -c '
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import json, os
+
+raw = sys.stdin.read()
+base_rc = int(os.environ["_V_BASE_RC"])
+rc = int(os.environ["_V_RC"])
+attestation = os.environ["_V_ATTESTATION"]
+human = os.environ["_V_HUMAN"] == "1"
+
+# --human never gets the JSON report (render_reasons only prints a header
+# plus prose), so doc stays None there and hash_ok cannot be consulted; the
+# JSON branch below parses raw first so it CAN consult doc.get("hash_ok").
+doc = None
+if not human:
+    try:
+        doc = json.loads(raw)
+    except ValueError:
+        doc = None
+
+if rc == 0:
+    verdict = "VERIFIED"
+elif rc == 2:
+    # Exit 2 is always "could not check" (missing verifier, malformed
+    # proof.json, or --jwks NOT CHECKED) -- never an accusation.
+    verdict = "NOT CHECKED"
+elif base_rc != 0:
+    # The base check itself found something: a real tamper/drift finding, or
+    # it could not run at all (malformed proof.json, doc is None). A definite
+    # hash mismatch is TAMPERED. So is a bad signature against otherwise-good
+    # bytes (attestation FAILED): the token proves these bytes were not
+    # produced by a trusted signer, which is the same accusation a rewritten
+    # hash makes, just caught by a different mechanism -- a drifted tree
+    # checked against the WRONG key still means "do not trust this receipt,"
+    # not merely "could not confirm it." Anything else here (drift, drift-
+    # unverifiable, cost/headline incoherence, or a base verifier error) is
+    # FAILED, the same word "loki proof verify --human" already uses for a
+    # non-tamper finding, rather than an accusation the data does not
+    # support. --human never sees doc (it is prose, not JSON), so it relies
+    # on the attestation field alone here; the JSON branch below can also
+    # consult hash_ok.
+    verdict = "TAMPERED" if (attestation == "FAILED" or (doc is not None and doc.get("hash_ok") is False)) else "FAILED"
+else:
+    # Base check passed (rc would have been 0 otherwise); --jwks is what
+    # pushed the final rc to 1. Only two attestation outcomes do that: a bad
+    # signature (a tamper finding, once the base bytes are known good) or no
+    # signature at all (ABSENT, a fact about the receipt, not an accusation).
+    verdict = "TAMPERED" if attestation == "FAILED" else "ABSENT"
+
+if human:
+    # The --human vocabulary (render_reasons) is only three words: VERIFIED /
+    # COULD NOT CHECK / FAILED. verdict (five words, shared with the JSON
+    # branch) maps onto it rather than being printed raw, so a TAMPERED or
+    # ABSENT finding still reads as the header word this flag readers
+    # already parse for a failure. --human has no fifth word of its own for
+    # TAMPERED; a real integrity/attestation failure and a non-tamper finding
+    # both print "FAILED" to a human reader, same as before this fix -- only
+    # the JSON verdict field distinguishes the two.
+    header = {
+        "VERIFIED": "VERIFIED",
+        "NOT CHECKED": "COULD NOT CHECK",
+    }.get(verdict, "FAILED")
+    # Only the header line can disagree with rc (it reflects the base check
+    # alone, computed before --jwks); replace just that line so the
+    # per-reason "  - ..." detail from the base verifier survives untouched.
+    lines = raw.split("\n")
+    if lines and lines[0].strip() in ("VERIFIED", "COULD NOT CHECK", "FAILED"):
+        lines[0] = header
+    sys.stdout.write("\n".join(lines))
+    sys.exit(0)
+
+if doc is None:
+    # Base verifier printed something unparseable (should not happen; the
+    # base verifier always emits JSON, even on its own internal error). Pass
+    # it through unchanged rather than fabricate a report over data we cannot
+    # read.
+    sys.stdout.write(raw)
+    sys.exit(0)
+
+doc["verdict"] = verdict
+doc["attestation"] = attestation
+# ok is superseded by verdict, which cannot silently drift from the exit
+# code the way a second boolean could. Kept for existing readers, but forced
+# to agree with rc instead of repeating the base verifier own possibly-
+# passing opinion, so a stdout-only consumer reading "ok" is never told the
+# opposite of what this process just exited with.
+doc["ok"] = (rc == 0)
+print(json.dumps(doc, indent=2))
+' <<<"$_pv_out" || printf '%s\n' "$_pv_out"
+            else
+                printf '%s\n' "$_pv_out"
             fi
             exit "$_pv_rc"
             ;;
@@ -36788,6 +37187,13 @@ PYEOF
             local skip_confirm=0
             local visibility="--public"
             local hosted=0
+            # D7: every python3 invocation below reads proof.json from inside
+            # the checkout being shared. Resolve an absolute path once so an
+            # empty PATH component cannot let a committed python3 shim in that
+            # checkout answer instead of the real interpreter; each call site
+            # also runs -E and drops the cwd from sys.path.
+            local _share_py3
+            _share_py3="$(loki_verify_tool_path python3)" || _share_py3=""
             while [[ $# -gt 0 ]]; do
                 case "$1" in
                     --yes|-y) skip_confirm=1; shift ;;
@@ -36843,8 +37249,11 @@ PYEOF
             echo ""
             echo "What will be shared:"
             echo "  - ${html}"
-            if [ -f "$pj" ]; then
-                LOKI_PROOF_JSON="$pj" python3 - <<'PYEOF' 2>/dev/null || true
+            if [ -f "$pj" ] && [ -n "$_share_py3" ]; then
+                LOKI_PROOF_JSON="$pj" "$_share_py3" -E - <<'PYEOF' 2>/dev/null || true
+# The cwd is the checkout being shared: drop it from sys.path before any
+# other import, or a committed json.py/os.py could answer this preview.
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os
 try:
     d = json.load(open(os.environ["LOKI_PROOF_JSON"]))
@@ -36891,9 +37300,12 @@ PYEOF
             # Print a ready-to-post one-line hook (real cost + url) so the user
             # can paste it straight to X/HN. When cost was not collected, omit
             # the cost (never fabricate a number, never print "$0.00").
-            if [ -n "${LOKI_LAST_GIST_URL:-}" ] && [ -f "$pj" ]; then
+            if [ -n "${LOKI_LAST_GIST_URL:-}" ] && [ -f "$pj" ] && [ -n "$_share_py3" ]; then
                 local hook
-                hook=$(LOKI_PROOF_JSON="$pj" LOKI_GIST_URL="$LOKI_LAST_GIST_URL" python3 - <<'PYEOF' 2>/dev/null || true
+                hook=$(LOKI_PROOF_JSON="$pj" LOKI_GIST_URL="$LOKI_LAST_GIST_URL" "$_share_py3" -E - <<'PYEOF' 2>/dev/null || true
+# The cwd is the checkout being shared: drop it from sys.path before any
+# other import, or a committed json.py/os.py could answer this hook text.
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os
 try:
     d = json.load(open(os.environ["LOKI_PROOF_JSON"]))
@@ -36969,7 +37381,10 @@ PYEOF
                 # The badge links to the gist we just published (no new egress).
                 # shields.io static/v1 query endpoint avoids structural hyphens.
                 local badge
-                badge=$(LOKI_PROOF_JSON="$pj" LOKI_GIST_URL="$LOKI_LAST_GIST_URL" python3 - <<'PYEOF' 2>/dev/null || true
+                badge=$(LOKI_PROOF_JSON="$pj" LOKI_GIST_URL="$LOKI_LAST_GIST_URL" "$_share_py3" -E - <<'PYEOF' 2>/dev/null || true
+# The cwd is the checkout being shared: drop it from sys.path before any
+# other import, or a committed json.py/os.py could answer this badge text.
+import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import json, os
 from urllib.parse import quote
 try:

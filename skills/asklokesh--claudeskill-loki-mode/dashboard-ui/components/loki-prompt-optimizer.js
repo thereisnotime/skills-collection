@@ -376,9 +376,12 @@ export class LokiPromptOptimizer extends LokiElement {
     }
 
     const d = this._data || {};
-    const version = d.version != null ? d.version : '--';
-    const lastOptimized = this._formatTime(d.last_optimized);
-    const failuresAnalyzed = d.failures_analyzed != null ? d.failures_analyzed : '--';
+    const generatedAt = d.generated_at ?? d.last_optimized;
+    // The server's never-ran sentinel is {version: 0, generated_at: null, counts: 0}.
+    const neverRan = !d.version && generatedAt == null;
+    const version = neverRan || d.version == null ? '--' : `v${d.version}`;
+    const lastOptimized = neverRan ? 'No optimization run yet' : this._formatTime(generatedAt);
+    const failuresAnalyzed = neverRan || d.failures_analyzed == null ? '--' : d.failures_analyzed;
     const changes = d.changes || [];
 
     let changesHtml = '';
@@ -416,7 +419,7 @@ export class LokiPromptOptimizer extends LokiElement {
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Version</div>
-            <div class="info-value">v${this._escapeHtml(String(version))}</div>
+            <div class="info-value">${this._escapeHtml(String(version))}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Last Optimized</div>

@@ -758,9 +758,13 @@ function bump(t: Tally, s: Status): void {
 
 function printHelp(): void {
   process.stdout.write(`${BOLD}loki doctor${NC} - Check system prerequisites\n\n`);
-  process.stdout.write(`Usage: loki doctor [--json]\n\n`);
+  process.stdout.write(`Usage: loki doctor [--json] [--airgap]\n\n`);
   process.stdout.write(`Options:\n`);
-  process.stdout.write(`  --json    Output machine-readable JSON\n\n`);
+  process.stdout.write(`  --json    Output machine-readable JSON\n`);
+  // --airgap never reaches this handler: bin/loki routes it to the bash audit.
+  process.stdout.write(`  --airgap  Audit network egress: model inference, telemetry and the\n`);
+  process.stdout.write(`            update check, REQUIRED or optional, and how to disable\n`);
+  process.stdout.write(`            each. Exits non-zero while a required egress remains.\n\n`);
   process.stdout.write(`Checks: node, python3, jq, git, curl, bash version,\n`);
   process.stdout.write(`        claude/codex CLIs, and disk space.\n`);
 }
@@ -1336,7 +1340,7 @@ export async function runDoctor(argv: readonly string[]): Promise<number> {
       return 0;
     } else {
       process.stderr.write(`${RED}Unknown option: ${arg}${NC}\n`);
-      process.stderr.write(`Usage: loki doctor [--json]\n`);
+      process.stderr.write(`Usage: loki doctor [--json] [--airgap]\n`);
       return 1;
     }
   }

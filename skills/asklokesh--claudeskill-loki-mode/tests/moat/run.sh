@@ -328,6 +328,70 @@ read_baselines() {
     | sort > "$W/cases.txt.viol"
 }
 
+# unreached_release NAME: is it safe to call NAME (pending.txt or cases.txt) a
+# bootstrap, with no release tag reachable from HEAD carrying it? Only if NO
+# release tag anywhere is UNREACHED from HEAD (--no-merged: exists, but HEAD's
+# history does not include it) while carrying a real NAME baseline. Otherwise
+# a stale branch cut before that unreached release would silently accept its
+# own regression as "nothing to ratchet against", when a real baseline exists
+# on a tag this branch just has not merged yet.
+#
+# "Carries a real baseline" means git grep -l (non-empty match) OR git grep -L
+# (present but 0-byte) hits the tag: the union of -l and -L over -F -e '' is
+# exactly every tag whose tree has the file at all, matching read_baselines'
+# own "carry" definition. A 0-byte pending.txt/cases.txt is the STRICTEST
+# baseline there is (nothing pending, nothing registered), never an absent
+# one; read_baselines' -L pass exists for the same reason.
+#
+# Returns 0: no unreached tag carries NAME, bootstrap is safe.
+# Returns 1 after calling could_not_check: an unreached carrying tag exists,
+# or a git step failed. Fails closed: never treat an error as "safe".
+unreached_release() {
+  local name="$1" refs rc_l rc_L
+  if ! git -C "$top" tag --no-column --no-merged HEAD --sort=-v:refname \
+    > "$W/tags.unreached" 2> "$W/git.err"; then
+    could_not_check "cannot list the release tags unreached by HEAD (checking $name)"
+    return 1
+  fi
+  grep -E "$RELEASE_RE" "$W/tags.unreached" > "$W/cands.unreached"
+  case $? in
+    1) return 0 ;;  # no unreached release tag at all: nothing to miss
+    0) ;;           # unreached release tag(s) found, keep checking
+    *) could_not_check "cannot scan the unreached release tags for $name"; return 1 ;;
+  esac
+  # Empty refs would make git grep search the WORKING TREE instead of no tags
+  # at all, turning a real first-ever bootstrap into a false refusal on the
+  # branch's own committed file. $W/cands.unreached is non-empty here (the
+  # case 1 return above already handled empty), so this is unreachable, but
+  # the guard stays because a future refactor must never remove it silently.
+  refs="$(sed 's|^|refs/tags/|' "$W/cands.unreached")"
+  [ -n "$refs" ] || return 0
+  # shellcheck disable=SC2086  # one ref per word; release tags have no spaces
+  git -C "$top" grep -l --no-color -a -F -e '' $refs -- "tests/moat/$name" \
+    > "$W/unreached.$name.hits" 2> "$W/git.err"
+  rc_l=$?
+  # shellcheck disable=SC2086
+  git -C "$top" grep -L --no-color -a -F -e '' $refs -- "tests/moat/$name" \
+    >> "$W/unreached.$name.hits" 2>> "$W/git.err"
+  rc_L=$?
+  [ "$rc_l" -le 1 ] && [ "$rc_L" -le 1 ] && [ ! -s "$W/git.err" ] || {
+    could_not_check "cannot read tests/moat/$name at an unreached release tag"
+    return 1
+  }
+  if [ -s "$W/unreached.$name.hits" ]; then
+    # Name the NEWEST unreached carrying tag. $W/cands.unreached is already
+    # newest-first (--sort=-v:refname); picking the first line of it that also
+    # hit is correct however many tags carried the file. A naive `sort -u` on
+    # the hit lines keys on text before the first dot ("v1"), so v1.0.0 and
+    # v1.1.0 collapse to one arbitrary line -- this walks cands.unreached
+    # instead, which is already in the right order.
+    could_not_check "$(awk 'NR == FNR { sub(/^refs\/tags\//, ""); sub(/:.*/, ""); hit[$0] = 1; next }
+      ($0 in hit) { print; exit }' "$W/unreached.$name.hits" "$W/cands.unreached") carries tests/moat/$name but is not reachable from HEAD (bootstrap would silently accept a regression parked on a stale branch)"
+    return 1
+  fi
+  return 0
+}
+
 # ratchet_summary NAME: "N release tag(s), newest vX" for the tags carrying NAME.
 ratchet_summary() {
   echo "$(wc -l < "$W/$1.tags" | tr -d ' ') release tag(s), newest $(head -n 1 "$W/$1.tags")"
@@ -354,7 +418,7 @@ if top="$(git -C "$MOAT_DIR" rev-parse --show-toplevel 2> "$W/git.err")" \
         fail "$(prop_of "$id")" "pending list may only shrink: $id was not pending at $at"
       done < "$W/pending.txt.viol"
       echo "ratchet: checked against $(ratchet_summary pending.txt) ($(wc -l < "$W/pending.ids" | tr -d ' ') pending now)"
-    else
+    elif unreached_release pending.txt; then
       echo "ratchet: bootstrap, no baseline at any of $ncands"
       BOOTSTRAP=1
     fi
@@ -363,7 +427,7 @@ if top="$(git -C "$MOAT_DIR" rev-parse --show-toplevel 2> "$W/git.err")" \
         fail "$(prop_of "$id")" "case registry may only grow: $id was registered at $at (case IDs are permanent)"
       done < "$W/cases.txt.viol"
       echo "registry: checked against $(ratchet_summary cases.txt) ($(wc -l < "$W/registry.ids" | tr -d ' ') registered now, $(awk '{print $2}' "$W/cases.txt.pairs" | sort -u | wc -l | tr -d ' ') in their union)"
-    else
+    elif unreached_release cases.txt; then
       echo "registry: bootstrap, no baseline at any of $ncands"
       BOOTSTRAP=1
     fi

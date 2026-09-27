@@ -42,6 +42,21 @@ export function maskToken(token) {
 }
 
 /**
+ * Derive a key's status from what the server reports. The list endpoint sends
+ * no status field, so never default to "active": use revoked / expires_at /
+ * rotation_expires_at, and "unknown" when none of them was sent.
+ * @param {object} key
+ * @returns {string}
+ */
+export function deriveKeyStatus(key) {
+  if (key.status) return String(key.status).toLowerCase();
+  if (key.revoked) return 'revoked';
+  if (key.expires_at && Date.parse(key.expires_at) <= Date.now()) return 'expired';
+  if (key.rotation_expires_at) return 'rotating';
+  return key.revoked === false ? 'active' : 'unknown';
+}
+
+/**
  * @class LokiApiKeys
  * @extends LokiElement
  * @property {string} api-url - API base URL
@@ -559,7 +574,7 @@ export class LokiApiKeys extends LokiElement {
     } else {
       const rows = keys.map(key => {
         const keyId = key.id || key.key_id;
-        const status = (key.status || 'active').toLowerCase();
+        const status = deriveKeyStatus(key);
         const statusClass = status === 'active' ? 'key-status-active'
           : status === 'expired' ? 'key-status-expired'
           : 'key-status-revoked';

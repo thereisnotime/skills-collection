@@ -18,31 +18,7 @@ function formatUptime(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
-/**
- * Derive model tier from iteration number and complexity using the actual
- * RARV mapping from run.sh:get_rarv_tier() instead of guessing from phase keywords.
- *
- *   simple:   Opus iter 1,        Haiku last 1,  Sonnet rest
- *   standard: Opus iters 1-2,     Haiku last 2,  Sonnet rest
- *   complex:  Opus iters 1-3,     Haiku last 3,  Sonnet rest
- */
-function getModelTier(iteration: number, complexity: string): string {
-  if (!iteration || iteration <= 0) return '--';
-
-  const defaults: Record<string, { opus: number; haiku: number; total: number }> = {
-    simple:   { opus: 1, haiku: 1, total: 3 },
-    standard: { opus: 2, haiku: 2, total: 5 },
-    complex:  { opus: 3, haiku: 3, total: 8 },
-  };
-  const cfg = defaults[complexity] || defaults.standard;
-
-  if (iteration <= cfg.opus) return 'Opus';
-  if (iteration > cfg.total - cfg.haiku) return 'Haiku';
-  return 'Sonnet';
-}
-
 export function ControlBar({ status, prdSummary, onStop, onPause, onResume, isPaused }: ControlBarProps) {
-  const tier = status ? getModelTier(status.iteration ?? 0, status.complexity || 'standard') : '--';
   const paused = isPaused ?? status?.paused ?? false;
 
   return (
@@ -51,7 +27,7 @@ export function ControlBar({ status, prdSummary, onStop, onPause, onResume, isPa
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted uppercase tracking-wider font-medium">Phase</span>
         <span className="font-mono font-semibold text-ink">
-          {status?.phase || 'idle'}
+          {status?.phase || '--'}
         </span>
       </div>
 
@@ -64,21 +40,7 @@ export function ControlBar({ status, prdSummary, onStop, onPause, onResume, isPa
           status?.complexity === 'complex' ? 'text-warning' :
           status?.complexity === 'simple' ? 'text-success' : 'text-ink'
         }`}>
-          {status?.complexity || 'standard'}
-        </span>
-      </div>
-
-      <div className="w-px h-5 bg-border" />
-
-      {/* Model tier */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted uppercase tracking-wider font-medium">Model</span>
-        <span className={`font-mono font-semibold px-2 py-0.5 rounded-md text-xs ${
-          tier === 'Opus' ? 'bg-primary/10 text-primary' :
-          tier === 'Haiku' ? 'bg-success/10 text-success' :
-          'bg-primary/10 text-primary'
-        }`}>
-          {tier}
+          {status?.complexity || '--'}
         </span>
       </div>
 
@@ -117,9 +79,9 @@ export function ControlBar({ status, prdSummary, onStop, onPause, onResume, isPa
       <div className="flex-1" />
 
       {/* Uptime */}
-      {(status?.uptime ?? 0) > 0 && (
+      {typeof status?.uptime === 'number' && status.uptime > 0 && (
         <span className="font-mono text-xs text-muted">
-          {formatUptime(status?.uptime ?? 0)}
+          {formatUptime(status.uptime)}
         </span>
       )}
 

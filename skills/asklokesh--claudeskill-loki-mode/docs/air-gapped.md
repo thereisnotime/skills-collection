@@ -48,23 +48,50 @@ That is the property competitors' dashboard-bound verification cannot have.
 loki doctor --airgap
 ```
 
-prints the egress inventory. Today it reports exactly one REQUIRED point:
+`bin/loki` routes the flag straight to the bash audit regardless of route, so
+no `LOKI_LEGACY_BASH=1` prefix is required. It prints the egress inventory. On
+a default install it reports exactly one REQUIRED point:
 
 ```
 REQUIRED  model inference -> https://api.anthropic.com
-          Set ANTHROPIC_BASE_URL to an in-network gateway, or switch to a
-          local-weights provider.
-optional  telemetry  [off]  disable: loki telemetry off (default off)
+optional  telemetry           [on]  -> https://us.i.posthog.com
+optional  update check        [on]  disable: export LOKI_NO_UPDATE_CHECK=1
 ```
 
-**We cannot run a build with no model at all.** Nobody can. What we can do is
-let you point at a model you host: set `ANTHROPIC_BASE_URL` to an in-network
-gateway, or run a provider with local weights. The engine abstracts over CLIs
-rather than over one vendor's API.
+It judges the provider `loki start` would use (the project's saved
+`loki provider set` choice, else `LOKI_PROVIDER`), and runs on both the default
+route and `LOKI_LEGACY_BASH=1`. `--json` gives the same inventory for scripts.
+It covers the egress the engine configures, and names what it does not audit
+because it depends on the project: package installs (the app runner's npm, pip
+and docker steps for the built app, the dashboard venv from PyPI, and
+quality-gate tools fetched by `npx` when not installed locally; mirror or
+pre-install them, since a failed `npx` fetch fails that gate) and the delegate
+PR (`git push` and `gh pr create` after a successful run when `gh` is
+installed; `LOKI_DELEGATE_PR=0` turns it off).
 
-Telemetry is off by default and every opt-out wins (`DO_NOT_TRACK=1`,
-`LOKI_TELEMETRY=off`, `~/.loki/config`). The adoption instrumentation added in
-v8.6.0 requires a second explicit opt-in on top of that -- see
+With a non-claude provider selected, `loki start` on the default (bash) route
+and `loki quickstart` never prompt the `claude` CLI, even when one is
+installed: PRD enrichment, done recognition, the council voters, the USAGE.md
+refresh and the quickstart intent check fall back to their deterministic
+paths. The opt-in Bun loop (`LOKI_SDK_LOOP=1`) is not yet held to this.
+`LOKI_ALLOW_CLAUDE_SIDECALLS=1` restores those claude calls, and the audit then lists them as REQUIRED egress, so it cannot read air-gap ready.
+
+**We cannot run a build with no model at all.** Nobody can. What we can do is
+let you point at a model you host. Only a local-weights provider clears the
+required line: opencode, cline or aider with an `ollama/` or `lmstudio/` model
+id in that provider's own variable (for example
+`LOKI_OPENCODE_MODEL=ollama/qwen2.5-coder`). An Ollama cloud model (a `:cloud`
+or `-cloud` tag) runs on ollama.com and is still reported as required. The
+verdict comes from the model id; the audit does not read where your Ollama or
+LM Studio endpoint listens, so confirm that yourself. An in-network gateway for
+claude or codex (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`) keeps traffic inside
+your network, but the audit still counts it as required egress.
+
+Telemetry is ON by default for an individual interactive install and auto-off
+in CI, non-interactive, `LOKI_ENTERPRISE=true` and `LOKI_AIRGAP=true`
+contexts. The audit shows its real state. Every opt-out wins (`DO_NOT_TRACK=1`,
+`LOKI_TELEMETRY=off`, `loki telemetry off`). The adoption instrumentation added
+in v8.6.0 requires a second explicit opt-in on top of that -- see
 [PRIVACY.md](./PRIVACY.md).
 
 ## Why `unknown` is the right answer offline

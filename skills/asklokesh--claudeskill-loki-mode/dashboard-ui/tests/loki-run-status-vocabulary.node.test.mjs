@@ -76,9 +76,14 @@ test('the api status "complete" is distinct from a missing entry', () => {
   assert.equal(cfg.complete.label, 'Completed');
 });
 
-test('a genuinely unmapped status still falls back rather than throwing', () => {
+test('a genuinely unmapped status falls back to the unknown style, not pending', () => {
   const cfg = statusConfig();
-  const fallback = cfg['no-such-status'] || cfg.pending;
-  assert.ok(fallback, 'the pending fallback is gone; an unmapped status would '
+  assert.ok(cfg.unknown, 'the unknown fallback is gone; an unmapped status would '
     + 'render undefined and break the row');
+  const src = readFileSync(COMPONENT, 'utf8');
+  assert.doesNotMatch(src, /RUN_STATUS_CONFIG\[status\]\s*\|\|\s*RUN_STATUS_CONFIG\.pending/,
+    'an unmapped status must not render as "Pending": that claims a real '
+    + 'outcome is queued');
+  assert.match(src, /RUN_STATUS_CONFIG\[status\]\s*\|\|\s*\{\s*\.\.\.RUN_STATUS_CONFIG\.unknown/,
+    'an unmapped status should fall back to the unknown style');
 });

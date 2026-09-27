@@ -197,3 +197,13 @@ auto_detect_provider() {
     echo ""
     return 1
 }
+
+# loki_claude_sidecall_allowed [provider] -- 0 when an engine side-call (PRD
+# enrichment, done recognition, council voters, USAGE.md refresh, quickstart
+# intent) may prompt the claude CLI. Only the provider the operator chose sees
+# prompts (V10 P5): allowed when that provider is claude, or on the explicit
+# opt-in LOKI_ALLOW_CLAUDE_SIDECALLS=1 (exact value), which
+# `loki doctor --airgap` reports as required egress to Anthropic.
+loki_claude_sidecall_allowed() {
+    [ "${1:-${LOKI_PROVIDER:-claude}}" = "claude" ] || [ "${LOKI_ALLOW_CLAUDE_SIDECALLS:-}" = "1" ]
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   FileCode2, FileType, FileJson, FileText, File as FileIcon,
-  Save, Share2, Timer, Zap, Copy, Check,
+  Save, Share2, Timer, Copy, Check,
 } from 'lucide-react';
 
 // B18: Auto-save indicator
@@ -97,10 +97,6 @@ export function StatusBar({
   const fileType = getFileTypeIcon(fileName);
   const FileTypeIcon = fileType.icon;
 
-  // B24: Rough estimate - manual coding takes ~5-10x longer
-  const manualEstimate = buildTime ? buildTime * 5 : 0;
-  const speedMultiple = buildTime && manualEstimate > 0 ? (manualEstimate / buildTime).toFixed(1) : null;
-
   return (
     <div className="flex items-center gap-3 px-3 py-1 bg-card border-t border-border text-[11px] font-mono text-muted select-none flex-shrink-0">
       {/* File type icon + label */}
@@ -141,11 +137,6 @@ export function StatusBar({
         <span className="flex items-center gap-1 text-success">
           <Timer size={11} />
           <span>Built in {formatBuildDuration(buildTime)}</span>
-          {speedMultiple && (
-            <span className="text-muted ml-1">
-              <Zap size={10} className="inline" /> {speedMultiple}x faster
-            </span>
-          )}
         </span>
       )}
 

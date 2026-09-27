@@ -143,7 +143,7 @@ export class LokiAppPreview extends LokiElement {
       const status = await api.getAppRunnerStatus();
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
-      const st = status?.status || 'not_initialized';
+      const st = status?.status || 'unknown';
       // Only fetch errors when something is wrong, to keep the panel quiet
       // during a healthy run.
       let errors = null;
@@ -162,6 +162,7 @@ export class LokiAppPreview extends LokiElement {
         url: status?.url,
         crash: status?.crash_count,
         errLen: errors?.lines?.length || 0,
+        errRead: errors != null,
         // Include the externally-managed / discovered signals so the panel
         // re-renders when an app the runner did not start (e.g. a pre-existing
         // dev server discovered on the conventional port) is surfaced. These
@@ -481,7 +482,8 @@ export class LokiAppPreview extends LokiElement {
     this._clearIframeLoadTimer();
 
     const st = this._status;
-    const rawStatus = st?.status || 'not_initialized';
+    // Not loaded yet (or never read successfully) is unknown, not "No app yet".
+    const rawStatus = st?.status || 'unknown';
     // Derive the services to surface and resolve the active one. With a single
     // service this is one entry and no tab strip is shown; the active URL equals
     // the flat status URL, so existing single-service behavior is unchanged.
@@ -498,7 +500,7 @@ export class LokiAppPreview extends LokiElement {
     // so the Restart control is withheld and the copy reflects that it is
     // running outside Loki.
     const extMgd = st?.externally_managed === true || st?.source === 'discovered';
-    const cfg = STATUS_CONFIG[view] || STATUS_CONFIG.not_initialized;
+    const cfg = STATUS_CONFIG[view] || STATUS_CONFIG.unknown;
     // Honest amber label when up-but-unreachable (overrides the generic
     // "Starting" copy so the user knows the process is up but not answering).
     const label = (rawStatus === 'running' && healthOk === false)
@@ -729,11 +731,26 @@ export class LokiAppPreview extends LokiElement {
         </div>
       `;
     }
-    // not_initialized / unknown / completed
-    return `
+    if (status === 'not_initialized') {
+      return `
       <div class="state-block">
         <h3>No app running yet</h3>
         <p>Loki has not started your app yet. It will appear here automatically once the build is running.</p>
+      </div>
+    `;
+    }
+    if (status === 'completed') {
+      return `
+      <div class="state-block">
+        <h3>App is not running</h3>
+        <p>The app run has completed.</p>
+      </div>
+    `;
+    }
+    // unknown / unrecognised: the status was not read, so never claim "no app".
+    return `
+      <div class="state-block">
+        <h3>${this._error ? 'Could not read app status' : 'Checking app status...'}</h3>
       </div>
     `;
   }
@@ -747,9 +764,10 @@ export class LokiAppPreview extends LokiElement {
       ? 'Loki detected a crash in the running app.'
       : 'The app did not start.';
     const lines = (this._errors && Array.isArray(this._errors.lines)) ? this._errors.lines : [];
+    // _errors is null when the error-output read failed; that is not "nothing captured".
     const detailText = lines.length > 0
       ? lines.map(l => this._escapeHtml(l)).join('\n')
-      : 'No error output captured yet.';
+      : (this._errors ? 'No error output captured yet.' : 'Could not read error output.');
     return `
       <div class="err-banner">
         <p class="err-head">${this._escapeHtml(heading)}</p>

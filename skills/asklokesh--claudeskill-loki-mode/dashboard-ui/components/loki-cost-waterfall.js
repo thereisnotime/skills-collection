@@ -42,6 +42,7 @@ export class LokiCostWaterfall extends LokiElement {
     // a measured-looking claim that the run was free.
     this._totalCost = null;
     this._hoveredPhase = null;
+    this._loadFailed = false;
     this._api = null;
     this._pollInterval = null;
   }
@@ -98,9 +99,17 @@ export class LokiCostWaterfall extends LokiElement {
     // Capture the api instance so a mid-flight api-url switch can be detected.
     const api = this._api;
     try {
-      const data = await api._get('/api/v2/cost/breakdown');
+      // /api/cost is the real per-phase cost reader (there was never a
+      // /api/v2/cost/breakdown route). A phase nobody measured carries
+      // cost_usd null there, and so does the total.
+      const cost = await api._get('/api/cost');
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
+      const data = {
+        phases: Object.entries(cost.by_phase || {}).map(([phase, v]) => ({ phase, cost_usd: v.cost_usd ?? null })),
+        budget_usd: cost.budget_limit,
+        total_usd: cost.estimated_cost_usd,
+      };
       this._phases = data.phases || [];
       this._budget = data.budget_usd || null;
       // `|| 0` inside a reduce fabricates a total: null + null is 0 in JS, so
@@ -116,26 +125,16 @@ export class LokiCostWaterfall extends LokiElement {
           ? measured.reduce((sum, p) => sum + p.cost_usd, 0)
           : null;
       }
+      this._loadFailed = false;
     } catch {
       // Drop a stale response if the api-url switched mid-flight.
       if (api !== this._api) return;
-      if (this._phases.length === 0) {
-        this._phases = this._getDemoData();
-        this._budget = 10.00;
-        this._totalCost = this._phases.reduce((sum, p) => sum + p.cost_usd, 0);
-      }
+      // A failed read used to draw a hardcoded demo breakdown ($0.85 planning,
+      // $3.20 building, a $10 budget) as if it were this run. Keep the last real
+      // data if there is any, and otherwise say the read failed.
+      this._loadFailed = true;
     }
     this.render();
-  }
-
-  _getDemoData() {
-    return [
-      { phase: 'planning',  cost_usd: 0.85, tokens: 12400 },
-      { phase: 'building',  cost_usd: 3.20, tokens: 68500 },
-      { phase: 'testing',   cost_usd: 1.45, tokens: 31200 },
-      { phase: 'review',    cost_usd: 0.90, tokens: 18800 },
-      { phase: 'overhead',  cost_usd: 0.35, tokens: 5600 },
-    ];
   }
 
   _formatCost(usd) {
@@ -377,19 +376,26 @@ export class LokiCostWaterfall extends LokiElement {
     if (!s) return;
 
     if (this._phases.length === 0) {
+      const msg = this._loadFailed
+        ? 'Could not load the cost breakdown. Nothing is shown rather than a guess.'
+        : 'Cost details will appear once a build starts running.';
       s.innerHTML = `
         <style>${this.getBaseStyles()}${this._getStyles()}</style>
         <div class="waterfall-container">
           <div class="header">
             <h3 class="title">Cost Breakdown</h3>
           </div>
-          <div class="empty-state">Cost details will appear once a build starts running.</div>
+          <div class="empty-state">${msg}</div>
         </div>
       `;
       return;
     }
 
-    const maxCost = Math.max(...this._phases.map(p => p.cost_usd || 0), 0.01);
+    // Scale over measured phases only. An unmeasured phase is drawn as an
+    // outlined placeholder, never as a bar that reads as zero dollars.
+    const measured = this._phases.filter(p => p.cost_usd != null);
+    const maxCost = Math.max(...measured.map(p => p.cost_usd), 0.01);
+    const partial = this._totalCost != null && measured.length < this._phases.length ? ' (partial)' : '';
     const chartHeight = 160; // usable height in pixels
     const maxBarHeight = this._budget ? Math.max(maxCost, this._budget) : maxCost;
 
@@ -399,14 +405,17 @@ export class LokiCostWaterfall extends LokiElement {
     // Build bars
     const bars = this._phases.map(p => {
       const cfg = PHASE_COLORS[p.phase] || { color: 'var(--loki-text-muted)', label: p.phase };
-      const height = ((p.cost_usd || 0) / maxBarHeight) * chartHeight;
       const isHovered = this._hoveredPhase === p.phase;
+      const unmeasured = p.cost_usd == null;
+      const style = unmeasured
+        ? `height: 4px; border: 1px dashed ${cfg.color}; background: transparent;`
+        : `height: ${Math.max((p.cost_usd / maxBarHeight) * chartHeight, 4)}px; background: ${cfg.color}; ${isHovered ? 'opacity: 0.85;' : ''}`;
 
       return `
         <div class="bar-group">
           <span class="bar-value">${this._formatCost(p.cost_usd)}</span>
-          <div class="waterfall-bar" data-phase="${this._escapeHtml(p.phase)}"
-               style="height: ${Math.max(height, 4)}px; background: ${cfg.color}; ${isHovered ? 'opacity: 0.85;' : ''}">
+          <div class="waterfall-bar${unmeasured ? ' unmeasured' : ''}" data-phase="${this._escapeHtml(p.phase)}"
+               style="${style}">
           </div>
           <span class="bar-label">${this._escapeHtml(cfg.label)}</span>
         </div>
@@ -423,11 +432,13 @@ export class LokiCostWaterfall extends LokiElement {
     // Summary
     const summaryItems = this._phases.map(p => {
       const cfg = PHASE_COLORS[p.phase] || { color: 'var(--loki-text-muted)', label: p.phase };
-      const pct = this._totalCost > 0 ? ((p.cost_usd / this._totalCost) * 100).toFixed(0) : 0;
+      // A share of the total exists only for a measured phase over a measured total.
+      const pct = p.cost_usd != null && this._totalCost > 0
+        ? ` (${((p.cost_usd / this._totalCost) * 100).toFixed(0)}%)` : '';
       return `<div class="summary-item">
         <div class="summary-dot" style="background: ${cfg.color};"></div>
         <span class="summary-label">${this._escapeHtml(cfg.label)}</span>
-        <span class="summary-value">${this._formatCost(p.cost_usd)} (${pct}%)</span>
+        <span class="summary-value">${this._formatCost(p.cost_usd)}${pct}</span>
       </div>`;
     }).join('');
 
@@ -436,7 +447,7 @@ export class LokiCostWaterfall extends LokiElement {
       <div class="waterfall-container">
         <div class="header">
           <h3 class="title">Cost Breakdown</h3>
-          <span class="total-cost">Total: ${this._formatCost(this._totalCost)}</span>
+          <span class="total-cost">Total: ${this._formatCost(this._totalCost)}${partial}</span>
         </div>
         <div class="chart-card">
           <div class="chart-area">

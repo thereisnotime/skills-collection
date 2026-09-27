@@ -152,50 +152,63 @@ export function selectClaudeInvokerKind(
   return truthy(env["LOKI_SDK_LOOP"]) ? "sdk" : "legacy";
 }
 
-// Resolve tier -> Claude model alias. Mirrors claude.sh:121-142
-// (provider_get_tier_param) including the LOKI_ALLOW_HAIKU branch that
-// upgrades fast/development tiers when haiku is opt-in only.
+// Resolve tier -> Claude model. Mirrors claude.sh resolve_model_for_tier over
+// its PROVIDER_MODEL_* chain: LOKI_CLAUDE_MODEL_<TIER> > LOKI_MODEL_<TIER> >
+// default, empty counting as unset (bash `${VAR:-default}`). Defaults are
+// sonnet for every tier (v7.104.0), except fast -> haiku under LOKI_ALLOW_HAIKU.
+// An explicit per-tier pin beats the haiku gate, as it does on bash.
 function claudeTierToModel(tier: SessionTier): string {
   // fable unavailable, collapse to opus. Claude Fable 5 is not available at the
-  // Claude API ("use Opus 4.8"). This guard precedes the allowHaiku branch
-  // because the allowHaiku default arm returns sonnet, which would silently
-  // downgrade a fable pin. Mirrors claude.sh resolve_model_for_tier and run.sh
-  // (v7.39.1).
+  // Claude API ("use Opus 4.8"). Per-tier pins do not apply, matching the bash
+  // resolver's `fable) model="opus"` arm (v7.39.1).
   if (tier === "fable") return "opus";
   // EXACT "true" to mirror bash (claude.sh:294, claude-flags.sh:104) and the
   // Bun fallbackForPrimary (claude_flags.ts:101). LOKI_ALLOW_HAIKU=1 must NOT
   // enable haiku on either route (v7.41.4 parity fix).
   const allowHaiku = process.env["LOKI_ALLOW_HAIKU"] === "true";
-  if (allowHaiku) {
-    // v7.104.0: planning defaults to sonnet (claude.sh:60, unconditional); the
-    // ALLOW_HAIKU block only lowers development (already sonnet) and fast (haiku).
-    switch (tier) {
-      case "planning":
-        return "sonnet";
-      case "development":
-        return "sonnet";
-      case "fast":
-        return "haiku";
-      default:
-        return "sonnet";
-    }
-  }
-  // Default: no haiku. Upgrade dev->opus, fast->sonnet (claude.sh:135-141).
-  // v7.104.0: Sonnet 5 is the default execution model. planning + development
-  // default to sonnet (was opus), matching claude.sh CLAUDE_DEFAULT_PLANNING/
-  // DEVELOPMENT and the bash resolver. This route is not yet wired to `loki start`
-  // (the shim falls through to bash), but keeping it in parity avoids a silent
-  // opus dispatch when the Bun runner is wired on.
+  const pinned = (name: string, fallback: string): string =>
+    process.env[`LOKI_CLAUDE_MODEL_${name}`] || process.env[`LOKI_MODEL_${name}`] || fallback;
   switch (tier) {
     case "planning":
-      return "sonnet";
-    case "development":
-      return "sonnet";
+      return pinned("PLANNING", "sonnet");
     case "fast":
-      return "sonnet";
+      return pinned("FAST", allowHaiku ? "haiku" : "sonnet");
     default:
-      return "sonnet";
+      // development, and any unknown tier (claude.sh's `*` arm).
+      return pinned("DEVELOPMENT", "sonnet");
   }
+}
+
+// Resolve the model one claude call dispatches. Shared by claudeProvider and
+// sdkQueryProvider so the two cannot fork.
+//
+// Opus session pin (run.sh main loop, v7.104.0): no tier defaults to opus, so a
+// session pinned to opus maps to the planning tier and would silently dispatch
+// SONNET. Like run.sh, the pin sets the model to opus directly: main loop only,
+// never under LOKI_LEGACY_TIER_SWITCHING, not complexity-routed, and still
+// clamped by LOKI_MAX_TIER at the planning level. It applies only while the tier
+// is still planning, so a capability-router or recovery tier change wins.
+// Known divergence: LOKI_MODEL_OVERRIDE (below) still wins over the pin here;
+// run.sh lets the pin overwrite the override.
+function claudeModelFor(call: ProviderInvocation): string {
+  const opusPin =
+    call.mainLoop === true &&
+    call.tier === "planning" &&
+    process.env["LOKI_LEGACY_TIER_SWITCHING"] !== "true" &&
+    (process.env["LOKI_SESSION_MODEL"] ?? "").trim().toLowerCase() === "opus";
+  // Phase I (v7.5.25): when ANTHROPIC_BASE_URL is set, the user is routing
+  // Claude Code to an alt-provider (OpenRouter, Ollama, LiteLLM, self-hosted)
+  // that may not recognize the opus/sonnet/haiku aliases only Anthropic
+  // resolves. LOKI_MODEL_OVERRIDE then wins over all tier mapping.
+  // ANTHROPIC_BASE_URL itself is passed through unchanged.
+  if (process.env["ANTHROPIC_BASE_URL"] && process.env["LOKI_MODEL_OVERRIDE"]) {
+    return process.env["LOKI_MODEL_OVERRIDE"];
+  }
+  // Complexity-aware routing (opt-in LOKI_TIER_ROUTING=1) is applied after base
+  // resolution and BEFORE the max-tier ceiling, byte-mirroring claude.sh
+  // resolve_model_for_tier (route then clamp).
+  const base = opusPin ? "opus" : tierRouteModel(call.tier, claudeTierToModel(call.tier));
+  return applyMaxTierCeiling(call.tier, base);
 }
 
 // Apply LOKI_MAX_TIER ceiling. Mirrors loki_apply_max_tier_clamp at
@@ -311,23 +324,7 @@ export function claudeProvider(): ProviderInvoker {
   const cli = resolveCli("LOKI_CLAUDE_CLI", "claude");
   return {
     async invoke(call: ProviderInvocation): Promise<ProviderResult> {
-      const baseModel = claudeTierToModel(call.tier);
-      // Complexity-aware routing (opt-in LOKI_TIER_ROUTING=1). Applied after base
-      // resolution and BEFORE the max-tier ceiling, byte-mirroring claude.sh
-      // resolve_model_for_tier (route then clamp).
-      const routedModel = tierRouteModel(call.tier, baseModel);
-      let model = applyMaxTierCeiling(call.tier, routedModel);
-
-      // Phase I (v7.5.25): when ANTHROPIC_BASE_URL is set, the user is
-      // routing Claude Code to an alt-provider (OpenRouter, Ollama,
-      // LiteLLM, self-hosted). The alt-provider may not recognize the
-      // opus/sonnet/haiku aliases that only Anthropic resolves. Let the
-      // user override the resolved model name via LOKI_MODEL_OVERRIDE; it
-      // wins over all tier mapping. ANTHROPIC_BASE_URL itself is passed
-      // through unchanged (Claude Code reads it natively).
-      if (process.env["ANTHROPIC_BASE_URL"] && process.env["LOKI_MODEL_OVERRIDE"]) {
-        model = process.env["LOKI_MODEL_OVERRIDE"];
-      }
+      const model = claudeModelFor(call);
 
       // v7.5.19 Phase B: prime the claude --help cache once, then compose
       // the auto-derived flag set. ensureClaudeHelpCache is idempotent --
@@ -593,14 +590,7 @@ export function sdkQueryProvider(): ProviderInvoker {
       if (!call.mainLoop) return claudeProvider().invoke(call);
 
       // Model resolution is shared with claudeProvider (do NOT fork it).
-      const baseModel = claudeTierToModel(call.tier);
-      // Complexity-aware routing (opt-in LOKI_TIER_ROUTING=1), route then clamp,
-      // byte-mirroring claude.sh resolve_model_for_tier.
-      const routedModel = tierRouteModel(call.tier, baseModel);
-      let model = applyMaxTierCeiling(call.tier, routedModel);
-      if (process.env["ANTHROPIC_BASE_URL"] && process.env["LOKI_MODEL_OVERRIDE"]) {
-        model = process.env["LOKI_MODEL_OVERRIDE"];
-      }
+      const model = claudeModelFor(call);
 
       // caveman (main loop -> activate at the tier-inferred level, if warranted).
       const cavemanLvl = cavemanActivateEnv(call.tier);

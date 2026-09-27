@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Settings2,
   Server,
@@ -6,15 +6,10 @@ import {
   Shield,
   Bell,
   Database,
-  Save,
-  RotateCcw,
-  Eye,
-  EyeOff,
-  Check,
   AlertTriangle,
   ShieldAlert,
 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { api } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 
 // ---------------------------------------------------------------------------
@@ -24,7 +19,7 @@ import { useAuth } from '../hooks/useAuth';
 interface ProviderConfig {
   id: string;
   name: string;
-  apiKeySet: boolean;
+  secretKey: string;
   model: string;
   fallbackOrder: number;
   enabled: boolean;
@@ -63,17 +58,18 @@ interface DataRetentionConfig {
   auditRetentionDays: number;
   sessionRetentionDays: number;
   autoCleanupEnabled: boolean;
-  lastCleanup: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// Default configs
+// Default configs. None of these are read from the server and nothing on this
+// page is saved; the page renders them disabled under a "Not connected" notice.
 // ---------------------------------------------------------------------------
 
+// secretKey: the env var name loki checks (autonomy/loki key_var loop).
 const DEFAULT_PROVIDERS: ProviderConfig[] = [
-  { id: 'claude', name: 'Claude', apiKeySet: true, model: 'claude-opus-4-7', fallbackOrder: 1, enabled: true },
-  { id: 'codex', name: 'Codex', apiKeySet: false, model: 'gpt-5.3-codex', fallbackOrder: 2, enabled: true },
-  { id: 'gemini', name: 'Gemini', apiKeySet: false, model: 'gemini-3-pro-medium', fallbackOrder: 3, enabled: false },
+  { id: 'claude', name: 'Claude', secretKey: 'ANTHROPIC_API_KEY', model: 'claude-opus-4-7', fallbackOrder: 1, enabled: true },
+  { id: 'codex', name: 'Codex', secretKey: 'OPENAI_API_KEY', model: 'gpt-5.3-codex', fallbackOrder: 2, enabled: true },
+  { id: 'gemini', name: 'Gemini', secretKey: 'GOOGLE_API_KEY', model: 'gemini-3-pro-medium', fallbackOrder: 3, enabled: false },
 ];
 
 const DEFAULT_BUILD: BuildDefaults = {
@@ -109,7 +105,6 @@ const DEFAULT_RETENTION: DataRetentionConfig = {
   auditRetentionDays: 365,
   sessionRetentionDays: 90,
   autoCleanupEnabled: true,
-  lastCleanup: new Date(Date.now() - 86400000).toISOString(),
 };
 
 // ---------------------------------------------------------------------------
@@ -118,13 +113,15 @@ const DEFAULT_RETENTION: DataRetentionConfig = {
 
 function ProviderSection() {
   const [providers, setProviders] = useState(DEFAULT_PROVIDERS);
-  const [showKey, setShowKey] = useState<Record<string, boolean>>({});
-  const [saved, setSaved] = useState(false);
+  // Key names in the Purple Lab secrets store: undefined while loading,
+  // null when the store could not be read.
+  const [secretKeys, setSecretKeys] = useState<string[] | null | undefined>(undefined);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+  useEffect(() => {
+    api.getSecrets()
+      .then((s) => setSecretKeys(Object.keys(s)))
+      .catch(() => setSecretKeys(null));
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -145,11 +142,6 @@ function ProviderSection() {
               <span className="text-sm font-medium text-[#201515] dark:text-[#E8E6E3]">
                 {provider.name}
               </span>
-              {provider.apiKeySet && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1FC5A8]/10 text-[#1FC5A8]">
-                  Configured
-                </span>
-              )}
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <span className="text-xs text-[#939084]">
@@ -171,21 +163,16 @@ function ProviderSection() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-[#6B6960] mb-1">API Key</label>
-              <div className="relative">
-                <input
-                  type={showKey[provider.id] ? 'text' : 'password'}
-                  value={provider.apiKeySet ? 'sk-****************************' : ''}
-                  placeholder="Enter API key..."
-                  className="w-full px-3 py-2 pr-10 text-sm rounded-lg border border-[#ECEAE3] dark:border-[#2A2A30] bg-white dark:bg-[#1A1A1E] text-[#201515] dark:text-[#E8E6E3] placeholder-[#939084] font-mono"
-                  readOnly
-                />
-                <button
-                  onClick={() => setShowKey(prev => ({ ...prev, [provider.id]: !prev[provider.id] }))}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#939084] hover:text-[#36342E]"
-                >
-                  {showKey[provider.id] ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
+              {/* A key absent from this store may still come from CLI login or the environment. */}
+              <p className="px-3 py-2 text-xs font-mono text-[#6B6960]">
+                {secretKeys === undefined
+                  ? 'Checking...'
+                  : secretKeys === null
+                  ? 'unknown (secrets store could not be read)'
+                  : secretKeys.includes(provider.secretKey)
+                    ? `${provider.secretKey} is in the Purple Lab secrets store`
+                    : `${provider.secretKey} is not in the Purple Lab secrets store`}
+              </p>
             </div>
             <div>
               <label className="block text-xs font-medium text-[#6B6960] mb-1">Model</label>
@@ -202,27 +189,15 @@ function ProviderSection() {
           </div>
         </div>
       ))}
-
-      <div className="flex items-center gap-2">
-        <Button size="sm" icon={saved ? Check : Save} onClick={handleSave}>
-          {saved ? 'Saved' : 'Save Provider Config'}
-        </Button>
-      </div>
     </div>
   );
 }
 
 function BuildDefaultsSection() {
   const [config, setConfig] = useState(DEFAULT_BUILD);
-  const [saved, setSaved] = useState(false);
 
   const update = <K extends keyof BuildDefaults>(key: K, value: BuildDefaults[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -300,25 +275,15 @@ function BuildDefaultsSection() {
           Auto-run code review after each build
         </span>
       </label>
-
-      <Button size="sm" icon={saved ? Check : Save} onClick={handleSave}>
-        {saved ? 'Saved' : 'Save Build Defaults'}
-      </Button>
     </div>
   );
 }
 
 function SecuritySection() {
   const [config, setConfig] = useState(DEFAULT_SECURITY);
-  const [saved, setSaved] = useState(false);
 
   const update = <K extends keyof SecurityConfig>(key: K, value: SecurityConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -397,25 +362,15 @@ function SecuritySection() {
           </span>
         )}
       </label>
-
-      <Button size="sm" icon={saved ? Check : Save} onClick={handleSave}>
-        {saved ? 'Saved' : 'Save Security Settings'}
-      </Button>
     </div>
   );
 }
 
 function NotificationSection() {
   const [config, setConfig] = useState(DEFAULT_NOTIFICATIONS);
-  const [saved, setSaved] = useState(false);
 
   const update = <K extends keyof NotificationConfig>(key: K, value: NotificationConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -517,25 +472,15 @@ function NotificationSection() {
           ))}
         </div>
       </div>
-
-      <Button size="sm" icon={saved ? Check : Save} onClick={handleSave}>
-        {saved ? 'Saved' : 'Save Notifications'}
-      </Button>
     </div>
   );
 }
 
 function DataRetentionSection() {
   const [config, setConfig] = useState(DEFAULT_RETENTION);
-  const [saved, setSaved] = useState(false);
 
   const update = <K extends keyof DataRetentionConfig>(key: K, value: DataRetentionConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -597,21 +542,6 @@ function DataRetentionSection() {
           Enable automatic cleanup
         </span>
       </label>
-
-      {config.lastCleanup && (
-        <p className="text-xs text-[#939084]">
-          Last cleanup: {new Date(config.lastCleanup).toLocaleString()}
-        </p>
-      )}
-
-      <div className="flex items-center gap-2">
-        <Button size="sm" icon={saved ? Check : Save} onClick={handleSave}>
-          {saved ? 'Saved' : 'Save Retention Settings'}
-        </Button>
-        <Button size="sm" variant="ghost" icon={RotateCcw}>
-          Run Cleanup Now
-        </Button>
-      </div>
     </div>
   );
 }
@@ -703,11 +633,21 @@ export default function SystemSettingsPage() {
               </h2>
             </div>
 
-            {activeSection === 'providers' && <ProviderSection />}
-            {activeSection === 'builds' && <BuildDefaultsSection />}
-            {activeSection === 'security' && <SecuritySection />}
-            {activeSection === 'notifications' && <NotificationSection />}
-            {activeSection === 'retention' && <DataRetentionSection />}
+            <div className="mb-4 px-3 py-2 rounded-lg border border-[#F59E0B]/30 bg-[#F59E0B]/5 text-xs text-[#6B6960] flex items-start gap-2">
+              <AlertTriangle size={14} className="text-[#F59E0B] flex-shrink-0 mt-0.5" />
+              <span>
+                Not connected: the values below are built-in defaults, not read from the server,
+                and this page cannot save changes. They do not affect builds.
+              </span>
+            </div>
+
+            <fieldset disabled className="min-w-0">
+              {activeSection === 'providers' && <ProviderSection />}
+              {activeSection === 'builds' && <BuildDefaultsSection />}
+              {activeSection === 'security' && <SecuritySection />}
+              {activeSection === 'notifications' && <NotificationSection />}
+              {activeSection === 'retention' && <DataRetentionSection />}
+            </fieldset>
           </div>
         </div>
       </div>

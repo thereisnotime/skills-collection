@@ -14,6 +14,24 @@ FAIL=0
 ok() { printf 'PASS: %s\n' "$1"; PASS=$((PASS + 1)); }
 bad() { printf 'FAIL: %s\n' "$1"; FAIL=$((FAIL + 1)); }
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$WORK/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
+# cd into the scratch dir BEFORE sourcing run.sh -- sourcing runs provider
+# auto-detection, which does `mkdir -p .loki/state && echo ... >
+# .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT that
+# writes into the shared checkout and contaminates every later test in the
+# same shell (same bug class as test-iteration-grace.sh and
+# test-exit-code-contract.sh). This does not change SCRIPT_DIR/PROJECT_DIR:
+# run.sh derives both from BASH_SOURCE[0], never from CWD.
+cd "$WORK" || exit 1
 # shellcheck source=/dev/null
 source "$RUN_SH" >/dev/null 2>&1 || true
 log_info() { :; }
@@ -268,6 +286,7 @@ fi
 PATH="$REAL_PATH"
 SCRIPT_DIR="$REAL_SCRIPT_DIR"
 PROJECT_DIR="$REAL_PROJECT_DIR"
+# shellcheck disable=SC2034 # consumed by the sourced run.sh gate functions below
 LOKI_GATE_LSP_WRITER=0
 
 MOCK_STAGE=$(sed -n '/# Mock integrity gate (P0-3): block/,/# Test mutation integrity gate/p' "$RUN_SH")
@@ -287,8 +306,11 @@ else
     bad "LSP stage status wiring is incomplete"
 fi
 
+# shellcheck disable=SC2034 # consumed by the sourced run.sh gate functions below
 LOKI_SUPERVISED_BUILD=1
+# shellcheck disable=SC2034
 LOKI_BUILD_PROFILE=simple-web
+# shellcheck disable=SC2034
 TARGET_DIR="$LSP"
 ITERATION_COUNT=1
 printf '%s\n' '{"runner":"vitest","pass":true,"command":"npm test","exit_code":0}' \
@@ -315,6 +337,22 @@ if grep -q 'LOKI_GATE_SEMANTIC_TESTS_BLOCK' <<< "$ADVISORY_STAGE" \
     ok "semantic and invariant findings enter the blocker set only in explicit blocking mode"
 else
     bad "advisory semantic or invariant policy is not separated from blocking"
+fi
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: WORK must show its own provider file did get written.
+# Without this, disabling the mkdir entirely (or the probe silently no-op-ing)
+# would also read as "isolated" -- the check would pass for the wrong reason.
+if [ -f "$WORK/.loki/state/provider" ]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    bad "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
 fi
 
 printf 'honest-gate-status: %d passed, %d failed\n' "$PASS" "$FAIL"

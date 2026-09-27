@@ -6,7 +6,7 @@ import {
   FolderKanban,
 } from 'lucide-react';
 import { TeamPanel, type TeamInfo, type TeamRole } from '../components/TeamPanel';
-import { RBACPanel } from '../components/RBACPanel';
+import { RBACPanel, type AuditEntry } from '../components/RBACPanel';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/Avatar';
 import { ActivityFeed } from '../components/ActivityFeed';
@@ -14,142 +14,84 @@ import { useNotification } from '../contexts/NotificationContext';
 import { api } from '../api/client';
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface TeamActivity {
-  id: string;
-  action: string;
-  user: string;
-  timestamp: string;
-}
-
-// ---------------------------------------------------------------------------
 // Teams Page
+//
+// Everything here is read from /api/teams and /api/audit-log. A failed read
+// renders an error, never sample rows; a team or member appears only after the
+// server stored it. Remove-member and change-role have no endpoint, so their
+// controls are not offered.
 // ---------------------------------------------------------------------------
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<TeamInfo[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<TeamInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
+  const [creating, setCreating] = useState(false);
   const [activeTab, setActiveTab] = useState<'members' | 'roles' | 'activity'>('members');
-  const [activities, setActivities] = useState<TeamActivity[]>([]);
+  // null while loading; the team's own audit entries once read.
+  const [activities, setActivities] = useState<AuditEntry[] | null>(null);
+  const [activityError, setActivityError] = useState(false);
   const { notify } = useNotification();
 
-  // Load teams
-  useEffect(() => {
+  // Reload the team list; keeps (or moves to) `selectId` when it is present.
+  const loadTeams = useCallback((selectId?: string) => {
     setLoading(true);
-    api.getTeams()
+    return api.getTeams()
       .then(data => {
         setTeams(data);
-        if (data.length > 0 && !selectedTeam) {
-          setSelectedTeam(data[0]);
-        }
+        setLoadError(false);
+        setSelectedTeam(prev => data.find(t => t.id === (selectId ?? prev?.id)) ?? data[0] ?? null);
       })
       .catch(() => {
-        // Use sample data when endpoint is not available
-        const sample: TeamInfo[] = [
-          {
-            id: 'team-1',
-            name: 'Engineering',
-            created_at: new Date().toISOString(),
-            members: [
-              { id: 'm1', email: 'admin@example.com', name: 'Team Admin', role: 'admin' as const, joined_at: new Date().toISOString() },
-              { id: 'm2', email: 'dev@example.com', name: 'Developer', role: 'editor' as const, joined_at: new Date().toISOString() },
-              { id: 'm3', email: 'viewer@example.com', name: 'Viewer', role: 'viewer' as const, joined_at: new Date().toISOString() },
-            ],
-          },
-        ];
-        setTeams(sample);
-        if (!selectedTeam) setSelectedTeam(sample[0]);
+        setTeams([]);
+        setSelectedTeam(null);
+        setLoadError(true);
       })
       .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load activities
+  useEffect(() => { loadTeams(); }, [loadTeams]);
+
+  // Activity is this team's slice of the audit log: entries the server tagged
+  // with the team's id. A brand-new team has exactly its own team.created.
   useEffect(() => {
-    if (!selectedTeam) return;
-    setActivities([
-      { id: 'a1', action: 'Created project "my-app"', user: 'Developer', timestamp: '2 hours ago' },
-      { id: 'a2', action: 'Deployed to production', user: 'Team Admin', timestamp: '5 hours ago' },
-      { id: 'a3', action: 'Invited viewer@example.com', user: 'Team Admin', timestamp: '1 day ago' },
-      { id: 'a4', action: 'Updated RBAC settings', user: 'Team Admin', timestamp: '2 days ago' },
-    ]);
-  }, [selectedTeam]);
+    if (!selectedTeam || activeTab !== 'activity') return;
+    let cancelled = false;
+    setActivities(null);
+    setActivityError(false);
+    api.getAuditLog()
+      .then(entries => { if (!cancelled) setActivities(entries.filter(e => e.team_id === selectedTeam.id)); })
+      .catch(() => { if (!cancelled) setActivityError(true); });
+    return () => { cancelled = true; };
+  }, [selectedTeam, activeTab]);
 
   const handleCreateTeam = useCallback(() => {
-    if (!newTeamName.trim()) return;
-    const newTeam: TeamInfo = {
-      id: `team-${Date.now()}`,
-      name: newTeamName.trim(),
-      created_at: new Date().toISOString(),
-      members: [],
-    };
-
-    api.createTeam(newTeamName.trim())
-      .catch(() => {
-        // Endpoint may not exist yet; proceed with local state
-      });
-
-    setTeams(prev => [...prev, newTeam]);
-    setSelectedTeam(newTeam);
-    setNewTeamName('');
-    setShowCreateForm(false);
-    notify({ type: 'success', title: 'Team created', message: `"${newTeam.name}" is ready` });
-  }, [newTeamName, notify]);
+    const name = newTeamName.trim();
+    if (!name || creating) return;
+    setCreating(true);
+    api.createTeam(name)
+      .then(res => loadTeams(res.id).then(() => {
+        setNewTeamName('');
+        setShowCreateForm(false);
+        notify({ type: 'success', title: 'Team created', message: `"${name}" is ready` });
+      }))
+      .catch(() => notify({ type: 'error', title: 'Could not create team', message: 'The server did not store it, so nothing was added.' }))
+      .finally(() => setCreating(false));
+  }, [newTeamName, creating, loadTeams, notify]);
 
   const handleInviteMember = useCallback(
     (email: string, role: TeamRole) => {
       if (!selectedTeam) return;
-      const newMember = {
-        id: `m-${Date.now()}`,
-        email,
-        name: email.split('@')[0],
-        role,
-        joined_at: new Date().toISOString(),
-      };
-      const updated = {
-        ...selectedTeam,
-        members: [...selectedTeam.members, newMember],
-      };
-      setSelectedTeam(updated);
-      setTeams(prev => prev.map(t => (t.id === updated.id ? updated : t)));
-      notify({ type: 'success', title: 'Invite sent', message: `${email} invited as ${role}` });
+      const teamId = selectedTeam.id;
+      api.addTeamMember(teamId, email, role)
+        .then(() => loadTeams(teamId))
+        .then(() => notify({ type: 'success', title: 'Member added', message: `${email} added as ${role}` }))
+        .catch(() => notify({ type: 'error', title: 'Could not add member', message: `${email} was not added` }));
     },
-    [selectedTeam, notify],
-  );
-
-  const handleRemoveMember = useCallback(
-    (memberId: string) => {
-      if (!selectedTeam) return;
-      const updated = {
-        ...selectedTeam,
-        members: selectedTeam.members.filter(m => m.id !== memberId),
-      };
-      setSelectedTeam(updated);
-      setTeams(prev => prev.map(t => (t.id === updated.id ? updated : t)));
-      notify({ type: 'info', title: 'Member removed' });
-    },
-    [selectedTeam, notify],
-  );
-
-  const handleChangeRole = useCallback(
-    (memberId: string, role: TeamRole) => {
-      if (!selectedTeam) return;
-      const updated = {
-        ...selectedTeam,
-        members: selectedTeam.members.map(m =>
-          m.id === memberId ? { ...m, role } : m,
-        ),
-      };
-      setSelectedTeam(updated);
-      setTeams(prev => prev.map(t => (t.id === updated.id ? updated : t)));
-      notify({ type: 'success', title: 'Role updated' });
-    },
-    [selectedTeam, notify],
+    [selectedTeam, loadTeams, notify],
   );
 
   return (
@@ -181,8 +123,8 @@ export default function TeamsPage() {
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreateTeam(); }}
             />
-            <Button size="sm" onClick={handleCreateTeam} disabled={!newTeamName.trim()}>
-              Create
+            <Button size="sm" onClick={handleCreateTeam} disabled={!newTeamName.trim() || creating}>
+              {creating ? 'Creating...' : 'Create'}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowCreateForm(false)}>
               Cancel
@@ -201,7 +143,10 @@ export default function TeamsPage() {
             {loading && (
               <div className="text-center py-4 text-[#939084] text-sm">Loading...</div>
             )}
-            {!loading && teams.length === 0 && (
+            {!loading && loadError && (
+              <div className="text-center py-4 text-[#C45B5B] text-sm">Could not load teams</div>
+            )}
+            {!loading && !loadError && teams.length === 0 && (
               <div className="text-center py-4 text-[#939084] text-sm">No teams yet</div>
             )}
             <div className="space-y-1">
@@ -271,8 +216,6 @@ export default function TeamsPage() {
                 <TeamPanel
                   team={selectedTeam}
                   onInviteMember={handleInviteMember}
-                  onRemoveMember={handleRemoveMember}
-                  onChangeRole={handleChangeRole}
                   loading={loading}
                 />
               )}
@@ -291,7 +234,11 @@ export default function TeamsPage() {
                         Recent Activity
                       </h3>
                     </div>
-                    {activities.length === 0 ? (
+                    {activityError ? (
+                      <div className="text-center py-8 text-[#C45B5B] text-sm">Could not load activity</div>
+                    ) : activities === null ? (
+                      <div className="text-center py-8 text-[#939084] text-sm">Loading...</div>
+                    ) : activities.length === 0 ? (
                       <div className="text-center py-8 text-[#939084] text-sm">No recent activity</div>
                     ) : (
                       <div className="space-y-3">
@@ -302,10 +249,14 @@ export default function TeamsPage() {
                           >
                             <Avatar name={a.user} size="sm" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm text-[#201515] dark:text-[#E8E6E3]">{a.action}</p>
+                              <p className="text-sm text-[#201515] dark:text-[#E8E6E3]">
+                                {a.action}{a.target ? ` ${a.target}` : ''}
+                              </p>
                               <p className="text-xs text-[#939084]">{a.user}</p>
                             </div>
-                            <span className="text-xs text-[#939084] flex-shrink-0">{a.timestamp}</span>
+                            <span className="text-xs text-[#939084] flex-shrink-0">
+                              {new Date(a.timestamp).toLocaleString()}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -321,7 +272,9 @@ export default function TeamsPage() {
           {!selectedTeam && !loading && (
             <div className="text-center py-16">
               <Users size={48} className="mx-auto text-[#939084]/40 mb-4" />
-              <p className="text-[#939084] text-sm">Select a team or create a new one</p>
+              <p className="text-[#939084] text-sm">
+                {loadError ? 'Could not load teams. Is the server running?' : 'Select a team or create a new one'}
+              </p>
             </div>
           )}
         </div>

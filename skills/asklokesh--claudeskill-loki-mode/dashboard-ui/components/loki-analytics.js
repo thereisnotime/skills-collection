@@ -11,6 +11,7 @@
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient } from '../core/loki-api-client.js';
 import { registerPoll } from '../core/loki-poll-registry.js';
+import { formatUSD, formatTokens } from '../core/loki-unified-styles.js';
 
 /** Map model name fragments to provider -- ordered longest-first to avoid false prefix matches */
 const MODEL_TO_PROVIDER = [
@@ -328,12 +329,15 @@ export class LokiAnalytics extends LokiElement {
   _computeVelocity() {
     const ctx = this._context || {};
     const iterations = ctx.per_iteration || ctx.iterations || [];
+    // null, not 0: no response, or the server's no-tracking stub (updated_at
+    // ""), means nobody counted. Fewer than 2 timestamps gives no rate.
+    const measured = !!ctx.updated_at;
     const totalIterations = Array.isArray(iterations) && iterations.length > 0
       ? iterations.length
-      : ((ctx.totals && ctx.totals.iterations_tracked) || ctx.total_iterations || 0);
+      : (measured ? (ctx.totals?.iterations_tracked ?? ctx.total_iterations ?? null) : null);
 
     // Calculate iterations/hour from timestamps
-    let iterPerHour = 0;
+    let iterPerHour = null;
     if (Array.isArray(iterations) && iterations.length >= 2) {
       const timestamps = iterations
         .map(it => new Date(it.timestamp || it.started_at || it.ts).getTime())
@@ -400,11 +404,11 @@ export class LokiAnalytics extends LokiElement {
       <div class="velocity-cards">
         <div class="velocity-card">
           <div class="velocity-label">Iterations / Hour</div>
-          <div class="velocity-value">${iterPerHour.toFixed(1)}</div>
+          <div class="velocity-value">${iterPerHour == null ? '--' : iterPerHour.toFixed(1)}</div>
         </div>
         <div class="velocity-card">
           <div class="velocity-label">Total Iterations</div>
-          <div class="velocity-value">${totalIterations}</div>
+          <div class="velocity-value">${totalIterations ?? '--'}</div>
         </div>
       </div>
       <div class="sparkline-container">
@@ -422,23 +426,28 @@ export class LokiAnalytics extends LokiElement {
 
     for (const [model, data] of Object.entries(byModel)) {
       const prov = classifyProvider(model);
+      // null, not 0: a provider whose models carry no cost was not measured.
+      // `unmeasured` counts models without a cost so a sum over some of them
+      // renders as partial instead of as the whole bill.
       if (!providers[prov]) {
-        providers[prov] = { cost: 0, tokens: 0, iterations: 0, models: [] };
+        providers[prov] = { cost: null, tokens: null, iterations: 0, models: [], unmeasured: 0 };
       }
-      const cost = data.cost_usd || 0;
-      const tokens = (data.input_tokens || 0) + (data.output_tokens || 0);
-      providers[prov].cost += cost;
-      providers[prov].tokens += tokens;
-      providers[prov].models.push(model);
+      const p = providers[prov];
+      if (data.cost_usd == null) p.unmeasured += 1;
+      else p.cost = p.cost == null ? Number(data.cost_usd) : p.cost + Number(data.cost_usd);
+      if (data.input_tokens != null || data.output_tokens != null) {
+        p.tokens = (p.tokens ?? 0) + Number(data.input_tokens ?? 0) + Number(data.output_tokens ?? 0);
+      }
+      p.models.push(model);
     }
 
     // Estimate iterations from context
     const totals = this._context.totals || {};
     const totalIter = totals.iterations_tracked || this._context.total_iterations || this._context.iteration || 0;
-    const totalCost = this._cost.estimated_cost_usd || 0;
+    const totalCost = this._cost.estimated_cost_usd ?? null;
 
     for (const prov of Object.values(providers)) {
-      if (totalCost > 0 && totalIter > 0) {
+      if (prov.cost != null && totalCost > 0 && totalIter > 0) {
         const costShare = prov.cost / totalCost;
         prov.iterations = Math.round(costShare * totalIter);
       }
@@ -466,8 +475,9 @@ export class LokiAnalytics extends LokiElement {
       <div class="provider-grid">
         ${entries.map(([key, data]) => {
           const cfg = providerConfig[key] || providerConfig.unknown;
-          const costPerIter = data.iterations > 0 ? (data.cost / data.iterations).toFixed(4) : '--';
-          const tokensPerIter = data.iterations > 0 ? Math.round(data.tokens / data.iterations).toLocaleString() : '--';
+          const costPerIter = data.iterations > 0 && data.cost != null ? (data.cost / data.iterations).toFixed(4) : '--';
+          const tokensPerIter = data.iterations > 0 && data.tokens != null ? Math.round(data.tokens / data.iterations).toLocaleString() : '--';
+          const partial = data.cost != null && data.unmeasured > 0 ? ' (partial)' : '';
 
           return `
             <div class="provider-card">
@@ -476,19 +486,19 @@ export class LokiAnalytics extends LokiElement {
                 <div class="provider-name">${cfg.label}</div>
                 <div class="provider-stat">
                   <span class="provider-stat-label">Total Cost</span>
-                  <span class="provider-stat-value">${data.cost > 0 ? '$' + data.cost.toFixed(2) : '$0.00'}</span>
+                  <span class="provider-stat-value">${formatUSD(data.cost)}${partial}</span>
                 </div>
                 <div class="provider-stat">
-                  <span class="provider-stat-label">Cost / Iteration</span>
+                  <span class="provider-stat-label">Cost / Iteration (est.)</span>
                   <span class="provider-stat-value">${costPerIter !== '--' ? '$' + costPerIter : costPerIter}</span>
                 </div>
                 <div class="provider-stat">
-                  <span class="provider-stat-label">Tokens / Iteration</span>
+                  <span class="provider-stat-label">Tokens / Iteration (est.)</span>
                   <span class="provider-stat-value">${tokensPerIter}</span>
                 </div>
                 <div class="provider-stat">
                   <span class="provider-stat-label">Total Tokens</span>
-                  <span class="provider-stat-value">${(data.tokens ?? 0).toLocaleString()}</span>
+                  <span class="provider-stat-value">${data.tokens == null ? formatTokens(null) : data.tokens.toLocaleString()}</span>
                 </div>
                 <div class="provider-models">${data.models.map(m => this._esc(m)).join(', ')}</div>
               </div>

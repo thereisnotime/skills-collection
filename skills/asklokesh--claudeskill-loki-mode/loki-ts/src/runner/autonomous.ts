@@ -29,6 +29,7 @@ import { run as shellRun } from "../util/shell.ts";
 import { maybeGenerateProof } from "./proof.ts";
 import { cavemanCaptureUserMode } from "../providers/claude_flags.ts";
 import { resolvePrdForRun } from "./prd_reuse.ts";
+import { withholdGithubTokens } from "./github_token.ts";
 import { decideRecovery } from "./recovery_policy.ts";
 import {
   checkpointedStateCorrupt,
@@ -438,6 +439,12 @@ export function taskClassForIteration(phase: RarvPhase, retryCount: number): Tas
 // ---------------------------------------------------------------------------
 
 export async function runAutonomous(opts: RunnerOpts): Promise<number> {
+  // Rule of Two (moat P9): before anything can spawn an agent, drop GitHub
+  // tokens from the environment every provider inherits. Same contract as
+  // _loki_withhold_github_tokens in autonomy/run.sh, including the
+  // LOKI_ALLOW_AGENT_GITHUB_TOKEN=1 opt-out and its warning.
+  withholdGithubTokens();
+
   // FEAT-PRD-REUSE: resolve the PRD path BEFORE building the context, so the
   // persisted PRD path (or codebase-analysis mode) propagates into ctx.prdPath
   // (makeContext below reads opts.prdPath) and from there into the prompt

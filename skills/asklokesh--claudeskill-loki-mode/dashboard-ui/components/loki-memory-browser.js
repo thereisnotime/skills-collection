@@ -127,19 +127,19 @@ export class LokiMemoryBrowser extends LokiElement {
     const api = this._api;
     switch (this._activeTab) {
       case 'episodes': {
-        const episodes = await api.listEpisodes({ limit: 50 }).catch(() => []);
+        const episodes = await api.listEpisodes({ limit: 50 }).catch(() => null);
         if (api !== this._api) return;
         this._episodes = episodes;
         break;
       }
       case 'patterns': {
-        const patterns = await api.listPatterns().catch(() => []);
+        const patterns = await api.listPatterns().catch(() => null);
         if (api !== this._api) return;
         this._patterns = patterns;
         break;
       }
       case 'skills': {
-        const skills = await api.listSkills().catch(() => []);
+        const skills = await api.listSkills().catch(() => null);
         if (api !== this._api) return;
         this._skills = skills;
         break;
@@ -307,6 +307,11 @@ export class LokiMemoryBrowser extends LokiElement {
     `;
   }
 
+  // An absent count was never measured: "--", not 0.
+  _fmtCount(v) {
+    return typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString() : '--';
+  }
+
   _renderSummary() {
     if (!this._summary) {
       return '<div class="empty-state">No memory data available</div>';
@@ -319,41 +324,32 @@ export class LokiMemoryBrowser extends LokiElement {
         <div class="summary-card">
           <div class="summary-card-header">
             <span class="summary-card-title">Episodic Memory</span>
-            <span class="summary-card-count">${episodic?.count || 0}</span>
+            <span class="summary-card-count">${this._fmtCount(episodic?.count)}</span>
           </div>
           <div class="summary-card-detail">
             Specific interaction traces and outcomes
           </div>
           ${episodic?.latestDate ? `<div class="summary-card-meta">Latest: ${new Date(episodic.latestDate).toLocaleDateString()}</div>` : ''}
-          <div class="memory-bar">
-            <div class="memory-bar-fill episodic" style="width: ${Math.min((episodic?.count || 0) / 100 * 100, 100)}%"></div>
-          </div>
         </div>
 
         <div class="summary-card">
           <div class="summary-card-header">
             <span class="summary-card-title">Semantic Memory</span>
-            <span class="summary-card-count">${semantic?.patterns || 0}</span>
+            <span class="summary-card-count">${this._fmtCount(semantic?.patterns)}</span>
           </div>
           <div class="summary-card-detail">
             Generalized patterns and anti-patterns
           </div>
-          <div class="summary-card-meta">Anti-patterns: ${semantic?.antiPatterns || 0}</div>
-          <div class="memory-bar">
-            <div class="memory-bar-fill semantic" style="width: ${Math.min((semantic?.patterns || 0) / 100 * 100, 100)}%"></div>
-          </div>
+          <div class="summary-card-meta">Anti-patterns: ${this._fmtCount(semantic?.antiPatterns)}</div>
         </div>
 
         <div class="summary-card">
           <div class="summary-card-header">
             <span class="summary-card-title">Procedural Memory</span>
-            <span class="summary-card-count">${procedural?.skills || 0}</span>
+            <span class="summary-card-count">${this._fmtCount(procedural?.skills)}</span>
           </div>
           <div class="summary-card-detail">
             Learned skills and procedures
-          </div>
-          <div class="memory-bar">
-            <div class="memory-bar-fill procedural" style="width: ${Math.min((procedural?.skills || 0) / 100 * 100, 100)}%"></div>
           </div>
         </div>
 
@@ -365,15 +361,15 @@ export class LokiMemoryBrowser extends LokiElement {
             <div class="economics-stats">
               <div class="econ-stat">
                 <span class="econ-label">Discovery</span>
-                <span class="econ-value">${this._tokenEconomics.discoveryTokens?.toLocaleString() || 0}</span>
+                <span class="econ-value">${this._fmtCount(this._tokenEconomics.discoveryTokens)}</span>
               </div>
               <div class="econ-stat">
                 <span class="econ-label">Read</span>
-                <span class="econ-value">${this._tokenEconomics.readTokens?.toLocaleString() || 0}</span>
+                <span class="econ-value">${this._fmtCount(this._tokenEconomics.readTokens)}</span>
               </div>
               <div class="econ-stat">
                 <span class="econ-label">Savings</span>
-                <span class="econ-value savings">${(this._tokenEconomics.savingsPercent || 0).toFixed(1)}%</span>
+                <span class="econ-value savings">${typeof this._tokenEconomics.savingsPercent === 'number' ? this._tokenEconomics.savingsPercent.toFixed(1) + '%' : '--'}</span>
               </div>
             </div>
           </div>
@@ -391,7 +387,7 @@ export class LokiMemoryBrowser extends LokiElement {
             ${this._stats.total_entries != null ? `
               <div class="stats-item">
                 <span class="stats-label">Total Entries</span>
-                <span class="stats-value mono">${(this._stats.total_entries ?? 0).toLocaleString()}</span>
+                <span class="stats-value mono">${this._fmtCount(this._stats.total_entries)}</span>
               </div>
             ` : ''}
             ${this._stats.db_size_bytes != null ? `
@@ -449,6 +445,9 @@ export class LokiMemoryBrowser extends LokiElement {
   }
 
   _renderEpisodes() {
+    if (this._episodes == null) {
+      return '<div class="empty-state">Could not load episodes</div>';
+    }
     if (this._episodes.length === 0) {
       return '<div class="empty-state">No episodes recorded yet</div>';
     }
@@ -474,6 +473,9 @@ export class LokiMemoryBrowser extends LokiElement {
   }
 
   _renderPatterns() {
+    if (this._patterns == null) {
+      return '<div class="empty-state">Could not load patterns</div>';
+    }
     if (this._patterns.length === 0) {
       return '<div class="empty-state">No patterns discovered yet</div>';
     }
@@ -488,7 +490,7 @@ export class LokiMemoryBrowser extends LokiElement {
             </div>
             <div class="item-title">${this._escapeHtml(pat.pattern)}</div>
             <div class="item-meta">
-              <span>Used ${pat.usageCount || 0} times</span>
+              <span>Used ${this._fmtCount(pat.usage_count ?? pat.usageCount)} times</span>
             </div>
           </div>
         `).join('')}
@@ -497,6 +499,9 @@ export class LokiMemoryBrowser extends LokiElement {
   }
 
   _renderSkills() {
+    if (this._skills == null) {
+      return '<div class="empty-state">Could not load skills</div>';
+    }
     if (this._skills.length === 0) {
       return '<div class="empty-state">No skills learned yet</div>';
     }
@@ -549,11 +554,11 @@ export class LokiMemoryBrowser extends LokiElement {
             </div>
             <div class="detail-row">
               <span class="detail-label">Duration</span>
-              <span class="detail-value">${item.durationSeconds || 0}s</span>
+              <span class="detail-value">${typeof item.durationSeconds === 'number' ? item.durationSeconds + 's' : '--'}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Tokens Used</span>
-              <span class="detail-value">${item.tokensUsed?.toLocaleString() || 0}</span>
+              <span class="detail-value">${this._fmtCount(item.tokensUsed)}</span>
             </div>
             ${item.goal ? `
               <div class="detail-section">
@@ -597,7 +602,7 @@ export class LokiMemoryBrowser extends LokiElement {
             </div>
             <div class="detail-row">
               <span class="detail-label">Usage Count</span>
-              <span class="detail-value">${item.usageCount || 0}</span>
+              <span class="detail-value">${this._fmtCount(item.usage_count ?? item.usageCount)}</span>
             </div>
             <div class="detail-section">
               <div class="detail-label">Pattern</div>
@@ -824,23 +829,6 @@ export class LokiMemoryBrowser extends LokiElement {
           color: var(--loki-text-secondary);
           margin-bottom: 8px;
         }
-
-        .memory-bar {
-          height: 4px;
-          background: var(--loki-bg-tertiary);
-          border-radius: 2px;
-          overflow: hidden;
-        }
-
-        .memory-bar-fill {
-          height: 100%;
-          border-radius: 2px;
-          transition: width 0.3s ease;
-        }
-
-        .memory-bar-fill.episodic { background: var(--loki-blue); }
-        .memory-bar-fill.semantic { background: var(--loki-purple); }
-        .memory-bar-fill.procedural { background: var(--loki-green); }
 
         .token-economics .economics-stats {
           display: flex;

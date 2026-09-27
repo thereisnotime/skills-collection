@@ -15,6 +15,9 @@
 #   - one receipt with cost_usd null  -> must render "-", never "$0.00"
 #   - that receipt is NOT VERIFIED    -> must survive to the pixel unsoftened
 #   - budget_limit absent             -> must say "no spend cap", never imply one
+#   - one MEASURED zero-cost record   -> spend renders "$0.00" (the positive
+#                                        control; with no record at all the
+#                                        server now sends null, not 0)
 # A fixture that drifted with the repo could silently stop exercising any of
 # those three, which is how the unit tests underneath this passed while the
 # real page rendered nothing.
@@ -28,9 +31,14 @@ PY="${LOKI_DASH_PY:-python3.12}"
 SEED=""
 SERVER_PID=""
 
+# ponytail: cleanup kills ONLY $SERVER_PID (the process this script itself
+# started, recorded by its own $!). A `lsof -ti:"$PORT" | xargs kill -9` here
+# would kill whoever else is listening on that port, including a concurrent
+# worktree/CI shard's own harness run (D14/D15/D16 class: a port-derived PID
+# must be one this run recorded itself, never re-derived by lookup at kill
+# time).
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
-  lsof -ti:"$PORT" 2>/dev/null | xargs kill -9 2>/dev/null
   [ -n "$SEED" ] && [ -d "$SEED" ] && /bin/rm -rf "$SEED" 2>/dev/null
 }
 trap cleanup EXIT
@@ -82,8 +90,24 @@ JSON
 
 # No budget file at all -> budget_limit null -> the UI must SAY there is no cap.
 
-# 2. Boot against the seed.
-lsof -ti:"$PORT" 2>/dev/null | xargs kill -9 2>/dev/null
+# A MEASURED zero: real observed tokens, provider-reported cost 0.0. This is
+# what the "$0.00 still renders" positive control needs. It used to pass on an
+# EMPTY efficiency dir, because /api/budget answered current_cost 0.0 for a run
+# nobody measured; that fabricated zero is gone (it is null now), so the
+# control needs a real measurement to stand on.
+mkdir -p "$SEED/.loki/metrics/efficiency" || exit 2
+cat > "$SEED/.loki/metrics/efficiency/iteration-1.json" <<'JSON'
+{"iteration": 1, "model": "sonnet", "phase": "build", "input_tokens": 1200, "output_tokens": 300, "cost_usd": 0.0}
+JSON
+
+# 2. Boot against the seed. Refuse if the port is already busy rather than
+# killing whoever holds it -- a concurrent worktree/CI shard can be running
+# this same harness on the default port. Set LOKI_DASH_PANELS_PORT to a free
+# port instead.
+if lsof -ti:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "port ${PORT} is already in use; set LOKI_DASH_PANELS_PORT to a free port" >&2
+  exit 2
+fi
 LOKI_DIR="$SEED/.loki" "$PY" -m uvicorn dashboard.server:app \
   --host 127.0.0.1 --port "$PORT" --log-level warning >/dev/null 2>&1 &
 SERVER_PID=$!

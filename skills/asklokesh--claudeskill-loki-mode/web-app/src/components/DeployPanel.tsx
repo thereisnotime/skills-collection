@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Rocket, ExternalLink, Copy, Check, Globe, GitBranch,
   Loader2, AlertCircle, CheckCircle2, Link,
@@ -24,6 +24,17 @@ interface PlatformConfig {
 }
 
 type DeployStatus = 'idle' | 'deploying' | 'success' | 'error';
+
+// 'checking' until GET /api/deploy/status answers, 'unknown' if it failed.
+// Neither is rendered as "Not connected".
+type Connection = 'connected' | 'disconnected' | 'checking' | 'unknown';
+
+const CONNECTION_LABELS: Record<Connection, string> = {
+  connected: 'Connected',
+  disconnected: 'Not connected',
+  checking: 'Checking...',
+  unknown: 'Status unknown',
+};
 
 interface DeployState {
   status: DeployStatus;
@@ -78,13 +89,13 @@ function PlatformCard({
   deployState,
   onDeploy,
   disabled,
-  connected,
+  connection,
 }: {
   platform: PlatformConfig;
   deployState: DeployState;
   onDeploy: () => void;
   disabled: boolean;
-  connected: boolean;
+  connection: Connection;
 }) {
   const [copied, setCopied] = useState(false);
   const Icon = platform.icon;
@@ -100,13 +111,14 @@ function PlatformCard({
     }
   }, [deployState.url]);
 
+  const connected = connection === 'connected';
   const isDisabled = disabled || !connected;
 
   return (
     <div className={`border border-border rounded-lg p-4 transition-colors ${
       deployState.status === 'success' ? 'border-green-500/30 bg-green-500/5' :
       deployState.status === 'error' ? 'border-red-500/30 bg-red-500/5' :
-      !connected ? 'opacity-60' :
+      connection === 'disconnected' ? 'opacity-60' :
       'hover:border-primary/30 hover:bg-hover'
     }`}>
       {/* Header */}
@@ -119,12 +131,16 @@ function PlatformCard({
           <p className="text-[11px] text-muted leading-snug mt-0.5">{platform.description}</p>
         </div>
         {/* Connection indicator */}
-        <span
-          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-            connected ? 'bg-green-500' : 'bg-gray-300'
-          }`}
-          title={connected ? 'Connected' : 'Not connected'}
-        />
+        {connection === 'checking' || connection === 'unknown' ? (
+          <span className="text-[10px] text-muted flex-shrink-0">{CONNECTION_LABELS[connection]}</span>
+        ) : (
+          <span
+            className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+              connected ? 'bg-green-500' : 'bg-gray-300'
+            }`}
+            title={CONNECTION_LABELS[connection]}
+          />
+        )}
       </div>
 
       {/* Deploy action / status */}
@@ -140,7 +156,7 @@ function PlatformCard({
           >
             Deploy to {platform.name}
           </Button>
-          {!connected && (
+          {connection === 'disconnected' && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <span className="bg-ink text-white text-[10px] px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity">
                 Connect {platform.name} first
@@ -363,11 +379,15 @@ export function DeployPanel({ sessionId }: DeployPanelProps) {
     'github-pages': { status: 'idle' },
   });
 
-  const [connectionStatuses, setConnectionStatuses] = useState<AllConnectionStatuses>({
-    vercel: { connected: false },
-    netlify: { connected: false },
-    github: { connected: false },
-  });
+  // null until the real status arrives; fetched on mount, not only under "Manage".
+  const [connectionStatuses, setConnectionStatuses] = useState<AllConnectionStatuses | null>(null);
+  const [statusFailed, setStatusFailed] = useState(false);
+
+  useEffect(() => {
+    api.getDeployStatus()
+      .then(setConnectionStatuses)
+      .catch(() => setStatusFailed(true));
+  }, []);
 
   const [showConnections, setShowConnections] = useState(false);
 
@@ -403,8 +423,10 @@ export function DeployPanel({ sessionId }: DeployPanelProps) {
     }
   }, [sessionId]);
 
-  const isConnected = (platform: PlatformConfig) =>
-    connectionStatuses[platform.connectionKey]?.connected ?? false;
+  const connectionOf = (platform: PlatformConfig): Connection =>
+    !connectionStatuses
+      ? (statusFailed ? 'unknown' : 'checking')
+      : connectionStatuses[platform.connectionKey]?.connected ? 'connected' : 'disconnected';
 
   return (
     <div className="h-full overflow-y-auto terminal-scroll">
@@ -432,7 +454,9 @@ export function DeployPanel({ sessionId }: DeployPanelProps) {
               <span className="text-sm font-medium text-ink">Platform Connections</span>
               {/* Quick status dots */}
               <div className="flex items-center gap-1 ml-2">
-                {(['vercel', 'netlify', 'github'] as const).map((key) => (
+                {!connectionStatuses ? (
+                  <span className="text-[11px] text-muted">{statusFailed ? 'Status unknown' : 'Checking...'}</span>
+                ) : (['vercel', 'netlify', 'github'] as const).map((key) => (
                   <span
                     key={key}
                     className={`w-2 h-2 rounded-full ${
@@ -463,7 +487,7 @@ export function DeployPanel({ sessionId }: DeployPanelProps) {
               deployState={deployStates[platform.id]}
               onDeploy={() => handleDeploy(platform.id)}
               disabled={isAnyDeploying}
-              connected={isConnected(platform)}
+              connection={connectionOf(platform)}
             />
           ))}
         </div>

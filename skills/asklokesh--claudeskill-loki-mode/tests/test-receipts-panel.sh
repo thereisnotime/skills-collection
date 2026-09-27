@@ -81,7 +81,7 @@ const m=src.match(/window\.loadReceipts = function \(\) \{[\s\S]*?\n    \};/);
 if(!m){console.error('EXTRACT_FAILED');process.exit(2);}
 const rows=[$1];
 const el={'receipts-panel':{style:{}},'receipts-list':{innerHTML:''},'receipts-note':{textContent:''}};
-global.document={getElementById:(id)=>el[id]};
+global.document={getElementById:(id)=>el[id],createElement:()=>({set textContent(v){this.innerHTML=String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');},innerHTML:''})};
 global.fetch=()=>Promise.resolve({ok:true,json:()=>Promise.resolve(rows)});
 global.window=global;
 new Function('global', m[0]).call(global, global);
@@ -111,6 +111,25 @@ if printf '%s' "$_out" | grep -q '\$0.00' && printf '%s' "$_out" | grep -q '>0 f
     ok "a genuine zero still renders as zero (the guard is not over-broad)"
 else
     bad "a real measured zero was hidden as '-': $_out"
+fi
+
+# --- 3b. Receipt fields are ESCAPED before they reach innerHTML ------------
+# headline and final_verdict come from proof.json, which the run writes; a
+# 22-character slice still fits "<svg onload=alert(1)>", so truncation is not
+# a defence.
+_xss="$(_render '{"headline":"<svg onload=alert(1)>","generated_at":"<b>2026</b>","files_changed":"<i>3</i>","cost_usd":null}')"
+if printf '%s' "$_xss" | grep -qE '<(svg|b|i)[ >]'; then
+    bad "receipt fields reached innerHTML unescaped: $_xss"
+elif printf '%s' "$_xss" | grep -q 'onload=alert(1)'; then
+    ok "hostile receipt fields are escaped and still shown"
+else
+    bad "hostile receipt fields were dropped instead of escaped: $_xss"
+fi
+_xss="$(_render '{"final_verdict":"<svg onload=alert(5)>"}')"
+if printf '%s' "$_xss" | grep -q '<svg'; then
+    bad "a council verdict reached innerHTML unescaped: $_xss"
+else
+    ok "a hostile council verdict is escaped"
 fi
 
 # --- 4. Degrades to SILENCE, never to a wrong surface ----------------------

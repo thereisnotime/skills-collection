@@ -113,19 +113,34 @@ export function EvidencePanel({ sessionId, checklist }: Props) {
         <h3 className="text-caption font-semibold text-ink dark:text-dark-ink">
           Checks
         </h3>
+        {/* Each verdict says what its command's exit code means. `loki test`
+            GENERATES test files (exit 0 = files were written); it runs no
+            tests, so it can never read "Passed". */}
         <CheckRow
-          name="Test suite"
+          name="Generate tests (loki test)"
           state={tests}
+          describe={(rc) =>
+            rc === 0
+              ? { text: 'Exit 0: test files were generated. No tests were run.', cls: 'text-ink dark:text-dark-ink' }
+              : { text: `Exit ${rc}: no test files generated, or the command could not run. See the output.`, cls: 'text-danger' }
+          }
           onRun={() => run('tests', () => api.testProject(sessionId))}
         />
         <CheckRow
-          name="Code review"
+          name="Code review (loki review)"
           state={review}
+          describe={(rc, output) =>
+            rc !== 0
+              ? { text: `Exit ${rc}: findings reported, or the command could not run. See the output.`, cls: 'text-danger' }
+              : /No changes to review/i.test(output ?? '')
+                ? { text: 'Exit 0: nothing was reviewed (no changes found).', cls: 'text-muted-accessible dark:text-dark-muted' }
+                : { text: 'Exit 0: no high or critical findings reported.', cls: 'text-success' }
+          }
           onRun={() => run('review', () => api.reviewProject(sessionId))}
         />
         <p className="text-small text-muted-accessible dark:text-dark-muted">
           Build, typecheck and lint are not exposed as separate endpoints by this
-          API. They run inside the test and review commands above.
+          API.
         </p>
       </div>
     </section>
@@ -135,18 +150,15 @@ export function EvidencePanel({ sessionId, checklist }: Props) {
 function CheckRow({
   name,
   state,
+  describe,
   onRun,
 }: {
   name: string;
   state: CheckRunState;
+  describe: (returncode: number, output: string | null) => { text: string; cls: string };
   onRun: () => void;
 }) {
-  const verdict =
-    state.returncode === null
-      ? null
-      : state.returncode === 0
-        ? { text: 'Passed', cls: 'text-success' }
-        : { text: `Failed (exit ${state.returncode})`, cls: 'text-danger' };
+  const verdict = state.returncode === null ? null : describe(state.returncode, state.output);
 
   return (
     <div className="rounded-card border border-border p-3 dark:border-dark-border">

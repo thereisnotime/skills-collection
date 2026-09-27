@@ -4,22 +4,25 @@ interface StatusOverviewProps {
   status: StatusResponse | null;
 }
 
+// A count the server did not report (null/absent) is not a measured 0.
+const count = (v: number | null | undefined) => (typeof v === 'number' ? v.toString() : '--');
+
 export function StatusOverview({ status }: StatusOverviewProps) {
   const stats = [
     {
       label: 'Iteration',
-      value: status ? status.iteration.toString() : '--',
+      value: count(status?.iteration),
       color: 'text-primary',
     },
     {
       label: 'Agents',
-      value: status ? status.running_agents.toString() : '--',
-      color: status && status.running_agents > 0 ? 'text-success' : 'text-muted',
+      value: count(status?.running_agents),
+      color: (status?.running_agents ?? 0) > 0 ? 'text-success' : 'text-muted',
     },
     {
       label: 'Pending',
-      value: status ? status.pending_tasks.toString() : '--',
-      color: status && status.pending_tasks > 0 ? 'text-warning' : 'text-muted',
+      value: count(status?.pending_tasks),
+      color: (status?.pending_tasks ?? 0) > 0 ? 'text-warning' : 'text-muted',
     },
     {
       label: 'Provider',

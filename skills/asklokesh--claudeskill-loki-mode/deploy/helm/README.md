@@ -410,18 +410,22 @@ second question.
 ### Find out exactly what leaves the network
 
 ```bash
-loki doctor --airgap
+LOKI_LEGACY_BASH=1 loki doctor --airgap
 ```
 
-It lists every egress point, marks which are **required** versus optional, and
-refuses to report air-gap ready while a required one remains. On a default
-install that is one line: model inference to the provider API. The output also
-names the remediation, which is to serve the model in-network:
+It lists the egress points the engine configures (model inference, telemetry,
+the update check), marks which are **required** versus optional, and refuses to
+report air-gap ready while a required one remains. It also names what it does
+not audit: package installs for the built app, the dashboard venv and
+quality-gate tools, and the delegate PR to your git remote. On a default install
+the required line is model inference to the provider API. The output names the
+remediation, which is a local-weights model (an in-network claude or codex
+gateway is still counted as required egress):
 
 ```bash
 loki provider set opencode
 export LOKI_OPENCODE_MODEL=ollama/qwen2.5-coder
-loki doctor --airgap        # re-run; the required egress should be gone
+LOKI_LEGACY_BASH=1 loki doctor --airgap        # re-run; the required egress should be gone
 ```
 
 Run this **before** writing NetworkPolicy rules. It is the host inventory those

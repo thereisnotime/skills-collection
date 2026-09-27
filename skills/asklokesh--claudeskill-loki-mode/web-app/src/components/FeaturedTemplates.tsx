@@ -2,21 +2,16 @@ import { useRef, useState, useEffect } from 'react';
 import { Button } from './ui/Button';
 import {
   ChevronLeft, ChevronRight, Award, Rocket, Clock, BarChart3,
-  Users, Star,
 } from 'lucide-react';
 import type { TemplateMetadata } from '../types/api';
 
-// Placeholder stats for featured templates
-const FEATURED_STATS: Record<string, { uses: number; rating: number; avgTime: string }> = {
-  'saas-starter.md': { uses: 2847, rating: 4.9, avgTime: '12 min' },
-  'rest-api-auth.md': { uses: 1923, rating: 4.8, avgTime: '8 min' },
-  'discord-bot.md': { uses: 1654, rating: 4.7, avgTime: '6 min' },
-  'full-stack-demo.md': { uses: 1432, rating: 4.8, avgTime: '15 min' },
-  'data-pipeline.md': { uses: 1198, rating: 4.6, avgTime: '10 min' },
-  'cli-tool.md': { uses: 987, rating: 4.7, avgTime: '7 min' },
-  'e-commerce.md': { uses: 2156, rating: 4.8, avgTime: '18 min' },
-  'blog-platform.md': { uses: 1345, rating: 4.5, avgTime: '11 min' },
-};
+// A curated pick, not a popularity ranking. Use counts, ratings and average
+// times were placeholders (random for any other template); nothing records
+// them, so the cards show only the template's own metadata.
+const FEATURED = new Set([
+  'saas-starter.md', 'rest-api-auth.md', 'discord-bot.md', 'full-stack-demo.md',
+  'data-pipeline.md', 'cli-tool.md', 'e-commerce.md', 'blog-platform.md',
+]);
 
 // Category-specific gradients for featured cards
 const CATEGORY_FEATURED_GRADIENT: Record<string, string> = {
@@ -55,11 +50,6 @@ interface FeaturedTemplatesProps {
   onPreview: (template: TemplateMetadata) => void;
 }
 
-function formatNumber(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
-
 function formatTemplateName(name: string): string {
   return name
     .replace(/\.md$/i, '')
@@ -72,14 +62,14 @@ export function FeaturedTemplates({ templates, onSelect, onPreview }: FeaturedTe
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  // Pick featured templates (ones with stats, or top N)
+  // Pick featured templates (the curated set, or top N)
   const featured = templates
-    .filter(t => t.filename in FEATURED_STATS)
+    .filter(t => FEATURED.has(t.filename))
     .slice(0, 6);
 
   // If not enough, pad with first templates
   const displayTemplates = featured.length >= 4 ? featured :
-    [...featured, ...templates.filter(t => !(t.filename in FEATURED_STATS))].slice(0, 6);
+    [...featured, ...templates.filter(t => !FEATURED.has(t.filename))].slice(0, 6);
 
   const updateScrollButtons = () => {
     const el = scrollRef.current;
@@ -147,7 +137,6 @@ export function FeaturedTemplates({ templates, onSelect, onPreview }: FeaturedTe
         {displayTemplates.map((t) => {
           const category = t.category || 'Other';
           const gradient = CATEGORY_FEATURED_GRADIENT[category] || CATEGORY_FEATURED_GRADIENT.Other;
-          const stats = FEATURED_STATS[t.filename] || { uses: Math.floor(Math.random() * 1500) + 200, rating: 4.5, avgTime: t.build_time || '8 min' };
           const techStack = t.tech_stack || [];
 
           return (
@@ -205,35 +194,33 @@ export function FeaturedTemplates({ templates, onSelect, onPreview }: FeaturedTe
                   {t.description || t.filename}
                 </p>
 
-                {/* Stats row */}
-                <div className="flex items-center gap-3 mb-3 text-[10px] text-[#6B6960]">
-                  <span className="flex items-center gap-1">
-                    <Users size={11} className="text-[#553DE9]" />
-                    {formatNumber(stats.uses)} uses
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Star size={11} className="text-[#D4A03C]" fill="#D4A03C" />
-                    {stats.rating}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={11} />
-                    {stats.avgTime}
-                  </span>
-                </div>
+                {/* Hand-written server estimate (not a measured build), when one exists */}
+                {t.build_time && (
+                  <div className="flex items-center gap-3 mb-3 text-[10px] text-[#6B6960]">
+                    <span className="flex items-center gap-1" title="Hand-written estimate, not a measured build">
+                      <Clock size={11} />
+                      Est. {t.build_time}
+                    </span>
+                  </div>
+                )}
 
                 {/* Action row */}
                 <div className="flex items-center justify-between pt-3 border-t border-[#ECEAE3]">
                   <div className="flex items-center gap-1.5">
-                    <BarChart3 size={12} className={
-                      t.difficulty === 'beginner' ? 'text-green-500' :
-                      t.difficulty === 'advanced' ? 'text-red-400' : 'text-yellow-500'
-                    } />
-                    <span className={`text-[10px] font-medium capitalize ${
-                      t.difficulty === 'beginner' ? 'text-green-500' :
-                      t.difficulty === 'advanced' ? 'text-red-400' : 'text-yellow-500'
-                    }`}>
-                      {t.difficulty || 'Intermediate'}
-                    </span>
+                    {t.difficulty && (
+                      <>
+                        <BarChart3 size={12} className={
+                          t.difficulty === 'beginner' ? 'text-green-500' :
+                          t.difficulty === 'advanced' ? 'text-red-400' : 'text-yellow-500'
+                        } />
+                        <span className={`text-[10px] font-medium capitalize ${
+                          t.difficulty === 'beginner' ? 'text-green-500' :
+                          t.difficulty === 'advanced' ? 'text-red-400' : 'text-yellow-500'
+                        }`}>
+                          {t.difficulty}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <Button
                     size="sm"

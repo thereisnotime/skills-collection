@@ -39,6 +39,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 COUNCIL_SH="$REPO_ROOT/autonomy/completion-council.sh"
+RUN_SH="$REPO_ROOT/autonomy/run.sh"
 
 PASS=0
 FAIL=0
@@ -60,6 +61,18 @@ fi
 if [ ! -f "$COUNCIL_SH" ]; then
     echo "SKIP: $COUNCIL_SH not found. (Not a fail.)"
     exit 0
+fi
+
+# BACKLOG 33 REWORK #2 anchor: Cases 15/16 below fabricate the "real
+# no-test-tooling shape" as a JSON literal. This guard ties that literal back
+# to the ACTUAL writer (run.sh's enforce_test_coverage, ~line 12692) so the
+# fixture cannot silently drift from reality the way the prior rework's D20
+# belief did. Must match ONLY the heredoc write, not a comment describing it.
+if [ -f "$RUN_SH" ] && grep -n '"runner":"none","pass":"inconclusive"' "$RUN_SH" \
+    | grep -q '"status":"not_run"'; then
+    ok "anchor: run.sh's enforce_test_coverage still writes runner:none/pass:\"inconclusive\"/status:not_run (Cases 15/16 fixtures match reality)"
+else
+    bad "anchor: run.sh's no-test-tooling writer shape not found (Cases 15/16 fixtures may have drifted from the real writer)" ""
 fi
 
 # Stub the log_* helpers (they live in run.sh, not completion-council.sh).
@@ -464,6 +477,182 @@ case "$reason" in
     *inconclusive*) ok "case11 test_auditor names the inconclusive results as the reason" ;;
     *) bad "case11 test_auditor reason" "got [$reason]" ;;
 esac
+
+# ===========================================================================
+# Case 12 (BACKLOG 89): a recorded failed_count > 0 is a failure whatever the
+# pass key says, as the Bun test gate already reads it (quality_gates.ts
+# artifactCount: a numeric failed_count wins, the legacy numeric failed is the
+# fallback, anything else is unmeasured). Controls in the same shape: 0, null
+# (the bash writer's unparsed count), a missing count and a non-numeric bool
+# stay affirmative, so the negatives are not a broken reader.
+# ===========================================================================
+echo "Case 12 (BACKLOG 89): pass:true with failed_count > 0 blocks; 0/null/missing/bool do not"
+n12=0
+while IFS='|' read -r c12 j12 rc12 tp12; do
+    n12=$((n12 + 1))
+    repo="$(new_repo "case12-$n12")"
+    base="$(grepo "$repo" rev-parse HEAD)"
+    add_real_diff "$repo" feature.txt
+    mkdir -p "$repo/.loki/quality"
+    printf '%s\n' "$j12" > "$repo/.loki/quality/test-results.json"
+    LOKI_TEST_PROVENANCE=0 run_gate "$repo" "$base"
+    v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+    if [ "$GATE_RC" = "$rc12" ] && [ "$v" = "$tp12" ]; then
+        ok "case12 $c12 -> rc=$GATE_RC tests.pass=$v"
+    else
+        bad "case12 $c12" "rc=$GATE_RC tests.pass=[$v], want rc=$rc12 tests.pass=$tp12"
+    fi
+done <<'CASE12'
+failed_count-1|{"runner":"jest","pass":true,"failed_count":1,"summary":"Tests: 1 failed, 2 passed"}|1|false
+legacy-failed-2|{"runner":"jest","pass":true,"failed":2}|1|false
+failed_count-0|{"runner":"jest","pass":true,"failed_count":0}|0|true
+failed_count-null|{"runner":"jest","pass":true,"failed_count":null}|0|true
+failed_count-missing|{"runner":"jest","pass":true}|0|true
+failed_count-bool|{"runner":"jest","pass":true,"failed_count":true}|0|true
+CASE12
+
+# ===========================================================================
+# Case 13 (BACKLOG 33, S-07): a zero-test record with runner EXPLICITLY "none"
+# and status:"no_tests_run" must be INCONCLUSIVE (reason no_tests_executed),
+# NEVER an affirmative PASS. Before the fix, the parser checked runner=='none'
+# before status=='no_tests_run', so this shape fell into the runner=='none'
+# sentinel and printed an affirmative PASS -- the same ordering bug already
+# fixed in council_evaluate_member. Case 1 (runner:none, pass:true, no status)
+# is the positive control showing the plain no-tests sentinel still passes
+# through unaffected.
+# ===========================================================================
+echo "Case 13 (BACKLOG 33): runner explicitly none + status:no_tests_run -> INCONCLUSIVE, never PASS"
+repo="$(new_repo case13)"
+base="$(grepo "$repo" rev-parse HEAD)"
+add_real_diff "$repo" feature.txt
+mkdir -p "$repo/.loki/quality"
+cat > "$repo/.loki/quality/test-results.json" <<'EOF'
+{
+    "timestamp": "2026-09-26T00:00:00Z",
+    "runner": "none",
+    "pass": "inconclusive",
+    "status": "no_tests_run",
+    "summary": "0 tests"
+}
+EOF
+run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 0 ]; then ok "case13 rc=0 (zero-test does NOT block/deadlock)"; else bad "case13 rc=0" "got rc=$GATE_RC"; fi
+[ ! -f "$GATE_BLOCK_FILE" ] && ok "case13 no evidence-block.json (pass-through)" || bad "case13 no block file" "block file written"
+v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+[ "$v" = "true" ] && ok "case13 tests.inconclusive=true (runner:none + no_tests_run is NOT affirmative)" || bad "case13 tests.inconclusive=true" "got [$v]"
+r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
+[ "$r" = "no_tests_executed" ] && ok "case13 tests.inconclusive_reason=no_tests_executed" || bad "case13 reason=no_tests_executed" "got [$r]"
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ -n "$v" ] && [ "$v" != "true" ] && ok "case13 tests.pass=[$v], not true (zero tests executed is not a pass)" || bad "case13 tests.pass not true" "got [$v]"
+# The opt-out must NOT resurrect this as affirmative: a zero-test run is never
+# affirmative evidence regardless of LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE.
+repo="$(new_repo case13-optout)"
+base="$(grepo "$repo" rev-parse HEAD)"
+add_real_diff "$repo" feature.txt
+mkdir -p "$repo/.loki/quality"
+cat > "$repo/.loki/quality/test-results.json" <<'EOF'
+{
+    "timestamp": "2026-09-26T00:00:00Z",
+    "runner": "none",
+    "pass": "inconclusive",
+    "status": "no_tests_run",
+    "summary": "0 tests"
+}
+EOF
+LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1 run_gate "$repo" "$base"
+v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+[ "$v" = "true" ] && ok "case13-optout tests.inconclusive=true (opt-out does NOT resurrect a zero-test run as affirmative)" || bad "case13-optout inconclusive=true" "got [$v]"
+
+# ===========================================================================
+# Case 14 (BACKLOG 33): the same zero-test record with the "runner" key
+# OMITTED entirely (defaults to "none" via d.get('runner','none')) -- the
+# exact shape that reproduced the ordering bug against council_evidence_gate's
+# own parser: {"pass":"inconclusive","status":"no_tests_run"} used to yield an
+# affirmative PASS. Must resolve identically to Case 13.
+# ===========================================================================
+echo "Case 14 (BACKLOG 33): runner OMITTED + status:no_tests_run -> INCONCLUSIVE, never PASS"
+repo="$(new_repo case14)"
+base="$(grepo "$repo" rev-parse HEAD)"
+add_real_diff "$repo" feature.txt
+mkdir -p "$repo/.loki/quality"
+cat > "$repo/.loki/quality/test-results.json" <<'EOF'
+{
+    "timestamp": "2026-09-26T00:00:00Z",
+    "pass": "inconclusive",
+    "status": "no_tests_run",
+    "summary": "0 tests"
+}
+EOF
+run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 0 ]; then ok "case14 rc=0 (zero-test does NOT block/deadlock)"; else bad "case14 rc=0" "got rc=$GATE_RC"; fi
+[ ! -f "$GATE_BLOCK_FILE" ] && ok "case14 no evidence-block.json (pass-through)" || bad "case14 no block file" "block file written"
+v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+[ "$v" = "true" ] && ok "case14 tests.inconclusive=true (runner omitted + no_tests_run is NOT affirmative)" || bad "case14 tests.inconclusive=true" "got [$v]"
+r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
+[ "$r" = "no_tests_executed" ] && ok "case14 tests.inconclusive_reason=no_tests_executed" || bad "case14 reason=no_tests_executed" "got [$r]"
+v="$(jget "$GATE_DETAILS_FILE" tests pass)"
+[ -n "$v" ] && [ "$v" != "true" ] && ok "case14 tests.pass=[$v], not true (zero tests executed is not a pass)" || bad "case14 tests.pass not true" "got [$v]"
+
+# ===========================================================================
+# Case 15 (BACKLOG 33 REWORK #2, S-07): the REAL no-test-tooling shape, exactly
+# as run.sh's enforce_test_coverage's no-runner branch writes it (verified by
+# reading autonomy/run.sh:12691-12692): runner:"none", pass:"inconclusive" --
+# the STRING, never a boolean true -- status:"not_run" (distinct from the #82
+# no_tests_run status, which is a REAL runner that executed zero tests). A
+# prior (unmerged) rework narrowed the runner=='none' sentinel to require a
+# recorded boolean pass:true, believing that matched the no-test-tooling
+# shape. It does not: this shape must still read as the PASS/no_test_runner
+# no-tooling sentinel, not NO_PASS/no_pass_recorded.
+# ===========================================================================
+echo "Case 15 (BACKLOG 33 rework #2): REAL run.sh no-test-tooling shape -> PASS/no_test_runner sentinel (not narrowed to pass:true)"
+repo="$(new_repo case15)"
+base="$(grepo "$repo" rev-parse HEAD)"
+add_real_diff "$repo" feature.txt
+mkdir -p "$repo/.loki/quality"
+cat > "$repo/.loki/quality/test-results.json" <<'EOF'
+{"timestamp":"2026-09-26T00:00:00Z","runner":"none","pass":"inconclusive","summary":"Verification gap: no runnable tests detected","command":null,"exit_code":null,"status":"not_run","passed_count":null,"failed_count":null,"verification_gap":"source_without_tests"}
+EOF
+run_gate "$repo" "$base"
+if [ "$GATE_RC" -eq 0 ]; then ok "case15 rc=0 (real no-tooling shape does NOT block/deadlock)"; else bad "case15 rc=0" "got rc=$GATE_RC"; fi
+v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+[ "$v" = "true" ] && ok "case15 tests.inconclusive=true (no-tooling is NOT affirmative, same as Case 1)" || bad "case15 tests.inconclusive=true" "got [$v]"
+r="$(jget "$GATE_DETAILS_FILE" tests inconclusive_reason)"
+[ "$r" = "no_test_runner" ] && ok "case15 tests.inconclusive_reason=no_test_runner (NOT the wrong no_pass_recorded label)" || bad "case15 reason=no_test_runner" "got [$r]"
+# The opt-out DOES restore affirmative behavior for the real no-tooling shape
+# (unlike ZEROTESTS, this is the runner=="none" branch, which the opt-out
+# still governs).
+repo="$(new_repo case15-optout)"
+base="$(grepo "$repo" rev-parse HEAD)"
+add_real_diff "$repo" feature.txt
+mkdir -p "$repo/.loki/quality"
+cat > "$repo/.loki/quality/test-results.json" <<'EOF'
+{"timestamp":"2026-09-26T00:00:00Z","runner":"none","pass":"inconclusive","summary":"Verification gap: no runnable tests detected","command":null,"exit_code":null,"status":"not_run","passed_count":null,"failed_count":null,"verification_gap":"source_without_tests"}
+EOF
+LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1 run_gate "$repo" "$base"
+v="$(jget "$GATE_DETAILS_FILE" tests inconclusive)"
+[ "$v" = "false" ] && ok "case15-optout tests.inconclusive=false (opt-out restores affirmative for the real no-tooling shape)" || bad "case15-optout inconclusive=false" "got [$v]"
+
+# ===========================================================================
+# Case 16 (BACKLOG 33 REWORK #2, S-07): council_evaluate_member must vote the
+# SAME way on the real no-test-tooling shape as it does on origin/main today
+# (2-of-3 COMPLETE: requirements_verifier + devils_advocate COMPLETE,
+# test_auditor CONTINUE). This is the exact regression the reviewer found in
+# the prior rework: narrowing runner=='none' to require pass:true dropped this
+# to 0-of-3 CONTINUE, because the real writer never produces a boolean
+# pass:true for runner:"none".
+# ===========================================================================
+echo "Case 16 (BACKLOG 33 rework #2): member votes on the REAL no-test-tooling shape -> 2-of-3 COMPLETE (unchanged)"
+proj="$TMP_ROOT/case16-real-notest"
+mkdir -p "$proj/.loki/quality" "$proj/.loki/logs" "$proj/.loki/queue"
+cat > "$proj/.loki/quality/test-results.json" <<'EOF'
+{"timestamp":"2026-09-26T00:00:00Z","runner":"none","pass":"inconclusive","summary":"Verification gap: no runnable tests detected","command":null,"exit_code":null,"status":"not_run","passed_count":null,"failed_count":null,"verification_gap":"source_without_tests"}
+EOF
+v="$(member_vote "$proj" requirements_verifier)"
+[ "$v" = "COMPLETE" ] && ok "case16 requirements_verifier -> COMPLETE (real no-tooling shape is positive base evidence)" || bad "case16 requirements_verifier" "got [$v]"
+v="$(member_vote "$proj" test_auditor)"
+[ "$v" = "CONTINUE" ] && ok "case16 test_auditor -> CONTINUE (no real suite ran, unchanged)" || bad "case16 test_auditor" "got [$v]"
+v="$(member_vote "$proj" devils_advocate)"
+[ "$v" = "COMPLETE" ] && ok "case16 devils_advocate -> COMPLETE (real no-tooling shape is positive base evidence)" || bad "case16 devils_advocate" "got [$v]"
 
 # ---------------------------------------------------------------------------
 echo

@@ -144,7 +144,7 @@
       var rid = esc(p.run_id);
       var usd = (p.cost_usd !== null && p.cost_usd !== undefined) ? fmtUsd(p.cost_usd) : "";
       var fc = (p.files_changed !== null && p.files_changed !== undefined) ? (p.files_changed + " files") : "";
-      var verdict = p.final_verdict ? '<span class="badge ' + badgeClass(p.final_verdict) + '">' + esc(p.final_verdict) + "</span>" : "";
+      var verdict = p.final_verdict ? '<span class="badge ' + badgeClass(p.final_verdict) + '" title="Recorded council vote, not a verification result">council ' + esc(p.final_verdict) + "</span>" : "";
       var ver = p.loki_version ? ("v" + esc(p.loki_version)) : "";
       var ts = p.generated_at ? esc(p.generated_at) : "";
       var href = p.has_html ? ("/api/proofs/" + encodeURIComponent(p.run_id) + "/html") : ("/api/proofs/" + encodeURIComponent(p.run_id));

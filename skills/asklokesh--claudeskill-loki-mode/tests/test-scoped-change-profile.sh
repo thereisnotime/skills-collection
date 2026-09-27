@@ -23,12 +23,37 @@ ko() { echo "  FAIL: $1"; failed=$((failed + 1)); shift; [[ $# -gt 0 ]] && echo 
 
 echo "TEST: scoped-change profile"
 
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/loki-scoped-XXXXXX")"
+trap 'rm -rf "$SCRATCH"' EXIT
+
+# Dedicated cd target for sourcing run.sh (kept separate from the fixture
+# repos below, which are under test themselves).
+SOURCE_CWD="$SCRATCH/.source-cwd"
+mkdir -p "$SOURCE_CWD"
+
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$SCRATCH/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 # Probe the profile in a subshell so nothing leaks between cases.
 # $1 is an env prefix; $2 (optional) is the spec path passed POSITIONALLY, the
 # way `loki start <issue>` actually hands the PRD to run.sh.
+#
+# cd into SOURCE_CWD BEFORE sourcing run.sh: sourcing runs provider
+# auto-detection, which does `mkdir -p .loki/state && echo ... >
+# .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT that
+# writes into the shared checkout and contaminates every later test in the
+# same shell (same bug class as test-iteration-grace.sh and
+# test-exit-code-contract.sh).
 probe() {
     local env_prefix="${1:-}" spec_arg="${2:-}"
-    bash -c "source '$RUN_SH' 2>/dev/null
+    bash -c "cd '$SOURCE_CWD' && source '$RUN_SH' 2>/dev/null
              $env_prefix loki_apply_scoped_change_profile $spec_arg 2>/dev/null
              printf 'active=%s research=%s perf=%s regression=%s uat=%s review=%s security=%s unit=%s e2e=%s\n' \
                  \"\${LOKI_SCOPED_CHANGE_ACTIVE:-0}\" \
@@ -43,8 +68,6 @@ probe() {
 }
 
 # A repo that looks like real existing code: >=5 commits.
-SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/loki-scoped-XXXXXX")"
-trap 'rm -rf "$SCRATCH"' EXIT
 REPO="$SCRATCH/repo"
 mkdir -p "$REPO"
 git -C "$REPO" init -q .
@@ -165,6 +188,24 @@ out_r="$(probe "TARGET_DIR='$REPO' LOKI_PRD_FILE=refactor-everything.md")"
 [[ "$out_r" == *"active=0"* ]] \
     && ok "a non-issue spec on an existing repo keeps the full suite" \
     || ko "a non-issue spec on an existing repo keeps the full suite" "$out_r"
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: SOURCE_CWD must show its own provider file did get
+# written. Without this, disabling the mkdir entirely (or the probe silently
+# no-op-ing) would also read as "isolated" -- the check would pass for the
+# wrong reason.
+if [[ -f "$SOURCE_CWD/.loki/state/provider" ]]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    ko "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [[ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]]; then
+    ko "sourcing run.sh left no .loki/state/provider in the repo checkout" \
+       "$REPO_ROOT/.loki/state/provider is newer than this run's start"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
+fi
 
 echo ""
 echo "  Passed:     $passed"

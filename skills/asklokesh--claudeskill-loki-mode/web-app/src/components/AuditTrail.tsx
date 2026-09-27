@@ -47,46 +47,6 @@ interface AuditFilters {
 }
 
 // ---------------------------------------------------------------------------
-// Sample data
-// ---------------------------------------------------------------------------
-
-const SAMPLE_ACTIONS = [
-  'user.login', 'user.logout', 'user.invited',
-  'project.created', 'project.deleted', 'project.deployed',
-  'key.created', 'key.revoked',
-  'role.changed', 'settings.updated',
-  'build.started', 'build.completed', 'build.failed',
-];
-
-function generateSampleEvents(): AuditEvent[] {
-  const users = ['admin@company.com', 'dev@company.com', 'lead@company.com', 'ops@company.com'];
-  const ips = ['192.168.1.10', '10.0.0.42', '172.16.0.5', '192.168.1.22'];
-  const targets = ['my-saas-app', 'cli-tool', 'api-service', 'staging', 'production'];
-  const categories: AuditEvent['category'][] = ['auth', 'project', 'admin', 'deploy', 'api', 'system'];
-
-  return Array.from({ length: 50 }, (_, i) => {
-    const action = SAMPLE_ACTIONS[Math.floor(Math.random() * SAMPLE_ACTIONS.length)];
-    const category = action.startsWith('user') ? 'auth'
-      : action.startsWith('project') ? 'project'
-      : action.startsWith('key') ? 'api'
-      : action.startsWith('build') ? 'deploy'
-      : action.startsWith('role') || action.startsWith('settings') ? 'admin'
-      : categories[Math.floor(Math.random() * categories.length)];
-
-    return {
-      id: `evt-${i}`,
-      timestamp: new Date(Date.now() - i * 1800000 - Math.random() * 600000).toISOString(),
-      user: users[Math.floor(Math.random() * users.length)],
-      action,
-      target: targets[Math.floor(Math.random() * targets.length)],
-      details: `${action.replace('.', ': ')} by user on ${targets[Math.floor(Math.random() * targets.length)]}`,
-      ip: ips[Math.floor(Math.random() * ips.length)],
-      category,
-    };
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Category badge
 // ---------------------------------------------------------------------------
 
@@ -123,7 +83,9 @@ export function AuditTrail({
   pollInterval = 30000,
   className = '',
 }: AuditTrailProps) {
-  const [allEvents, setAllEvents] = useState<AuditEvent[]>(externalEvents || generateSampleEvents());
+  // No sample fallback: rows come from `events` or `onFetch`, nothing else.
+  const [allEvents, setAllEvents] = useState<AuditEvent[]>(externalEvents ?? []);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
@@ -137,19 +99,23 @@ export function AuditTrail({
 
   const PAGE_SIZE = 15;
 
-  // Polling for real-time updates
+  // Initial load plus polling. A failed read is shown as a failure, never as
+  // an empty log.
   useEffect(() => {
-    if (!onFetch || pollInterval <= 0) return;
+    if (!onFetch) return;
 
     const poll = async () => {
       try {
         const events = await onFetch({ search, user: userFilter, actionType: actionFilter, dateFrom, dateTo });
         setAllEvents(events);
-      } catch {
-        // silently ignore polling errors
+        setLoadError(null);
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : 'request failed');
       }
     };
 
+    void poll();
+    if (pollInterval <= 0) return;
     pollRef.current = setInterval(poll, pollInterval);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -211,8 +177,9 @@ export function AuditTrail({
     try {
       const events = await onFetch({ search, user: userFilter, actionType: actionFilter, dateFrom, dateTo });
       setAllEvents(events);
-    } catch {
-      // ignore
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'request failed');
     } finally {
       setLoading(false);
     }
@@ -236,9 +203,11 @@ export function AuditTrail({
           <h3 className="text-sm font-semibold text-[#201515] dark:text-[#E8E6E3] uppercase tracking-wider">
             Audit Trail
           </h3>
-          <span className="text-xs text-[#939084] ml-1">
-            {filtered.length} event{filtered.length !== 1 ? 's' : ''}
-          </span>
+          {!loadError && (
+            <span className="text-xs text-[#939084] ml-1">
+              {filtered.length} event{filtered.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="ghost" icon={RefreshCw} onClick={handleRefresh} loading={loading}>
@@ -381,7 +350,7 @@ export function AuditTrail({
                   <td className="px-3 py-2.5 hidden md:table-cell">
                     <div className="flex items-center gap-1 text-xs text-[#939084]">
                       <Globe size={12} />
-                      <span className="font-mono">{event.ip}</span>
+                      <span className="font-mono">{event.ip || '--'}</span>
                     </div>
                   </td>
                 </tr>
@@ -396,7 +365,7 @@ export function AuditTrail({
                           <div className="flex items-center gap-4 mt-2 text-xs text-[#939084]">
                             <span>Event ID: {event.id}</span>
                             <span>Full timestamp: {new Date(event.timestamp).toISOString()}</span>
-                            <span>IP: {event.ip}</span>
+                            <span>IP: {event.ip || 'not recorded'}</span>
                           </div>
                         </div>
                       </div>
@@ -408,7 +377,11 @@ export function AuditTrail({
             {pageEvents.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-[#939084]">
-                  No events match your filters.
+                  {loadError
+                    ? `Could not load the audit log (${loadError}). Nothing is shown rather than a guess.`
+                    : allEvents.length === 0
+                      ? 'No audit events recorded yet.'
+                      : 'No events match your filters.'}
                 </td>
               </tr>
             )}

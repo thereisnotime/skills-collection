@@ -5,11 +5,11 @@
 # controls BOTH PostHog usage telemetry and local crash capture. It is
 # sourceable for helpers only; it executes nothing on source.
 #
-# Collection is OPT-IN and OFF by default. Nothing is collected, written, or
-# sent unless the user explicitly opts in. A default install cannot phone home,
-# which makes air-gapped, GDPR, and FedRAMP deployments safe out of the box.
+# Collection is ON by default for an individual interactive install and
+# auto-off in CI, non-interactive, LOKI_ENTERPRISE=true and LOKI_AIRGAP=true
+# contexts (see loki_collection_enabled below and docs/PRIVACY.md).
 #
-# Opt-in (collection is enabled ONLY when one of these is present):
+# Explicit opt-in (forces collection on, even where it would auto-off):
 #   - LOKI_TELEMETRY=on             (case-insensitive, exact word "on")
 #   - ~/.loki/config line: TELEMETRY_ENABLED=true   (written by: loki telemetry on)
 #
@@ -20,8 +20,8 @@
 #   - ~/.loki/config line: TELEMETRY_DISABLED=true
 #
 # All capture is best-effort: it never blocks the parent and always returns 0.
-# Phase 0 has zero network egress; local capture is also gated by opt-in so a
-# default install writes nothing at all.
+# Phase 0 crash capture has zero network egress; local capture uses the same
+# gate as telemetry.
 
 # Double-source guard.
 if [ -n "${_LOKI_CRASH_SH_SOURCED:-}" ]; then

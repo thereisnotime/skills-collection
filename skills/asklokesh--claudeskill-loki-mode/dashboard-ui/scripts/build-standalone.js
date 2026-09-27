@@ -1457,14 +1457,16 @@ function generateStandaloneHTML(bundleCode) {
             <script>
               (function(){
                 function loadEconomics(){
-                  fetch('/api/memory/economics').then(function(r){ return r.json(); }).then(function(j){
+                  fetch('/api/memory/economics').then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function(j){
                     var hr = document.getElementById('econ-hit-rate');
                     var tt = document.getElementById('econ-total-tokens');
                     var sv = document.getElementById('econ-savings');
                     var top = document.getElementById('memory-economics-top');
-                    if (hr) hr.textContent = ((j.hit_rate || 0) * 100).toFixed(1) + '%';
-                    if (tt) tt.textContent = (j.total_tokens || 0).toLocaleString();
-                    if (sv) sv.textContent = (j.savings_percent || 0).toFixed(1) + '%';
+                    // null means nothing was recorded: the tile keeps "--".
+                    function isNum(v){ return typeof v === 'number' && isFinite(v); }
+                    if (hr) hr.textContent = isNum(j.hit_rate) ? (j.hit_rate * 100).toFixed(1) + '%' : '--';
+                    if (tt) tt.textContent = isNum(j.total_tokens) ? j.total_tokens.toLocaleString() : '--';
+                    if (sv) sv.textContent = isNum(j.savings_percent) ? j.savings_percent.toFixed(1) + '%' : '--';
                     if (top) {
                       var patterns = j.top_patterns || [];
                       // v7.7.21 council fix (Opus 1): build DOM with
@@ -1481,7 +1483,7 @@ function generateStandaloneHTML(bundleCode) {
                         patterns.slice(0, 5).forEach(function(p){
                           var row = document.createElement('div');
                           // textContent escapes everything; no markup injection.
-                          row.textContent = (p.access_count || 0) + 'x · ' +
+                          row.textContent = p.access_count + 'x · ' +
                             (p.summary || p.id || '');
                           top.appendChild(row);
                         });
@@ -2393,15 +2395,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       badge.classList.remove('empty');
-      // "N receipts - M verified" with the verified count emphasized.
+      // "N receipts - M recorded verified". The count is each receipt's own
+      // recorded headline (/api/proofs/summary), not re-verified here.
       textEl.innerHTML = plural(total, 'receipt') + ' - '
-        + '<span class="receipts-verified"></span> verified';
+        + '<span class="receipts-verified"></span> recorded verified';
       var vEl = textEl.querySelector('.receipts-verified');
       if (vEl) vEl.textContent = String(verified);
       badge.title = plural(verified, 'receipt') + ' of ' + total
-        + ' verified by a deterministic Evidence Receipt (re-verifiable with '
-        + '"loki proof verify"). "Verified" means tests passed with real '
-        + 'exit-code evidence, not an LLM opinion.';
+        + ' recorded a VERIFIED headline (tests passed with real exit-code '
+        + 'evidence, not an LLM opinion). Recorded by the generator and not '
+        + 're-verified here: check one with "loki proof verify <run-id>".';
       badge.classList.add('show');
     }
 
@@ -2423,7 +2426,7 @@ document.addEventListener('DOMContentLoaded', function() {
           var lim = d.budget_limit;
           var cur = d.current_cost;
           var curTxt = (cur === null || cur === undefined) ? 'not measured'
-                     : ('$' + Number(cur).toFixed(2));
+                     : ('$' + Number(cur).toFixed(2) + (d.partial ? ' (partial)' : ''));
           if (lim === null || lim === undefined) {
             el.style.borderColor = 'var(--loki-warning)';
             el.innerHTML = '<strong>No spend cap set.</strong> This run will not stop on cost. '
@@ -2435,7 +2438,7 @@ document.addEventListener('DOMContentLoaded', function() {
               + ', spent ' + curTxt + '.';
           } else {
             var rem = (d.remaining === null || d.remaining === undefined)
-              ? 'not measured' : ('$' + Number(d.remaining).toFixed(2));
+              ? 'not measured' : ((d.partial ? 'at most ' : '') + '$' + Number(d.remaining).toFixed(2));
             el.style.borderColor = 'var(--loki-border)';
             el.innerHTML = 'Spend cap $' + Number(lim).toFixed(2)
               + '. Spent ' + curTxt + ', remaining ' + rem + '.';
@@ -2466,6 +2469,9 @@ document.addEventListener('DOMContentLoaded', function() {
           var rows = Array.isArray(d) ? d : (d.learnings || []);
           if (!rows.length) return;      // nothing learned yet: say nothing
           rows = rows.slice().reverse().slice(0, 8);
+          // Every field is untrusted text (written by the run) going into
+          // innerHTML, so each one is escaped.
+          var esc = function (v) { var e = document.createElement('div'); e.textContent = String(v); return e.innerHTML; };
           var html = '';
           for (var i = 0; i < rows.length; i++) {
             var x = rows[i] || {};
@@ -2473,13 +2479,13 @@ document.addEventListener('DOMContentLoaded', function() {
             var iter = (x.iteration === null || x.iteration === undefined) ? '-' : ('iter ' + x.iteration);
             html += '<div style="padding:8px;border-bottom:1px solid var(--loki-border);font-size:12px;">'
                  + '<div style="display:flex;gap:10px;color:var(--loki-text-muted);margin-bottom:4px;">'
-                 + '<span>' + when + '</span><span>' + iter + '</span>'
-                 + '<span>' + String(x.trigger || 'unknown trigger') + '</span></div>'
+                 + '<span>' + esc(when) + '</span><span>' + esc(iter) + '</span>'
+                 + '<span>' + esc(x.trigger || 'unknown trigger') + '</span></div>'
                  + '<div style="margin-bottom:3px;"><strong>cause:</strong> '
-                 + String(x.rootCause || 'not recorded') + '</div>'
-                 + (x.fix ? '<div style="margin-bottom:3px;"><strong>fix:</strong> ' + String(x.fix) + '</div>' : '')
+                 + esc(x.rootCause || 'not recorded') + '</div>'
+                 + (x.fix ? '<div style="margin-bottom:3px;"><strong>fix:</strong> ' + esc(x.fix) + '</div>' : '')
                  + (x.preventInFuture ? '<div style="color:var(--loki-text-muted);"><strong>prevent:</strong> '
-                     + String(x.preventInFuture) + '</div>' : '')
+                     + esc(x.preventInFuture) + '</div>' : '')
                  + '</div>';
           }
           list.innerHTML = html;
@@ -2508,11 +2514,18 @@ document.addEventListener('DOMContentLoaded', function() {
           var rows = Array.isArray(d) ? d : (d.proofs || d.receipts || []);
           if (!rows.length) return;            // no receipts yet: say nothing
           rows = rows.slice().reverse().slice(0, 10);
+          // Every field is untrusted text (written by the run) going into
+          // innerHTML, so each one is escaped.
+          var esc = function (v) { var e = document.createElement('div'); e.textContent = String(v); return e.innerHTML; };
           var html = '';
           for (var i = 0; i < rows.length; i++) {
             var x = rows[i] || {};
-            var verdict = x.headline || x.final_verdict || 'UNKNOWN';
-            var verified = /^VERIFIED/i.test(verdict);
+            // Recorded values, labelled: the receipt's own headline, else the
+            // council vote. Success colour only for an exact VERIFIED headline
+            // ("VERIFIED WITH GAPS" is not a success).
+            var verdict = x.headline ? x.headline
+              : (x.final_verdict ? 'council ' + x.final_verdict : 'UNKNOWN');
+            var verified = x.headline === 'VERIFIED';
             var col = verified ? 'var(--loki-success)' : 'var(--loki-text-muted)';
             var files = (x.files_changed === null || x.files_changed === undefined)
               ? '-' : String(x.files_changed);
@@ -2526,9 +2539,9 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<div style="display:flex;gap:12px;align-items:center;padding:6px 8px;'
                  + 'border-bottom:1px solid var(--loki-border);font-size:12px;">'
                  + '<span style="color:' + col + ';font-weight:600;min-width:130px;">'
-                 + String(verdict).slice(0, 22) + '</span>'
-                 + '<span style="color:var(--loki-text-muted);min-width:120px;">' + when + '</span>'
-                 + '<span style="min-width:90px;">' + files + ' files</span>'
+                 + esc(String(verdict).slice(0, 22)) + '</span>'
+                 + '<span style="color:var(--loki-text-muted);min-width:120px;">' + esc(when) + '</span>'
+                 + '<span style="min-width:90px;">' + esc(files) + ' files</span>'
                  + '<span style="min-width:70px;">' + cost + '</span>'
                  + link + '</div>';
           }
@@ -2583,11 +2596,11 @@ document.addEventListener('DOMContentLoaded', function() {
           var html = '';
           for (var i = 0; i < rows.length; i++) {
             var x = rows[i] || {};
-            // ESCAPED, unlike the verdict in loadReceipts. That comes from a
-            // controlled set; a phase name does not -- api_phases.py passes
-            // names through verbatim and _advance_current_phase accepts ANY
-            // string, so the set is open and this is untrusted text going into
-            // innerHTML on a dashboard that can be bound remotely.
+            // ESCAPED, like every field in loadReceipts and loadLearnings.
+            // api_phases.py passes names through verbatim and
+            // _advance_current_phase accepts ANY string, so this is untrusted
+            // text going into innerHTML on a dashboard that can be bound
+            // remotely.
             var raw = String(x.phase || 'UNKNOWN');
             var _d = document.createElement('div');
             _d.textContent = raw;

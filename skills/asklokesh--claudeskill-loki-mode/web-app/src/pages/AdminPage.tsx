@@ -1,282 +1,173 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Users,
   FolderKanban,
-  Hammer,
   DollarSign,
   Activity,
-  Server,
   Zap,
   Clock,
   ShieldAlert,
   BarChart3,
+  ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { ProgressRing } from '../components/ProgressRing';
-import { UsageAnalytics } from '../components/UsageAnalytics';
-import { AuditTrail } from '../components/AuditTrail';
+import { api } from '../api/client';
+import type { AuditEntry } from '../components/RBACPanel';
+import { UsageAnalytics, type CostBreakdown } from '../components/UsageAnalytics';
+import { AuditTrail, type AuditEvent } from '../components/AuditTrail';
 import { UserManagement } from '../components/UserManagement';
 import { ProjectGovernance } from '../components/ProjectGovernance';
 import { ComplianceDashboard } from '../components/ComplianceDashboard';
 
 // ---------------------------------------------------------------------------
-// Types
+// Every number on this page comes from an endpoint that measured it. The
+// overview used to render invented values ("24 users", "$201.00 Monthly Cost",
+// a 94% success ring, fake provider latencies, twenty fake audit rows); those
+// are gone. A read that has not finished shows "...", a read that failed shows
+// "Unavailable", and an unrecorded cost shows "Not recorded" -- never 0.
 // ---------------------------------------------------------------------------
 
-interface OverviewCard {
-  label: string;
-  value: string;
-  change?: string;
-  changePositive?: boolean;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  color: string;
+type CostSummary = Awaited<ReturnType<typeof api.getCost>>;
+
+/** A fetch result: pending (undefined), failed (null), or the value. */
+type Read<T> = T | null | undefined;
+
+interface OverviewData {
+  projects: Read<number>;
+  teams: Read<{ count: number; members: number }>;
+  cost: Read<CostSummary>;
+  audit: Read<AuditEntry[]>;
 }
 
-interface SystemHealth {
-  name: string;
-  status: 'healthy' | 'degraded' | 'down';
-  latency?: number;
+function formatUsd(v: number | null | undefined): string {
+  if (v === null || v === undefined) return 'Not recorded';
+  return `$${v.toFixed(2)}`;
 }
 
-interface RecentAction {
-  id: string;
-  user: string;
-  action: string;
-  target: string;
-  timestamp: string;
+function show<T>(r: Read<T>, fmt: (v: T) => string): string {
+  if (r === undefined) return '...';
+  if (r === null) return 'Unavailable';
+  return fmt(r);
 }
 
-interface UserActivity {
-  name: string;
-  builds: number;
-}
+const MODEL_COLORS = ['#553DE9', '#1FC5A8', '#F59E0B', '#6366F1', '#C45B5B', '#939084'];
 
-// ---------------------------------------------------------------------------
-// Sample data generators
-// ---------------------------------------------------------------------------
-
-function generateOverviewCards(): OverviewCard[] {
-  return [
-    {
-      label: 'Total Users',
-      value: '24',
-      change: '+3 this month',
-      changePositive: true,
-      icon: Users,
-      color: '#553DE9',
-    },
-    {
-      label: 'Active Projects',
-      value: '18',
-      change: '+5 this week',
-      changePositive: true,
-      icon: FolderKanban,
-      color: '#1FC5A8',
-    },
-    {
-      label: 'Total Builds',
-      value: '342',
-      change: '+47 this week',
-      changePositive: true,
-      icon: Hammer,
-      color: '#F59E0B',
-    },
-    {
-      label: 'Monthly Cost',
-      value: '$201.00',
-      change: '-12% vs last month',
-      changePositive: true,
-      icon: DollarSign,
-      color: '#C45B5B',
-    },
-  ];
-}
-
-function generateSystemHealth(): SystemHealth[] {
-  return [
-    { name: 'API Server', status: 'healthy', latency: 45 },
-    { name: 'Claude Provider', status: 'healthy', latency: 230 },
-    { name: 'Codex Provider', status: 'degraded', latency: 890 },
-    { name: 'Gemini Provider', status: 'healthy', latency: 310 },
-    { name: 'Task Queue', status: 'healthy', latency: 12 },
-    { name: 'WebSocket', status: 'healthy', latency: 8 },
-  ];
-}
-
-function generateRecentActions(): RecentAction[] {
-  const actions = [
-    { user: 'alex@company.com', action: 'started build', target: 'customer-portal' },
-    { user: 'sarah@company.com', action: 'deployed', target: 'analytics-dashboard' },
-    { user: 'mike@company.com', action: 'created project', target: 'cli-tools' },
-    { user: 'jordan@company.com', action: 'completed build', target: 'api-service' },
-    { user: 'alex@company.com', action: 'updated settings', target: 'provider config' },
-    { user: 'emily@company.com', action: 'invited user', target: 'new-dev@company.com' },
-    { user: 'sarah@company.com', action: 'rotated API key', target: 'production' },
-    { user: 'mike@company.com', action: 'started build', target: 'mobile-app' },
-    { user: 'jordan@company.com', action: 'approved project', target: 'data-pipeline' },
-    { user: 'alex@company.com', action: 'failed build', target: 'legacy-service' },
-    { user: 'sarah@company.com', action: 'created checkpoint', target: 'analytics-dashboard' },
-    { user: 'emily@company.com', action: 'changed role', target: 'mike -> editor' },
-    { user: 'mike@company.com', action: 'deployed', target: 'cli-tools' },
-    { user: 'alex@company.com', action: 'started build', target: 'landing-page' },
-    { user: 'jordan@company.com', action: 'reviewed project', target: 'api-service' },
-    { user: 'sarah@company.com', action: 'completed build', target: 'analytics-dashboard' },
-    { user: 'emily@company.com', action: 'updated template', target: 'saas-app' },
-    { user: 'mike@company.com', action: 'started build', target: 'discord-bot' },
-    { user: 'alex@company.com', action: 'approved project', target: 'chrome-ext' },
-    { user: 'jordan@company.com', action: 'deployed', target: 'data-pipeline' },
-  ];
-
-  return actions.map((a, i) => ({
-    id: `act-${i}`,
-    ...a,
-    timestamp: new Date(Date.now() - i * 900000).toISOString(),
+/** Per-model cost from /api/cost. Only models with a recorded number are kept. */
+function costByModel(cost: Read<CostSummary>): CostBreakdown[] | undefined {
+  if (!cost || cost.cost_recorded !== true) return undefined;
+  const rows = Object.entries(cost.by_model || {})
+    .map(([model, v]) => {
+      // The dashboard reader emits per-model objects; tolerate a bare number.
+      const raw = typeof v === 'number' ? v : (v as { cost_usd?: number | null } | null)?.cost_usd;
+      return { model, usd: typeof raw === 'number' && isFinite(raw) ? raw : null };
+    })
+    .filter((r): r is { model: string; usd: number } => r.usd !== null);
+  if (rows.length === 0) return undefined;
+  // A recorded total of $0.00 is a measurement and is shown, with no share.
+  const total = rows.reduce((sum, r) => sum + r.usd, 0);
+  return rows.map((r, i) => ({
+    provider: r.model,
+    cost: r.usd,
+    percentage: total > 0 ? (r.usd / total) * 100 : 0,
+    color: MODEL_COLORS[i % MODEL_COLORS.length],
   }));
 }
 
-function generateUserActivity(): UserActivity[] {
-  return [
-    { name: 'Alex C.', builds: 87 },
-    { name: 'Sarah J.', builds: 64 },
-    { name: 'Mike D.', builds: 52 },
-    { name: 'Jordan L.', builds: 41 },
-    { name: 'Emily P.', builds: 38 },
-    { name: 'Others', builds: 60 },
-  ];
+function categoryOf(action: string): AuditEvent['category'] {
+  const head = action.split('.')[0].toLowerCase();
+  if (['user', 'auth', 'login', 'logout'].includes(head)) return 'auth';
+  if (['team', 'member', 'role', 'settings'].includes(head)) return 'admin';
+  if (['deploy', 'build', 'session'].includes(head)) return 'deploy';
+  if (['key', 'secret', 'api'].includes(head)) return 'api';
+  if (head === 'project') return 'project';
+  return 'system';
+}
+
+function toAuditEvent(e: AuditEntry): AuditEvent {
+  return {
+    id: e.id,
+    timestamp: e.timestamp,
+    user: e.user || 'unknown',
+    action: e.action,
+    target: e.target || '',
+    details: e.details || '',
+    ip: '', // the web-app audit log does not record an IP
+    category: categoryOf(e.action),
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function OverviewCards({ cards }: { cards: OverviewCard[] }) {
+function OverviewCard({ label, value, note, icon: Icon, color }: {
+  label: string;
+  value: string;
+  note: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  color: string;
+}) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map(card => (
-        <div key={card.label} className="card p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-[#6B6960] uppercase tracking-wider">{card.label}</p>
-              <p className="text-2xl font-bold text-[#36342E] dark:text-[#E8E6E3] mt-1">{card.value}</p>
-              {card.change && (
-                <p className={`text-xs mt-1 ${card.changePositive ? 'text-[#1FC5A8]' : 'text-[#C45B5B]'}`}>
-                  {card.change}
-                </p>
-              )}
-            </div>
-            <div
-              className="p-2 rounded-lg"
-              style={{ backgroundColor: `${card.color}10`, color: card.color }}
-            >
-              <card.icon size={20} />
-            </div>
-          </div>
+    <div className="card p-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs text-[#6B6960] uppercase tracking-wider">{label}</p>
+          <p className="text-2xl font-bold text-[#36342E] dark:text-[#E8E6E3] mt-1">{value}</p>
+          <p className="text-xs mt-1 text-[#939084]">{note}</p>
         </div>
-      ))}
-    </div>
-  );
-}
-
-function UserActivityChart({ data }: { data: UserActivity[] }) {
-  const maxBuilds = Math.max(...data.map(d => d.builds));
-
-  return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 mb-4">
-        <BarChart3 size={14} className="text-[#553DE9]" />
-        <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Builds per User</h4>
-      </div>
-      <div className="space-y-3">
-        {data.map(d => (
-          <div key={d.name} className="flex items-center gap-3">
-            <span className="text-xs text-[#6B6960] w-16 text-right flex-shrink-0">{d.name}</span>
-            <div className="flex-1 h-6 bg-[#F8F4F0] dark:bg-[#1A1A1E] rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#553DE9] transition-all duration-500 flex items-center justify-end pr-2"
-                style={{ width: `${(d.builds / maxBuilds) * 100}%` }}
-              >
-                <span className="text-[10px] text-white font-mono">{d.builds}</span>
-              </div>
-            </div>
-          </div>
-        ))}
+        <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}10`, color }}>
+          <Icon size={20} />
+        </div>
       </div>
     </div>
   );
 }
 
-function SystemHealthPanel({ health }: { health: SystemHealth[] }) {
-  const statusColors: Record<string, string> = {
-    healthy: '#1FC5A8',
-    degraded: '#F59E0B',
-    down: '#C45B5B',
-  };
-
-  return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Server size={14} className="text-[#553DE9]" />
-        <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">System Health</h4>
-      </div>
-      <div className="space-y-2">
-        {health.map(h => (
-          <div key={h.name} className="flex items-center justify-between py-1.5">
-            <div className="flex items-center gap-2">
-              <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: statusColors[h.status] }}
-              />
-              <span className="text-sm text-[#36342E] dark:text-[#E8E6E3]">{h.name}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              {h.latency !== undefined && (
-                <span className="text-xs font-mono text-[#939084]">{h.latency}ms</span>
-              )}
-              <span
-                className="text-[10px] font-medium uppercase"
-                style={{ color: statusColors[h.status] }}
-              >
-                {h.status}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RecentActivityLog({ actions }: { actions: RecentAction[] }) {
+function RecentActivityLog({ entries }: { entries: Read<AuditEntry[]> }) {
   const formatTime = (ts: string) =>
     new Date(ts).toLocaleString('en-US', {
-      hour: '2-digit', minute: '2-digit', hour12: false,
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
     });
+  const recent = (entries || [])
+    .slice()
+    .sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1))
+    .slice(0, 20);
 
   return (
     <div className="card p-4">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-1">
         <Activity size={14} className="text-[#553DE9]" />
         <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3]">Recent Activity</h4>
       </div>
-      <div className="space-y-1 max-h-[400px] overflow-y-auto terminal-scroll">
-        {actions.map(action => (
-          <div
-            key={action.id}
-            className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-[#F8F4F0] dark:hover:bg-[#222228] transition-colors"
-          >
-            <span className="text-[10px] font-mono text-[#939084] flex-shrink-0 w-10">
-              {formatTime(action.timestamp)}
-            </span>
-            <div className="flex-1 min-w-0">
-              <span className="text-xs">
-                <span className="text-[#553DE9] font-medium">{action.user.split('@')[0]}</span>
-                <span className="text-[#6B6960]"> {action.action} </span>
-                <span className="text-[#201515] dark:text-[#E8E6E3] font-medium">{action.target}</span>
+      <p className="text-[11px] text-[#939084] mb-3">
+        From this server&apos;s recent-activity log. It keeps the last 500 entries and is not tamper-evident.
+      </p>
+      {entries === undefined && <p className="text-sm text-[#939084]">Loading...</p>}
+      {entries === null && (
+        <p className="text-sm text-[#939084]">Could not load the activity log. Nothing is shown rather than a guess.</p>
+      )}
+      {entries && recent.length === 0 && <p className="text-sm text-[#939084]">No activity recorded yet.</p>}
+      {recent.length > 0 && (
+        <div className="space-y-1 max-h-[400px] overflow-y-auto terminal-scroll">
+          {recent.map(entry => (
+            <div
+              key={entry.id}
+              className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-[#F8F4F0] dark:hover:bg-[#222228] transition-colors"
+            >
+              <span className="text-[10px] font-mono text-[#939084] flex-shrink-0 w-24">
+                {formatTime(entry.timestamp)}
               </span>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs">
+                  <span className="text-[#553DE9] font-medium">{entry.user || 'unknown'}</span>
+                  <span className="text-[#6B6960]"> {entry.action} </span>
+                  <span className="text-[#201515] dark:text-[#E8E6E3] font-medium">{entry.target}</span>
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -322,20 +213,44 @@ const ADMIN_TABS: { id: AdminTab; label: string; icon: React.ComponentType<{ siz
 export default function AdminPage() {
   const { user, isLocalMode } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [data, setData] = useState<OverviewData>({
+    projects: undefined, teams: undefined, cost: undefined, audit: undefined,
+  });
 
   // In local mode, allow access (single user). In auth mode, check role.
   // Since the User type doesn't have a role field, we allow access in local mode
   // and for authenticated users. In production, you'd check user.role === 'admin'.
   const isAdmin = isLocalMode || (user?.authenticated === true);
 
-  const [overviewCards] = useState(generateOverviewCards);
-  const [systemHealth] = useState(generateSystemHealth);
-  const [recentActions] = useState(generateRecentActions);
-  const [userActivity] = useState(generateUserActivity);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    Promise.allSettled([api.getSessionsHistory(), api.getTeams(), api.getCost(), api.getAuditLog()])
+      .then(([history, teams, cost, audit]) => {
+        if (cancelled) return;
+        const val = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === 'fulfilled' ? r.value : null);
+        const t = val(teams);
+        const h = val(history);
+        const a = val(audit);
+        setData({
+          projects: Array.isArray(h) ? h.length : null,
+          teams: Array.isArray(t)
+            ? { count: t.length, members: t.reduce((n, x) => n + (x.members?.length ?? 0), 0) }
+            : null,
+          cost: val(cost),
+          audit: Array.isArray(a) ? a : null,
+        });
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
+
+  const fetchAudit = useCallback(async () => (await api.getAuditLog()).map(toAuditEvent), []);
 
   if (!isAdmin) {
     return <AccessDenied />;
   }
+
+  const costBreakdown = costByModel(data.cost);
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-8">
@@ -364,24 +279,39 @@ export default function AdminPage() {
       {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <OverviewCards cards={overviewCards} />
-          {/* Build success rate ring */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="card p-4 flex flex-col items-center justify-center">
-              <h4 className="text-sm font-medium text-[#36342E] dark:text-[#E8E6E3] mb-3">Build Success Rate</h4>
-              <ProgressRing percentage={94} size={96} strokeWidth={6} color="#1FC5A8">
-                <span className="text-lg font-bold text-[#36342E] dark:text-[#E8E6E3]">94%</span>
-              </ProgressRing>
-              <p className="text-xs text-[#939084] mt-2">342 total builds</p>
-            </div>
-            <div className="lg:col-span-2">
-              <SystemHealthPanel health={systemHealth} />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <OverviewCard
+              label="Projects"
+              value={show(data.projects, String)}
+              // /api/sessions/history reads at most 20 entries per search folder,
+              // so this is a recent-folders count, not a machine-wide total.
+              note="Recent project folders (history lists up to 20 per location)"
+              icon={FolderKanban}
+              color="#1FC5A8"
+            />
+            <OverviewCard
+              label="Teams"
+              value={show(data.teams, t => String(t.count))}
+              note={data.teams ? `${data.teams.members} member${data.teams.members === 1 ? '' : 's'}` : 'Team membership'}
+              icon={Users}
+              color="#553DE9"
+            />
+            <OverviewCard
+              label="Total cost"
+              value={show(data.cost, c => formatUsd(c.estimated_cost_usd))}
+              note="Recorded for the current project"
+              icon={DollarSign}
+              color="#C45B5B"
+            />
+            <OverviewCard
+              label="Audit events"
+              value={show(data.audit, a => String(a.length))}
+              note="Recent-activity log entries"
+              icon={ScrollText}
+              color="#F59E0B"
+            />
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <UserActivityChart data={userActivity} />
-            <RecentActivityLog actions={recentActions} />
-          </div>
+          <RecentActivityLog entries={data.audit} />
         </div>
       )}
 
@@ -390,7 +320,7 @@ export default function AdminPage() {
       )}
 
       {activeTab === 'analytics' && (
-        <UsageAnalytics />
+        <UsageAnalytics data={costBreakdown ? { costBreakdown } : {}} />
       )}
 
       {activeTab === 'governance' && (
@@ -398,7 +328,7 @@ export default function AdminPage() {
       )}
 
       {activeTab === 'audit' && (
-        <AuditTrail />
+        <AuditTrail onFetch={fetchAudit} />
       )}
 
       {activeTab === 'compliance' && (

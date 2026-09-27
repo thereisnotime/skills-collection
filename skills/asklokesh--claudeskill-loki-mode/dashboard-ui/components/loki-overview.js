@@ -32,7 +32,7 @@ export class LokiOverview extends LokiElement {
       phase: null,
       iteration: null,
       provider: null,
-      running_agents: 0,
+      running_agents: null,
       pending_tasks: null,
       uptime_seconds: 0,
       complexity: null,
@@ -209,7 +209,7 @@ export class LokiOverview extends LokiElement {
       phase: status.phase || null,
       iteration: status.iteration != null ? status.iteration : null,
       provider: status.provider || null,
-      running_agents: status.running_agents || 0,
+      running_agents: status.running_agents ?? null,
       pending_tasks: status.pending_tasks != null ? status.pending_tasks : null,
       uptime_seconds: status.uptime_seconds || 0,
       complexity: status.complexity || null,
@@ -419,12 +419,14 @@ export class LokiOverview extends LokiElement {
         </div>
       `;
     }
+    // PASSED only when the gate says so. Any other status is not a pass.
+    const passed = g.status === 'passed' || g.status === 'pass';
     return `
       <div class="overview-card">
         <div class="card-label">Council Gate</div>
         <div class="card-value small-text">
-          <span class="status-dot active"></span>
-          PASSED
+          <span class="status-dot ${passed ? 'active' : 'offline'}"></span>
+          ${passed ? 'PASSED' : `Unknown (${this._escapeHtml(String(g.status))})`}
         </div>
       </div>
     `;
@@ -470,7 +472,7 @@ export class LokiOverview extends LokiElement {
     const firstSeconds = journey.time_to_first_result_sec;
     const firstMeasured = typeof firstSeconds === 'number' && firstSeconds >= 0;
     const firstKind = journey.first_result_kind === 'code_change'
-      ? 'verified patch'
+      ? 'first code change'
       : journey.first_result_kind === 'proposed_solution_plan'
         ? 'proposed solution'
         : 'result';
@@ -479,7 +481,7 @@ export class LokiOverview extends LokiElement {
     const headline = typeof proof?.honesty?.headline === 'string' ? proof.honesty.headline : null;
     const gaps = Array.isArray(proof?.honesty?.degraded) ? proof.honesty.degraded.length : null;
     const proofValue = headline || 'Not evaluated';
-    const proofMeta = gaps === null ? 'Uncertainty not measured' : (gaps === 0 ? 'No recorded gaps' : `${gaps} recorded gap${gaps === 1 ? '' : 's'}`);
+    const proofMeta = (headline ? 'Recorded, not re-verified here; ' : '') + (gaps === null ? 'uncertainty not measured' : (gaps === 0 ? 'no recorded gaps' : `${gaps} recorded gap${gaps === 1 ? '' : 's'}`));
 
     const pullRequest = journey.pull_request;
     let prValue = 'Not prepared';
@@ -498,7 +500,7 @@ export class LokiOverview extends LokiElement {
         <div class="journey-heading" id="journey-heading">Issue to PR</div>
         <div class="journey-steps">
           ${this._renderJourneyStep('Current phase', phaseValue, 'Live session status')}
-          ${this._renderJourneyStep('First useful result', firstValue, firstMeasured && journey.first_result_verified_patch !== true ? 'Plan only, not a verified patch' : 'From the run receipt')}
+          ${this._renderJourneyStep('First useful result', firstValue, firstMeasured && journey.first_result_verified_patch !== true ? 'Plan only, no code change yet' : 'From the run receipt')}
           ${this._renderJourneyStep('Gates and evidence', proofValue, proofMeta)}
           ${this._renderJourneyStep('PR readiness', prValue, prLink || 'No public PR URL recorded')}
         </div>
@@ -527,14 +529,14 @@ export class LokiOverview extends LokiElement {
     const statusDotClass = this._getStatusDotClass();
     const statusLabel = this._escapeHtml((this._data.status || 'OFFLINE').toUpperCase());
     const phase = this._escapeHtml(this._data.phase || '--');
-    const iteration = this._escapeHtml(this._data.iteration != null ? String(this._data.iteration) : '0');
-    const provider = this._escapeHtml((this._data.provider || 'CLAUDE').toUpperCase());
+    const iteration = this._escapeHtml(this._data.iteration != null ? String(this._data.iteration) : '--');
+    const provider = this._escapeHtml((this._data.provider || '--').toUpperCase());
     const isSessionActive = this._data.status === 'running' || this._data.status === 'autonomous';
-    const agentCount = this._data.running_agents || 0;
-    const agents = isSessionActive && agentCount === 0 ? 'Sequential' : this._escapeHtml(String(agentCount));
-    const tasks = this._escapeHtml(this._data.pending_tasks != null ? `${this._data.pending_tasks} pending` : (isSessionActive ? 'Inline' : '--'));
+    const agentCount = this._data.running_agents;
+    const agents = agentCount == null ? '--' : isSessionActive && agentCount === 0 ? 'Sequential' : this._escapeHtml(String(agentCount));
+    const tasks = this._escapeHtml(this._data.pending_tasks != null ? `${this._data.pending_tasks} pending` : '--');
     const uptime = this._escapeHtml(this._formatUptime(this._data.uptime_seconds));
-    const complexity = this._escapeHtml((this._data.complexity || 'STANDARD').toUpperCase());
+    const complexity = this._escapeHtml((this._data.complexity || '--').toUpperCase());
 
     this.shadowRoot.innerHTML = `
       <style>

@@ -38,15 +38,12 @@ export function ROICalculator() {
   const [hoursPerWeek, setHoursPerWeek] = useState(30);
   const [hourlyRate, setHourlyRate] = useState(75);
 
-  // Assumptions: Loki Mode saves ~40% of coding time
+  // Assumed, not measured: shown to the user next to the results.
   const savingsPercent = 0.4;
   const weeksPerMonth = 4.33;
 
   const hoursSavedPerMonth = Math.round(teamSize * hoursPerWeek * savingsPercent * weeksPerMonth);
   const costSavedPerMonth = Math.round(hoursSavedPerMonth * hourlyRate);
-  const annualSavings = costSavedPerMonth * 12;
-  const lokiCost = 0; // Self-hosted, source-available
-  const roiPercent = lokiCost > 0 ? Math.round(((annualSavings - lokiCost) / lokiCost) * 100) : Infinity;
 
   return (
     <div className="bg-white border border-[#ECEAE3] rounded-xl p-6 shadow-sm">
@@ -120,34 +117,32 @@ export function ROICalculator() {
 
       {/* Results */}
       <div className="mt-6 pt-6 border-t border-[#ECEAE3]">
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-2 gap-4 text-center">
           <div>
             <div className="text-2xl font-bold text-[#553DE9]">
               <AnimatedCounter value={hoursSavedPerMonth} suffix="h" />
             </div>
-            <div className="text-xs text-[#6B6960] mt-1">Hours saved / month</div>
+            <div className="text-xs text-[#6B6960] mt-1">Est. hours saved / month</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-[#1FC5A8]">
               <AnimatedCounter value={costSavedPerMonth} prefix="$" />
             </div>
-            <div className="text-xs text-[#6B6960] mt-1">Cost saved / month</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-[#36342E]">
-              {roiPercent === Infinity ? 'Free' : <AnimatedCounter value={roiPercent} suffix="%" />}
-            </div>
-            <div className="text-xs text-[#6B6960] mt-1">ROI (self-hosted)</div>
+            <div className="text-xs text-[#6B6960] mt-1">Est. cost saved / month</div>
           </div>
         </div>
 
         <div className="mt-4 p-3 rounded-lg bg-[#553DE9]/5 border border-[#553DE9]/10">
           <p className="text-sm text-[#36342E] text-center">
-            With Loki Mode, your team could save{' '}
+            If Loki Mode saved {Math.round(savingsPercent * 100)}% of coding time, your team could save{' '}
             <span className="font-bold text-[#553DE9]">{hoursSavedPerMonth.toLocaleString()} hours</span>{' '}
             and{' '}
             <span className="font-bold text-[#1FC5A8]">${costSavedPerMonth.toLocaleString()}</span>{' '}
             per month.
+          </p>
+          <p className="mt-2 text-xs text-[#6B6960] text-center">
+            The {Math.round(savingsPercent * 100)}% is an assumption, not a measurement. Model and API
+            spend is not included.
           </p>
         </div>
       </div>

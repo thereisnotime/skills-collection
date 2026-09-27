@@ -2898,6 +2898,33 @@ async def stop_session() -> JSONResponse:
     return JSONResponse(content={"stopped": True, "message": "Session stopped"})
 
 
+def _measured_state_cost(tokens) -> Optional[float]:
+    """Cost from dashboard-state.json's tokens block, or None when unmeasured.
+
+    Shared by GET /api/session/status and the WebSocket status push. A zero
+    cost with no token counted is an unmeasured record, not a free run.
+    """
+    if not isinstance(tokens, dict):
+        return None
+    cost = tokens.get("cost_usd")
+    if isinstance(cost, bool) or not isinstance(cost, (int, float)):
+        return None
+    counted = any(isinstance(tokens.get(k), (int, float)) and not isinstance(tokens.get(k), bool)
+                  and tokens.get(k) > 0 for k in ("input", "output", "input_tokens", "output_tokens"))
+    return float(cost) if cost > 0 or counted else None
+
+
+def _max_iterations_or_none(configured: int) -> Optional[int]:
+    """The configured iteration cap, else LOKI_MAX_ITERATIONS, else None (never an invented 10)."""
+    if configured > 0:
+        return configured
+    try:
+        env = int(os.environ.get("LOKI_MAX_ITERATIONS", ""))
+    except ValueError:
+        return None
+    return env if env > 0 else None
+
+
 @app.get("/api/session/status")
 async def get_status() -> JSONResponse:
     """Get current session status."""
@@ -2921,15 +2948,17 @@ async def get_status() -> JSONResponse:
             else:
                 is_running = False
 
-    # Try to read .loki state files for richer status
+    # Try to read .loki state files for richer status. A field no state file
+    # carries stays None ("--" in the UI): no invented iteration 0, "standard"
+    # complexity, 10-iteration cap or $0.00 cost.
     loki_dir = _loki_dir()
     phase = "idle"
-    iteration = 0
-    complexity = "standard"
+    iteration = None
+    complexity = None
     current_task = ""
-    pending_tasks = 0
+    pending_tasks = None
     max_iterations = 0
-    cost_usd = 0.0
+    cost_usd = None
 
     # BUG-INT-002 fix: CLI writes dashboard-state.json, not state/session.json.
     # Read from dashboard-state.json (primary) with orchestrator.json fallback.
@@ -2950,10 +2979,7 @@ async def get_status() -> JSONResponse:
                 in_progress = len(_ip) if isinstance(_ip, list) else int(_ip or 0)
                 if in_progress > 0:
                     current_task = f"{in_progress} task(s) in progress"
-            # Extract cost from tokens object if present
-            tokens = state.get("tokens")
-            if isinstance(tokens, dict):
-                cost_usd = float(tokens.get("cost_usd", 0) or 0)
+            cost_usd = _measured_state_cost(state.get("tokens"))
         except (json.JSONDecodeError, OSError):
             pass
     else:
@@ -2991,8 +3017,7 @@ async def get_status() -> JSONResponse:
                                 break
             except (OSError, ValueError):
                 pass
-    if max_iterations <= 0:
-        max_iterations = int(os.environ.get("LOKI_MAX_ITERATIONS", "10"))
+    max_iterations = _max_iterations_or_none(max_iterations)
 
     uptime = time.time() - session.start_time if is_running else 0
 
@@ -3021,13 +3046,14 @@ async def get_status() -> JSONResponse:
         "provider": session.provider,
         "current_task": current_task,
         "pending_tasks": pending_tasks,
-        "running_agents": 0,
+        # Not tracked by this server: unknown, never a measured 0.
+        "running_agents": None,
         "uptime": round(uptime),
         "version": "",
         "pid": str(session.process.pid) if session.process else "",
         "projectDir": session.project_dir,
         "max_iterations": max_iterations,
-        "cost": round(cost_usd, 4),
+        "cost": round(cost_usd, 4) if cost_usd is not None else None,
         "start_time": session.start_time if session.start_time > 0 else 0,
         "exit_code": exit_code,
         "last_output": last_output,
@@ -3131,7 +3157,8 @@ async def get_memory() -> JSONResponse:
             "episodic_count": 0,
             "semantic_count": 0,
             "skill_count": 0,
-            "total_tokens": 0,
+            # Not tracked by this reader: unknown, not 0.
+            "total_tokens": None,
             "last_consolidation": None,
         })
 
@@ -3143,7 +3170,7 @@ async def get_memory() -> JSONResponse:
         "episodic_count": episodic,
         "semantic_count": semantic,
         "skill_count": skills,
-        "total_tokens": 0,
+        "total_tokens": None,
         "last_consolidation": None,
     })
 
@@ -3314,8 +3341,10 @@ async def get_templates() -> JSONResponse:
             "description": description,
             "category": category,
             "tech_stack": tech_stack[:6],  # Limit to 6 techs
-            "difficulty": _difficulty_map.get(f.stem, "intermediate"),
-            "build_time": _build_time_map.get(f.stem, "5-10 min"),
+            # None for a template the hand-written maps do not cover: the UI
+            # shows nothing rather than an invented "intermediate" / "5-10 min".
+            "difficulty": _difficulty_map.get(f.stem),
+            "build_time": _build_time_map.get(f.stem),
             "gradient": _gradient_map.get(category, _gradient_map["Other"]),
         })
     return JSONResponse(content=templates)
@@ -3407,9 +3436,11 @@ async def plan_session(req: PlanRequest) -> JSONResponse:
     # Try to parse structured JSON from output first (loki plan may emit JSON blocks)
     _log = logging.getLogger("purple-lab.plan")
 
-    complexity = "standard"
+    # Anything the plan output does not state stays None: the modal shows
+    # "--", never a "standard" / 5-iteration estimate nobody produced.
+    complexity = None
     cost_estimate = "unknown"
-    iterations = 5
+    iterations = None
     phases: list[str] = []
     parsed = False
 
@@ -3421,7 +3452,7 @@ async def plan_session(req: PlanRequest) -> JSONResponse:
         try:
             data = json.loads(json_match.group(0))
             if isinstance(data.get("complexity"), dict):
-                complexity = data["complexity"].get("tier", "standard")
+                complexity = data["complexity"].get("tier")
             elif isinstance(data.get("complexity"), str):
                 complexity = data["complexity"]
             if isinstance(data.get("cost"), dict):
@@ -3433,7 +3464,7 @@ async def plan_session(req: PlanRequest) -> JSONResponse:
             elif isinstance(data.get("cost_estimate"), str):
                 cost_estimate = data["cost_estimate"]
             if isinstance(data.get("iterations"), dict):
-                iterations = data["iterations"].get("estimated", 5)
+                iterations = data["iterations"].get("estimated")
             elif isinstance(data.get("iterations"), (int, float)):
                 iterations = int(data["iterations"])
             if isinstance(data.get("execution_plan"), list):
@@ -3476,12 +3507,17 @@ async def plan_session(req: PlanRequest) -> JSONResponse:
 
     if not parsed and not phases:
         _log.info("Plan parse produced no phases from output (%d chars)", len(output))
+    parsed = parsed or complexity is not None or iterations is not None \
+        or bool(phases) or cost_estimate != "unknown"
 
     return JSONResponse(content={
         "complexity": complexity,
         "cost_estimate": cost_estimate,
         "iterations": iterations,
-        "phases": phases if phases else ["planning", "implementation", "testing"],
+        "phases": phases,
+        # False when nothing in the output was recognised; the modal then
+        # shows the raw output instead of an estimate.
+        "parsed": parsed,
         "output_text": output,
         "returncode": rc,
     })
@@ -3576,12 +3612,13 @@ async def get_metrics() -> JSONResponse:
         return JSONResponse(content=data)
     except (json.JSONDecodeError, ValueError):
         pass
-    # Fallback: parse key metrics from text output
+    # Fallback: parse key metrics from text output. A metric the text does not
+    # carry stays null, so the panel says "N/A" instead of a measured 0.
     metrics: dict = {
-        "iterations": 0,
-        "quality_gate_pass_rate": 0.0,
+        "iterations": None,
+        "quality_gate_pass_rate": None,
         "time_elapsed": "",
-        "tokens_used": 0,
+        "tokens_used": None,
         "output_text": output,
     }
     for line in output.splitlines():
@@ -6283,13 +6320,14 @@ async def _push_state_to_client(ws: WebSocket) -> None:
         # Use asyncio.to_thread to avoid blocking the event loop on file I/O
         def _read_state_files():
             loki_dir = _loki_dir()
+            # Same unknown-not-zero defaults as GET /api/session/status.
             _phase = "idle"
-            _iteration = 0
-            _complexity = "standard"
+            _iteration = None
+            _complexity = None
             _current_task = ""
-            _pending_tasks = 0
+            _pending_tasks = None
             _agents = []
-            _cost_usd = 0.0
+            _cost_usd = None
             _max_iterations = 0
 
             # BUG-INT-002 fix: CLI writes dashboard-state.json, not state/session.json
@@ -6309,10 +6347,7 @@ async def _push_state_to_client(ws: WebSocket) -> None:
                         _in_progress = len(_tip) if isinstance(_tip, list) else int(_tip or 0)
                         if _in_progress > 0:
                             _current_task = f"{_in_progress} task(s) in progress"
-                    # Extract cost from tokens object if present
-                    _tokens = state_data.get("tokens")
-                    if isinstance(_tokens, dict):
-                        _cost_usd = float(_tokens.get("cost_usd", 0) or 0)
+                    _cost_usd = _measured_state_cost(state_data.get("tokens"))
                     # Agents are included in dashboard-state.json
                     _dash_agents = state_data.get("agents")
                     if isinstance(_dash_agents, list):
@@ -6350,8 +6385,7 @@ async def _push_state_to_client(ws: WebSocket) -> None:
                 except (json.JSONDecodeError, OSError, ValueError):
                     pass
 
-            if _max_iterations <= 0:
-                _max_iterations = int(os.environ.get("LOKI_MAX_ITERATIONS", "10"))
+            _max_iterations = _max_iterations_or_none(_max_iterations)
 
             return _phase, _iteration, _complexity, _current_task, _pending_tasks, _agents, _cost_usd, _max_iterations
 
@@ -6370,13 +6404,13 @@ async def _push_state_to_client(ws: WebSocket) -> None:
             "provider": session.provider,
             "current_task": current_task,
             "pending_tasks": pending_tasks,
-            "running_agents": 0,
+            "running_agents": None,
             "uptime": round(uptime),
             "version": "",
             "pid": str(session.process.pid) if session.process else "",
             "projectDir": session.project_dir,
             "max_iterations": ws_max_iter,
-            "cost": round(ws_cost, 4),
+            "cost": round(ws_cost, 4) if ws_cost is not None else None,
             "start_time": session.start_time if session.start_time > 0 else 0,
         }
 
@@ -6745,8 +6779,9 @@ def _list_checkpoints(session_dir: Path) -> list[dict]:
                     "id": entry.name,
                     "timestamp": meta.get("timestamp", ""),
                     "description": meta.get("description", f"Checkpoint {entry.name}"),
-                    "iteration": meta.get("iteration", 0),
-                    "files_changed": meta.get("files_changed", 0),
+                    # Unrecorded counts are None ("--"), never 0.
+                    "iteration": meta.get("iteration"),
+                    "files_changed": meta.get("files_changed"),
                     "is_current": False,
                 })
             except (json.JSONDecodeError, OSError):
@@ -6754,8 +6789,8 @@ def _list_checkpoints(session_dir: Path) -> list[dict]:
                     "id": entry.name,
                     "timestamp": "",
                     "description": f"Checkpoint {entry.name}",
-                    "iteration": 0,
-                    "files_changed": 0,
+                    "iteration": None,
+                    "files_changed": None,
                     "is_current": False,
                 })
         else:
@@ -6766,8 +6801,8 @@ def _list_checkpoints(session_dir: Path) -> list[dict]:
                     "%Y-%m-%dT%H:%M:%SZ", time.localtime(entry.stat().st_mtime)
                 ),
                 "description": f"Checkpoint {entry.name}",
-                "iteration": 0,
-                "files_changed": 0,
+                "iteration": None,
+                "files_changed": None,
                 "is_current": False,
             })
 
@@ -7826,7 +7861,7 @@ def _audit_actor(request=None) -> tuple:
 
 
 def _audit(action: str, user: str = "", target: str = "", details: str = "",
-           request=None):
+           request=None, team_id: str = ""):
     """Record an audit log entry.
 
     NOTE ON WHAT THIS LOG IS: _append_audit_log rewrites a 500-entry JSON array
@@ -7848,6 +7883,10 @@ def _audit(action: str, user: str = "", target: str = "", details: str = "",
         "timestamp": datetime.now().isoformat(),
         "details": details,
     }
+    # The Teams page Activity tab lists only entries carrying its team's id;
+    # a target (a team name or an email) is not a team identity.
+    if team_id:
+        entry["team_id"] = team_id
     _append_audit_log(entry)
 
 
@@ -7871,7 +7910,7 @@ async def create_team(req: CreateTeamRequest, request: Request = None) -> JSONRe
     store = _load_teams()
     store[team_id] = team
     _save_teams(store)
-    _audit("team.created", target=req.name, request=request)
+    _audit("team.created", target=req.name, request=request, team_id=team_id)
     return JSONResponse(content={"id": team_id, "name": req.name, "created": True})
 
 
@@ -7902,7 +7941,8 @@ async def add_team_member(team_id: str, req: AddMemberRequest, request: Request 
     }
     team.setdefault("members", []).append(member)
     _save_teams(store)
-    _audit("member.added", target=req.email, details=f"Role: {req.role}", request=request)
+    _audit("member.added", target=req.email, details=f"Role: {req.role}", request=request,
+           team_id=team_id)
     return JSONResponse(content={"added": True, "member_id": member_id})
 
 
@@ -7995,6 +8035,39 @@ async def magic_get_spec(name: str) -> JSONResponse:
     if not spec_path.exists():
         return JSONResponse(status_code=404, content={"error": "spec not found"})
     return JSONResponse(content={"name": name, "markdown": spec_path.read_text()})
+
+
+@app.get("/api/magic/components/{name}/code")
+async def magic_get_code(name: str) -> JSONResponse:
+    """Return a component's generated source, read from the paths its registry entry records."""
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", name):
+        return JSONResponse(status_code=400, content={"error": "Invalid component name"})
+    reg_path = _magic_registry_path()
+    if not reg_path.exists():
+        return JSONResponse(status_code=404, content={"error": "no registry"})
+    try:
+        data = json.loads(reg_path.read_text())
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+    comps = data.get("components", []) if isinstance(data, dict) else []
+    entry = next((c for c in comps if isinstance(c, dict) and c.get("name") == name), None)
+    if entry is None:
+        return JSONResponse(status_code=404, content={"error": "component not found"})
+    files = []
+    for target in ("react", "webcomponent"):
+        recorded = entry.get(f"{target}_path") or ""
+        if not isinstance(recorded, str) or not recorded:
+            continue
+        # registry.json is a project file an agent can write; a recorded path
+        # (or a symlink) that leaves the project is refused, never read.
+        path = _safe_resolve(Path.cwd(), recorded)
+        if path is None:
+            return JSONResponse(status_code=403, content={"error": f"{target} path is outside the project"})
+        if path.is_file():
+            files.append({"target": target, "path": recorded, "code": path.read_text(errors="replace")})
+    if not files:
+        return JSONResponse(status_code=404, content={"error": "no generated code on disk"})
+    return JSONResponse(content={"name": name, "files": files})
 
 
 @app.post("/api/magic/components/{name}/debate")
@@ -8949,6 +9022,8 @@ async def webapp_cost_timeline() -> Response:
             "current_run": {"iterations": [], "total_usd": None,
                             "cost_recorded": False},
             "runs": [],
+            # Unreadable, not zero: the Runs-with-cost tile says "Not recorded".
+            "runs_count": None,
         })
     try:
         return JSONResponse(content=await dash.get_cost_timeline())

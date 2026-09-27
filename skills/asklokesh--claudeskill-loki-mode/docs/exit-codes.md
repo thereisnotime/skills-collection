@@ -75,8 +75,8 @@ codes on the Bun route and the bash route (`LOKI_LEGACY_BASH=1`).
 | Code | Meaning |
 |---|---|
 | 0 | Clean: the integrity hash matches and the recorded diff still matches the repo (and, with `--jwks`, the attestation is VERIFIED) |
-| 1 | Tampered or drifted; or, with `--jwks`, the attestation FAILED, or is ABSENT (the receipt is unsigned while a key set was supplied) |
-| 2 | Could not check: the receipt is present but unusable (malformed JSON), the verifier itself is missing, or, with `--jwks`, the attestation is NOT CHECKED (key set unreadable, or a verifier dependency missing) |
+| 1 | Tampered, or genuinely drifted (the working tree really changed since the recorded base); or, with `--jwks`, the attestation FAILED, or is ABSENT (the receipt is unsigned while a key set was supplied) |
+| 2 | Could not check: the receipt is present but unusable (malformed JSON), the verifier itself is missing, drift could not be re-derived (verified outside a git tree, or the recorded base ref no longer resolves, with every other check passing) rather than genuinely found, or, with `--jwks`, the attestation is NOT CHECKED (key set unreadable, empty, or a verifier dependency missing) |
 | 64 | Usage error: no proof id, more than one proof id, an unknown option (a mistyped `--jwk` must never skip the check), `--jwks` with no value or an empty one, or `-h`/`--help` (verify never exits 0 without a verdict; full help is `loki proof help`). `--` ends options, so `loki proof verify -- <id>` checks an id that begins with `-` |
 | 66 | Input missing: no `.loki/proofs/<id>/proof.json` for that id |
 
@@ -93,6 +93,80 @@ exits 1, because a definite failure of this one receipt is never softened into
 purpose: it rolls up many stages, and an operator who fixes the named FAILED
 stage and re-runs would see green while still blind on the stage that never
 ran (`tools/verify-chain.py`, rule 4).
+
+## `loki start --remote` receipt check (not a verify command)
+
+This is a documented DIVERGENCE from `proof verify`, not a bug. `loki start
+--remote <url>` submits a build to a deployed cluster (`loki_remote_submit`,
+`autonomy/loki`), and after the job finishes it fetches the Evidence Receipt
+and runs an internal check (`loki_remote_verify_receipt`) that prints one of
+several verdict words also used elsewhere in `loki proof`: VERIFIED, UNSIGNED,
+NOT CHECKED, TAMPERED, plus its own NOT VERIFIED when the verifier itself is
+unavailable (a fifth, distinct string -- see the last row below). Despite the
+shared vocabulary, this is not the `proof verify` contract and does not return
+its codes.
+
+`loki_remote_verify_receipt` is an internal helper, never a standalone
+command. Its return value feeds `_receipt_rc` inside `loki_remote_submit` via
+`loki_remote_fetch_receipt` (`autonomy/loki`), whose own last statement is the
+verify call with no `||` to reset the status -- so the helper's return code
+propagates out unchanged. `loki_remote_submit` then checks `_receipt_rc`
+BEFORE ever looking at job status:
+
+| Receipt verdict | Helper return | Process exit |
+|---|---|---|
+| VERIFIED (gpg or attestation) | 0 | Governed by the job status below |
+| UNSIGNED | 0 | Governed by the job status below |
+| NOT CHECKED -- gpg unavailable on this machine, or an attestation present but unreachable/uncheckable (JWKS unreachable, crypto missing) | 0 | Governed by the job status below |
+| NOT CHECKED -- signed, but the signing key is not in the verifier's keyring (gpg `nopubkey`), and no valid attestation covers it | 1 | 1, unconditionally |
+| NOT VERIFIED -- the local verifier itself is unavailable (no python3, or `lib/proof-verify.py` missing) | 0 | Governed by the job status below |
+| TAMPERED (bad hash, bad gpg signature, bad attestation) | 1 | 1, unconditionally |
+
+The exit code `loki start --remote` actually returns is gated on the job's own
+terminal status (`passed` / `failed` / `unknown`) in most cases, but there are
+TWO deliberate overrides that fail the whole submit regardless of job status,
+not one:
+
+- **TAMPERED** (bad hash, bad gpg signature, bad attestation): an accusation
+  that the receipt itself was altered.
+- **NOT CHECKED / nopubkey** (signed, but the verifying machine does not hold
+  the signing public key, and no attestation proves it another way): per the
+  code's own comment at this branch (`autonomy/loki:1081-1084`), this is
+  "Non-zero: a caller who asked for a signed receipt did not get proof, and in
+  CI that must not pass silently." It is explicitly NOT an accusation of
+  tampering -- the message says plainly that nothing is wrong with the
+  contents -- but it still fails the submit, because a signed remote build
+  whose signature could never be checked is exactly the case this override
+  exists to catch. Concretely: a build can be genuinely signed, actually pass,
+  and still make `loki start --remote` exit 1, if the verifying machine simply
+  never imported the publisher's key and no JWKS attestation is available to
+  cover the gap.
+
+Every other outcome -- VERIFIED by either gpg or attestation, UNSIGNED, the
+gpg-unavailable/attestation-uncheckable NOT CHECKED case, and the
+verifier-unavailable NOT VERIFIED case -- returns 0 from the helper and
+defers entirely to job status, because none of those contradicts the job's
+reported outcome.
+
+This is why remote NOT CHECKED can exit 0 in some branches and 1 in others,
+while `loki proof verify`'s NOT CHECKED always exits 2: they answer different
+questions. `proof verify` IS the verdict -- its only output is "was this
+receipt proven", so an unproven result can never exit 0. The remote helper's
+verdict is a secondary integrity check bolted onto a job-status command whose
+primary question is "did the build pass"; most unprovable outcomes do not
+change that answer, but the nopubkey case is carved out by the code itself as
+a hard failure, and TAMPERED always is. (`_deploy_receipt_verdict`'s own
+header comment, elsewhere in `autonomy/loki`, makes the same point about this
+helper for the UNSIGNED case specifically -- "that function returns 0 for
+UNSIGNED, which is right for its caller (submit) and wrong here (integrity is
+not provenance)" -- it does not speak to NOT CHECKED, whose nopubkey behavior
+is documented at its own branch as cited above.)
+
+To get the `proof verify` exit-code contract (0/1/2/64/66) against a receipt
+fetched from a remote build, run `loki proof verify <job-id>` afterward
+against the written `.loki/proofs/<job-id>/proof.json` -- that is a genuine
+verify call and returns the codes documented above, not the ones in this
+section.
 
 ## `loki proof chain [workspace]`
 

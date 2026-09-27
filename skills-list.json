@@ -22581,8 +22581,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.md",
       "remote_path": "SKILL.md",
-      "lines": 316,
-      "words": 4742,
+      "lines": 318,
+      "words": 4836,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22595,8 +22595,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/SKILL.full.md",
       "remote_path": "SKILL.full.md",
-      "lines": 1051,
-      "words": 21100,
+      "lines": 1053,
+      "words": 21194,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22609,8 +22609,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/dist/avoid-ai-writing.md",
       "remote_path": "dist/avoid-ai-writing.md",
-      "lines": 1048,
-      "words": 21056,
+      "lines": 1050,
+      "words": 21150,
       "code_blocks": 0,
       "languages": [],
       "version": "3.36.0",
@@ -22621,8 +22621,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "plugins/avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
-      "lines": 316,
-      "words": 4742,
+      "lines": 318,
+      "words": 4836,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -22655,8 +22655,8 @@
       "description": "Audit and rewrite content to remove AI writing patterns (\"AI-isms\"). Use this skill when asked to \"remove AI-isms,\" \"clean up AI writing,\" \"edit writing for AI patterns,\" \"audit writing for AI tells,\"",
       "path": "conorbronsdon--avoid-ai-writing/skills/avoid-ai-writing/SKILL.md",
       "remote_path": "skills/avoid-ai-writing/SKILL.md",
-      "lines": 309,
-      "words": 4726,
+      "lines": 311,
+      "words": 4820,
       "code_blocks": 1,
       "languages": [
         "bash"
@@ -157080,8 +157080,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/git-safety-net/SKILL.md",
       "remote_path": "git-safety-net/SKILL.md",
-      "lines": 820,
-      "words": 9707,
+      "lines": 829,
+      "words": 9848,
       "code_blocks": 14,
       "languages": [
         "bash"
@@ -157156,8 +157156,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/deep-research/SKILL.md",
       "remote_path": "deep-research/SKILL.md",
-      "lines": 554,
-      "words": 3836,
+      "lines": 568,
+      "words": 4405,
       "code_blocks": 8,
       "languages": [
         "bash"
@@ -157356,8 +157356,8 @@
       "description": ">-",
       "path": "daymade--claude-code-skills/tibo-reset-codex/SKILL.md",
       "remote_path": "tibo-reset-codex/SKILL.md",
-      "lines": 856,
-      "words": 3151,
+      "lines": 806,
+      "words": 2841,
       "code_blocks": 13,
       "languages": [
         "bash",
@@ -157405,7 +157405,7 @@
       "path": "daymade--claude-code-skills/kimi-use/SKILL.md",
       "remote_path": "kimi-use/SKILL.md",
       "lines": 86,
-      "words": 506,
+      "words": 517,
       "code_blocks": 0,
       "languages": []
     },
@@ -175802,6 +175802,16 @@
       "languages": []
     },
     {
+      "name": "cognitive-toolkit",
+      "description": "Evidence-based CBT and DBT intervention skills \u2014 guided thought records, opposite action, DEAR MAN roleplay, crisis skills with optional HRV biofeedback. Configurable therapeutic pushback. Triggers on",
+      "path": "glebis--claude-skills/cognitive-toolkit/skill.md",
+      "remote_path": "cognitive-toolkit/skill.md",
+      "lines": 98,
+      "words": 617,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "browser-mate",
       "description": "Use when automating a real, logged-in Chrome WITHOUT disturbing the user's open tabs \u2014 e.g. authenticated sessions like ChatGPT, LinkedIn, or any site needing a persistent login. Launches or reuses a ",
       "path": "glebis--claude-skills/browser-mate/SKILL.md",
@@ -175876,9 +175886,9 @@
       "description": "Search and download images via Google Custom Search API with LLM-powered selection. This skill should be used when finding images for articles, presentations, research documents, or enriching Obsidian",
       "path": "glebis--claude-skills/google-image-search/SKILL.md",
       "remote_path": "google-image-search/SKILL.md",
-      "lines": 160,
-      "words": 663,
-      "code_blocks": 6,
+      "lines": 174,
+      "words": 765,
+      "code_blocks": 7,
       "languages": [
         "bash",
         "json"

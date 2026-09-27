@@ -89,7 +89,7 @@ JSON
 }
 write_notests() {
     cat > "$WORK/.loki/quality/test-results.json" <<'JSON'
-{ "runner": "none", "pass": true }
+{ "runner": "none", "pass": "inconclusive" }
 JSON
 }
 write_red_tests() {

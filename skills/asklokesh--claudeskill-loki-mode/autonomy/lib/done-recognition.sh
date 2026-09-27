@@ -100,6 +100,13 @@ _loki_done_recog_invoke() {
         # fall through to the claude/deterministic paths (fail-closed)
     fi
 
+    # Only the provider the operator chose may see a prompt (V10 P5). The gate
+    # above admits any provider with an argv seam, but this call is claude-only.
+    # Policy (and the LOKI_ALLOW_CLAUDE_SIDECALLS=1 opt-in) lives in loader.sh.
+    # ponytail: upgrade path is routing this call through provider_invoke_argv.
+    type loki_claude_sidecall_allowed >/dev/null 2>&1 \
+        || . "$(dirname "${BASH_SOURCE[0]}")/../../providers/loader.sh" 2>/dev/null
+    loki_claude_sidecall_allowed 2>/dev/null || return 1
     command -v claude >/dev/null 2>&1 || return 1
 
     # STRUCTURED VERDICT (v8.x): when the CLI supports --json-schema, force valid

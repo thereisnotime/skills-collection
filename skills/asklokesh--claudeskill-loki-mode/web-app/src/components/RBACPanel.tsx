@@ -1,9 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Shield,
-  Plus,
-  Save,
-  Trash2,
   Clock,
   User,
   Activity,
@@ -11,7 +8,6 @@ import {
   ChevronRight,
   Lock,
 } from 'lucide-react';
-import { Button } from './ui/Button';
 import { api } from '../api/client';
 
 // ---------------------------------------------------------------------------
@@ -39,6 +35,9 @@ export interface AuditEntry {
   target?: string;
   timestamp: string;
   details?: string;
+  // Set by web-app/server.py on team.created and member.added.
+  team_id?: string;
+  actor_state?: string;
 }
 
 interface RBACPanelProps {
@@ -87,147 +86,19 @@ const DEFAULT_ROLES: Role[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Role editor
-// ---------------------------------------------------------------------------
-
-function RoleEditor({
-  role,
-  permissions,
-  onSave,
-  onDelete,
-  onCancel,
-}: {
-  role: Role | null;
-  permissions: Permission[];
-  onSave: (role: Role) => void;
-  onDelete?: (id: string) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState(role?.name || '');
-  const [description, setDescription] = useState(role?.description || '');
-  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(
-    new Set(role?.permissions || []),
-  );
-
-  const togglePerm = (permId: string) => {
-    setSelectedPerms(prev => {
-      const next = new Set(prev);
-      if (next.has(permId)) {
-        next.delete(permId);
-      } else {
-        next.add(permId);
-      }
-      return next;
-    });
-  };
-
-  const handleSave = () => {
-    if (!name.trim()) return;
-    onSave({
-      id: role?.id || `role-${Date.now()}`,
-      name: name.trim(),
-      description: description.trim(),
-      permissions: Array.from(selectedPerms),
-    });
-  };
-
-  return (
-    <div className="border border-[#ECEAE3] dark:border-[#2A2A30] rounded-lg p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-[#201515] dark:text-[#E8E6E3]">
-          {role ? 'Edit Role' : 'Create Role'}
-        </h4>
-        <button
-          onClick={onCancel}
-          className="text-[#939084] hover:text-[#36342E] dark:hover:text-[#E8E6E3]"
-        >
-          <span className="text-xs">Cancel</span>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-[#6B6960] mb-1">Role Name</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Deployer"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-[#ECEAE3] dark:border-[#2A2A30] bg-white dark:bg-[#1A1A1E] text-[#201515] dark:text-[#E8E6E3] placeholder-[#939084]"
-            disabled={role?.isSystem}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-[#6B6960] mb-1">Description</label>
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Brief description"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-[#ECEAE3] dark:border-[#2A2A30] bg-white dark:bg-[#1A1A1E] text-[#201515] dark:text-[#E8E6E3] placeholder-[#939084]"
-          />
-        </div>
-      </div>
-
-      {/* Permission matrix */}
-      <div>
-        <label className="block text-xs font-medium text-[#6B6960] mb-2">Permissions</label>
-        <div className="border border-[#ECEAE3] dark:border-[#2A2A30] rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#F8F4F0] dark:bg-[#222228]">
-                <th className="text-left px-3 py-2 text-xs font-medium text-[#6B6960]">Permission</th>
-                <th className="text-center px-3 py-2 text-xs font-medium text-[#6B6960] w-20">Granted</th>
-              </tr>
-            </thead>
-            <tbody>
-              {permissions.map(perm => (
-                <tr
-                  key={perm.id}
-                  className="border-t border-[#ECEAE3] dark:border-[#2A2A30] hover:bg-[#F8F4F0] dark:hover:bg-[#222228] transition-colors"
-                >
-                  <td className="px-3 py-2">
-                    <p className="text-sm text-[#201515] dark:text-[#E8E6E3]">{perm.label}</p>
-                    <p className="text-xs text-[#939084]">{perm.description}</p>
-                  </td>
-                  <td className="text-center px-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedPerms.has(perm.id)}
-                      onChange={() => togglePerm(perm.id)}
-                      className="rounded border-[#ECEAE3] text-[#553DE9] focus:ring-[#553DE9]"
-                      disabled={role?.isSystem}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {!role?.isSystem && (
-          <Button size="sm" icon={Save} onClick={handleSave} disabled={!name.trim()}>
-            {role ? 'Update Role' : 'Create Role'}
-          </Button>
-        )}
-        {role && !role.isSystem && onDelete && (
-          <Button size="sm" variant="danger" icon={Trash2} onClick={() => onDelete(role.id)}>
-            Delete
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Audit log viewer
 // ---------------------------------------------------------------------------
 
-function AuditLogViewer({ entries, loading }: { entries: AuditEntry[]; loading: boolean }) {
+function AuditLogViewer({ entries, loading, error }: { entries: AuditEntry[]; loading: boolean; error: boolean }) {
   if (loading) {
     return (
       <div className="text-center py-8 text-[#939084] text-sm">Loading audit log...</div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-[#C45B5B] text-sm">Could not load the audit log</div>
     );
   }
 
@@ -291,49 +162,28 @@ function AuditLogViewer({ entries, loading }: { entries: AuditEntry[]; loading: 
 // ---------------------------------------------------------------------------
 
 export function RBACPanel({ teamId }: RBACPanelProps) {
-  const [roles, setRoles] = useState<Role[]>(DEFAULT_ROLES);
+  // Built-in role descriptions only. Nothing on the server stores custom roles
+  // or enforces these permissions, so no create/edit control is offered.
+  const roles = DEFAULT_ROLES;
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
-  const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [creatingRole, setCreatingRole] = useState(false);
+  const [auditError, setAuditError] = useState(false);
   const [activeSection, setActiveSection] = useState<'roles' | 'audit'>('roles');
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
 
-  // Load audit log
+  // Load audit log. A failed read is an error state, never sample rows.
   useEffect(() => {
     if (activeSection !== 'audit') return;
     setAuditLoading(true);
+    setAuditError(false);
     api.getAuditLog()
       .then(entries => setAuditEntries(entries))
       .catch(() => {
-        // Use sample data when endpoint is not yet available
-        setAuditEntries([
-          { id: '1', action: 'member.invited', user: 'admin@example.com', target: 'dev@example.com', timestamp: new Date().toISOString(), details: 'Invited as editor' },
-          { id: '2', action: 'role.created', user: 'admin@example.com', target: 'Deployer', timestamp: new Date(Date.now() - 3600000).toISOString() },
-          { id: '3', action: 'project.created', user: 'editor@example.com', target: 'my-app', timestamp: new Date(Date.now() - 7200000).toISOString() },
-        ]);
+        setAuditEntries([]);
+        setAuditError(true);
       })
       .finally(() => setAuditLoading(false));
   }, [activeSection, teamId]);
-
-  const handleSaveRole = useCallback((role: Role) => {
-    setRoles(prev => {
-      const idx = prev.findIndex(r => r.id === role.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = role;
-        return next;
-      }
-      return [...prev, role];
-    });
-    setEditingRole(null);
-    setCreatingRole(false);
-  }, []);
-
-  const handleDeleteRole = useCallback((id: string) => {
-    setRoles(prev => prev.filter(r => r.id !== id));
-    setEditingRole(null);
-  }, []);
 
   const toggleRoleExpand = (id: string) => {
     setExpandedRoles(prev => {
@@ -385,23 +235,10 @@ export function RBACPanel({ teamId }: RBACPanelProps) {
       {/* Roles section */}
       {activeSection === 'roles' && (
         <div className="space-y-3">
-          {(editingRole || creatingRole) && (
-            <RoleEditor
-              role={editingRole}
-              permissions={DEFAULT_PERMISSIONS}
-              onSave={handleSaveRole}
-              onDelete={editingRole ? handleDeleteRole : undefined}
-              onCancel={() => { setEditingRole(null); setCreatingRole(false); }}
-            />
-          )}
-
-          {!editingRole && !creatingRole && (
-            <div className="flex justify-end mb-2">
-              <Button size="sm" variant="secondary" icon={Plus} onClick={() => setCreatingRole(true)}>
-                New Role
-              </Button>
-            </div>
-          )}
+          <p className="text-xs text-[#939084] mb-2">
+            Descriptive only: each member record carries one of these role labels, but the
+            server does not enforce these permissions.
+          </p>
 
           {roles.map(role => (
             <div
@@ -433,14 +270,6 @@ export function RBACPanel({ teamId }: RBACPanelProps) {
                 <span className="text-xs text-[#939084] font-mono">
                   {role.permissions.length} permissions
                 </span>
-                {!role.isSystem && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditingRole(role); }}
-                    className="text-xs text-[#553DE9] hover:underline"
-                  >
-                    Edit
-                  </button>
-                )}
               </button>
               {expandedRoles.has(role.id) && (
                 <div className="px-4 pb-3 border-t border-[#ECEAE3] dark:border-[#2A2A30]">
@@ -467,7 +296,7 @@ export function RBACPanel({ teamId }: RBACPanelProps) {
 
       {/* Audit log section */}
       {activeSection === 'audit' && (
-        <AuditLogViewer entries={auditEntries} loading={auditLoading} />
+        <AuditLogViewer entries={auditEntries} loading={auditLoading} error={auditError} />
       )}
     </div>
   );

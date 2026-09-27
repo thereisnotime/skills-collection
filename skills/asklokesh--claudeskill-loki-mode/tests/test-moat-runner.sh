@@ -645,6 +645,238 @@ prop "$D" 3 "CASE P3.works FAIL broke"
 run_in "$D"
 expect RUNNER.failure-beats-no-tag 1 "REGRESSION P3.works" "could not check: no release tag reachable"
 
+# --- unreached-release bootstrap-detection (BACKLOG 47) ---------------------------
+# A branch cut before a release it never merged must not treat that gap as a
+# bootstrap when the unreached release carries a real baseline. `git tag
+# --no-merged HEAD` lists tags HEAD's history does not include.
+
+# (1) The exact reproduction: a 0-byte pending.txt at the unreached tag is a
+# real, strict baseline (nothing pending), but a match-only `git grep -F -e ''`
+# cannot see a 0-byte file, so without the -L pass this leg wrongly bootstraps
+# and silently accepts the stale branch's own regression -- while the exit
+# code (0 -> 2) proves it, not just a message (with the cases.txt leg alone
+# already refusing, the exit code would already be 2 and the pending leg's
+# false bootstrap would hide behind it). Topology: v1.0.0 carries cases.txt
+# but NO pending.txt at all yet (the file does not exist there). main promotes
+# P2.later/P9.later, writes pending.txt as 0 bytes (fully proven), and tags
+# v1.1.0 -- so v1.1.0 is the ONLY tag carrying pending.txt, and cases.txt's
+# baseline is fully satisfied by the already-reachable v1.0.0 (registry leg
+# never touches unreached_release at all here). A stale branch cut from
+# v1.0.0 never reaches v1.1.0 and parks a fresh regression, keeping P2.later
+# and P9.later pending too (so the ONLY thing that can make this fail is the
+# unreached pending.txt leg, not an unrelated regression on those two IDs).
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+known_good "$D"
+rm "$D/tests/moat/pending.txt"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.0.0: cases.txt only, no pending.txt yet"
+g -C "$D" tag v1.0.0
+
+g -C "$D" checkout -qb stale v1.0.0
+prop "$D" 3 "CASE P3.works PASS holds" "CASE P3.new FAIL not built yet"
+pending "$D" "P2.later M2 not built yet" "P9.later M9 not built yet" "P3.new M3 parked on the stale branch, pretending v1.1.0 never happened"
+# shellcheck disable=SC2086
+cases "$D" $REGISTERED P3.new
+g -C "$D" add tests
+g -C "$D" commit -qm "stale: park a regression, never saw v1.1.0"
+
+g -C "$D" checkout -q main
+: > "$D/tests/moat/pending.txt"
+prop "$D" 2 "CASE P2.works PASS holds" "CASE P2.later PASS built now"
+prop "$D" 9 "CASE P9.works PASS holds" "CASE P9.later PASS built now"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.1.0: fully proven, 0-byte pending.txt"
+g -C "$D" tag v1.1.0
+[ "$(g -C "$D" cat-file -s v1.1.0:tests/moat/pending.txt)" = 0 ] \
+  || bad "RUNNER.unreached-empty-pending-flips-exit fixture: pending.txt at v1.1.0 is not 0 bytes"
+
+g -C "$D" checkout -q stale
+run_in "$D"
+expect RUNNER.unreached-empty-pending-flips-exit 2 \
+  "could not check: v1.1.0 carries tests/moat/pending.txt but is not reachable from HEAD" \
+  "registry: checked against 1 release tag(s), newest v1.0.0" \
+  "!ratchet: bootstrap" "!v1.1.0 carries tests/moat/cases.txt" "!moat suite: OK"
+
+# (2) Mixed emptiness at the SAME unreached tag: pending.txt is 0 bytes,
+# cases.txt is non-empty. Confirm BOTH legs detect the unreached release and
+# refuse, not just the leg with the non-empty file (which would have refused
+# on its own even with the old match-only code). v0.9.0 predates the moat
+# tree, giving the stale branch a reachable candidate of its own so it does
+# not land in "no release tag reachable" instead of exercising unreached_release.
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+echo seed > "$D/README"
+g -C "$D" add README
+g -C "$D" commit -qm seed
+g -C "$D" tag v0.9.0
+
+known_good "$D"
+: > "$D/tests/moat/pending.txt"
+prop "$D" 2 "CASE P2.works PASS holds" "CASE P2.later PASS built now"
+prop "$D" 9 "CASE P9.works PASS holds" "CASE P9.later PASS built now"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.0.0: fully proven, 0-byte pending.txt, non-empty cases.txt"
+g -C "$D" tag v1.0.0
+[ "$(g -C "$D" cat-file -s v1.0.0:tests/moat/pending.txt)" = 0 ] \
+  || bad "RUNNER.unreached-mixed-emptiness-both-legs-refuse fixture: pending.txt at v1.0.0 is not 0 bytes"
+[ "$(g -C "$D" cat-file -s v1.0.0:tests/moat/cases.txt)" -gt 0 ] \
+  || bad "RUNNER.unreached-mixed-emptiness-both-legs-refuse fixture: cases.txt at v1.0.0 is 0 bytes"
+
+g -C "$D" checkout -qb stale2 v0.9.0
+known_good "$D"
+prop "$D" 3 "CASE P3.works PASS holds" "CASE P3.new FAIL not built yet"
+pending "$D" "P2.later M2 not built yet" "P9.later M9 not built yet" "P3.new M3 parked on the stale branch, never saw v1.0.0"
+# shellcheck disable=SC2086
+cases "$D" $REGISTERED P3.new
+g -C "$D" add tests
+g -C "$D" commit -qm "stale2: park a regression, never merged v1.0.0"
+run_in "$D"
+expect RUNNER.unreached-mixed-emptiness-both-legs-refuse 2 \
+  "could not check: v1.0.0 carries tests/moat/pending.txt but is not reachable from HEAD" \
+  "could not check: v1.0.0 carries tests/moat/cases.txt but is not reachable from HEAD" \
+  "!ratchet: bootstrap" "!registry: bootstrap"
+
+# (3) The reverse mix, so the -L path is proven on the cases.txt leg too, not
+# only on pending.txt: cases.txt is 0 bytes (a real, empty registry) and
+# pending.txt is non-empty at the same unreached tag. v0.9.0 predates the moat
+# tree, giving the stale branch a reachable candidate of its own so it does
+# not land in "no release tag reachable" instead of exercising unreached_release.
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+echo seed > "$D/README"
+g -C "$D" add README
+g -C "$D" commit -qm seed
+g -C "$D" tag v0.9.0
+
+known_good "$D"
+: > "$D/tests/moat/cases.txt"
+g -C "$D" add tests
+g -C "$D" commit -qm "v2.0.0: 0-byte cases.txt, non-empty pending.txt"
+g -C "$D" tag v2.0.0
+[ "$(g -C "$D" cat-file -s v2.0.0:tests/moat/cases.txt)" = 0 ] \
+  || bad "RUNNER.unreached-reverse-mix-cases-empty fixture: cases.txt at v2.0.0 is not 0 bytes"
+[ "$(g -C "$D" cat-file -s v2.0.0:tests/moat/pending.txt)" -gt 0 ] \
+  || bad "RUNNER.unreached-reverse-mix-cases-empty fixture: pending.txt at v2.0.0 is 0 bytes"
+
+g -C "$D" checkout -qb stale3 v0.9.0
+known_good "$D"
+prop "$D" 3 "CASE P3.works PASS holds" "CASE P3.new FAIL not built yet"
+pending "$D" "P2.later M2 not built yet" "P9.later M9 not built yet" "P3.new M3 parked on the stale branch, never saw v2.0.0"
+# shellcheck disable=SC2086
+cases "$D" $REGISTERED P3.new
+g -C "$D" add tests
+g -C "$D" commit -qm "stale3: park a regression, never merged v2.0.0"
+run_in "$D"
+expect RUNNER.unreached-reverse-mix-cases-empty 2 \
+  "could not check: v2.0.0 carries tests/moat/cases.txt but is not reachable from HEAD" \
+  "could not check: v2.0.0 carries tests/moat/pending.txt but is not reachable from HEAD" \
+  "!ratchet: bootstrap" "!registry: bootstrap"
+
+# (4) Genuine first-ever bootstrap still works once the moat tree is actually
+# COMMITTED (git grep is blind to untracked files, so a fixture that never
+# `git add`s tests/moat cannot exercise unreached_release's git-grep path at
+# all -- this is that path, exercised for real). A reachable candidate tag
+# must exist for the runner to reach the bootstrap branch at all (with zero
+# release tags anywhere it is "no release tag reachable", could-not-check,
+# per RUNNER.no-tag-exit-2): v0.9.0 predates the moat tree entirely, same
+# shape as RUNNER.bootstrap-allowed, but committed instead of left untracked.
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+echo seed > "$D/README"
+g -C "$D" add README
+g -C "$D" commit -qm seed
+g -C "$D" tag v0.9.0
+known_good "$D"
+g -C "$D" add tests
+g -C "$D" commit -qm "moat arrives"
+g -C "$D" commit -q --allow-empty -m after-moat
+run_in "$D"
+expect RUNNER.unreached-genuine-bootstrap-committed 0 \
+  "ratchet: bootstrap, no baseline at any of 1 release tag(s), newest v0.9.0" \
+  "registry: bootstrap, no baseline at any of 1 release tag(s), newest v0.9.0" \
+  "!could not check"
+
+# (5) An unreached tag exists but its tree cannot be read (a partial or
+# damaged clone): could-not-check with the SPECIFIC unreached-release reason,
+# never a silent bootstrap (a bootstrap would accept any list) and never the
+# generic could_not_check message from a different code path. Topology: v0.9.0
+# predates the moat (gives the stale branch a reachable candidate of its own);
+# v1.0.0 is on a line the stale branch (cut from v0.9.0) never reaches, exactly
+# like RUNNER.unreadable-baseline-exit-2 but on the --no-merged side.
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+echo seed > "$D/README"
+g -C "$D" add README
+g -C "$D" commit -qm seed
+g -C "$D" tag v0.9.0
+
+known_good "$D"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.0.0"
+g -C "$D" tag v1.0.0
+
+g -C "$D" checkout -qb stale4 v0.9.0
+known_good "$D"
+prop "$D" 3 "CASE P3.works PASS holds" "CASE P3.new FAIL not built yet"
+pending "$D" "P2.later M2 not built yet" "P9.later M9 not built yet" "P3.new M3 parked, never merged v1.0.0"
+# shellcheck disable=SC2086
+cases "$D" $REGISTERED P3.new
+g -C "$D" add tests
+g -C "$D" commit -qm "stale4: park a regression"
+
+sub="$(g -C "$D" rev-parse 'v1.0.0:tests/moat')"
+rm -f "$D/.git/objects/${sub:0:2}/${sub:2}"
+g -C "$D" cat-file -e 'v1.0.0:tests/moat' 2> /dev/null \
+  && bad "RUNNER.unreached-unreadable-tree-still-refuses fixture: v1.0.0:tests/moat is still readable after rm"
+run_in "$D"
+expect RUNNER.unreached-unreadable-tree-still-refuses 2 \
+  "could not check: cannot read tests/moat/pending.txt at an unreached release tag" \
+  "!ratchet: bootstrap" "!registry: bootstrap" "!moat suite: OK"
+
+# (5b) The tree is readable but one BLOB is not (a partial clone missing a
+# single object). git grep only prints an error for that and exits 0 or 1, so
+# the `[ ! -s "$W/git.err" ]` guard is what makes unreached_release refuse
+# here at all -- without it, the missing blob would read as "no match" and
+# bootstrap. Uses v1.0.0's cases.txt blob (non-empty, unique to that tag, so
+# unlike the tree-level test above the -l pass -- not just -L -- is what hits
+# the unreadable object).
+N=$((N + 1)); D="$T/r$N"
+mkdir -p "$D"
+g -C "$D" init -q
+echo seed > "$D/README"
+g -C "$D" add README
+g -C "$D" commit -qm seed
+g -C "$D" tag v0.9.0
+
+known_good "$D"
+g -C "$D" add tests
+g -C "$D" commit -qm "v1.0.0"
+g -C "$D" tag v1.0.0
+
+g -C "$D" checkout -qb stale5 v0.9.0
+known_good "$D"
+prop "$D" 3 "CASE P3.works PASS holds" "CASE P3.new FAIL not built yet"
+pending "$D" "P2.later M2 not built yet" "P9.later M9 not built yet" "P3.new M3 parked, never merged v1.0.0"
+# shellcheck disable=SC2086
+cases "$D" $REGISTERED P3.new
+g -C "$D" add tests
+g -C "$D" commit -qm "stale5: park a regression"
+
+blob="$(g -C "$D" rev-parse 'v1.0.0:tests/moat/cases.txt')"
+rm -f "$D/.git/objects/${blob:0:2}/${blob:2}"
+g -C "$D" cat-file -e 'v1.0.0:tests/moat/cases.txt' 2> /dev/null \
+  && bad "RUNNER.unreached-unreadable-blob-still-refuses fixture: v1.0.0:tests/moat/cases.txt is still readable after rm"
+run_in "$D"
+expect RUNNER.unreached-unreadable-blob-still-refuses 2 \
+  "could not check: cannot read tests/moat/cases.txt at an unreached release tag" \
+  "!ratchet: bootstrap" "!registry: bootstrap" "!moat suite: OK"
+
 echo
 echo "Passed: $PASS  Failed: $FAIL"
 [ "$FAIL" -eq 0 ]

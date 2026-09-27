@@ -5,6 +5,80 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v9.55.0
+
+**A repo-wide sweep for the process-isolation bug class fixed in v9.54.1 found and closed several more real gaps: two agent-repo-code-execution paths, and two rounds of a tamper-detection seal being itself forgeable.** Plus a default-security tightening, the v9.54.1 kill-scoping fix extended to more surfaces, and several trust-core correctness fixes.
+
+**Security fixes:**
+- **Default tightened**: under a non-Claude provider (opencode, cline, aider), Loki Mode's own internal side-calls to the `claude` CLI (used for a few narrow provider-agnostic checks) are now off by default. Set `LOKI_ALLOW_CLAUDE_SIDECALLS=1` to restore the previous behavior if you rely on it. This closes an air-gap/sovereignty gap: a non-Claude setup could still quietly reach Anthropic's API for these side-calls.
+- The v9.54.1 process-group kill-scoping fix (which stopped a `loki-mode` session from terminating unrelated Claude Code sessions) is now applied to more surfaces that had the same unscoped-kill pattern: `loki web stop`/`start`, the verification runtime's teardown, and a GitHub Actions marketplace-action cleanup step.
+- An agent's own repository could get its own Python code imported into, or in one case EXECUTED by, the completion council's privileged environment when a `PROJECT_DIR` environment variable was unset: `council_augment_from_managed_memory` (read-only import) and `council_should_stop`'s shadow-write step (real code execution, the more severe of the two) both fell back to the agent's own working directory instead of failing closed. Both now fail closed (no-op) when `PROJECT_DIR` is unset; production is unaffected since the CLI always sets it.
+- The tamper-detection seal introduced for the pre-existing-file snapshot (below) was itself found forgeable across three review rounds: a malicious `.pth` file in user-writable Python site-packages, a fake `awk` binary placed earlier on `PATH`, and finally a fake `git`/interpreter shadowing the snapshot's own writer and reader steps (not just the seal's digest computation). All three are now closed; the digest, writer and reader all resolve their tools by fixed, verified absolute paths first, using pure shell string handling with no unguarded interpreter or PATH-resolved helper program in the loop.
+- The pre-existing-file snapshot state (used to keep the agent's commits from sweeping in the user's own untracked files) lived entirely in agent-writable state with no tamper detection. It now seals a digest in the running process's own memory and refuses to commit anything if that state changes underneath it after being sealed.
+- A resume across sessions could either falsely accuse the agent of committing a file the user tracked themselves between sessions, or (in a since-caught regression during the same fix) silently let an agent's own commit of a pre-existing file through with no disclosure. Both are now handled correctly by tracking *when* a file became tracked relative to what the current session can prove it did.
+
+**Correctness fixes:**
+- `doctor --airgap` judged provider locality (whether inference stays on this machine) with a bare substring match on the model id; a remote `OLLAMA_HOST` pointed at Ollama's own cloud service still read as air-gapped. It now parses the actual host.
+- The completion council's zero-test-run detection had an ordering bug that let a project with a real test runner and zero tests pass read as affirmative evidence of completion, at two separate code paths -- contradicting the project's own anti-fake-green rule. Fixed at both sites without regressing the (unrelated, still-correct) case of a project with no test tooling at all.
+- `proof-verify.py` reported "tampered" (exit 1) for a proof it genuinely could not check (e.g. verified outside a git repository) instead of "could not check" (exit 2) -- collapsing two different meanings into one signal.
+- Attestation verification rendered an empty key set as `FAILED`/`TAMPERED` instead of `NOT CHECKED`, and rendered `attestation: false` inconsistently between the local and remote verification routes.
+- `evidence-block.json` could report a test axis as passing when it was genuinely inconclusive (no results recorded), if a different axis was the one actually blocking completion.
+- The completion council's test-result readers were already hardened (in a prior release) against a committed `hashlib.py`/`json.py` in the agent's own repo shadowing Python's standard library and flipping a verdict, but only 2 of 5 readers using that hardening had test coverage exercising the attack. The other 3 (`council_heuristic_review`, `council_evaluate_member`, `council_devils_advocate_review`) are now covered by the same case.
+
+**CI reliability:** several shell test files were found sourcing `autonomy/run.sh` (or a copy of it) into a shell still working out of the shared repository checkout; a side effect of sourcing it (provider auto-detection) wrote state into that shared checkout, silently breaking whichever later test in the same CI shard happened to read that state next. This intermittently broke unrelated tests depending on shard composition. A repo-wide sweep closed 22 more instances of this pattern (beyond the ones already fixed), and the test that kept surfacing this bug class is separately isolated against any future instance.
+
+## v9.54.2
+
+Re-cut after v9.54.1 failed the release gate's Security Audit step before
+any publish job ran: a gitleaks secret scan flagged a synthetic,
+API-key-shaped test fixture in `tests/test-branch-lifecycle.sh` (used to
+prove the session-commit secret-scan-abort path actually aborts on a real
+secret) as a possible leak. Not a real credential; the fixture predates
+this fix and simply lacked its `.gitleaksignore` entry. v9.54.1 was never
+published to any channel. This release carries the same fix described
+below plus two additional, independently reviewed and approved slices:
+BACKLOG 22 (an orphaned `sleep 300` from the resource monitor after `loki
+start` exits, now reaped by its own recorded PID on shutdown) and a moat
+test-control correction (BACKLOG 46).
+
+## v9.54.1
+
+**A loki-mode session ending could terminate other, unrelated Claude Code
+sessions on the same machine. This is now fixed.**
+
+What happened: when a `loki start` run ended via a signal (a supervisor
+signal, pressing Ctrl+C twice, or pressing Ctrl+C once while running in
+perpetual/autonomous mode), its cleanup step ran `pkill -f` against the
+provider process names (`claude`, `codex`, `aider`, `cline`) with no
+scoping at all. `pkill -f` matches the full command line of every matching
+process on the whole machine, not just the ones this run started. In
+practice this meant: any time a loki-mode run ended that way, every other
+Claude Code session open in a different terminal or a different project on
+the same machine, whose command line happened to match, could be
+terminated along with it.
+
+Who was affected: anyone who ran `loki start` (directly or through the
+`loki-mode` skill) and ended that run with Ctrl+C, a supervisor signal, or
+by letting a perpetual/autonomous run be interrupted, while other Claude
+Code sessions (`claude`, `codex`, `aider` or `cline` processes) were open
+on the same machine. A run that finished normally, or was stopped with
+`loki stop` (no signal), was not affected; the bug was specific to the
+function's signal-driven cleanup path (`kill_provider_child` in
+`autonomy/run.sh`).
+
+The fix: that cleanup step now only ever signals a process that shares
+this run's own operating-system process group, which a completely
+separate Claude Code session never does. It still cleans up the provider
+processes this run itself launched, including ones that were reparented
+after an earlier crash or retry, but it can no longer reach outside this
+run's own process tree. Covered by a new regression test
+(`tests/test-kill-provider-child-scoping.sh`) that proves both directions:
+a leaked process belonging to this run is still cleaned up, and an
+unrelated process in a different process group survives. Registered in
+the release gate so this class of regression cannot ship silently again.
+See `docs/v10/DECISIONS.md` D14 through D17 for the full record, including
+two related bugs the same investigation found and fixed in test code.
+
 ## v9.54.0
 
 **Resuming a session no longer endangers the user's files.** Six council

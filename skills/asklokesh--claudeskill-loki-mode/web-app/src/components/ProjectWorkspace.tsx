@@ -43,13 +43,12 @@ import { TokenSparkline, useTokenHistory } from './TokenSparkline';
 import { StatusBar } from './StatusBar';
 import { DeviceFrameSelector, useDeviceFrame } from './DeviceFrameSelector';
 import {
-  ZoomControls, CopyUrlButton, ScreenshotButton, QRCodeButton,
+  ZoomControls, CopyUrlButton, ScreenshotButton,
   FullscreenButton, PreviewConsole, RefreshButton, PreviewSkeleton,
 } from './PreviewToolbar';
 import type { ConsoleMessage } from './PreviewToolbar';
 
 import { AIChatPanel } from './AIChatPanel';
-import { ConfidenceIndicator } from './ConfidenceIndicator';
 import { BuildInsights } from './BuildInsights';
 import { BuildReplay } from './BuildReplay';
 import { NLSearch } from './NLSearch';
@@ -649,6 +648,7 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
   const [selectedProvider, setSelectedProvider] = useState(() => {
     return sessionStorage.getItem(`pl_provider_${sessionData.id}`) || 'claude';
   });
+  const [providerError, setProviderError] = useState<string | null>(null);
   const [actionOutput, setActionOutput] = useState<string | null>(null);
   const [actionState, setActionState] = useState<{
     type: 'review' | 'test' | 'explain';
@@ -660,11 +660,11 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [buildStatus, setBuildStatus] = useState<{
     phase: string;
-    iteration: number;
-    maxIterations: number;
-    cost: number;
+    iteration: number | null;     // null until the server reports one
+    maxIterations: number | null; // null when no iteration cap is configured
+    cost: number | null;
     startTime: number;
-  }>({ phase: 'idle', iteration: 0, maxIterations: 10, cost: 0, startTime: 0 });
+  }>({ phase: 'idle', iteration: null, maxIterations: null, cost: null, startTime: 0 });
   const [filesChangedIndicator, setFilesChangedIndicator] = useState(false);
   const [externalChangeFile, setExternalChangeFile] = useState<string | null>(null);
   const filesChangedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -741,7 +741,7 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
     } catch { /* ignore */ }
   }, []);
 
-  // Track previous phase for narration events
+  // Track previous phase for phase-change events
   const prevPhaseRef = useRef<string>('idle');
 
   // Poll session status for build controls, provider, and progress
@@ -755,7 +755,7 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
 
         const newPhase = status.phase || 'idle';
 
-        // Generate phase change + narration events when phase transitions
+        // Generate a phase-change event when the server-reported phase transitions
         if (newPhase !== prevPhaseRef.current && newPhase !== 'idle') {
           const now = new Date().toISOString();
           const phaseLabels: Record<string, string> = {
@@ -766,42 +766,24 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
             reviewing: 'Reviewing code quality',
             complete: 'Build complete',
           };
-          const narrationMessages: Record<string, string> = {
-            starting: 'Setting up the build environment and checking prerequisites...',
-            planning: 'Analyzing requirements and designing the architecture...',
-            building: 'Writing code and creating project files...',
-            testing: 'Running test suite to verify everything works...',
-            reviewing: 'Checking code quality and best practices...',
-            complete: 'All done. Your project is ready.',
+          const event: BuildEvent = {
+            id: `phase-${Date.now()}`,
+            type: 'phase_change',
+            message: phaseLabels[newPhase] || `Phase: ${newPhase}`,
+            timestamp: now,
           };
 
-          const events: BuildEvent[] = [
-            {
-              id: `phase-${Date.now()}`,
-              type: 'phase_change',
-              message: phaseLabels[newPhase] || `Phase: ${newPhase}`,
-              timestamp: now,
-            },
-          ];
-
-          if (narrationMessages[newPhase]) {
-            events.push({
-              id: `narration-${Date.now()}`,
-              type: 'narration',
-              message: narrationMessages[newPhase],
-              timestamp: now,
-            });
-          }
-
-          setBuildEvents(prev => [...prev, ...events]);
+          setBuildEvents(prev => [...prev, event]);
           prevPhaseRef.current = newPhase;
         }
 
         setBuildStatus({
           phase: newPhase,
-          iteration: status.iteration || 0,
-          maxIterations: status.max_iterations || 10,
-          cost: status.cost || 0,
+          // The server sends null for an unreported iteration or unset cap.
+          iteration: typeof status.iteration === 'number' ? status.iteration : null,
+          maxIterations: typeof status.max_iterations === 'number' && status.max_iterations > 0 ? status.max_iterations : null,
+          // The server sends null when no cost was measured; a measured 0 stays 0.
+          cost: typeof status.cost === 'number' ? status.cost : null,
           startTime: status.start_time ? status.start_time * 1000 : 0,
         });
 
@@ -1540,7 +1522,9 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
         <ShortcutsHelpButton onClick={() => setShowHelp(true)} />
       </div>
 
-      {/* Build progress bar with confidence indicator */}
+      {/* Build progress bar. The "AI confidence" gauge that sat beside it was
+          fed a hardcoded 80% gate pass rate and a coverage that jumped from
+          20% to 60% at iteration 3; nothing measures either, so it is gone. */}
       <div className="flex items-center gap-2">
         <div className="flex-1">
           <BuildProgressBar
@@ -1552,18 +1536,6 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
             isRunning={isBuilding}
           />
         </div>
-        {isBuilding && (
-          <div className="flex-shrink-0 pr-2">
-            <ConfidenceIndicator
-              gatePassRate={0.8}
-              testCoverage={buildStatus.iteration > 2 ? 60 : 20}
-              iteration={buildStatus.iteration}
-              maxIterations={buildStatus.maxIterations}
-              phase={buildPhase}
-              compact
-            />
-          </div>
-        )}
       </div>
 
       {/* Checkpoint timeline */}
@@ -1814,7 +1786,6 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
                               lineCount={lineCount}
                               cursorLine={cursorPosition.line}
                               cursorColumn={cursorPosition.column}
-                              buildTime={buildStatus.phase === 'complete' && buildStatus.startTime ? Math.floor((Date.now() - buildStatus.startTime) / 1000) : undefined}
                               sessionId={sessionData.id}
                               prd={sessionData.prd}
                             />
@@ -1864,9 +1835,6 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
 
                               {/* C28: Screenshot */}
                               <ScreenshotButton />
-
-                              {/* C27: QR code */}
-                              <QRCodeButton url={currentPreviewUrl} />
 
                               <IconButton icon={ExternalLink} label="Open in new tab" size="sm" onClick={() => window.open(currentPreviewUrl, '_blank')} />
 
@@ -2119,17 +2087,22 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
                           <div className="space-y-4">
                             <div className="card p-4">
                               <label className="block text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-2">Provider</label>
-                              <p className="text-xs text-muted mb-2">Current session: <span className="font-semibold text-ink capitalize">{selectedProvider}</span></p>
+                              <p className="text-xs text-muted mb-2">Provider for the next build: <span className="font-semibold text-ink capitalize">{selectedProvider}</span></p>
                               <div className="flex gap-2">
                                 {['claude', 'codex', 'gemini'].map(p => (
                                   <button
                                     key={p}
+                                    // The server only switches the provider when no build is running.
+                                    disabled={isBuilding}
+                                    title={isBuilding ? 'Stop the build to change the provider' : undefined}
                                     onClick={() => {
-                                      setSelectedProvider(p);
-                                      sessionStorage.setItem(`pl_provider_${sessionData.id}`, p);
-                                      api.setProvider(p).catch(() => {});
+                                      api.setProvider(p).then(() => {
+                                        setSelectedProvider(p);
+                                        sessionStorage.setItem(`pl_provider_${sessionData.id}`, p);
+                                        setProviderError(null);
+                                      }).catch(e => setProviderError(`Could not set provider: ${e instanceof Error ? e.message : 'unknown error'}`));
                                     }}
-                                    className={`px-4 py-2 rounded-btn text-sm font-medium border transition-colors capitalize ${
+                                    className={`px-4 py-2 rounded-btn text-sm font-medium border transition-colors capitalize disabled:opacity-50 disabled:cursor-not-allowed ${
                                       selectedProvider === p
                                         ? 'border-primary bg-primary/10 text-primary'
                                         : 'border-border text-secondary hover:bg-hover'
@@ -2139,9 +2112,11 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
                                   </button>
                                 ))}
                               </div>
+                              {providerError && <p className="text-xs text-danger mt-2">{providerError}</p>}
                             </div>
                             <div className="card p-4">
                               <label className="block text-xs font-semibold text-muted-accessible uppercase tracking-wider mb-2">Build Mode</label>
+                              <p className="text-xs text-muted mb-2">Used by chat and the cost estimate in this browser tab. Not sent to the build.</p>
                               <div className="flex gap-2">
                                 {(['quick', 'standard', 'max'] as const).map(m => (
                                   <button
@@ -2286,15 +2261,19 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
                     {activeWorkspaceTab === 'insights' && (
                       <div className="h-full overflow-y-auto p-4">
                         <BuildInsights
-                          filesCreated={sessionData.files.filter(f => f.type === 'file').length}
-                          filesModified={0}
-                          linesGenerated={0}
-                          testsGenerated={0}
-                          testPassRate={0}
-                          totalTokens={0}
+                          // Nothing on this page measures these; null renders
+                          // "Not recorded" instead of a zero nobody read. The
+                          // file tree cannot tell new files from existing ones.
+                          filesCreated={null}
+                          filesModified={null}
+                          linesGenerated={null}
+                          testsGenerated={null}
+                          testPassRate={null}
+                          totalTokens={null}
                           phaseBreakdown={[]}
-                          totalTimeSecs={buildStatus.startTime ? Math.floor((Date.now() - buildStatus.startTime) / 1000) : 0}
-                          qualityScore={0}
+                          // No end time is recorded, so elapsed is a build time only while running.
+                          totalTimeSecs={isBuilding && buildStatus.startTime ? Math.floor((Date.now() - buildStatus.startTime) / 1000) : null}
+                          qualityScore={null}
                           totalCost={buildStatus.cost}
                           iterations={buildStatus.iteration}
                           provider={selectedProvider}
@@ -2447,14 +2426,7 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
               </button>
             </div>
             <div className="p-4">
-              <BuildReplay
-                sessionId={sessionData.id}
-                files={sessionData.files.map(f => ({ path: f.path, type: f.type as 'file' | 'directory' }))}
-                phases={['planning', 'building', 'testing', 'reviewing', 'complete']}
-                checkpoints={[]}
-                qualityGates={[]}
-                totalIterations={buildStatus.iteration || buildStatus.maxIterations}
-              />
+              <BuildReplay sessionId={sessionData.id} />
             </div>
           </div>
         </div>
@@ -2489,7 +2461,8 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
             <CostEstimator
               complexity={buildMode === 'quick' ? 'simple' : buildMode === 'max' ? 'complex' : 'standard'}
               provider={selectedProvider}
-              estimatedIterations={buildStatus.maxIterations}
+              // No cap configured: 0 makes the estimator use its labelled per-complexity estimate.
+              estimatedIterations={buildStatus.maxIterations ?? 0}
               onConfirm={async () => {
                 setShowCostEstimator(false);
                 try {

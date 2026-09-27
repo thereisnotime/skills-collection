@@ -5339,6 +5339,62 @@ except Exception:
 }
 
 #===============================================================================
+# Rule of Two (moat P9): a GitHub token never reaches an agent session.
+#
+# The run reads untrusted issue text and spawns agents that act on it, so a
+# token in the exported environment is one prompt injection away from a push.
+# main() un-exports every GitHub token it inherited (the shell keeps the value).
+# Every provider, reviewer, helper and test the agent writes then starts without
+# it. Loki's own trusted GitHub calls get it back for the one command:
+#   - direct `gh ...` calls, through the gh() wrapper defined below;
+#   - _loki_with_github_tokens <cmd...>, for the post-session push/PR paths.
+# LOKI_ALLOW_AGENT_GITHUB_TOKEN=1 (exact value) restores the old inheritance
+# and prints one stderr warning that the agent holds the token.
+# This is hygiene against a naive injection, not an isolation boundary: code
+# running as the same user can still read the parent's environment block
+# (/proc/<pid>/environ on Linux, sudo on a hosted runner). The boundary is a
+# CI job that holds no write token while the agent runs (see
+# .github/workflows/loki-issue-to-pr.yml).
+#===============================================================================
+_LOKI_WITHHELD_TOKENS=""
+
+_loki_with_github_tokens() {
+    local _v _rc=0
+    for _v in $_LOKI_WITHHELD_TOKENS; do export "${_v?}"; done
+    "$@" || _rc=$?
+    for _v in $_LOKI_WITHHELD_TOKENS; do export -n "${_v?}"; done
+    return "$_rc"
+}
+
+_loki_withhold_github_tokens() {
+    local _v _held=""
+    # Operator opt-out (exact value 1): keep the earlier behavior, where the
+    # agent inherits the token. That is a Rule of Two exposure, so say so.
+    if [ "${LOKI_ALLOW_AGENT_GITHUB_TOKEN:-}" = "1" ]; then
+        for _v in GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN; do
+            [ -n "${!_v:-}" ] && _held="${_held:+$_held }$_v"
+        done
+        [ -z "$_held" ] || printf '%s\n' "WARNING: LOKI_ALLOW_AGENT_GITHUB_TOKEN=1: the agent session holds the GitHub token ($_held); an injected prompt can push with it (Rule of Two exposure)." >&2
+        return 0
+    fi
+    for _v in GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN; do
+        [ -n "${!_v:-}" ] || continue
+        export -n "${_v?}"
+        case " $_LOKI_WITHHELD_TOKENS " in
+            *" $_v "*) ;;
+            *) _LOKI_WITHHELD_TOKENS="${_LOKI_WITHHELD_TOKENS:+$_LOKI_WITHHELD_TOKENS }$_v" ;;
+        esac
+    done
+    [ -n "$_LOKI_WITHHELD_TOKENS" ] || return 0
+    # Only when the binary exists, so `command -v gh` keeps meaning "gh is
+    # installed" for every caller that checks it.
+    if command -v gh >/dev/null 2>&1; then
+        gh() { _loki_with_github_tokens command gh "$@"; }
+    fi
+    log_info "Withheld from agent sessions (Rule of Two): $_LOKI_WITHHELD_TOKENS. Loki's own push and PR steps still use it."
+}
+
+#===============================================================================
 # on_run_complete  (Slice 3: opt-in local git output on success)
 #
 # Called from every SUCCESS exit BEFORE emit_completion_summary so the PR url it
@@ -5403,11 +5459,14 @@ on_run_complete() {
     # timeout is not installed (a local wrapper keeps this set -u safe on bash
     # 3.2, where an empty array expansion would error). Keeps every existing
     # `|| true` non-fatal behavior.
+    # The push and gh calls below are the trusted post-session step, so they
+    # get the withheld GitHub token back (a plain `timeout 30 gh` would exec
+    # the binary and bypass the gh() wrapper).
     _loki_net() {
         if command -v timeout >/dev/null 2>&1; then
-            timeout 30 "$@"
+            _loki_with_github_tokens timeout 30 "$@"
         else
-            "$@"
+            _loki_with_github_tokens "$@"
         fi
     }
     # Require gh + auth.
@@ -8765,10 +8824,20 @@ start_resource_monitor() {
     # Initial check
     check_system_resources
 
-    # Background monitoring loop
+    # Background monitoring loop. BACKLOG 22: a bare `sleep N` inside this
+    # subshell survives a TERM to the subshell -- caught traps do not carry
+    # into a foreground child, so the sleep reparents to init and outlives the
+    # run for up to RESOURCE_CHECK_INTERVAL seconds. Backgrounding the sleep
+    # and recording its PID lets a TERM trap kill it directly; `wait` returns
+    # immediately once the trap fires, so shutdown is not delayed either.
     (
+        _loki_rm_sleep_pid=""
+        trap '[ -n "$_loki_rm_sleep_pid" ] && kill "$_loki_rm_sleep_pid" 2>/dev/null; exit 0' TERM
         while true; do
-            sleep "$RESOURCE_CHECK_INTERVAL"
+            sleep "$RESOURCE_CHECK_INTERVAL" &
+            _loki_rm_sleep_pid=$!
+            wait "$_loki_rm_sleep_pid"
+            _loki_rm_sleep_pid=""
             check_system_resources
         done
     ) &
@@ -9091,8 +9160,10 @@ setup_agent_branch() {
     [ -f .loki/.gitignore ] || printf '*\n' > .loki/.gitignore 2>/dev/null || true
 
     # Capture the ref Loki was run from. Detached HEAD yields the literal "HEAD".
+    # symbolic-ref also names an unborn branch (fresh `git init`), where
+    # rev-parse printed "HEAD" and failed, recording "HEAD" twice as the base.
     local cur=""
-    cur="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
+    cur="$(git symbolic-ref --short -q HEAD 2>/dev/null || echo HEAD)"
 
     # Detached HEAD: do NOT branch, do NOT fabricate a base (LOCK A2/A6).
     if [ "$cur" = "HEAD" ]; then
@@ -9135,15 +9206,13 @@ setup_agent_branch() {
         fi
     fi
 
-    # Fresh run: persist the base branch (fresh-run-only) BEFORE branching, then
-    # mint and check out the feature branch (LOCK A2).
+    # Fresh run: mint and check out the feature branch, then persist its base
+    # (fresh-run-only, LOCK A2).
     local timestamp
     timestamp=$(date +%s)
     local branch_name="loki/session-${timestamp}-$$"
 
     mkdir -p .loki/state 2>/dev/null || true
-    # Persist the base only once per run tree; never overwrite an existing base.
-    [ ! -s .loki/state/base-branch.txt ] && printf '%s\n' "$cur" > .loki/state/base-branch.txt 2>/dev/null
 
     log_info "Branch protection enabled - creating agent branch: $branch_name (base: $cur)"
 
@@ -9170,7 +9239,22 @@ setup_agent_branch() {
         log_warn "Left uncommitted from an earlier unfinished session, now treated as your files: $leftover"
     fi
     rm -f .loki/state/session-created.z 2>/dev/null
+    # BACKLOG 68 rework: a fresh mint starts with no tracked-since anchor and no
+    # in-flight marker (never seed the anchor from session-start-sha -- an
+    # anchor==start would let a later resume's "anchor..HEAD" diff include this
+    # session's OWN commits, pruning them from the next session's union as if
+    # the user had tracked them between sessions).
+    rm -f .loki/state/tracked-since.sha .loki/state/turn-in-flight 2>/dev/null
     if [ "$snap_ok" = 1 ]; then _LOKI_SNAPSHOT_THIS_RUN=1; fi
+
+    # Every mint (a refused resume included) records its own base and the
+    # commit it starts at (the empty tree when unborn); the resume paths above
+    # keep both. A base left by an earlier session can name a branch deleted
+    # since, and _loki_untrack_agent_committed_user_files then could not find
+    # the user files the agent commits.
+    printf '%s\n' "$cur" > .loki/state/base-branch.txt 2>/dev/null
+    { git rev-parse --verify -q HEAD || git hash-object -t tree /dev/null; } \
+        > .loki/state/session-start-sha 2>/dev/null
 
     # Store the branch name for later use (PR creation, cleanup)
     printf '%s\n' "$branch_name" > .loki/state/agent-branch.txt 2>/dev/null
@@ -9194,6 +9278,368 @@ _loki_snapshot_or_fail_closed() {
     return 1
 }
 
+# BACKLOG 70: preexisting-untracked.z and its .sha.z sibling live in
+# .loki/state, which the agent process (and anything it spawns) can write. A
+# co-located adversarial agent can delete .sha.z to blind
+# workspace_diff._preexisting_untracked's mismatch check (silently suppressing
+# every preexisting_modified disclosure), or append/edit .z entries to hide its
+# own new files from the receipt or falsely disown them. Full prevention against
+# a same-UID process is not achievable (it can read and rewrite anything this
+# process can); the realistic bar, and the one BACKLOG 70 asks for, is
+# DISCLOSURE: this process is the only one that can remember what it itself
+# just wrote, so it seals a sha256 of both files in its own memory right after
+# writing them, and re-derives + compares that digest at every later read site.
+# A mismatch (or the sealed file now missing) is reported as tampering and
+# treated as a failed snapshot (fail closed: no session commit), never patched
+# over silently. Cleared whenever the files are deliberately removed (line
+# ~9165) so that path is never reported as tampering.
+_LOKI_SNAPSHOT_SEAL=""
+
+# BACKLOG 129 (follow-up to BACKLOG 70/BACKLOG 70-awk): the DIGEST computation
+# above is hardened (fixed-root-path-first, no awk), but until this function
+# was added the snapshot WRITER (_loki_untracked_merge) and READER
+# (_loki_covered_paths), plus the hash-snapshot helper that produces .sha.z,
+# still ran bare `python3 -E`. -E only blocks PYTHON* env vars; it does NOT
+# stop user (or Homebrew) site-packages from loading, and Python execs every
+# line starting "import " in every .pth file found there on every startup
+# (confirmed empirically: a .pth planted in user site-packages fired and
+# silently rewrote the writer's declared output file after the legitimate
+# write completed). A same-UID agent that plants such a .pth can forge the
+# CONTENT of the snapshot BEFORE the (correctly hardened) seal ever computes a
+# digest over it -- the seal then faithfully approves the forgery. Resolved
+# the same way as _loki_snapshot_hash_tool: fixed root-owned candidate paths
+# first (a materially higher bar than a user-writable site-packages
+# directory), each PROBED with a real run (not just `-x`, which a Command Line
+# Tools-less Mac's /usr/bin shims would still pass while failing to execute
+# and possibly popping an install dialog), then a PATH walk restricted to
+# absolute entries as a last resort. -I -S (isolated mode, and -S also skips
+# `import site` entirely) is used at every call site below: -I alone still
+# loads site-packages (verified: `python3 -I` still lists Homebrew's
+# site-packages on this host), so -S is required to close the .pth vector,
+# not just narrow it. Accepted gap, same shape as _loki_snapshot_hash_tool's:
+# replacing the interpreter binary AT ONE OF THE FIXED PATHS this resolves to
+# first requires root; a host with none of the fixed candidates falls through
+# to the PATH-walk, which still trusts whatever sits first on an absolute PATH
+# entry under that name. A further, host-specific gap: on macOS these fixed
+# paths are typically Command Line Tools / Xcode shims that dispatch into
+# /Applications/Xcode.app -- root-owned on a normal install, but the fixed
+# path is only as trustworthy as that dispatch target on any host where it is
+# not.
+_loki_snapshot_py_tool() {
+    local c
+    for c in /usr/bin/python3 /bin/python3; do
+        [ -x "$c" ] && [ ! -d "$c" ] && "$c" -I -S -c '' >/dev/null 2>&1 && { printf '%s\n' "$c"; return 0; }
+    done
+    local dir
+    local IFS=:
+    for dir in $PATH; do
+        case "$dir" in
+            /*) ;;
+            *) continue ;;
+        esac
+        if [ -x "$dir/python3" ] && [ ! -d "$dir/python3" ] \
+           && "$dir/python3" -I -S -c '' >/dev/null 2>&1; then
+            printf '%s\n' "$dir/python3"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# BACKLOG 129: same rationale and pattern as _loki_snapshot_py_tool above, for
+# `git`. Every call in this snapshot writer/reader chain
+# (_loki_untracked_status, _loki_tracked_by_user_since_anchor,
+# _loki_snapshot_preexisting's own `git rev-parse --show-toplevel`) used a bare
+# `git` -- an unscoped PATH lookup a same-UID attacker can shadow with a fake
+# binary placed in a user-writable directory ahead of the real one, exactly
+# the class of bypass _loki_snapshot_hash_tool's own comment already documents
+# for sha256sum/shasum. Reproduced empirically: a fake `git` ahead on PATH
+# that filters one path out of `git status`'s output caused that path to be
+# completely absent from the sealed snapshot. `_loki_untrack_agent_committed_
+# user_files`'s git calls (feeding the READER path, _loki_covered_paths) and
+# the commit-time `git reset`/`git commit`/`git update-index` calls in
+# commit_session_changes are DELIBERATELY left unresolved here (out of scope
+# for this fix): a fake git on PATH already defeats the commit gate directly
+# at commit time regardless of what the snapshot says, so resolving only the
+# reader's git feed would not change that attacker's outcome. Tracked as a
+# follow-up (process-wide resolved git) rather than folded into this change.
+_loki_snapshot_git_tool() {
+    local c
+    for c in /usr/bin/git /bin/git; do
+        [ -x "$c" ] && [ ! -d "$c" ] && "$c" --version >/dev/null 2>&1 && { printf '%s\n' "$c"; return 0; }
+    done
+    local dir
+    local IFS=:
+    for dir in $PATH; do
+        case "$dir" in
+            /*) ;;
+            *) continue ;;
+        esac
+        if [ -x "$dir/git" ] && [ ! -d "$dir/git" ] && "$dir/git" --version >/dev/null 2>&1; then
+            printf '%s\n' "$dir/git"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# _loki_snapshot_hash_tool: resolve an absolute path to sha256sum or shasum.
+# Fixed, root-owned candidate paths are tried FIRST, before any PATH walk: a
+# same-UID agent that can write to a user-writable directory ahead of the real
+# tool on PATH (Homebrew's prefix, e.g. /opt/homebrew/bin, is user-writable by
+# default on macOS and typically precedes /usr/bin) could otherwise drop its
+# own sha256sum/shasum there that reads the two snapshot files and echoes back
+# whatever hash it wants -- the same class of bypass as the .pth hijack this
+# whole function exists to close, just with a fake binary as the carrier
+# instead of a fake module. Trying the standard system locations first closes
+# that: they require root to write to, a materially higher bar than a
+# user-writable site-packages directory or a user-writable PATH entry.
+# A PATH walk (D7: never trust a bare command name -- restricted to absolute
+# entries, matching autonomy/loki's loki_verify_tool_path) is kept only as a
+# last resort for a host that keeps sha256sum/shasum somewhere nonstandard;
+# document there that this fallback still trusts whatever is first on an
+# absolute PATH entry, which a user-writable directory ahead of the system
+# dirs can still shadow. Prints nothing (caller then falls back) when no tool
+# is found anywhere.
+_loki_snapshot_hash_tool() {
+    local c
+    for c in /usr/bin/sha256sum /bin/sha256sum /sbin/sha256sum \
+             /usr/bin/shasum /bin/shasum; do
+        [ -x "$c" ] && [ ! -d "$c" ] && { printf '%s\n' "$c"; return 0; }
+    done
+    # Last resort: PATH walk, absolute entries only. Still trusts whatever
+    # sits first on PATH under that name; see comment above.
+    local name dir
+    local IFS=:
+    for name in sha256sum shasum; do
+        for dir in $PATH; do
+            case "$dir" in
+                /*) ;;
+                *) continue ;;
+            esac
+            if [ -x "$dir/$name" ] && [ ! -d "$dir/$name" ]; then
+                printf '%s\n' "$dir/$name"
+                return 0
+            fi
+        done
+    done
+    return 1
+}
+
+# _loki_snapshot_digest: sha256 of preexisting-untracked.z + .sha.z content
+# (each independently, "-" standing in for "file absent" so a delete is part
+# of the digest, not indistinguishable from an empty file; "?" standing in for
+# "file present but the hash tool failed to produce a real digest" -- a
+# nonzero exit, empty output, or output that fails validation below -- so a
+# transient read error never seals or compares as an empty string).
+#
+# HIGH-severity reviewer finding on the original python3 -E version: -E only
+# ignores PYTHON* env vars, it does NOT stop Python from loading user (or, on
+# macOS with Homebrew, system) site-packages, and Python executes every .pth
+# file found there on every startup. A same-UID agent process can plant a .pth
+# file there that hijacks this script's own print() to emit a cached, stale
+# (pre-tamper) digest -- fully defeating the seal while `git`/file state show
+# real tampering happened. Fixed by computing the digest with sha256sum/shasum
+# instead: neither has a .pth-style module-loading path for that hijack to
+# attach to. shasum is a Perl script on macOS (not a compiled binary), but its
+# @INC search path is root-owned system Perl library directories, not a user
+# site-packages directory, so the .pth carrier does not transfer to it.
+#
+# SECOND reviewer finding, on the shasum/sha256sum version that first closed
+# the .pth hole: the digest was piped through a bare `awk '{print $1}')`
+# resolved via an unscoped PATH lookup (`awk '{...}'` runs whatever `awk`
+# comes first on PATH). A fake `awk` placed in a user-writable directory ahead
+# of the real one (the same Homebrew-prefix-precedes-/usr/bin shape as the
+# hash-tool bypass above) can intercept the pipe and print a cached, stale
+# digest, defeating the seal exactly as before -- the fix reintroduced the
+# same bypass class it was written to close, just moved one command over.
+# Fixed by dropping awk entirely: the first whitespace-delimited field is
+# taken with the shell builtin `${h%% *}` (parameter expansion, no external
+# process, nothing on PATH to hijack), and the result is validated as exactly
+# 64 lowercase hex characters before being trusted as a real sha256 digest --
+# anything else (empty, wrong length, non-hex, a hand-rolled fake tool that
+# does not bother to format like sha256sum/shasum) becomes "?". The hash
+# tool's own exit status is also checked explicitly now: a piped
+# `cmd | awk ...` hid a nonzero exit from the hash tool behind awk's exit
+# status; capturing to a plain variable surfaces it.
+#
+# Resolved via _loki_snapshot_hash_tool above (fixed root-owned paths first,
+# PATH walk restricted to absolute entries only as a last resort), not a bare
+# `command -v`, so this also closes the sibling D7-pattern gap: an unscoped
+# lookup could otherwise resolve to a same-named binary planted in a
+# user-writable directory ahead of the real tool on PATH.
+#
+# Accepted gaps (disclosure, not prevention, per BACKLOG 70's own bar, same as
+# documented at _LOKI_SNAPSHOT_SEAL above): a same-UID ptrace attack on this
+# process or on the sha256sum/shasum child process itself; replacing the
+# sha256sum/shasum binary AT ONE OF THE FIXED SYSTEM PATHS this resolves to
+# first (requires root, a materially higher bar than a user-writable
+# site-packages .pth or a user-writable PATH entry); on a host with none of
+# the fixed candidates, the PATH-walk fallback inside _loki_snapshot_hash_tool
+# still trusts whatever sits first on an absolute PATH entry under that name,
+# which a user-writable directory ahead of the system dirs (e.g. Homebrew's
+# prefix on macOS) can shadow -- not fully closed, only narrowed to hosts
+# lacking the standard tool paths; the python3 fallback below, kept only for
+# the extremely rare host with neither tool anywhere, is resolved via
+# _loki_snapshot_py_tool and run with -I -S (BACKLOG 131(b) -- see the comment
+# at that fallback for why -S, not just -I, is required to close the .pth
+# class), so it carries the same fixed-root-path-first resolution and
+# site-packages exclusion as the other hardened call sites in this file. It
+# still inherits _loki_snapshot_py_tool's own accepted gaps (documented at
+# that function): replacing the interpreter AT ONE OF ITS FIXED PATHS requires
+# root, and its own PATH-walk fallback still trusts whatever sits first on an
+# absolute PATH entry on a host lacking those fixed paths.
+_loki_snapshot_digest() {
+    local tool
+    tool="$(_loki_snapshot_hash_tool)" || tool=""
+    if [ -n "$tool" ]; then
+        local out="" path h
+        for path in ".loki/state/preexisting-untracked.z" ".loki/state/preexisting-untracked.sha.z"; do
+            if [ -f "$path" ]; then
+                h=""
+                case "${tool##*/}" in
+                    shasum) h="$("$tool" -a 256 -- "$path" 2>/dev/null)" || h="" ;;
+                    *)      h="$("$tool" -- "$path" 2>/dev/null)" || h="" ;;
+                esac
+                # No awk: take the first whitespace-delimited field with a
+                # shell builtin (nothing on PATH to hijack), then require
+                # exactly 64 lowercase hex characters. Anything else -- empty
+                # output, a nonzero exit already caught above, an unexpected
+                # format, a hand-rolled fake tool -- becomes "?" rather than
+                # being trusted as a real digest. "?" is distinct from "-"
+                # (file absent) and from any real hex digest, so a later
+                # successful read of the same file mismatches it and is still
+                # disclosed as tampering.
+                h="${h%% *}"
+                if [ "${#h}" -eq 64 ]; then
+                    case "$h" in
+                        *[!0123456789abcdef]*) h="?" ;;
+                    esac
+                else
+                    h="?"
+                fi
+                out="$out $h"
+            else
+                out="$out -"
+            fi
+        done
+        printf '%s\n' "${out# }"
+        return 0
+    fi
+    # Fallback: neither sha256sum nor shasum found anywhere checked above
+    # (extremely rare on macOS/Linux). Resolved via _loki_snapshot_py_tool
+    # (fixed root-owned path first) and run with -I -S, the same BACKLOG 129
+    # pattern used at _loki_untracked_merge / _loki_covered_paths: -I alone is
+    # NOT enough -- a reviewer reproduced, on a sibling function in this same
+    # tamper-detection system, that a .pth file planted in Homebrew python3's
+    # own (user-writable) site-packages directory still fires under `python3
+    # -I` alone, since -I implies -s (skip user site-packages) but does not
+    # skip the resolved interpreter's OWN site-packages. Only -S (skip ALL
+    # site-packages, including the interpreter's own) closes that. A resolve
+    # failure degrades this fallback to printing nothing, same as any other
+    # failure path here (caller treats empty as "could not seal"). Additional
+    # accepted gap specific to this fallback (not present on the tool-based
+    # path above, which distinguishes "-" from "?"): OSError covers BOTH
+    # "file does not exist" and "file exists but is unreadable" here, so an
+    # unreadable file on this path is indistinguishable from an absent one --
+    # both print "-". The tool-based path above tells them apart ("-" for
+    # absent, "?" for present-but-unreadable, caught by the seal-time
+    # fail-closed check). Narrowing this further (os.path.lexists to emit "?"
+    # for present-but-unreadable) is straightforward but left undone here: this
+    # fallback only runs on a host with neither sha256sum nor shasum anywhere,
+    # already the rare case this whole function treats as a residual gap.
+    local pytool=""
+    pytool="$(_loki_snapshot_py_tool)" || return 1
+    "$pytool" -I -S -c 'import sys, hashlib
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+out = []
+for path in sys.argv[1:]:
+    try:
+        with open(path, "rb") as fh:
+            out.append(hashlib.sha256(fh.read()).hexdigest())
+    except OSError:
+        out.append("-")
+print(" ".join(out))' \
+        ".loki/state/preexisting-untracked.z" ".loki/state/preexisting-untracked.sha.z" 2>/dev/null
+}
+
+# _loki_snapshot_seal: record this process's own memory of what it just wrote.
+# Called only right after a successful _loki_snapshot_preexisting. Minor
+# reviewer note: a legitimate snapshot write should never hit an unreadable-
+# file condition immediately after writing it, so a "?" in the digest AT SEAL
+# TIME (as opposed to at a later verify) is itself suspicious -- both seal and
+# a later verify could then read "?", compare equal, and silently disarm the
+# guard for the rest of the session (the same failure mode
+# _loki_snapshot_verify's mismatch path exists to catch, just never triggered
+# because both sides agree on the sentinel). Closed cheaply: reject an empty
+# or "?"-containing digest at seal time the same way _loki_snapshot_verify
+# rejects a mismatch -- log and disclose it, write the .failed marker, AND
+# clear _LOKI_SNAPSHOT_THIS_RUN directly here (belt-and-braces: the actual
+# gate that stops a commit). The call site right after `_loki_snapshot_seal`
+# in _loki_snapshot_preexisting also checks `_LOKI_SNAPSHOT_SEAL` and returns
+# non-zero on failure, which is what actually propagates to
+# _loki_snapshot_or_fail_closed / _loki_resume_snapshot and keeps their
+# existing callers from ever setting _LOKI_SNAPSHOT_THIS_RUN=1 in the first
+# place (see the comment there) -- so the in-function clear here is redundant
+# with that, not the sole mechanism, kept only as defense in depth in case a
+# future caller invokes this function directly. The call site above is
+# intentionally left as a bare `_loki_snapshot_seal` (no `|| return`):
+# tests/test-branch-lifecycle.sh's RED harness matches that exact line to
+# strip the guard; the propagation check right after it carries its own
+# trailing-comment marker the RED harness also strips (see the comment at
+# that check, in _loki_snapshot_preexisting, for the exact text -- not
+# repeated here so a grep for it does not also match this sentence), so
+# removing either half of the guard is enough to reproduce the pre-fix
+# silent-degrade behavior in that test.
+_loki_snapshot_seal() {
+    local d
+    d="$(_loki_snapshot_digest)"
+    case "$d" in
+        ""|*'?'*)
+            _LOKI_SNAPSHOT_SEAL=""
+            _LOKI_SNAPSHOT_THIS_RUN=0
+            log_warn "Could not seal the pre-existing-file snapshot (hash tool failed or produced no readable digest); treating this session as unsnapshotted (nothing will be committed)"
+            audit_log "SNAPSHOT_SEAL_FAILED" "_loki_snapshot_digest returned empty or an unreadable-file sentinel at seal time"
+            mkdir -p .loki/state 2>/dev/null
+            : > .loki/state/preexisting-untracked.failed 2>/dev/null
+            ;;
+        *)
+            _LOKI_SNAPSHOT_SEAL="$d"
+            ;;
+    esac
+}
+
+# _loki_snapshot_verify: compare the live files against the sealed digest.
+# No seal recorded yet (never snapshotted this process, or deliberately
+# cleared) is not tampering: returns success and does nothing. A seal that no
+# longer matches IS tampering: logs it (disclosure is the bar BACKLOG 70 asks
+# for; a same-UID process can rewrite anything else this one could check), and
+# forces every fail-closed path a missing/failed snapshot already takes --
+# clears the seal so a caller cannot re-check a stale value, clears
+# _LOKI_SNAPSHOT_THIS_RUN so commit_session_changes and
+# _loki_record_session_created both treat this as an unsnapshotted session, and
+# (re)writes preexisting-untracked.failed so BACKLOG 90's existing message
+# fires. Every consumer of the snapshot/hash files calls this first and treats
+# non-zero as "no snapshot".
+_loki_snapshot_verify() {
+    local live=""
+    [ -n "$_LOKI_SNAPSHOT_SEAL" ] || return 0
+    live="$(_loki_snapshot_digest)"
+    if [ "$live" = "$_LOKI_SNAPSHOT_SEAL" ]; then
+        return 0
+    fi
+    log_warn "Pre-existing-file snapshot or its hash file changed after this session recorded it (possible tampering by an agent process); treating this session as unsnapshotted (nothing will be committed)"
+    # Record both digests (before clearing the seal below) so an operator
+    # reading the audit log can tell a genuine content tamper apart from a
+    # transient hash-tool failure that just produced a different digest.
+    audit_log "SNAPSHOT_TAMPERED" "preexisting-untracked.z or .sha.z changed after being sealed: live=$live,sealed=$_LOKI_SNAPSHOT_SEAL"
+    _LOKI_SNAPSHOT_SEAL=""
+    _LOKI_SNAPSHOT_THIS_RUN=0
+    mkdir -p .loki/state 2>/dev/null
+    : > .loki/state/preexisting-untracked.failed 2>/dev/null
+    return 1
+}
+
 # _loki_snapshot_preexisting [union]
 # Write .loki/state/preexisting-untracked.z: every path git does not track,
 # untracked and gitignored, repo-wide, NUL-delimited, relative to the repo top.
@@ -9202,33 +9648,90 @@ _loki_snapshot_or_fail_closed() {
 # a directory only when an ignore pattern matches it, so node_modules/ is one
 # "dir/" entry covering its subtree, while logs/ holding only *.log files is
 # listed file by file (a new logs/app.json is still the agent's). "union" keeps
-# the paths already recorded. The sibling .sha.z (content hash per file entry)
-# lets the receipt list a pre-existing file the run changed; it is removed
-# first, so a failed hash step means no detection, never stale hashes. Returns
-# non-zero, leaving any earlier list in place, when git cannot list.
+# the paths already recorded, minus any that became tracked because the USER
+# committed them between sessions (BACKLOG 68 rework). Distinguishing that from
+# "the AGENT itself committed or staged this pre-existing file during THIS
+# session, then got killed" is the entire point of the anchor below: only a
+# path git ADDED strictly after the last point this run itself could reach is
+# ever pruned. A path the agent tracked before that point is left IN the union
+# so it still flows into _loki_untrack_agent_committed_user_files's disclosure
+# (warn, remove from the branch tip, keep on disk) -- never silently swept in.
+#
+# The anchor is .loki/state/tracked-since.sha, a commit SHA written by
+# _loki_record_session_created (after each provider turn) and by
+# commit_session_changes (at session end): the newest point this run itself
+# recorded. .loki/state/turn-in-flight marks a provider turn as currently
+# running (set right before invocation, cleared by the same record call that
+# advances the anchor); its presence means a turn may have committed something
+# since the last anchor write, so pruning is skipped entirely rather than risk
+# treating an agent's mid-turn commit as the user's. Any anchor-resolution
+# failure (missing anchor, anchor not an ancestor of HEAD, merge-base failure)
+# also skips pruning: the safe direction is the old behavior (false blame, file
+# kept on disk), never silent adoption.
+#
+# The sibling .sha.z (content hash per file entry) lets the receipt list a
+# pre-existing file the run changed; it is removed first, so a failed hash step
+# means no detection, never stale hashes. Returns non-zero, leaving any earlier
+# list in place, when git cannot list. Seals a digest of both files on success
+# (BACKLOG 70) so later reads can detect tampering.
 _loki_snapshot_preexisting() {
-    local snap=".loki/state/preexisting-untracked.z" top="" base="" exclude=""
+    local snap=".loki/state/preexisting-untracked.z" top="" base="" exclude="" tracked="" gittool="" pytool=""
     rm -f "${snap%.z}.sha.z" 2>/dev/null
-    top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+    gittool="$(_loki_snapshot_git_tool)" || return 1
+    top="$("$gittool" rev-parse --show-toplevel 2>/dev/null)" || return 1
     mkdir -p .loki/state 2>/dev/null || return 1
     # "union" never adds a path listed in session-created.z: those files were
     # made by a session that did not finish (interrupt, pod loss), so the
     # session that finishes the work commits them. If the user edits one of
     # them between sessions it is still the session's file and is committed
-    # with the edit. Recorded entries only block additions; they never remove
-    # a path already in the list.
+    # with the edit. Recorded entries only block additions; a path this run can
+    # prove the USER tracked between sessions is the one case they DO remove
+    # (see _loki_tracked_by_user_since_anchor below).
     if [ "${1:-}" = union ]; then
         base="$snap"
         exclude=".loki/state/session-created.z"
+        tracked="$snap.tracked"
+        if ! _loki_tracked_by_user_since_anchor "$top" "$tracked"; then
+            rm -f "$tracked"
+            tracked=""
+        fi
     fi
     if ! _loki_untracked_status "$snap.status" \
-       || ! _loki_untracked_merge "$snap.status" "$base" "$exclude" exact "$snap"; then
-        rm -f "$snap.status" "$snap.tmp"
+       || ! _loki_untracked_merge "$snap.status" "$base" "$exclude" exact "$snap" "$tracked"; then
+        rm -f "$tracked" "$snap.status" "$snap.tmp"
         return 1
     fi
-    rm -f "$snap.status"
-    python3 -E "$SCRIPT_DIR/lib/workspace_diff.py" hash-snapshot "$top" "$snap" >/dev/null 2>&1 \
+    rm -f "$tracked" "$snap.status"
+    # BACKLOG 129: write_snapshot_hashes (the only code path "hash-snapshot"
+    # reaches) does pure file I/O (open/os.path/hashlib), no sibling import
+    # from autonomy/lib and no subprocess/git call, so -I -S is safe here: it
+    # never needs the script's own directory on sys.path or anything from
+    # site-packages. This writes .sha.z, one of the two files the seal above
+    # digests, so it is in scope of the same forgery class as the merge/covered
+    # sites below. A failed resolve here degrades to the existing log_warn path
+    # (receipt loses preexisting_modified detection) rather than blocking the
+    # snapshot -- matching this call's pre-existing non-fatal-on-failure shape.
+    pytool="$(_loki_snapshot_py_tool)" && "$pytool" -I -S "$SCRIPT_DIR/lib/workspace_diff.py" hash-snapshot "$top" "$snap" >/dev/null 2>&1 \
         || log_warn "Could not hash your pre-existing untracked files; the receipt cannot list the ones this run changes"
+    _loki_snapshot_seal
+    # A seal failure (empty digest or an unreadable-file "?", see the comment
+    # at _loki_snapshot_seal) leaves _LOKI_SNAPSHOT_SEAL empty; propagate that
+    # as a failure of this function too, so both callers'
+    # (_loki_snapshot_or_fail_closed and _loki_resume_snapshot) existing
+    # fail-closed handling applies, instead of silently reporting success on a
+    # session this process could not actually seal. This is the line that
+    # actually makes a seal failure fail closed (_loki_snapshot_seal's own
+    # in-function clear is defense in depth, not the mechanism -- see the
+    # comment there). This line is deliberately also stripped by
+    # tests/test-branch-lifecycle.sh's BACKLOG-70 RED mutation, by its trailing
+    # comment marker (kept off this sentence on purpose, so a grep for the
+    # marker text matches only the one real code line below, not this prose),
+    # same as the guard calls above it: without it, on a mutated copy that
+    # also strips `_loki_snapshot_seal`, _LOKI_SNAPSHOT_SEAL stays at its
+    # global initial value ("") and this check alone would still return 1 and
+    # fail closed, masking the RED reproduction the test relies on to prove
+    # the mutation of the ACTUAL guard calls is non-vacuous.
+    [ -n "$_LOKI_SNAPSHOT_SEAL" ] || return 1  # BACKLOG-70-SEAL-CHECK
     return 0
 }
 
@@ -9236,32 +9739,57 @@ _loki_snapshot_preexisting() {
 # and the session-created record, so the two always agree: raw
 # `git status --porcelain -z` records for the whole repo, .loki excluded.
 # Non-zero, writing nothing, when git cannot list.
+# BACKLOG 129: resolved via _loki_snapshot_git_tool (fixed root-owned path
+# first, PATH walk restricted to absolute entries as a last resort), not a
+# bare `git`, which a same-UID attacker can shadow with a fake binary on a
+# user-writable PATH entry ahead of the real one -- reproduced empirically: a
+# fake git filtering one path out of its `status` output made that path
+# entirely absent from the sealed snapshot this function ultimately feeds.
 _loki_untracked_status() {
-    local top="" prefix=""
-    top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
-    prefix="$(git rev-parse --show-prefix 2>/dev/null)" || return 1
-    git -C "$top" --no-optional-locks status --porcelain -z --no-renames -uall \
+    local top="" prefix="" gittool=""
+    gittool="$(_loki_snapshot_git_tool)" || return 1
+    top="$("$gittool" rev-parse --show-toplevel 2>/dev/null)" || return 1
+    prefix="$("$gittool" rev-parse --show-prefix 2>/dev/null)" || return 1
+    "$gittool" -C "$top" --no-optional-locks status --porcelain -z --no-renames -uall \
         --ignored=matching --ignore-submodules=all -- ":(exclude,literal)${prefix}.loki" \
         > "$1" 2>/dev/null && return 0
     rm -f "$1"
     return 1
 }
 
-# _loki_untracked_merge <status> <base> <exclude> exact|cover <out>
-# Atomically write <out>: the NUL-delimited paths of <base>, plus every
-# untracked ("??") or ignored ("!!") path in <status> that <exclude> does not
-# hold. With "cover", an <exclude> entry ending in "/" also holds every path
-# below it (workspace_diff._covered). An empty or missing <base> or <exclude>
-# is an empty list; any other read or write failure is non-zero and leaves
-# <out> as it was. Sorted bytewise, like `LC_ALL=C sort -z -u`. One python
-# process: bash 3.2 has no associative arrays, and a bash loop cost 300ms per
-# 6,000 entries on /bin/bash. -E and no cwd on sys.path (D7): the cwd is the
-# agent's repo.
+# _loki_untracked_merge <status> <base> <exclude> exact|cover <out> [tracked]
+# Atomically write <out>: the NUL-delimited paths of <base> minus any path
+# <tracked> lists (BACKLOG 68: entries the USER tracked between sessions, as
+# resolved by _loki_tracked_by_user_since_anchor -- never the whole index),
+# plus every untracked ("??") or ignored ("!!") path in <status> that <exclude>
+# does not hold. With "cover", an <exclude> entry ending in "/" also holds
+# every path below it (workspace_diff._covered). An empty or missing <base> or
+# <exclude> is an empty list; any other read or write failure is non-zero and
+# leaves <out> as it was. Sorted bytewise, like `LC_ALL=C sort -z -u`. One
+# python process: bash 3.2 has no associative arrays, and a bash loop cost
+# 300ms per 6,000 entries on /bin/bash. -I -S and no cwd on sys.path (D7): the
+# cwd is the agent's repo.
+# BACKLOG 129: this is the snapshot WRITER -- its <out> becomes
+# preexisting-untracked.z, one of the two files the seal above digests. A bare
+# `python3 -E` here still loads user site-packages (-E only blocks PYTHON* env
+# vars), so a same-UID .pth planted there can run arbitrary code during this
+# call and rewrite <out> after the legitimate write, forging exactly the bytes
+# the seal is about to trust -- reproduced empirically (a .pth that stripped
+# an entry from the just-written output). Resolved via _loki_snapshot_py_tool
+# (fixed root-owned path first) and run with -I -S: -I alone is not enough
+# (verified: `python3 -I` alone still lists Homebrew's user-writable
+# site-packages on this host), -S additionally skips `import site` so no .pth
+# anywhere is ever processed. A resolve failure fails this function closed
+# (return 1, same as any other read/write failure here) rather than silently
+# falling back to a bare, unresolved `python3`.
 _loki_untracked_merge() {
-    python3 -E -c 'import sys
+    local pytool=""
+    pytool="$(_loki_snapshot_py_tool)" || return 1
+    "$pytool" -I -S -c 'import sys
 sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import os
 status, base, exclude, mode, out = sys.argv[1:6]
+tracked = sys.argv[6] if len(sys.argv) > 6 else ""
 def entries(path, missing_ok=True):
     try:
         with open(path, "rb") as fh:
@@ -9281,6 +9809,11 @@ def covered(path):
         cut = path.find(b"/", cut + 1)
     return False
 paths = set(entries(base)) if base else set()
+if tracked:
+    # Exact match only: a "dir/" entry is never dropped even if a file under it
+    # is now tracked, so an ignored directory (node_modules/) never re-exposes
+    # the rest of its subtree (BACKLOG 66/78 territory).
+    paths -= set(entries(tracked))
 for rec in entries(status, missing_ok=False):
     # The session-created record ("cover" mode) never holds a directory entry:
     # a whole-directory entry (logs/, out/) would stop the resume union from
@@ -9294,6 +9827,80 @@ for rec in entries(status, missing_ok=False):
 with open(out + ".tmp", "wb") as fh:
     fh.write(b"".join(p + b"\0" for p in sorted(paths)))
 os.replace(out + ".tmp", out)' "$@" 2>/dev/null
+}
+
+# _loki_tracked_by_user_since_anchor <top> <out> (BACKLOG 68 rework)
+# Write <out>: the NUL-delimited paths git added to the index between the
+# recorded "tracked-since" anchor and HEAD -- i.e. what a resume union may
+# safely treat as "the USER tracked this between sessions" and prune. Returns
+# non-zero (writing nothing) whenever that inference is not safe, which leaves
+# the caller pruning nothing (the old, safe-by-default behavior):
+#   - no anchor recorded yet (an older session, or nothing survived a turn)
+#   - a provider turn is marked in-flight (.loki/state/turn-in-flight): a turn
+#     can commit or stage a file and then be SIGKILLed before the next record
+#     call advances the anchor, so anything since the LAST anchor is unproven
+#   - the anchor does not resolve, or is not an ancestor of HEAD (branch
+#     switched, history rewritten, anchor stale)
+# --diff-filter=A, --no-renames: only additions, matching
+# _loki_untrack_agent_committed_user_files's own diff so the two never
+# disagree about which paths are "added since X".
+# BACKLOG 129: <out> here is subtracted from the snapshot base inside
+# _loki_untracked_merge (the "tracked" argument) before that WRITER seals its
+# result -- a fake git that lists an extra path here can prune a real
+# untracked path (e.g. a secret) out of the sealed snapshot, the same attack
+# as a forged `git status`, just one function over. Resolved via
+# _loki_snapshot_git_tool like the other git calls in this writer chain.
+_loki_tracked_by_user_since_anchor() {
+    local top="$1" out="$2" anchor_file=".loki/state/tracked-since.sha" anchor="" gittool=""
+    [ -f .loki/state/turn-in-flight ] && return 1
+    [ -s "$anchor_file" ] || return 1
+    anchor="$(cat "$anchor_file" 2>/dev/null)"
+    [ -n "$anchor" ] || return 1
+    gittool="$(_loki_snapshot_git_tool)" || return 1
+    "$gittool" rev-parse --verify -q "$anchor" >/dev/null 2>&1 || return 1
+    "$gittool" merge-base --is-ancestor "$anchor" HEAD 2>/dev/null || return 1
+    "$gittool" -C "$top" diff --name-only -z --no-renames --diff-filter=A "$anchor" HEAD > "$out.tmp" 2>/dev/null \
+        || { rm -f "$out.tmp"; return 1; }
+    mv -f "$out.tmp" "$out"
+    return 0
+}
+
+# _loki_advance_tracked_since_anchor
+# Move .loki/state/tracked-since.sha to the current HEAD and clear
+# .loki/state/turn-in-flight, but ONLY once the anchor write is confirmed on
+# disk. Called after every provider turn (_loki_record_session_created) and at
+# normal session end (commit_session_changes), i.e. at every point this run
+# can prove no provider turn is currently running -- PROVIDED the anchor write
+# itself lands, since _loki_tracked_by_user_since_anchor trusts both signals
+# together (anchor position + in-flight marker) to prove a commit happened
+# strictly after the anchor with no turn running. Clearing the marker on a
+# failed write would decouple them: a stale anchor stays on disk while the
+# marker falsely reports "no turn was in flight", so a later resume could
+# prove something it can't actually prove and prune an agent's own commit with
+# no disclosure (this is BACKLOG 68's failure mode, reintroduced). A HEAD that
+# does not resolve (unborn branch) is not a write failure -- there is nothing
+# to anchor yet -- so the marker still clears; the anchor stays "not set" as
+# before. Always returns 0 (both call sites are bare, unchecked calls): the
+# in-flight marker, not the return code, is the safety signal on a failed
+# write.
+_loki_advance_tracked_since_anchor() {
+    local sha=""
+    sha="$(git rev-parse --verify -q HEAD 2>/dev/null)" || true
+    if [ -n "$sha" ]; then
+        if ! { printf '%s\n' "$sha" > .loki/state/tracked-since.sha.tmp 2>/dev/null \
+               && mv -f .loki/state/tracked-since.sha.tmp .loki/state/tracked-since.sha 2>/dev/null; }; then
+            # Anchor write failed (disk full, a stray .tmp collision, a
+            # concurrent writer). Deliberately leave turn-in-flight SET and
+            # return here, before the unconditional clear below: the safe
+            # direction is to keep the old fallback-to-no-pruning path active
+            # for one more check, never to clear a marker the anchor write did
+            # not earn.
+            rm -f .loki/state/tracked-since.sha.tmp 2>/dev/null
+            return 0
+        fi
+    fi
+    rm -f .loki/state/turn-in-flight 2>/dev/null
+    return 0
 }
 
 # _loki_record_session_created
@@ -9313,6 +9920,15 @@ os.replace(out + ".tmp", out)' "$@" 2>/dev/null
 _loki_record_session_created() {
     local snap=".loki/state/preexisting-untracked.z" out=".loki/state/session-created.z"
     [ "${_LOKI_SNAPSHOT_THIS_RUN:-0}" = 1 ] || return 0
+    # BACKLOG 70: detect tampering with the sealed snapshot as early as
+    # possible (this runs after every provider turn, not just at commit time).
+    _loki_snapshot_verify || return 1
+    # BACKLOG 68 rework: this call is the point right after a provider turn
+    # ends, so it also advances the tracked-since anchor and clears the
+    # in-flight marker -- whatever the agent committed or staged during the
+    # turn that just finished is now provably NOT mid-turn, so a later resume's
+    # anchor..HEAD diff may safely be checked against it.
+    _loki_advance_tracked_since_anchor
     if [ -f "$snap" ] && _loki_untracked_status "$out.status" \
        && _loki_untracked_merge "$out.status" "$out" "$snap" cover "$out"; then
         rm -f "$out.status"
@@ -9367,6 +9983,119 @@ fi
 if ! type _commit_scan_secret_file >/dev/null 2>&1; then _commit_scan_secret_file() { return 1; }; fi
 if ! type _commit_path_looks_secret >/dev/null 2>&1; then _commit_path_looks_secret() { return 1; }; fi
 
+# _loki_covered_paths <paths> <snapshot> <top> <out>
+# Atomically write <out>: the NUL-delimited entries of <paths> that <snapshot>
+# covers (the entry itself or a parent "dir/" entry, as workspace_diff._covered)
+# and that still exist under <top>. Non-zero on a read or write failure. -I -S
+# and no cwd on sys.path (D7): the cwd is the agent's repo.
+# BACKLOG 129: this is the snapshot READER -- it reads <snapshot>
+# (preexisting-untracked.z, sealed content) and decides which of the agent's
+# newly-added paths are actually the user's pre-existing files (to be removed
+# from the branch tip, see _loki_untrack_agent_committed_user_files). A bare
+# `python3 -E` here has the same .pth exposure as the writer above: a same-UID
+# .pth can run arbitrary code during this call, including rewriting <out>
+# after the legitimate write. Resolved via _loki_snapshot_py_tool, run with
+# -I -S (see _loki_untracked_merge's comment for why -S, not just -I, is
+# required to close it). A resolve failure fails this function closed.
+_loki_covered_paths() {
+    local pytool=""
+    pytool="$(_loki_snapshot_py_tool)" || return 1
+    "$pytool" -I -S -c 'import sys
+sys.path[:] = [p for p in sys.path if p not in ("", ".")]
+import os
+paths, snap, top, out = sys.argv[1:5]
+def entries(path):
+    with open(path, "rb") as fh:
+        return [p for p in fh.read().split(b"\0") if p]
+held = set(entries(snap))
+def covered(path):
+    if path in held:
+        return True
+    cut = path.find(b"/")
+    while cut != -1:
+        if path[:cut + 1] in held:
+            return True
+        cut = path.find(b"/", cut + 1)
+    return False
+# A file gone from disk stays tracked: untracking it would leave its bytes
+# only in history.
+top = os.fsencode(top)
+hits = [p for p in entries(paths) if covered(p) and os.path.lexists(os.path.join(top, p))]
+with open(out + ".tmp", "wb") as fh:
+    fh.write(b"".join(p + b"\0" for p in hits))
+os.replace(out + ".tmp", out)' "$@" 2>/dev/null
+}
+
+# _loki_untrack_agent_committed_user_files <branch> (BACKLOG 74)
+# An agent that rewrites .gitignore and runs `git add -A && git commit` itself
+# puts the user's untracked or ignored files on the session branch, and a
+# checkout of the base then deletes them from disk. Files ADDED on the branch
+# since it forked from the recorded base that the pre-existing snapshot covers
+# are removed from the index (they stay on disk) and that removal is committed
+# on its own, before the session commit: it adds no content, and no later exit
+# (a secret abort, a failed unstage) can put the files back on the branch tip.
+# Records this session's removals in .loki/state/agent-committed-user-files.z
+# and warns that the branch history still holds them. The fork is the merge
+# base with the recorded base branch, else the session's recorded start commit
+# (.loki/state/session-start-sha). Non-zero when the removal could not be
+# committed, or when neither fork resolves or the check fails (the tip may hold
+# user files): the caller then makes no session commit, whose `git add -A`
+# would stage the files again.
+_loki_untrack_agent_committed_user_files() {
+    local snap=".loki/state/preexisting-untracked.z" rec=".loki/state/agent-committed-user-files.z"
+    local base="" fork="" start="" top="" names=""
+    local unchecked="Before switching branches, run git rm --cached on each of your files the agent committed and commit, or a checkout of the base deletes them. Left uncommitted: no session commit."
+    # BACKLOG 70: a tampered snapshot cannot be trusted to say which paths were
+    # pre-existing, so treat it the same as "no snapshot" -- fail closed via the
+    # caller, which then skips the session commit entirely.
+    if ! _loki_snapshot_verify; then
+        log_warn "Could not check whether the agent committed your pre-existing untracked files on $1 (snapshot tampered). ${unchecked}"
+        return 1
+    fi
+    [ -s "$snap" ] || return 0
+    # No commit on the branch yet: the agent committed nothing.
+    git rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
+    [ -s .loki/state/base-branch.txt ] && base="$(cat .loki/state/base-branch.txt 2>/dev/null)"
+    if [ -n "$base" ]; then fork="$(git merge-base HEAD "$base" 2>/dev/null)" || fork=""; fi
+    if [ -z "$fork" ] && [ -s .loki/state/session-start-sha ]; then
+        start="$(cat .loki/state/session-start-sha 2>/dev/null)"
+        # A commit on this branch, or the empty tree of an unborn mint.
+        if git merge-base --is-ancestor "$start" HEAD 2>/dev/null \
+           || [ "$(git cat-file -t "$start" 2>/dev/null)" = tree ]; then
+            fork="$start"
+        fi
+    fi
+    if [ -z "$fork" ]; then
+        log_warn "Could not check whether the agent committed your pre-existing untracked files on $1: base branch '${base:-unknown}' not found and the recorded session start commit is missing or not on this branch. ${unchecked}"
+        return 1
+    fi
+    # --no-renames: a user file swept in beside a deleted tracked file must
+    # read as added, not as a rename of that file.
+    if ! top="$(git rev-parse --show-toplevel 2>/dev/null)" \
+       || ! git -C "$top" diff --name-only -z --no-renames --diff-filter=A "$fork" HEAD > "$rec.added" 2>/dev/null \
+       || ! _loki_covered_paths "$rec.added" "$snap" "$top" "$rec.new"; then
+        rm -f "$rec.added" "$rec.new" "$rec.new.tmp"
+        log_warn "Could not check whether the agent committed your pre-existing untracked files on $1. ${unchecked}"
+        return 1
+    fi
+    rm -f "$rec.added"
+    if [ ! -s "$rec.new" ]; then
+        rm -f "$rec.new"
+        return 0
+    fi
+    mv -f "$rec.new" "$rec"
+    names="$(_loki_nul_names "$rec")"
+    git reset -q >/dev/null 2>&1 || true
+    if ! git -C "$top" update-index -z --force-remove --stdin < "$rec" >/dev/null 2>&1 \
+       || ! git commit -q -m "Loki Mode: untrack pre-existing user files the agent committed" >/dev/null 2>&1; then
+        log_warn "The agent committed your pre-existing files on $1 and Loki could not remove them from the branch: ${names}. They are on disk. Before switching branches, run git rm --cached on each and commit, or a checkout of the base deletes them. Left uncommitted: no session commit."
+        return 1
+    fi
+    log_warn "The agent committed your pre-existing untracked or ignored files on $1: ${names}. Loki removed them from the branch tip; they stay on disk, untracked. The branch history still holds them: do not push $1 as-is. To drop them from its history: git reset --soft ${fork} && git commit"
+    audit_agent_action "git_untrack_user_files" "Removed pre-existing user files the agent committed" "files=${names}" || true
+    return 0
+}
+
 commit_session_changes() {
     # Squash the session's work into one honest session-end commit on the agent
     # branch (LOCK A3/A4/A8). Commit-always (incl. failed runs) so the user is
@@ -9401,6 +10130,43 @@ commit_session_changes() {
             ;;
     esac
 
+    # BACKLOG 70: a snapshot tampered with since this session sealed it (an
+    # agent process deleting the hash file to suppress preexisting_modified
+    # disclosure, or editing either file to hide or falsely disown paths) is
+    # treated as no snapshot at all: on a mismatch, _loki_snapshot_verify
+    # clears _LOKI_SNAPSHOT_THIS_RUN and writes the same .failed marker a
+    # snapshot failure writes, so the existing fail-closed check below
+    # (BACKLOG 90) also catches tampering, with its own warning.
+    _loki_snapshot_verify || true
+
+    # Commit nothing unless THIS run took a current snapshot (BACKLOG 90). The
+    # LOCK A1 opt-out takes none, so it never commits, even on a leftover
+    # loki/session-* branch whose agent-branch.txt and snapshot belong to an
+    # earlier session: that stale snapshot would sweep in a file the user made
+    # since, and a checkout of the base would delete it. Checked before any
+    # staging, so the opt-out leaves the user's index alone.
+    if [ "${_LOKI_SNAPSHOT_THIS_RUN:-0}" != 1 ]; then
+        if [ "${LOKI_BRANCH_PROTECTION:-true}" != "true" ]; then
+            log_info "Branch protection off (LOKI_BRANCH_PROTECTION=${LOKI_BRANCH_PROTECTION}): no session commit; the work stays uncommitted on ${cur}"
+        elif [ -f "$PWD/.loki/state/preexisting-untracked.failed" ]; then
+            log_warn "Left uncommitted: could not record your pre-existing untracked files at session start (the snapshot needs git 2.18+, excluding them needs 2.25+). Review and commit manually."
+        else
+            log_warn "Left uncommitted: this run recorded no snapshot of your pre-existing untracked files, so it makes no session commit. Review and commit manually."
+        fi
+        return 0
+    fi
+
+    # BACKLOG 68 rework: session end is also a point this run can prove no
+    # provider turn is in flight, so advance the tracked-since anchor here too
+    # (not only after each provider turn). Without this, a session that never
+    # calls _loki_record_session_created between its last turn and a normal
+    # end (e.g. a single-iteration run) would leave the anchor stale, and the
+    # NEXT session's resume union would then have nothing to safely prune even
+    # for a genuine user commit made between sessions.
+    _loki_advance_tracked_since_anchor
+
+    _loki_untrack_agent_committed_user_files "$cur" || return 0
+
     # Stage everything except .loki/ runtime state and a secret-path denylist.
     # These excludes are defense-in-depth ONLY for the top-level cases git
     # pathspec handles cleanly. We deliberately do NOT add nested globs like
@@ -9426,12 +10192,8 @@ commit_session_changes() {
     # Agent-created files stay staged. Skip an empty snapshot: an
     # empty --pathspec-from-file resets the WHOLE index. No snapshot (older
     # session): behave as before. If the unstage fails (git < 2.25), commit
-    # nothing rather than sweep the user's files in.
-    if [ -f "$PWD/.loki/state/preexisting-untracked.failed" ]; then
-        git reset -q >/dev/null 2>&1 || true
-        log_warn "Left uncommitted: could not record your pre-existing untracked files at session start (the snapshot needs git 2.18+, excluding them needs 2.25+). Review and commit manually."
-        return 0
-    fi
+    # nothing rather than sweep the user's files in. A failed snapshot never
+    # gets here (the snapshot guard above returns first).
     local preexisting="$PWD/.loki/state/preexisting-untracked.z" top=""
     if [ -s "$preexisting" ]; then
         if ! { top="$(git rev-parse --show-toplevel 2>/dev/null)" \
@@ -12089,6 +12851,12 @@ ZT_MATCHES_EOF
 }
 
 enforce_test_coverage() {
+    # Every suite this gate launches (pytest, unittest, the coverage pass, a
+    # package script that runs Python) runs inside the user's repo: no
+    # __pycache__/*.pyc there, so none can land in the session commit when the
+    # repo does not ignore them (BACKLOG 85). Bytecode caching only; the same
+    # tests run. Scoped to this call.
+    local -x PYTHONDONTWRITEBYTECODE=1
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local quality_dir="$loki_dir/quality"
     mkdir -p "$quality_dir" "$loki_dir/signals"
@@ -12118,7 +12886,9 @@ enforce_test_coverage() {
         # that is the legitimate case they were written for (a package that ships
         # a runner but no npm script).
         local _declared_test_script=""
-        _declared_test_script=$(_LOKI_PKG="${TARGET_DIR:-.}/package.json" python3 -c "
+        # BACKLOG 81 (D7): -E plus the sys.path filter, so the agent's repo (the
+        # cwd) cannot supply json or sitecustomize to this reader.
+        _declared_test_script=$(_LOKI_PKG="${TARGET_DIR:-.}/package.json" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     with open(os.environ['_LOKI_PKG']) as f:
@@ -12238,7 +13008,8 @@ sys.stdout.write(t.strip())
                     # npm test), so the grep only ever picked the LABEL, never
                     # what ran. This corrects the evidence, not the execution.
                     local _ws_script
-                    _ws_script=$(_LOKI_PKG="$pkg_json" python3 -c "
+                    # BACKLOG 81 (D7): same guard as the root reader above.
+                    _ws_script=$(_LOKI_PKG="$pkg_json" python3 -E -c "import sys; sys.path[:] = [p for p in sys.path if p not in ('', '.')]
 import json, os, sys
 try:
     with open(os.environ['_LOKI_PKG']) as f:
@@ -12558,6 +13329,9 @@ TREOF
         # run instead of re-running the suite. Single source of truth for "tests
         # ran this iteration", set on every return path that writes results.
         printf '%s\n' "${ITERATION_COUNT:-0}" > "$quality_dir/.test-results.iter" 2>/dev/null || true
+        # BACKLOG 91: non-blocking, but nothing was measured: the loop's
+        # stage_complete event reads this and says not_run, not pass.
+        _LOKI_TEST_SUITE_STATUS=not_run
         return 0
     fi
 
@@ -12568,6 +13342,49 @@ TREOF
     # corrupt Evidence Receipt, worse than none. Convert newlines to spaces
     # first, then delete every remaining control char (\000-\037, incl. ESC).
     details=$(echo "$details" | tr '"' "'" | tr '\n' ' ' | tr -d '\000-\037' | head -c 500)
+
+    # BACKLOG 73: a runner that exits 0 while its own summary reports failures
+    # (`jest || true`, a script that swallows the status) failed. The failure
+    # count comes from the runner's summary lines in the FULL output (the details
+    # tail can drop them: the jest branch keeps 3 lines). The highest count
+    # across summaries wins, so output that concatenates several runs (npm test
+    # --workspaces, `jest; vitest`) cannot hide a failed run behind a later
+    # green one. Shapes: jest "Tests: 1 failed, ...", vitest "Tests  1 failed |
+    # ...", pytest "=== 1 failed, 2 passed in 0.1s ===" (or its -q line), node
+    # TAP "# fail 1" and the spec reporter's "<info sign> fail 1", counted only
+    # right after the matching pass line (node TAP echoes a test's own stdout
+    # as "# ..." lines, which must not count), mocha "1 failing", go "--- FAIL:"
+    # lines. A read summary with no failures is a measured 0. With no recognised
+    # summary the old best-effort parse of the tail still applies (null when it
+    # finds nothing). Either way a recorded count above zero is a failure: the
+    # council evidence gate and the Bun gate both read failed_count > 0 as one.
+    # LC_ALL=C: bytes, so any runner output parses; [ \t] not [[:space:]] for
+    # old mawk.
+    local _tr_passed_n _tr_failed_n _tr_summary_red=false
+    _tr_failed_n=$(printf '%s\n' "${output:-}" | LC_ALL=C sed "s/$(printf '\033')\[[0-9;]*[A-Za-z]//g" | LC_ALL=C awk '
+        function upd(n) { if (n > f) f = n; seen = 1 }
+        /^Tests:[ \t]/ || /^[ \t]*Tests[ \t]+[0-9]/ ||
+        /^=+ .*[0-9]+ (passed|failed)/ || /^[0-9]+ (passed|failed).* in [0-9.]+s/ {
+            n = 0; if (match($0, /[0-9]+ failed/)) n = substr($0, RSTART, RLENGTH) + 0; upd(n) }
+        /^[^ A-Za-z0-9]+ fail [0-9]+[ \t]*$/ { if (prev ~ /^[^ A-Za-z0-9]+ pass [0-9]+[ \t]*$/) upd($3 + 0) }
+        /^[ \t]*[0-9]+ passing \(/ { upd(0) }
+        /^[ \t]*[0-9]+ failing[ \t]*$/ { upd($1 + 0) }
+        /^--- FAIL: / { go++ }
+        { prev = $0 }
+        END { if (go > f) { f = go; seen = 1 } if (seen) print f + 0 }')
+    _tr_passed_n=$(printf '%s' "$details" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
+    [ -n "$_tr_failed_n" ] || _tr_failed_n=$(printf '%s' "$details" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' | head -1)
+    # node --test emits TAP-ish "# pass N" / "# fail N" summary lines, which the
+    # "N passed"/"N failed" pattern above does not match. Fall back to those.
+    [ -n "$_tr_passed_n" ] || _tr_passed_n=$(printf '%s' "$details" | grep -oE '# pass [0-9]+' | grep -oE '[0-9]+' | head -1)
+    [ -n "$_tr_failed_n" ] || _tr_failed_n=$(printf '%s' "$details" | grep -oE '# fail [0-9]+' | grep -oE '[0-9]+' | head -1)
+    [ -n "$_tr_passed_n" ] || _tr_passed_n=null
+    [ -n "$_tr_failed_n" ] || _tr_failed_n=null
+    if [ "$test_passed" = "true" ] && [ "$_tr_failed_n" != "null" ] && [ "$_tr_failed_n" -gt 0 ] 2>/dev/null; then
+        test_passed=false
+        _tr_summary_red=true
+        log_warn "Test suite gate: $test_runner exited 0 but its summary reports $_tr_failed_n failed -- recording a failure"
+    fi
 
     # Evidence Receipt provenance (v7.85.0): record the deterministic FACTS a
     # non-forgeable receipt needs -- the command that ran, its exit code, and a
@@ -12586,6 +13403,8 @@ TREOF
         *)           _tr_cmd="$test_runner" ;;
     esac
     if [ "$test_passed" = "true" ]; then _tr_exit=0; _tr_status="verified"; else _tr_exit=1; _tr_status="failed"; fi
+    # BACKLOG 73: the runner itself exited 0; record that fact, not a made-up 1.
+    if [ "$_tr_summary_red" = "true" ]; then _tr_exit=0; fi
 
     # #82 (zero-test-file hardening): a runner that EXITED 0 but executed ZERO
     # real tests is a mini fake-green -- it records "verified" while proving
@@ -12606,17 +13425,6 @@ TREOF
         _tr_status="no_tests_run"
         log_warn "Verification gap: $test_runner exited 0 but ran ZERO tests -- recording inconclusive (no_tests_run), not verified"
     fi
-
-    # Best-effort pass/fail counts from the summary text (null when not found).
-    local _tr_passed_n _tr_failed_n
-    _tr_passed_n=$(printf '%s' "$details" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | head -1)
-    _tr_failed_n=$(printf '%s' "$details" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' | head -1)
-    # node --test emits TAP-ish "# pass N" / "# fail N" summary lines, which the
-    # "N passed"/"N failed" pattern above does not match. Fall back to those.
-    [ -n "$_tr_passed_n" ] || _tr_passed_n=$(printf '%s' "$details" | grep -oE '# pass [0-9]+' | grep -oE '[0-9]+' | head -1)
-    [ -n "$_tr_failed_n" ] || _tr_failed_n=$(printf '%s' "$details" | grep -oE '# fail [0-9]+' | grep -oE '[0-9]+' | head -1)
-    [ -n "$_tr_passed_n" ] || _tr_passed_n=null
-    [ -n "$_tr_failed_n" ] || _tr_failed_n=null
 
     # verification_gap is "none" whenever a real runner executed AND ran tests:
     # the suite ran, so there is no docs-without-execution / source-without-tests
@@ -12787,9 +13595,11 @@ os.replace(tmp, out)
         if [ "$_tr_zero_tests" = "true" ]; then
             rm -f "$quality_dir/unit-tests.pass" 2>/dev/null || true
             log_warn "Test suite gate: $test_runner ran zero tests -- inconclusive (not passed, not failed)"
+            _LOKI_TEST_SUITE_STATUS=not_run  # BACKLOG 91, see the no-runner return
         else
             touch "$quality_dir/unit-tests.pass"
             log_info "Test suite gate: $test_runner passed"
+            _LOKI_TEST_SUITE_STATUS=pass
         fi
         # Coverage block is distinct from tests-red: tests passed, but enforced
         # coverage is below threshold. Return nonzero to gate WITHOUT writing the
@@ -19154,6 +19964,12 @@ PYEOF
 _intelligent_usage_regen() {
     local target_dir="${TARGET_DIR:-.}"
     local usage_path="$target_dir/USAGE.md"
+    # Only the provider the operator chose may see a prompt (V10 P5): on any
+    # other provider keep the agent-written USAGE.md. Policy (and the
+    # LOKI_ALLOW_CLAUDE_SIDECALLS=1 opt-in) lives in providers/loader.sh,
+    # sourced at the top of this file.
+    # ponytail: upgrade path is routing this call through provider_invoke_argv.
+    loki_claude_sidecall_allowed 2>/dev/null || return 0
     # Find a working `claude` binary; if absent, bail silently.
     if ! command -v claude >/dev/null 2>&1; then
         return 0
@@ -23383,6 +24199,17 @@ except Exception as exc:
         local exit_code=0
         # v7.5.12: Mark provider pipeline as active so SIGINT trap can kill it.
         LOKI_PROVIDER_ACTIVE=1
+        # BACKLOG 68 rework: mark a turn in-flight so a SIGKILL mid-turn (pod
+        # loss: no trap runs) leaves the tracked-since anchor stale rather than
+        # advanced -- a resume must not prune anything the agent may have
+        # tracked during this still-unrecorded turn. Cleared only by
+        # _loki_record_session_created, right after this turn's own call to it
+        # below. Gated the same way as the anchor itself (this run has a live
+        # snapshot); an older/opted-out run writes no marker, matching its
+        # pre-existing no-anchor ("skip pruning") behavior.
+        if [ "${_LOKI_SNAPSHOT_THIS_RUN:-0}" = 1 ]; then
+            mkdir -p .loki/state 2>/dev/null && : > .loki/state/turn-in-flight 2>/dev/null
+        fi
         # v7.7.31: authorize autonomous operation at the system-prompt tier so
         # the spawned agent does not read the user's global ~/.claude/CLAUDE.md,
         # judge it to conflict with the loki_system prompt, call AskUserQuestion,
@@ -24587,8 +25414,12 @@ EOF
                 local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 # F49: isolate HOME so the project's suite cannot pollute the
                 # user's real home when it execs the generated app.
+                _LOKI_TEST_SUITE_STATUS=""
                 if _loki_with_app_sandbox enforce_test_coverage; then
                     clear_gate_failure "test_coverage"
+                    # BACKLOG 91: a zero-test or no-runner run returns 0 without
+                    # measuring anything; its stage status is not_run, not pass.
+                    if [ "$_LOKI_TEST_SUITE_STATUS" = "not_run" ]; then _stg_ok=not_run; fi
                 else
                     _stg_ok=fail
                     local tc_count
@@ -25688,11 +26519,33 @@ kill_provider_child() {
         fi
         kill -TERM "$child_pid" 2>/dev/null && killed=1
     done
-    # Also kill provider leaf processes by name in case they were reparented.
-    local proc
-    for proc in claude codex aider cline; do
-        pkill -TERM -f "^${proc}( |$)" 2>/dev/null && killed=1
-    done
+    # Also kill provider leaf processes in case they were reparented (to init,
+    # once their immediate parent -- a shell or the provider CLI itself --
+    # exited). A reparented process changes PARENT, not PROCESS GROUP: unless
+    # a process explicitly calls setpgid/setsid, it keeps the pgid it was
+    # launched into, which for every invoke_* call above is this shell's own
+    # pgid ($$). Scope the sweep to that pgid, matched by process name, rather
+    # than a bare `pkill -f "^claude( |$)"` -- that matched the FULL COMMAND
+    # LINE of every "claude", "codex", "aider" or "cline" process on the whole
+    # machine, with no scoping at all, and killed unrelated Claude Code
+    # sessions in other terminals the moment ANY loki-mode run finished,
+    # double-Ctrl-C'd, or Ctrl-C'd in perpetual mode (build prompt D14 and
+    # `feedback-pkill-f-substring-killed-the-session`). Reproduced: a decoy
+    # `claude` process in a DIFFERENT process group survived; one launched
+    # inside this shell's job (matching how a real reparented leaf would sit)
+    # was still caught.
+    local proc my_pgid
+    my_pgid="$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')"
+    if [ -n "$my_pgid" ]; then
+        for proc in claude codex aider cline; do
+            local leaf_pid leaf_pgid
+            for leaf_pid in $(pgrep -f "^${proc}( |$)" 2>/dev/null); do
+                leaf_pgid="$(ps -o pgid= -p "$leaf_pid" 2>/dev/null | tr -d ' ')"
+                [ -n "$leaf_pgid" ] && [ "$leaf_pgid" = "$my_pgid" ] || continue
+                kill -TERM "$leaf_pid" 2>/dev/null && killed=1
+            done
+        done
+    fi
 
     # Brief wait for graceful exit (max ~2s).
     local i=0
@@ -26650,6 +27503,8 @@ except (json.JSONDecodeError, OSError): pass
 main() {
     _loki_install_signal_traps
     SESSION_START_EPOCH=$(date +%s)
+    # Before anything can spawn a provider (capability probes included).
+    _loki_withhold_github_tokens
 
     # First-run disclosure (shown once, before any work; best-effort).
     if type loki_show_disclosure_once &>/dev/null; then
@@ -26818,6 +27673,10 @@ main() {
 
     # Handle background mode
     if [ "$BACKGROUND_MODE" = "true" ]; then
+        # The relaunched runner withholds the tokens itself; it needs them in
+        # its environment to do so. This process exits right after launching.
+        local _bg_tok
+        for _bg_tok in $_LOKI_WITHHELD_TOKENS; do export "${_bg_tok?}"; done
         # Initialize .loki directory first
         mkdir -p .loki/logs
 
@@ -27453,7 +28312,9 @@ main() {
     # then advise the user how to open a PR. Both are no-ops when no agent branch
     # was set up (LOKI_BRANCH_PROTECTION=false) or nothing changed.
     commit_session_changes
-    create_session_pr
+    # Trusted post-session step: it gets the GitHub token main() withheld from
+    # agent sessions (its push may authenticate through the env token).
+    _loki_with_github_tokens create_session_pr
     audit_agent_action "session_stop" "Session ended" "result=$result,iterations=$ITERATION_COUNT"
 
     # The first terminal summary is written before session changes are committed.

@@ -37,6 +37,16 @@ trap cleanup EXIT
 
 TMPROOT=$(mktemp -d -t loki-doc-scope-gen-XXXX)
 
+# Marker for the isolation check at the bottom: anything at REPO_ROOT's
+# provider file OLDER than this predates this test run and is not ours to
+# blame (another suite in the same shared checkout may legitimately write it).
+# The 1s sleep guards the `-nt` comparison below against same-second mtime
+# granularity (measured: without it, bash 3.2's `-nt` can read a marker and a
+# same-second contaminating write as simultaneous and pass vacuously).
+PROBE_START="$TMPROOT/.probe-start"
+touch "$PROBE_START"
+sleep 1
+
 # ---------------------------------------------------------------------------
 # Harness: build a fake project dir with a fake 'loki' binary whose only job is
 # to record that 'docs generate' was invoked (touch a sentinel). This lets us
@@ -82,6 +92,14 @@ FAKE
 run_gen() {
     local dir="$1" complexity="$2"
     (
+        # cd into the target BEFORE sourcing run.sh (subshell only, so this
+        # never affects the outer script's CWD): sourcing runs provider
+        # auto-detection, which does `mkdir -p .loki/state && echo ... >
+        # .loki/state/provider` relative to CWD -- if CWD is still $REPO_ROOT
+        # that writes into the shared checkout and contaminates every later
+        # test in the same shell (same bug class as test-iteration-grace.sh
+        # and test-exit-code-contract.sh).
+        cd "$dir" || exit 1
         # shellcheck disable=SC1090
         source "$RUN_SH" >/dev/null 2>&1
         SCRIPT_DIR="$dir/bin"          # so "$SCRIPT_DIR/loki" is the fake
@@ -96,10 +114,16 @@ run_gen() {
 run_gate() {
     local dir="$1" complexity="$2"
     (
+        # cd into the target BEFORE sourcing run.sh (subshell only): see the
+        # identical note in run_gen above.
+        cd "$dir" || exit 1
         # shellcheck disable=SC1090
         source "$RUN_SH" >/dev/null 2>&1
+        # shellcheck disable=SC2034 # consumed by the sourced run_doc_quality_gate
         TARGET_DIR="$dir"
+        # shellcheck disable=SC2034
         DETECTED_COMPLEXITY="$complexity"
+        # shellcheck disable=SC2034
         LOKI_AUTO_DOCS="true"
         run_doc_quality_gate "$dir" >/dev/null 2>&1
     )
@@ -172,6 +196,23 @@ if run_gate "$P" "standard"; then
     ok "gate standard: PASS with full .loki/docs suite (full-tier gate healthy)"
 else
     bad "gate standard: FAILED with full suite present (regression)"
+fi
+
+# --- isolation: sourcing run.sh must never touch the shared checkout -------
+# Positive control: the last case's project dir must show its own provider
+# file did get written. Without this, disabling the mkdir entirely (or the
+# probe silently no-op-ing) would also read as "isolated" -- the check would
+# pass for the wrong reason.
+if [ -f "$P/.loki/state/provider" ]; then
+    ok "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+else
+    bad "control: sourcing run.sh still exercises provider auto-detection (writes to its own scratch dir)"
+fi
+
+if [ "$REPO_ROOT/.loki/state/provider" -nt "$PROBE_START" ]; then
+    bad "sourcing run.sh left .loki/state/provider newer in the repo checkout"
+else
+    ok "sourcing run.sh left no .loki/state/provider in the repo checkout"
 fi
 
 echo

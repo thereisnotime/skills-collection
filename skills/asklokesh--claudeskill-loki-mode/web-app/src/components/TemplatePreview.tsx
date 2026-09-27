@@ -2,8 +2,8 @@ import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import {
-  X, Rocket, FileText, Clock, Star, BarChart3,
-  FolderTree, Lightbulb, ChevronRight, Eye,
+  X, Rocket, FileText, Clock, BarChart3,
+  Lightbulb, Eye,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { TemplateMetadata } from '../types/api';
@@ -47,160 +47,6 @@ const DIFFICULTY_INFO: Record<string, { label: string; color: string; bars: numb
   advanced: { label: 'Advanced', color: 'text-red-400', bars: 3, description: 'Complex architecture with multiple services. Best for experienced developers comfortable with infrastructure.' },
 };
 
-// Mock file structures per category
-const FILE_STRUCTURES: Record<string, string[]> = {
-  Website: [
-    'src/',
-    '  app/',
-    '    layout.tsx',
-    '    page.tsx',
-    '    globals.css',
-    '  components/',
-    '    Header.tsx',
-    '    Footer.tsx',
-    '  lib/',
-    '    utils.ts',
-    'public/',
-    '  favicon.ico',
-    'package.json',
-    'tailwind.config.ts',
-    'tsconfig.json',
-  ],
-  API: [
-    'src/',
-    '  routes/',
-    '    index.ts',
-    '    users.ts',
-    '    auth.ts',
-    '  middleware/',
-    '    auth.ts',
-    '    validation.ts',
-    '  models/',
-    '    user.ts',
-    '  config/',
-    '    database.ts',
-    'tests/',
-    '  api.test.ts',
-    'package.json',
-    'Dockerfile',
-  ],
-  CLI: [
-    'src/',
-    '  commands/',
-    '    init.ts',
-    '    run.ts',
-    '    config.ts',
-    '  utils/',
-    '    logger.ts',
-    '    parser.ts',
-    '  index.ts',
-    'bin/',
-    '  cli.js',
-    'tests/',
-    '  cli.test.ts',
-    'package.json',
-    'tsconfig.json',
-  ],
-  Bot: [
-    'src/',
-    '  commands/',
-    '    help.ts',
-    '    moderate.ts',
-    '    settings.ts',
-    '  events/',
-    '    ready.ts',
-    '    messageCreate.ts',
-    '  utils/',
-    '    embed.ts',
-    '    permissions.ts',
-    '  index.ts',
-    '.env.example',
-    'package.json',
-    'Dockerfile',
-  ],
-  Data: [
-    'src/',
-    '  pipelines/',
-    '    extract.py',
-    '    transform.py',
-    '    load.py',
-    '  models/',
-    '    schema.py',
-    '  utils/',
-    '    database.py',
-    '    logger.py',
-    'tests/',
-    '  test_pipeline.py',
-    'config.yaml',
-    'requirements.txt',
-    'Dockerfile',
-  ],
-  Other: [
-    'src/',
-    '  main.ts',
-    '  config.ts',
-    '  utils/',
-    '    helpers.ts',
-    'tests/',
-    '  main.test.ts',
-    'package.json',
-    'tsconfig.json',
-    'README.md',
-  ],
-};
-
-// Feature lists per category
-const CATEGORY_FEATURES: Record<string, string[]> = {
-  Website: [
-    'Responsive layout with mobile-first design',
-    'SEO-optimized pages with meta tags',
-    'Modern component architecture',
-    'Production build configuration',
-    'Styling system with design tokens',
-    'Type-safe development setup',
-  ],
-  API: [
-    'RESTful endpoint structure',
-    'Authentication and authorization middleware',
-    'Database models and migrations',
-    'Input validation and error handling',
-    'API documentation generation',
-    'Docker deployment configuration',
-  ],
-  CLI: [
-    'Subcommand architecture with help text',
-    'Configuration file management',
-    'Colored terminal output',
-    'Progress indicators and spinners',
-    'Error handling with helpful messages',
-    'Cross-platform compatibility',
-  ],
-  Bot: [
-    'Slash command registration and handling',
-    'Event-driven architecture',
-    'Permissions and role checking',
-    'Rich embed message formatting',
-    'Configuration persistence',
-    'Graceful shutdown handling',
-  ],
-  Data: [
-    'Extract-Transform-Load pipeline',
-    'Data validation and cleaning',
-    'Database connection pooling',
-    'Logging and monitoring',
-    'Scheduled job execution',
-    'Error recovery and retry logic',
-  ],
-  Other: [
-    'Clean project structure',
-    'Type-safe configuration',
-    'Comprehensive test setup',
-    'Build and deployment scripts',
-    'Documentation templates',
-    'Linting and formatting rules',
-  ],
-};
-
 interface TemplatePreviewProps {
   template: TemplateMetadata;
   onClose: () => void;
@@ -209,12 +55,14 @@ interface TemplatePreviewProps {
 export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
   const navigate = useNavigate();
   const [prdContent, setPrdContent] = useState<string | null>(null);
+  const [prdError, setPrdError] = useState<string | null>(null);
   const [showPrd, setShowPrd] = useState(false);
 
   useEffect(() => {
+    setPrdError(null);
     api.getTemplateContent(template.filename)
       .then((res) => setPrdContent(res.content))
-      .catch(() => setPrdContent(null));
+      .catch((err) => setPrdError(err instanceof Error ? err.message : 'Request failed'));
   }, [template.filename]);
 
   const handleUse = useCallback(() => {
@@ -240,9 +88,8 @@ export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
 
   const category = template.category || 'Other';
   const gradientSolid = CATEGORY_GRADIENT_SOLID[category] || CATEGORY_GRADIENT_SOLID.Other;
-  const difficulty = DIFFICULTY_INFO[template.difficulty] || DIFFICULTY_INFO.intermediate;
-  const fileTree = FILE_STRUCTURES[category] || FILE_STRUCTURES.Other;
-  const features = CATEGORY_FEATURES[category] || CATEGORY_FEATURES.Other;
+  // No invented fallback: an unclassified template shows no difficulty.
+  const difficulty = template.difficulty ? DIFFICULTY_INFO[template.difficulty] : undefined;
 
   return (
     <div
@@ -278,43 +125,6 @@ export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
               <p className="text-[#6B6960] leading-relaxed">
                 {template.description || 'A ready-to-use template to kickstart your project.'}
               </p>
-            </div>
-
-            {/* Features */}
-            <div className="mb-6">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-[#36342E] mb-3">
-                <Star size={15} className="text-[#553DE9]" />
-                What You Get
-              </h3>
-              <ul className="space-y-2">
-                {features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-[#6B6960]">
-                    <ChevronRight size={14} className="text-[#553DE9] mt-0.5 flex-shrink-0" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* File structure */}
-            <div className="mb-6">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-[#36342E] mb-3">
-                <FolderTree size={15} className="text-[#553DE9]" />
-                Project Structure
-              </h3>
-              <div className="bg-[#FAF9F6] rounded-lg border border-[#ECEAE3] p-4 font-mono text-xs text-[#6B6960] leading-relaxed">
-                {fileTree.map((line, i) => (
-                  <div key={i} className={line.startsWith('  ') ? 'ml-4' : ''}>
-                    {line.includes('/') && !line.includes('.') ? (
-                      <span className="text-[#553DE9]">{line}</span>
-                    ) : line.includes('.') ? (
-                      <span className="text-[#36342E]">{line}</span>
-                    ) : (
-                      line
-                    )}
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* Customization hint */}
@@ -363,43 +173,47 @@ export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
                   </div>
                 ))}
                 {(!template.tech_stack || template.tech_stack.length === 0) && (
-                  <p className="text-xs text-[#6B6960]">Tech stack details available after selection</p>
+                  <p className="text-xs text-[#6B6960]">No tech stack detected in this template</p>
                 )}
               </div>
             </div>
 
-            {/* Build time */}
-            <div className="flex items-center gap-3 bg-white rounded-lg border border-[#ECEAE3] px-4 py-3 mb-3">
-              <Clock size={16} className="text-[#553DE9]" />
-              <div>
-                <div className="text-xs text-[#6B6960]">Estimated Build Time</div>
-                <div className="text-sm font-semibold text-[#36342E]">{template.build_time || '5-10 min'}</div>
+            {/* Build time: a hand-written estimate, not a measured build */}
+            {template.build_time && (
+              <div className="flex items-center gap-3 bg-white rounded-lg border border-[#ECEAE3] px-4 py-3 mb-3">
+                <Clock size={16} className="text-[#553DE9]" />
+                <div>
+                  <div className="text-xs text-[#6B6960]">Est. build time (not measured)</div>
+                  <div className="text-sm font-semibold text-[#36342E]">{template.build_time}</div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Difficulty */}
-            <div className="bg-white rounded-lg border border-[#ECEAE3] px-4 py-3 mb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <BarChart3 size={16} className={difficulty.color} />
-                <div>
-                  <div className="text-xs text-[#6B6960]">Difficulty</div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-semibold ${difficulty.color}`}>{difficulty.label}</span>
-                    <div className="flex gap-0.5">
-                      {[1, 2, 3].map(i => (
-                        <div
-                          key={i}
-                          className={`w-2 h-4 rounded-sm ${
-                            i <= difficulty.bars ? 'bg-current ' + difficulty.color : 'bg-[#ECEAE3]'
-                          }`}
-                        />
-                      ))}
+            {difficulty && (
+              <div className="bg-white rounded-lg border border-[#ECEAE3] px-4 py-3 mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <BarChart3 size={16} className={difficulty.color} />
+                  <div>
+                    <div className="text-xs text-[#6B6960]">Difficulty</div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-semibold ${difficulty.color}`}>{difficulty.label}</span>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3].map(i => (
+                          <div
+                            key={i}
+                            className={`w-2 h-4 rounded-sm ${
+                              i <= difficulty.bars ? 'bg-current ' + difficulty.color : 'bg-[#ECEAE3]'
+                            }`}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
+                <p className="text-xs text-[#6B6960] leading-relaxed">{difficulty.description}</p>
               </div>
-              <p className="text-xs text-[#6B6960] leading-relaxed">{difficulty.description}</p>
-            </div>
+            )}
 
             {/* Action buttons */}
             <div className="mt-auto space-y-3">
@@ -450,6 +264,11 @@ export function TemplatePreview({ template, onClose }: TemplatePreviewProps) {
                 <pre className="whitespace-pre-wrap text-sm text-[#36342E] font-mono leading-relaxed">
                   {prdContent}
                 </pre>
+              ) : prdError ? (
+                <div className="text-center py-12 text-[#C45B5B]">
+                  <FileText size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Could not load template content: {prdError}</p>
+                </div>
               ) : (
                 <div className="text-center py-12 text-[#6B6960]">
                   <FileText size={32} className="mx-auto mb-3 opacity-30" />

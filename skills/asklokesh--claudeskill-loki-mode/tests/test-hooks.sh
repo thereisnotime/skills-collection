@@ -10,9 +10,12 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 
 # Cleanup
+# ponytail: no pkill here. This test never spawns a background process whose
+# argv contains "test-hooks-" -- dead defensive code that matched nothing,
+# while still being an unscoped machine-wide kill-by-substring if it ever did
+# (see docs/v10/DECISIONS.md D14/D15/D16).
 cleanup() {
     rm -rf "$TEST_DIR"
-    pkill -f "test-hooks-" 2>/dev/null || true
 }
 trap cleanup EXIT
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import {
-  Search, Rocket, Clock, BarChart3, Users, Star, Plus,
+  Search, Rocket, Clock, BarChart3, Plus,
   Globe, Server, Terminal, Bot, Database, Package,
 } from 'lucide-react';
 import { api } from '../api/client';
@@ -73,34 +73,8 @@ const DIFFICULTY_STYLES: Record<string, { label: string; color: string; bars: nu
   advanced: { label: 'Advanced', color: 'text-red-400', bars: 3 },
 };
 
-// Placeholder usage stats
-const TEMPLATE_STATS: Record<string, { uses: number; rating: number }> = {
-  'saas-starter.md': { uses: 2847, rating: 4.9 },
-  'rest-api-auth.md': { uses: 1923, rating: 4.8 },
-  'discord-bot.md': { uses: 1654, rating: 4.7 },
-  'full-stack-demo.md': { uses: 1432, rating: 4.8 },
-  'data-pipeline.md': { uses: 1198, rating: 4.6 },
-  'cli-tool.md': { uses: 987, rating: 4.7 },
-  'e-commerce.md': { uses: 2156, rating: 4.8 },
-  'blog-platform.md': { uses: 1345, rating: 4.5 },
-  'rest-api.md': { uses: 1567, rating: 4.6 },
-  'slack-bot.md': { uses: 876, rating: 4.4 },
-  'dashboard.md': { uses: 1789, rating: 4.7 },
-  'web-scraper.md': { uses: 654, rating: 4.3 },
-  'chrome-extension.md': { uses: 543, rating: 4.5 },
-  'microservice.md': { uses: 1123, rating: 4.6 },
-  'mobile-app.md': { uses: 932, rating: 4.4 },
-  'game.md': { uses: 765, rating: 4.5 },
-  'npm-library.md': { uses: 445, rating: 4.3 },
-  'static-landing-page.md': { uses: 1876, rating: 4.6 },
-  'simple-todo-app.md': { uses: 2345, rating: 4.7 },
-  'ai-chatbot.md': { uses: 1234, rating: 4.8 },
-};
-
-function formatNumber(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
+// No use counts or ratings are shown: nothing records template usage, and the
+// placeholder table plus a Math.random fallback printed invented "2847 uses".
 
 // SVG decorative patterns per category
 function CategoryPattern({ category }: { category: string }) {
@@ -220,8 +194,9 @@ function CategoryPattern({ category }: { category: string }) {
   }
 }
 
-function DifficultyIndicator({ level }: { level: string }) {
-  const style = DIFFICULTY_STYLES[level] || DIFFICULTY_STYLES.intermediate;
+function DifficultyIndicator({ level }: { level: string | null }) {
+  const style = level ? DIFFICULTY_STYLES[level] : undefined;
+  if (!style) return null;
   return (
     <div className="flex items-center gap-1.5">
       <BarChart3 size={12} className={style.color} />
@@ -402,9 +377,8 @@ export default function TemplatesPage() {
             const category = t.category || 'Other';
             const gradient = CATEGORY_GRADIENTS[category] || CATEGORY_GRADIENTS.Other;
             const techStack = t.tech_stack || [];
-            const difficulty = t.difficulty || 'intermediate';
-            const buildTime = t.build_time || '5-10 min';
-            const stats = TEMPLATE_STATS[t.filename] || { uses: Math.floor(Math.random() * 800) + 100, rating: (Math.random() * 0.7 + 4.0).toFixed(1) };
+            const difficulty = t.difficulty;
+            const buildTime = t.build_time;
 
             return (
               <div
@@ -468,26 +442,16 @@ export default function TemplatesPage() {
                     </div>
                   )}
 
-                  {/* Stats row */}
-                  <div className="flex items-center gap-3 mb-3 text-[10px] text-[#6B6960]">
-                    <span className="flex items-center gap-1">
-                      <Users size={10} />
-                      {formatNumber(typeof stats.uses === 'number' ? stats.uses : 0)} uses
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Star size={10} className="text-[#D4A03C]" fill="#D4A03C" />
-                      {stats.rating}
-                    </span>
-                  </div>
-
                   {/* Meta row: difficulty + build time + action */}
                   <div className="flex items-center justify-between pt-3 border-t border-[#ECEAE3]">
                     <div className="flex items-center gap-3">
                       <DifficultyIndicator level={difficulty} />
-                      <div className="flex items-center gap-1 text-[10px] text-[#6B6960]">
-                        <Clock size={11} />
-                        <span>{buildTime}</span>
-                      </div>
+                      {buildTime && (
+                        <div className="flex items-center gap-1 text-[10px] text-[#6B6960]" title="Hand-written estimate, not a measured build">
+                          <Clock size={11} />
+                          <span>Est. {buildTime}</span>
+                        </div>
+                      )}
                     </div>
                     <Button
                       size="sm"

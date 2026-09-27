@@ -13,7 +13,7 @@
 #
 # Cases (driving council_devils_advocate_review directly with a seeded .loki):
 #   1. test-results.json pass==true, clean repo  -> CONFIRMED_COMPLETE (no veto)
-#   2. test-results.json runner==none/pass==true -> CONFIRMED_COMPLETE (no veto)
+#   2. test-results.json runner==none/pass=="inconclusive" -> CONFIRMED_COMPLETE (no veto)
 #   3. test-results.json pass==false             -> OVERRIDE_CONTINUE (veto)
 #   4. NO test-results.json, clean repo          -> CONFIRMED_COMPLETE
 #      (missing legacy log path must NOT veto on its own -- the core of the bug)
@@ -89,12 +89,15 @@ else
     bad "case 1: expected CONFIRMED_COMPLETE, got '$V1'"
 fi
 
-# ---------- Case 2: runner==none/pass==true -> CONFIRMED_COMPLETE ----------
+# ---------- Case 2: runner==none/pass=="inconclusive" -> CONFIRMED_COMPLETE ----------
+# pass:"inconclusive" (a string) is the shape the real writer, enforce_test_coverage
+# in autonomy/run.sh, produces for a no-test-tooling project (see D20 in
+# docs/v10/DECISIONS.md). It is never the bare boolean true.
 T2="$TMPROOT/c2"; make_target "$T2"
-printf '{"runner":"none","pass":true}' > "$T2/.loki/quality/test-results.json"
+printf '{"runner":"none","pass":"inconclusive"}' > "$T2/.loki/quality/test-results.json"
 V2="$(run_da "$T2")"
 if [ "$V2" = "CONFIRMED_COMPLETE" ]; then
-    ok "case 2: runner==none pass==true does NOT veto"
+    ok "case 2: runner==none pass==inconclusive does NOT veto"
 else
     bad "case 2: expected CONFIRMED_COMPLETE, got '$V2'"
 fi

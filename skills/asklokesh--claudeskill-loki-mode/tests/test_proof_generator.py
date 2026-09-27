@@ -1451,6 +1451,119 @@ class GateAndCouncilReportingTests(unittest.TestCase):
         self.assertEqual(d["honesty"]["headline"], "NOT VERIFIED")
 
 
+class UnitTestsGateFreshnessTests(unittest.TestCase):
+    """BACKLOG 82: the receipt's unit_tests gate reads unit-tests.pass and
+    test-results.json, which enforce_test_coverage writes together with the
+    freshness marker .loki/quality/.test-results.iter. The gates' own rule
+    (ensure_completion_test_evidence, _loki_supervised_completion_gates_pass,
+    Bun testResultsFresh) is that those files are this iteration's evidence
+    only when the marker holds this iteration's number. Both production callers
+    pass the iteration as ITERATION_COUNT. A stale result must read not_run
+    (a named gap), never passed; a fresh one is unchanged."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="loki-proof-gen-82-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _git_repo_with_change(self):
+        proj = os.path.join(self.tmp, "gitproj-%s" % os.urandom(4).hex())
+        os.makedirs(proj)
+
+        def git(*a):
+            return subprocess.run(
+                ["git", "-C", proj, "-c", "user.email=t@t.test",
+                 "-c", "user.name=tester"] + list(a),
+                capture_output=True, text=True, check=True)
+        git("init")
+        with open(os.path.join(proj, "a.txt"), "w") as f:
+            f.write("one\n")
+        git("add", "a.txt")
+        git("commit", "-m", "init")
+        base = git("rev-parse", "HEAD").stdout.strip()
+        with open(os.path.join(proj, "a.txt"), "w") as f:
+            f.write("one\ntwo\n")
+        git("add", "a.txt")
+        git("commit", "-m", "second")
+        return proj, base
+
+    def _run(self, *, iteration, marker, pass_marker=False, results=None):
+        """Receipt for a real diff whose test and build facts verified.
+        Returns (unit_tests gate status, gates counted passed, headline).
+        unit_tests is an advisory gate (TRUST-4), so it cannot move the
+        headline; what it can do is claim a pass in the gate listing."""
+        proj, base = self._git_repo_with_change()
+        loki_dir = os.path.join(proj, ".loki")
+        q = os.path.join(loki_dir, "quality")
+        os.makedirs(q)
+        if pass_marker:
+            open(os.path.join(q, "unit-tests.pass"), "w").close()
+        with open(os.path.join(q, "test-results.json"), "w") as f:
+            json.dump(results or {"runner": "pytest", "status": "verified",
+                                  "command": "pytest", "exit_code": 0,
+                                  "pass": True}, f)
+        if marker is not None:
+            with open(os.path.join(q, ".test-results.iter"), "w") as f:
+                f.write("%s\n" % marker)
+        with open(os.path.join(q, "build-results.json"), "w") as f:
+            json.dump({"command": "npm run build", "exit_code": 0, "ran": True}, f)
+        d = _run_generator(loki_dir, os.path.join(self.tmp, "out-%s" % os.urandom(4).hex()),
+                           env_extra={"_LOKI_RUN_START_SHA": base,
+                                      "ITERATION_COUNT": str(iteration)})
+        gates = {g["name"]: g["status"] for g in d["quality_gates"]["gates"]}
+        return (gates.get("unit_tests"), d["quality_gates"]["passed"],
+                d["honesty"]["headline"])
+
+    def test_fresh_pass_marker_is_passed(self):
+        # The normal end-of-run receipt: the last iteration's gate wrote its
+        # marker, and the generator runs with that same ITERATION_COUNT. The
+        # receipt is unchanged: the gate passed and the headline is VERIFIED.
+        status, passed, headline = self._run(iteration=4, marker=4, pass_marker=True)
+        self.assertEqual(status, "passed")
+        self.assertEqual(passed, 1)
+        self.assertEqual(headline, "VERIFIED")
+
+    def test_fresh_results_without_pass_marker_is_passed(self):
+        status, passed, headline = self._run(iteration=4, marker=4)
+        self.assertEqual(status, "passed")
+        self.assertEqual(passed, 1)
+        self.assertEqual(headline, "VERIFIED")
+
+    def test_stale_pass_marker_is_not_passed(self):
+        # Written by iteration 3's gate; the receipt is for iteration 4.
+        status, passed, _ = self._run(iteration=4, marker=3, pass_marker=True)
+        self.assertEqual(status, "not_run")
+        self.assertEqual(passed, 0)
+
+    def test_stale_results_are_not_passed(self):
+        status, passed, _ = self._run(iteration=4, marker=3)
+        self.assertEqual(status, "not_run")
+        self.assertEqual(passed, 0)
+
+    def test_results_without_marker_are_not_passed(self):
+        status, passed, _ = self._run(iteration=4, marker=None, pass_marker=True)
+        self.assertEqual(status, "not_run")
+        self.assertEqual(passed, 0)
+
+    def test_set_but_empty_iteration_is_not_fresh(self):
+        status, passed, _ = self._run(iteration="", marker=4, pass_marker=True)
+        self.assertEqual(status, "not_run")
+        self.assertEqual(passed, 0)
+
+    def test_stale_failure_is_not_this_iterations_result(self):
+        # The rule cuts both ways: an earlier iteration's red result is not
+        # this iteration's evidence either. It reads as a gap (not_run), and
+        # the red test facts still keep the headline NOT VERIFIED.
+        status, passed, headline = self._run(
+            iteration=4, marker=3,
+            results={"runner": "pytest", "status": "failed", "command": "pytest",
+                     "exit_code": 1, "pass": False})
+        self.assertEqual(status, "not_run")
+        self.assertEqual(passed, 0)
+        self.assertEqual(headline, "NOT VERIFIED")
+
+
 class StaticAnalysisMarkerTests(unittest.TestCase):
     """The static-analysis marker writes `"pass": <bool>`. The collector must
     read that real outcome -- a FAILING marker ({"pass":false,"findings":11})

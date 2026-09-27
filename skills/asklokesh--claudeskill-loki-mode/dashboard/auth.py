@@ -343,6 +343,18 @@ def list_tokens(include_revoked: bool = False) -> list[dict]:
     return result
 
 
+def _deadline_passed(value) -> bool:
+    """True when an ISO-8601 deadline is in the past, or cannot be read.
+
+    Fails closed: an unparseable value, or a naive timestamp that cannot be
+    ordered against an aware "now", is treated as passed.
+    """
+    try:
+        return datetime.now(timezone.utc) > datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return True
+
+
 def validate_token(raw_token: str) -> Optional[dict]:
     """
     Validate a raw token.
@@ -372,10 +384,10 @@ def validate_token(raw_token: str) -> Optional[dict]:
         if matched_token.get("revoked"):
             return None
 
-        # Check expiration
-        if matched_token.get("expires_at"):
-            expires = datetime.fromisoformat(matched_token["expires_at"])
-            if datetime.now(timezone.utc) > expires:
+        # Check expiration, and the grace period of a rotated-out key
+        # (api_keys.rotate_key sets rotation_expires_at on the old key).
+        for field in ("expires_at", "rotation_expires_at"):
+            if matched_token.get(field) and _deadline_passed(matched_token[field]):
                 return None
 
         # Update last used

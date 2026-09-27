@@ -5,16 +5,17 @@ interface MemoryViewerProps {
   loading: boolean;
 }
 
-const TOKEN_BUDGET = 500_000;
-
-function formatTokens(tokens: number): string {
+// Nothing measures total_tokens (the server sends null; older servers sent a 0
+// stub), so only a positive count is a reading.
+function formatTokens(tokens: number | null | undefined): string {
+  if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens <= 0) return 'Not recorded';
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
   if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`;
   return tokens.toString();
 }
 
 function formatTimestamp(ts: string | null): string {
-  if (!ts) return 'Never';
+  if (!ts) return 'Not recorded';
   try {
     const date = new Date(ts);
     const now = new Date();
@@ -38,15 +39,13 @@ export function MemoryViewer({ memory, loading }: MemoryViewerProps) {
       ]
     : [];
 
-  const tokenPercent = memory ? Math.min((memory.total_tokens / TOKEN_BUDGET) * 100, 100) : 0;
-
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-ink uppercase tracking-wider">
           Memory System
         </h3>
-        {memory && (
+        {memory?.last_consolidation && (
           <span className="font-mono text-xs text-muted">
             {formatTimestamp(memory.last_consolidation)}
           </span>
@@ -84,21 +83,9 @@ export function MemoryViewer({ memory, loading }: MemoryViewerProps) {
           </div>
 
           {/* Token usage */}
-          <div className="mt-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs text-muted font-medium">Token Usage</span>
-              <span className="text-xs font-mono text-ink">
-                {formatTokens(memory.total_tokens)} / {formatTokens(TOKEN_BUDGET)}
-              </span>
-            </div>
-            <div className="w-full h-2 bg-charcoal/10 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  tokenPercent > 80 ? 'bg-danger' : tokenPercent > 50 ? 'bg-warning' : 'bg-info'
-                }`}
-                style={{ width: `${tokenPercent}%` }}
-              />
-            </div>
+          <div className="mt-3 flex items-center justify-between text-xs">
+            <span className="text-muted font-medium">Token Usage</span>
+            <span className="font-mono text-ink">{formatTokens(memory.total_tokens)}</span>
           </div>
 
           {/* Last consolidation */}
@@ -107,7 +94,7 @@ export function MemoryViewer({ memory, loading }: MemoryViewerProps) {
             <span className="font-mono text-ink">
               {memory.last_consolidation
                 ? new Date(memory.last_consolidation).toLocaleString()
-                : 'Never'}
+                : 'Not recorded'}
             </span>
           </div>
         </>

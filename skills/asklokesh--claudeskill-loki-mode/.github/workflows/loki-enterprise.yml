@@ -45,13 +45,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    # For issue triggers, only run when the label is "loki-mode"
-    # For PR review triggers, only run when the PR has a "loki-mode" label
+    # For issue triggers, only run when the label is "loki-mode" (labels need
+    # triage access). For PR review triggers, only run when the PR has a
+    # "loki-mode" label AND the reviewer is an owner, member or collaborator:
+    # any GitHub user can submit a review on a public PR.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'issues' && github.event.label.name == 'loki-mode') ||
-      (github.event_name == 'pull_request_review' && contains(github.event.pull_request.labels.*.name, 'loki-mode'))
+      (github.event_name == 'pull_request_review' && contains(github.event.pull_request.labels.*.name, 'loki-mode') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association))
 
     outputs:
       execution_id: ${{ steps.execute.outputs.execution_id }}
@@ -63,6 +66,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false   # the agent runs in this job
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -124,11 +128,14 @@ jobs:
         if: steps.context.outputs.dry_run != 'true'
         env:
           LOKI_PROVIDER: ${{ steps.context.outputs.provider }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRD_CONTENT: ${{ steps.context.outputs.prd }}
+          # Rule of Two: the PRD comes from issue or PR text, so the agent gets
+          # no GitHub token and never pushes or opens a PR. The report job,
+          # which runs no agent, posts the results.
+          LOKI_DELEGATE_PR: '0'
         run: |
           EXECUTION_ID="loki-$(date +%s)"
-          echo "execution_id=${EXECUTION_ID}" >> $GITHUB_OUTPUT
+          echo "execution_id=${EXECUTION_ID}" >> "$GITHUB_OUTPUT"
 
           # Write PRD content to temp file via env variable (prevents shell injection)
           PRD_FILE=$(mktemp /tmp/loki-prd-XXXXXX.md)
@@ -142,12 +149,12 @@ jobs:
 
           # Determine status from loki exit code (reliable signal)
           if [ "$LOKI_EXIT" -eq 0 ]; then
-            echo "status=success" >> $GITHUB_OUTPUT
+            echo "status=success" >> "$GITHUB_OUTPUT"
           else
-            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "status=failure" >> "$GITHUB_OUTPUT"
           fi
 
-          echo "report_path=.loki/reports" >> $GITHUB_OUTPUT
+          echo "report_path=.loki/reports" >> "$GITHUB_OUTPUT"
 
           # Cleanup
           rm -f "$PRD_FILE"
@@ -174,6 +181,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

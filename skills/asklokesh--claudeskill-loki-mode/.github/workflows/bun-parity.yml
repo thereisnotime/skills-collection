@@ -127,11 +127,53 @@ jobs:
             if [ "$mode" = "json" ]; then
               # Sort keys recursively before diffing so key-order changes
               # do not register as parity violations.
-              # v7.4.12 also floors disk.available_gb because Python
-              # json.dumps emits 58.0 while JS JSON.stringify emits 58 --
-              # plus the underlying df read can drift by 1GB between two
-              # near-simultaneous calls on a busy CI runner.
-              JQ_NORM='if .disk?.available_gb? != null then .disk.available_gb = (.disk.available_gb | floor) else . end'
+              #
+              # BACKLOG-26-DISK-TOLERANCE-BEGIN -- tests/test-bun-parity-disk-tolerance.sh
+              # extracts this block verbatim between the BEGIN/END markers and
+              # runs it against synthetic fixtures, so keep it self-contained
+              # (no references to variables defined outside this block besides
+              # bun_out/bash_out/label/FAILED/PASSED/diff_out/bash_ec/bun_ec,
+              # which the test also provides).
+              #
+              # disk.available_gb (BACKLOG 26 / v7.4.12+): this field is a
+              # live df read taken independently, a few ms apart, by each
+              # route. It is real environment state, not a route-behavior
+              # signal, so byte-equality is the wrong bar for it -- a v7.4.12
+              # `floor` normalization only absorbed the Python-float-vs-JS-int
+              # formatting difference (58.0 vs 58); it did nothing for a
+              # genuine 1GB drift between two integer reads (94 vs 95), which
+              # is exactly the flake this backlog item reports.
+              #
+              # Fix: check the two available_gb readings are within a small
+              # absolute tolerance (a drift a busy runner can produce between
+              # two near-simultaneous df calls), then drop the key from both
+              # sides before the strict structural diff below. A tolerance
+              # check (not `del`-only) means a real divergence -- e.g. one
+              # route misreporting free space by tens of GB -- still fails
+              # the parity gate; only small measurement jitter is absorbed.
+              DISK_TOLERANCE_GB=3
+              bun_disk="$(jq -r '.disk.available_gb // "null"' "$bun_out" 2>/dev/null || echo null)"
+              bash_disk="$(jq -r '.disk.available_gb // "null"' "$bash_out" 2>/dev/null || echo null)"
+              disk_ok=1
+              if [ "$bun_disk" != "null" ] && [ "$bash_disk" != "null" ]; then
+                if ! jq -n --argjson a "$bun_disk" --argjson b "$bash_disk" --argjson tol "$DISK_TOLERANCE_GB" \
+                     -e '(($a - $b) | if . < 0 then -. else . end) <= $tol' >/dev/null 2>&1; then
+                  disk_ok=0
+                fi
+              elif [ "$bun_disk" != "$bash_disk" ]; then
+                # exactly one side has the key (or both null vs a number) --
+                # that is a real shape divergence, not measurement jitter.
+                disk_ok=0
+              fi
+              if [ "$disk_ok" -eq 0 ]; then
+                echo "FAIL [$label]: disk.available_gb diverges beyond tolerance (bash=$bash_disk bun=$bun_disk tol=${DISK_TOLERANCE_GB}GB)"
+                FAILED+=("$label (disk.available_gb out of tolerance)")
+                continue
+              fi
+              # Within tolerance (or both absent): drop the key on both
+              # sides so the jittery value itself never trips the strict
+              # structural diff below.
+              JQ_NORM='if .disk?.available_gb? != null then del(.disk.available_gb) else . end'
               if ! jq -S "$JQ_NORM" "$bun_out" >"${bun_out}.sorted" 2>/dev/null; then
                 echo "FAIL [$label]: bun output is not valid JSON"
                 FAILED+=("$label (invalid bun JSON)")
@@ -149,6 +191,7 @@ jobs:
                 cat "$diff_out"
                 FAILED+=("$label")
               fi
+              # BACKLOG-26-DISK-TOLERANCE-END
             else
               # v7.4.12+ -- before diff, normalize jittery numeric values
               # that drift between two near-simultaneous reads on busy CI:

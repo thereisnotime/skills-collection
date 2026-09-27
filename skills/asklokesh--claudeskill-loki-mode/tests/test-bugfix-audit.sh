@@ -8,7 +8,6 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOKI="$SCRIPT_DIR/../autonomy/loki"
-VERSION_FILE="$SCRIPT_DIR/../VERSION"
 
 PASS=0
 FAIL=0
@@ -126,13 +125,20 @@ test_source "BUG-CLI-002: --prd and its value are filtered before dashboard star
 # BUG-CLI-003: cmd_web_stop unconditionally kills port 57374
 # Fix: Only kill if PID matches dashboard PID file
 # -------------------------------------------
-# Retargeted: v6.64.2 (9531a556) deliberately replaced the CWD-relative
-# dash_pid_file lookup with pgrep-by-name plus a port fallback, because
-# dashboards started from another directory (or by `loki quick`) were left
-# orphaned by a PID file that only ever described the current CWD. The
-# current contract is "find the dashboard by process name", not "by PID file".
-test_source "BUG-CLI-003: cmd_web_stop finds the dashboard by process name" \
-    'pgrep -f "dashboard\.server.*dashboard/server"'
+# Re-retargeted (D14/D15/D16 council, this session): the v6.64.2 "find by
+# process name" pgrep sweep this test used to pin down was itself the exact
+# vacuous-identity-check bug a 4-reviewer council found and rejected -- the
+# case-statement re-tested the SAME substrings pgrep had already matched on,
+# so every candidate automatically passed, and the SIGKILL loop walked the
+# unfiltered pgrep list with no check at all. A decoy "dashboard.server"
+# process from an unrelated directory was killed by it. That sweep is DELETED
+# from cmd_web_stop, not hardened: cmd_dashboard_stop (PID-file authoritative,
+# called before cmd_web_stop) is the single source of truth for "our"
+# dashboard, and no argv-derived check can prove more than "this is A loki
+# dashboard", never "the one THIS session started". See
+# docs/v10/DECISIONS.md D14/D15/D16 and tests/test-web-stop-scoping.sh.
+test_source_absent "BUG-CLI-003 (re-retargeted): cmd_web_stop no longer blanket-pgreps by dashboard process name" \
+    'pgrep -f "dashboard\.server'
 
 test_source_absent "BUG-CLI-003: cmd_web_stop no longer uses lsof on hardcoded port" \
     'lsof -ti:57374'
@@ -179,9 +185,13 @@ test_source "BUG-CMD-001: web wildcard case has shift before the start path" \
 # -------------------------------------------
 # BUG-CMD-002: cmd_ci --test-suggest never exports LOKI_CI_CHANGED_FILES
 # Fix: Add export before Python heredoc
+# Superseded by BACKLOG 25 (ARG_MAX): the changed-files list is diff-
+# proportional, so it now goes through a temp file/argv instead of an
+# exported env var, which shares the same ARG_MAX ceiling. See
+# tests/test-ci-json-argmax.sh for the crash this closes.
 # -------------------------------------------
-test_source "BUG-CMD-002: LOKI_CI_CHANGED_FILES is exported before test suggest" \
-    'export LOKI_CI_CHANGED_FILES="\$changed_files"'
+test_source_absent "BUG-CMD-002: LOKI_CI_CHANGED_FILES no longer exported (ARG_MAX, BACKLOG 25)" \
+    'export LOKI_CI_CHANGED_FILES='
 
 # -------------------------------------------
 # BUG-CMD-006: cmd_telemetry has Python code injection
@@ -251,8 +261,12 @@ test_source "BUG-CLI-013: dashboard uses HTTP health check" \
 # -------------------------------------------
 # BUG-CMD-003: cmd_ci github format missing LOKI_CI_TEST_SUGG export
 # Fix: Export before Python heredoc
+# Superseded by BACKLOG 25 (ARG_MAX): test-suggestion text is
+# diff-proportional, so it now goes over stdin instead of an exported env
+# var, which shares the same ARG_MAX ceiling. See
+# tests/test-ci-json-argmax.sh for the crash this closes.
 # -------------------------------------------
-test_source "BUG-CMD-003: LOKI_CI_TEST_SUGG exported in github format" \
+test_source_absent "BUG-CMD-003: LOKI_CI_TEST_SUGG no longer exported (ARG_MAX, BACKLOG 25)" \
     'export LOKI_CI_TEST_SUGG='
 
 # -------------------------------------------

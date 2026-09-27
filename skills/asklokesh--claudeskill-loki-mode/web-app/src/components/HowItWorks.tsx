@@ -48,8 +48,11 @@ function Step({ icon: Icon, number, title, description, mockup, delay }: StepPro
       <h3 className="text-lg font-bold text-[#36342E] mb-1.5">{title}</h3>
       <p className="text-sm text-[#6B6960] mb-4 leading-relaxed">{description}</p>
 
-      {/* Mini mockup */}
-      <div className="w-full rounded-xl border border-[#ECEAE3] bg-white p-3 shadow-sm">
+      {/* Mini mockup: an illustration, not live data */}
+      <div className="relative w-full rounded-xl border border-[#ECEAE3] bg-white p-3 pt-6 shadow-sm">
+        <span className="absolute top-1.5 right-2 text-[9px] font-semibold uppercase tracking-wider text-[#939084]">
+          Example
+        </span>
         {mockup}
       </div>
     </div>
@@ -72,22 +75,18 @@ function InputMockup() {
 function ProgressMockup() {
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between text-[10px] text-[#6B6960]">
-        <span>Phase: Implementation</span>
-        <span>68%</span>
+      <div className="text-[10px] text-[#6B6960] text-left">
+        <span>Phase: Act</span>
       </div>
       <div className="w-full h-2 rounded-full bg-[#ECEAE3] overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-[#553DE9] to-[#1FC5A8]"
-          style={{ width: '68%' }}
-        />
+        <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-[#553DE9] to-[#1FC5A8]" />
       </div>
       <div className="flex gap-1">
-        {['Planning', 'Scaffolding', 'Implementation', 'Testing', 'Deploy'].map((phase, i) => (
+        {['Reason', 'Act', 'Reflect', 'Verify'].map((phase, i) => (
           <span
             key={phase}
             className={`text-[9px] px-1.5 py-0.5 rounded ${
-              i <= 2
+              i <= 1
                 ? 'bg-[#553DE9]/10 text-[#553DE9] font-medium'
                 : 'bg-[#ECEAE3]/60 text-[#6B6960]'
             }`}
